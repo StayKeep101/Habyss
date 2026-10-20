@@ -22,7 +22,8 @@ import { habitMinutes, toMinutes } from './dayPlan';
  * and nothing is moved into them. Whatever would land on one is pushed past
  * its end instead. With flexible meals on, a meal may wait up to two hours
  * when the day is too full for everything otherwise. Waking and bedtime never
- * give: what does not fit between them is listed as not fitting today.
+ * give: when there is not time for everything, the biggest things are cut in
+ * half (and again) until it fits; only what still cannot fit is listed.
  */
 
 export interface FlowInput {
@@ -65,6 +66,8 @@ export interface FlowItem extends FlowInput {
     /** Minutes it moved from the plan: negative is earlier. */
     shift: number;
     state: 'done' | 'now' | 'next' | 'later';
+    /** Cut short to fit the day: how long it was meant to take. */
+    cutFrom?: number;
 }
 
 export interface DayFlow {
@@ -90,6 +93,8 @@ const BUFFER = 5;
 export const GRACE = 10;
 /** The longest a flexible meal waits for a full day. */
 export const MEAL_DELAY = 120;
+/** The shortest anything is cut to, to fit a full day. */
+export const MIN_CUT = 10;
 
 /**
  * Lays the day out as a flow. `now` is minutes from midnight on the day shown,
@@ -114,12 +119,12 @@ export interface DayWindowMinutes {
 
 export function flowDay(items: FlowInput[], now: number | null, window: DayWindowMinutes = { wake: 7 * 60, sleep: 23 * 60 }): DayFlow {
     const first = layOut(items, now, window);
+    if (!first.unfit.length) return first;
+    let best = first;
+    let bestItems = items;
     // Flexible meals: when something does not fit, try letting a meal wait,
     // a quarter of an hour at a time, and keep whatever fits the most in.
     const meals = items.filter(item => item.kind === 'meal' && item.flex && item.start !== null && (now === null || (item.start as number) > now));
-    if (!first.unfit.length || !meals.length) return first;
-    let best = first;
-    let bestItems = items;
     const delays: Record<string, number> = {};
     for (const meal of meals) {
         for (let delay = 15; delay <= MEAL_DELAY && best.unfit.length; delay += 15) {
@@ -128,8 +133,28 @@ export function flowDay(items: FlowInput[], now: number | null, window: DayWindo
             if (flow.unfit.length < best.unfit.length) { best = flow; bestItems = trial; delays[meal.id] = delay; }
         }
     }
-    // A meal that waited says so, like anything else that moved.
-    const timeline = best.timeline.map(item => delays[item.id] ? { ...item, plannedStart: item.start - delays[item.id], shift: delays[item.id] } : item);
+    // Still too much for the time left: halve the biggest thing with a length
+    // (a habit or task Habyss places, never one at a time you set), then the
+    // next biggest, and again, until it all fits before bedtime. Nothing goes
+    // below MIN_CUT minutes; what still does not fit after that is named.
+    const cutFrom: Record<string, number> = {};
+    for (let step = 0; step < 40 && best.unfit.length; step++) {
+        const biggest = bestItems
+            .filter(item => !item.fixed && !item.done && item.start === null && item.minutes >= MIN_CUT * 2
+                && !(item.kept && now !== null && item.kept.start <= now))
+            .sort((a, b) => b.minutes - a.minutes || a.title.localeCompare(b.title))[0];
+        if (!biggest) break;
+        cutFrom[biggest.id] ??= biggest.minutes;
+        const half = Math.max(MIN_CUT, Math.round(biggest.minutes / 2 / 5) * 5);
+        bestItems = bestItems.map(item => item.id === biggest.id ? { ...item, minutes: half } : item);
+        best = layOut(bestItems, now, window);
+    }
+    // A meal that waited, or something cut short, says so.
+    const timeline = best.timeline.map(item => ({
+        ...item,
+        ...(delays[item.id] ? { plannedStart: item.start - delays[item.id], shift: delays[item.id] } : null),
+        ...(cutFrom[item.id] && !item.done ? { cutFrom: cutFrom[item.id] } : null),
+    }));
     return { ...best, timeline };
 }
 

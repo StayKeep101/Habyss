@@ -160,20 +160,23 @@ describe('filling the day', () => {
         expect(flow.timeline.map(row => row.id)).toEqual(['low', 'event:1', 'meal:lunch', 'urgent']);
     });
 
-    it('never schedules before waking or after bedtime: what has no room is named instead', () => {
+    it('never schedules before waking or after bedtime: too much is cut short to fit', () => {
         const flow = flowDay([task('a', 600, 0), task('b', 600, 1)], null, { wake: 480, sleep: 1320 });
         expect(flow.timeline.find(row => row.id === 'a')!.start).toBe(480);
-        expect(flow.timeline.find(row => row.id === 'b')).toBeUndefined();
-        expect(flow.unfit.map(row => row.id)).toEqual(['b']);
+        expect(flow.unfit).toEqual([]);
+        expect(flow.timeline.every(row => row.start >= 480 && row.end <= 1320)).toBe(true);
+        expect(flow.timeline.some(row => row.cutFrom === 600)).toBe(true);
     });
 
     it('lets a flexible meal wait on a full day, so more fits', () => {
         // 8:00–15:00 awake, lunch 10:00–11:00; two 2h50 jobs do not both fit around it.
         const meal = { ...lunch, start: 600, flex: true };
         const window = { wake: 480, sleep: 900 };
-        expect(flowDay([meal, task('a', 170, 0), task('b', 170, 1)].map(row => ({ ...row, flex: false })), 480, window).unfit).toHaveLength(1);
+        // Without it, something has to be cut short; with it, lunch waits and nothing is.
+        expect(flowDay([meal, task('a', 170, 0), task('b', 170, 1)].map(row => ({ ...row, flex: false })), 480, window).timeline.some(row => row.cutFrom)).toBe(true);
         const flow = flowDay([meal, task('a', 170, 0), task('b', 170, 1)], 480, window);
         expect(flow.unfit).toEqual([]);
+        expect(flow.timeline.some(row => row.cutFrom)).toBe(false);
         const moved = flow.timeline.find(row => row.id === 'meal:lunch')!;
         expect(moved).toMatchObject({ plannedStart: 600, shift: 60, start: 660 });
     });
@@ -211,6 +214,28 @@ describe('waking and bedtime are walls', () => {
         const flow = flowDay(items, 1395, window);
         expect(flow.timeline.every(row => row.state === 'now' || row.end <= 1410)).toBe(true);
         expect(flow.unfit.map(row => row.id)).toEqual(['read']);
+    });
+});
+
+describe('a day with too little time', () => {
+    const job = (id: string, minutes: number, start: number | null = null) => ({ id, kind: 'task' as const, title: id, start, minutes, done: false, urgency: 30 });
+    it('cuts the biggest in half first, and again, until it all fits before bedtime', () => {
+        // 3 hours left (20:00–23:00) for 2h + 1h + 30 min, with breaks between.
+        const flow = flowDay([job('essay', 120), job('reading', 60), job('email', 30)], 1200, { wake: 420, sleep: 1380 });
+        expect(flow.unfit).toEqual([]);
+        const at = (id: string) => flow.timeline.find(row => row.id === id)!;
+        expect(at('essay')).toMatchObject({ cutFrom: 120 });
+        expect(at('essay').end - at('essay').start).toBe(60);
+        expect(at('reading').cutFrom).toBeUndefined();
+        expect(flow.timeline.every(row => row.end <= 1380)).toBe(true);
+    });
+    it('never cuts something at a time you set, nor below ten minutes', () => {
+        const flow = flowDay([job('call', 60, 1320), job('chores', 300)], 1200, { wake: 420, sleep: 1380 });
+        expect(flow.timeline.find(row => row.id === 'call')).toMatchObject({ start: 1320, end: 1380 });
+        expect(flow.timeline.find(row => row.id === 'call')!.cutFrom).toBeUndefined();
+        const chores = flow.timeline.find(row => row.id === 'chores')!;
+        expect(chores.end - chores.start).toBeGreaterThanOrEqual(10);
+        expect(chores.end).toBeLessThanOrEqual(1320);
     });
 });
 

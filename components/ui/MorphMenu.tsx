@@ -146,6 +146,11 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
         transform: [{ rotate: `${progress.value * 90}deg` }],
     }));
     const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.value * 0.35 }));
+    const closeButton = (
+        <Pressable onPress={() => close()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close menu">
+            <AppIcon name="close" size={18} color={colors.textTertiary} />
+        </Pressable>
+    );
 
     return (
         <>
@@ -168,14 +173,15 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
                                     <AppIcon name={icon} size={Control.icon} color={colors.textPrimary} />
                                 </Animated.View>
                                 <Animated.View style={[styles.content, { width }, contentStyle]}>
+                                    {/* The close on the side the window grew from, where the
+                                        button was: left for a button on the left, right otherwise. */}
                                     <View style={[styles.head, { height: HEAD }]}>
+                                        {place.fromRight ? null : closeButton}
                                         <View style={[styles.logo, { backgroundColor: primary }]}>
                                             <AppIcon name={titleIcon} size={13} color={colors.background} />
                                         </View>
                                         <Text numberOfLines={1} style={[styles.title, { color: colors.textSecondary }]}>{title ?? 'Options'}</Text>
-                                        <Pressable onPress={() => close()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close menu">
-                                            <AppIcon name="close" size={18} color={colors.textTertiary} />
-                                        </Pressable>
+                                        {place.fromRight ? closeButton : null}
                                     </View>
                                     <ScrollView scrollEnabled={scrolls} bounces={false} showsVerticalScrollIndicator={scrolls}>
                                         {items.map(item => (

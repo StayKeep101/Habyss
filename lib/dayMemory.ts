@@ -11,8 +11,6 @@ import type { DayFlow } from './dayFlow';
  * - What moved since you last opened it: the green dot on the timeline,
  *   gone once you open it, back if it moves again.
  *
- * - What had no room before bedtime, so a dated task can be carried over to
- *   the next day rather than turning up overdue (carryOver).
  *
  * Today only; a new day starts empty. Kept on this phone, one copy.
  */
@@ -63,16 +61,6 @@ export function remember(prev: DayMemory, day: string, flow: DayFlow, now: numbe
     for (const item of flow.unfit) if (base.slots[item.id]) moved[item.id] = true;
     const unfit = Object.fromEntries(flow.unfit.map(item => [item.id, true as const]));
     return { day, slots, done, moved, unfit };
-}
-
-/**
- * A new day: the dated tasks that had no room before bedtime on the last day
- * seen, still open and still due then, move to today rather than read as
- * overdue. Habits come back on their own days anyway.
- */
-export function carryOver(memory: DayMemory, today: string, tasks: { id: string; status: string; dueDate?: string | null }[]): string[] {
-    if (!memory.day || memory.day >= today || !memory.unfit) return [];
-    return tasks.filter(task => memory.unfit![task.id] && task.status === 'open' && !!task.dueDate && task.dueDate <= memory.day && task.dueDate < today).map(task => task.id);
 }
 
 /** Opened: no dot until it moves again. */

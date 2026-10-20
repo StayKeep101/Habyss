@@ -64,7 +64,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
             {/* Bedtime never gives: whatever has no room is named, not squeezed in. */}
             {flow.unfit.length && !scrubbing ? (
                 <Text style={[t.type.caption, styles.unfit, { color: t.color.textSubtle }]}>
-                    {`No room before bedtime for ${flow.unfit.map(item => item.title).join(', ')}.${flow.unfit.some(item => item.kind === 'task') ? ' Tasks move to tomorrow.' : ''}`}
+                    {`Even cut short, no room before bedtime for ${flow.unfit.map(item => item.title).join(', ')}.`}
                 </Text>
             ) : null}
 
@@ -84,6 +84,7 @@ function Row({ size, item, color, nextColor, last, now, updated, onToggle, onOpe
     const left = live && now !== null ? Math.max(0, item.end - now) : null;
     // Why it is where it is, when it moved: one plain reason.
     const moved = done ? null
+        : item.cutFrom ? `Cut from ${lengthLabel(item.cutFrom)} to fit before bedtime`
         : item.moved ? 'Moved here: its time passed'
         : item.shift > 0 && !item.auto ? `${item.shift} min later: the one before ran over`
         : item.shift < 0 && !item.auto ? `${-item.shift} min earlier: the one before finished early`

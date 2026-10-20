@@ -369,12 +369,3 @@ export function isLate(task: Pick<Task, 'status' | 'dueDate' | 'deadline'>, toda
     const by = task.deadline ?? task.dueDate;
     return !!by && by < today;
 }
-
-/**
- * Tasks planned for an earlier day, not done, whose deadline has not passed:
- * they move to today, so a task you meant to do yesterday is today's plan
- * rather than overdue. Past the deadline they stay where they are, late.
- */
-export function rollForward(tasks: Task[], today: string): Task[] {
-    return tasks.filter(task => task.status === 'open' && !!task.dueDate && task.dueDate < today && !!task.deadline && task.deadline >= today);
-}

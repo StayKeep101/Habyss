@@ -276,7 +276,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             content: (
                 <>
                     <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                        Not done on its day? It moves to the next day until this date, and only counts as late after it.
+                        Not done on its day? It stays on your list until this date, and only counts as late after it.
                     </Text>
                     <Choices
                         options={[
