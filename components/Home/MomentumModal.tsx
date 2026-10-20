@@ -17,7 +17,7 @@ import type { HistoryDay } from '@/lib/habitDays';
 const CHART = 120;
 
 /**
- * Trend: are you getting better?
+ * Habits kept: are you getting better? Said in plain words first.
  *
  * One sentence answers it — the share of your habits you kept in the last 30
  * days, against the 30 before. The bars show the same thing week by week, so
@@ -43,16 +43,20 @@ export const MomentumModal: React.FC<{
 
     const up = trend.comparable && trend.delta > 0;
     const down = trend.comparable && trend.delta < 0;
-    const changeLine = !trend.comparable ? '' : trend.delta === 0 ? 'Same as last month' : `${up ? '↑' : '↓'} ${Math.abs(trend.delta)} vs last month`;
+    const changeLine = !trend.comparable ? '' : trend.delta === 0 ? 'Same as last month' : `${up ? '↑' : '↓'} ${Math.abs(trend.delta)}% vs last month`;
+    // What the number means, in one sentence.
+    const meaning = `Every time a habit was due in the last 30 days counts once. You did ${trend.rate}% of them.`
+        + (!trend.comparable ? '' : up ? ' Better than the 30 days before.' : down ? ' Less than the 30 days before.' : ' The same as the 30 days before.');
 
     return (
         <VoidModal visible={visible} onClose={onClose}>
-            <ModalHeader title="Trend" onBack={onClose} />
+            <ModalHeader title="Habits kept" onBack={onClose} />
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <View style={styles.hero}>
                     <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={`${trend.rate}%`} replay={visible} />
-                    <Text style={[styles.heroText, { color: colors.textSecondary }]}>of habits kept · last 30 days</Text>
+                    <Text style={[styles.heroText, { color: colors.textSecondary }]}>of habits done when due · last 30 days</Text>
                     {changeLine ? <Text style={[styles.change, { color: up ? colors.success : down ? colors.warning : colors.textTertiary }]}>{changeLine}</Text> : null}
+                    <Text style={[styles.meaning, { color: colors.textTertiary }]}>{meaning}</Text>
                 </View>
 
                 <SectionTitle>Week by week</SectionTitle>
@@ -67,19 +71,21 @@ export const MomentumModal: React.FC<{
                     </View>
                     <View style={styles.axis}>
                         <Text style={[styles.axisText, { color: colors.textTertiary }]}>8 weeks ago</Text>
-                        <Text style={[styles.axisText, { color: colors.textTertiary }]}>Last week</Text>
+                        <Text style={[styles.axisText, { color: colors.textTertiary }]}>Last 7 days</Text>
                     </View>
                 </VoidCard>
 
                 {rising.length ? (
                     <>
-                        <SectionTitle>Rising</SectionTitle>
+                        <SectionTitle>Getting better</SectionTitle>
+                        <Text style={[styles.caption, { color: colors.textTertiary }]}>Done more often than the 30 days before.</Text>
                         <HabitList items={rising} tint={colors.success} />
                     </>
                 ) : null}
                 {slipping.length ? (
                     <>
                         <SectionTitle>Slipping</SectionTitle>
+                        <Text style={[styles.caption, { color: colors.textTertiary }]}>Done less often than the 30 days before.</Text>
                         <HabitList items={slipping} tint={colors.warning} />
                     </>
                 ) : null}
@@ -121,6 +127,8 @@ const styles = StyleSheet.create({
     hero: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.lg },
     heroValue: { fontFamily: FontFamily.bold, fontSize: 56, lineHeight: 62, letterSpacing: -2, fontVariant: ['tabular-nums'] },
     heroText: { fontFamily: FontFamily.medium, fontSize: 15, textAlign: 'center' },
+    meaning: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: Spacing.sm },
+    caption: { fontFamily: FontFamily.regular, fontSize: 12, marginBottom: Spacing.sm },
     change: { fontFamily: FontFamily.semibold, fontSize: 14, textAlign: 'center', marginTop: Spacing.xs },
     chartCard: { padding: Spacing.lg, gap: Spacing.sm },
     chart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: CHART + 20 },

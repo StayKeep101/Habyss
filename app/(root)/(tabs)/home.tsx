@@ -55,10 +55,11 @@ import { StreakCard } from '@/components/Home/StreakCard';
 import { MomentumCard } from '@/components/Home/MomentumCard';
 import { localDateKey } from '@/lib/habitSchedule';
 import { MomentumModal } from '@/components/Home/MomentumModal';
-import { RecoveryCard } from '@/components/Home/RecoveryCard';
-import { RecoveryModal } from '@/components/Home/RecoveryModal';
+import { MissedCard } from '@/components/Home/MissedCard';
+import { MissedModal } from '@/components/Home/MissedModal';
+import { missed as missedFrom } from '@/lib/missed';
+import { useMovedTasks } from '@/hooks/useMovedTasks';
 import { momentum } from '@/lib/momentum';
-import { recovery } from '@/lib/recovery';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
 import { RANKS } from '@/lib/marks';
@@ -92,7 +93,7 @@ const Home = () => {
   // UI state
   const [showCelebration, setShowCelebration] = useState(false);
   const [showMomentumModal, setShowMomentumModal] = useState(false);
-  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [showMissed, setShowMissed] = useState(false);
   // Your photo, from the one profile store (lib/profile.ts).
   const { avatar: profileAvatar } = useMyProfile();
   const [refreshing, setRefreshing] = useState(false);
@@ -375,7 +376,9 @@ const Home = () => {
   // Are the habits getting stronger, and do they get back up when they slip?
   // Both read the same window; neither is a grade out of today.
   const trend = useMemo(() => momentum(habits, historyData, completions, 30), [habits, historyData, completions]);
-  const bounce = useMemo(() => recovery(habits, historyData, completions, 90), [habits, historyData, completions]);
+  // What went undone, day by day, and whether that is more than last week.
+  const moves = useMovedTasks();
+  const missed = useMemo(() => missedFrom({ habits, history: historyData, completions, tasks: allTasks, moves, today: todayKeyString }), [habits, historyData, completions, allTasks, moves, todayKeyString]);
 
   // Today's promise, and ticking one of its rows off.
   const focus = useDailyFocus();
@@ -505,9 +508,9 @@ const Home = () => {
               momentum={trend}
               onPress={() => { lightFeedback(); setShowMomentumModal(true); }}
             />
-            <RecoveryCard
-              recovery={bounce}
-              onPress={() => { lightFeedback(); setShowRecoveryModal(true); }}
+            <MissedCard
+              missed={missed}
+              onPress={() => { lightFeedback(); setShowMissed(true); }}
             />
           </Animated.View>
 
@@ -532,12 +535,11 @@ const Home = () => {
           history={historyData}
           completions={completions}
         />
-        <RecoveryModal
-          visible={showRecoveryModal}
-          onClose={() => setShowRecoveryModal(false)}
-          habits={habits}
-          history={historyData}
-          completions={completions}
+        <MissedModal
+          visible={showMissed}
+          onClose={() => setShowMissed(false)}
+          missed={missed}
+          today={todayKeyString}
         />
         <MarksModal visible={showMarks} onClose={() => setShowMarks(false)} marks={marks} />
         <ClimbMomentOverlay moment={climbMoment} onDone={() => setClimbMoment(null)} />

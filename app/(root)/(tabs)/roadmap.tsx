@@ -45,6 +45,7 @@ import { useMeals, useMealsFlexible } from '@/hooks/useMeals';
 import { useDayMemory } from '@/hooks/useDayMemory';
 import { carryOver, currentMemory, markSeen, memoryReady, rememberFlow } from '@/lib/dayMemory';
 import { planAlert, schedulePlanAlert } from '@/lib/planAlerts';
+import { logMoves } from '@/lib/movedTasks';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useEchoPatterns } from '@/hooks/useEchoPatterns';
 import { peakWindow } from '@/lib/echoPatterns';
@@ -912,7 +913,11 @@ const CalendarScreen = () => {
         const day = localDateKey(selectedDate);
         // A new day: tasks that had no room yesterday move to today.
         const moving = carryOver(currentMemory(), day, tasks);
-        if (moving.length) void Promise.all(moving.map(id => updateTask(id, { dueDate: day }))).then(() => emit('tasks_changed')).catch(() => undefined);
+        if (moving.length) {
+            // Logged, so Missed can say it was moved for you rather than forgotten.
+            void logMoves(moving.map(id => { const task = tasks.find(t => t.id === id)!; return { id, title: task.title, from: task.dueDate!, to: day }; }));
+            void Promise.all(moving.map(id => updateTask(id, { dueDate: day }))).then(() => emit('tasks_changed')).catch(() => undefined);
+        }
         rememberFlow(day, flow, flowNow);
         void schedulePlanAlert(planAlert(flowItems, flow, flowNow, flowWindow));
     }, [flow, flowItems, flowNow, flowWindow, selectedDate, tasks]);
