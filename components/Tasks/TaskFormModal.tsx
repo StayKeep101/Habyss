@@ -317,6 +317,14 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 : undefined,
             content: (
                 <>
+                    {/* First, in view: may the timeline move it, or does it stay at its time? */}
+                    <Choices options={TIMING} value={draft.flexible === false ? 'exact' : 'flexible'} accent={accent}
+                        onChange={id => change({ flexible: id !== 'exact' })} />
+                    <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                        {draft.flexible === false
+                            ? (draft.dueTime ? 'Stays at this time, whatever else runs over. Nothing is put on top of it.' : 'Pick the time it stays at below.')
+                            : 'Does not have to start at a set time: fitted into your day by priority, keeping its length unless the day runs short.'}
+                    </Text>
                     <TimeRange
                         start={draft.dueTime}
                         minutes={draft.estimate}
@@ -324,18 +332,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                         startLabel="Due at"
                         onChange={next => change({ dueTime: next.start, estimate: next.minutes })}
                     />
-                    {/* Only with a time of day: may the timeline move it? */}
-                    {draft.dueTime ? (
-                        <>
-                            <Choices options={TIMING} value={draft.flexible === false ? 'exact' : 'flexible'} accent={accent}
-                                onChange={id => change({ flexible: id !== 'exact' })} />
-                            <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                                {draft.flexible === false
-                                    ? 'Stays at this time, whatever else runs over. Nothing is put on top of it.'
-                                    : 'Does not have to start at this time: fitted into your day by priority, keeping its length unless the day runs short.'}
-                            </Text>
-                        </>
-                    ) : null}
                 </>
             ),
         },

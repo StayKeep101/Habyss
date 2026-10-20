@@ -85,7 +85,21 @@ function FocusScreen() {
     const [mode, setMode] = useState<Mode>(unsized ? 'stopwatch' : 'timer');
     const [seconds, setSeconds] = useState<number | null>(null);
     const passed = given ? Number(given) : null;
-    const planned = seconds ?? (passed && passed > 0 ? passed : null) ?? habitSeconds ?? (task?.measure === 'time' && task.target ? task.target * 60 : DEFAULT_SECONDS);
+    // Cut short to fit today (lib/dayFlow.ts): the timer is the time it has
+    // today, not the length it was planned with.
+    const [cutSeconds, setCutSeconds] = useState<number | null>(null);
+    const [timesRead, setTimesRead] = useState(false);
+    useEffect(() => {
+        if (!id) return;
+        let alive = true;
+        void (require('@/lib/todayFlow') as typeof import('@/lib/todayFlow')).todayTimes().then(times => {
+            const slot = times[id];
+            if (alive && slot?.cutFrom) setCutSeconds((slot.end - slot.start) * 60);
+        }).catch(() => undefined).finally(() => { if (alive) setTimesRead(true); });
+        return () => { alive = false; };
+    }, [id]);
+    const taskSeconds = task?.measure === 'time' && task.target ? task.target * 60 : Number(task?.estimatedMinutes) > 0 ? Number(task!.estimatedMinutes) * 60 : null;
+    const planned = seconds ?? cutSeconds ?? (passed && passed > 0 ? passed : null) ?? habitSeconds ?? taskSeconds ?? DEFAULT_SECONDS;
 
     const mine = focus.activeHabitId === id;
     const active = mine && (focus.isRunning || focus.isPaused);
@@ -162,6 +176,7 @@ function FocusScreen() {
     useEffect(() => {
         if (autoStart !== '1' || started.current || active || !id) return;
         if (isTask && !task) return; // wait for the task, so its title and length are known
+        if (!timesRead) return; // and for today's timeline, in case it was cut short
         started.current = true;
         start();
     });

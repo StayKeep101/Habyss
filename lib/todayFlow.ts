@@ -26,7 +26,7 @@ export async function todayFlow(now = new Date()): Promise<DayFlow> {
 }
 
 /** Where each open habit and task starts and ends today, in minutes from midnight. */
-export type TodayTimes = Record<string, { start: number; end: number }>;
+export type TodayTimes = Record<string, { start: number; end: number; cutFrom?: number }>;
 
 /** The Roadmap's own timeline, the freshest truth, while it is from today. */
 let latest: { day: string; flow: DayFlow } | null = null;
@@ -44,5 +44,5 @@ export async function todayTimes(now = new Date()): Promise<TodayTimes> {
     if (!flow) return {};
     return Object.fromEntries(flow.timeline
         .filter(item => !item.fixed && !item.done && (item.kind === 'habit' || item.kind === 'task'))
-        .map(item => [item.id, { start: item.start, end: item.end }]));
+        .map(item => [item.id, { start: item.start, end: item.end, ...(item.cutFrom ? { cutFrom: item.cutFrom } : null) }]));
 }
