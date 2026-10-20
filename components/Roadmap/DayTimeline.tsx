@@ -132,6 +132,13 @@ function Row({ size, item, turn, color, nextColor, last, now, updated, onToggle,
                         <Fill color={color} height={height} progress={elapsed} turn={turn} />
                         <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon} color={elapsed >= 0.5 ? t.color.onAccent : color} />
                     </View>
+                    {/* Exact time: a lock on its corner, so it reads at a glance as staying put. */}
+                    {item.locked ? (
+                        <View style={[styles.lockBadge, { backgroundColor: t.color.background, borderColor: color }]}
+                            accessibilityLabel="Exact time, does not move">
+                            <AppIcon name="lock-closed" size={s(9)} color={color} />
+                        </View>
+                    ) : null}
                 </Pressable>
                 {!last ? <View style={[styles.link, { backgroundColor: nextColor ?? color }]} /> : null}
             </View>
@@ -195,6 +202,7 @@ const styles = StyleSheet.create({
     rail: { alignItems: 'center' },
     pill: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
     tint: { opacity: 0.2 },
+    lockBadge: { position: 'absolute', right: -s(4), bottom: -s(4), width: s(18), height: s(18), borderRadius: s(9), borderWidth: s(1.5), alignItems: 'center', justifyContent: 'center' },
     fill: { position: 'absolute', top: 0, left: 0, right: 0 },
     link: { width: s(3), flex: 1, minHeight: vs(10), opacity: 0.6 },
     body: { flex: 1, flexDirection: 'row', alignItems: 'center' },
