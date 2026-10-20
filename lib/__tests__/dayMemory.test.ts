@@ -1,4 +1,4 @@
-import { emptyMemory, remember, seen } from '../dayMemory';
+import { carryOver, emptyMemory, remember, seen } from '../dayMemory';
 import type { DayFlow, FlowItem } from '../dayFlow';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined) }));
@@ -34,5 +34,20 @@ describe('what the timeline remembers', () => {
     it('dots something that no longer fits today', () => {
         const first = remember(emptyMemory(DAY), DAY, flowOf([row('a', 600, 630)]), 500);
         expect(remember(first, DAY, flowOf([], [row('a', 0, 30)]), 520).moved).toEqual({ a: true });
+    });
+});
+
+describe('the next day', () => {
+    it('carries over dated tasks that had no room, still open', () => {
+        const memory = remember(emptyMemory(DAY), DAY, flowOf([], [row('essay', 0, 60), row('call', 0, 30)]), 1300);
+        const tasks = [
+            { id: 'essay', status: 'open', dueDate: DAY },
+            { id: 'call', status: 'done', dueDate: DAY },
+            { id: 'other', status: 'open', dueDate: DAY },
+            { id: 'undated', status: 'open', dueDate: null },
+        ];
+        expect(carryOver(memory, '2026-10-21', tasks)).toEqual(['essay']);
+        // Not on the same day.
+        expect(carryOver(memory, DAY, tasks)).toEqual([]);
     });
 });

@@ -176,6 +176,26 @@ describe('filling the day', () => {
     });
 });
 
+describe('waking and bedtime are walls', () => {
+    const window = { wake: 480, sleep: 1410 };
+    it('moves something set too close to bedtime to where it fits', () => {
+        // 23:15 for 30 minutes would end at 23:45, past 23:30.
+        const flow = flowDay([item('late', 1395, 30), item('early', 420, 20)], 600, window);
+        for (const row of flow.timeline) {
+            expect(row.start).toBeGreaterThanOrEqual(480);
+            expect(row.end).toBeLessThanOrEqual(1410);
+        }
+        expect(flow.timeline.find(row => row.id === 'late')).toMatchObject({ moved: true, auto: true });
+    });
+    it('never lets the flow push something past bedtime: it has no room today instead', () => {
+        // Running over at 23:05 pushes the 23:00 reading past 23:30.
+        const items = [item('dishes', 1350, 50), item('read', 1385, 20)];
+        const flow = flowDay(items, 1395, window);
+        expect(flow.timeline.every(row => row.state === 'now' || row.end <= 1410)).toBe(true);
+        expect(flow.unfit.map(row => row.id)).toEqual(['read']);
+    });
+});
+
 describe('hard things first, or in your best hours', () => {
     const job = (id: string, difficulty: 1 | 2 | 3) => ({ id, kind: 'task' as const, title: id, start: null, minutes: 60, done: false, urgency: 10, difficulty });
     const day = { wake: 480, sleep: 1380 };

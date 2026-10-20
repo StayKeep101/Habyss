@@ -22,7 +22,7 @@ export function planAlert(items: FlowInput[], flow: DayFlow, now: number, window
     const later = flowDay(items, at, window);
     const moved = later.timeline.find(item => item.id === target.id);
     const by = clockLabel(target.end);
-    if (!moved) return { at, body: `${target.title} didn't get done by ${by}, and there's no room left for it before bedtime.` };
+    if (!moved) return { at, body: `${target.title} didn't get done by ${by}, and there's no room left for it before bedtime.${target.kind === 'task' ? ' It moves to tomorrow.' : ''}` };
     if (moved.start === target.start) return null;
     return { at, body: `${target.title} didn't get done by ${by}, so I moved it to ${clockLabel(moved.start)}.` };
 }

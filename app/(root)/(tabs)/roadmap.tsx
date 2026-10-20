@@ -43,7 +43,7 @@ import { flowDay, flowInputs, type FlowInput } from '@/lib/dayFlow';
 import { DayTimeline } from '@/components/Roadmap/DayTimeline';
 import { useMeals, useMealsFlexible } from '@/hooks/useMeals';
 import { useDayMemory } from '@/hooks/useDayMemory';
-import { markSeen, rememberFlow } from '@/lib/dayMemory';
+import { carryOver, currentMemory, markSeen, memoryReady, rememberFlow } from '@/lib/dayMemory';
 import { planAlert, schedulePlanAlert } from '@/lib/planAlerts';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useEchoPatterns } from '@/hooks/useEchoPatterns';
@@ -908,10 +908,14 @@ const CalendarScreen = () => {
     // Today's flow is remembered as it changes, and Echo is told when the
     // thing you are on would run out, so it can say where it went.
     useEffect(() => {
-        if (flowNow === null) return;
-        rememberFlow(localDateKey(selectedDate), flow, flowNow);
+        if (flowNow === null || !memoryReady()) return;
+        const day = localDateKey(selectedDate);
+        // A new day: tasks that had no room yesterday move to today.
+        const moving = carryOver(currentMemory(), day, tasks);
+        if (moving.length) void Promise.all(moving.map(id => updateTask(id, { dueDate: day }))).then(() => emit('tasks_changed')).catch(() => undefined);
+        rememberFlow(day, flow, flowNow);
         void schedulePlanAlert(planAlert(flowItems, flow, flowNow, flowWindow));
-    }, [flow, flowItems, flowNow, flowWindow, selectedDate]);
+    }, [flow, flowItems, flowNow, flowWindow, selectedDate, tasks]);
     // The strip at the top shows the same day as the timeline: placed things included.
     const stripPlan = useMemo(() => ({
         ...dayPlan.plan,

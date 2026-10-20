@@ -133,8 +133,28 @@ export function flowDay(items: FlowInput[], now: number | null, window: DayWindo
     return { ...best, timeline };
 }
 
-/** One layout of the day: what is done or under way holds, the rest is fitted around it. */
+/**
+ * One layout of the day: what is done or under way holds, the rest is fitted
+ * around it. Waking and bedtime are walls: anything set (or pushed) outside
+ * them is fitted in between instead, and what has no room left is unfit.
+ */
 function layOut(items: FlowInput[], now: number | null, window: DayWindowMinutes): DayFlow {
+    const sleep = window.sleep > window.wake ? window.sleep : window.sleep + 1440;
+    // Minutes past midnight before waking belong to a bedtime after midnight.
+    const onClock = (minute: number) => (minute < window.wake && sleep > 1440 ? minute + 1440 : minute);
+    const inside = (start: number, minutes: number) => onClock(start) >= window.wake && onClock(start) + minutes <= sleep;
+    let outside = new Set<string>();
+    for (let pass = 0; pass < 3; pass++) {
+        const flow = layOutOnce(items, now, window, outside);
+        // Something the flow pushed past bedtime (not the one you are on) is fitted again.
+        const over = flow.timeline.filter(item => !item.fixed && !item.done && item.state !== 'now' && !outside.has(item.id) && !inside(item.start, item.end - item.start));
+        if (!over.length) return flow;
+        outside = new Set([...outside, ...over.map(item => item.id)]);
+    }
+    return layOutOnce(items, now, window, outside);
+}
+
+function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMinutes, outside: Set<string>): DayFlow {
     const timed: FlowInput[] = [];
     const untimed: FlowInput[] = [];
     for (const item of items) {
@@ -147,6 +167,7 @@ function layOut(items: FlowInput[], now: number | null, window: DayWindowMinutes
             else untimed.push(item);
             continue;
         }
+        if (outside.has(item.id)) { untimed.push({ ...item, start: null, auto: true, moved: item.moved || item.start !== null }); continue; }
         if (now === null) { (item.start !== null ? timed : untimed).push(item); continue; }
         const length = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
         const missed = (end: number) => now >= end + GRACE && item.id !== window.active;

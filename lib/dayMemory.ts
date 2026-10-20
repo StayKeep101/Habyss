@@ -11,6 +11,9 @@ import type { DayFlow } from './dayFlow';
  * - What moved since you last opened it: the green dot on the timeline,
  *   gone once you open it, back if it moves again.
  *
+ * - What had no room before bedtime, so a dated task can be carried over to
+ *   the next day rather than turning up overdue (carryOver).
+ *
  * Today only; a new day starts empty. Kept on this phone, one copy.
  */
 export interface Slot { start: number; end: number }
@@ -21,6 +24,8 @@ export interface DayMemory {
     done: Record<string, true>;
     /** Moved since last opened. */
     moved: Record<string, true>;
+    /** Had no room before bedtime when last seen. */
+    unfit?: Record<string, true>;
 }
 
 /** Moving less than this is the flow breathing, not a change worth a dot. */
@@ -54,7 +59,18 @@ export function remember(prev: DayMemory, day: string, flow: DayFlow, now: numbe
     }
     // No longer fits today: that is a change too.
     for (const item of flow.unfit) if (base.slots[item.id]) moved[item.id] = true;
-    return { day, slots, done, moved };
+    const unfit = Object.fromEntries(flow.unfit.map(item => [item.id, true as const]));
+    return { day, slots, done, moved, unfit };
+}
+
+/**
+ * A new day: the dated tasks that had no room before bedtime on the last day
+ * seen, still open and still due then, move to today rather than read as
+ * overdue. Habits come back on their own days anyway.
+ */
+export function carryOver(memory: DayMemory, today: string, tasks: { id: string; status: string; dueDate?: string | null }[]): string[] {
+    if (!memory.day || memory.day >= today || !memory.unfit) return [];
+    return tasks.filter(task => memory.unfit![task.id] && task.status === 'open' && !!task.dueDate && task.dueDate <= memory.day && task.dueDate < today).map(task => task.id);
 }
 
 /** Opened: no dot until it moves again. */
@@ -67,22 +83,26 @@ export function seen(memory: DayMemory, id: string): DayMemory {
 
 const KEY = 'habyss_day_memory';
 let state: DayMemory = emptyMemory('');
+let loading = false;
+/** The stored copy has been read: until then nothing is remembered or carried over. */
 let loaded = false;
 const listeners = new Set<() => void>();
 
 export const currentMemory = (): DayMemory => state;
+export const memoryReady = (): boolean => loaded;
 export function subscribeMemory(listener: () => void): () => void {
     listeners.add(listener);
     return () => { listeners.delete(listener); };
 }
 
 export async function loadMemory(): Promise<DayMemory> {
-    if (loaded) return state;
-    loaded = true;
+    if (loaded || loading) return state;
+    loading = true;
     try {
         const raw = JSON.parse((await AsyncStorage.getItem(KEY)) ?? 'null');
         if (raw && typeof raw.day === 'string' && raw.slots && raw.done && raw.moved) state = raw;
     } catch { /* start empty */ }
+    loaded = true;
     listeners.forEach(listener => listener());
     return state;
 }
