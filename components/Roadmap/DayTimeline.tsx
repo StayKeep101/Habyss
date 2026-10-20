@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { CheckPop } from '@/components/ui/CheckPop';
-import { ListItem, useProgress } from '@/components/ui/Motion';
+import { ListItem, MOTION, useProgress } from '@/components/ui/Motion';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { useTokens } from '@/hooks/useTokens';
 import { useAppSettings } from '@/context/AppSettingsContext';
@@ -57,7 +57,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
         <View key={day}>
             {flow.timeline.length ? flow.timeline.map((item, index) => (
                 <ListItem key={`${item.kind}-${item.id}`} index={index} rise>
-                    <Row size={size} item={item} color={colorOf(item)} last={index === flow.timeline.length - 1}
+                    <Row size={size} item={item} index={index} color={colorOf(item)} last={index === flow.timeline.length - 1}
                         nextColor={flow.timeline[index + 1] ? colorOf(flow.timeline[index + 1]) : undefined}
                         now={now} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus} />
                 </ListItem>
@@ -77,8 +77,8 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
     );
 }
 
-function Row({ size, item, color, nextColor, last, now, updated, onToggle, onOpen, onFocus }: {
-    size: Size; item: FlowItem; color: string; nextColor?: string; last: boolean; now: number | null; updated: boolean;
+function Row({ size, item, index, color, nextColor, last, now, updated, onToggle, onOpen, onFocus }: {
+    size: Size; item: FlowItem; index: number; color: string; nextColor?: string; last: boolean; now: number | null; updated: boolean;
     onToggle: (item: FlowInput) => void; onOpen: (item: FlowInput) => void; onFocus: (item: FlowInput) => void;
 }) {
     const t = useTokens();
@@ -106,7 +106,7 @@ function Row({ size, item, color, nextColor, last, now, updated, onToggle, onOpe
                         {/* A faint tint of its colour, filled from the top as its time passes.
                             Done keeps its full colour: only the name is struck through. */}
                         <View style={[StyleSheet.absoluteFill, styles.tint, { backgroundColor: color }]} />
-                        <Fill color={color} height={height} progress={elapsed} />
+                        <Fill color={color} height={height} progress={elapsed} index={index} />
                         <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon} color={elapsed >= 0.5 ? t.color.onAccent : color} />
                     </View>
                 </Pressable>
@@ -159,8 +159,11 @@ function Check({ size, done, color, onPress, label }: { size: Size; done: boolea
 }
 
 /** The solid part of a pill: as tall as the share of its time already gone, gliding as the clock moves. */
-function Fill({ color, height, progress }: { color: string; height: number; progress: number }) {
-    const shown = useProgress(Math.max(0, Math.min(1, progress)));
+function Fill({ color, height, progress, index }: { color: string; height: number; progress: number; index: number }) {
+    // Arriving (a page opened, a day switched), each pill fills after the one
+    // above it, so the colour pours down the day from top to bottom; after
+    // that it glides with the clock.
+    const shown = useProgress(Math.max(0, Math.min(1, progress)), Math.min(index, 14) * MOTION.stagger * 3);
     const style = useAnimatedStyle(() => ({ height: shown.get() * height }));
     return <Animated.View pointerEvents="none" style={[styles.fill, { backgroundColor: color }, style]} />;
 }
