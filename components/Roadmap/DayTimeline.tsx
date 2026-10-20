@@ -33,8 +33,13 @@ const pillHeight = (size: Size, minutes: number) => Math.max(size.min, Math.min(
  * marks one that moved since you last opened it. Meals and calendar events
  * sit as fixed blocks with a lock. A habit's pill is round, a task's squarer.
  */
-export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrubbing }: {
+export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrubbing, day }: {
     flow: DayFlow;
+    /**
+     * The day shown. A new day lays its rows in afresh, top to bottom, the same
+     * way every time, rather than sliding the last day's rows around.
+     */
+    day?: string;
     /** Moved since last opened (lib/dayMemory.ts): the green dot. */
     moved?: Record<string, true>;
     /** Showing only what is on at the time under the finger. */
@@ -49,9 +54,9 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
     const size = SIZES[useAppSettings().cardSize] ?? SIZES.standard;
     const colorOf = (item: FlowInput) => item.color || (item.kind === 'meal' ? t.color.textMuted : item.kind === 'task' ? t.color.warning : t.color.accent);
     return (
-        <View>
+        <View key={day}>
             {flow.timeline.length ? flow.timeline.map((item, index) => (
-                <ListItem key={`${item.kind}-${item.id}`} index={index}>
+                <ListItem key={`${item.kind}-${item.id}`} index={index} rise>
                     <Row size={size} item={item} color={colorOf(item)} last={index === flow.timeline.length - 1}
                         nextColor={flow.timeline[index + 1] ? colorOf(flow.timeline[index + 1]) : undefined}
                         now={now} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus} />
@@ -85,7 +90,6 @@ function Row({ size, item, color, nextColor, last, now, updated, onToggle, onOpe
     // Why it is where it is, when it moved: one plain reason.
     const moved = done ? null
         : item.cutFrom ? `Cut from ${lengthLabel(item.cutFrom)} to fit before bedtime`
-        : item.moved ? 'Moved here: its time passed'
         : item.shift > 0 && !item.auto ? `${item.shift} min later: the one before ran over`
         : item.shift < 0 && !item.auto ? `${-item.shift} min earlier: the one before finished early`
         : null;
@@ -113,7 +117,7 @@ function Row({ size, item, color, nextColor, last, now, updated, onToggle, onOpe
                 accessibilityLabel={`${item.title}, ${rangeLabel(item.start, item.end)}${live ? ', now' : ''}`}>
                 <View style={styles.text}>
                     <View style={[styles.meta, { gap: t.space.xs }]}>
-                        {meal ? <AppIcon name="lock-closed" size={s(11)} color={t.color.textSubtle} /> : null}
+                        {meal || item.locked ? <AppIcon name="lock-closed" size={s(11)} color={t.color.textSubtle} /> : null}
                         {live ? <Text style={[t.type.caption, styles.nowTag, { color: t.color.accentText }]}>Now</Text> : item.state === 'next' ? (
                             <Text style={[t.type.caption, styles.nowTag, { color: t.color.textMuted }]}>Up next</Text>
                         ) : null}

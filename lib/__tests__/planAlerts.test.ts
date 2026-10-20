@@ -8,9 +8,10 @@ const task = (id: string, start: number | null, minutes: number): FlowInput => (
 
 describe('Echo, when the plan moves', () => {
     it('says ahead of time where the thing will go if it is not done in its time', () => {
-        const items = [task('Workout', 540, 45), task('Read', 840, 30)];
+        // Under way since 9:00 (its slot held), with an exact-time class at 10:00.
+        const items = [{ ...task('Workout', null, 45), kept: { start: 540, end: 585 } }, { ...task('Class', 600, 60), locked: true }];
         const alert = planAlert(items, flowDay(items, 545, window), 545, window);
-        // 9:45 end, ten minutes' grace: at 9:55 it moves to then.
+        // 9:45 end, ten minutes' grace: at 9:55 it is fitted in again, after class.
         expect(alert?.at).toBe(595);
         expect(alert?.body).toMatch(/^Workout didn't get done by .+, so I moved it to .+\.$/);
     });

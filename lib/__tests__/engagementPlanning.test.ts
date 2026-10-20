@@ -1,6 +1,7 @@
 import { scheduledMoments } from '../scheduledMoments';
 import { buildAlivePlan } from '../echoAlive';
-import { activityPlan } from '../scheduledActivities';
+import { activityPlan, slotsFromFlow } from '../scheduledActivities';
+import { flowDay } from '../dayFlow';
 import type { Habit } from '../habitsSQLite';
 import type { Task } from '../tasks';
 jest.mock('@/modules/habyss-live-activity', () => ({ __esModule: true, default: null }));
@@ -70,11 +71,25 @@ describe('Echo Alive planning', () => {
 });
 
 describe('Live Activity planning', () => {
-    it('queues upcoming cards only on systems supporting scheduled starts', () => {
-        const moments = scheduledMoments([habit()], [task()], now);
-        expect(activityPlan(moments, now, false)).toEqual([]);
-        expect(activityPlan(moments, now, true)).toHaveLength(4);
-        expect(activityPlan(moments, new Date(2026, 8, 26, 8, 5), false).map(item => item.title)).toEqual(['Run 5 km']);
-        expect(activityPlan(moments, new Date(2026, 8, 26, 8, 30), false)).toEqual([]);
+    const at = (h: number, m = 0) => new Date(2026, 8, 26, h, m).getTime();
+    const slots = [
+        { key: 'habit:run:2026-09-26', kind: 'habit' as const, id: 'run', title: 'Run 5 km', start: at(8), end: at(8, 30) },
+        { key: 'task:mail:2026-09-26', kind: 'task' as const, id: 'mail', title: 'Email', start: at(9), end: at(9, 20) },
+    ];
+    it('is one card: what you are on now, else the next where iOS can start it on its own', () => {
+        expect(activityPlan(slots, new Date(at(8, 5)), false).map(item => item.title)).toEqual(['Run 5 km']);
+        expect(activityPlan(slots, new Date(at(8, 5)), true).map(item => item.title)).toEqual(['Run 5 km']);
+        expect(activityPlan(slots, new Date(at(8, 40)), false)).toEqual([]);
+        expect(activityPlan(slots, new Date(at(8, 40)), true).map(item => item.title)).toEqual(['Email']);
+        expect(activityPlan(slots, new Date(at(10)), true)).toEqual([]);
+    });
+    it('comes from the timeline, auto-placed things included, and never from a fixed block', () => {
+        const flow = flowDay([
+            { id: 'meal:lunch', kind: 'meal', title: 'Lunch', start: 720, minutes: 30, done: false, fixed: true },
+            { id: 'read', kind: 'habit', title: 'Read', start: null, minutes: 20, done: false },
+        ], 600, { wake: 420, sleep: 1380 });
+        const made = slotsFromFlow(flow, '2026-09-26');
+        expect(made.map(slot => slot.key)).toEqual(['habit:read:2026-09-26']);
+        expect(made[0].start).toBe(new Date(2026, 8, 26, 10, 0).getTime());
     });
 });

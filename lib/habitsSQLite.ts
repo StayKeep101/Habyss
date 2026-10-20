@@ -71,6 +71,8 @@ export interface Habit {
     priority?: 1 | 2 | 3;
     /** 1 easy, 2 medium, 3 hard: hard ones go in your best hours. Kept on this phone. */
     difficulty?: 1 | 2 | 3;
+    /** At its set time: false keeps it exactly there; otherwise the timeline may move it. Kept on this phone. */
+    flexible?: boolean;
 }
 
 // Cache
@@ -205,6 +207,7 @@ export async function getHabits(): Promise<Habit[]> {
                     reminderMessage: row.reminder_message || undefined,
                     priority: row.priority === 1 || row.priority === 3 ? row.priority : row.priority === 2 ? 2 : undefined,
                     difficulty: row.difficulty === 1 || row.difficulty === 2 || row.difficulty === 3 ? row.difficulty : undefined,
+                    flexible: row.flexible === 0 ? false : row.flexible === 1 ? true : undefined,
                     recurrence: row.recurrence || undefined,
                     graphStyle: row.graph_style,
                     trackingMethod: row.tracking_method,
@@ -251,8 +254,8 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                         task_days, reminders, start_date, end_date, duration_minutes, start_time, end_time,
                         type, color, goal_period, goal_value, unit, chart_type, is_archived, show_memo,
                         frequency, week_interval, time_of_day, graph_style, tracking_method,
-                        ringtone, goal_spec, reminder_offset, reminder_message, recurrence, location_reminders, health_kit_metric, health_kit_target, priority, difficulty, created_at, updated_at, synced, deleted
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+                        ringtone, goal_spec, reminder_offset, reminder_message, recurrence, location_reminders, health_kit_metric, health_kit_target, priority, difficulty, flexible, created_at, updated_at, synced, deleted
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
                 `,
                     id,
                     uid,
@@ -293,6 +296,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     habitData.healthKitTarget || null,
                     habitData.priority ?? null,
                     habitData.difficulty ?? null,
+                    habitData.flexible === undefined ? null : habitData.flexible ? 1 : 0,
                     now,
                     now
                 );
@@ -410,6 +414,7 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'healthKitTarget')) { setClauses.push('health_kit_target = ?'); params.push(updatedHabit.healthKitTarget ?? null); }
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'priority')) { setClauses.push('priority = ?'); params.push(updatedHabit.priority ?? null); }
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'difficulty')) { setClauses.push('difficulty = ?'); params.push(updatedHabit.difficulty ?? null); }
+                if (Object.prototype.hasOwnProperty.call(updatedHabit, 'flexible')) { setClauses.push('flexible = ?'); params.push(updatedHabit.flexible === undefined ? null : updatedHabit.flexible ? 1 : 0); }
 
                 params.push(updatedHabit.id, uid);
 

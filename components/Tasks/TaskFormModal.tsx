@@ -42,6 +42,11 @@ interface Props {
     listenToGlobalEvents?: boolean;
 }
 
+const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
+    { id: 'flexible', label: 'Flexible' },
+    { id: 'exact', label: 'Exact time' },
+];
+
 const PRIORITIES: { id: TaskPriority; label: string }[] = [
     { id: 1, label: 'High' },
     { id: 2, label: 'Normal' },
@@ -56,6 +61,8 @@ interface Draft {
     /** When it must be done by, if later: not done on its day, it moves on until then. */
     deadline?: string;
     dueTime?: string;
+    /** At its time: false keeps it exactly there; otherwise the timeline may move it. */
+    flexible?: boolean;
     estimate?: number;
     priority: TaskPriority;
     /** How hard it is: the timeline puts hard things in your best hours. */
@@ -74,6 +81,7 @@ const fromTask = (task: Task): Draft => ({
     dueDate: task.dueDate,
     deadline: task.deadline,
     dueTime: task.dueTime,
+    flexible: task.flexible,
     estimate: task.estimatedMinutes,
     priority: task.priority,
     difficulty: task.difficulty,
@@ -210,6 +218,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 // A deadline before the planned day means nothing: the day is the deadline.
                 deadline: draft.deadline && draft.dueDate && draft.deadline > draft.dueDate ? draft.deadline : undefined,
                 dueTime: draft.dueTime,
+                // Only means something with a time of day.
+                flexible: draft.dueTime ? draft.flexible !== false : undefined,
                 estimatedMinutes: draft.estimate,
                 priority: draft.priority,
                 difficulty: draft.difficulty,
@@ -297,16 +307,30 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         {
             id: 'time', icon: 'time-outline', label: 'Time',
             value: draft.dueTime
-                ? (draft.estimate ? `${draft.dueTime} → ${endTime(draft.dueTime, draft.estimate)}` : draft.dueTime)
+                ? `${draft.estimate ? `${draft.dueTime} → ${endTime(draft.dueTime, draft.estimate)}` : draft.dueTime}${draft.flexible === false ? ' · exact' : ''}`
                 : undefined,
             content: (
-                <TimeRange
-                    start={draft.dueTime}
-                    minutes={draft.estimate}
-                    accent={accent}
-                    startLabel="Due at"
-                    onChange={next => change({ dueTime: next.start, estimate: next.minutes })}
-                />
+                <>
+                    <TimeRange
+                        start={draft.dueTime}
+                        minutes={draft.estimate}
+                        accent={accent}
+                        startLabel="Due at"
+                        onChange={next => change({ dueTime: next.start, estimate: next.minutes })}
+                    />
+                    {/* Only with a time of day: may the timeline move it? */}
+                    {draft.dueTime ? (
+                        <>
+                            <Choices options={TIMING} value={draft.flexible === false ? 'exact' : 'flexible'} accent={accent}
+                                onChange={id => change({ flexible: id !== 'exact' })} />
+                            <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                                {draft.flexible === false
+                                    ? 'Stays at this time, whatever else runs over. Nothing is put on top of it.'
+                                    : 'Does not have to start at this time: fitted into your day by priority, keeping its length unless the day runs short.'}
+                            </Text>
+                        </>
+                    ) : null}
+                </>
             ),
         },
         {

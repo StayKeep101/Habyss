@@ -57,6 +57,8 @@ export interface Task {
      * (`dueDate`, the day you plan to do it). Kept on this phone.
      */
     deadline?: string;
+    /** At its set time: false keeps it exactly there; otherwise the timeline may move it. Kept on this phone. */
+    flexible?: boolean;
     createdAt: string;
     updatedAt: string;
 }
@@ -78,6 +80,7 @@ export interface TaskInput {
     milestoneId?: string;
     difficulty?: TaskDifficulty;
     deadline?: string;
+    flexible?: boolean;
 }
 
 const rowToTask = (row: any): Task => ({
@@ -100,6 +103,7 @@ const rowToTask = (row: any): Task => ({
     milestoneId: row.milestone_id ?? undefined,
     difficulty: row.difficulty === 1 || row.difficulty === 2 || row.difficulty === 3 ? row.difficulty : undefined,
     deadline: typeof row.deadline === 'string' && row.deadline ? row.deadline : undefined,
+    flexible: row.flexible === 0 ? false : row.flexible === 1 ? true : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
 });
@@ -137,7 +141,7 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
         ['dueTime', 'due_time'], ['estimatedMinutes', 'estimated_minutes'],
         ['priority', 'priority'], ['goalId', 'goal_id'], ['source', 'source'],
         ['measure', 'measure'], ['target', 'target'], ['unit', 'unit'], ['milestoneId', 'milestone_id'],
-        ['difficulty', 'difficulty'], ['deadline', 'deadline'],
+        ['difficulty', 'difficulty'], ['deadline', 'deadline'], ['flexible', 'flexible'],
     ];
     const updates = importedColumns.filter(([key]) => Object.prototype.hasOwnProperty.call(input, key))
         .map(([, column]) => `${column} = excluded.${column}`);
@@ -147,15 +151,15 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
     await db.runAsync(
         `INSERT INTO tasks (
             id, user_id, title, description, due_date, due_time, estimated_minutes,
-            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id, difficulty, deadline,
+            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id, difficulty, deadline, flexible,
             created_at, updated_at, deleted, synced
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
         id, uid, title, input.description ?? null, input.dueDate ?? null, input.dueTime ?? null,
         input.estimatedMinutes ?? null, input.priority ?? 2, input.goalId ?? null,
         input.source ?? 'app', input.externalId ?? null,
         input.measure && input.measure !== 'done' ? input.measure : null,
         input.measure && input.measure !== 'done' ? input.target ?? null : null,
-        input.unit?.trim() || null, input.milestoneId ?? null, input.difficulty ?? null, input.deadline ?? null, now, now,
+        input.unit?.trim() || null, input.milestoneId ?? null, input.difficulty ?? null, input.deadline ?? null, input.flexible === undefined ? null : input.flexible ? 1 : 0, now, now,
     );
 
     const row = input.externalId
@@ -178,14 +182,15 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
         estimatedMinutes: 'estimated_minutes', priority: 'priority', goalId: 'goal_id',
         source: 'source', externalId: 'external_id',
         measure: 'measure', target: 'target', unit: 'unit', amount: 'amount', milestoneId: 'milestone_id',
-        difficulty: 'difficulty', deadline: 'deadline',
+        difficulty: 'difficulty', deadline: 'deadline', flexible: 'flexible',
     };
 
     const sets: string[] = [];
     const params: any[] = [];
     for (const [key, column] of Object.entries(columns) as [keyof TaskInput, string][]) {
         if (!Object.prototype.hasOwnProperty.call(patch, key)) continue;
-        const value = patch[key] ?? null;
+        const raw = patch[key] ?? null;
+        const value = typeof raw === 'boolean' ? (raw ? 1 : 0) : raw;
         // Clearing a due date or notes must stick; clearing the title cannot.
         if (value === null && REQUIRED.includes(key)) continue;
         sets.push(`${column} = ?`);

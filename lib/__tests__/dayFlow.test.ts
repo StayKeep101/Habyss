@@ -4,84 +4,45 @@ const at = (h: number, m = 0) => h * 60 + m;
 const item = (id: string, start: number | null, minutes: number, done = false): FlowInput =>
     ({ id, kind: 'habit', title: id, start, minutes, done });
 
+/** At exact times: they stay where they are set. */
 const day = [
     item('shower', at(8), 30),
     item('chores', at(8, 30), 30),
     item('homework', at(9), 60),
     item('study', at(10), 25),
     item('run', at(18), 45),
-];
+].map(row => ({ ...row, locked: true }));
+const window = { wake: at(7), sleep: at(23) };
 
 describe('the day as a flow', () => {
-    it('keeps the plan on another day', () => {
-        const flow = flowDay(day, null);
-        expect(flow.current).toBeNull();
-        expect(flow.timeline.map(row => row.start)).toEqual([at(8), at(8, 30), at(9), at(10), at(18)]);
+    it('keeps exact times, on another day and today', () => {
+        expect(flowDay(day, null).timeline.map(row => row.start)).toEqual([at(8), at(8, 30), at(9), at(10), at(18)]);
+        expect(flowDay(day, at(9, 40)).timeline.map(row => row.start)).toEqual([at(8), at(8, 30), at(9), at(10), at(18)]);
     });
 
-    it('is on the first item once its time comes', () => {
-        const flow = flowDay(day, at(8, 5));
-        expect(flow.current?.id).toBe('shower');
-        expect(flow.timeline[1]).toMatchObject({ id: 'chores', state: 'next', start: at(8, 30) });
+    it('is on an exact-time one while it lasts', () => {
+        expect(flowDay(day, at(8, 5)).current?.id).toBe('shower');
+        expect(flowDay(day, at(7)).current).toBeNull();
     });
 
-    it('waits before the day starts', () => {
-        const flow = flowDay(day, at(7));
-        expect(flow.current).toBeNull();
-        expect(flow.timeline[0]).toMatchObject({ id: 'shower', state: 'next', start: at(8) });
+    it('a flexible one does not have to start at its time: finishing early, it starts now', () => {
+        const items = [{ ...item('report', null, 60, true), kept: { start: at(8), end: at(8, 20) } }, item('email', at(10), 30)];
+        const flow = flowDay(items, at(8, 20), window);
+        expect(flow.timeline.find(row => row.id === 'email')).toMatchObject({ start: at(8, 20), end: at(8, 50), state: 'now' });
     });
 
-    it('finishing early moves straight on, and the chain moves up with it — but not past a gap', () => {
-        const done = [{ ...day[0], done: true }, ...day.slice(1)];
-        const flow = flowDay(done, at(8, 15));
-        expect(flow.current).toMatchObject({ id: 'chores', start: at(8, 15), end: at(8, 45), shift: -15 });
-        expect(flow.timeline.find(row => row.id === 'homework')).toMatchObject({ start: at(8, 45), shift: -15 });
-        expect(flow.timeline.find(row => row.id === 'study')).toMatchObject({ start: at(9, 45) });
-        // The evening run is after a long gap: it stays where it was.
-        expect(flow.timeline.find(row => row.id === 'run')).toMatchObject({ start: at(18), shift: 0 });
+    it('keeps a flexible one\'s length, and on another day puts it at its time when free', () => {
+        const items = [item('read', at(20), 45), item('walk', null, 30)];
+        const other = flowDay(items, null, window);
+        expect(other.timeline.find(row => row.id === 'read')).toMatchObject({ start: at(20), end: at(20, 45) });
+        // Its time passed today without it: fitted in again from now, as long as it was.
+        const late = flowDay([item('read', at(9), 45)], at(11), window);
+        expect(late.timeline[0]).toMatchObject({ start: at(11), end: at(11, 45) });
     });
 
-    it('running over a little pushes what follows later', () => {
-        const flow = flowDay(day, at(8, 38));
-        expect(flow.current).toMatchObject({ id: 'shower', end: at(8, 38) });
-        expect(flow.timeline.find(row => row.id === 'chores')).toMatchObject({ start: at(8, 38), shift: 8 });
-        expect(flow.timeline.find(row => row.id === 'homework')).toMatchObject({ start: at(9, 8) });
-        expect(flow.timeline.find(row => row.id === 'run')).toMatchObject({ start: at(18) });
-    });
-
-    it('something not done in its time is moved to the next free slot, not left behind', () => {
-        // The 9:00 workout never happened; at 10:30 it is fitted in again from now.
-        const items = [item('workout', at(9), 45), item('read', at(14), 30)];
-        const flow = flowDay(items, at(10, 30), { wake: at(7), sleep: at(23) });
-        const workout = flow.timeline.find(row => row.id === 'workout')!;
-        expect(workout).toMatchObject({ start: at(10, 30), moved: true, auto: true, state: 'now' });
-        // Unless you are focusing on it right now.
-        expect(flowDay(items, at(10, 30), { wake: at(7), sleep: at(23), active: 'workout' }).current).toMatchObject({ id: 'workout', start: at(9) });
-    });
-
-    it('something done stays where it was done', () => {
-        const items = [{ ...item('report', null, 60, true), kept: { start: at(10), end: at(10, 20) } }, item('email', null, 30)];
-        const flow = flowDay(items, at(10, 20), { wake: at(7), sleep: at(23) });
-        expect(flow.timeline.find(row => row.id === 'report')).toMatchObject({ start: at(10), end: at(10, 20), state: 'done' });
-        // Finished in 20 minutes instead of an hour: the next one starts now.
-        expect(flow.timeline.find(row => row.id === 'email')).toMatchObject({ start: at(10, 20), state: 'now' });
-    });
-
-    it('just ticked, it ends now in one move: early, or placed where it was really done', () => {
-        const window = { wake: at(7), sleep: at(23) };
-        const early = flowDay([{ ...item('report', null, 60, true), kept: { start: at(10), end: at(11) } }], at(10, 20), window);
-        expect(early.timeline[0]).toMatchObject({ start: at(10), end: at(10, 20) });
-        // Planned for 22:30, done at 17:15: shown as done just now, its 30 minutes ending at 17:15.
-        const ahead = flowDay([{ ...item('workout', null, 30, true), kept: { start: at(22, 30), end: at(23) } }], at(17, 15), window);
-        expect(ahead.timeline[0]).toMatchObject({ start: at(16, 45), end: at(17, 15) });
-    });
-
-    it('holds the slot of something under way, and moves it once it runs out', () => {
-        const kept = { start: at(9), end: at(10) };
-        const items = [{ ...item('essay', null, 60), kept }];
-        expect(flowDay(items, at(9, 30), { wake: at(7), sleep: at(23) }).current).toMatchObject({ id: 'essay', start: at(9), end: at(10) });
-        const later = flowDay(items, at(10, 15), { wake: at(7), sleep: at(23) });
-        expect(later.timeline[0]).toMatchObject({ id: 'essay', start: at(10, 15), moved: true });
+    it('orders flexible ones of the same priority by the times they were given', () => {
+        const flow = flowDay([item('b', at(15), 30), item('a', at(9), 30)], at(8), window);
+        expect(flow.timeline.map(row => row.id)).toEqual(['a', 'b']);
     });
 
     it('gives things with no time a slot in the day, never a separate list', () => {
@@ -130,10 +91,10 @@ describe('meals in the flow', () => {
         const flow = flowDay(items, 700);
         const meal = flow.timeline.find(item => item.id === 'meal:lunch')!;
         expect([meal.start, meal.end, meal.shift]).toEqual([750, 795, 0]);
-        const email = flow.timeline.find(item => item.id === 'email')!;
-        expect(email.start).toBe(795);
-        // Shown in time order: the email after lunch now.
-        expect(flow.timeline.map(item => item.id)).toEqual(['report', 'meal:lunch', 'email']);
+        // Nothing is put on top of lunch.
+        for (const other of flow.timeline.filter(item => item.id !== 'meal:lunch')) {
+            expect(other.end <= 750 || other.start >= 795).toBe(true);
+        }
         // A meal is never what comes next to focus on.
         expect(upNext(flowDay([lunch, items[1]], 700), 'report')?.id).toBe('email');
     });
@@ -198,22 +159,13 @@ describe('filling the day', () => {
 });
 
 describe('waking and bedtime are walls', () => {
-    const window = { wake: 480, sleep: 1410 };
-    it('moves something set too close to bedtime to where it fits', () => {
-        // 23:15 for 30 minutes would end at 23:45, past 23:30.
-        const flow = flowDay([item('late', 1395, 30), item('early', 420, 20)], 600, window);
+    const walls = { wake: 480, sleep: 1410 };
+    it('never places a flexible one before waking or after bedtime', () => {
+        const flow = flowDay([item('late', 1395, 30), item('early', 420, 20)], 600, walls);
         for (const row of flow.timeline) {
             expect(row.start).toBeGreaterThanOrEqual(480);
             expect(row.end).toBeLessThanOrEqual(1410);
         }
-        expect(flow.timeline.find(row => row.id === 'late')).toMatchObject({ moved: true, auto: true });
-    });
-    it('never lets the flow push something past bedtime: it has no room today instead', () => {
-        // Running over at 23:05 pushes the 23:00 reading past 23:30.
-        const items = [item('dishes', 1350, 50), item('read', 1385, 20)];
-        const flow = flowDay(items, 1395, window);
-        expect(flow.timeline.every(row => row.state === 'now' || row.end <= 1410)).toBe(true);
-        expect(flow.unfit.map(row => row.id)).toEqual(['read']);
     });
 });
 
@@ -229,8 +181,8 @@ describe('a day with too little time', () => {
         expect(at('reading').cutFrom).toBeUndefined();
         expect(flow.timeline.every(row => row.end <= 1380)).toBe(true);
     });
-    it('never cuts something at a time you set, nor below ten minutes', () => {
-        const flow = flowDay([job('call', 60, 1320), job('chores', 300)], 1200, { wake: 420, sleep: 1380 });
+    it('never cuts something at an exact time, nor below ten minutes', () => {
+        const flow = flowDay([{ ...job('call', 60, 1320), locked: true }, job('chores', 300)], 1200, { wake: 420, sleep: 1380 });
         expect(flow.timeline.find(row => row.id === 'call')).toMatchObject({ start: 1320, end: 1380 });
         expect(flow.timeline.find(row => row.id === 'call')!.cutFrom).toBeUndefined();
         const chores = flow.timeline.find(row => row.id === 'chores')!;
@@ -252,5 +204,37 @@ describe('hard things first, or in your best hours', () => {
         expect(at('hard')).toBe(1080);
         expect(at('medium')).toBe(480);
         expect(flow.timeline.map(row => row.id)).toEqual(['medium', 'easy', 'hard']);
+    });
+});
+
+describe('tasks before habits', () => {
+    it('places a task ahead of a habit at the same priority, never ahead of a higher one', () => {
+        const window = { wake: 480, sleep: 1380 };
+        const row = (id: string, kind: 'task' | 'habit', urgency: number) => ({ id, kind, title: id, start: null, minutes: 30, done: false, urgency });
+        expect(flowDay([row('walk', 'habit', 30), row('email', 'task', 30)], null, window).timeline.map(item => item.id)).toEqual(['email', 'walk']);
+        expect(flowDay([row('walk', 'habit', 10), row('email', 'task', 30)], null, window).timeline.map(item => item.id)).toEqual(['walk', 'email']);
+    });
+});
+
+describe('exact time or flexible', () => {
+    const window = { wake: 420, sleep: 1380 };
+    it('keeps an exact-time habit where it is, while a flexible one slides with the day', () => {
+        // The 8:00 shower runs over to 8:38; at 8:30 a flexible task follows it, an exact one does not.
+        const shower = { id: 'shower', kind: 'habit' as const, title: 'shower', start: 480, minutes: 30, done: false };
+        const flexible = flowDay([shower, { id: 'call', kind: 'task' as const, title: 'call', start: 510, minutes: 30, done: false }], 518, window);
+        expect(flexible.timeline.find(row => row.id === 'call')!.start).toBe(518);
+        const exact = flowDay([shower, { id: 'call', kind: 'task' as const, title: 'call', start: 510, minutes: 30, done: false, locked: true }], 518, window);
+        expect(exact.timeline.find(row => row.id === 'call')).toMatchObject({ start: 510, end: 540, shift: 0 });
+    });
+    it('never moves an exact-time one when its time passes, and fits nothing on top of it', () => {
+        const items = [
+            { id: 'class', kind: 'task' as const, title: 'class', start: 540, minutes: 60, done: false, locked: true },
+            { id: 'read', kind: 'habit' as const, title: 'read', start: null, minutes: 30, done: false },
+        ];
+        expect(flowDay(items, 700, window).timeline.find(row => row.id === 'class')).toMatchObject({ start: 540, end: 600 });
+        const before = flowDay(items, 520, window);
+        const read = before.timeline.find(row => row.id === 'read')!;
+        expect(read.end <= 540 || read.start >= 600).toBe(true);
+        expect(flowDay(items, 560, window).current?.id).toBe('class');
     });
 });

@@ -45,6 +45,7 @@ import { useMeals, useMealsFlexible } from '@/hooks/useMeals';
 import { useDayMemory } from '@/hooks/useDayMemory';
 import { markSeen, memoryReady, rememberFlow } from '@/lib/dayMemory';
 import { planAlert, schedulePlanAlert } from '@/lib/planAlerts';
+import { setTodayFlow } from '@/lib/scheduledActivities';
 import { burstMarks, habitDone, taskEarned } from '@/lib/marksOrbs';
 import { counts as countsShared } from '@/lib/sharedGate';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
@@ -923,6 +924,8 @@ const CalendarScreen = () => {
         // biggest things short (lib/dayFlow.ts), and a task not done stays open.
         rememberFlow(localDateKey(selectedDate), flow, flowNow);
         void schedulePlanAlert(planAlert(flowItems, flow, flowNow, flowWindow));
+        // The Lock Screen card follows this timeline, the one truth.
+        setTodayFlow(localDateKey(selectedDate), flow);
     }, [flow, flowItems, flowNow, flowWindow, selectedDate]);
     // The strip at the top shows the same day as the timeline: placed things included.
     const stripPlan = useMemo(() => ({
@@ -1111,7 +1114,7 @@ const CalendarScreen = () => {
                                 for their own habits anyway. */}
 
                             {timelineView ? (
-                                <DayTimeline flow={shownFlow} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
+                                <DayTimeline flow={shownFlow} day={localDateKey(selectedDate)} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
                                     onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem} />
                             ) : (<>
                             {/* GOALS SECTION */}

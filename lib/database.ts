@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = 17;
 
 let dbInstance: any = null;
 /**
@@ -128,6 +128,7 @@ async function runMigrations(db: any): Promise<void> {
         [14, migrateToV14],
         [15, migrateToV15],
         [16, migrateToV16],
+        [17, migrateToV17],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -145,6 +146,20 @@ async function runMigrations(db: any): Promise<void> {
             await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
         });
     }
+}
+
+/**
+ * Migration to version 17 — whether a set time may move.
+ *
+ * A habit or task at a time of day is either flexible (the timeline may slide
+ * it with the day, or fit it in again if its time passes) or exact (it stays
+ * at that time, like a meeting). 0 is exact; null or 1 is flexible, which is
+ * how every timed habit and task behaved before. On this phone only.
+ */
+async function migrateToV17(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'habits', 'flexible', 'INTEGER');
+    await addColumnIfMissing(db, 'tasks', 'flexible', 'INTEGER');
+    console.log('[Database] Migrated to schema v17');
 }
 
 /**

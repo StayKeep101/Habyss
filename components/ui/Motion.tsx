@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Text, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
 import { isIntroDone, subscribeIntro } from '@/lib/introGate';
 import Animated, {
-    Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue,
+    Easing, FadeIn, FadeInDown, FadeOut, LinearTransition, ReduceMotion, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue,
     withDelay, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import { Circle, Path, Rect } from 'react-native-svg';
@@ -176,10 +176,20 @@ export const LIST_LAYOUT = LinearTransition.duration(MOTION.duration).easing(MOT
  * fades out when it is removed or finished away, and when its neighbours come
  * and go it slides to its new place instead of jumping there.
  */
-export function ListItem({ children, style, index = 0 }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; index?: number }) {
+export function ListItem({ children, style, index = 0, rise = false }: {
+    children: React.ReactNode; style?: StyleProp<ViewStyle>; index?: number;
+    /**
+     * Rows arrive one after another, each rising a little into place, at an
+     * even beat — for a list read top to bottom in order, like the timeline.
+     */
+    rise?: boolean;
+}) {
+    const delay = Math.min(index, 14) * (rise ? MOTION.stagger * 2 : MOTION.stagger);
     return (
         <Animated.View
-            entering={FadeIn.delay(Math.min(index, 12) * MOTION.stagger).duration(MOTION.duration).reduceMotion(ReduceMotion.System)}
+            entering={rise
+                ? FadeInDown.delay(delay).duration(MOTION.duration).easing(MOTION.easing).reduceMotion(ReduceMotion.System)
+                : FadeIn.delay(delay).duration(MOTION.duration).reduceMotion(ReduceMotion.System)}
             exiting={FadeOut.duration(MOTION.duration / 2).reduceMotion(ReduceMotion.System)}
             layout={LIST_LAYOUT}
             style={style}

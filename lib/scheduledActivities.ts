@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import HabyssLiveActivity from '@/modules/habyss-live-activity';
-import { scheduledMoments, type ScheduledMoment } from './scheduledMoments';
+import type { DayFlow } from './dayFlow';
 import { emit } from './appEvents';
 import { engagementLifecycle } from './engagementLifecycle';
 import { readAccent } from './widgetSync';
@@ -17,36 +17,83 @@ export function scheduledActivitiesCapability(): 'scheduled' | 'foreground' | 'u
     if (Platform.OS !== 'ios' || !HabyssLiveActivity?.reconcileScheduledActivities) return 'unavailable';
     return HabyssLiveActivity.supportsScheduledActivities?.() ? 'scheduled' : 'foreground';
 }
-export function activityPlan(moments: ScheduledMoment[], now: Date, supportsScheduling: boolean) {
-    return moments.filter(moment => moment.end > now && (supportsScheduling || moment.start <= now))
-        .slice(0, 4).map(moment => ({
-            key: moment.key, title: moment.title, start: moment.start.getTime(), end: moment.end.getTime(),
-            url: moment.kind === 'habit' ? `habyss://${moment.url.slice(1)}` : 'habyss://roadmap',
+/**
+ * One Live Activity, from the timeline: what you are on now, or (where iOS
+ * can start a card on its own) the next thing. The timeline is the one truth,
+ * so a habit or task Habyss placed gets its card at the time it was placed,
+ * not at the time it was first planned, and two cards never overlap: iOS does
+ * not end a card by itself when its time is over, so there is only ever one.
+ */
+export interface FlowSlot { key: string; kind: 'habit' | 'task'; id: string; title: string; start: number; end: number; color?: string }
+
+/** The open habits and tasks on today's timeline, as times. */
+export function slotsFromFlow(flow: DayFlow, day: string): FlowSlot[] {
+    const midnight = new Date(`${day}T00:00:00`).getTime();
+    return flow.timeline
+        .filter(item => !item.fixed && !item.done && (item.kind === 'habit' || item.kind === 'task'))
+        .map(item => ({
+            key: `${item.kind}:${item.id}:${day}`, kind: item.kind as 'habit' | 'task', id: item.id, title: item.title,
+            start: midnight + item.start * 60000, end: midnight + item.end * 60000, color: item.color,
         }));
 }
 
+export function activityPlan(slots: FlowSlot[], now: Date, supportsScheduling: boolean) {
+    const at = now.getTime();
+    const slot = slots.find(item => item.start <= at && at < item.end)
+        ?? (supportsScheduling ? slots.filter(item => item.start > at).sort((a, b) => a.start - b.start)[0] : undefined);
+    return slot ? [{
+        key: slot.key, title: slot.title, start: slot.start, end: slot.end,
+        url: slot.kind === 'habit' ? `habyss://habit-detail?habitId=${encodeURIComponent(slot.id)}` : 'habyss://roadmap',
+        color: slot.color,
+    }] : [];
+}
+
+/** The Roadmap's own timeline, the freshest truth, while it is from today. */
+let latest: { day: string; slots: FlowSlot[] } | null = null;
+export function setTodayFlow(day: string, flow: DayFlow) {
+    const slots = slotsFromFlow(flow, day);
+    if (latest?.day === day && JSON.stringify(latest.slots) === JSON.stringify(slots)) return;
+    latest = { day, slots };
+    void refreshScheduledActivities();
+}
+
 let queue: Promise<unknown> = Promise.resolve();
+let lastSent = '';
 export function refreshScheduledActivities() {
     if (engagementLifecycle.paused) return Promise.resolve();
     const next = queue.catch(() => undefined).then(async () => {
         if (scheduledActivitiesCapability() === 'unavailable') return;
-        const { getHabits, getCompletions, getSkipped } = require('./habitsSQLite') as typeof import('./habitsSQLite');
-        const { getTasks } = require('./tasks') as typeof import('./tasks');
         const { localDateKey } = require('./habitSchedule') as typeof import('./habitSchedule');
         const now = new Date();
         const today = localDateKey(now);
-        const [habits, tasks, completed, skipped, enabled, accent] = await Promise.all([
-            getHabits(), getTasks(), getCompletions(today), getSkipped(today), scheduledActivitiesEnabled(), readAccent(),
-        ]);
-        const plan = enabled ? activityPlan(scheduledMoments(habits, tasks, now, completed, skipped), now, scheduledActivitiesCapability() === 'scheduled') : [];
-        const result = await HabyssLiveActivity!.reconcileScheduledActivities!(plan.map(item => ({ ...item,
-            // A habit's own colour, otherwise the app's accent (the gradient's middle, as in the app).
-            accentHex: habits.find(habit => item.key.startsWith(`habit:${habit.id}:`))?.color ?? mixHex(accent.from, accent.to) })));
+        const [enabled, accent, focusing] = await Promise.all([scheduledActivitiesEnabled(), readAccent(), focusCardLive()]);
+        // A focus session has its own card (the timer): then that is the one.
+        let plan: ReturnType<typeof activityPlan> = [];
+        if (enabled && !focusing) {
+            const slots = latest?.day === today ? latest.slots
+                : slotsFromFlow(await (require('./todayFlow') as typeof import('./todayFlow')).todayFlow(now), today);
+            plan = activityPlan(slots, now, scheduledActivitiesCapability() === 'scheduled');
+        }
+        const payload = plan.map(({ color, ...item }) => ({ ...item, accentHex: color ?? mixHex(accent.from, accent.to) }));
+        const signature = JSON.stringify(payload);
+        if (signature === lastSent) return;
+        const result = await HabyssLiveActivity!.reconcileScheduledActivities!(payload);
+        lastSent = signature;
         if (result.failed) console.warn(`[Live Activities] iOS could not schedule ${result.failed} card(s).`);
         return result;
     });
     queue = next;
     return next;
+}
+
+/** Whether the focus timer's card is on the Lock Screen right now. */
+async function focusCardLive(): Promise<boolean> {
+    try {
+        const id = await AsyncStorage.getItem('@habyss_live_activity_id');
+        return !!id && !!HabyssLiveActivity?.listActivities?.().includes(id);
+    } catch {
+        return false;
+    }
 }
 
 export async function waitForScheduledActivitySync() { await queue.catch(() => undefined); }

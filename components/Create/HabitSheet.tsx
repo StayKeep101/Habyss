@@ -73,7 +73,14 @@ interface Draft {
     priority?: 1 | 2 | 3;
     /** How hard it is: hard ones get your best hours. */
     difficulty?: Difficulty;
+    /** At its time: false keeps it exactly there; otherwise the timeline may move it. */
+    flexible?: boolean;
 }
+
+const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
+    { id: 'flexible', label: 'Flexible' },
+    { id: 'exact', label: 'Exact time' },
+];
 
 const PRIORITIES: { id: 1 | 2 | 3; label: string }[] = [
     { id: 1, label: 'High' },
@@ -87,6 +94,7 @@ const fromHabit = (from: Habit): Draft => ({
     name: from.name,
     priority: from.priority,
     difficulty: from.difficulty,
+    flexible: from.flexible,
     days: from.taskDays?.length ? from.taskDays : EVERY_DAY,
     startTime: from.startTime,
     durationMinutes: from.durationMinutes,
@@ -283,6 +291,8 @@ export const HabitSheet: React.FC<{
                 reminderMessage: draft.reminderMessage?.trim() || undefined,
                 priority: draft.priority ?? 2,
                 difficulty: draft.difficulty,
+                // Only means something with a time of day.
+                flexible: draft.startTime ? draft.flexible !== false : undefined,
                 locationReminders: draft.places,
                 // Dropped when the unit no longer measures what Health does, so
                 // an edit cannot leave a step count answering for pages.
@@ -328,15 +338,29 @@ export const HabitSheet: React.FC<{
         {
             id: 'time', icon: 'time-outline', label: 'Time',
             value: draft.startTime
-                ? (draft.durationMinutes ? `${draft.startTime} → ${endTime(draft.startTime, draft.durationMinutes)}` : draft.startTime)
+                ? `${draft.durationMinutes ? `${draft.startTime} → ${endTime(draft.startTime, draft.durationMinutes)}` : draft.startTime}${draft.flexible === false ? ' · exact' : ''}`
                 : undefined,
             content: (
-                <TimeRange
-                    start={draft.startTime}
-                    minutes={draft.durationMinutes}
-                    accent={accent}
-                    onChange={next => change({ startTime: next.start, durationMinutes: next.minutes })}
-                />
+                <>
+                    <TimeRange
+                        start={draft.startTime}
+                        minutes={draft.durationMinutes}
+                        accent={accent}
+                        onChange={next => change({ startTime: next.start, durationMinutes: next.minutes })}
+                    />
+                    {/* Only with a time of day: may the timeline move it? */}
+                    {draft.startTime ? (
+                        <>
+                            <Choices options={TIMING} value={draft.flexible === false ? 'exact' : 'flexible'} accent={accent}
+                                onChange={id => change({ flexible: id !== 'exact' })} />
+                            <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                                {draft.flexible === false
+                                    ? 'Stays at this time, whatever else runs over. Nothing is put on top of it.'
+                                    : 'Does not have to start at this time: fitted into your day by priority, keeping its length unless the day runs short.'}
+                            </Text>
+                        </>
+                    ) : null}
+                </>
             ),
         },
         {

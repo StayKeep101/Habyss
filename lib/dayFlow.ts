@@ -51,8 +51,16 @@ export interface FlowInput {
     kept?: { start: number; end: number };
     /** A meal that may wait when the day is full (Settings → Timeline); otherwise as fixed as any. */
     flex?: boolean;
+    /**
+     * A habit or task at an exact time (not flexible): it stays at that time
+     * whatever else runs over or finishes early, and nothing is put on top of
+     * it — but unlike a meal it can be ticked and focused on.
+     */
+    locked?: boolean;
     /** Habyss found it a slot (it had no time, or its time passed). */
     auto?: boolean;
+    /** The time a flexible one was given: it orders it among equals, never pins it. */
+    preferred?: number;
     /** Its time passed without it being done, so it was fitted in again. */
     moved?: boolean;
 }
@@ -172,7 +180,7 @@ function layOut(items: FlowInput[], now: number | null, window: DayWindowMinutes
     for (let pass = 0; pass < 3; pass++) {
         const flow = layOutOnce(items, now, window, outside);
         // Something the flow pushed past bedtime (not the one you are on) is fitted again.
-        const over = flow.timeline.filter(item => !item.fixed && !item.done && item.state !== 'now' && !outside.has(item.id) && !inside(item.start, item.end - item.start));
+        const over = flow.timeline.filter(item => !item.fixed && !item.locked && !item.done && item.state !== 'now' && !outside.has(item.id) && !inside(item.start, item.end - item.start));
         if (!over.length) return flow;
         outside = new Set([...outside, ...over.map(item => item.id)]);
     }
@@ -198,19 +206,21 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
             else untimed.push(item);
             continue;
         }
-        if (outside.has(item.id)) { untimed.push({ ...item, start: null, auto: true, moved: item.moved || item.start !== null }); continue; }
-        if (now === null) { (item.start !== null ? timed : untimed).push(item); continue; }
-        const length = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
+        // Exact time: it stays there, missed or not.
+        if (item.locked && item.start !== null) { timed.push(item); continue; }
+        // Flexible (everything not at an exact time): it does not have to start
+        // at its time. It is fitted in by priority, its length kept unless the
+        // day is too short; a time it was given only orders it among equals
+        // (and places it on a day that is not today, when that time is free).
+        const floating: FlowInput = { ...item, start: null, auto: true, preferred: item.start ?? undefined };
+        if (now === null || outside.has(item.id)) { untimed.push(floating); continue; }
         const missed = (end: number) => now >= end + GRACE && item.id !== window.active;
-        // Its own time, not yet past: it keeps it (the flow may still move it up or back).
-        if (item.start !== null && !missed(item.start + length)) { timed.push(item); continue; }
-        // A slot Habyss gave it earlier: held while under way, given up once it runs out.
-        if (kept && kept.start <= now) {
-            if (!missed(kept.end)) { timed.push({ ...item, start: kept.start, minutes: kept.end - kept.start, auto: true, moved: item.moved || item.start !== null }); continue; }
-            untimed.push({ ...item, start: null, auto: true, moved: true });
+        // A slot it was given earlier: held while under way, given up once it runs out.
+        if (kept && kept.start <= now && !missed(kept.end)) {
+            timed.push({ ...item, start: kept.start, minutes: kept.end - kept.start, auto: true });
             continue;
         }
-        untimed.push({ ...item, start: null, auto: true, moved: item.start !== null || item.moved });
+        untimed.push({ ...floating, moved: !!kept && kept.start <= now });
     }
     const placed = flowTimed(timed, now);
     if (!untimed.length) return placed;
@@ -230,11 +240,14 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
         return null;
     };
     const roundUp = (minutes: number) => Math.ceil(minutes / 5) * 5;
-    // Priority first; within it the hardest first, so the hard part is done
+    // Priority first; within it tasks before habits, then the hardest first, so the hard part is done
     // while there is the most in the tank and the easy things close the day.
     const level = (item: FlowInput) => Math.floor(((item.urgency ?? 30) + 10) / 20);
-    const order = (a: FlowInput, b: FlowInput) => level(a) - level(b) || (b.difficulty ?? 2) - (a.difficulty ?? 2)
-        || (a.urgency ?? 50) - (b.urgency ?? 50) || b.minutes - a.minutes || a.title.localeCompare(b.title);
+    // At the same priority a task goes before a habit: a task is a thing that
+    // has to get done; a habit comes round again.
+    const kindRank = (item: FlowInput) => (item.kind === 'task' ? 0 : 1);
+    const order = (a: FlowInput, b: FlowInput) => level(a) - level(b) || kindRank(a) - kindRank(b) || (b.difficulty ?? 2) - (a.difficulty ?? 2)
+        || (a.urgency ?? 50) - (b.urgency ?? 50) || (a.preferred ?? 1440) - (b.preferred ?? 1440) || b.minutes - a.minutes || a.title.localeCompare(b.title);
     const peak = window.peak ?? null;
     const timeline = [...flow.timeline];
     const unfit: FlowInput[] = [];
@@ -245,7 +258,9 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
             const minutes = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
             // Hard: into your best hours when they are known and still ahead.
             const inPeak = item.difficulty === 3 && peak && peak.end > from ? slotFor(Math.max(from, peak.start), minutes) : null;
-            const found = inPeak !== null && peak && inPeak < peak.end ? inPeak : slotFor(from, minutes);
+            // Another day: a flexible one sits at the time it was given, if free.
+            const atPreferred = now === null && item.preferred !== undefined && item.preferred >= from ? slotFor(item.preferred, minutes) : null;
+            const found = atPreferred ?? (inPeak !== null && peak && inPeak < peak.end ? inPeak : slotFor(from, minutes));
             // Bedtime never gives: what does not fit is listed, not squeezed in.
             if (found === null && !item.done) { unfit.push(item); continue; }
             const start = found ?? window.wake;
@@ -265,7 +280,9 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
         const first = timeline.find(item => !item.done && !item.fixed && item.state !== 'done');
         if (first && first.auto && first.start <= now + EARLY) {
             const index = timeline.indexOf(first);
-            current = { ...first, start: Math.min(first.start, now), state: 'now' };
+            // Starting now rather than in a few minutes: the whole slot moves, its length kept.
+            const early = first.start - Math.min(first.start, now);
+            current = { ...first, start: first.start - early, end: first.end - early, state: 'now' };
             timeline[index] = current;
         }
     }
@@ -296,7 +313,7 @@ function flowTimed(items: FlowInput[], now: number | null): DayFlow {
     let previous: { start: number; end: number; done: boolean } | null = null;
 
     // Meals and anything else fixed: nothing placed may overlap one.
-    const fixed = timed.filter(item => item.fixed).map(item => ({ start: item.plannedStart, end: item.plannedStart + item.minutes }));
+    const fixed = timed.filter(item => item.fixed || (item.locked && !item.done)).map(item => ({ start: item.plannedStart, end: item.plannedStart + item.minutes }));
     const clear = (start: number, minutes: number) => {
         let at = start;
         for (let moved = true; moved;) {
@@ -322,6 +339,16 @@ function flowTimed(items: FlowInput[], now: number | null): DayFlow {
         if (item.done) {
             timeline.push({ ...item, start: item.plannedStart, end: plannedEnd, shift: 0, state: 'done' });
             previous = { start: item.plannedStart, end: plannedEnd, done: true };
+            continue;
+        }
+        if (item.locked) {
+            // At its exact time: on while it lasts, never moved.
+            const on = now !== null && now >= item.plannedStart && now < plannedEnd;
+            const placedItem: FlowItem = { ...item, start: item.plannedStart, end: plannedEnd, shift: 0, state: on ? 'now' : 'later' };
+            timeline.push(placedItem);
+            if (on && !current) current = placedItem;
+            if (cursor !== null) cursor = Math.max(cursor, plannedEnd);
+            previous = { start: item.plannedStart, end: plannedEnd, done: false };
             continue;
         }
         let start = item.plannedStart;
@@ -394,7 +421,7 @@ export function flowInputs(input: {
     }
     for (const habit of input.habits) {
         items.push({
-            id: habit.id, kind: 'habit', title: habit.name, start: toMinutes(habit.startTime),
+            id: habit.id, kind: 'habit', title: habit.name, start: toMinutes(habit.startTime), locked: !!habit.startTime && habit.flexible === false,
             minutes: habitMinutes(habit), done: !!input.done[habit.id], icon: habit.icon, color: habit.color, repeats: true,
             urgency: urgencyOf(habit.priority, undefined, input.today), difficulty: habit.difficulty,
         });
@@ -402,7 +429,7 @@ export function flowInputs(input: {
     for (const task of input.tasks) {
         if (task.status === 'cancelled') continue;
         const minutes = task.measure === 'time' && task.target ? task.target : Number(task.estimatedMinutes) || 0;
-        items.push({ id: task.id, kind: 'task', title: task.title, start: toMinutes(task.dueTime), minutes, done: task.status === 'done',
+        items.push({ id: task.id, kind: 'task', title: task.title, start: toMinutes(task.dueTime), minutes, done: task.status === 'done', locked: !!task.dueTime && task.flexible === false,
             urgency: urgencyOf(task.priority, task.dueDate, input.today, task.deadline), difficulty: task.difficulty });
     }
     if (input.kept) for (const item of items) if (input.kept[item.id] && item.kind !== 'meal' && item.kind !== 'event') item.kept = input.kept[item.id];
