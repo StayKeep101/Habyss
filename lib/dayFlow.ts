@@ -240,13 +240,13 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
         return null;
     };
     const roundUp = (minutes: number) => Math.ceil(minutes / 5) * 5;
-    // Priority first; within it tasks before habits, then the hardest first, so the hard part is done
+    // Tasks first, then priority; within it the hardest first, so the hard part is done
     // while there is the most in the tank and the easy things close the day.
     const level = (item: FlowInput) => Math.floor(((item.urgency ?? 30) + 10) / 20);
-    // At the same priority a task goes before a habit: a task is a thing that
-    // has to get done; a habit comes round again.
+    // Tasks before habits, whatever their priority: a task is a thing that has
+    // to get done; a habit comes round again. Then priority within each.
     const kindRank = (item: FlowInput) => (item.kind === 'task' ? 0 : 1);
-    const order = (a: FlowInput, b: FlowInput) => level(a) - level(b) || kindRank(a) - kindRank(b) || (b.difficulty ?? 2) - (a.difficulty ?? 2)
+    const order = (a: FlowInput, b: FlowInput) => kindRank(a) - kindRank(b) || level(a) - level(b) || (b.difficulty ?? 2) - (a.difficulty ?? 2)
         || (a.urgency ?? 50) - (b.urgency ?? 50) || (a.preferred ?? 1440) - (b.preferred ?? 1440) || b.minutes - a.minutes || a.title.localeCompare(b.title);
     const peak = window.peak ?? null;
     const timeline = [...flow.timeline];

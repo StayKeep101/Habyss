@@ -208,11 +208,11 @@ describe('hard things first, or in your best hours', () => {
 });
 
 describe('tasks before habits', () => {
-    it('places a task ahead of a habit at the same priority, never ahead of a higher one', () => {
+    it('places tasks ahead of habits, whatever their priority', () => {
         const window = { wake: 480, sleep: 1380 };
         const row = (id: string, kind: 'task' | 'habit', urgency: number) => ({ id, kind, title: id, start: null, minutes: 30, done: false, urgency });
         expect(flowDay([row('walk', 'habit', 30), row('email', 'task', 30)], null, window).timeline.map(item => item.id)).toEqual(['email', 'walk']);
-        expect(flowDay([row('walk', 'habit', 10), row('email', 'task', 30)], null, window).timeline.map(item => item.id)).toEqual(['walk', 'email']);
+        expect(flowDay([row('walk', 'habit', 10), row('email', 'task', 50)], null, window).timeline.map(item => item.id)).toEqual(['email', 'walk']);
     });
 });
 
