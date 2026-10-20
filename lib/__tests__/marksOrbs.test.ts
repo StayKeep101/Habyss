@@ -1,4 +1,4 @@
-import { MAX_ORBS, burstMarks, habitDone, measureMarksTarget, noteTouch, onMarksBurst, orbCount, registerMarksTarget, resetMarksOrbs } from '../marksOrbs';
+import { MAX_ORBS, burstMarks, habitDone, marksRange, measureMarksTarget, noteMarksTotal, noteTouch, onMarksBurst, orbCount, registerMarksTarget, resetMarksOrbs } from '../marksOrbs';
 import { MARKS } from '../marks';
 
 beforeEach(() => resetMarksOrbs());
@@ -35,5 +35,20 @@ describe('Marks orbs', () => {
         off();
         measureMarksTarget(point => found.push(point));
         expect(found).toEqual([{ x: 10, y: 20 }, null]);
+    });
+
+    it('counts the real total up by what was earned, whichever comes first', () => {
+        // Nothing known yet: no total to show.
+        expect(marksRange(10, 0)).toBeNull();
+        noteMarksTotal(100, 0);
+        // The data has not caught up yet: up from what it shows.
+        expect(marksRange(10, 10_000)).toEqual({ from: 100, to: 110 });
+        // Two in a row add up, and the data catching up later changes nothing.
+        expect(marksRange(5, 10_100)).toEqual({ from: 110, to: 115 });
+        noteMarksTotal(115, 10_200);
+        // The data updated a moment before the orbs left: not counted twice.
+        noteMarksTotal(125, 20_000);
+        expect(marksRange(10, 20_300)).toEqual({ from: 115, to: 125 });
+        expect(marksRange(10, 20_400)).toEqual({ from: 125, to: 135 });
     });
 });

@@ -13,6 +13,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useEchoCoach } from '@/hooks/useEchoCoach';
+import { useEchoPatterns } from '@/hooks/useEchoPatterns';
+import { PatternList } from '@/components/Echo/PatternList';
 import { useWeekStart } from '@/hooks/useWeekStart';
 import { buildWeeklyReview, type HabitWeek } from '@/lib/weeklyReview';
 import { weekKey } from '@/lib/weekStart';
@@ -30,6 +32,7 @@ export default function WeekReview() {
     const { primary } = useAccentGradient();
     const { selectionFeedback } = useHaptics();
     const coach = useEchoCoach();
+    const patterns = useEchoPatterns();
     const weekStart = useWeekStart();
     const [which, setWhich] = useState<'this' | 'last'>('this');
 
@@ -112,6 +115,8 @@ export default function WeekReview() {
                         </VoidCard>
                     </>
                 ) : null}
+
+                <PatternList patterns={patterns} title="Echo found" limit={4} />
 
                 {review.tryNext.length ? (
                     <>

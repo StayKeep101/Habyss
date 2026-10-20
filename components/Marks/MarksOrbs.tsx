@@ -5,14 +5,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MatteSurface } from '@/components/ui/MatteSurface';
-import { AppIcon } from '@/components/ui/AppIcon';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { on } from '@/lib/appEvents';
 import { counts } from '@/lib/sharedGate';
 import { localDateKey } from '@/lib/habitSchedule';
 import {
-    burstMarks, goalDone, habitDone, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskDone, type Burst, type Point,
+    burstMarks, goalDone, habitDone, marksRange, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskDone, type Burst, type Point,
 } from '@/lib/marksOrbs';
 import { s, vs } from '@/theme/scale';
 
@@ -22,7 +21,7 @@ const FLIGHT = 750;
 const STAGGER = 45;
 const PILL_HEIGHT = vs(34);
 
-interface Flight extends Burst { to: Point; pill: boolean }
+interface Flight extends Burst { to: Point; pill: boolean; range: { from: number; to: number } | null }
 
 /**
  * Orbs of light flying to your Marks.
@@ -31,7 +30,9 @@ interface Flight extends Burst { to: Point; pill: boolean }
  * a goal a swarm (one per Mark, capped): they burst out of where you tapped,
  * scatter, then curve into the Marks counter one after another, each landing
  * with a tick. Where no counter is on screen (Roadmap), a small Marks pill
- * drops in at the top to catch them and counts them in, then leaves.
+ * drops in at the top showing your total, counts it up as they land, then
+ * leaves. Where the counter is on the screen but scrolled out of sight
+ * (Home, further down), they still fly to it, off the top edge.
  */
 export function MarksOrbs() {
     const { width, height } = useWindowDimensions();
@@ -56,11 +57,14 @@ export function MarksOrbs() {
 
     useEffect(() => onMarksBurst(burst => {
         measureMarksTarget(found => {
-            // A counter scrolled out of sight is no place to land.
-            const point = found && found.y > insets.top && found.y < height ? found : null;
-            const pill = !point;
-            const to = point ?? { x: width / 2, y: insets.top + PILL_HEIGHT / 2 + vs(6) };
-            setFlights(current => [...current, { ...burst, to, pill }]);
+            // The counter is on this screen: always to it. Scrolled out of
+            // sight, they fly up past the top edge where it is.
+            const to = found ? { x: found.x, y: Math.min(height, Math.max(found.y, insets.top - ORB)) } : null;
+            const pill = !to;
+            setFlights(current => [...current, {
+                ...burst, pill, to: to ?? { x: width / 2, y: insets.top + PILL_HEIGHT / 2 + vs(6) },
+                range: pill ? marksRange(burst.marks) : null,
+            }]);
         });
     }), [width, height, insets.top]);
 
@@ -70,7 +74,7 @@ export function MarksOrbs() {
     return (
         <>
             {flights.map(flight => <Swarm key={flight.id} flight={flight} onDone={finish} />)}
-            {pill ? <CatchPill key={pill.id} marks={pill.marks} count={pill.count} top={insets.top + vs(6)} /> : null}
+            {pill ? <CatchPill key={pill.id} marks={pill.marks} count={pill.count} range={pill.range} top={insets.top + vs(6)} /> : null}
         </>
     );
 }
@@ -137,8 +141,11 @@ function Orb({ index, count, from, to }: { index: number; count: number; from: P
     );
 }
 
-/** Where no Marks counter is on screen: a pill drops in, counts the orbs in, and leaves. */
-function CatchPill({ marks, count, top }: { marks: number; count: number; top: number }) {
+/**
+ * Where no Marks counter is on screen: a pill drops in with your total,
+ * counts it up by what was just earned as the orbs land, and leaves.
+ */
+function CatchPill({ marks, count, range, top }: { marks: number; count: number; range: { from: number; to: number } | null; top: number }) {
     const t = useTokens();
     const [caught, setCaught] = useState(0);
     const bump = useSharedValue(1);
@@ -149,14 +156,20 @@ function CatchPill({ marks, count, top }: { marks: number; count: number; top: n
         });
     }, [count, bump]);
     const style = useAnimatedStyle(() => ({ transform: [{ scale: bump.value }] }));
-    // The orbs are capped; the number shown is the Marks actually earned.
-    const shown = caught >= count ? marks : Math.round((caught / count) * marks);
+    // The orbs are capped; the number reached is the Marks actually earned.
+    const added = caught >= count ? marks : Math.round((caught / count) * marks);
     return (
         <Animated.View pointerEvents="none" entering={FadeIn.duration(200)} exiting={FadeOut.duration(300)} style={[styles.pillWrap, { top }]}>
             <Animated.View style={style}>
                 <MatteSurface radius={t.radius.full} level="control" elevation="floating" style={styles.pill}>
-                    <AppIcon name="diamond" filled size={14} color={t.color.accent} />
-                    <Text style={[t.type.heading, { color: t.color.textPrimary }]}>+{shown}</Text>
+                    {range ? (
+                        <>
+                            <Text style={[t.type.heading, styles.figure, { color: t.color.textPrimary }]}>{(range.from + added).toLocaleString()}</Text>
+                            <Text style={[t.type.caption, { color: t.color.textMuted }]}>Marks</Text>
+                        </>
+                    ) : (
+                        <Text style={[t.type.heading, styles.figure, { color: t.color.textPrimary }]}>+{added} Marks</Text>
+                    )}
                 </MatteSurface>
             </Animated.View>
         </Animated.View>
@@ -172,4 +185,5 @@ const styles = StyleSheet.create({
     core: { width: ORB / 3, height: ORB / 3, borderRadius: ORB / 6, opacity: 0.8 },
     pillWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
     pill: { flexDirection: 'row', alignItems: 'center', gap: s(6), height: PILL_HEIGHT, paddingHorizontal: s(14) },
+    figure: { fontVariant: ['tabular-nums'] },
 });

@@ -12,7 +12,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { Marks } from '@/hooks/useMarks';
 import type { GoalPoint } from '@/lib/goalInsights';
-import { onOrbLanded, registerMarksTarget } from '@/lib/marksOrbs';
+import { noteMarksTotal, onOrbLanded, registerMarksTarget } from '@/lib/marksOrbs';
 
 /**
  * Your Marks and rank, beside your picture, said plainly.
@@ -37,6 +37,8 @@ export const MarksBar: React.FC<{ marks: Marks; onPress: () => void }> = ({ mark
         if (!node) { done(null); return; }
         node.measureInWindow((x, y, width, height) => done(width ? { x: x + width / 2, y: y + height / 2 } : null));
     }), []));
+    // The total, for the pill that counts orbs in on screens without this bar.
+    useEffect(() => { noteMarksTotal(marks.total); }, [marks.total]);
     const bump = useSharedValue(1);
     useEffect(() => onOrbLanded(() => {
         bump.value = withSequence(withTiming(1.08, { duration: 60 }), withTiming(1, { duration: 140 }));

@@ -33,6 +33,8 @@ export interface EchoStats {
     nextHabit?: string;
     goalsCount: number;
     overallProgress: number;
+    /** What Echo found in their record (lib/echoPatterns.ts), strongest first. True, so the model may cite them. */
+    patterns?: string[];
 }
 
 type Kind = 'fact' | 'yours' | 'quote' | 'push' | 'roast';
@@ -270,6 +272,8 @@ export async function nextEchoLine(personality: PersonalityModeId, stats: EchoSt
             `Active on ${stats.weekConsistency}% of the last 7 days`,
             stats.nextHabit ? `Not logged yet: ${stats.nextHabit}` : null,
             stats.goalsCount ? `Goals: ${stats.overallProgress}% done overall` : null,
+            // Two at most: a small model given more stops reading.
+            stats.patterns?.length ? `Found in their own record: ${stats.patterns.slice(0, 2).join(' ')}` : null,
         ].filter(Boolean).join('. ');
         line = await askForLine(
             `You are Echo, the voice of a habit tracker, talking TO the user. Write ONE sentence, at most 18 words. Tone: ${STYLE[personality] ?? STYLE.normal}. `
@@ -303,6 +307,8 @@ export interface CheckInFacts {
     focusTarget?: number;
     /** How many of them are already finished. */
     focusDone?: number;
+    /** Something Echo found in their record, said after the plan in the morning. */
+    insight?: string;
 }
 
 /**
@@ -312,6 +318,17 @@ export interface CheckInFacts {
  * rather than any claim about what the person did or did not do.
  */
 export function checkInLine(
+    kind: 'morning' | 'evening',
+    personality: PersonalityModeId,
+    facts: CheckInFacts,
+): { title: string; body: string } {
+    const line = planLine(kind, personality, facts);
+    // The morning one also brings something from their record: the day's plan
+    // with one thing that is true about how they work.
+    return kind === 'morning' && facts.insight ? { ...line, body: `${line.body} ${facts.insight}` } : line;
+}
+
+function planLine(
     kind: 'morning' | 'evening',
     personality: PersonalityModeId,
     facts: CheckInFacts,

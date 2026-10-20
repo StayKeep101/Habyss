@@ -12,6 +12,8 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useEchoMemory } from '@/hooks/useEchoMemory';
+import { useEchoPatterns } from '@/hooks/useEchoPatterns';
+import { PatternList } from '@/components/Echo/PatternList';
 import { addNote, forgetAll, helpRanking, removeNote, updateNote, type MemoryNote } from '@/lib/echoMemory';
 import { CRISIS_MESSAGE, soundsLikeCrisis } from '@/lib/echoSafety';
 import { styles } from '@/styles/screens/echo-memory.styles';
@@ -32,6 +34,7 @@ export default function EchoMemoryScreen() {
     const colors = Colors[theme];
     const { selectionFeedback, lightFeedback } = useHaptics();
     const memory = useEchoMemory();
+    const patterns = useEchoPatterns();
     const [draft, setDraft] = useState('');
     const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
     const [crisis, setCrisis] = useState(false);
@@ -94,6 +97,10 @@ export default function EchoMemoryScreen() {
                 <MatteInput value={draft} onChangeText={setDraft} placeholder="Tell Echo something useful, like “I focus best before noon”"
                     placeholderTextColor={colors.textTertiary} returnKeyType="done" onSubmitEditing={add}
                     style={[styles.field, { color: colors.textPrimary }]} accessibilityLabel="Tell Echo something" />
+
+                {/* Found in the record itself: sleep, energy, mood, focus, timing. */}
+                <PatternList patterns={patterns} limit={10}
+                    empty="Echo is still learning you. Patterns show here once there are a few weeks of habits, sleep, check-ins and focus to compare." />
 
                 {told.length ? <SectionTitle>You told Echo</SectionTitle> : null}
                 {told.map(row)}

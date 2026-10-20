@@ -9,6 +9,7 @@ import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
+import { textOn } from '@/theme/tokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { Thought } from '@/lib/brainDump';
 
@@ -20,14 +21,23 @@ const timeOf = (iso: string) => {
         : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 };
 
+/** Moved less than this after the hold, letting go opens the menu instead of moving it. */
+const STILL = 10;
+
 /**
- * One thought: just its words. Swipe left to delete it, swipe right to turn
- * it into a task, habit or goal, tap to reword it, hold and drag to move it.
+ * One thought: just its words. Swipe left to delete it, tap to reword it.
+ * Hold it and let go to turn it into a task, habit or goal (the only way
+ * to); hold and drag to move it. While selecting, a tap ticks it instead.
  */
-export function ThoughtRow({ thought, onDelete, onTurnInto, onEdit, onEditingChange, onLayout, onDragStart, onDragMove, onDragEnd }: {
+export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onDelete, onEdit, onEditingChange, onLayout, onDragStart, onDragMove, onDragEnd }: {
     thought: Thought;
+    /** Choosing several thoughts: a tap ticks this one. */
+    selecting: boolean;
+    selected: boolean;
+    onToggle: () => void;
+    /** Held and let go without moving: the menu for turning it into something. */
+    onHold: () => void;
     onDelete: () => void;
-    onTurnInto: (kind: 'task' | 'habit' | 'goal') => void;
     onEdit: (text: string) => void;
     /** Rewording in place starts or ends, so the page can hide its own field. */
     onEditingChange?: (editing: boolean) => void;
@@ -42,17 +52,25 @@ export function ThoughtRow({ thought, onDelete, onTurnInto, onEdit, onEditingCha
     const { selectionFeedback, mediumFeedback } = useHaptics();
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(thought.text);
-    const [choosing, setChoosing] = useState(false);
 
     // Hold, then drag: the row lifts and follows the finger.
     const lift = useSharedValue(0);
     const dragY = useSharedValue(0);
+    // Whether this hold turned into a drag; if not, letting go opens the menu.
+    const moved = useSharedValue(false);
     const drag = Gesture.Pan()
         .activateAfterLongPress(280)
-        .onStart(() => { lift.value = withSpring(1); runOnJS(mediumFeedback)(); runOnJS(onDragStart)(); })
+        .onStart(() => { moved.value = true; lift.value = withSpring(1); runOnJS(onDragStart)(); })
         .onUpdate(event => { dragY.value = event.translationY; runOnJS(onDragMove)(event.translationY); })
         .onEnd(event => { runOnJS(onDragEnd)(event.translationY); })
         .onFinalize(() => { dragY.value = 0; lift.value = withSpring(0); });
+    const hold = Gesture.LongPress()
+        .minDuration(280)
+        .maxDistance(STILL)
+        .onBegin(() => { moved.value = false; })
+        .onStart(() => { runOnJS(mediumFeedback)(); })
+        .onEnd((_event, success) => { if (success && !moved.value) runOnJS(onHold)(); });
+    const gesture = Gesture.Simultaneous(drag, hold);
     const lifted = useAnimatedStyle(() => ({
         transform: [{ translateY: dragY.value }, { scale: 1 + lift.value * 0.02 }],
         zIndex: lift.value > 0 ? 10 : 0,
@@ -68,13 +86,17 @@ export function ThoughtRow({ thought, onDelete, onTurnInto, onEdit, onEditingCha
     return (
         <Animated.View layout={LinearTransition.duration(200)} entering={FadeIn.duration(180)} exiting={FadeOut.duration(150)}
             onLayout={onLayout} style={[styles.shadow, lifted]}>
-            <GestureDetector gesture={drag}>
+            <GestureDetector gesture={gesture}>
                 <View>
-                    <SwipeRow
-                        left={{ icon: 'arrow-redo', label: 'Turn into', color: primary, onPress: () => { selectionFeedback(); setChoosing(value => !value); } }}
-                        right={[{ icon: 'trash', label: 'Delete', color: colors.error, onPress: onDelete, destructive: true }]}
-                    >
+                    <SwipeRow right={selecting ? undefined : [{ icon: 'trash', label: 'Delete', color: colors.error, onPress: onDelete, destructive: true }]}>
                         <View style={[styles.row, { backgroundColor: colors.background }]}>
+                            {selecting ? (
+                                <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(120)}>
+                                    <View style={[styles.tick, { borderColor: selected ? primary : colors.textTertiary, backgroundColor: selected ? primary : undefined }]}>
+                                        {selected ? <AppIcon name="checkmark" size={14} color={textOn(primary)} /> : null}
+                                    </View>
+                                </Animated.View>
+                            ) : null}
                             {editing ? (
                                 <MatteInput
                                     bare
@@ -90,8 +112,18 @@ export function ThoughtRow({ thought, onDelete, onTurnInto, onEdit, onEditingCha
                                     accessibilityLabel="Edit thought"
                                 />
                             ) : (
-                                <Pressable onPress={() => { setDraft(thought.text); setEditing(true); onEditingChange?.(true); }} style={styles.flex}
-                                    accessibilityHint="Swipe left to delete, right to turn it into something, hold to move">
+                                <Pressable
+                                    onPress={() => {
+                                        if (selecting) { selectionFeedback(); onToggle(); return; }
+                                        setDraft(thought.text); setEditing(true); onEditingChange?.(true);
+                                    }}
+                                    // Held, the menu opens instead: never a reword as well.
+                                    onLongPress={() => undefined}
+                                    delayLongPress={280}
+                                    style={styles.flex}
+                                    accessibilityRole={selecting ? 'checkbox' : undefined}
+                                    accessibilityState={selecting ? { checked: selected } : undefined}
+                                    accessibilityHint={selecting ? 'Tap to select. Hold to turn the selected thoughts into something' : 'Hold to turn it into a task, habit or goal, or hold and drag to move. Swipe left to delete'}>
                                     <Text style={[styles.text, { color: colors.textPrimary }]}>{thought.text}</Text>
                                 </Pressable>
                             )}
@@ -100,17 +132,6 @@ export function ThoughtRow({ thought, onDelete, onTurnInto, onEdit, onEditingCha
                     </SwipeRow>
                 </View>
             </GestureDetector>
-            {choosing ? (
-                <Animated.View entering={FadeIn.duration(150)} style={styles.choices}>
-                    {([['task', 'checkbox-outline', 'Task'], ['habit', 'repeat', 'Habit'], ['goal', 'flag-outline', 'Goal']] as const).map(([kind, icon, label]) => (
-                        <Pressable key={kind} onPress={() => { selectionFeedback(); setChoosing(false); onTurnInto(kind); }}
-                            style={[styles.choice, { borderColor: colors.border }]} accessibilityRole="button" accessibilityLabel={`Turn into a ${label.toLowerCase()}`}>
-                            <AppIcon name={icon} size={14} color={primary} />
-                            <Text style={[styles.choiceText, { color: colors.textPrimary }]}>{label}</Text>
-                        </Pressable>
-                    ))}
-                </Animated.View>
-            ) : null}
         </Animated.View>
     );
 }
@@ -122,7 +143,5 @@ const styles = StyleSheet.create({
     text: { flex: 1, fontFamily: FontFamily.regular, fontSize: 17, lineHeight: 24 },
     input: { padding: 0 },
     time: { fontFamily: FontFamily.regular, fontSize: 11, paddingTop: 4 },
-    choices: { flexDirection: 'row', gap: Spacing.sm, paddingBottom: Spacing.md },
-    choice: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs + 2, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs + 2, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth },
-    choiceText: { fontFamily: FontFamily.medium, fontSize: 13 },
+    tick: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
 });

@@ -47,6 +47,16 @@ const COMMIT_MIN = 130;
 export const commitDistance = (rowWidth: number): number =>
     Math.max(COMMIT_MIN, rowWidth * COMMIT_RATIO);
 
+/**
+ * The one row pulled open right now, anywhere in the app: starting to pull
+ * another closes it, so only one row is ever open at a time.
+ */
+let openRow: SwipeableMethods | null = null;
+const claimOpen = (next: SwipeableMethods | null) => {
+    if (openRow && openRow !== next) openRow.close();
+    openRow = next;
+};
+
 /** Circles sit inside the row, never taller than it. */
 // Always a little shorter than the row, so a slim one-line row never clips
 // its circles at the top and bottom.
@@ -58,7 +68,8 @@ const sizeFor = (rowHeight: number) =>
  *
  * Each action is a circle that grows out of nothing as you pull: from a
  * point to its full size, round the whole way, nothing squeezed or stretched.
- * One implementation for habits and tasks, so both feel the same.
+ * One implementation for habits and tasks, so both feel the same. Pulling
+ * one row closes whichever other row was left open.
  */
 export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8 }) => {
     const { lightFeedback, mediumFeedback } = useHaptics();
@@ -135,8 +146,13 @@ export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8 })
             overshootRight={false}
             dragOffsetFromLeftEdge={12}
             dragOffsetFromRightEdge={12}
+            onSwipeableOpenStartDrag={() => claimOpen(row.current)}
             onSwipeableWillOpen={onWillOpen}
-            onSwipeableClose={() => { armedNow.current = false; armed.value = withTiming(0, { duration: 140 }); }}
+            onSwipeableClose={() => {
+                armedNow.current = false;
+                armed.value = withTiming(0, { duration: 140 });
+                if (openRow === row.current) openRow = null;
+            }}
             containerStyle={[styles.container, { borderRadius: radius }]}
             renderLeftActions={left ? renderLeft : undefined}
             renderRightActions={right?.length ? renderRight : undefined}

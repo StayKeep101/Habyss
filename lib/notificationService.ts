@@ -268,8 +268,12 @@ export class NotificationService {
           const facts = { name, total: scheduled.length, left: scheduled.filter(habit => !today[habit.id]).length,
             next: focus.rows.find(task => task.status === 'open')?.title ?? scheduled.find(habit => !today[habit.id])?.name,
             tasksDue: tasks.filter(task => task.status === 'open' && task.dueDate === todayKey).length, focusTarget: focus.target, focusDone: focus.done };
+          // One of Echo's patterns each morning, a different one each day.
+          const { loadPatternLines }: typeof import('./echoPatterns') = require('./echoPatterns');
+          const insights = await loadPatternLines();
           for (const item of buildCheckInPlan(config, dayWindow, now)) {
-            const line = checkInLine(item.kind, voice, facts);
+            const insight = insights.length ? insights[Math.floor(item.date.getTime() / 86400000) % insights.length] : undefined;
+            const line = checkInLine(item.kind, voice, { ...facts, insight });
             candidates.push({ identifier: item.id, date: item.date, content: { title: line.title, body: line.body, sound: 'default',
               data: { kind: 'echo-check-in', when: item.kind, url: '/(root)/(tabs)/home' } } });
           }

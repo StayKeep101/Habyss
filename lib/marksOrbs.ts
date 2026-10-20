@@ -77,5 +77,44 @@ export function habitDone(habitId: string, date: string, completed: boolean): nu
 export const taskDone = () => MARKS.complete.task;
 export const goalDone = () => MARKS.complete.goal;
 
+/**
+ * Your Marks total as last shown (Home's Marks bar reports it), so the pill
+ * that catches orbs where no counter is on screen can count your real total
+ * up by what was just earned.
+ *
+ * The data can update just before the orbs leave or just after, so a burst
+ * reads the total as it was before the earning: a change seen moments ago
+ * that nothing has claimed yet is taken to be this earning. Each burst claims
+ * what it counts, and counts on from there, so several in a row add up.
+ */
+let total: number | null = null;
+let before: number | null = null;
+let changedAt = 0;
+let claimed = true;
+/** A change this recent, not yet counted by a burst, is the one being earned. */
+const FRESH_MS = 1500;
+
+export function noteMarksTotal(value: number, at = Date.now()) {
+    if (value === total) return;
+    before = total;
+    total = value;
+    changedAt = at;
+    claimed = false;
+}
+
+/** From and to, for counting the total up by `marks`; null before Home has said what it is. */
+export function marksRange(marks: number, at = Date.now()): { from: number; to: number } | null {
+    if (total === null) return null;
+    const fresh = !claimed && before !== null && at - changedAt < FRESH_MS && total - before >= marks;
+    const from = fresh ? total - marks : total;
+    const to = from + marks;
+    if (!fresh) noteMarksTotal(to, at);
+    claimed = true;
+    return { from, to };
+}
+
 /** For tests. */
-export const resetMarksOrbs = () => { burst.clear(); lastTouch = null; target = null; };
+export const resetMarksOrbs = () => {
+    burst.clear(); lastTouch = null; target = null;
+    total = null; before = null; changedAt = 0; claimed = true;
+};

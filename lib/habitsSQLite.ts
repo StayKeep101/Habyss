@@ -743,6 +743,31 @@ export function toggleCompletion(habitId: string, dateISO = todayString()): Prom
 
 // --- Statistics ---
 
+/**
+ * When habits were ticked over the last `days` days, for Echo's patterns.
+ * Only ticks made on the day they count for: a day filled in later says
+ * nothing about the hour it was done.
+ */
+export async function getCompletionTicks(days: number): Promise<{ habitId: string; date: string; at: string }[]> {
+    if (!isSQLiteAvailable()) return [];
+    try {
+        const uid = await getUserId();
+        const db = await getDatabase();
+        if (!db || !uid) return [];
+        const start = new Date();
+        start.setDate(start.getDate() - (days - 1));
+        const rows = await db.getAllAsync(
+            'SELECT habit_id, date, created_at FROM completions WHERE user_id = ? AND date >= ? AND deleted = 0 AND COALESCE(skipped, 0) = 0',
+            uid, todayString(start),
+        );
+        return (rows ?? [])
+            .map((row: any) => ({ habitId: row.habit_id as string, date: row.date as string, at: row.created_at as string }))
+            .filter((tick: { habitId: string; date: string; at: string }) => !!tick.at && todayString(new Date(tick.at)) === tick.date);
+    } catch {
+        return [];
+    }
+}
+
 export async function getLastNDaysCompletions(days: number): Promise<{ date: string; completedIds: string[]; skippedIds: string[] }[]> {
     const uid = await getUserId();
     const endDate = new Date();

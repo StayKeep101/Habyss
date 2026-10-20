@@ -31,6 +31,8 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
 import { nextEchoLine, type EchoStats } from '@/lib/echoLines';
 import { getName } from '@/lib/echo';
+import { nextPatternLine } from '@/lib/echoPatterns';
+import { useEchoPatterns } from '@/hooks/useEchoPatterns';
 
 
 
@@ -104,6 +106,9 @@ const Home = () => {
 
   // Echo's line: new on every visit and refresh. Stats are read from a ref so
   // the line always reflects the latest render without re-running the effect.
+  const echoPatterns = useEchoPatterns();
+  const echoPatternsRef = useRef(echoPatterns);
+  useEffect(() => { echoPatternsRef.current = echoPatterns; }, [echoPatterns]);
   const echoStatsRef = useRef<EchoStats>({ streak: 0, todayDone: 0, todayTotal: 0, weekConsistency: 0, goalsCount: 0, overallProgress: 0 });
   const showEchoLine = useCallback(async () => {
     const name = await getName();
@@ -120,7 +125,10 @@ const Home = () => {
       return;
     }
     setEchoEgg(null);
-    setMotivationalQuote(await nextEchoLine(personality, { ...stats, name }, greetingStyle));
+    // Now and then, something Echo found in your record instead.
+    const found = nextPatternLine(echoPatternsRef.current);
+    if (found) { setMotivationalQuote(found); return; }
+    setMotivationalQuote(await nextEchoLine(personality, { ...stats, name, patterns: echoPatternsRef.current.map(pattern => pattern.text) }, greetingStyle));
   }, [aiPersonality, greetingStyle]);
 
   // Track previous streak for celebration
