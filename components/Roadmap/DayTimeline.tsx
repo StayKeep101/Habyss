@@ -97,8 +97,9 @@ function Row({ size, item, color, nextColor, last, now, updated, onToggle, onOpe
         <View style={styles.row}>
             <View style={[styles.rail, { width: size.pill }]}>
                 <Pressable onPress={() => onOpen(item)} accessibilityRole="button" accessibilityLabel={`Open ${item.title}`}>
-                    <View style={[styles.pill, { width: size.pill, borderRadius: corner, height, opacity: done ? 0.45 : 1 }]}>
-                        {/* A faint tint of its colour, filled from the top as its time passes. */}
+                    <View style={[styles.pill, { width: size.pill, borderRadius: corner, height }]}>
+                        {/* A faint tint of its colour, filled from the top as its time passes.
+                            Done keeps its full colour: only the name is struck through. */}
                         <View style={[StyleSheet.absoluteFill, styles.tint, { backgroundColor: color }]} />
                         <Fill color={color} height={height} progress={elapsed} />
                         <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon} color={elapsed >= 0.5 ? t.color.onAccent : color} />
