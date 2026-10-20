@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
 import { Wheel } from '@/components/ui/Wheel';
+import { ChoicePill } from '@/components/ui/ChoicePill';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -20,6 +21,8 @@ const NO_END = -1;
 const END_HOURS = [{ id: NO_END, label: '–' }, ...HOURS];
 const START_HOURS = END_HOURS;
 const split = (time: string) => time.split(':').map(Number) as [number, number];
+/** One tap for the usual lengths. */
+const LENGTHS = [{ minutes: 1, label: '1 min' }, { minutes: 5, label: '5 min' }, { minutes: 10, label: '10 min' }, { minutes: 30, label: '30 min' }, { minutes: 60, label: '1 hr' }, { minutes: 120, label: '2 hr' }];
 
 /** "07:30" as a Date today, for the wheel. */
 export function timeValue(time?: string): Date {
@@ -61,7 +64,8 @@ export function endTime(start: string, minutes: number): string {
  * the start's hour to it for no time at all, the end's for no end. The ×
  * beside End appears only once an end is set, and takes just the end away.
  * Stored as a length, so a habit that moves keeps how long it takes rather
- * than when it used to end.
+ * than when it used to end. Above them, the usual lengths in one tap: they
+ * move the end, never the start.
  */
 export const TimeRange: React.FC<{
     start?: string;
@@ -70,7 +74,7 @@ export const TimeRange: React.FC<{
     accent: string;
     /** Named for what it is in this sheet: a habit starts, a task is due. */
     startLabel?: string;
-}> = ({ start, minutes, onChange, startLabel = 'Start' }) => {
+}> = ({ start, minutes, onChange, accent, startLabel = 'Start' }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { lightFeedback } = useHaptics();
@@ -91,6 +95,16 @@ export const TimeRange: React.FC<{
     };
 
     return (
+        <View style={styles.column}>
+        <View style={styles.lengths}>
+            {LENGTHS.map(length => (
+                <ChoicePill key={length.minutes} label={length.label} on={minutes === length.minutes} color={accent}
+                    pressStyle={styles.flex} style={styles.length} textStyle={styles.lengthText}
+                    accessibilityLabel={`Takes ${length.label}`}
+                    // The start stays where it is; the end lands this far after it.
+                    onPress={() => { lightFeedback(); onChange({ start, minutes: length.minutes }); }} />
+            ))}
+        </View>
         <View style={styles.wrap}>
             <View style={styles.side}>
                 <View style={styles.head}>
@@ -119,10 +133,15 @@ export const TimeRange: React.FC<{
                 </View>
             </View>
         </View>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
+    column: { gap: Spacing.md },
+    lengths: { flexDirection: 'row', gap: Spacing.xs },
+    length: { paddingHorizontal: Spacing.xs },
+    lengthText: { fontSize: 12 },
     wrap: { flexDirection: 'row', gap: Spacing.lg },
     side: { flex: 1, gap: Spacing.xs },
     head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 24 },
