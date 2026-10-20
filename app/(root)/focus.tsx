@@ -13,7 +13,11 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useClockStyle } from '@/hooks/useClockStyle';
 import { useTasks } from '@/hooks/useTasks';
+import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { getHabits, type Habit } from '@/lib/habitsSQLite';
+import { isHabitScheduledForDate } from '@/lib/habitSchedule';
+import { tasksForDay } from '@/lib/tasks';
+import { flowDay, flowInputs, lengthLabel, upNext, type FlowInput } from '@/lib/dayFlow';
 import { measurementFor } from '@/lib/habitMeasurement';
 import { styles } from '@/styles/screens/focus.styles';
 
@@ -44,9 +48,19 @@ function orientation(): typeof import('expo-screen-orientation') | null {
  * anywhere to pause or carry on, like a video. A long press (or the ×) asks:
  * Exit leaves without saving anything; Finished saves the time and counts the
  * habit or task as done. A timer that runs out counts as Finished too.
+ *
+ * Something with no set length (a task you cannot size) starts on the
+ * stopwatch. Once it is finished, the next thing in the day is offered right
+ * there: one tap and you are focusing on it, no waiting for its slot.
  */
-export default function FocusScreen() {
-    const { kind, id, title, seconds: given } = useLocalSearchParams<{ kind?: string; id?: string; title?: string; seconds?: string }>();
+export default function FocusRoute() {
+    const { id } = useLocalSearchParams<{ id?: string }>();
+    // A fresh screen for each thing focused on, so chaining starts clean.
+    return <FocusScreen key={id ?? 'focus'} />;
+}
+
+function FocusScreen() {
+    const { kind, id, title, seconds: given, start: autoStart } = useLocalSearchParams<{ kind?: string; id?: string; title?: string; seconds?: string; start?: string }>();
     const insets = useSafeAreaInsets();
     const { primary } = useAccentGradient();
     const { selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
@@ -65,7 +79,9 @@ export default function FocusScreen() {
     // A timed habit's default is its own length; anything else, 25 minutes.
     const measure = habit ? measurementFor(habit) : null;
     const habitSeconds = measure?.kind === 'timer' ? Math.round(measure.target * measure.secondsPerUnit) : null;
-    const [mode, setMode] = useState<Mode>('timer');
+    // No length to go on (a task nobody sized): the stopwatch, until you say otherwise.
+    const unsized = isTask && !given && !(task?.measure === 'time' && task.target) && !Number(task?.estimatedMinutes);
+    const [mode, setMode] = useState<Mode>(unsized ? 'stopwatch' : 'timer');
     const [seconds, setSeconds] = useState<number | null>(null);
     const passed = given ? Number(given) : null;
     const planned = seconds ?? (passed && passed > 0 ? passed : null) ?? habitSeconds ?? (task?.measure === 'time' && task.target ? task.target * 60 : DEFAULT_SECONDS);
@@ -83,11 +99,29 @@ export default function FocusScreen() {
         }
         wasActive.current = active;
     }, [active, focus.isRunning, focus.isPaused, successFeedback]);
+    // What comes next in the day, worked out the moment this one is finished.
+    const day = useGoalsInsights();
+    const next = useMemo<FlowInput | null>(() => {
+        if (!finished || !id) return null;
+        const now = new Date();
+        const habits = day.habits.filter(item => !item.isGoal && !item.isArchived && !day.skippedToday[item.id] && isHabitScheduledForDate(item, now));
+        const flow = flowDay(flowInputs({ habits, tasks: tasksForDay(day.tasks, day.today, day.today), done: day.completions }), now.getHours() * 60 + now.getMinutes());
+        return upNext(flow, id);
+    }, [finished, id, day.habits, day.tasks, day.completions, day.skippedToday, day.today]);
+    // With nothing after it, the Done screen closes itself.
     useEffect(() => {
-        if (!finished) return;
+        if (!finished || next) return;
         const close = setTimeout(() => router.back(), 1800);
         return () => clearTimeout(close);
-    }, [finished]);
+    }, [finished, next]);
+    const focusNext = () => {
+        if (!next) return;
+        mediumFeedback();
+        router.replace({ pathname: '/(root)/focus', params: {
+            kind: next.kind, id: next.id, title: next.title, start: '1',
+            ...(next.minutes > 0 ? { seconds: String(next.minutes * 60) } : {}),
+        } });
+    };
 
     // Awake while it runs; upright again when leaving.
     useEffect(() => {
@@ -122,6 +156,14 @@ export default function FocusScreen() {
         mediumFeedback();
         focus.startTimer(id, title ?? habit?.name ?? task?.title ?? 'Focus', mode === 'stopwatch' ? 3600 * 12 : planned, mode === 'stopwatch' ? 'flow' : 'deep_focus');
     };
+    // Chained from the last focus: straight in, no setup screen.
+    const started = useRef(false);
+    useEffect(() => {
+        if (autoStart !== '1' || started.current || active || !id) return;
+        if (isTask && !task) return; // wait for the task, so its title and length are known
+        started.current = true;
+        start();
+    });
     const close = () => router.back();
     // Tap: pause or carry on.
     const toggle = () => {
@@ -139,7 +181,7 @@ export default function FocusScreen() {
         Alert.alert('End focus?', undefined, [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Exit', style: 'destructive', onPress: () => { leaving.current = true; focus.discardTimer(); close(); } },
-            { text: 'Finished', onPress: () => { leaving.current = true; successFeedback(); focus.finishTimer(); close(); } },
+            { text: 'Finished', onPress: () => { leaving.current = true; successFeedback(); focus.finishTimer(); setFinished(true); } },
         ]);
     };
 
@@ -160,6 +202,15 @@ export default function FocusScreen() {
                 <View style={styles.center}>
                     <Text style={styles.doneTitle}>Done</Text>
                     <Text style={styles.doneSub}>Saved, and counted as done.</Text>
+                    {next ? (
+                        <View style={styles.next}>
+                            <Text style={styles.nextLabel}>Up next</Text>
+                            <Text numberOfLines={2} style={styles.nextTitle}>{next.title}</Text>
+                            <Text style={styles.hint}>{next.minutes > 0 ? lengthLabel(next.minutes) : 'Stopwatch: runs until you finish'}</Text>
+                            <AppButton label="Focus on it" icon="timer" onPress={focusNext} />
+                            <AppButton label="Not now" variant="ghost" onPress={close} />
+                        </View>
+                    ) : null}
                 </View>
             ) : active ? (
                 <View style={styles.center}>

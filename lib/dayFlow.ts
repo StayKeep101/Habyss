@@ -147,3 +147,13 @@ export function lengthLabel(minutes: number): string {
     if (!hours) return `${rest} min`;
     return rest ? `${hours} hr ${rest} min` : `${hours} hr`;
 }
+
+/**
+ * What comes after the thing just finished: the next open item on the
+ * timeline, else the first open one with no time. `finishedId` is left out
+ * even if the record has not caught up with it yet.
+ */
+export function upNext(flow: DayFlow, finishedId: string): FlowInput | null {
+    const open = (item: FlowInput) => !item.done && item.id !== finishedId;
+    return flow.timeline.find(open) ?? flow.anytime.find(open) ?? null;
+}

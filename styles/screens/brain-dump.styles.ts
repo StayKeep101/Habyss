@@ -5,6 +5,8 @@ import { FontFamily, Spacing } from '@/theme/designSystem';
 export const styles = StyleSheet.create({
     flex: { flex: 1 },
     content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: Spacing.xl },
+    /** Room below the last thought while one is reworded, so even the last can scroll up above the keyboard. */
+    contentEditing: { paddingBottom: 360 },
     composer: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.md, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm + 2, borderTopWidth: StyleSheet.hairlineWidth },
     input: { flex: 1, maxHeight: 120, fontFamily: FontFamily.medium, fontSize: 17, lineHeight: 24, paddingVertical: Spacing.sm },
     send: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },

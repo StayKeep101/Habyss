@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActionSheetIOS, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
+import { ActionSheetIOS, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useNavigation, useRouter } from 'expo-router';
@@ -68,7 +68,9 @@ export default function BrainDumpScreen() {
         lightFeedback();
         setDraft('');
         setThoughts(prev => [thought, ...prev]);
-        input.current?.focus();
+        // Sent: the keyboard goes down, so the list can be seen.
+        input.current?.blur();
+        Keyboard.dismiss();
     };
 
     const remove = useCallback(async (thought: Thought) => {
@@ -210,6 +212,17 @@ export default function BrainDumpScreen() {
     }, [navigation]);
     const heights = useRef<Record<string, number>>({});
     const measure = (id: string) => (event: LayoutChangeEvent) => { heights.current[id] = event.nativeEvent.layout.height; };
+    // Where each row sits in the list, so rewording one brings it up above
+    // the keyboard instead of leaving the cursor hidden underneath.
+    const scroller = useRef<ScrollView>(null);
+    const tops = useRef<Record<string, number>>({});
+    useEffect(() => {
+        if (!editingId) return;
+        const bring = () => scroller.current?.scrollTo({ y: Math.max(0, (tops.current[editingId] ?? 0) - 12), animated: true });
+        const shown = Keyboard.addListener('keyboardDidShow', bring);
+        const soon = setTimeout(bring, 50);
+        return () => { shown.remove(); clearTimeout(soon); };
+    }, [editingId]);
     const dropAt = (from: number, dy: number): number => {
         let to = from;
         let travelled = dy;
@@ -241,7 +254,7 @@ export default function BrainDumpScreen() {
                     onPress={() => { lightFeedback(); if (selecting) stopSelecting(); else { input.current?.blur(); setSelecting(true); } }} />
             ) : undefined}>
             <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}>
-                <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>
+                <ScrollView ref={scroller} contentContainerStyle={[styles.content, editingId !== null && styles.contentEditing]} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>
                     {selecting ? (
                         <View style={styles.selectBar}>
                             <Text style={[styles.clears, styles.flex, { color: colors.textTertiary }]}>
@@ -256,7 +269,8 @@ export default function BrainDumpScreen() {
                     {thoughts.length === 0 ? (
                         <Text style={[styles.empty, { color: colors.textTertiary }]}>Empty head. Nice.</Text>
                     ) : thoughts.map((thought, index) => (
-                        <View key={thought.id} style={index > 0 ? [styles.divider, { borderTopColor: colors.border }] : undefined}>
+                        <View key={thought.id} style={index > 0 ? [styles.divider, { borderTopColor: colors.border }] : undefined}
+                            onLayout={event => { tops.current[thought.id] = event.nativeEvent.layout.y; }}>
                             <ThoughtRow
                                 thought={thought}
                                 selecting={selecting}

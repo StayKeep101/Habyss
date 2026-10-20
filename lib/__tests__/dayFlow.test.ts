@@ -1,4 +1,4 @@
-import { flowDay, lengthLabel, type FlowInput } from '../dayFlow';
+import { flowDay, lengthLabel, upNext, type FlowInput } from '../dayFlow';
 
 const at = (h: number, m = 0) => h * 60 + m;
 const item = (id: string, start: number | null, minutes: number, done = false): FlowInput =>
@@ -59,5 +59,19 @@ describe('the day as a flow', () => {
         expect(lengthLabel(30)).toBe('30 min');
         expect(lengthLabel(60)).toBe('1 hr');
         expect(lengthLabel(90)).toBe('1 hr 30 min');
+    });
+});
+
+describe('what comes next after a focus', () => {
+    it('is the next open thing on the timeline, then anything untimed', () => {
+        const items = [
+            { id: 'report', kind: 'task' as const, title: 'Report', start: 570, minutes: 0, done: false },
+            { id: 'workout', kind: 'habit' as const, title: 'Workout', start: 1080, minutes: 39, done: false },
+            { id: 'call', kind: 'task' as const, title: 'Call mum', start: null, minutes: 0, done: false },
+        ];
+        const flow = flowDay(items, 600);
+        expect(upNext(flow, 'report')?.id).toBe('workout');
+        expect(upNext(flowDay(items.map(item => item.id === 'workout' ? { ...item, done: true } : item), 600), 'report')?.id).toBe('call');
+        expect(upNext(flowDay([items[0]], 600), 'report')).toBeNull();
     });
 });
