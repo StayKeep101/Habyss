@@ -127,40 +127,44 @@ export const RoadmapFilters = (props: Props) => {
                         ))}
                     </Group>
 
-                    {/* Each kind is a switch: lit means shown. */}
-                    <Group label="Show">
-                        {(['goals', 'habits', 'tasks'] as const).map((kind, index) => (
-                            <Pill key={kind} label={['Goals', 'Habits', 'Tasks'][index]} on={props.shown[kind]}
-                                onPress={() => props.onToggleShown(kind)} />
-                        ))}
-                    </Group>
+                    {/* The timeline is the whole day in time order: what to show,
+                        when, and in what order only mean something in the list. */}
+                    {props.view === 'list' ? (<>
+                        {/* Each kind is a switch: lit means shown. */}
+                        <Group label="Show">
+                            {(['goals', 'habits', 'tasks'] as const).map((kind, index) => (
+                                <Pill key={kind} label={['Goals', 'Habits', 'Tasks'][index]} on={props.shown[kind]}
+                                    onPress={() => props.onToggleShown(kind)} />
+                            ))}
+                        </Group>
 
-                    <Group label="Time">
-                        {(['morning', 'afternoon', 'evening'] as const).map((id, index) => (
-                            <Pill key={id} label={['Morning', 'Noon', 'Evening'][index]} on={props.focus === id}
-                                onPress={() => props.onFocus(props.focus === id ? 'all' : id)} />
-                        ))}
-                    </Group>
+                        <Group label="Time">
+                            {(['morning', 'afternoon', 'evening'] as const).map((id, index) => (
+                                <Pill key={id} label={['Morning', 'Noon', 'Evening'][index]} on={props.focus === id}
+                                    onPress={() => props.onFocus(props.focus === id ? 'all' : id)} />
+                            ))}
+                        </Group>
 
-                    <Group label="Shared">
-                        <Pill label="Only shared" on={props.sharedOnly} onPress={() => props.onSharedOnly(!props.sharedOnly)} />
-                    </Group>
+                        <Group label="Shared">
+                            <Pill label="Only shared" on={props.sharedOnly} onPress={() => props.onSharedOnly(!props.sharedOnly)} />
+                        </Group>
 
-                    {/* Sorting always has an answer; tapping the chosen one flips it. */}
-                    <Group label="Sort">
-                        {(['default', 'name', 'progress'] as const).map((id, index) => (
-                            <Pill key={id} label={['Created', 'Name', 'Progress'][index]} on={props.order === id}
-                                icon={props.order === id ? (props.direction === 1 ? 'arrow-up' : 'arrow-down') : undefined}
-                                onPress={() => props.onOrder(id)} />
-                        ))}
-                    </Group>
+                        {/* Sorting always has an answer; tapping the chosen one flips it. */}
+                        <Group label="Sort">
+                            {(['default', 'name', 'progress'] as const).map((id, index) => (
+                                <Pill key={id} label={['Created', 'Name', 'Progress'][index]} on={props.order === id}
+                                    icon={props.order === id ? (props.direction === 1 ? 'arrow-up' : 'arrow-down') : undefined}
+                                    onPress={() => props.onOrder(id)} />
+                            ))}
+                        </Group>
 
-                    {active ? (
-                        <Pressable accessibilityRole="button" accessibilityLabel="Reset filters" hitSlop={8} style={styles.resetWrap}
-                            onPress={() => { selectionFeedback(); props.onReset(); }}>
-                            <Text style={[styles.reset, { color: colors.textTertiary }]}>Reset</Text>
-                        </Pressable>
-                    ) : null}
+                        {active ? (
+                            <Pressable accessibilityRole="button" accessibilityLabel="Reset filters" hitSlop={8} style={styles.resetWrap}
+                                onPress={() => { selectionFeedback(); props.onReset(); }}>
+                                <Text style={[styles.reset, { color: colors.textTertiary }]}>Reset</Text>
+                            </Pressable>
+                        ) : null}
+                    </>) : null}
                 </MatteSurface>
             </Animated.View>
         </Modal>

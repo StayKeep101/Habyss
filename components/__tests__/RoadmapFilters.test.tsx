@@ -16,7 +16,7 @@ const props = (over: Partial<React.ComponentProps<typeof RoadmapFilters>> = {}) 
     visible: true,
     onClose: jest.fn(),
     goals,
-    view: 'timeline' as const,
+    view: 'list' as const,
     onView: jest.fn(),
     anchor: { x: 24, y: 120, width: 90, height: 28 },
     shown: { goals: true, habits: true, tasks: true },
@@ -35,6 +35,12 @@ const props = (over: Partial<React.ComponentProps<typeof RoadmapFilters>> = {}) 
 });
 
 describe('the roadmap filter menu', () => {
+    it('in the timeline, offers only the view: the rest means nothing there', () => {
+        const screen = render(<RoadmapFilters {...props({ view: 'timeline' })} />);
+        expect(screen.getByText('Timeline')).toBeTruthy();
+        for (const label of ['Goals', 'Morning', 'Only shared', 'Created', 'Reset']) expect(screen.queryByText(label)).toBeNull();
+    });
+
     it('shows every choice at once, without a page of its own', () => {
         const screen = render(<RoadmapFilters {...props()} />);
         for (const label of ['Goals', 'Habits', 'Tasks', 'Only shared', 'Morning', 'Noon', 'Evening', 'Created', 'Name', 'Progress']) {
@@ -144,7 +150,7 @@ describe('filtering to what is shared', () => {
 
     it('switches the day between the timeline and the lists', () => {
         const onView = jest.fn();
-        const screen = render(<RoadmapFilters {...props({ onView })} />);
+        const screen = render(<RoadmapFilters {...props({ view: 'timeline', onView })} />);
         expect(screen.getByLabelText('Timeline').props.accessibilityState).toEqual({ selected: true });
         fireEvent.press(screen.getByText('List'));
         expect(onView).toHaveBeenCalledWith('list');

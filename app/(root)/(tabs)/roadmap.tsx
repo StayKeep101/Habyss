@@ -1045,7 +1045,7 @@ const CalendarScreen = () => {
 
 
                             {/* Filter Indicator - Subtle compact pill */}
-                            {!scrubbing && (filtered || hasActiveFilters) && (
+                            {!scrubbing && !timelineView && (filtered || hasActiveFilters) && (
                                 <View style={{
                                     alignSelf: 'flex-start',
                                     backgroundColor: accentColor + '25', // ui-allow: decorative
