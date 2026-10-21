@@ -54,6 +54,7 @@ import { setTaskStatus, type Task } from '@/lib/tasks';
 import { StreakCard } from '@/components/Home/StreakCard';
 import { MomentumCard } from '@/components/Home/MomentumCard';
 import { localDateKey } from '@/lib/habitSchedule';
+import { echoWeek } from '@/lib/echoInsights';
 import { MomentumModal } from '@/components/Home/MomentumModal';
 import { MissedCard } from '@/components/Home/MissedCard';
 import { MissedModal } from '@/components/Home/MissedModal';
@@ -350,17 +351,15 @@ const Home = () => {
 
   // What Echo is allowed to say about today: only what was recorded.
   const echoStats = useMemo<EchoStats>(() => {
-    const scheduledToday = habits.filter(h => !h.isArchived && isHabitScheduledForDate(h, new Date()));
-    const lastWeek = [...historyData].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 7);
-    const counts: Record<string, number> = {};
-    lastWeek.forEach(day => day.completedIds?.forEach(id => { counts[id] = (counts[id] ?? 0) + 1; }));
-    const best = habits.filter(h => (counts[h.id] ?? 0) >= 3).sort((a, b) => (counts[b.id] ?? 0) - (counts[a.id] ?? 0))[0];
+    const scheduledToday = habits.filter(h => !h.isArchived && !h.isGoal && isHabitScheduledForDate(h, new Date()));
+    // The last 7 calendar days, counted in lib/echoInsights.ts.
+    const week = echoWeek(habits, historyData, completions, localDateKey(new Date()));
     return {
       streak,
       todayDone: scheduledToday.filter(h => completions[h.id]).length,
       todayTotal: scheduledToday.length,
-      weekConsistency: lastWeek.length ? Math.round((lastWeek.filter(day => day.completedIds?.length).length / 7) * 100) : 0,
-      bestHabit: best?.name,
+      weekConsistency: week.weekConsistency,
+      bestHabit: week.bestHabit,
       nextHabit: scheduledToday.find(h => !completions[h.id])?.name,
       goalsCount: goals.filter(g => !g.isArchived).length,
       overallProgress: avgGoalProgress,

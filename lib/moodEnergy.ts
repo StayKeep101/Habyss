@@ -48,7 +48,8 @@ export function moodEnergy(entries: CheckIn[], today: string, habits: Habit[] = 
 
     let energyEffect: MoodEnergy['energyEffect'] = null;
     if (habits.length) {
-        const record = habitDays(habits, history, {}, 90, shiftDay(today, -1), today);
+        // Only days something was due: an empty day kept nothing and missed nothing.
+        const record = habitDays(habits, history, {}, 90, shiftDay(today, -1), today).filter(day => day.scheduled.length > 0);
         const energyOn = new Map(days.filter(day => day.energy !== null).map(day => [day.date, day.energy as number]));
         const high = record.filter(day => (energyOn.get(day.date) ?? 0) >= 4);
         const low = record.filter(day => { const e = energyOn.get(day.date); return e !== undefined && e <= 2; });
@@ -59,15 +60,18 @@ export function moodEnergy(entries: CheckIn[], today: string, habits: Habit[] = 
         }
     }
 
+    // The same window and the same bar as Echo's pattern (lib/echoPatterns.ts),
+    // so the two never name different peaks, and a tenth of a point is not one.
     const parts = { morning: [] as number[], afternoon: [] as number[], evening: [] as number[] };
+    const floor = shiftDay(today, -60);
     for (const entry of entries) {
-        if (entry.kind !== 'energy') continue;
+        if (entry.kind !== 'energy' || checkInDay(entry.at) < floor) continue;
         const hour = new Date(entry.at).getHours();
         parts[hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'].push(entry.value);
     }
     const ranked = (Object.entries(parts) as ['morning' | 'afternoon' | 'evening', number[]][])
         .filter(([, values]) => values.length >= 3)
-        .map(([part, values]) => ({ part, avg: average(values) ?? 0 }))
+        .map(([part, values]) => ({ part, avg: values.reduce((a, b) => a + b, 0) / values.length }))
         .sort((a, b) => b.avg - a.avg);
 
     return {
@@ -75,6 +79,6 @@ export function moodEnergy(entries: CheckIn[], today: string, habits: Habit[] = 
         week: { mood: inRange(weekStart, today, 'mood'), energy: inRange(weekStart, today, 'energy') },
         lastWeek: { mood: inRange(lastStart, lastEnd, 'mood'), energy: inRange(lastStart, lastEnd, 'energy') },
         energyEffect,
-        bestTime: ranked.length >= 2 && ranked[0].avg > ranked[1].avg ? ranked[0].part : null,
+        bestTime: ranked.length >= 2 && ranked[0].avg - ranked[ranked.length - 1].avg >= 0.7 ? ranked[0].part : null,
     };
 }

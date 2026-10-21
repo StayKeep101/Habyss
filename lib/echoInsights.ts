@@ -5,6 +5,7 @@ import { habitDays, keptRate, shiftDay, type HabitDay, type HistoryDay } from '.
 import { habitMomentum, momentum } from './momentum';
 import { recovery } from './recovery';
 import type { Energy } from './echoMemory';
+import { localDateKey } from './habitSchedule';
 
 /**
  * What Echo notices, read straight off the person's own record.
@@ -87,11 +88,13 @@ export function computeInsights(input: InsightInput): Insight[] {
     }
 
     // 2. A task that keeps not starting: overdue two days or more, still open.
+    // Late means past its deadline when it has one ("due by Friday"), else past its day.
+    const by = (task: Task) => task.deadline ?? task.dueDate;
     const stuck = tasks
-        .filter(task => task.status === 'open' && task.dueDate && daysBetween(task.dueDate, today) >= 2)
-        .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''));
+        .filter(task => task.status === 'open' && by(task) && daysBetween(by(task)!, today) >= 2)
+        .sort((a, b) => (by(a) ?? '').localeCompare(by(b) ?? ''));
     for (const task of stuck.slice(0, 1)) {
-        const late = daysBetween(task.dueDate!, today);
+        const late = daysBetween(by(task)!, today);
         out.push({
             id: `stuck_task:${task.id}`,
             kind: 'stuck_task',
@@ -101,19 +104,28 @@ export function computeInsights(input: InsightInput): Insight[] {
                 direct: `“${task.title}” is ${late} days late. Two minutes on it gets it moving.`,
                 challenging: `“${task.title}”: ${late} days late. Start it now, two minutes, no excuses.`,
             }),
-            evidence: `Due ${task.dueDate}, ${late} days ago.`,
+            evidence: `${task.deadline ? 'Due by' : 'Due'} ${by(task)}, ${late} days ago.`,
             action: { type: 'start', item: `task:${task.id}`, title: task.title },
             actionLabel: 'Two-minute start',
         });
     }
 
     // 3. A heavy day: far more due than this person usually finishes.
+    // Habits and tasks alike on both sides: what is due today against what a
+    // typical day of the last two weeks saw finished, tasks included.
     const recent = habitDays(habits, history, completions, 14, shiftDay(today, -1), today);
-    const doneCounts = recent.map(day => day.done.length).sort((a, b) => a - b);
+    const tasksDoneOn = new Map<string, number>();
+    for (const task of tasks) {
+        if (task.status !== 'done' || !task.completedAt) continue;
+        const day = localDateKey(new Date(task.completedAt));
+        tasksDoneOn.set(day, (tasksDoneOn.get(day) ?? 0) + 1);
+    }
+    const doneCounts = recent.map(day => day.done.length + (tasksDoneOn.get(day.date) ?? 0)).sort((a, b) => a - b);
     const typical = doneCounts.length ? doneCounts[Math.floor(doneCounts.length / 2)] : 0;
     const todayDays = habitDays(habits, history, completions, 1, today, today);
     const dueHabits = (todayDays[0]?.scheduled.length ?? 0) - (todayDays[0]?.done.length ?? 0);
-    const dueTasks = tasks.filter(task => task.status === 'open' && task.dueDate === today).length;
+    // Open tasks for today, and the ones from earlier days still waiting on it.
+    const dueTasks = tasks.filter(task => task.status === 'open' && !!task.dueDate && task.dueDate <= today).length;
     const due = dueHabits + dueTasks;
     const heavyAt = Math.max(6, Math.ceil(typical * (low ? 1.2 : 1.6)));
     if (recent.some(day => day.scheduled.length > 0) && due >= heavyAt) {
@@ -236,4 +248,28 @@ export function weekdayPattern(days: HabitDay[], habitId: string): {
     const gap = weekday.rate - weekend.rate;
     if (Math.abs(gap) < 30) return null;
     return { better: gap > 0 ? 'weekdays' : 'weekends', weekday, weekend };
+}
+
+/**
+ * The week Echo talks about on Home: the last 7 calendar days (today
+ * included), not the last 7 days that happen to have a row. Active means at
+ * least one habit kept that day. The most consistent habit is the one kept
+ * the largest share of the times it was due (three times or more), not the
+ * one ticked most often, so a weekly habit kept every time counts.
+ */
+export function echoWeek(habits: Habit[], history: HistoryDay[], completions: Record<string, boolean>, today: string): { weekConsistency: number; bestHabit?: string } {
+    const week = habitDays(habits, history, completions, 7, today, today);
+    const active = week.filter(day => day.done.length > 0).length;
+    let best: { name: string; rate: number; kept: number } | null = null;
+    for (const habit of habits.filter(item => !item.isGoal && !item.isArchived)) {
+        const own = keptRate(week.map(day => ({
+            date: day.date,
+            scheduled: day.scheduled.filter(id => id === habit.id),
+            done: day.done.filter(id => id === habit.id),
+            skipped: day.skipped.filter(id => id === habit.id),
+        })));
+        if (own.countable < 3 || own.kept < 3) continue;
+        if (!best || own.rate > best.rate || (own.rate === best.rate && own.kept > best.kept)) best = { name: habit.name, rate: own.rate, kept: own.kept };
+    }
+    return { weekConsistency: Math.round((active / 7) * 100), bestHabit: best?.name };
 }

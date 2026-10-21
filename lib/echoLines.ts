@@ -168,7 +168,7 @@ function yours(s: EchoStats, personality: PersonalityModeId): string[] {
         lines.push(warm ? `Next up: ${s.nextHabit}. You have got this. ✨` : tough ? `${s.nextHabit}. Not logged yet. Go.` : `${s.nextHabit} is not logged yet today.`);
     }
     if (s.streak >= 2) {
-        lines.push(warm ? `${s.streak} days in a row! Look at you. 🔥` : tough ? `${s.streak} days in a row. Don't you dare break it.` : `${s.streak} days in a row with at least one check-in.`);
+        lines.push(warm ? `${s.streak} days in a row! Look at you. 🔥` : tough ? `${s.streak} days in a row. Don't you dare break it.` : `${s.streak} days in a row with at least one thing done.`);
     }
     if (s.weekConsistency > 0) {
         lines.push(s.weekConsistency >= 70

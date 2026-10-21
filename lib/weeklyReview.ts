@@ -2,6 +2,7 @@ import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
 import { habitDays, keptRate, shiftDay, type HabitDay, type HistoryDay } from './habitDays';
 import type { MemoryNote } from './echoMemory';
+import { localDateKey } from './habitSchedule';
 
 /**
  * The week, reviewed: what held, what got harder, where you bounced back,
@@ -63,7 +64,9 @@ export function buildWeeklyReview(input: {
     }).filter(item => item.countable > 0);
 
     const held = perHabit.filter(item => item.countable >= 2 && item.kept === item.countable);
-    const harder = perHabit.filter(item => item.before !== null && item.before - item.rate >= 30)
+    // Down on the week before, with at least two chances on each side: one miss is not a trend.
+    const beforeCount = (id: string) => keptRate(only(before, id)).countable;
+    const harder = perHabit.filter(item => item.before !== null && item.countable >= 2 && beforeCount(item.id) >= 2 && item.before - item.rate >= 30)
         .sort((a, b) => (b.before! - b.rate) - (a.before! - a.rate));
 
     // A miss answered on the habit's very next due day, inside this week.
@@ -75,7 +78,14 @@ export function buildWeeklyReview(input: {
         }
     }
 
-    const inWeek = (stamp?: string) => !!stamp && stamp.slice(0, 10) >= weekStart && stamp.slice(0, 10) <= end;
+    // Stamps are UTC: the day they fall on is the local one, so a task done
+    // just after midnight is not counted in the day before.
+    const inWeek = (stamp?: string) => {
+        if (!stamp) return false;
+        const at = new Date(stamp);
+        const day = Number.isFinite(at.getTime()) && stamp.length > 10 ? localDateKey(at) : stamp.slice(0, 10);
+        return day >= weekStart && day <= end;
+    };
     const tasksDone = tasks.filter(task => task.status === 'done' && inWeek(task.completedAt ?? task.updatedAt)).length;
     const obstacles = (input.notes ?? []).filter(note => note.kind === 'obstacle' && inWeek(note.createdAt)).map(note => note.text);
 

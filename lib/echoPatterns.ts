@@ -251,17 +251,27 @@ export function findPatterns(input: PatternInput): Pattern[] {
         });
     }
 
-    // 9. When focus goes best: the sessions you finish rather than abandon.
+    // 9. When focus goes best: the hours whose sessions you finish more often
+    // than you do overall. Where most finished sessions start is not enough on
+    // its own: that may just be when most sessions start at all.
     const recentFocus = focus.filter(row => row.date >= floor);
     const finishedFocus = peakBand(recentFocus.filter(row => row.completed).map(row => new Date(row.startedAt).getHours()), 5);
     if (finishedFocus) {
-        out.push({
-            id: `focus_hour:${finishedFocus.start}`, kind: 'focus_hour',
-            text: `Your focus sessions hold best when started between ${hourLabel(finishedFocus.start)} and ${hourLabel((finishedFocus.start + 2) % 24)}.`,
-            evidence: `${finishedFocus.count} of your finished sessions started then.`,
-            strength: finishedFocus.share * 80,
-            short: `focus@${finishedFocus.start}-${(finishedFocus.start + 2) % 24}h`,
-        });
+        const inBand = (row: FocusRecord) => { const hour = new Date(row.startedAt).getHours(); return hour === finishedFocus.start || hour === (finishedFocus.start + 1) % 24; };
+        const there = recentFocus.filter(inBand);
+        const bandRate = there.filter(row => row.completed).length / there.length;
+        const overallRate = recentFocus.filter(row => row.completed).length / recentFocus.length;
+        const elsewhere = recentFocus.length - there.length;
+        if (there.length >= 5 && elsewhere >= 3 && bandRate - overallRate >= 0.1) {
+            const [band, all] = [Math.round(bandRate * 100), Math.round(overallRate * 100)];
+            out.push({
+                id: `focus_hour:${finishedFocus.start}`, kind: 'focus_hour',
+                text: `Your focus sessions hold best when started between ${hourLabel(finishedFocus.start)} and ${hourLabel((finishedFocus.start + 2) % 24)}.`,
+                evidence: `You finish ${band}% of the sessions started then (${there.length}), ${all}% of all of them, last ${DAYS} days.`,
+                strength: (bandRate - overallRate) * 100 + there.length,
+                short: `focus@${finishedFocus.start}-${(finishedFocus.start + 2) % 24}h ${band}%/${all}%`,
+            });
+        }
     }
 
     // 10. The keystone: the habit on whose days the others get done too.

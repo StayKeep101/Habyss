@@ -37,6 +37,19 @@ describe("Echo's patterns", () => {
         expect(found?.evidence).toContain('(4 days)');
     });
 
+    it('only says focus holds best at an hour when sessions there are finished more often than elsewhere', () => {
+        const days = lastDays(20);
+        const session = (date: string, hour: number, completed: boolean) => ({ itemId: 'x', startedAt: at(date, hour), date, seconds: 1500, completed, mode: 'deep_focus' });
+        // Evening sessions finished 8 of 8, morning ones 2 of 8: the evening holds.
+        const better = [...days.slice(0, 8).map(date => session(date, 20, true)), ...days.slice(8, 16).map((date, i) => session(date, 9, i < 2))];
+        const found = findPatterns({ ...empty, focus: better }).find(pattern => pattern.kind === 'focus_hour');
+        expect(found?.text).toContain('8 pm');
+        expect(found?.evidence).toContain('100%');
+        // Most sessions finished are in the evening only because nearly all are, at the same rate: nothing to say.
+        const same = [...days.slice(0, 10).map((date, i) => session(date, 20, i < 8)), ...days.slice(10, 15).map((date, i) => session(date, 9, i < 4))];
+        expect(findPatterns({ ...empty, focus: same }).find(pattern => pattern.kind === 'focus_hour')).toBeUndefined();
+    });
+
     it('finds the hours tasks get finished in', () => {
         const days = lastDays(20);
         const tasks = days.map((date, i) => ({
