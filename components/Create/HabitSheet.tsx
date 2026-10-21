@@ -85,9 +85,9 @@ const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
 ];
 
 const PRIORITIES: { id: 1 | 2 | 3; label: string }[] = [
-    { id: 1, label: 'High' },
+    { id: 1, label: 'Urgent' },
     { id: 2, label: 'Normal' },
-    { id: 3, label: 'Low' },
+    { id: 3, label: 'Not urgent' },
 ];
 
 const blank = (): Draft => ({ name: '', days: EVERY_DAY, icon: 'ellipse-outline', color: '#6B8AF5', rule: DAILY, places: [] });
@@ -420,7 +420,7 @@ export const HabitSheet: React.FC<{
         },
         {
             // Where the timeline fits it in when it has no set time.
-            id: 'priority', icon: 'flame-outline', label: 'Priority',
+            id: 'priority', icon: 'flame-outline', label: 'Urgency',
             value: !draft.priority || draft.priority === 2 ? undefined : PRIORITIES.find(item => item.id === draft.priority)?.label,
             content: <Choices options={PRIORITIES} value={draft.priority ?? 2} accent={accent} onChange={priority => change({ priority })} />,
         },

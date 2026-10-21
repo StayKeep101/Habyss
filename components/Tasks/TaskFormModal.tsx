@@ -48,9 +48,9 @@ const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
 ];
 
 const PRIORITIES: { id: TaskPriority; label: string }[] = [
-    { id: 1, label: 'High' },
+    { id: 1, label: 'Urgent' },
     { id: 2, label: 'Normal' },
-    { id: 3, label: 'Low' },
+    { id: 3, label: 'Not urgent' },
 ];
 
 interface Draft {
@@ -334,7 +334,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             ),
         },
         {
-            id: 'priority', icon: 'flag-outline', label: 'Priority',
+            id: 'priority', icon: 'flag-outline', label: 'Urgency',
             value: draft.priority === 2 ? undefined : PRIORITIES.find(item => item.id === draft.priority)?.label,
             content: (
                 <Choices options={PRIORITIES} value={draft.priority} accent={accent} onChange={priority => change({ priority })} />

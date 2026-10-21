@@ -145,9 +145,9 @@ export function findDifficulty(text: string): { difficulty: 1 | 2 | 3; phrase: s
         + `|\\b(?:${words})\\s+(?:one|task|habit|goal|difficulty|effort)\\b`
         + `|[,(]\\s*(?:${words})\\s*(?=[,)])`
         + `|(?:[,(-]|\\s)\\s*(?:${words})\\s*\\)?\\s*$)`, 'i');
-    const hard = text.match(said('hard|difficult|tough|challenging')) ?? text.match(/\bhigh\s+effort\b/i);
+    const hard = text.match(said('hard|difficult|tough|challenging')) ?? text.match(/\b(?:high\s+effort|(?:difficulty|effort)\s*:?\s*(?:high|3))\b/i);
     if (hard) return { difficulty: 3, phrase: hard[0] };
-    const easy = text.match(said('easy|simple|light')) ?? text.match(/\blow\s+effort\b/i);
+    const easy = text.match(said('easy|simple|light')) ?? text.match(/\b(?:low\s+effort|(?:difficulty|effort)\s*:?\s*(?:low|1))\b/i);
     if (easy) return { difficulty: 1, phrase: easy[0] };
     const medium = text.match(said('medium|moderate|normal'));
     if (medium) return { difficulty: 2, phrase: medium[0] };
@@ -165,11 +165,12 @@ export function findTiming(text: string): { flexible: boolean; phrase: string } 
 
 /** Priority words: "urgent", "important", "high priority" / "low priority", "no rush". */
 export function findPriority(text: string): { priority: 1 | 2 | 3; phrase: string } | null {
-    const high = text.match(/\b(?:urgent|asap|important|critical|high\s+priority|top\s+priority|must\s+do)\b/i);
-    if (high) return { priority: 1, phrase: high[0] };
-    const low = text.match(/\b(?:low\s+priority|no\s+rush|sometime|whenever|eventually|not\s+urgent)\b/i);
+    // "Not urgent" before "urgent", so the "urgent" inside it is not read as high.
+    const low = text.match(/\b(?:low\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*low|not\s+(?:very\s+|that\s+|really\s+)?(?:urgent|important)|no\s+rush|no\s+hurry|sometime|whenever|eventually|p3)\b/i);
     if (low) return { priority: 3, phrase: low[0] };
-    const normal = text.match(/\b(?:normal|medium)\s+priority\b/i);
+    const high = text.match(/\b(?:(?:very\s+|super\s+|really\s+)?urgent|urgently|asap|important|critical|high\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*high|top\s+priority|must\s+do|p1)\b/i);
+    if (high) return { priority: 1, phrase: high[0] };
+    const normal = text.match(/\b(?:(?:normal|medium)\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*(?:normal|medium)|p2)\b/i);
     if (normal) return { priority: 2, phrase: normal[0] };
     return null;
 }

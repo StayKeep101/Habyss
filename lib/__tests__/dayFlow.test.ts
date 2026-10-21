@@ -223,7 +223,16 @@ describe('tasks before habits', () => {
         const window = { wake: 480, sleep: 1380 };
         const row = (id: string, kind: 'task' | 'habit', urgency: number) => ({ id, kind, title: id, start: null, minutes: 30, done: false, urgency });
         expect(flowDay([row('walk', 'habit', 30), row('email', 'task', 30)], null, window).timeline.map(item => item.id)).toEqual(['email', 'walk']);
-        expect(flowDay([row('walk', 'habit', 10), row('email', 'task', 50)], null, window).timeline.map(item => item.id)).toEqual(['email', 'walk']);
+        // At the same urgency the task goes first, even when the habit is a little higher.
+        expect(flowDay([row('walk', 'habit', 30), row('email', 'task', 50)], null, window).timeline.map(item => item.id)).toEqual(['email', 'walk']);
+    });
+    it('puts the most urgent first, then the hardest, then the rest', () => {
+        const row = (id: string, kind: 'task' | 'habit', urgency: number, difficulty: 1 | 2 | 3) => ({ id, kind, title: id, start: null, minutes: 30, done: false, urgency, difficulty });
+        const order = flowDay([
+            row('easy chore', 'task', 30, 1), row('hard habit', 'habit', 30, 3), row('urgent habit', 'habit', 10, 1),
+            row('normal task', 'task', 30, 2), row('urgent task', 'task', 10, 2),
+        ], null, window).timeline.map(item => item.id);
+        expect(order).toEqual(['urgent task', 'urgent habit', 'hard habit', 'normal task', 'easy chore']);
     });
 });
 

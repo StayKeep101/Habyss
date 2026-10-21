@@ -63,3 +63,20 @@ describe('every setting from one sentence', () => {
         expect((parseGoalText('Finish my portfolio by friday', { today: TODAY, habits: [] }) as any).goal.window).toMatchObject({ kind: 'fixed', end: '2026-10-23' });
     });
 });
+
+describe('urgency and difficulty, in words', () => {
+    const { findPriority, findDifficulty } = require('../dateWords');
+    it('reads how urgent it is, and "not urgent" as not urgent', () => {
+        expect(findPriority('essay, urgent')?.priority).toBe(1);
+        expect(findPriority('call mum, not urgent')?.priority).toBe(3);
+        expect(findPriority('tidy desk, not that important')?.priority).toBe(3);
+        expect(findPriority('report high urgency')?.priority).toBe(1);
+        expect(findPriority('read urgency: low')?.priority).toBe(3);
+        expect(findPriority('plan the week, normal priority')?.priority).toBe(2);
+    });
+    it('reads how hard it is', () => {
+        expect(findDifficulty('essay, hard')?.difficulty).toBe(3);
+        expect(findDifficulty('walk, difficulty: low')?.difficulty).toBe(1);
+        expect(findDifficulty('a tough one')?.difficulty).toBe(3);
+    });
+});
