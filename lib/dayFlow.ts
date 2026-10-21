@@ -13,17 +13,18 @@ import { habitMinutes, toMinutes } from './dayPlan';
  * stays where it is and absorbs the shift, so finishing breakfast early never
  * drags the evening run to 10am.
  *
- * Things with no time are given a free slot (see fillDay). Something whose
- * time passes without it being done is not left behind: it is fitted in again
- * from now, and says it moved. Something done keeps the slot it was done in,
- * cut short if it was finished early, so the rest of the day moves up.
+ * Flexible things go in order of importance (see fillDay): the next one is
+ * always the most important left, never whatever happens to fit. The one you
+ * are on stays yours however long it runs; one that began and was left for
+ * another is fitted in again, and says it moved. Something done keeps the slot
+ * it was done in, cut short if it was finished early, so the rest moves up.
  *
  * Meals (Settings → Timeline) and calendar events are fixed: they never move,
  * and nothing is moved into them. Whatever would land on one is pushed past
  * its end instead. With flexible meals on, a meal may wait up to two hours
  * when the day is too full for everything otherwise. Waking and bedtime never
- * give: when there is not time for everything, the biggest things are cut in
- * half (and again) until it fits; only what still cannot fit is listed.
+ * give: when there is not time for everything, the last thing of the day gets
+ * the time that is left; only what then has no room at all is listed.
  */
 
 export interface FlowInput {
@@ -127,42 +128,24 @@ export interface DayWindowMinutes {
 
 export function flowDay(items: FlowInput[], now: number | null, window: DayWindowMinutes = { wake: 7 * 60, sleep: 23 * 60 }): DayFlow {
     const first = layOut(items, now, window);
-    if (!first.unfit.length) return first;
+    // How much the day had to give: anything left out counts far more than minutes cut.
+    const cost = (flow: DayFlow) => flow.unfit.length * 10000 + flow.timeline.reduce((sum, item) => sum + (item.cutFrom ? item.cutFrom - (item.end - item.start) : 0), 0);
+    if (!cost(first)) return first;
     let best = first;
     let bestItems = items;
-    // Flexible meals: when something does not fit, try letting a meal wait,
-    // a quarter of an hour at a time, and keep whatever fits the most in.
+    // Flexible meals: when the day is too short, try letting a meal wait, a
+    // quarter of an hour at a time, and keep whatever gives up the least.
     const meals = items.filter(item => item.kind === 'meal' && item.flex && item.start !== null && (now === null || (item.start as number) > now));
     const delays: Record<string, number> = {};
     for (const meal of meals) {
-        for (let delay = 15; delay <= MEAL_DELAY && best.unfit.length; delay += 15) {
+        for (let delay = 15; delay <= MEAL_DELAY && cost(best); delay += 15) {
             const trial = bestItems.map(item => item.id === meal.id ? { ...item, start: (meal.start as number) + delay } : item);
             const flow = layOut(trial, now, window);
-            if (flow.unfit.length < best.unfit.length) { best = flow; bestItems = trial; delays[meal.id] = delay; }
+            if (cost(flow) < cost(best)) { best = flow; bestItems = trial; delays[meal.id] = delay; }
         }
     }
-    // Still too much for the time left: halve the biggest thing with a length
-    // (a habit or task Habyss places, never one at a time you set), then the
-    // next biggest, and again, until it all fits before bedtime. Nothing goes
-    // below MIN_CUT minutes; what still does not fit after that is named.
-    const cutFrom: Record<string, number> = {};
-    for (let step = 0; step < 40 && best.unfit.length; step++) {
-        const biggest = bestItems
-            .filter(item => !item.fixed && !item.done && item.start === null && item.minutes >= MIN_CUT * 2
-                && !(item.kept && now !== null && item.kept.start <= now))
-            .sort((a, b) => b.minutes - a.minutes || a.title.localeCompare(b.title))[0];
-        if (!biggest) break;
-        cutFrom[biggest.id] ??= biggest.minutes;
-        const half = Math.max(MIN_CUT, Math.round(biggest.minutes / 2 / 5) * 5);
-        bestItems = bestItems.map(item => item.id === biggest.id ? { ...item, minutes: half } : item);
-        best = layOut(bestItems, now, window);
-    }
-    // A meal that waited, or something cut short, says so.
-    const timeline = best.timeline.map(item => ({
-        ...item,
-        ...(delays[item.id] ? { plannedStart: item.start - delays[item.id], shift: delays[item.id] } : null),
-        ...(cutFrom[item.id] && !item.done ? { cutFrom: cutFrom[item.id] } : null),
-    }));
+    // A meal that waited says so.
+    const timeline = best.timeline.map(item => (delays[item.id] ? { ...item, plannedStart: item.start - delays[item.id], shift: delays[item.id] } : item));
     return { ...best, timeline };
 }
 
@@ -188,6 +171,15 @@ function layOut(items: FlowInput[], now: number | null, window: DayWindowMinutes
 }
 
 function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMinutes, outside: Set<string>): DayFlow {
+    // The one you are on: of the flexible things whose slot has begun, the one
+    // being focused on, else the last one started. It stays yours however long
+    // it takes: 20 minutes planned and four hours spent, it is still the one
+    // you are on, and the rest waits behind it. The others that began and were
+    // left are fitted in again.
+    const started = now === null ? [] : items.filter(item => !item.fixed && !item.done && !(item.locked && item.start !== null)
+        && !outside.has(item.id) && item.kept && item.kept.end > item.kept.start && item.kept.start <= now);
+    const onIt = (started.find(item => item.id === window.active)
+        ?? [...started].sort((a, b) => (b.kept as { start: number }).start - (a.kept as { start: number }).start)[0])?.id ?? null;
     const timed: FlowInput[] = [];
     const untimed: FlowInput[] = [];
     for (const item of items) {
@@ -214,9 +206,8 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
         // (and places it on a day that is not today, when that time is free).
         const floating: FlowInput = { ...item, start: null, auto: true, preferred: item.start ?? undefined };
         if (now === null || outside.has(item.id)) { untimed.push(floating); continue; }
-        const missed = (end: number) => now >= end + GRACE && item.id !== window.active;
-        // A slot it was given earlier: held while under way, given up once it runs out.
-        if (kept && kept.start <= now && !missed(kept.end)) {
+        // Under way: it holds its slot, running on past its end until it is done.
+        if (kept && item.id === onIt) {
             timed.push({ ...item, start: kept.start, minutes: kept.end - kept.start, auto: true });
             continue;
         }
@@ -252,19 +243,42 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
     const timeline = [...flow.timeline];
     const unfit: FlowInput[] = [];
 
+    /** The longest free stretch from `from` on, for something that no longer fits whole. */
+    const roomFrom = (from: number, least: number): { at: number; minutes: number } | null => {
+        let room: { at: number; minutes: number } | null = null;
+        const candidates = [from, ...busy.map(slot => slot.end + BUFFER)].filter(at => at >= from);
+        for (const at of candidates) {
+            if (!fits(at, least)) continue;
+            const wall = Math.min(sleep, ...busy.filter(slot => slot.start >= at && slot.end > slot.start).map(slot => slot.start - BUFFER));
+            const minutes = Math.floor((wall - at) / 5) * 5;
+            if (minutes >= least && (!room || minutes > room.minutes)) room = { at, minutes };
+        }
+        return room;
+    };
+
     // Done ones first, from the start of the day, so they hold still as the day goes on.
     const place = (list: FlowInput[], from: number) => {
+        // Today the most important thing left always gets the first place it
+        // fits, whether or not the day has room for everything; something less
+        // important only takes a gap it could not use (before a meeting, say).
         for (const item of [...list].sort(order)) {
-            const minutes = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
-            // Hard: into your best hours when they are known and still ahead.
-            const inPeak = item.difficulty === 3 && peak && peak.end > from ? slotFor(Math.max(from, peak.start), minutes) : null;
-            // Another day: a flexible one sits at the time it was given, if free.
+            let minutes = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
+            const strict = now !== null && !item.done;
+            // Another day: hard ones into your best hours, and a flexible one at
+            // the time it was given, if free.
+            const inPeak = !strict && item.difficulty === 3 && peak && peak.end > from ? slotFor(Math.max(from, peak.start), minutes) : null;
             const atPreferred = now === null && item.preferred !== undefined && item.preferred >= from ? slotFor(item.preferred, minutes) : null;
-            const found = atPreferred ?? (inPeak !== null && peak && inPeak < peak.end ? inPeak : slotFor(from, minutes));
-            // Bedtime never gives: what does not fit is listed, not squeezed in.
-            if (found === null && !item.done) { unfit.push(item); continue; }
+            let found = atPreferred ?? (inPeak !== null && peak && inPeak < peak.end ? inPeak : slotFor(from, minutes));
+            let cutFrom: number | undefined;
+            if (found === null && !item.done) {
+                // Bedtime never gives, so the last thing of the day gets whatever time is left.
+                const room = roomFrom(from, Math.min(MIN_CUT, minutes));
+                if (!room) { unfit.push(item); continue; }
+                found = room.at;
+                if (room.minutes < minutes) { cutFrom = minutes; minutes = room.minutes; }
+            }
             const start = found ?? window.wake;
-            const placedItem: FlowItem = { ...item, start, end: start + minutes, plannedStart: start, shift: 0, state: item.done ? 'done' : 'later', auto: true };
+            const placedItem: FlowItem = { ...item, start, end: start + minutes, plannedStart: start, shift: 0, state: item.done ? 'done' : 'later', auto: true, ...(cutFrom ? { cutFrom } : null) };
             timeline.push(placedItem);
             busy.push({ start, end: start + minutes });
             busy.sort((a, b) => a.start - b.start);

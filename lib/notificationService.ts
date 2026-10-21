@@ -17,6 +17,7 @@ import { emit, onAny } from './appEvents';
 import { scheduledMoments } from './scheduledMoments';
 import { buildAlivePlan } from './echoAlive';
 import { engagementLifecycle } from './engagementLifecycle';
+import { focusQuiet } from './focusQuiet';
 let reminderQueue: Promise<void> = Promise.resolve();
 let refreshPromise: Promise<void> | null = null;
 let refreshAgain = false;
@@ -83,6 +84,8 @@ export class NotificationService {
       try {
         Notifications.setNotificationHandler({
           handleNotification: async (notification) => {
+            // Focus mode: nothing at all, not a banner, a sound or the list.
+            if (focusQuiet()) return { shouldPlaySound: false, shouldSetBadge: false, shouldShowBanner: false, shouldShowList: false };
             // A push about something you did yourself (a nudge you sent, a
             // share you made) never rings your own phone, even if the server
             // still holds this phone's token on the other account.

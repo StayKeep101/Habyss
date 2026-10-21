@@ -31,6 +31,15 @@ describe('the day as a flow', () => {
         expect(flow.timeline.find(row => row.id === 'email')).toMatchObject({ start: at(8, 20), end: at(8, 50), state: 'now' });
     });
 
+    it('stays on the one you are on however long it runs, and the rest waits behind it', () => {
+        // Planned 20 minutes from 8:00; at noon it is still not done.
+        const items = [{ ...item('essay', null, 20), kept: { start: at(8), end: at(8, 20) } }, item('email', null, 30)];
+        const flow = flowDay(items, at(12), window);
+        expect(flow.current).toMatchObject({ id: 'essay', start: at(8), end: at(12) });
+        expect(flow.timeline.find(row => row.id === 'essay')!.moved).toBeFalsy();
+        expect(flow.timeline.find(row => row.id === 'email')!.start).toBeGreaterThanOrEqual(at(12));
+    });
+
     it('keeps a flexible one\'s length, and on another day puts it at its time when free', () => {
         const items = [item('read', at(20), 45), item('walk', null, 30)];
         const other = flowDay(items, null, window);
@@ -171,15 +180,17 @@ describe('waking and bedtime are walls', () => {
 
 describe('a day with too little time', () => {
     const job = (id: string, minutes: number, start: number | null = null) => ({ id, kind: 'task' as const, title: id, start, minutes, done: false, urgency: 30 });
-    it('cuts the biggest in half first, and again, until it all fits before bedtime', () => {
-        // 3 hours left (20:00–23:00) for 2h + 1h + 30 min, with breaks between.
-        const flow = flowDay([job('essay', 120), job('reading', 60), job('email', 30)], 1200, { wake: 420, sleep: 1380 });
-        expect(flow.unfit).toEqual([]);
+    it('keeps the order of importance and gives the last one whatever time is left', () => {
+        // 3 hours left (20:00–23:00) for 2h + 1h + 30 min, most important first.
+        const flow = flowDay([{ ...job('essay', 120), urgency: 0 }, { ...job('reading', 60), urgency: 10 }, { ...job('email', 30), urgency: 20 }], 1200, { wake: 420, sleep: 1380 });
         const at = (id: string) => flow.timeline.find(row => row.id === id)!;
-        expect(at('essay')).toMatchObject({ cutFrom: 120 });
-        expect(at('essay').end - at('essay').start).toBe(60);
-        expect(at('reading').cutFrom).toBeUndefined();
-        expect(flow.timeline.every(row => row.end <= 1380)).toBe(true);
+        // The essay keeps its two hours, and is first.
+        expect([at('essay').start, at('essay').end]).toEqual([1200, 1320]);
+        expect(at('essay').cutFrom).toBeUndefined();
+        // Reading is the last that fits: cut to the time before bedtime.
+        expect(at('reading')).toMatchObject({ start: 1325, end: 1380, cutFrom: 60 });
+        // Nothing left for the email.
+        expect(flow.unfit.map(item => item.id)).toEqual(['email']);
     });
     it('never cuts something at an exact time, nor below ten minutes', () => {
         const flow = flowDay([{ ...job('call', 60, 1320), locked: true }, job('chores', 300)], 1200, { wake: 420, sleep: 1380 });

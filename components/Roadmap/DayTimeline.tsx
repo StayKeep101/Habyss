@@ -96,7 +96,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
             {/* Bedtime never gives: whatever has no room is named, not squeezed in. */}
             {flow.unfit.length && !scrubbing ? (
                 <Text style={[t.type.caption, styles.unfit, { color: t.color.textSubtle }]}>
-                    {`Even cut short, no room before bedtime for ${flow.unfit.map(item => item.title).join(', ')}.`}
+                    {`No room before bedtime for ${flow.unfit.map(item => item.title).join(', ')}.`}
                 </Text>
             ) : null}
 

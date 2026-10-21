@@ -2,14 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clockLabel, flowDay, GRACE, type DayFlow, type DayWindowMinutes, type FlowInput } from './dayFlow';
 
 /**
- * Echo, when the plan moves because something was not done in time
+ * Echo, when the plan moves because something is taking longer than planned
  * (Settings → Notifications → Plan changes).
  *
- * The app is not running when it happens, so the message is worked out ahead:
- * the thing you are on (or the next one) has a moment it counts as missed —
- * its end, plus a little grace. The day is laid out as it would be at that
- * moment, and the notification says where the thing went. Finishing it, or
- * anything else changing the plan, replaces the notification.
+ * The thing you are on is never moved: it stays yours however long it runs,
+ * and what comes after waits. The app is not running when that happens, so
+ * the message is worked out ahead: at the thing's end, plus a little grace,
+ * the day is laid out as it would be then, still on it, and the notification
+ * says what that pushed back. Finishing it, or anything else changing the
+ * plan, replaces the notification.
  */
 export interface PlanAlert { at: number; body: string }
 
@@ -19,13 +20,18 @@ export function planAlert(items: FlowInput[], flow: DayFlow, now: number, window
     if (!target) return null;
     const at = target.end + GRACE;
     if (at >= 24 * 60) return null;
-    const later = flowDay(items, at, window);
-    const moved = later.timeline.find(item => item.id === target.id);
-    const by = clockLabel(target.end);
-    if (!moved) return { at, body: `${target.title} didn't get done by ${by}, and there's no room left for it before bedtime.` };
-    if (moved.cutFrom) return { at, body: `${target.title} didn't get done by ${by}, so I moved it to ${clockLabel(moved.start)} and cut the day's biggest things short to fit.` };
-    if (moved.start === target.start) return null;
-    return { at, body: `${target.title} didn't get done by ${by}, so I moved it to ${clockLabel(moved.start)}.` };
+    // By then it will have been started, and holds its slot as it runs on.
+    const then = items.map(item => (item.id === target.id && !item.locked ? { ...item, kept: { start: target.start, end: target.end } } : item));
+    const later = flowDay(then, at, window);
+    const running = `${target.title} is taking longer than planned`;
+    for (const before of flow.timeline) {
+        if (before.id === target.id || !open(before) || before.locked || before.start < target.start) continue;
+        const after = later.timeline.find(item => item.id === before.id);
+        if (!after) return { at, body: `${running}, so there's no room left for ${before.title} before bedtime.` };
+        if (after.cutFrom && after.end - after.start < before.end - before.start) return { at, body: `${running}, so ${before.title} is cut to ${after.end - after.start} min to fit before bedtime.` };
+        if (after.start > before.start) return { at, body: `${running}, so ${before.title} now starts at ${clockLabel(after.start)}.` };
+    }
+    return null;
 }
 
 const ID = 'habyss-plan-moved';

@@ -7,19 +7,19 @@ const window = { wake: 7 * 60, sleep: 23 * 60 };
 const task = (id: string, start: number | null, minutes: number): FlowInput => ({ id, kind: 'task', title: id, start, minutes, done: false });
 
 describe('Echo, when the plan moves', () => {
-    it('says ahead of time where the thing will go if it is not done in its time', () => {
-        // Under way since 9:00 (its slot held), with an exact-time class at 10:00.
-        const items = [{ ...task('Workout', null, 45), kept: { start: 540, end: 585 } }, { ...task('Class', 600, 60), locked: true }];
+    it('never moves the one you are on: says what its running over pushes back', () => {
+        // Under way since 9:00 (its slot held), the email next.
+        const items = [{ ...task('Workout', null, 45), kept: { start: 540, end: 585 } }, task('Email', null, 30)];
         const alert = planAlert(items, flowDay(items, 545, window), 545, window);
-        // 9:45 end, ten minutes' grace: at 9:55 it is fitted in again, after class.
+        // 9:45 end, ten minutes' grace: at 9:55 the workout is still yours, and the email waits.
         expect(alert?.at).toBe(595);
-        expect(alert?.body).toMatch(/^Workout didn't get done by .+, so I moved it to .+\.$/);
+        expect(alert?.body).toMatch(/^Workout is taking longer than planned, so Email now starts at .+\.$/);
     });
 
-    it('says so when there is no room left before bedtime', () => {
-        const items = [task('Essay', 1260, 90)];
+    it('says so when the last thing loses its room before bedtime', () => {
+        const items = [{ ...task('Essay', null, 60), kept: { start: 1260, end: 1320 } }, task('Read', null, 60)];
         const alert = planAlert(items, flowDay(items, 1265, window), 1265, window);
-        expect(alert?.body).toMatch(/no room left for it before bedtime/);
+        expect(alert?.body).toMatch(/Read is cut to \d+ min to fit before bedtime|no room left for Read before bedtime/);
     });
 
     it('has nothing to say when everything is done', () => {
