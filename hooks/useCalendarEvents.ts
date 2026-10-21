@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
-import { calendarOn, eventsFor, loadCalendarSetting, subscribeCalendar, type CalendarSlot } from '@/lib/calendarEvents';
+import { calendarOn, checkCalendarAccess, eventsFor, loadCalendarSetting, subscribeCalendar, type CalendarSlot } from '@/lib/calendarEvents';
 
 /** Whether the calendar is connected (Settings → Timeline). */
 export function useCalendarOn(): boolean {
@@ -16,7 +16,7 @@ export function useCalendarEvents(day: string): CalendarSlot[] {
         let live = true;
         const read = (fresh: boolean) => void eventsFor(day, fresh).then(slots => { if (live) setEvents(slots); });
         read(false);
-        const sub = AppState.addEventListener('change', next => { if (next === 'active') read(true); });
+        const sub = AppState.addEventListener('change', next => { if (next === 'active') void checkCalendarAccess().then(() => read(true)); });
         return () => { live = false; sub.remove(); };
     }, [day, on]);
     return on ? events : [];

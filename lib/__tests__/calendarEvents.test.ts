@@ -18,3 +18,11 @@ describe('calendar events as timeline blocks', () => {
         expect(toSlot({ ...base, title: '  ' }, day)?.title).toBe('Busy');
     });
 });
+
+describe('calendarLink', () => {
+    it('opens Apple Calendar at the event, in seconds from 2001', () => {
+        const { calendarLink } = require('../calendarEvents');
+        const at = new Date('2026-10-20T09:30:00').getTime();
+        expect(calendarLink('2026-10-20', 570)).toBe(`calshow:${Math.round((at - Date.UTC(2001, 0, 1)) / 1000)}`);
+    });
+});

@@ -49,6 +49,7 @@ import { setTodayFlow } from '@/lib/scheduledActivities';
 import { burstMarks, habitDone, taskEarned } from '@/lib/marksOrbs';
 import { counts as countsShared } from '@/lib/sharedGate';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import { openInCalendar } from '@/lib/calendarEvents';
 import { useEchoPatterns } from '@/hooks/useEchoPatterns';
 import { peakWindow } from '@/lib/echoPatterns';
 import { mealSlots } from '@/lib/meals';
@@ -936,10 +937,12 @@ const CalendarScreen = () => {
     const openFlowItem = useCallback((item: FlowInput) => {
         lightFeedback();
         markSeen(item.id);
-        if (item.kind === 'meal' || item.kind === 'event') router.push('/(root)/meals' as never);
+        // A calendar event opens where it lives: Apple Calendar, at its time.
+        if (item.kind === 'event') openInCalendar(localDateKey(selectedDate), item.start ?? 0);
+        else if (item.kind === 'meal') router.push('/(root)/meals' as never);
         else if (item.kind === 'habit') router.push({ pathname: '/habit-detail', params: { habitId: item.id } });
         else { const task = tasks.find(t => t.id === item.id); if (task) openTask(task); }
-    }, [tasks, openTask, lightFeedback, router]);
+    }, [tasks, openTask, lightFeedback, router, selectedDate]);
     const focusFlowItem = useCallback((item: FlowInput) => {
         mediumFeedback();
         router.push({ pathname: '/(root)/focus', params: { kind: item.kind, id: item.id, title: item.title } });

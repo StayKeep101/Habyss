@@ -12,7 +12,7 @@ import { syncHealthKitData } from '@/lib/habitsSQLite';
 import { styles } from '@/styles/screens/integrations.styles';
 import { McpKeySheet } from '@/components/Integrations/McpKeySheet';
 import { useCalendarEvents, useCalendarOn } from '@/hooks/useCalendarEvents';
-import { calendarAvailable, setCalendarOn } from '@/lib/calendarEvents';
+import { explainCalendarRefused, setCalendarOn } from '@/lib/calendarEvents';
 import { createMcpKey, listMcpKeys, mcpAvailable, mcpUrl, revokeMcpKey, type McpKey } from '@/lib/mcpKeys';
 import { localDateKey } from '@/lib/habitSchedule';
 
@@ -37,9 +37,7 @@ export default function IntegrationsScreen() {
     const toggleCalendar = async (next: boolean) => {
         lightFeedback();
         const done = await setCalendarOn(next);
-        if (!done && next) Alert.alert('Calendar not connected', calendarAvailable()
-            ? 'Allow Habyss to see your calendar in iOS Settings → Privacy & Security → Calendars, then switch it on here.'
-            : 'This version of Habyss cannot read the calendar.');
+        if (!done && next) explainCalendarRefused();
     };
 
     // AI assistants (MCP): your keys, and a new one shown once.

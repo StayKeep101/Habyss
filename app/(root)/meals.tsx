@@ -11,7 +11,7 @@ import { useCalendarOn } from '@/hooks/useCalendarEvents';
 import { MEAL_NAMES, saveMeal, setMealsFlexible, type MealId } from '@/lib/meals';
 import { MealRow } from '@/components/Roadmap/MealRow';
 import { cachedDayWindow, DEFAULT_DAY, getDayWindow, saveDayWindow, type DayWindow } from '@/lib/echo';
-import { calendarAvailable, setCalendarOn } from '@/lib/calendarEvents';
+import { explainCalendarRefused, setCalendarOn } from '@/lib/calendarEvents';
 import { NotificationService } from '@/lib/notificationService';
 import { styles } from '@/styles/screens/meals.styles';
 
@@ -35,9 +35,7 @@ export default function TimelineSettingsScreen() {
 
     const toggleCalendar = async (next: boolean) => {
         const done = await setCalendarOn(next);
-        if (!done && next) Alert.alert('Calendar not connected', calendarAvailable()
-            ? 'Allow Habyss to see your calendar in iOS Settings → Privacy & Security → Calendars, then switch it on here.'
-            : 'This version of Habyss cannot read the calendar.');
+        if (!done && next) explainCalendarRefused();
     };
 
     return (

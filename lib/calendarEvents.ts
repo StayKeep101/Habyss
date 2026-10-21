@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 
 /**
  * Events from the phone's own calendars (Apple Calendar, and any Google or
@@ -56,6 +56,44 @@ export async function setCalendarOn(next: boolean): Promise<boolean> {
     await AsyncStorage.setItem(KEY, next ? '1' : '0').catch(() => undefined);
     changed();
     return true;
+}
+
+/** Switching on did not work: say why, with a way straight to iOS Settings when access was refused. */
+export function explainCalendarRefused(): void {
+    if (!calendarAvailable()) {
+        Alert.alert('Calendar not connected', 'This version of Habyss cannot read the calendar.');
+        return;
+    }
+    Alert.alert('Calendar not connected', 'Allow Habyss to see your calendars, then switch it on again.', [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open Settings', onPress: () => void Linking.openSettings().catch(() => undefined) },
+    ]);
+}
+
+/**
+ * Access taken away in iOS Settings while the switch was on: switch it off,
+ * so the app never shows "connected" with an empty calendar. Read when the
+ * app comes back to the front.
+ */
+export async function checkCalendarAccess(): Promise<void> {
+    if (!(await loadCalendarSetting())) return;
+    const api = calendar();
+    const status = api ? (await api.getCalendarPermissionsAsync().catch(() => null))?.status : 'denied';
+    if (!status || status === 'granted') return;
+    on = false;
+    cache.clear();
+    await AsyncStorage.setItem(KEY, '0').catch(() => undefined);
+    changed();
+}
+
+/** Apple Calendar opened at the moment `minutes` after midnight on `day` (its calshow: link counts seconds from 2001). */
+export function calendarLink(day: string, minutes: number): string {
+    const at = new Date(`${day}T00:00:00`).getTime() + minutes * 60000;
+    return `calshow:${Math.round((at - Date.UTC(2001, 0, 1)) / 1000)}`;
+}
+
+export function openInCalendar(day: string, minutes: number): void {
+    void Linking.openURL(calendarLink(day, minutes)).catch(() => undefined);
 }
 
 /** One event as a block on `day`: clipped to the day, in minutes from midnight. */
