@@ -12,7 +12,15 @@ export type ClimbMoment =
     | { kind: 'foothold' }
     | { kind: 'rankUp'; rank: string; index: number };
 
-export interface ClimbState { rank: number; foothold: boolean }
+export interface ClimbState { rank: number; foothold: boolean; v?: number }
+
+/**
+ * Version 2: a rank is only stored once the total has settled. Before, a total
+ * read too high while it loaded could store a rank whose moment never showed,
+ * so reaching it for real showed nothing; such a phone sees its latest rank
+ * once more.
+ */
+const VERSION = 2;
 
 const KEY = 'habyss_climb_state';
 
@@ -40,18 +48,21 @@ export const echoLineFor = (moment: ClimbMoment): string =>
 /** What to show, given what was last seen and where things stand now. */
 export function nextMoment(previous: ClimbState | null, marks: number, hasCompleted: boolean): { moment: ClimbMoment | null; state: ClimbState } {
     const index = RANKS.indexOf(rankFor(marks).rank);
-    if (!previous) return { moment: null, state: { rank: index, foothold: hasCompleted } };
-    if (hasCompleted && !previous.foothold) return { moment: { kind: 'foothold' }, state: { ...previous, foothold: true } };
+    if (!previous) return { moment: null, state: { rank: index, foothold: hasCompleted, v: VERSION } };
+    // A first foothold and a new rank at once: the rank is the bigger beat, and covers both.
+    if (hasCompleted && !previous.foothold && index <= previous.rank) return { moment: { kind: 'foothold' }, state: { ...previous, foothold: true } };
     // Only a new highest rank is a moment. Dropping below and climbing back
     // (or a total read before everything has loaded) never replays one.
-    if (index > previous.rank) return { moment: { kind: 'rankUp', rank: RANKS[index].name, index }, state: { ...previous, rank: index } };
+    if (index > previous.rank) return { moment: { kind: 'rankUp', rank: RANKS[index].name, index }, state: { ...previous, rank: index, foothold: previous.foothold || hasCompleted } };
     return { moment: null, state: previous };
 }
 
 export async function loadClimbState(): Promise<ClimbState | null> {
     try {
         const raw = await AsyncStorage.getItem(KEY);
-        return raw ? (JSON.parse(raw) as ClimbState) : null;
+        if (!raw) return null;
+        const state = JSON.parse(raw) as ClimbState;
+        return state.v === VERSION ? state : { ...state, rank: Math.max(0, state.rank - 1), v: VERSION };
     } catch {
         return null;
     }

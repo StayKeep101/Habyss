@@ -280,7 +280,9 @@ const Home = () => {
     const hasCompleted = Object.values(sharedData.history).some(ids => ids.length > 0)
       || sharedData.tasks.some(task => task.status === 'done');
     let alive = true;
-    void loadClimbState().then(previous => {
+    // Sleep and the misses of deleted things arrive a moment later and can
+    // lower the total, so it is read once it has held still for a beat.
+    const settle = setTimeout(() => void loadClimbState().then(previous => {
       if (!alive) return;
       const { moment, state } = nextMoment(previous, marks.total, hasCompleted);
       void saveClimbState(state);
@@ -288,8 +290,8 @@ const Home = () => {
         setClimbMoment(moment);
         if (moment.kind === 'rankUp') playLevelUp();
       }
-    });
-    return () => { alive = false; };
+    }), 2500);
+    return () => { alive = false; clearTimeout(settle); };
   }, [marks.total, sharedData.historyLoaded, sharedData.tasksLoaded, goalsData.loaded, sharedData.history, sharedData.tasks, playLevelUp]);
   // The Developer page can play the moment for any rank, to see it.
   useEffect(() => {
