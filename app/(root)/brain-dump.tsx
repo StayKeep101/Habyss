@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
+import { isTablet } from '@/lib/orientation';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useNavigation, useRouter } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
@@ -346,7 +347,9 @@ export default function BrainDumpScreen() {
                         multiline
                         value={draft}
                         onChangeText={setDraft}
-                        placeholder="What’s on your mind?"
+                        // On an iPad, Scribble turns Apple Pencil handwriting in
+                        // this field into text: write straight into it.
+                        placeholder={isTablet() ? 'What’s on your mind? Type or write with Apple Pencil' : 'What’s on your mind?'}
                         placeholderTextColor={colors.textTertiary}
                         returnKeyType="send"
                         submitBehavior="submit"

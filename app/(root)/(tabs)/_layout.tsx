@@ -6,6 +6,7 @@ import { useDayCardPublisher } from '@/hooks/useDayCardPublisher';
 import { useAppSounds } from '@/hooks/useAppSounds';
 import { useLivePulse } from '@/hooks/useLivePulse';
 import { useFocusStatus, useStatusBroadcast } from '@/hooks/useStatusBroadcast';
+import { READABLE_WIDTH, useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -19,6 +20,9 @@ export default function TabLayout() {
   // Your status for friends: live, locked in, or (at your bedtime) asleep.
   useStatusBroadcast();
   useFocusStatus();
+  // iPad and an open foldable: the tabs become a rail down the left and each
+  // page keeps a readable width in the space beside it.
+  const { railed } = useResponsiveLayout();
 
   return (
     <Tabs
@@ -26,6 +30,8 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
+        tabBarPosition: railed ? 'left' : 'bottom',
+        sceneStyle: railed ? { width: '100%', maxWidth: READABLE_WIDTH, alignSelf: 'center', backgroundColor: colors.background } : undefined,
         tabBarStyle: {
           position: 'absolute',
         }

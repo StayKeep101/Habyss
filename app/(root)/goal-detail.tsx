@@ -140,10 +140,12 @@ const GoalDetail = () => {
 
   /** This sheet's height, so the ⋯ menu opens exactly on its button. */
   const [pageHeight, setPageHeight] = useState<number | undefined>(undefined);
+  // And its width: on an iPad the sheet is narrower than the screen.
+  const [pageWidth, setPageWidth] = useState<number | undefined>(undefined);
   // The panel's dome starts a quarter of the way down, so the panel fills the
   // bottom three quarters; the cover is framed in the strip left above it.
   const panelTop = Math.round((pageHeight ?? height) * (1 - PANEL_SHARE));
-  const heroBox = useMemo(() => heroFrame(aspect, width, panelTop + BUMP / 2), [aspect, panelTop]);
+  const heroBox = useMemo(() => heroFrame(aspect, pageWidth ?? width, panelTop + BUMP / 2), [aspect, panelTop, pageWidth]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   // A new habit made from this page belongs to this goal.
@@ -381,7 +383,7 @@ const GoalDetail = () => {
   // Header Animation moved to top
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }} onLayout={event => setPageHeight(event.nativeEvent.layout.height)}>
+    <View style={{ flex: 1, backgroundColor: colors.background }} onLayout={event => { setPageHeight(event.nativeEvent.layout.height); setPageWidth(event.nativeEvent.layout.width); }}>
       <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
 
       {/* The goal's picture, shown whole and unshaded. The only shadow on it

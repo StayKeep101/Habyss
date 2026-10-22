@@ -1,5 +1,5 @@
 import { FontFamily } from '@/theme/designSystem';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Dimensions, ListRenderItemInfo } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
 import Animated, { Easing, ReduceMotion, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
@@ -29,8 +29,6 @@ interface DateItem {
   goalColor?: string;
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const ITEM_WIDTH = SCREEN_WIDTH / 7;
 const TOTAL_WEEKS = 10000;
 const BASE_WEEK_INDEX = Math.floor(TOTAL_WEEKS / 2);
 
@@ -201,6 +199,11 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
   const isLight = theme === 'light';
   const { primary: accentColor } = useAccentGradient();
   const flatListRef = useRef<FlatList<number>>(null);
+  // A week is as wide as the strip itself, measured: on an iPad, beside the
+  // rail, in Split View or on a foldable it is not the screen's width, and it
+  // changes when the window does.
+  const [pageWidth, setPageWidth] = useState(() => Dimensions.get('window').width);
+  const itemWidth = pageWidth / 7;
 
   const today = useMemo(() => stripTime(new Date()), []);
   const baseWeekStart = useMemo(() => getStartOfWeek(today), [today]);
@@ -256,7 +259,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
     const weekItems = buildWeekItems(weekIndex);
 
     return (
-      <View style={{ width: SCREEN_WIDTH, flexDirection: 'row' }}>
+      <View style={{ width: pageWidth, flexDirection: 'row' }}>
         {weekItems.map((item) => {
           const selected = toDateKey(item.fullDate) === toDateKey(selectedDate);
 
@@ -266,7 +269,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
               item={item}
               selected={selected}
               onSelect={onSelectDate}
-              width={ITEM_WIDTH}
+              width={itemWidth}
               colors={colors}
               accentColor={accentColor}
               isLight={isLight}
@@ -275,18 +278,18 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
         })}
       </View>
     );
-  }, [accentColor, buildWeekItems, colors, isLight, onSelectDate, selectedDate]);
+  }, [accentColor, buildWeekItems, colors, isLight, onSelectDate, selectedDate, pageWidth, itemWidth]);
 
   const getItemLayout = useCallback((_: ArrayLike<number> | null | undefined, index: number) => ({
-    length: SCREEN_WIDTH,
-    offset: SCREEN_WIDTH * index,
+    length: pageWidth,
+    offset: pageWidth * index,
     index,
-  }), []);
+  }), [pageWidth]);
 
   /** A swipe landed on a week: select the same weekday there, every time. */
   const handleScrollEnd = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
-    const weekIndex = Math.round(offsetX / SCREEN_WIDTH);
+    const weekIndex = Math.round(offsetX / pageWidth);
     if (weekIndex < 0 || weekIndex >= TOTAL_WEEKS) return;
     shownWeek.current = weekIndex;
     // Landed where the selection already is (our own scroll, or a swipe that
@@ -299,16 +302,16 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
     if (toDateKey(nextDate) !== toDateKey(selectedDate)) {
       onSelectDate(nextDate);
     }
-  }, [getWeekStartForIndex, getWeekIndexForDate, onSelectDate, selectedDate]);
+  }, [getWeekStartForIndex, getWeekIndexForDate, onSelectDate, selectedDate, pageWidth]);
 
   const onScrollToIndexFailed = useCallback((info: { index: number }) => {
     requestAnimationFrame(() => {
       flatListRef.current?.scrollToOffset({
-        offset: info.index * SCREEN_WIDTH,
+        offset: info.index * pageWidth,
         animated: false,
       });
     });
-  }, []);
+  }, [pageWidth]);
 
   const isTodaySelected = toDateKey(selectedDate) === toDateKey(today);
   const headerTitle = isTodaySelected ? 'Today' : selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
@@ -323,7 +326,8 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
   };
 
   return (
-    <View style={{ paddingTop: 8, paddingBottom: 4, backgroundColor: 'transparent' }}>
+    <View style={{ paddingTop: 8, paddingBottom: 4, backgroundColor: 'transparent' }}
+      onLayout={event => { const next = Math.round(event.nativeEvent.layout.width); if (next && next !== Math.round(pageWidth)) setPageWidth(next); }}>
       <View style={{ paddingHorizontal: 24, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <IconButton icon="chevron-back" label="Previous week" onPress={handlePrevWeek} diameter={36} size={24} color={colors.textSecondary} />
 
@@ -342,6 +346,8 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
       </View>
 
       <FlatList
+        // A new width starts the list again at the week on screen.
+        key={Math.round(pageWidth)}
         ref={flatListRef}
         data={weekIndexes}
         renderItem={renderWeek}
@@ -350,7 +356,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
         pagingEnabled
         decelerationRate="fast"
         showsHorizontalScrollIndicator={false}
-        initialScrollIndex={BASE_WEEK_INDEX}
+        initialScrollIndex={shownWeek.current}
         getItemLayout={getItemLayout}
         onMomentumScrollEnd={handleScrollEnd}
         onScrollToIndexFailed={onScrollToIndexFailed}

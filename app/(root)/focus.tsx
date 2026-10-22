@@ -10,6 +10,7 @@ import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { DurationWheels } from '@/components/Create/DurationWheels';
 import { FocusClock } from '@/components/Focus/FocusClock';
 import { useFocusTime } from '@/context/FocusTimeContext';
+import { allowAnyOrientation, applyDefaultOrientation } from '@/lib/orientation';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useClockStyle } from '@/hooks/useClockStyle';
@@ -24,17 +25,6 @@ import { styles } from '@/styles/screens/focus.styles';
 
 type Mode = 'timer' | 'stopwatch';
 const DEFAULT_SECONDS = 25 * 60;
-
-/** Rotation is allowed here only; the rest of the app stays upright. Needs a build with the module. */
-function orientation(): typeof import('expo-screen-orientation') | null {
-    try {
-        const { requireOptionalNativeModule } = require('expo-modules-core') as typeof import('expo-modules-core');
-        if (!requireOptionalNativeModule('ExpoScreenOrientation')) return null;
-        return require('expo-screen-orientation');
-    } catch {
-        return null;
-    }
-}
 
 /**
  * Focus mode, for any habit or task.
@@ -146,9 +136,10 @@ function FocusScreen() {
         return () => { void keep.deactivateKeepAwake('habyss-focus').catch(() => undefined); };
     }, [focus.isRunning, mine]);
     useEffect(() => {
-        const rotate = orientation();
-        void rotate?.unlockAsync().catch(() => undefined);
-        return () => { void rotate?.lockAsync(rotate.OrientationLock.PORTRAIT_UP).catch(() => undefined); };
+        // Sideways for the clock here; on leaving, back to the app's rule
+        // (upright on a phone, free on an iPad).
+        allowAnyOrientation();
+        return () => applyDefaultOrientation();
     }, []);
 
     // The × steps back after a few seconds; a tap brings it back.

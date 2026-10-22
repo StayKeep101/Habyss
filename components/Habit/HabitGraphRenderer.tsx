@@ -10,7 +10,8 @@ import { useAnimatedProps } from 'react-native-reanimated';
 import { AnimatedCircle, CountUp, GrowBar, MOTION, PopIn, Reveal, useCountUp, useProgress } from '@/components/ui/Motion';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const GRAPH_WIDTH = SCREEN_WIDTH - 64;
+// On an iPad the habit opens in a sheet about 700 points wide, not the screen's width.
+const GRAPH_WIDTH = Math.min(SCREEN_WIDTH, 700) - 64;
 const GRAPH_HEIGHT = 160;
 
 interface DayData {

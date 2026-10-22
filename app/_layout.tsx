@@ -110,6 +110,8 @@ export default function MobileLayout() {
             // Home waits for them.
             void RevenueCatService.init().catch(error => console.warn('Purchases unavailable', error));
             void SiriService.syncTodayProgress().catch(() => undefined);
+            // Upright on a phone, any way round on an iPad (lib/orientation.ts).
+            (require('@/lib/orientation') as typeof import('@/lib/orientation')).applyDefaultOrientation();
             // Your day and Echo's settings, read once so every screen opens on them.
             (require('@/lib/echo') as typeof import('@/lib/echo')).warmEchoSettings();
             // One-go goals count past efforts at what they were (lib/peakPlan.ts).

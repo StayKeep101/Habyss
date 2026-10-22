@@ -1,7 +1,7 @@
 import { Dimensions, StyleSheet } from 'react-native';
 import { FontFamily, Spacing, Typography } from '@/theme/designSystem';
 
-const { height, width } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 /** The look of app/(root)/goal-detail.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
@@ -144,7 +144,9 @@ export const styles = StyleSheet.create({
     marginTop: 22,
   },
   dashboardCard: {
-    width: (width - 52) / 2,
+    // Two to a row, at whatever width the sheet is (an iPad's is not the screen's).
+    flexGrow: 1,
+    flexBasis: '40%',
     paddingHorizontal: 16,
     paddingVertical: 18,
     borderRadius: 22,

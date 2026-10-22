@@ -6,10 +6,22 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BASE_WIDTH = 390;
 const BASE_HEIGHT = 844;
 
-// Scale factor based on screen width (most important for horizontal layout)
-const widthScale = SCREEN_WIDTH / BASE_WIDTH;
-// Scale factor based on screen height
-const heightScale = SCREEN_HEIGHT / BASE_HEIGHT;
+/**
+ * How much bigger or smaller than the design phone things are drawn.
+ *
+ * Read off the shortest side, so turning the device (or an iPad opened in
+ * landscape, or a foldable opened flat) does not change it, and capped: a
+ * small phone shrinks a little, a big one grows a little, and an iPad gets
+ * the phone's sizes with room around them rather than everything 2.6 times
+ * bigger. The extra room goes to layout (useResponsiveLayout), not to size.
+ */
+const MIN_SCALE = 0.85;
+const MAX_SCALE = 1.15;
+const clampScale = (value: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
+const SHORT_SIDE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT);
+const LONG_SIDE = Math.max(SCREEN_WIDTH, SCREEN_HEIGHT);
+const widthScale = clampScale(SHORT_SIDE / BASE_WIDTH);
+const heightScale = clampScale(LONG_SIDE / BASE_HEIGHT);
 
 /**
  * Scale a value proportionally to the screen width.

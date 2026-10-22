@@ -5,11 +5,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import Animated, { useAnimatedStyle, withSpring, withTiming, useSharedValue, interpolate } from 'react-native-reanimated';
 import { Colors } from '@/theme/colors';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { RAIL_WIDTH, useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
 import { AppState } from 'react-native';
 import { FriendsService } from '@/lib/friendsService';
@@ -75,7 +75,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const { colors: accentColors, shadowColor, foreground, buttonColors } = useAccentGradient();
     const palette = Colors[theme];
     const { mediumFeedback } = useHaptics();
-    const { horizontalPadding, tabBarHeight, floatingButtonSize, tabBarBottomOffset, isCompactWidth } = useResponsiveLayout();
+    const { horizontalPadding, tabBarHeight, floatingButtonSize, tabBarBottomOffset, isCompactWidth, railed, insets } = useResponsiveLayout();
     const orbRef = React.useRef<any>(null);
     const { width: screenWidth } = useWindowDimensions();
     /** True while the button is held for voice, so letting go stops listening. */
@@ -128,39 +128,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
         return () => { alive = false; stop.remove(); app.remove(); };
     }, []);
 
-    return (
-        <View style={[
-            styles.container,
-            {
-                bottom: tabBarBottomOffset,
-                paddingHorizontal: horizontalPadding,
-                gap: isCompactWidth ? 10 : 12,
-            }
-        ]}>
-
-            {/* 1. Navigation Pill */}
-            {/* The fade the page sinks into, behind the dock: content dims as it
-                scrolls underneath, the way Phantom's bottom edge does, so the
-                dock floats over it instead of sitting on a hard line. */}
-            <LinearGradient
-                pointerEvents="none"
-                colors={[palette.background + '00', palette.background + 'B3', palette.background + 'F2']}
-                locations={[0, 0.45, 1]}
-                style={[styles.fade, { bottom: -tabBarBottomOffset, height: tabBarBottomOffset + tabBarHeight + 56 }]}
-            />
-
-            {/* The matte card surface as a pill, floating on its shadow. */}
-            <MatteSurface radius={tabBarHeight / 2} elevation="floating" edge={dockEdge} hairline style={[
-                styles.navPill,
-                {
-                    height: tabBarHeight,
-                    paddingHorizontal: isCompactWidth ? 12 : 16,
-                    maxWidth: isCompactWidth ? 236 : 260,
-                },
-            ]}>
-
-                <View style={styles.tabsRow}>
-                    {state.routes.map((route: any, index: number) => {
+    const tabs = state.routes.map((route: any, index: number) => {
                         const { options } = descriptors[route.key];
                         const isFocused = state.index === index;
 
@@ -212,12 +180,9 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                                 />
                             </TouchableOpacity>
                         );
-                    })}
-                </View>
-            </MatteSurface>
+                    });
 
-            {/* 2. Creation Orb (Plus Button) - Uses accent gradient. While an
-                item in a goal is dragged it becomes the "Remove from goal" target. */}
+    const orb = (
             <Animated.View style={orbScale}>
             {removeDrag.active ? (
                 <Animated.Text pointerEvents="none" numberOfLines={1}
@@ -275,6 +240,60 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 </Animated.View>
             </TouchableOpacity>
             </Animated.View>
+    );
+
+    // iPad and an open foldable: the same pill and plus, standing down the
+    // left edge, the page beside them instead of under them.
+    if (railed) {
+        return (
+            <View style={[styles.rail, { width: RAIL_WIDTH, backgroundColor: palette.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+                <MatteSurface radius={tabBarHeight / 2} elevation="floating" edge={dockEdge} hairline style={[styles.railPill, { width: tabBarHeight }]}>
+                    {tabs}
+                </MatteSurface>
+                {orb}
+            </View>
+        );
+    }
+
+    return (
+        <View style={[
+            styles.container,
+            {
+                bottom: tabBarBottomOffset,
+                paddingHorizontal: horizontalPadding,
+                gap: isCompactWidth ? 10 : 12,
+            }
+        ]}>
+
+            {/* 1. Navigation Pill */}
+            {/* The fade the page sinks into, behind the dock: content dims as it
+                scrolls underneath, the way Phantom's bottom edge does, so the
+                dock floats over it instead of sitting on a hard line. */}
+            <LinearGradient
+                pointerEvents="none"
+                colors={[palette.background + '00', palette.background + 'B3', palette.background + 'F2']}
+                locations={[0, 0.45, 1]}
+                style={[styles.fade, { bottom: -tabBarBottomOffset, height: tabBarBottomOffset + tabBarHeight + 56 }]}
+            />
+
+            {/* The matte card surface as a pill, floating on its shadow. */}
+            <MatteSurface radius={tabBarHeight / 2} elevation="floating" edge={dockEdge} hairline style={[
+                styles.navPill,
+                {
+                    height: tabBarHeight,
+                    paddingHorizontal: isCompactWidth ? 12 : 16,
+                    maxWidth: isCompactWidth ? 236 : 260,
+                },
+            ]}>
+
+                <View style={styles.tabsRow}>
+                    {tabs}
+                </View>
+            </MatteSurface>
+
+            {/* 2. Creation Orb (Plus Button) - Uses accent gradient. While an
+                item in a goal is dragged it becomes the "Remove from goal" target. */}
+            {orb}
 
             {/* Holding the plus stretches it into a listening pill over the dock. */}
             <View pointerEvents="none" style={[StyleSheet.absoluteFill, { left: horizontalPadding, right: horizontalPadding }]}>
@@ -295,6 +314,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     fade: { position: 'absolute', left: 0, right: 0 },
+    rail: { alignItems: 'center', justifyContent: 'center', gap: Spacing.xxl },
+    railPill: { alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.md, gap: Spacing.sm },
     navPill: {
         flex: 1,
         flexDirection: 'row',
