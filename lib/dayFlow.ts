@@ -64,6 +64,8 @@ export interface FlowInput {
     preferred?: number;
     /** Its time passed without it being done, so it was fitted in again. */
     moved?: boolean;
+    /** A task's "due by" day, shown on its row. */
+    deadline?: string;
 }
 
 export interface FlowItem extends FlowInput {
@@ -96,8 +98,12 @@ export const DEFAULT_MINUTES = 30;
 /** The first item of the day can be started this early without waiting. */
 const EARLY = 10;
 
-/** A breath between two things the scheduler places back to back. */
-const BUFFER = 5;
+/**
+ * The break after something, before the next thing the scheduler places:
+ * a minute after a short one, up to ten after an hour or more (a sixth of
+ * its length), so a long block is followed by a real pause.
+ */
+export const breakAfter = (minutes: number) => Math.max(1, Math.min(10, Math.round(minutes / 6)));
 /** How long past its end something can run before it counts as missed and moves. */
 export const GRACE = 10;
 /** The longest a flexible meal waits for a full day. */
@@ -223,10 +229,10 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
     const sleep = window.sleep > window.wake ? window.sleep : window.sleep + 1440;
     // Busy: everything still to happen, plus anything done that sits ahead of now.
     const busy = flow.timeline.map(item => ({ start: item.start, end: item.end })).sort((a, b) => a.start - b.start);
-    const fits = (start: number, minutes: number) => busy.every(slot => start + minutes + BUFFER <= slot.start || start >= slot.end + BUFFER || (slot.end === slot.start));
+    const fits = (start: number, minutes: number) => busy.every(slot => start + minutes + breakAfter(minutes) <= slot.start || start >= slot.end + breakAfter(slot.end - slot.start) || (slot.end === slot.start));
     const slotFor = (from: number, minutes: number): number | null => {
         // Try the earliest start, then just after each busy block.
-        const candidates = [from, ...busy.map(slot => slot.end + BUFFER)].filter(at => at >= from).sort((a, b) => a - b);
+        const candidates = [from, ...busy.map(slot => slot.end + breakAfter(slot.end - slot.start))].filter(at => at >= from).sort((a, b) => a - b);
         for (const at of candidates) if (at + minutes <= sleep && fits(at, minutes)) return at;
         return null;
     };
@@ -248,10 +254,11 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
     /** The longest free stretch from `from` on, for something that no longer fits whole. */
     const roomFrom = (from: number, least: number): { at: number; minutes: number } | null => {
         let room: { at: number; minutes: number } | null = null;
-        const candidates = [from, ...busy.map(slot => slot.end + BUFFER)].filter(at => at >= from);
+        const candidates = [from, ...busy.map(slot => slot.end + breakAfter(slot.end - slot.start))].filter(at => at >= from);
         for (const at of candidates) {
             if (!fits(at, least)) continue;
-            const wall = Math.min(sleep, ...busy.filter(slot => slot.start >= at && slot.end > slot.start).map(slot => slot.start - BUFFER));
+            // Leaves at least a minute's break before what comes next.
+            const wall = Math.min(sleep, ...busy.filter(slot => slot.start >= at && slot.end > slot.start).map(slot => slot.start - 1));
             const minutes = Math.floor((wall - at) / 5) * 5;
             if (minutes >= least && (!room || minutes > room.minutes)) room = { at, minutes };
         }
@@ -446,10 +453,20 @@ export function flowInputs(input: {
         if (task.status === 'cancelled') continue;
         const minutes = task.measure === 'time' && task.target ? task.target : Number(task.estimatedMinutes) || 0;
         items.push({ id: task.id, kind: 'task', title: task.title, start: toMinutes(task.dueTime), minutes, done: task.status === 'done', locked: !!task.dueTime && task.flexible === false,
-            urgency: urgencyOf(task.priority, task.dueDate, input.today, task.deadline), difficulty: task.difficulty });
+            urgency: urgencyOf(task.priority, task.dueDate, input.today, task.deadline), difficulty: task.difficulty, deadline: task.deadline });
     }
     if (input.kept) for (const item of items) if (input.kept[item.id] && item.kind !== 'meal' && item.kind !== 'event') item.kept = input.kept[item.id];
     return items;
+}
+
+/** "Due today", "Due tomorrow", "Due Fri 24", seen from `day`; "Overdue" once it has passed. */
+export function dueLabel(deadline: string, day: string): string {
+    const days = Math.round((Date.parse(`${deadline}T12:00:00`) - Date.parse(`${day}T12:00:00`)) / 86400000);
+    if (days < 0) return 'Overdue';
+    if (days === 0) return 'Due today';
+    if (days === 1) return 'Due tomorrow';
+    const date = new Date(`${deadline}T12:00:00`);
+    return `Due ${date.toLocaleDateString('en-US', { weekday: 'short' })} ${date.getDate()}`;
 }
 
 /** "8:30 AM", in the phone's own clock style. */

@@ -52,15 +52,13 @@ import { useData } from '@/hooks/useData';
 import { getData } from '@/lib/dataStore';
 import { setTaskStatus, type Task } from '@/lib/tasks';
 import { StreakCard } from '@/components/Home/StreakCard';
-import { MomentumCard } from '@/components/Home/MomentumCard';
+import { FocusCard } from '@/components/Home/FocusCard';
 import { localDateKey } from '@/lib/habitSchedule';
 import { echoWeek } from '@/lib/echoInsights';
-import { MomentumModal } from '@/components/Home/MomentumModal';
 import { MissedCard } from '@/components/Home/MissedCard';
 import { MissedModal } from '@/components/Home/MissedModal';
 import { missed as missedFrom } from '@/lib/missed';
 import { useMovedTasks } from '@/hooks/useMovedTasks';
-import { momentum } from '@/lib/momentum';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
 import { RANKS } from '@/lib/marks';
@@ -93,7 +91,6 @@ const Home = () => {
 
   // UI state
   const [showCelebration, setShowCelebration] = useState(false);
-  const [showMomentumModal, setShowMomentumModal] = useState(false);
   const [showMissed, setShowMissed] = useState(false);
   // Your photo, from the one profile store (lib/profile.ts).
   const { avatar: profileAvatar } = useMyProfile();
@@ -376,7 +373,6 @@ const Home = () => {
 
   // Are the habits getting stronger, and do they get back up when they slip?
   // Both read the same window; neither is a grade out of today.
-  const trend = useMemo(() => momentum(habits, historyData, completions, 30), [habits, historyData, completions]);
   // What went undone, day by day, and whether that is more than last week.
   const moves = useMovedTasks();
   const missed = useMemo(() => missedFrom({ habits, history: historyData, completions, tasks: allTasks, moves, today: todayKeyString }), [habits, historyData, completions, allTasks, moves, todayKeyString]);
@@ -505,10 +501,8 @@ const Home = () => {
               completionTier={completionTier}
               onPress={() => { lightFeedback(); router.push('/(root)/progress'); }}
             />
-            <MomentumCard
-              momentum={trend}
-              onPress={() => { lightFeedback(); setShowMomentumModal(true); }}
-            />
+            {/* Focus in place of "Kept": time focused today, this week under it. */}
+            <FocusCard onPress={() => { lightFeedback(); router.push('/(root)/focus-stats' as never); }} />
             <MissedCard
               missed={missed}
               onPress={() => { lightFeedback(); setShowMissed(true); }}
@@ -529,13 +523,6 @@ const Home = () => {
         <CheckInPopup kind={question} onClose={() => setQuestion(null)}
           onAnswer={(kind, value) => { void answerCheckIn(kind, value); setQuestion(null); successFeedback(); }} />
 
-        <MomentumModal
-          visible={showMomentumModal}
-          onClose={() => setShowMomentumModal(false)}
-          habits={habits}
-          history={historyData}
-          completions={completions}
-        />
         <MissedModal
           visible={showMissed}
           onClose={() => setShowMissed(false)}

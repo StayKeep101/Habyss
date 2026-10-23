@@ -41,6 +41,7 @@ import { emit, on } from '@/lib/appEvents';
 import { DayPlanCard } from '@/components/Roadmap/DayPlanCard';
 import { flowDay, flowInputs, type FlowInput } from '@/lib/dayFlow';
 import { DayTimeline } from '@/components/Roadmap/DayTimeline';
+import { CalendarPrompt } from '@/components/Roadmap/CalendarPrompt';
 import { useMeals, useMealsFlexible } from '@/hooks/useMeals';
 import { useDayMemory } from '@/hooks/useDayMemory';
 import { markSeen, memoryReady, rememberFlow } from '@/lib/dayMemory';
@@ -907,6 +908,13 @@ const CalendarScreen = () => {
         });
     }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, flexibleMeals, memory]);
     const flow = useMemo(() => flowDay(flowItems, flowNow, flowWindow), [flowItems, flowNow, flowWindow]);
+    // Open tasks whose "due by" is this day but which are planned for another:
+    // named at the top of the day so the deadline is seen.
+    const dueToday = useMemo(() => {
+        const day = localDateKey(selectedDate);
+        const shown = new Set(flowItems.map(item => item.id));
+        return flowInputs({ habits: [], tasks: tasks.filter(task => task.status === 'open' && task.deadline === day && !shown.has(task.id)), done: {} });
+    }, [tasks, selectedDate, flowItems]);
     // Today's flow is remembered as it changes, and Echo is told when the
     // thing you are on would run out, so it can say where it went.
     useEffect(() => {
@@ -1107,8 +1115,12 @@ const CalendarScreen = () => {
                                 for their own habits anyway. */}
 
                             {timelineView ? (
+                                <>
+                                <CalendarPrompt />
                                 <DayTimeline flow={shownFlow} day={localDateKey(selectedDate)} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
+                                    wake={flowWindow.wake} sleep={flowWindow.sleep} dueToday={dueToday}
                                     onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem} />
+                                </>
                             ) : (<>
                             {/* GOALS SECTION */}
                             {showGoals && (

@@ -1,4 +1,4 @@
-import { flowDay, lengthLabel, upNext, urgencyOf, type FlowInput } from '../dayFlow';
+import { breakAfter, flowDay, lengthLabel, upNext, urgencyOf, type FlowInput } from '../dayFlow';
 
 const at = (h: number, m = 0) => h * 60 + m;
 const item = (id: string, start: number | null, minutes: number, done = false): FlowInput =>
@@ -122,7 +122,8 @@ describe('filling the day', () => {
         const flow = flowDay([task('low', 30, 30), task('urgent', 90, 0), lunch, meeting], 540, { wake: 420, sleep: 1380 });
         const at = (id: string) => flow.timeline.find(row => row.id === id)!;
         // 9:00 now; the meeting is 10–11, so the 90-minute urgent task goes after it, before lunch would cut it.
-        expect([at('urgent').start, at('urgent').end]).toEqual([785, 875]);
+        // Lunch ends at 13:00; after an hour of it, a ten-minute break.
+        expect([at('urgent').start, at('urgent').end]).toEqual([790, 880]);
         // The short low one fits before the meeting, right away.
         expect(at('low').start).toBe(540);
         expect(at('low').state).toBe('now');
@@ -188,7 +189,8 @@ describe('a day with too little time', () => {
         expect([at('essay').start, at('essay').end]).toEqual([1200, 1320]);
         expect(at('essay').cutFrom).toBeUndefined();
         // Reading is the last that fits: cut to the time before bedtime.
-        expect(at('reading')).toMatchObject({ start: 1325, end: 1380, cutFrom: 60 });
+        // After two hours, a ten-minute break, then what is left before bedtime.
+        expect(at('reading')).toMatchObject({ start: 1330, end: 1380, cutFrom: 60 });
         // Nothing left for the email.
         expect(flow.unfit.map(item => item.id)).toEqual(['email']);
     });
@@ -256,5 +258,14 @@ describe('exact time or flexible', () => {
         const read = before.timeline.find(row => row.id === 'read')!;
         expect(read.end <= 540 || read.start >= 600).toBe(true);
         expect(flowDay(items, 560, window).current?.id).toBe('class');
+    });
+});
+
+describe('breaks', () => {
+    it('gives a minute after a short thing and up to ten after a long one', () => {
+        expect(breakAfter(5)).toBe(1);
+        expect(breakAfter(30)).toBe(5);
+        expect(breakAfter(60)).toBe(10);
+        expect(breakAfter(180)).toBe(10);
     });
 });

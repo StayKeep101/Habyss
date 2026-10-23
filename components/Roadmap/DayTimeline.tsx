@@ -10,7 +10,8 @@ import { ListItem, useProgress } from '@/components/ui/Motion';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { useTokens } from '@/hooks/useTokens';
 import { useAppSettings } from '@/context/AppSettingsContext';
-import { lengthLabel, rangeLabel, type DayFlow, type FlowInput, type FlowItem } from '@/lib/dayFlow';
+import { clockLabel, dueLabel, lengthLabel, rangeLabel, type DayFlow, type FlowInput, type FlowItem } from '@/lib/dayFlow';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import { FontFamily } from '@/theme/designSystem';
 import { s, vs } from '@/theme/scale';
 
@@ -48,8 +49,13 @@ const pillHeight = (size: Size, minutes: number) => Math.max(size.min, Math.min(
  * marks one that moved since you last opened it. Meals and calendar events
  * sit as fixed blocks with a lock. A habit's pill is round, a task's squarer.
  */
-export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrubbing, day }: {
+export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrubbing, day, wake, sleep, dueToday }: {
     flow: DayFlow;
+    /** Waking and bedtime, in minutes from midnight: the day's first and last card. */
+    wake?: number;
+    sleep?: number;
+    /** Open tasks due by this day that are not on it: shown at the top, so a deadline is never missed. */
+    dueToday?: FlowInput[];
     /**
      * The day shown. A new day lays its rows in afresh, top to bottom, the same
      * way every time, rather than sliding the last day's rows around.
@@ -80,32 +86,100 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
         });
     }, [flow.timeline, now]);
     const colorOf = (item: FlowInput) => item.color || (item.kind === 'meal' ? t.color.textMuted : item.kind === 'task' ? t.color.warning : t.color.accent);
+    const edges = !scrubbing;
     return (
         <View key={day}>
-            {flow.timeline.length ? flow.timeline.map((item, index) => (
-                <ListItem key={`${item.kind}-${item.id}`} index={index} rise>
-                    <Row size={size} item={item} turn={turns[index]} color={colorOf(item)} last={index === flow.timeline.length - 1}
-                        nextColor={flow.timeline[index + 1] ? colorOf(flow.timeline[index + 1]) : undefined}
-                        now={now} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus} />
-                </ListItem>
-            )) : (
+            {/* Due by today and not on today's plan: named first, so the deadline is seen. */}
+            {edges && dueToday?.length ? (
+                <Chips title="Due today" icon="flag" tint={t.color.warning} items={dueToday} onOpen={onOpen} />
+            ) : null}
+            {edges && wake !== undefined ? <Edge size={size} icon="sunny" label="Wake up" at={wake} link={flow.timeline.length > 0} /> : null}
+            {flow.timeline.length ? flow.timeline.map((item, index) => {
+                const next = flow.timeline[index + 1];
+                // A short pause the scheduler left before the next one: shown, so it reads as a break, not a gap.
+                const pause = next && !scrubbing ? next.start - item.end : 0;
+                return (
+                    <ListItem key={`${item.kind}-${item.id}`} index={index} rise>
+                        <Row size={size} item={item} turn={turns[index]} color={colorOf(item)} last={index === flow.timeline.length - 1}
+                            nextColor={next ? colorOf(next) : undefined} day={day}
+                            now={now} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus} />
+                        {pause >= 1 && pause <= 10 ? <Break size={size} minutes={pause} color={colorOf(next)} /> : null}
+                    </ListItem>
+                );
+            }) : (
                 <Text style={[t.type.bodySmall, styles.empty, { color: t.color.textSubtle }]}>
                     {scrubbing ? 'Nothing on at this time.' : 'Nothing planned for this day yet.'}
                 </Text>
             )}
-            {/* Bedtime never gives: whatever has no room is named, not squeezed in. */}
-            {flow.unfit.length && !scrubbing ? (
-                <Text style={[t.type.caption, styles.unfit, { color: t.color.textSubtle }]}>
-                    {`No room before bedtime for ${flow.unfit.map(item => item.title).join(', ')}.`}
-                </Text>
+            {edges && sleep !== undefined ? <Edge size={size} icon="moon" label="Bedtime" at={sleep % 1440} /> : null}
+            {/* Bedtime never gives: whatever has no room gets a card of its own, easy to read and to open. */}
+            {flow.unfit.length && edges ? (
+                <Chips title="No room before bedtime" icon="moon" tint={t.color.textMuted} items={flow.unfit} onOpen={onOpen} />
             ) : null}
-
         </View>
     );
 }
 
-function Row({ size, item, turn, color, nextColor, last, now, updated, onToggle, onOpen, onFocus }: {
-    size: Size; item: FlowItem; turn: { delay: number; duration: number }; color: string; nextColor?: string; last: boolean; now: number | null; updated: boolean;
+/** Waking or bedtime: a quiet marker at the top or the bottom of the day. */
+function Edge({ size, icon, label, at, link }: { size: Size; icon: string; label: string; at: number; link?: boolean }) {
+    const t = useTokens();
+    return (
+        <View style={styles.row} accessibilityLabel={`${label}, ${clockLabel(at)}`}>
+            <View style={[styles.rail, { width: size.pill }]}>
+                <View style={[styles.edgeDot, { width: size.ring + t.space.sm, height: size.ring + t.space.sm, borderRadius: (size.ring + t.space.sm) / 2, borderColor: t.color.border }]}>
+                    <AppIcon name={icon} size={size.check} color={t.color.textMuted} />
+                </View>
+                {link ? <View style={[styles.link, { backgroundColor: t.color.border }]} /> : null}
+            </View>
+            <View style={[styles.edgeText, { paddingLeft: size.gap, paddingBottom: link ? size.pad : 0, gap: t.space.xs }]}>
+                <Text style={[t.type.bodySmall, styles.name, { color: t.color.textMuted }]}>{label}</Text>
+                <Text style={[t.type.caption, { color: t.color.textSubtle }]}>{clockLabel(at)}</Text>
+            </View>
+        </View>
+    );
+}
+
+/** The break before the next one: the line carries on, with how long the pause is. */
+function Break({ size, minutes, color }: { size: Size; minutes: number; color: string }) {
+    const t = useTokens();
+    return (
+        <View style={styles.row} accessibilityLabel={`${minutes} minute break`}>
+            <View style={[styles.rail, { width: size.pill }]}>
+                <View style={[styles.link, styles.breakLink, { backgroundColor: color }]} />
+            </View>
+            <View style={[styles.breakText, { paddingLeft: size.gap, gap: t.space.xs }]}>
+                <AppIcon name="cafe-outline" size={s(11)} color={t.color.textSubtle} />
+                <Text style={[t.type.caption, { color: t.color.textSubtle }]}>{`${minutes} min break`}</Text>
+            </View>
+        </View>
+    );
+}
+
+/** A few names as little cards in a row: things due today, or with no room before bedtime. */
+function Chips({ title, icon, tint, items, onOpen }: { title: string; icon: string; tint: string; items: FlowInput[]; onOpen: (item: FlowInput) => void }) {
+    const t = useTokens();
+    return (
+        <View style={{ gap: t.space.sm, paddingVertical: t.space.sm }}>
+            <View style={[styles.chipsTitle, { gap: t.space.xs }]}>
+                <AppIcon name={icon} size={s(12)} color={tint} />
+                <Text style={[t.type.caption, styles.name, { color: tint }]}>{title}</Text>
+            </View>
+            <View style={[styles.chipRow, { gap: t.space.sm }]}>
+                {items.map(item => (
+                    <Pressable key={`${item.kind}-${item.id}`} onPress={() => onOpen(item)} accessibilityRole="button" accessibilityLabel={`${title}: ${item.title}`}>
+                        <MatteSurface radius={item.kind === 'task' ? t.radius.sm : t.radius.full} style={[styles.chip, { paddingHorizontal: t.space.md, paddingVertical: t.space.sm, gap: t.space.xs }]}>
+                            <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={s(13)} color={item.color || (item.kind === 'task' ? t.color.warning : t.color.accent)} />
+                            <Text numberOfLines={1} style={[t.type.bodySmall, styles.name, { color: t.color.textPrimary }]}>{item.title}</Text>
+                        </MatteSurface>
+                    </Pressable>
+                ))}
+            </View>
+        </View>
+    );
+}
+
+function Row({ size, item, turn, color, nextColor, last, now, updated, onToggle, onOpen, onFocus, day }: {
+    size: Size; item: FlowItem; turn: { delay: number; duration: number }; color: string; nextColor?: string; last: boolean; now: number | null; updated: boolean; day?: string;
     onToggle: (item: FlowInput) => void; onOpen: (item: FlowInput) => void; onFocus: (item: FlowInput) => void;
 }) {
     const t = useTokens();
@@ -114,9 +188,11 @@ function Row({ size, item, turn, color, nextColor, last, now, updated, onToggle,
     const live = item.state === 'now';
     const done = item.state === 'done';
     const left = live && now !== null ? Math.max(0, item.end - now) : null;
-    // Why it is where it is, when it moved: one plain reason.
+    // Why it is where it is, when it moved: one plain reason. Cut short to
+    // fit is the scissors beside its time, not a sentence.
+    const cut = !!item.cutFrom && !done;
+    const due = item.deadline && day ? dueLabel(item.deadline, day) : null;
     const moved = done ? null
-        : item.cutFrom ? `Cut from ${lengthLabel(item.cutFrom)} to fit before bedtime`
         : item.shift > 0 && !item.auto ? `${item.shift} min later: the one before ran over`
         : item.shift < 0 && !item.auto ? `${-item.shift} min earlier: the one before finished early`
         : null;
@@ -144,6 +220,7 @@ function Row({ size, item, turn, color, nextColor, last, now, updated, onToggle,
                 <View style={styles.text}>
                     <View style={[styles.meta, { gap: t.space.xs }]}>
                         {meal || item.locked ? <AppIcon name="lock-closed" size={s(11)} color={t.color.textSubtle} /> : null}
+                        {cut ? <AppIcon name="cut" size={s(11)} color={t.color.textSubtle} accessibilityLabel={`Cut short from ${lengthLabel(item.cutFrom!)} to fit the day`} /> : null}
                         {live ? <Text style={[t.type.caption, styles.nowTag, { color: t.color.accentText }]}>Now</Text> : item.state === 'next' ? (
                             <Text style={[t.type.caption, styles.nowTag, { color: t.color.textMuted }]}>Up next</Text>
                         ) : null}
@@ -151,6 +228,9 @@ function Row({ size, item, turn, color, nextColor, last, now, updated, onToggle,
                             {rangeLabel(item.start, item.end)} ({lengthLabel(item.end - item.start)})
                         </Text>
                         {item.repeats ? <AppIcon name="repeat" size={s(12)} color={t.color.textSubtle} /> : null}
+                        {due && !done ? (
+                            <Text style={[t.type.caption, styles.nowTag, { color: due === 'Due today' || due === 'Overdue' ? t.color.warning : t.color.textMuted }]}>{due}</Text>
+                        ) : null}
                         {/* Moved since you last opened it. */}
                         {updated && !done ? <View accessibilityLabel="Rescheduled" style={[styles.dot, { backgroundColor: t.color.success }]} /> : null}
                     </View>
@@ -208,7 +288,13 @@ const styles = StyleSheet.create({
     struck: { textDecorationLine: 'line-through' },
     liveRow: { flexDirection: 'row', alignItems: 'center', marginTop: vs(6) },
     dot: { width: s(7), height: s(7), borderRadius: s(3.5) },
-    unfit: { paddingTop: vs(8) },
+    edgeDot: { borderWidth: s(1.5), alignItems: 'center', justifyContent: 'center' },
+    edgeText: { flex: 1, flexDirection: 'row', alignItems: 'center', minHeight: vs(34) },
+    breakLink: { flex: 0, height: vs(22), minHeight: vs(22) },
+    breakText: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+    chipsTitle: { flexDirection: 'row', alignItems: 'center' },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
+    chip: { flexDirection: 'row', alignItems: 'center', maxWidth: s(220) },
     check: { borderWidth: s(2), alignItems: 'center', justifyContent: 'center' },
     empty: { textAlign: 'center', paddingVertical: vs(24) },
 });

@@ -135,13 +135,13 @@ export default function IntegrationsScreen() {
 
                 {/* Your calendars' events, as fixed blocks the day is planned around. */}
                 <SettingsGroup title="Calendar">
-                    <SettingsRow icon="calendar" color={colors.error} label="Apple Calendar"
+                    <SettingsRow icon="calendar" color={colors.error} label="Apple & Google Calendar"
                         toggle={calendar} onToggle={value => void toggleCalendar(value)} />
                 </SettingsGroup>
                 <Text style={[styles.note, { color: colors.textTertiary }]}>
                     {calendar
-                        ? `${todayEvents.length} ${todayEvents.length === 1 ? 'event' : 'events'} on your timeline today. Includes Google and Outlook accounts added to this iPhone.`
-                        : 'Your events show on the timeline as fixed blocks, and habits and tasks are planned around them. Read on this phone only.'}
+                        ? `${todayEvents.length} ${todayEvents.length === 1 ? 'event' : 'events'} on your timeline today, as fixed blocks. Google Calendar comes in once your Google account is added in iPhone Settings → Apps → Calendar → Calendar Accounts.`
+                        : 'Your events show on the timeline as fixed blocks, and habits and tasks are planned around them. Google Calendar comes in through the Google account on this iPhone. Read on this phone only.'}
                 </Text>
 
                 {/* One switch. Everything that writes to Health — watches,
