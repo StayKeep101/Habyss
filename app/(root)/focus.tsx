@@ -12,6 +12,8 @@ import { FocusClock } from '@/components/Focus/FocusClock';
 import { useFocusTime } from '@/context/FocusTimeContext';
 import { allowAnyOrientation, applyDefaultOrientation } from '@/lib/orientation';
 import { useFocusPlan } from '@/hooks/useFocusPlan';
+import { useFocusDay } from '@/hooks/useFocusDay';
+import { FocusBlock, FocusDayDone } from '@/components/Focus/FocusBlock';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useClockStyle } from '@/hooks/useClockStyle';
@@ -45,13 +47,32 @@ const DEFAULT_SECONDS = 25 * 60;
  * there: one tap and you are focusing on it, no waiting for its slot.
  */
 export default function FocusRoute() {
-    const { id } = useLocalSearchParams<{ id?: string }>();
+    const { id, kind, day, end, title, from, until, nextKind } = useLocalSearchParams<{
+        id?: string; kind?: string; day?: string; end?: string; title?: string; from?: string; until?: string; nextKind?: string;
+    }>();
+    // Focusing all day: the first step is whatever the timeline has now.
+    if (day === '1' && end === '1') return <FocusDayDone />;
+    if (day === '1' && !id) return <FocusDayStart />;
+    // A meal, an event, or the free time before something at an exact time.
+    if (id && (kind === 'meal' || kind === 'event' || kind === 'wait')) {
+        return <FocusBlock key={`${kind}:${id}`} kind={kind} id={id} title={title ?? ''} from={Number(from) || 0} until={Number(until) || 0} nextKind={nextKind} />;
+    }
     // A fresh screen for each thing focused on, so chaining starts clean.
     return <FocusScreen key={id ?? 'focus'} />;
 }
 
+/** Opens the day's first step. */
+function FocusDayStart() {
+    const proceed = useFocusDay();
+    useEffect(() => { void proceed(); }, [proceed]);
+    return <View style={styles.screen} />;
+}
+
 function FocusScreen() {
-    const { kind, id, title, banked: bankedParam, start: autoStart } = useLocalSearchParams<{ kind?: string; id?: string; title?: string; banked?: string; start?: string }>();
+    const { kind, id, title, banked: bankedParam, start: autoStart, day: dayParam } = useLocalSearchParams<{ kind?: string; id?: string; title?: string; banked?: string; start?: string; day?: string }>();
+    // Focusing all day: when this one is done, the next thing starts by itself.
+    const allDay = dayParam === '1';
+    const proceed = useFocusDay();
     const insets = useSafeAreaInsets();
     const { primary } = useAccentGradient();
     const { selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
@@ -100,9 +121,15 @@ function FocusScreen() {
         const flow = flowDay(flowInputs({ habits, tasks: tasksForDay(day.tasks, day.today, day.today), done: day.completions, today: day.today }), now.getHours() * 60 + now.getMinutes());
         return upNext(flow, id);
     }, [finished, id, day.habits, day.tasks, day.completions, day.skippedToday, day.today]);
+    // All day: a moment to see it done, then on to the next thing (a meal or an event included).
+    useEffect(() => {
+        if (!finished || !allDay) return;
+        const go = setTimeout(() => void proceed(id), 1500);
+        return () => clearTimeout(go);
+    }, [finished, allDay, proceed, id]);
     // With nothing after it, the Done screen closes itself.
     useEffect(() => {
-        if (!finished || next) return;
+        if (!finished || next || allDay) return;
         const close = setTimeout(() => router.back(), 1800);
         return () => clearTimeout(close);
     }, [finished, next]);
@@ -146,8 +173,8 @@ function FocusScreen() {
             return;
         }
         mediumFeedback();
-        // Fixed length: always the timer, never the stopwatch.
-        const stopwatch = mode === 'stopwatch' && !plan.fixed;
+        // Fixed length: always the timer, never the stopwatch; nothing to go on: the stopwatch.
+        const stopwatch = (mode === 'stopwatch' || plan.seconds === null) && !plan.fixed;
         focus.startTimer(id, title ?? habit?.name ?? task?.title ?? 'Focus', stopwatch ? 3600 * 12 : planned, stopwatch ? 'flow' : 'deep_focus');
     };
     // Chained from the last focus: straight in, no setup screen.
@@ -202,8 +229,8 @@ function FocusScreen() {
             {finished ? (
                 <View style={styles.center}>
                     <Text style={styles.doneTitle}>Done</Text>
-                    <Text style={styles.doneSub}>Saved, and counted as done.</Text>
-                    {next ? (
+                    <Text style={styles.doneSub}>{allDay ? 'On to the next thing…' : 'Saved, and counted as done.'}</Text>
+                    {next && !allDay ? (
                         <View style={styles.next}>
                             <Text style={styles.nextLabel}>Up next</Text>
                             <Text numberOfLines={2} style={styles.nextTitle}>{next.title}</Text>

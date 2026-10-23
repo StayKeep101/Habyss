@@ -54,3 +54,22 @@ export async function todayTimes(now = new Date()): Promise<TodayTimes> {
         .filter(item => !item.fixed && !item.done && (item.kind === 'habit' || item.kind === 'task'))
         .map(item => [item.id, { start: item.start, end: item.end, ...(item.cutFrom ? { cutFrom: item.cutFrom } : null) }]));
 }
+
+/**
+ * Focusing all day: what comes next from `now` on today's timeline. A habit
+ * or task not done yet, or a meal or calendar event not over yet, in the
+ * order the timeline has them; `skip` is the one just finished (its tick may
+ * still be saving). An exact-time one that has not started yet comes back
+ * with `wait`: the free time before it is the step.
+ */
+export interface DayStep { item: import('./dayFlow').FlowItem; wait: boolean }
+export function nextStep(flow: DayFlow | null, now: number, skip?: string): DayStep | null {
+    const item = (flow?.timeline ?? [])
+        .filter(entry => entry.id !== skip && !entry.done && entry.state !== 'done' && entry.end > now)
+        .sort((a, b) => a.start - b.start)[0];
+    if (!item) return null;
+    // A habit or task that floats can start straight away; one at an exact
+    // time, a meal or an event, waits for its time.
+    const waits = !!(item.locked || item.fixed) && item.start > now;
+    return { item, wait: waits };
+}
