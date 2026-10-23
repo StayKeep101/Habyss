@@ -11,7 +11,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useFocusTime } from '@/context/FocusTimeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { ScreenTimeService } from '@/lib/ScreenTimeService';
-import { focusMinutesFor } from '@/lib/focusLength';
+import { useFocusPlan } from '@/hooks/useFocusPlan';
 import type { Habit } from '@/lib/habitsSQLite';
 
 const clock = (seconds: number) => {
@@ -34,7 +34,9 @@ export function FocusButton({ habit, isTimer }: { habit: Habit; isTimer: boolean
     const { primary } = useAccentGradient();
     const { mediumFeedback, selectionFeedback } = useHaptics();
     const focus = useFocusTime();
-    const minutes = focusMinutesFor(habit);
+    // The same length the focus page would use (lib/focusLength.ts), cut short if today's timeline cut it.
+    const plan = useFocusPlan(habit.id, { habit });
+    const minutes = plan.seconds ? Math.round(plan.seconds / 60) : null;
     if (isTimer || !minutes) return null;
 
     const mine = focus.activeHabitId === habit.id && (focus.isRunning || focus.isPaused);

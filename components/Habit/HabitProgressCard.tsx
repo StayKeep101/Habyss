@@ -13,6 +13,7 @@ import { Colors } from '@/theme/colors';
 import { Control, FontFamily, Radius, Typography, surfaceFor } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
+import { useFocusPlan } from '@/hooks/useFocusPlan';
 import { useFocusTime } from '@/context/FocusTimeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { Habit } from '@/lib/habitsSQLite';
@@ -83,7 +84,11 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
     const elapsed = live ? (focus.activeMode === 'flow' ? focus.timeLeft : Math.max(0, focus.totalDuration - focus.timeLeft)) : 0;
     const displayValue = value + (secondsPerUnit ? elapsed / secondsPerUnit : 0);
     const complete = ready && value >= target;
-    const progress = ready ? Math.min(1, Math.max(0, displayValue / target)) : 0;
+    // A timed habit's length today, from the one place focus lengths come from
+    // (lib/focusLength.ts): its own, or the cut one if the timeline had to cut it.
+    const plan = useFocusPlan(isToday && kind === 'timer' ? habit.id : undefined, { habit });
+    const todayTarget = kind === 'timer' && isToday && plan.length ? plan.length / secondsPerUnit : target;
+    const progress = ready ? (complete ? 1 : Math.min(1, Math.max(0, displayValue / todayTarget))) : 0;
     const editable = ready && isToday && !live;
     const ring = useSharedValue(progress);
     const done = useSharedValue(complete ? 1 : 0);
@@ -99,6 +104,7 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
     // saves as you go" on every visit is furniture, not information.
     const note = saving ? 'Saving your progress…' : !ready ? 'Loading your progress…'
         : live ? 'Keeps running when you leave this screen'
+        : kind === 'timer' && isToday && !complete && plan.cutFrom ? `Cut from ${formatDuration(plan.cutFrom, true)} to fit today`
         : kind === 'timer' && isToday && !complete ? 'Completes when the time has actually been run'
         : !isToday ? 'Past days are read-only' : null;
 
@@ -150,9 +156,9 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
             return;
         }
         mediumFeedback();
-        // A timed habit is done in focus mode: full screen, set to what is left.
-        const duration = Math.max(60, Math.ceil((target - value) * secondsPerUnit));
-        require('expo-router').router.push({ pathname: '/(root)/focus', params: { kind: 'habit', id: habit.id, title: habit.name, seconds: String(duration) } });
+        // A timed habit is done in focus mode, straight into its timer: the
+        // focus page works out what is left from the same plan, less what is done.
+        require('expo-router').router.push({ pathname: '/(root)/focus', params: { kind: 'habit', id: habit.id, title: habit.name, banked: String(Math.round(value * secondsPerUnit)) } });
     };
     /** Any habit can be focused on, with a timer or a stopwatch. */
     const openFocus = () => {
@@ -175,8 +181,8 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
     const mainLabel = live ? (focus.isPaused ? 'Resume' : 'Pause') : complete ? 'Completed'
         : kind === 'timer' ? (value > 0 ? 'Continue' : 'Start') : kind === 'boolean' ? (habit.type === 'quit' ? 'I stayed on track' : 'Mark as done') : `Add ${formatMeasurement(step)} ${unit}`;
     // Timed habits: what is left of the day's target, in seconds, ticking live.
-    const remaining = secondsPerUnit ? Math.max(0, (target - displayValue) * secondsPerUnit) : 0;
-    const targetLabel = describeAmount(habit, target);
+    const remaining = secondsPerUnit ? (complete ? 0 : Math.max(0, (todayTarget - displayValue) * secondsPerUnit)) : 0;
+    const targetLabel = todayTarget !== target ? formatDuration(todayTarget * secondsPerUnit, true) : describeAmount(habit, target);
     const banked = secondsPerUnit && displayValue > 0 && !complete ? `${formatDuration(displayValue * secondsPerUnit, true)} done` : null;
 
     return (

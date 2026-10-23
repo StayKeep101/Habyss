@@ -11,6 +11,7 @@ import { DurationWheels } from '@/components/Create/DurationWheels';
 import { FocusClock } from '@/components/Focus/FocusClock';
 import { useFocusTime } from '@/context/FocusTimeContext';
 import { allowAnyOrientation, applyDefaultOrientation } from '@/lib/orientation';
+import { useFocusPlan } from '@/hooks/useFocusPlan';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useClockStyle } from '@/hooks/useClockStyle';
@@ -20,7 +21,6 @@ import { getHabits, type Habit } from '@/lib/habitsSQLite';
 import { isHabitScheduledForDate } from '@/lib/habitSchedule';
 import { tasksForDay } from '@/lib/tasks';
 import { flowDay, flowInputs, lengthLabel, upNext, type FlowInput } from '@/lib/dayFlow';
-import { measurementFor } from '@/lib/habitMeasurement';
 import { styles } from '@/styles/screens/focus.styles';
 
 type Mode = 'timer' | 'stopwatch';
@@ -51,7 +51,7 @@ export default function FocusRoute() {
 }
 
 function FocusScreen() {
-    const { kind, id, title, seconds: given, start: autoStart } = useLocalSearchParams<{ kind?: string; id?: string; title?: string; seconds?: string; start?: string }>();
+    const { kind, id, title, banked: bankedParam, start: autoStart } = useLocalSearchParams<{ kind?: string; id?: string; title?: string; banked?: string; start?: string }>();
     const insets = useSafeAreaInsets();
     const { primary } = useAccentGradient();
     const { selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
@@ -67,29 +67,16 @@ function FocusScreen() {
         void getHabits().then(list => setHabit(list.find(item => item.id === id) ?? null));
     }, [isTask, id]);
 
-    // A timed habit's default is its own length; anything else, 25 minutes.
-    const measure = habit ? measurementFor(habit) : null;
-    const habitSeconds = measure?.kind === 'timer' ? Math.round(measure.target * measure.secondsPerUnit) : null;
+    // How long, from the one place that decides it (lib/focusLength.ts): a
+    // timed habit or a task measured in time runs exactly its length (its cut
+    // length if today's timeline cut it short), less what is already done.
+    const plan = useFocusPlan(id, { habit, task }, Number(bankedParam) || 0);
+    const timesRead = plan.ready && (isTask ? !!task : !!habit);
     // No length to go on (a task nobody sized): the stopwatch, until you say otherwise.
-    const unsized = isTask && !given && !(task?.measure === 'time' && task.target) && !Number(task?.estimatedMinutes);
-    const [mode, setMode] = useState<Mode>(unsized ? 'stopwatch' : 'timer');
+    const [mode, setMode] = useState<Mode>('timer');
+    useEffect(() => { if (timesRead && plan.seconds === null) setMode('stopwatch'); }, [timesRead, plan.seconds]);
     const [seconds, setSeconds] = useState<number | null>(null);
-    const passed = given ? Number(given) : null;
-    // Cut short to fit today (lib/dayFlow.ts): the timer is the time it has
-    // today, not the length it was planned with.
-    const [cutSeconds, setCutSeconds] = useState<number | null>(null);
-    const [timesRead, setTimesRead] = useState(false);
-    useEffect(() => {
-        if (!id) return;
-        let alive = true;
-        void (require('@/lib/todayFlow') as typeof import('@/lib/todayFlow')).todayTimes().then(times => {
-            const slot = times[id];
-            if (alive && slot?.cutFrom) setCutSeconds((slot.end - slot.start) * 60);
-        }).catch(() => undefined).finally(() => { if (alive) setTimesRead(true); });
-        return () => { alive = false; };
-    }, [id]);
-    const taskSeconds = task?.measure === 'time' && task.target ? task.target * 60 : Number(task?.estimatedMinutes) > 0 ? Number(task!.estimatedMinutes) * 60 : null;
-    const planned = seconds ?? cutSeconds ?? (passed && passed > 0 ? passed : null) ?? habitSeconds ?? taskSeconds ?? DEFAULT_SECONDS;
+    const planned = (plan.fixed ? null : seconds) ?? plan.seconds ?? DEFAULT_SECONDS;
 
     const mine = focus.activeHabitId === id;
     const active = mine && (focus.isRunning || focus.isPaused);
@@ -124,7 +111,6 @@ function FocusScreen() {
         mediumFeedback();
         router.replace({ pathname: '/(root)/focus', params: {
             kind: next.kind, id: next.id, title: next.title, start: '1',
-            ...(next.minutes > 0 ? { seconds: String(next.minutes * 60) } : {}),
         } });
     };
 
@@ -160,14 +146,16 @@ function FocusScreen() {
             return;
         }
         mediumFeedback();
-        focus.startTimer(id, title ?? habit?.name ?? task?.title ?? 'Focus', mode === 'stopwatch' ? 3600 * 12 : planned, mode === 'stopwatch' ? 'flow' : 'deep_focus');
+        // Fixed length: always the timer, never the stopwatch.
+        const stopwatch = mode === 'stopwatch' && !plan.fixed;
+        focus.startTimer(id, title ?? habit?.name ?? task?.title ?? 'Focus', stopwatch ? 3600 * 12 : planned, stopwatch ? 'flow' : 'deep_focus');
     };
     // Chained from the last focus: straight in, no setup screen.
     const started = useRef(false);
     useEffect(() => {
-        if (autoStart !== '1' || started.current || active || !id) return;
-        if (isTask && !task) return; // wait for the task, so its title and length are known
-        if (!timesRead) return; // and for today's timeline, in case it was cut short
+        // Chained, or a fixed length (nothing to choose): straight in.
+        if ((autoStart !== '1' && !plan.fixed) || started.current || active || !id) return;
+        if (!timesRead) return; // wait for the item and today's timeline, in case it was cut short
         started.current = true;
         start();
     });
@@ -233,9 +221,11 @@ function FocusScreen() {
             ) : (
                 <View style={styles.setup}>
                     <Text style={styles.setupTitle}>{name}</Text>
-                    <ChoiceRow accessibilityLabel="Timer or stopwatch" options={[{ id: 'timer' as Mode, label: 'Timer' }, { id: 'stopwatch' as Mode, label: 'Stopwatch' }]}
-                        value={mode} onChange={next => { selectionFeedback(); setMode(next); }} />
-                    {mode === 'timer' ? (
+                    {plan.fixed ? null : (
+                        <ChoiceRow accessibilityLabel="Timer or stopwatch" options={[{ id: 'timer' as Mode, label: 'Timer' }, { id: 'stopwatch' as Mode, label: 'Stopwatch' }]}
+                            value={mode} onChange={next => { selectionFeedback(); setMode(next); }} />
+                    )}
+                    {plan.fixed ? null : mode === 'timer' ? (
                         <DurationWheels parts={['hours', 'minutes']} seconds={planned} onChange={value => setSeconds(Math.max(60, value))} />
                     ) : (
                         <Text style={styles.hint}>Runs until you finish, and saves how long it took.</Text>

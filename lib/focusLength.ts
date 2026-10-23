@@ -19,3 +19,57 @@ export function focusMinutesFor(habit: Pick<Habit, 'durationMinutes' | 'startTim
     const length = span > 0 ? span : span + 24 * 60;
     return length > 0 && length < 24 * 60 ? length : null;
 }
+
+/**
+ * How long focusing on a habit or task should run: the one answer the focus
+ * page, the habit page and anything that starts a session all read.
+ *
+ * - A timed habit ("30 minutes of reading") or a task measured in time can
+ *   only be finished by running that time, so its length is fixed: focus
+ *   goes straight to the timer, no timer-or-stopwatch question.
+ * - If today's timeline had to cut it short to fit, the length is the cut
+ *   one, and `cutFrom` says what it was meant to be.
+ * - Time already banked today comes off what is left.
+ * - Anything else with a length (a habit's slot, a task's estimate) offers it
+ *   as the timer's default; with no length at all, `seconds` is null.
+ */
+export interface FocusPlan {
+    /** Seconds the timer runs for, or null when there is nothing to go on. */
+    seconds: number | null;
+    /** Finished only by running the time: start the timer directly. */
+    fixed: boolean;
+    /** The full length in seconds, when today's timeline cut it short. */
+    cutFrom: number | null;
+    /** The whole length for today (cut or not), before banked time comes off. */
+    length: number | null;
+}
+
+export function focusPlan(input: {
+    habit?: Pick<Habit, 'durationMinutes' | 'startTime' | 'endTime' | 'unit' | 'goalValue' | 'type' | 'trackingMethod'> | null;
+    task?: { measure?: string; target?: number; amount?: number; estimatedMinutes?: number | string } | null;
+    /** Today's place on the timeline (lib/todayFlow.ts todayTimes). */
+    slot?: { start: number; end: number; cutFrom?: number } | null;
+    /** Seconds already done today. */
+    banked?: number;
+}): FocusPlan {
+    const { measurementFor } = require('./habitMeasurement') as typeof import('./habitMeasurement');
+    let full: number | null = null;
+    let fixed = false;
+    let banked = Math.max(0, input.banked ?? 0);
+    if (input.habit) {
+        const measure = measurementFor(input.habit);
+        if (measure.kind === 'timer') { full = Math.round(measure.target * measure.secondsPerUnit); fixed = true; }
+        else { const minutes = focusMinutesFor(input.habit); full = minutes ? minutes * 60 : null; banked = 0; }
+    } else if (input.task) {
+        if (input.task.measure === 'time' && input.task.target) {
+            full = input.task.target * 60; fixed = true;
+            banked = Math.max(banked, (input.task.amount ?? 0) * 60);
+        } else if (Number(input.task.estimatedMinutes) > 0) {
+            full = Number(input.task.estimatedMinutes) * 60; banked = 0;
+        }
+    }
+    const cut = input.slot?.cutFrom ? Math.max(60, (input.slot.end - input.slot.start) * 60) : null;
+    const length = cut !== null && (full === null || cut < full) ? cut : full;
+    if (length === null) return { seconds: null, fixed, cutFrom: null, length: null };
+    return { seconds: Math.max(60, length - banked), fixed, cutFrom: cut !== null && length === cut ? (full ?? input.slot!.cutFrom! * 60) : null, length };
+}
