@@ -18,12 +18,18 @@ const cache = new Map<string, CalendarSlot[]>();
 const listeners = new Set<() => void>();
 const changed = () => listeners.forEach(listener => listener());
 
-function calendar(): typeof import('expo-calendar') | null {
+/**
+ * expo-calendar's function API. Since SDK 57 the package's main entry is a new
+ * object API and the old functions there only throw ("deprecated"), so asking
+ * for access never reached iOS: no prompt, and no Calendars switch in
+ * Settings. They live on, working, under "expo-calendar/legacy".
+ */
+function calendar(): typeof import('expo-calendar/legacy') | null {
     if (Platform.OS === 'web') return null;
     try {
         const { requireOptionalNativeModule } = require('expo-modules-core') as typeof import('expo-modules-core');
         if (!requireOptionalNativeModule('ExpoCalendar')) return null;
-        return require('expo-calendar');
+        return require('expo-calendar/legacy');
     } catch {
         return null;
     }
