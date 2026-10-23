@@ -96,14 +96,11 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
             {edges && wake !== undefined ? <Edge size={size} icon="sunny" label="Wake up" at={wake} link={flow.timeline.length > 0} /> : null}
             {flow.timeline.length ? flow.timeline.map((item, index) => {
                 const next = flow.timeline[index + 1];
-                // A short pause the scheduler left before the next one: shown, so it reads as a break, not a gap.
-                const pause = next && !scrubbing ? next.start - item.end : 0;
                 return (
                     <ListItem key={`${item.kind}-${item.id}`} index={index} rise>
                         <Row size={size} item={item} turn={turns[index]} color={colorOf(item)} last={index === flow.timeline.length - 1}
                             nextColor={next ? colorOf(next) : undefined} day={day}
                             now={now} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus} />
-                        {pause >= 1 && pause <= 10 ? <Break size={size} minutes={pause} color={colorOf(next)} /> : null}
                     </ListItem>
                 );
             }) : (
@@ -134,22 +131,6 @@ function Edge({ size, icon, label, at, link }: { size: Size; icon: string; label
             <View style={[styles.edgeText, { paddingLeft: size.gap, paddingBottom: link ? size.pad : 0, gap: t.space.xs }]}>
                 <Text style={[t.type.bodySmall, styles.name, { color: t.color.textMuted }]}>{label}</Text>
                 <Text style={[t.type.caption, { color: t.color.textSubtle }]}>{clockLabel(at)}</Text>
-            </View>
-        </View>
-    );
-}
-
-/** The break before the next one: the line carries on, with how long the pause is. */
-function Break({ size, minutes, color }: { size: Size; minutes: number; color: string }) {
-    const t = useTokens();
-    return (
-        <View style={styles.row} accessibilityLabel={`${minutes} minute break`}>
-            <View style={[styles.rail, { width: size.pill }]}>
-                <View style={[styles.link, styles.breakLink, { backgroundColor: color }]} />
-            </View>
-            <View style={[styles.breakText, { paddingLeft: size.gap, gap: t.space.xs }]}>
-                <AppIcon name="cafe-outline" size={s(11)} color={t.color.textSubtle} />
-                <Text style={[t.type.caption, { color: t.color.textSubtle }]}>{`${minutes} min break`}</Text>
             </View>
         </View>
     );
@@ -290,8 +271,6 @@ const styles = StyleSheet.create({
     dot: { width: s(7), height: s(7), borderRadius: s(3.5) },
     edgeDot: { borderWidth: s(1.5), alignItems: 'center', justifyContent: 'center' },
     edgeText: { flex: 1, flexDirection: 'row', alignItems: 'center', minHeight: vs(34) },
-    breakLink: { flex: 0, height: vs(22), minHeight: vs(22) },
-    breakText: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     chipsTitle: { flexDirection: 'row', alignItems: 'center' },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
     chip: { flexDirection: 'row', alignItems: 'center', maxWidth: s(220) },

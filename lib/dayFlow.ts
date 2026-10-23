@@ -98,12 +98,8 @@ export const DEFAULT_MINUTES = 30;
 /** The first item of the day can be started this early without waiting. */
 const EARLY = 10;
 
-/**
- * The break after something, before the next thing the scheduler places:
- * a minute after a short one, up to ten after an hour or more (a sixth of
- * its length), so a long block is followed by a real pause.
- */
-export const breakAfter = (minutes: number) => Math.max(1, Math.min(10, Math.round(minutes / 6)));
+/** No breaks: the next thing the scheduler places starts the moment the last one ends. */
+export const breakAfter = (_minutes: number) => 0;
 /** How long past its end something can run before it counts as missed and moves. */
 export const GRACE = 10;
 /** The longest a flexible meal waits for a full day. */
@@ -257,8 +253,7 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
         const candidates = [from, ...busy.map(slot => slot.end + breakAfter(slot.end - slot.start))].filter(at => at >= from);
         for (const at of candidates) {
             if (!fits(at, least)) continue;
-            // Leaves at least a minute's break before what comes next.
-            const wall = Math.min(sleep, ...busy.filter(slot => slot.start >= at && slot.end > slot.start).map(slot => slot.start - 1));
+            const wall = Math.min(sleep, ...busy.filter(slot => slot.start >= at && slot.end > slot.start).map(slot => slot.start));
             const minutes = Math.floor((wall - at) / 5) * 5;
             if (minutes >= least && (!room || minutes > room.minutes)) room = { at, minutes };
         }
