@@ -13,6 +13,8 @@ struct FocusView: View {
     @EnvironmentObject var day: WatchSessionManager
     @Environment(\.dismiss) private var dismiss
     let item: DayItem
+    /// Opens the next thing's focus, after this one is done.
+    var onNext: (DayItem) -> Void = { _ in }
 
     @State private var endsAt: Date?
     @State private var left: TimeInterval = 0
@@ -52,10 +54,10 @@ struct FocusView: View {
                 Button {
                     finish()
                 } label: {
-                    Image(systemName: "checkmark")
+                    Image(systemName: "arrow.forward")
                 }
                 .tint(.habyssAccent)
-                .accessibilityLabel("Done")
+                .accessibilityLabel("Done, next")
             }
         }
         .navigationTitle("Focus")
@@ -94,7 +96,10 @@ struct FocusView: View {
         endsAt = nil
         HapticService.play(.success)
         day.finish(item)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { dismiss() }
+        // Straight on to the next thing in the day, or back to the list when nothing is left.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            if let next = day.next(after: item.id) { onNext(next) } else { dismiss() }
+        }
     }
 
     /// "24:59", "1:05:00".

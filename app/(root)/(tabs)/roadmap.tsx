@@ -42,7 +42,6 @@ import { DayPlanCard } from '@/components/Roadmap/DayPlanCard';
 import { flowDay, flowInputs, type FlowInput } from '@/lib/dayFlow';
 import { DayTimeline } from '@/components/Roadmap/DayTimeline';
 import { CalendarPrompt } from '@/components/Roadmap/CalendarPrompt';
-import { FocusDayButton } from '@/components/Roadmap/FocusDayButton';
 import { useMeals, useMealsFlexible } from '@/hooks/useMeals';
 import { useDayMemory } from '@/hooks/useDayMemory';
 import { useDoneTimes } from '@/hooks/useDoneTimes';
@@ -1121,7 +1120,6 @@ const CalendarScreen = () => {
                             {timelineView ? (
                                 <>
                                 <CalendarPrompt />
-                                {flowNow !== null && !scrubbing ? <FocusDayButton /> : null}
                                 <DayTimeline flow={shownFlow} day={localDateKey(selectedDate)} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
                                     wake={flowWindow.wake} sleep={flowWindow.sleep} dueToday={dueToday}
                                     onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem} />

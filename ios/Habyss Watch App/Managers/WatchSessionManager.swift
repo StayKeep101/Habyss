@@ -183,6 +183,24 @@ final class WatchSessionManager: NSObject, ObservableObject {
         }
     }
 
+    /// The next thing after `id`, in the timeline's order: what Next moves on to.
+    func next(after id: String) -> DayItem? {
+        items.first { !$0.completed && $0.id != id && $0.now } ?? items.first { !$0.completed && $0.id != id }
+    }
+
+    /// Next, while the phone is focusing: the phone finishes this one and moves on (its plan, its order).
+    func focusNextOnPhone() {
+        HapticService.play(.success)
+        let message: [String: Any] = ["action": "FOCUS_NEXT", "payload": ["id": phoneFocus?.id ?? ""]]
+        let session = WCSession.default
+        guard session.activationState == .activated else { return }
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil) { _ in session.transferUserInfo(message) }
+        } else {
+            session.transferUserInfo(message)
+        }
+    }
+
     /// Finished from the focus timer: marks it done (never undoes one already done).
     func finish(_ item: DayItem) {
         guard let fresh = items.first(where: { $0.id == item.id }), !fresh.completed else { return }

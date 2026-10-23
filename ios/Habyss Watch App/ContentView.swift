@@ -58,12 +58,20 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("Today")
-            .navigationDestination(item: $focusing) { item in FocusView(item: item) }
-            .navigationDestination(isPresented: $showPhoneFocus) {
-                if let focus = day.phoneFocus { PhoneFocusView(focus: focus) }
+            .navigationDestination(item: $focusing) { item in
+                FocusView(item: item) { next in focusing = next }.id(item.id)
             }
+            .navigationDestination(isPresented: $showPhoneFocus) { PhoneFocusView() }
         }
         .tint(.habyssAccent)
+        // Focusing on the phone: the watch goes straight to it, and follows it
+        // from one thing to the next. A gap of a moment between two (one done,
+        // the next starting) does not close it.
+        .onAppear { if day.phoneFocus != nil { showPhoneFocus = true } }
+        .onChange(of: day.phoneFocus?.id) { _, id in
+            if id != nil { focusing = nil; showPhoneFocus = true; return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { if day.phoneFocus == nil { showPhoneFocus = false } }
+        }
     }
 }
 
@@ -113,16 +121,26 @@ struct PhoneClock: View {
     }
 }
 
-/// The phone's session, full screen: the same clock, nothing to press.
+/// The phone's session, full screen: what to do right now, its clock, and
+/// Next, which counts it done on the phone and moves on to the next thing.
 private struct PhoneFocusView: View {
-    let focus: PhoneFocus
+    @EnvironmentObject var day: WatchSessionManager
     var body: some View {
-        VStack(spacing: 8) {
-            Text(focus.title).font(.headline).multilineTextAlignment(.center).lineLimit(3)
-            PhoneClock(focus: focus).font(.system(size: 34, weight: .semibold, design: .rounded)).monospacedDigit()
-            Text("On your iPhone").font(.caption2).foregroundStyle(.secondary)
+        if let focus = day.phoneFocus {
+            VStack(spacing: 6) {
+                Text("Now").font(.caption2.weight(.semibold)).foregroundStyle(Color.habyssAccent)
+                Text(focus.title).font(.headline).multilineTextAlignment(.center).lineLimit(3)
+                PhoneClock(focus: focus).font(.system(size: 30, weight: .semibold, design: .rounded)).monospacedDigit()
+                Button { day.focusNextOnPhone() } label: { Label("Next", systemImage: "arrow.forward") }
+                    .tint(.habyssAccent)
+            }
+            .padding(.horizontal)
+        } else {
+            VStack(spacing: 6) {
+                ProgressView()
+                Text("Moving on…").font(.caption2).foregroundStyle(.secondary)
+            }
         }
-        .padding()
     }
 }
 

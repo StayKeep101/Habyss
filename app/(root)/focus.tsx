@@ -13,6 +13,7 @@ import { useFocusTime } from '@/context/FocusTimeContext';
 import { allowAnyOrientation, applyDefaultOrientation } from '@/lib/orientation';
 import { useFocusPlan } from '@/hooks/useFocusPlan';
 import { useFocusDay } from '@/hooks/useFocusDay';
+import { on } from '@/lib/appEvents';
 import { FocusBlock, FocusDayDone } from '@/components/Focus/FocusBlock';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -70,9 +71,12 @@ function FocusDayStart() {
 
 function FocusScreen() {
     const { kind, id, title, banked: bankedParam, start: autoStart, day: dayParam } = useLocalSearchParams<{ kind?: string; id?: string; title?: string; banked?: string; start?: string; day?: string }>();
-    // Focusing all day: when this one is done, the next thing starts by itself.
-    const allDay = dayParam === '1';
+    // Every focus follows the day: when this one is done (its time up, or
+    // Next pressed here or on the watch), the next thing starts by itself.
+    void dayParam;
+    const allDay = true;
     const proceed = useFocusDay();
+    const stopped = useRef(false);
     const insets = useSafeAreaInsets();
     const { primary } = useAccentGradient();
     const { selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
@@ -124,7 +128,7 @@ function FocusScreen() {
     // All day: a moment to see it done, then on to the next thing (a meal or an event included).
     useEffect(() => {
         if (!finished || !allDay) return;
-        const go = setTimeout(() => void proceed(id), 1500);
+        const go = setTimeout(() => { if (!stopped.current) void proceed(id); }, 1200);
         return () => clearTimeout(go);
     }, [finished, allDay, proceed, id]);
     // With nothing after it, the Done screen closes itself.
@@ -204,6 +208,15 @@ function FocusScreen() {
         endMenu.current?.open();
     };
     const finishNow = () => { leaving.current = true; successFeedback(); focus.finishTimer(); setFinished(true); };
+    // Next: counts this one done and moves on to the next thing in the day.
+    const nextNow = () => { if (!active) return; mediumFeedback(); finishNow(); };
+    // Next from the wrist does the same.
+    const nextRef = useRef(nextNow);
+    nextRef.current = nextNow;
+    useEffect(() => {
+        const sub = on('focus_next', ({ id: from }) => { if (!from || from === id) nextRef.current(); });
+        return () => sub.remove();
+    }, [id]);
     const exitNow = () => { leaving.current = true; focus.discardTimer(); close(); };
 
     const name = title ?? habit?.name ?? task?.title ?? 'Focus';
@@ -230,6 +243,9 @@ function FocusScreen() {
                 <View style={styles.center}>
                     <Text style={styles.doneTitle}>Done</Text>
                     <Text style={styles.doneSub}>{allDay ? 'On to the next thing…' : 'Saved, and counted as done.'}</Text>
+                    <View style={styles.next}>
+                        <AppButton label="Stop here" variant="ghost" onPress={() => { stopped.current = true; close(); }} />
+                    </View>
                     {next && !allDay ? (
                         <View style={styles.next}>
                             <Text style={styles.nextLabel}>Up next</Text>
@@ -244,6 +260,10 @@ function FocusScreen() {
                 <View style={styles.center}>
                     <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary}
                         label={focus.isPaused ? 'Paused · tap to carry on' : undefined} />
+                    {/* Done with it: count it and go to the next thing in the day. */}
+                    <View style={styles.next}>
+                        <AppButton label="Done · Next" icon="arrow-forward" onPress={nextNow} />
+                    </View>
                 </View>
             ) : (
                 <View style={styles.setup}>

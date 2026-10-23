@@ -170,6 +170,10 @@ export function listenToWatch(onRequest: () => void): () => void {
             void completeFromWatch(message.payload.id);
         } else if (message?.action === 'TOGGLE') {
             onRequest();
+        } else if (message?.action === 'FOCUS_NEXT') {
+            // Next, from the wrist: the focus page finishes this one and moves on.
+            const { emit } = require('./appEvents') as typeof import('./appEvents');
+            emit('focus_next', { id: message.payload?.id });
         } else if (message?.action === 'REQUEST_INITIAL_DATA' || message?.action === 'REQUEST_FULL_SYNC') {
             lastSent = null;
             onRequest();

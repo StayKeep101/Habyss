@@ -10,6 +10,8 @@ import { useClockStyle } from '@/hooks/useClockStyle';
 import { useFocusDay } from '@/hooks/useFocusDay';
 import { useHaptics } from '@/hooks/useHaptics';
 import { clockLabel } from '@/lib/dayFlow';
+import { on } from '@/lib/appEvents';
+import { pushFocusToWatch } from '@/lib/watchSync';
 import { styles } from '@/styles/screens/focus.styles';
 import { Spacing } from '@/theme/designSystem';
 
@@ -30,6 +32,14 @@ export function FocusBlock({ kind, id, title, from, until, nextKind }: { kind: s
     const [now, setNow] = useState(minuteNow);
     const moved = useRef(false);
     useEffect(() => { const timer = setInterval(() => setNow(minuteNow()), 1000); return () => clearInterval(timer); }, []);
+    // On the wrist too: the same step and its clock, and Next from there moves on here.
+    useEffect(() => {
+        const ends = new Date(); ends.setHours(0, 0, 0, 0);
+        const target = kind !== 'wait' && minuteNow() < from ? from : until;
+        pushFocusToWatch({ id, title: kind === 'wait' ? `Free time · then ${title}` : title, endsAt: ends.getTime() + target * 60000, startedAt: Date.now(), left: 0, paused: false, stopwatch: false });
+        const sub = on('focus_next', () => nextRef.current());
+        return () => sub.remove();
+    }, [id, title, kind, from, until]);
     const waitingFor = kind === 'wait';
     const before = !waitingFor && now < from;
     const target = before ? from : until;
@@ -42,18 +52,20 @@ export function FocusBlock({ kind, id, title, from, until, nextKind }: { kind: s
         if (waitingFor) router.replace({ pathname: '/(root)/focus', params: { day: '1', kind: nextKind ?? 'habit', id, title, start: '1' } });
         else void proceed(id);
     }, [left, before, waitingFor, id, title, proceed, nextKind]);
+    const nextRef = useRef(() => {});
     const next = () => {
         mediumFeedback();
         moved.current = true;
         if (waitingFor) router.replace({ pathname: '/(root)/focus', params: { day: '1', kind: nextKind ?? 'habit', id, title, start: '1' } });
         else void proceed(id);
     };
+    nextRef.current = next;
     const line = waitingFor ? `Free until ${clockLabel(Math.round(until))}, then ${title}`
         : before ? `${title} at ${clockLabel(Math.round(from))}` : `${title} until ${clockLabel(Math.round(until))}`;
     return (
         <View style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom }]}>
             <View style={styles.top}>
-                <IconButton icon="close" label="Stop focusing the day" onPress={() => router.back()} diameter={40} size={18} color="#FFFFFF" />
+                <IconButton icon="close" label="Stop focusing the day" onPress={() => { pushFocusToWatch(null); router.back(); }} diameter={40} size={18} color="#FFFFFF" />
                 <Text numberOfLines={1} style={styles.title}>{waitingFor ? 'Free time' : title}</Text>
                 <View style={{ width: 40 }} />
             </View>
@@ -70,6 +82,7 @@ export function FocusBlock({ kind, id, title, from, until, nextKind }: { kind: s
 /** The end of a day spent in focus. */
 export function FocusDayDone() {
     const insets = useSafeAreaInsets();
+    useEffect(() => { pushFocusToWatch(null); }, []);
     return (
         <View style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom }]}>
             <View style={styles.center}>

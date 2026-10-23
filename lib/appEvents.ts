@@ -32,6 +32,8 @@ export interface AppEvents {
     task_completed: { taskId: string };
     /** A done task opened again: it can earn again. */
     task_reopened: { taskId: string };
+    /** "Next" pressed on the watch during a focus session: finish this one, go to the next. */
+    focus_next: { id?: string };
     engagement_settings_changed: void;
     /** Every task and habit for the day is done. */
     day_complete: { tally: DayTally; streak: number; completedDates: string[] };
