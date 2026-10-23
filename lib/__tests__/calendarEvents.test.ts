@@ -26,3 +26,13 @@ describe('calendarLink', () => {
         expect(calendarLink('2026-10-20', 570)).toBe(`calshow:${Math.round((at - Date.UTC(2001, 0, 1)) / 1000)}`);
     });
 });
+
+describe('choosing calendars', () => {
+    it('keeps a hidden calendar hidden, and brings it back when shown', async () => {
+        const { setCalendarShown, hiddenCalendars } = require('../calendarEvents');
+        await setCalendarShown('work', false);
+        expect(hiddenCalendars().has('work')).toBe(true);
+        await setCalendarShown('work', true);
+        expect(hiddenCalendars().has('work')).toBe(false);
+    });
+});

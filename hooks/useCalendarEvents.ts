@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
-import { calendarOn, checkCalendarAccess, eventsFor, loadCalendarSetting, subscribeCalendar, type CalendarSlot } from '@/lib/calendarEvents';
+import { calendarOn, calendarVersion, checkCalendarAccess, eventsFor, hiddenCalendars, listCalendars, loadCalendarSetting, setCalendarShown, subscribeCalendar, type CalendarInfo, type CalendarSlot } from '@/lib/calendarEvents';
 
 /** Whether the calendar is connected (Settings → Timeline). */
 export function useCalendarOn(): boolean {
@@ -11,6 +11,8 @@ export function useCalendarOn(): boolean {
 /** That day's calendar events, read again whenever the app comes back to the front. */
 export function useCalendarEvents(day: string): CalendarSlot[] {
     const on = useCalendarOn();
+    // Read again when a calendar is shown or hidden.
+    const version = useSyncExternalStore(subscribeCalendar, calendarVersion, calendarVersion);
     const [events, setEvents] = useState<CalendarSlot[]>([]);
     useEffect(() => {
         let live = true;
@@ -18,6 +20,24 @@ export function useCalendarEvents(day: string): CalendarSlot[] {
         read(false);
         const sub = AppState.addEventListener('change', next => { if (next === 'active') void checkCalendarAccess().then(() => read(true)); });
         return () => { live = false; sub.remove(); };
-    }, [day, on]);
+    }, [day, on, version]);
     return on ? events : [];
+}
+
+/** The phone's calendars and which are shown, for choosing what reaches the timeline. */
+export function useCalendars(): { calendars: CalendarInfo[]; shown: (id: string) => boolean; setShown: (id: string, shown: boolean) => void } {
+    const on = useCalendarOn();
+    const version = useSyncExternalStore(subscribeCalendar, calendarVersion, calendarVersion);
+    const [calendars, setCalendars] = useState<CalendarInfo[]>([]);
+    useEffect(() => {
+        let live = true;
+        if (!on) { setCalendars([]); return; }
+        void listCalendars().then(list => { if (live) setCalendars(list); });
+        return () => { live = false; };
+    }, [on, version]);
+    return {
+        calendars,
+        shown: id => !hiddenCalendars().has(id),
+        setShown: (id, shown) => void setCalendarShown(id, shown),
+    };
 }

@@ -16,7 +16,55 @@ const KEY = 'habyss_calendar_on';
 let on: boolean | null = null;
 const cache = new Map<string, CalendarSlot[]>();
 const listeners = new Set<() => void>();
-const changed = () => listeners.forEach(listener => listener());
+/** Goes up on every change (switched on or off, a calendar shown or hidden), so readers know to read again. */
+let version = 0;
+const changed = () => { version += 1; listeners.forEach(listener => listener()); };
+export const calendarVersion = () => version;
+
+/** One of the phone's calendars: iCloud, Google, Outlook, subscribed ones. */
+export interface CalendarInfo { id: string; title: string; color?: string; source: string }
+
+/** Calendars the user switched off: their events stay off the timeline. */
+const HIDDEN_KEY = 'habyss_calendar_hidden';
+let hidden: Set<string> | null = null;
+async function loadHidden(): Promise<Set<string>> {
+    if (hidden) return hidden;
+    try {
+        const parsed = JSON.parse((await AsyncStorage.getItem(HIDDEN_KEY)) ?? '[]');
+        hidden = new Set(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []);
+    } catch {
+        hidden = new Set();
+    }
+    return hidden;
+}
+export const hiddenCalendars = () => hidden ?? new Set<string>();
+
+/** Shows or hides one calendar's events on the timeline. */
+export async function setCalendarShown(id: string, shown: boolean): Promise<void> {
+    const next = new Set(await loadHidden());
+    if (shown) next.delete(id); else next.add(id);
+    hidden = next;
+    cache.clear();
+    await AsyncStorage.setItem(HIDDEN_KEY, JSON.stringify([...next])).catch(() => undefined);
+    changed();
+}
+
+/** The phone's event calendars, by account then name; empty without access. */
+export async function listCalendars(): Promise<CalendarInfo[]> {
+    const api = calendar();
+    if (!api) return [];
+    try {
+        await loadHidden();
+        const { status } = await api.getCalendarPermissionsAsync();
+        if (status !== 'granted') return [];
+        const calendars = await api.getCalendarsAsync(api.EntityTypes.EVENT);
+        return calendars
+            .map(item => ({ id: item.id, title: item.title || 'Calendar', color: item.color, source: item.source?.name || 'Other' }))
+            .sort((a, b) => a.source.localeCompare(b.source) || a.title.localeCompare(b.title));
+    } catch {
+        return [];
+    }
+}
 
 /**
  * expo-calendar's function API. Since SDK 57 the package's main entry is a new
@@ -121,7 +169,10 @@ export async function eventsFor(day: string, fresh = false): Promise<CalendarSlo
     try {
         const { status } = await api.getCalendarPermissionsAsync();
         if (status !== 'granted') return [];
-        const calendars = await api.getCalendarsAsync(api.EntityTypes.EVENT);
+        // Only the calendars left on in Settings → Integrations.
+        const off = await loadHidden();
+        const calendars = (await api.getCalendarsAsync(api.EntityTypes.EVENT)).filter(item => !off.has(item.id));
+        if (!calendars.length) { cache.set(day, []); return []; }
         const colors = new Map(calendars.map(item => [item.id, item.color]));
         const from = new Date(`${day}T00:00:00`);
         const to = new Date(`${day}T23:59:59`);

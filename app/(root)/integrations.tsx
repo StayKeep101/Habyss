@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Linking, ScrollView, Text } from 'react-native';
 import { router } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
@@ -11,7 +11,7 @@ import { ScreenTimeService } from '@/lib/ScreenTimeService';
 import { syncHealthKitData } from '@/lib/habitsSQLite';
 import { styles } from '@/styles/screens/integrations.styles';
 import { McpKeySheet } from '@/components/Integrations/McpKeySheet';
-import { useCalendarEvents, useCalendarOn } from '@/hooks/useCalendarEvents';
+import { useCalendarEvents, useCalendarOn, useCalendars } from '@/hooks/useCalendarEvents';
 import { explainCalendarRefused, setCalendarOn } from '@/lib/calendarEvents';
 import { createMcpKey, listMcpKeys, mcpAvailable, mcpUrl, revokeMcpKey, type McpKey } from '@/lib/mcpKeys';
 import { localDateKey } from '@/lib/habitSchedule';
@@ -34,6 +34,13 @@ export default function IntegrationsScreen() {
     // Apple Calendar: the same switch as Settings → Timeline, with what it found today.
     const calendar = useCalendarOn();
     const todayEvents = useCalendarEvents(localDateKey(new Date()));
+    // Which of the phone's calendars reach the timeline, grouped by account.
+    const { calendars, shown, setShown } = useCalendars();
+    const accounts = useMemo(() => {
+        const groups = new Map<string, typeof calendars>();
+        for (const item of calendars) groups.set(item.source, [...(groups.get(item.source) ?? []), item]);
+        return [...groups.entries()];
+    }, [calendars]);
     const toggleCalendar = async (next: boolean) => {
         lightFeedback();
         const done = await setCalendarOn(next);
@@ -143,6 +150,15 @@ export default function IntegrationsScreen() {
                         ? `${todayEvents.length} ${todayEvents.length === 1 ? 'event' : 'events'} on your timeline today, as fixed blocks. Google Calendar comes in once your Google account is added in iPhone Settings → Apps → Calendar → Calendar Accounts.`
                         : 'Your events show on the timeline as fixed blocks, and habits and tasks are planned around them. Google Calendar comes in through the Google account on this iPhone. Read on this phone only.'}
                 </Text>
+                {/* Each calendar on this iPhone, by account: switch off the ones that should stay off the timeline. */}
+                {calendar && accounts.map(([account, list]) => (
+                    <SettingsGroup key={account} title={account}>
+                        {list.map(item => (
+                            <SettingsRow key={item.id} icon="calendar" color={item.color || colors.error} label={item.title}
+                                toggle={shown(item.id)} onToggle={value => { lightFeedback(); setShown(item.id, value); }} />
+                        ))}
+                    </SettingsGroup>
+                ))}
 
                 {/* One switch. Everything that writes to Health — watches,
                     rings, gyms — comes through it. */}
