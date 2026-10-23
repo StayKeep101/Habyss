@@ -287,3 +287,21 @@ describe('where a done thing sits', () => {
         expect(flowInputs({ habits: [], tasks: [{ id: 't', title: 't', status: 'done', completedAt: at } as never], done: {}, today: '2026-10-23' })[0].doneAt).toBeUndefined();
     });
 });
+
+describe('calendar events', () => {
+    const window = { wake: 420, sleep: 1380 };
+    const meeting = (start: number, minutes: number): FlowInput => ({ id: 'event:m', kind: 'event', title: 'Meeting', start, minutes, done: false, fixed: true });
+    const job = (id: string, minutes: number, extra: Partial<FlowInput> = {}): FlowInput => ({ id, kind: 'task', title: id, start: null, minutes, done: false, ...extra });
+    const clash = (flow: ReturnType<typeof flowDay>) => flow.timeline.filter(item => item.kind !== 'event' && item.start < 630 && item.end > 570);
+    it('ends the one you are on when a meeting begins inside it, and fits it in again after', () => {
+        // Started at 9:00 for an hour; a 9:30 meeting came in.
+        const items = [meeting(570, 60), job('essay', 60, { kept: { start: 540, end: 600 } }), job('email', 30)];
+        const before = flowDay(items, 550, window);
+        expect(before.current).toMatchObject({ id: 'essay', start: 540, end: 570 });
+        expect(clash(before)).toEqual([]);
+        // At 9:40, in the meeting: the essay waits until it is over.
+        const during = flowDay(items, 580, window);
+        expect(clash(during)).toEqual([]);
+        expect(during.timeline.find(item => item.id === 'essay')!.start).toBeGreaterThanOrEqual(630);
+    });
+});

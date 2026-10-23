@@ -184,6 +184,14 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
         && !outside.has(item.id) && item.kept && item.kept.end > item.kept.start && item.kept.start <= now);
     const onIt = (started.find(item => item.id === window.active)
         ?? [...started].sort((a, b) => (b.kept as { start: number }).start - (a.kept as { start: number }).start)[0])?.id ?? null;
+    // A meeting or a meal never gives way to it: the first fixed block that
+    // begins inside its slot ends it there. If that block has already begun,
+    // it is no longer the one you are on; it is fitted in again after.
+    const blocks = items.filter(item => item.fixed && item.start !== null).map(item => ({ start: item.start as number, end: (item.start as number) + item.minutes }));
+    const wallFor = (kept: { start: number; end: number }) => {
+        const until = Math.max(kept.end, now ?? kept.end);
+        return blocks.filter(block => block.start > kept.start && block.start < until).sort((a, b) => a.start - b.start)[0] ?? null;
+    };
     const timed: FlowInput[] = [];
     const untimed: FlowInput[] = [];
     for (const item of items) {
@@ -212,10 +220,12 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
         // (and places it on a day that is not today, when that time is free).
         const floating: FlowInput = { ...item, start: null, auto: true, preferred: item.start ?? undefined };
         if (now === null || outside.has(item.id)) { untimed.push(floating); continue; }
-        // Under way: it holds its slot, running on past its end until it is done.
+        // Under way: it holds its slot, running on past its end until it is done,
+        // up to the next meeting or meal.
         if (kept && item.id === onIt) {
-            timed.push({ ...item, start: kept.start, minutes: kept.end - kept.start, auto: true });
-            continue;
+            const wall = wallFor(kept);
+            if (!wall) { timed.push({ ...item, start: kept.start, minutes: kept.end - kept.start, auto: true }); continue; }
+            if (wall.start > now) { timed.push({ ...item, start: kept.start, minutes: wall.start - kept.start, auto: true }); continue; }
         }
         untimed.push({ ...floating, moved: !!kept && kept.start <= now });
     }

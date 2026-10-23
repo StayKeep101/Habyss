@@ -173,6 +173,11 @@ function Row({ size, item, turn, color, nextColor, last, now, updated, onToggle,
     // fit is the scissors beside its time, not a sentence.
     const cut = !!item.cutFrom && !done;
     const due = item.deadline && day ? dueLabel(item.deadline, day) : null;
+    // A calendar event today: how long until it starts, or until it ends while on.
+    const eta = item.kind === 'event' && now !== null
+        ? now < item.start ? `in ${lengthLabel(item.start - now)}` : now < item.end ? `ends in ${lengthLabel(item.end - now)}` : null
+        : null;
+    const soon = item.kind === 'event' && now !== null && now < item.start && item.start - now <= 15;
     const moved = done ? null
         : item.shift > 0 && !item.auto ? `${item.shift} min later: the one before ran over`
         : item.shift < 0 && !item.auto ? `${-item.shift} min earlier: the one before finished early`
@@ -209,6 +214,7 @@ function Row({ size, item, turn, color, nextColor, last, now, updated, onToggle,
                             {rangeLabel(item.start, item.end)} ({lengthLabel(item.end - item.start)})
                         </Text>
                         {item.repeats ? <AppIcon name="repeat" size={s(12)} color={t.color.textSubtle} /> : null}
+                        {eta ? <Text style={[t.type.caption, styles.nowTag, { color: soon || live ? t.color.accentText : t.color.textMuted }]}>{eta}</Text> : null}
                         {due && !done ? (
                             <Text style={[t.type.caption, styles.nowTag, { color: due === 'Due today' || due === 'Overdue' ? t.color.warning : t.color.textMuted }]}>{due}</Text>
                         ) : null}
