@@ -12,8 +12,12 @@ import { useAccentGradient } from '@/context/AccentContext';
  * Its own component so the typing re-renders only this line. It lived in the
  * Home screen's state, so every letter (every 30 ms) re-rendered all of Home.
  */
-export function EchoLine({ text, style, onPress, secret, onDone }: {
+const MOODS = ['Echo', 'Echo · concerned', 'Echo · worried', 'Echo · alarmed', 'Echo · DEMON MODE'];
+
+export function EchoLine({ text, style, onPress, secret, onDone, mood = 0 }: {
     text: string; style?: object; onPress?: () => void; secret?: boolean;
+    /** How worried Echo is about your tasks, 0 calm to 4 demon (lib/taskPressure.ts): its label says so, and reddens. */
+    mood?: number;
     /** Called once the line has finished typing out (e.g. to ask a question after it). */
     onDone?: () => void;
 }) {
@@ -37,7 +41,9 @@ export function EchoLine({ text, style, onPress, secret, onDone }: {
 
     return (
         <Pressable style={style} onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityHint={onPress ? 'Opens Echo' : undefined}>
-            <Text style={[styles.label, { color: secret ? primary : colors.textTertiary }]}>{secret ? 'Echo  ✦  tap me' : 'Echo'}</Text>
+            <Text style={[styles.label, { color: secret ? primary : mood >= 4 ? colors.error : mood >= 2 ? colors.warning : colors.textTertiary }]}>
+                {secret ? 'Echo  ✦  tap me' : MOODS[Math.max(0, Math.min(4, mood))]}
+            </Text>
             <Text style={[styles.line, { color: colors.text }]}>
                 {shown}
                 {shown.length < text.length ? <Text style={{ color: primary }}>|</Text> : null}

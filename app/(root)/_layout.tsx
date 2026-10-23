@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
+import { DemonEdge } from '@/components/ui/DemonEdge';
+import { useTaskPressure } from '@/hooks/useTaskPressure';
 
 // A direct account/email link still needs a screen beneath its modal.
 export const unstable_settings = { anchor: '(tabs)' };
@@ -22,6 +24,9 @@ export default function RootLayout() {
     }
     initDB();
   }, []);
+
+  const pressure = useTaskPressure();
+  const demon = pressure.level === 4 && pressure.demonAllowed;
 
   return (
     <>
@@ -162,6 +167,8 @@ export default function RootLayout() {
         />
 
       </Stack>
+      {/* Demon mode: far behind on tasks, the edge of the screen glows red (lib/taskPressure.ts). */}
+      <DemonEdge on={demon} />
     </>
   );
 }

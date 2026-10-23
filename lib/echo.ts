@@ -119,6 +119,12 @@ export interface EchoConfig {
     writeReminders: boolean;
     /** The weekly review notification on the week's last evening. On unless turned off. */
     weeklyReview?: boolean;
+    /**
+     * Falling far behind on tasks turns Echo into demon mode: the edge of the
+     * screen goes red and Echo goes at you (lib/taskPressure.ts). On unless
+     * turned off.
+     */
+    demonMode?: boolean;
 }
 
 export const DEFAULT_ECHO: EchoConfig = { morning: false, evening: false, useName: true, writeReminders: false, alive: false, aliveFollowUp: true, weeklyReview: true };

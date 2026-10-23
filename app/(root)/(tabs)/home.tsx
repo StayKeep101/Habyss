@@ -30,6 +30,8 @@ import { useAppSettings } from '@/context/AppSettingsContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
 import { nextEchoLine, type EchoStats } from '@/lib/echoLines';
+import { pressureLine, pressureSpeaks } from '@/lib/taskPressure';
+import { useTaskPressure } from '@/hooks/useTaskPressure';
 import { getName } from '@/lib/echo';
 import { nextPatternLine } from '@/lib/echoPatterns';
 import { useEchoPatterns } from '@/hooks/useEchoPatterns';
@@ -106,6 +108,17 @@ const Home = () => {
   // Echo's line: new on every visit and refresh. Stats are read from a ref so
   // the line always reflects the latest render without re-running the effect.
   const echoPatterns = useEchoPatterns();
+  const taskPressureNow = useTaskPressure();
+  const pressureRef = useRef(taskPressureNow);
+  useEffect(() => { pressureRef.current = taskPressureNow; }, [taskPressureNow]);
+  // Echo's mood moves with the level: a new level is a new line.
+  const pressureLevel = taskPressureNow.level;
+  const lastLevel = useRef(pressureLevel);
+  useEffect(() => {
+    if (lastLevel.current === pressureLevel) return;
+    lastLevel.current = pressureLevel;
+    void showEchoLineRef.current?.();
+  }, [pressureLevel]);
   const echoPatternsRef = useRef(echoPatterns);
   useEffect(() => { echoPatternsRef.current = echoPatterns; }, [echoPatterns]);
   const echoStatsRef = useRef<EchoStats>({ streak: 0, todayDone: 0, todayTotal: 0, weekConsistency: 0, goalsCount: 0, overallProgress: 0 });
@@ -113,6 +126,13 @@ const Home = () => {
     const name = await getName();
     const personality = normalizeAIPersonality(aiPersonality || 'friendly');
     const stats = echoStatsRef.current;
+    // Behind on tasks: that comes before any stat or easter egg, more worried
+    // the further behind, up to demon mode (lib/taskPressure.ts).
+    const pressure = pressureRef.current;
+    if (pressureSpeaks(pressure)) {
+      const line = pressureLine(pressure.level === 4 && !pressure.demonAllowed ? { ...pressure, level: 3 } : pressure, personality);
+      if (line) { setEchoEgg(null); setMotivationalQuote(line); return; }
+    }
     // Now and then the line is an easter egg instead: tap it to open it.
     const now = new Date();
     const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -129,6 +149,8 @@ const Home = () => {
     if (found) { setMotivationalQuote(found); return; }
     setMotivationalQuote(await nextEchoLine(personality, { ...stats, name, patterns: echoPatternsRef.current.map(pattern => pattern.text) }, greetingStyle));
   }, [aiPersonality, greetingStyle]);
+  const showEchoLineRef = useRef(showEchoLine);
+  useEffect(() => { showEchoLineRef.current = showEchoLine; }, [showEchoLine]);
 
   // Track previous streak for celebration
 
@@ -466,7 +488,7 @@ const Home = () => {
 
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
-          {motivationalQuote ? <EchoLine text={motivationalQuote} secret={!!echoEgg} style={{ marginTop: sectionGap }}
+          {motivationalQuote ? <EchoLine text={motivationalQuote} secret={!!echoEgg} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)} style={{ marginTop: sectionGap }}
             onDone={() => { const kind = pendingQuestion.current; if (kind) { pendingQuestion.current = null; setTimeout(() => setQuestion(kind), 400); } }}
             onPress={echoEgg ? () => { lightFeedback(); setOpenEgg(echoEgg); void markFound(echoEgg); } : undefined} /> : null}
 

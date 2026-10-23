@@ -19,6 +19,7 @@
  *   TimeRow, Wheel, TimeWheels (a clock time on wheels), DateWheels (a date on wheels), ViewSwitcher, SwipeRow, TypingPlaceholder,
  *   MorphMenu (a ⋯ button that grows into its own menu), MicButton (talk instead of typing),
  *   FocusPill (the solid "Focus" pill on whatever is on right now)
+ *   DemonEdge (the red glow round the screen in Echo's demon mode)
  *
  * Content
  *   Avatar (a face: photo or initial, optional ring and badge), IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
@@ -83,3 +84,4 @@ export { MOTION, LIST_LAYOUT, ListItem, CountUp, AnimatedFill, GrowBar, Reveal, 
 export { TimeWheels } from './TimeWheels';
 export { DateWheels } from './DateWheels';
 export { PopupCard } from './PopupCard';
+export { DemonEdge } from './DemonEdge';

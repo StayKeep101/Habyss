@@ -260,6 +260,9 @@ const AISettings = () => {
                     <SettingsRow icon="bookmark" color="#FF9F0A" label="What Echo remembers" onPress={() => router.push('/(root)/echo-memory' as never)} />
                     <SettingsRow icon="notifications" color="#FF453A" label="Weekly review reminder" toggle={echo.weeklyReview !== false}
                         onToggle={value => { saveEcho({ ...echo, weeklyReview: value }); setTimeout(() => { void (require('@/lib/weeklyReviewNotice') as typeof import('@/lib/weeklyReviewNotice')).syncWeeklyReviewNotice(); }, 300); }} />
+                    {/* Far behind on tasks: the screen's edge goes red and Echo goes at you, in its own voice. */}
+                    <SettingsRow icon="flame" color="#FF453A" label="Demon mode" toggle={echo.demonMode !== false}
+                        onToggle={value => saveEcho({ ...echo, demonMode: value })} />
                 </SettingsGroup>
 
                 <Group title="Check-ins">
