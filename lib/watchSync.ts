@@ -32,6 +32,13 @@ export interface WatchHabit {
     unit: string;
     /** A timed habit is finished by its timer, not a tap. */
     canTick: boolean;
+    /** Where the timeline has it today, in minutes from midnight (-1 when it has no place). */
+    start: number;
+    end: number;
+    /** Cut short to fit the day. */
+    cut: boolean;
+    /** The one you are on. */
+    now: boolean;
 }
 
 export interface WatchTask {
@@ -40,17 +47,47 @@ export interface WatchTask {
     completed: boolean;
     /** "HH:MM", when it has one. */
     time: string;
+    start: number;
+    end: number;
+    cut: boolean;
+    now: boolean;
+}
+
+/** Where the timeline puts each thing today, for the watch. */
+export type WatchSlots = Record<string, { start: number; end: number; cut: boolean; now: boolean }>;
+
+export function slotsFromFlow(flow: import('./dayFlow').DayFlow | null): WatchSlots {
+    const out: WatchSlots = {};
+    for (const item of flow?.timeline ?? []) {
+        if (item.kind !== 'habit' && item.kind !== 'task') continue;
+        out[item.id] = { start: item.start, end: item.end, cut: !!item.cutFrom, now: item.state === 'now' };
+    }
+    return out;
+}
+
+const NO_SLOT = { start: -1, end: -1, cut: false, now: false };
+
+/** The focus session on the phone, for the watch to show. */
+export interface WatchFocus {
+    id: string; title: string;
+    /** When the countdown ends (ms since 1970); 0 while paused or for a stopwatch. */
+    endsAt: number;
+    /** When it began, for a stopwatch's count up (ms since 1970). */
+    startedAt: number;
+    /** Seconds left, for a paused countdown. */
+    left: number;
+    paused: boolean; stopwatch: boolean;
 }
 
 /** Today's tasks as the watch draws them: open first, timed ones by time. */
-export function buildWatchTasks(tasks: Task[], today: string): WatchTask[] {
+export function buildWatchTasks(tasks: Task[], today: string, slots: WatchSlots = {}): WatchTask[] {
     return tasksForDay(tasks, today, today)
-        .map(task => ({ id: task.id, title: task.title, completed: task.status === 'done', time: task.dueTime ?? '' }))
+        .map(task => ({ id: task.id, title: task.title, completed: task.status === 'done', time: task.dueTime ?? '', ...(slots[task.id] ?? NO_SLOT) }))
         .sort((a, b) => Number(a.completed) - Number(b.completed) || (a.time || '99').localeCompare(b.time || '99'));
 }
 
 /** Today's habits as the watch draws them, scheduled ones only, unfinished first. */
-export function buildWatchHabits(habits: Habit[], history: Record<string, string[]>, today: string): WatchHabit[] {
+export function buildWatchHabits(habits: Habit[], history: Record<string, string[]>, today: string, slots: WatchSlots = {}): WatchHabit[] {
     const counted = countedHistory(history);
     const done = new Set(history[today] ?? []);
     return habits
@@ -65,6 +102,7 @@ export function buildWatchHabits(habits: Habit[], history: Record<string, string
             targetCount: 1,
             unit: habit.unit ?? '',
             canTick: measurementFor(habit).kind !== 'timer',
+            ...(slots[habit.id] ?? NO_SLOT),
         }))
         .sort((a, b) => Number(a.completed) - Number(b.completed));
 }
@@ -74,29 +112,49 @@ const bridge = (): WatchBridge | null =>
     Platform.OS === 'ios' && NativeModules.WatchModule ? (NativeModules.WatchModule as WatchBridge) : null;
 
 let lastSent: string | null = null;
+let lastContext: Record<string, unknown> | null = null;
+let focusNow: WatchFocus | null = null;
 
-/** Sends the snapshot, unless it is exactly what the watch already has. */
-export function pushToWatch(input: {
-    habits: Habit[]; tasks: Task[]; history: Record<string, string[]>; today: string; streak: number;
-    accent: { from: string; to: string };
-}): void {
+function send(context: Record<string, unknown>): void {
     const watch = bridge();
     if (!watch) return;
-    const context = {
-        habits: buildWatchHabits(input.habits, input.history, input.today),
-        tasks: buildWatchTasks(input.tasks, input.today),
-        streak: input.streak,
-        dayKey: input.today,
-        accent: mixHex(input.accent.from, input.accent.to),
-        accentFrom: input.accent.from,
-        accentTo: input.accent.to,
-    };
     const fingerprint = JSON.stringify(context);
     if (fingerprint === lastSent) return;
     try {
         watch.updateContext(context);
         lastSent = fingerprint;
+        lastContext = context;
     } catch { /* no watch paired, or the session is not active yet */ }
+}
+
+/**
+ * The phone's focus session, mirrored on the wrist (or cleared when it ends).
+ * Sent with the rest of the day, so the watch always has both.
+ */
+export function pushFocusToWatch(focus: WatchFocus | null): void {
+    focusNow = focus;
+    if (lastContext) send({ ...lastContext, focus: focus ?? {} });
+}
+
+/** Sends the snapshot, unless it is exactly what the watch already has. */
+export function pushToWatch(input: {
+    habits: Habit[]; tasks: Task[]; history: Record<string, string[]>; today: string; streak: number;
+    accent: { from: string; to: string };
+    /** Where the timeline puts each thing today (lib/todayFlow.ts). */
+    slots?: WatchSlots;
+}): void {
+    if (!bridge()) return;
+    const context = {
+        habits: buildWatchHabits(input.habits, input.history, input.today, input.slots),
+        tasks: buildWatchTasks(input.tasks, input.today, input.slots),
+        streak: input.streak,
+        dayKey: input.today,
+        accent: mixHex(input.accent.from, input.accent.to),
+        accentFrom: input.accent.from,
+        accentTo: input.accent.to,
+        focus: focusNow ?? {},
+    };
+    send(context);
 }
 
 /**

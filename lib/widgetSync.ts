@@ -143,7 +143,9 @@ async function writeWidgets(): Promise<WidgetPayload | null> {
         await WidgetService.write(payload);
         // The watch shows the same day, from the same numbers.
         const { pushToWatch } = require('./watchSync') as typeof import('./watchSync');
-        pushToWatch({ habits, tasks, history, today, streak, accent: payload.accent });
+        const { currentTodayFlow } = require('./todayFlow') as typeof import('./todayFlow');
+        const { slotsFromFlow } = require('./watchSync') as typeof import('./watchSync');
+        pushToWatch({ habits, tasks, history, today, streak, accent: payload.accent, slots: slotsFromFlow(await currentTodayFlow().catch(() => null)) });
         // Echo's hourly lines ride along with the day: they are built from the
         // same numbers, so writing them anywhere else would risk the lock
         // screen quoting a streak the widget above it disagrees with.
@@ -233,8 +235,10 @@ async function drain(): Promise<{ habits: number; tasks: number }> {
             const { kind, id } = parseWidgetId(event.id);
             if (kind === 'habit') {
                 const found = habits.find(habit => habit.id === id && !habit.isGoal);
-                // A timed habit is completed by running its timer; a tap is acknowledged and ignored.
-                if (found && !(event.done && measurementFor(found).kind === 'timer')) {
+                // A timed habit is completed by running its timer (the watch's
+                // focus timer counts); a plain tap is acknowledged and ignored.
+                const byTimer = 'source' in event && event.source === 'focus';
+                if (found && !(event.done && measurementFor(found).kind === 'timer' && !byTimer)) {
                     const done = completions[event.day] ?? await getCompletions(event.day);
                     if (!!done[id] !== event.done) { await toggleCompletion(id, event.day); applied.habits++; }
                     completions[event.day] = { ...done, [id]: event.done };

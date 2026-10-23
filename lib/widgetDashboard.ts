@@ -78,7 +78,7 @@ function sampleGoalPoints(points: { date: string; actual: number }[], limit = 90
     });
 }
 
-export interface WidgetEvent { eventId: string; id: string; day: string; done: boolean; timestamp: number; }
+export interface WidgetEvent { eventId: string; id: string; day: string; done: boolean; timestamp: number; /** "focus": finished by the watch's focus timer. */ source?: string }
 export function parseWidgetEvent(raw: string): WidgetEvent | null {
     try {
         const event = JSON.parse(raw);

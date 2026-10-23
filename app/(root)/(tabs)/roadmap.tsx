@@ -44,6 +44,7 @@ import { DayTimeline } from '@/components/Roadmap/DayTimeline';
 import { CalendarPrompt } from '@/components/Roadmap/CalendarPrompt';
 import { useMeals, useMealsFlexible } from '@/hooks/useMeals';
 import { useDayMemory } from '@/hooks/useDayMemory';
+import { useDoneTimes } from '@/hooks/useDoneTimes';
 import { markSeen, memoryReady, rememberFlow } from '@/lib/dayMemory';
 import { planAlert, schedulePlanAlert } from '@/lib/planAlerts';
 import { setTodayFlow } from '@/lib/scheduledActivities';
@@ -897,16 +898,18 @@ const CalendarScreen = () => {
     const peak = useMemo(() => peakWindow(patterns), [patterns]);
     const flowNow = dayPlan.isToday ? clock.getHours() * 60 + clock.getMinutes() : null;
     const flowWindow = useMemo(() => ({ wake: minutesOf(dayWindow.wake), sleep: minutesOf(dayWindow.sleep), peak, active: activeHabitId }), [dayWindow, peak, activeHabitId]);
+    // When each habit was ticked on the day shown, so a done one sits where it was really done.
+    const doneTimes = useDoneTimes(localDateKey(selectedDate), completions);
     const flowItems = useMemo(() => {
         const day = localDateKey(selectedDate);
         const habits = habitsStore.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, selectedDate)) as StoreHabit[];
         // Meals and calendar events are fixed; the rest flows, and whatever has
         // no time is given a slot by urgency between waking and bedtime.
         return flowInputs({
-            habits, tasks: tasksForDay(tasks, day, todayKey(clock)), done: completions, meals: mealSlots(meals), events: calendarEvents,
+            habits, tasks: tasksForDay(tasks, day, todayKey(clock)), done: completions, doneTimes, day, meals: mealSlots(meals), events: calendarEvents,
             today: todayKey(clock), flexibleMeals, kept: memory.day === day ? memory.slots : undefined,
         });
-    }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, flexibleMeals, memory]);
+    }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, flexibleMeals, memory, doneTimes]);
     const flow = useMemo(() => flowDay(flowItems, flowNow, flowWindow), [flowItems, flowNow, flowWindow]);
     // Open tasks whose "due by" is this day but which are planned for another:
     // named at the top of the day so the deadline is seen.

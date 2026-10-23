@@ -66,6 +66,8 @@ export interface FlowInput {
     moved?: boolean;
     /** A task's "due by" day, shown on its row. */
     deadline?: string;
+    /** When it was ticked, in minutes from midnight on the day shown. */
+    doneAt?: number;
 }
 
 export interface FlowItem extends FlowInput {
@@ -188,13 +190,15 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
         const kept = item.kept && item.kept.end > item.kept.start ? item.kept : null;
         if (item.fixed) { timed.push(item); continue; }
         if (item.done) {
-            // Done: it stays where it was done. Just ticked, it ends now — cut
-            // short if early, or placed where it was really done if its slot
-            // had not come yet — in one move, not two (lib/dayMemory.ts agrees).
+            // Done: shown where it was done, the same way every time — ending
+            // the moment it was ticked and as long as it was expected to take
+            // (its cut length, if it was cut). A 30-minute task ticked at 5:55
+            // reads 5:25–5:55, early or late, ticked here, on Home or the watch.
+            const planned = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
+            const expected = Math.max(5, kept ? Math.min(planned, kept.end - kept.start) : planned);
+            const at = item.doneAt ?? (kept && now !== null && now < kept.end ? now : undefined);
             let slot = kept;
-            if (slot && now !== null && now < slot.end) {
-                slot = slot.start <= now ? { start: slot.start, end: Math.max(slot.start + 5, now) } : { start: Math.max(0, now - (slot.end - slot.start)), end: now };
-            }
+            if (at !== undefined) { const start = Math.max(0, at - expected); slot = { start, end: Math.max(at, start + 1) }; }
             if (slot) timed.push({ ...item, start: slot.start, minutes: slot.end - slot.start, auto: item.auto || item.start === null || slot.start !== item.start });
             else if (item.start !== null) timed.push(item);
             else untimed.push(item);
@@ -422,6 +426,10 @@ export function urgencyOf(priority: number | undefined, dueDate: string | undefi
 /** Today's habits, tasks, meals and calendar events as flow input. */
 export function flowInputs(input: {
     habits: Habit[]; tasks: Task[]; done: Record<string, boolean>;
+    /** The day shown (today when left out), to read when things were ticked on it. */
+    day?: string;
+    /** When each habit was ticked on that day (ISO), from its completion. */
+    doneTimes?: Record<string, string>;
     meals?: { id: string; name: string; start: number; minutes: number }[];
     events?: { id: string; title: string; start: number; minutes: number; color?: string }[];
     today?: string;
@@ -430,6 +438,15 @@ export function flowInputs(input: {
     /** Where each was last placed today (lib/dayMemory.ts). */
     kept?: Record<string, { start: number; end: number }>;
 }): FlowInput[] {
+    // A tick's time, in minutes from midnight, when it was made on the day shown.
+    const day = input.day ?? input.today;
+    const minuteOn = (iso?: string) => {
+        if (!iso || !day) return undefined;
+        const at = new Date(iso);
+        if (!Number.isFinite(at.getTime())) return undefined;
+        const key = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
+        return key === day ? at.getHours() * 60 + at.getMinutes() : undefined;
+    };
     const items: FlowInput[] = (input.meals ?? []).map(meal => ({
         id: `meal:${meal.id}`, kind: 'meal' as const, title: meal.name, start: meal.start, minutes: meal.minutes,
         done: false, icon: 'restaurant', fixed: true, flex: !!input.flexibleMeals,
@@ -442,13 +459,15 @@ export function flowInputs(input: {
             id: habit.id, kind: 'habit', title: habit.name, start: toMinutes(habit.startTime), locked: !!habit.startTime && habit.flexible === false,
             minutes: habitMinutes(habit), done: !!input.done[habit.id], icon: habit.icon, color: habit.color, repeats: true,
             urgency: urgencyOf(habit.priority, undefined, input.today), difficulty: habit.difficulty,
+            doneAt: input.done[habit.id] ? minuteOn(input.doneTimes?.[habit.id]) : undefined,
         });
     }
     for (const task of input.tasks) {
         if (task.status === 'cancelled') continue;
         const minutes = task.measure === 'time' && task.target ? task.target : Number(task.estimatedMinutes) || 0;
         items.push({ id: task.id, kind: 'task', title: task.title, start: toMinutes(task.dueTime), minutes, done: task.status === 'done', locked: !!task.dueTime && task.flexible === false,
-            urgency: urgencyOf(task.priority, task.dueDate, input.today, task.deadline), difficulty: task.difficulty, deadline: task.deadline });
+            urgency: urgencyOf(task.priority, task.dueDate, input.today, task.deadline), difficulty: task.difficulty, deadline: task.deadline,
+            doneAt: task.status === 'done' ? minuteOn(task.completedAt) : undefined });
     }
     if (input.kept) for (const item of items) if (input.kept[item.id] && item.kind !== 'meal' && item.kind !== 'event') item.kept = input.kept[item.id];
     return items;

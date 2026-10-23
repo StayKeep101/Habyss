@@ -168,6 +168,23 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     useEffect(() => { setFocusQuiet(isRunning || isPaused); }, [isRunning, isPaused]);
     const [timeLeft, setTimeLeft] = useState(0);
     const [totalDuration, setTotalDuration] = useState(0);
+    // The session on the wrist too: started, paused or ended, the watch shows
+    // the same countdown (lib/watchSync.ts). Not every second: the watch
+    // counts down from when it ends.
+    const timeLeftRef = useRef(0);
+    timeLeftRef.current = timeLeft;
+    const totalRef = useRef(0);
+    totalRef.current = totalDuration;
+    useEffect(() => {
+        const { pushFocusToWatch } = require('@/lib/watchSync') as typeof import('@/lib/watchSync');
+        if (!(isRunning || isPaused) || !activeHabitId) { pushFocusToWatch(null); return; }
+        const stopwatch = activeMode === 'flow';
+        pushFocusToWatch({
+            id: activeHabitId, title: activeHabitName ?? 'Focus', stopwatch, paused: isPaused,
+            left: timeLeftRef.current, endsAt: isPaused || stopwatch ? 0 : Date.now() + timeLeftRef.current * 1000,
+            startedAt: Date.now() - Math.max(0, totalRef.current - timeLeftRef.current) * 1000,
+        });
+    }, [isRunning, isPaused, activeHabitId, activeHabitName, activeMode]);
 
     // Phase & Session Tracking (NEW)
     const [currentPhase, setCurrentPhase] = useState<TimerPhase>('focus');

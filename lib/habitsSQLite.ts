@@ -783,6 +783,31 @@ export async function getCompletionTicks(days: number): Promise<{ habitId: strin
     }
 }
 
+/**
+ * When each habit was ticked on `date`, for the habits ticked on that day
+ * itself (a tick made later for an earlier day has no real time of day).
+ * The timeline shows a done habit ending at this moment.
+ */
+export async function getCompletionTimes(date: string): Promise<Record<string, string>> {
+    if (!isSQLiteAvailable()) return {};
+    try {
+        const uid = await getUserId();
+        const db = await getDatabase();
+        if (!db || !uid) return {};
+        const rows = await db.getAllAsync(
+            'SELECT habit_id, created_at FROM completions WHERE user_id = ? AND date = ? AND deleted = 0 AND COALESCE(skipped, 0) = 0',
+            uid, date,
+        );
+        const out: Record<string, string> = {};
+        for (const row of (rows ?? []) as { habit_id: string; created_at: string }[]) {
+            if (row.created_at && todayString(new Date(row.created_at)) === date) out[row.habit_id] = row.created_at;
+        }
+        return out;
+    } catch {
+        return {};
+    }
+}
+
 export async function getLastNDaysCompletions(days: number): Promise<{ date: string; completedIds: string[]; skippedIds: string[] }[]> {
     const uid = await getUserId();
     const endDate = new Date();

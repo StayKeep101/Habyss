@@ -84,7 +84,9 @@ class WatchSessionManager: NSObject, WCSessionDelegate {
               let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.habyss.data") else { return }
         let eventId = (payload["eventId"] as? String).flatMap { $0.contains("/") || $0.contains("..") ? nil : $0 } ?? UUID().uuidString
         let timestamp = payload["timestamp"] as? Double ?? Date().timeIntervalSince1970 * 1000
-        let event: [String: Any] = ["eventId": eventId, "id": id, "day": day, "done": done, "timestamp": timestamp]
+        var event: [String: Any] = ["eventId": eventId, "id": id, "day": day, "done": done, "timestamp": timestamp]
+        // "focus": finished by the watch's focus timer, which is how a timed habit is done.
+        if let source = payload["source"] as? String, source == "focus" { event["source"] = source }
         guard let data = try? JSONSerialization.data(withJSONObject: event) else { return }
         let inbox = container.appendingPathComponent("widget-events", isDirectory: true)
         try? FileManager.default.createDirectory(at: inbox, withIntermediateDirectories: true)

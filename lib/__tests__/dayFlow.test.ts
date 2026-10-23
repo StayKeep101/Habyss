@@ -1,4 +1,4 @@
-import { flowDay, lengthLabel, upNext, urgencyOf, type FlowInput } from '../dayFlow';
+import { flowDay, flowInputs, lengthLabel, upNext, urgencyOf, type FlowInput } from '../dayFlow';
 
 const at = (h: number, m = 0) => h * 60 + m;
 const item = (id: string, start: number | null, minutes: number, done = false): FlowInput =>
@@ -261,3 +261,29 @@ describe('exact time or flexible', () => {
     });
 });
 
+
+describe('where a done thing sits', () => {
+    const window = { wake: 420, sleep: 1380 };
+    const done = (id: string, minutes: number, extra: Partial<FlowInput> = {}): FlowInput => ({ id, kind: 'task', title: id, start: null, minutes, done: true, ...extra });
+    it('ends when it was ticked and is as long as it was expected to take, early or late', () => {
+        // Planned 18:00–18:30, ticked at 17:55: shown 17:25–17:55.
+        const early = flowDay([done('essay', 30, { kept: { start: 1080, end: 1110 }, doneAt: 1075 })], 1200, window);
+        expect(early.timeline[0]).toMatchObject({ start: 1045, end: 1075 });
+        // Started at 17:00, ticked at 17:10: still the 30 minutes it was expected to take, ending at 17:10.
+        const partway = flowDay([done('essay', 30, { kept: { start: 1020, end: 1050 }, doneAt: 1030 })], 1200, window);
+        expect(partway.timeline[0]).toMatchObject({ start: 1000, end: 1030 });
+        // Never placed at all (ticked from the list): the same rule.
+        const unplaced = flowDay([done('call', 20, { doneAt: 600 })], 700, window);
+        expect(unplaced.timeline[0]).toMatchObject({ start: 580, end: 600 });
+    });
+    it('counts a cut one at the length it was cut to', () => {
+        const cut = flowDay([done('read', 60, { kept: { start: 1320, end: 1350 }, doneAt: 1345 })], 1360, window);
+        expect(cut.timeline[0]).toMatchObject({ start: 1315, end: 1345 });
+    });
+    it('reads the time a task was finished, on the day it was finished', () => {
+        const at = new Date(2026, 9, 22, 17, 55).toISOString();
+        const items = flowInputs({ habits: [], tasks: [{ id: 't', title: 't', status: 'done', completedAt: at, estimatedMinutes: 30 } as never], done: {}, today: '2026-10-22' });
+        expect(items[0].doneAt).toBe(1075);
+        expect(flowInputs({ habits: [], tasks: [{ id: 't', title: 't', status: 'done', completedAt: at } as never], done: {}, today: '2026-10-23' })[0].doneAt).toBeUndefined();
+    });
+});
