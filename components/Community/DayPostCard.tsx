@@ -13,6 +13,7 @@ import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { cardShare, type DayCardData, type DayCardLine } from '@/lib/dayCard';
+import { maskObjectionable } from '@/lib/contentFilter';
 import type { FriendStatus } from '@/lib/presence';
 import { StatusBadge } from './StatusBadge';
 
@@ -35,7 +36,7 @@ const postedLabel = (postedAt: string) => {
  * what they did not — habits and tasks, by name. Friends acknowledge it with
  * one tap; the people who did are shown.
  */
-export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, ackCount, acked, ackFaces, onAcknowledge, onOpenAuthor }: {
+export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, ackCount, acked, ackFaces, onAcknowledge, onOpenAuthor, onReport }: {
     name: string;
     avatarUrl?: string;
     /** The author's status now, as a mark on their photo. */
@@ -48,6 +49,8 @@ export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, ack
     ackFaces: { name: string; avatarUrl?: string }[];
     onAcknowledge: () => void;
     onOpenAuthor: () => void;
+    /** Someone else's card: a long press reports it. */
+    onReport?: () => void;
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -75,7 +78,7 @@ export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, ack
             <Text numberOfLines={1} style={[styles.lineText, {
                 color: item.done ? colors.textPrimary : colors.textTertiary,
                 textDecorationLine: item.skipped ? 'line-through' : 'none',
-            }]}>{item.name}</Text>
+            }]}>{mine ? item.name : maskObjectionable(item.name)}</Text>
         </View>
     );
 
@@ -99,7 +102,9 @@ export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, ack
 
     return (
         <VoidCard style={styles.card}>
-            <View style={styles.body}>
+            <Pressable style={styles.body} onLongPress={mine ? undefined : onReport} delayLongPress={450}
+                accessibilityActions={!mine && onReport ? [{ name: 'report', label: 'Report' }] : undefined}
+                onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'report') onReport?.(); }}>
                 <View style={styles.head}>
                     <Pressable onPress={onOpenAuthor} accessibilityRole="button" accessibilityLabel={`${name}'s profile`}>
                         <Avatar name={name} uri={avatarUrl} size={42} badge={status ? <StatusBadge status={status} size={16} /> : undefined} />
@@ -157,7 +162,7 @@ export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, ack
                         </Animated.View>
                     ) : null}
                 </View>
-            </View>
+            </Pressable>
         </VoidCard>
     );
 }

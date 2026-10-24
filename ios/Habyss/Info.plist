@@ -44,8 +44,6 @@
 	<string>1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>LSMinimumSystemVersion</key>
-	<string>12.0</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
@@ -55,16 +53,14 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSAppleMusicUsageDescription</key>
-	<string>Habyss can play your music during focus sessions.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Habyss shows your calendar events on your timeline, so habits and tasks are planned around them.</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>Habyss shows your calendar events on your timeline, so habits and tasks are planned around them.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>The app accesses your camera to let you take profile pictures and goal backgrounds.</string>
+	<string>Habyss uses the camera to take your profile picture or a goal background, and to scan a friend's QR code to add them.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Habyss uses FaceID to securely authenticate your access.</string>
+	<string>Habyss uses Face ID to unlock the app when App Lock is on.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Habyss reads your sleep from Apple Health — from Apple Watch, Garmin, Oura, Whoop or any sleep tracker — to fill in your sleep habits. Nothing else is read.</string>
 	<key>NSHealthUpdateUsageDescription</key>
@@ -79,16 +75,8 @@
 	<string>Habyss turns what you say into a habit, task or goal when you hold the create button and speak.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Habyss uses the microphone when you choose to speak, such as holding the create button to add a habit, task or goal by voice, or talking to Echo.</string>
-	<key>NSMotionUsageDescription</key>
-	<string>Habyss uses motion data together with your location to time place-based reminders accurately.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>The app accesses your photos to let you set custom profile pictures and goal backgrounds.</string>
-	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>The app needs to access your reminders to sync habits.</string>
-	<key>NSRemindersUsageDescription</key>
-	<string>The app needs to access your reminders to sync habits.</string>
-	<key>NSSiriUsageDescription</key>
-	<string>Habyss lets you log habits and tasks with Siri and Shortcuts.</string>
+	<string>Habyss uses your photos when you choose a profile picture or a goal background.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
@@ -99,8 +87,6 @@
 	</array>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>Habyss uses notifications to remind you about your habits and help you stay consistent.</string>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>This identifier will be used to deliver personalized content and improve your experience.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
@@ -123,8 +109,6 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
-		<string>location</string>
-		<string>fetch</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>

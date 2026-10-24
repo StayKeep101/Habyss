@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase';
 import { getProfile, type Profile } from './profile';
+import { maskObjectionable } from './contentFilter';
 
 /**
  * Putting your profile where your friends can see it.
@@ -178,8 +179,9 @@ export async function pushProfile(profile?: Profile, sharing?: Sharing): Promise
     const allowed = sharing ?? await getSharing();
 
     const patch: Record<string, unknown> = {
-        display_name: allowed.name ? (me.name.trim() || null) : null,
-        bio: allowed.bio ? (me.bio.trim().slice(0, 300) || null) : null,
+        // Others never read a slur in a name or bio (lib/contentFilter).
+        display_name: allowed.name ? (maskObjectionable(me.name.trim()) || null) : null,
+        bio: allowed.bio ? (maskObjectionable(me.bio.trim().slice(0, 300)) || null) : null,
     };
 
     // The cover travels with the picture, under the same switch.

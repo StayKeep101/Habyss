@@ -30,8 +30,8 @@ Deno.serve(async (req) => {
     let sender = 'Signed out'
     if (user_id) {
         const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
-        const { data } = await admin.from('profiles').select('name, username').eq('id', user_id).maybeSingle()
-        sender = [data?.name, data?.username ? `@${data.username}` : null].filter(Boolean).join(' ') || user_id
+        const { data } = await admin.from('profiles').select('display_name, username').eq('id', user_id).maybeSingle()
+        sender = [data?.display_name, data?.username ? `@${data.username}` : null].filter(Boolean).join(' ') || user_id
     }
     const details = Object.entries(context ?? {}).map(([k, v]) => `${k}: ${String(v)}`).join(' · ')
     const firstLine = message.split('\n')[0].slice(0, 60)

@@ -22,6 +22,7 @@ import { Radius } from '@/theme/designSystem';
 import { useHaptics } from '@/hooks/useHaptics';
 import Svg, { Rect, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { runOnJS } from 'react-native-reanimated';
+import { useFocusTimeLeft } from '@/context/FocusTimeContext';
 
 // Extended habit type with runtime properties
 interface ExtendedHabit extends Habit {
@@ -41,6 +42,8 @@ interface SwipeableHabitItemProps {
   goalName?: string; // Optional goal name to display as subtitle
   isActive?: boolean;
   timeLeft?: number; // In seconds
+  /** The habit being focused on now: its row follows the running clock (only that row redraws each second). */
+  followFocus?: boolean;
   totalDuration?: number; // In minutes
   canFocusNow?: boolean;
   onFocusPress?: (habit: ExtendedHabit) => void;
@@ -315,7 +318,14 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
 
 SwipeableHabitItemComponent.displayName = 'SwipeableHabitItem';
 
-export const SwipeableHabitItem = React.memo(SwipeableHabitItemComponent);
+/** The row being focused on: reads the clock itself, so nothing above it redraws every second. */
+const FocusedHabitItem: React.FC<SwipeableHabitItemProps> = (props) => {
+  const timeLeft = useFocusTimeLeft();
+  return <SwipeableHabitItemComponent {...props} timeLeft={timeLeft} />;
+};
+
+export const SwipeableHabitItem = React.memo((props: SwipeableHabitItemProps) =>
+  props.followFocus ? <FocusedHabitItem {...props} /> : <SwipeableHabitItemComponent {...props} />);
 
 const styles = StyleSheet.create({
   swipeableContainer: {

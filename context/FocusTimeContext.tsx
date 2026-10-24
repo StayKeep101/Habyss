@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus, Alert, Platform, Vibration } from 'react-native';
 
@@ -82,7 +82,19 @@ interface FocusTimeContextType {
     sessionsBeforeLongBreak: number;
 }
 
-const FocusTimeContext = createContext<FocusTimeContextType | undefined>(undefined);
+/**
+ * Two contexts: the session (what, whether it runs, the totals, the actions)
+ * and the clock, which changes every second. The provider sits around the
+ * whole app, so one context would redraw every screen, sheet and the
+ * navigator once a second while a timer runs; only what shows the clock reads
+ * the second one.
+ */
+type FocusSessionState = Omit<FocusTimeContextType, 'timeLeft'>;
+const FocusTimeContext = createContext<FocusSessionState | undefined>(undefined);
+const FocusTickContext = createContext<number>(0);
+/** The clock's latest value, for code that needs it once rather than every second. */
+let latestTimeLeft = 0;
+export const peekFocusTimeLeft = () => latestTimeLeft;
 
 // AsyncStorage keys for local cache
 const STORAGE_KEY_FOCUS_TODAY = 'focus_time_today';
@@ -842,59 +854,105 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         console.log('[FocusTime] Stats refresh — using local AsyncStorage data');
     }, []);
 
+    latestTimeLeft = timeLeft;
+    const session = useMemo<FocusSessionState>(() => ({
+        activeHabitId,
+        activeHabitName,
+        activeMode,
+        isRunning,
+        isPaused,
+        totalDuration,
+        totalFocusToday,
+        sessionsToday,
+        bestSessionToday,
+        weeklyFocusTotal,
+        monthlyFocusTotal,
+        yearlyFocusTotal,
+        allTimeBest,
+        activeDaysThisWeek,
+        dailyAverageAccurate,
+        weeklyMovingAverage,
+        productivityEfficiency,
+        completedSessionsThisWeek,
+        totalSessionsThisWeek,
+        startTimer,
+        pauseTimer,
+        resumeTimer,
+        stopTimer,
+        discardTimer,
+        finishTimer,
+        addFocusTime,
+        refreshStats,
+        currentPhase,
+        sessionNumber,
+        totalSessionsGoal,
+        qualityRating,
+        setQualityRating,
+        breakDuration,
+        longBreakDuration,
+        sessionsBeforeLongBreak,
+    }), [
+        activeHabitId,
+        activeHabitName,
+        activeMode,
+        isRunning,
+        isPaused,
+        totalDuration,
+        totalFocusToday,
+        sessionsToday,
+        bestSessionToday,
+        weeklyFocusTotal,
+        monthlyFocusTotal,
+        yearlyFocusTotal,
+        allTimeBest,
+        activeDaysThisWeek,
+        dailyAverageAccurate,
+        weeklyMovingAverage,
+        productivityEfficiency,
+        completedSessionsThisWeek,
+        totalSessionsThisWeek,
+        startTimer,
+        pauseTimer,
+        resumeTimer,
+        stopTimer,
+        discardTimer,
+        finishTimer,
+        addFocusTime,
+        refreshStats,
+        currentPhase,
+        sessionNumber,
+        totalSessionsGoal,
+        qualityRating,
+        setQualityRating,
+        breakDuration,
+        longBreakDuration,
+        sessionsBeforeLongBreak,
+    ]);
+
     return (
-        <FocusTimeContext.Provider
-            value={{
-                activeHabitId,
-                activeHabitName,
-                activeMode,
-                isRunning,
-                isPaused,
-                timeLeft,
-                totalDuration,
-                totalFocusToday,
-                sessionsToday,
-                bestSessionToday,
-                weeklyFocusTotal,
-                monthlyFocusTotal,
-                yearlyFocusTotal,
-                allTimeBest,
-                // NEW: Industry-Standard Metrics
-                activeDaysThisWeek,
-                dailyAverageAccurate,
-                weeklyMovingAverage,
-                productivityEfficiency,
-                completedSessionsThisWeek,
-                totalSessionsThisWeek,
-                // Actions
-                startTimer,
-                pauseTimer,
-                resumeTimer,
-                stopTimer,
-                discardTimer,
-                finishTimer,
-                addFocusTime,
-                refreshStats,
-                // Phase & Session Tracking
-                currentPhase,
-                sessionNumber,
-                totalSessionsGoal,
-                qualityRating,
-                setQualityRating,
-                breakDuration,
-                longBreakDuration,
-                sessionsBeforeLongBreak,
-            }}
-        >
-            {children}
+        <FocusTimeContext.Provider value={session}>
+            <FocusTickContext.Provider value={timeLeft}>
+                {children}
+            </FocusTickContext.Provider>
         </FocusTimeContext.Provider>
     );
 };
 
+/** The session and its clock: for what shows the time left. Redraws every second while running. */
 export const useFocusTime = (): FocusTimeContextType => {
+    const session = useFocusSession();
+    const timeLeft = useContext(FocusTickContext);
+    return useMemo(() => ({ ...session, timeLeft }), [session, timeLeft]);
+};
+
+/** The session without its clock: redraws only when the session changes. */
+export const useFocusSession = (): FocusSessionState => {
     const context = useContext(FocusTimeContext);
     if (!context) {
         throw new Error('useFocusTime must be used within a FocusTimeProvider');
     }
     return context;
 };
+
+/** Seconds left (or, in flow mode, elapsed) of the running session. */
+export const useFocusTimeLeft = (): number => useContext(FocusTickContext);

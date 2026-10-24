@@ -3,7 +3,9 @@ import { getDatabase } from './database';
 import { getSupabase } from './supabase';
 import { adoptUserId, getLocalUserId } from './localUser';
 import { resetSyncCursor, syncNow, type SyncReport } from './cloudSync';
-import { deleteAllLocalData } from './accountDeletion';
+import { deleteAllLocalData, restartAfterDeletion } from './accountDeletion';
+import { backUpPersonal, clearPersonal, syncPersonal, takeRestored } from './personalBackup';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { emit } from './appEvents';
 import { AUTH_REDIRECT } from './authRedirect';
 
@@ -169,6 +171,9 @@ export async function finishSignIn(accountId: string): Promise<Result<SyncReport
         await ensureProfile(accountId);
         const report = await syncNow();
         emit('social_state_updated');
+        // Settings, Echo and the rest came back from the backup: every screen
+        // and store has to read them fresh, which a restart guarantees.
+        if (takeRestored() > 0) setTimeout(() => { void restartAfterDeletion(); }, 1200);
         return { ok: true, value: report };
     } catch (error: any) {
         return { ok: false, error: friendly(error?.message || 'Could not finish setting up your account. Please try again.') };
@@ -202,7 +207,14 @@ export async function ensureProfile(accountId: string): Promise<void> {
  */
 export async function linkThisPhone(accountId: string): Promise<void> {
     const previous = await getLocalUserId();
-    if (previous !== accountId) {
+    if (previous !== accountId && await wasAnAccount(previous)) {
+        // Another account's data, left behind when its session ended without
+        // signing out. It is not this person's: it stays under its own id
+        // (backed up already, or uploaded if that account signs in again) and
+        // none of it is shown, moved or uploaded here. Its personal stores
+        // were backed up with its syncs and are cleared from the phone.
+        await clearPersonal();
+    } else if (previous !== accountId) {
         const db = await getDatabase();
         if (!db) throw new Error('Your local data could not be linked. Please try signing in again.');
         if (db) {
@@ -215,8 +227,26 @@ export async function linkThisPhone(accountId: string): Promise<void> {
         }
     }
     await adoptUserId(accountId);
+    await AsyncStorage.setItem(LINKED_ACCOUNT_KEY, accountId);
     // A first sign-in on this phone downloads the whole account, not a slice.
     await resetSyncCursor(accountId);
+}
+
+/** The account this phone was last linked to. */
+const LINKED_ACCOUNT_KEY = 'habyss_linked_account';
+
+/**
+ * Whether a local id belongs to an account rather than to this phone alone.
+ * Phones linked before the marker existed are checked against the server: an
+ * account has a profile, a phone-only id never does.
+ */
+async function wasAnAccount(id: string): Promise<boolean> {
+    if ((await AsyncStorage.getItem(LINKED_ACCOUNT_KEY)) === id) return true;
+    const sb = getSupabase();
+    if (!sb) return false;
+    const { data, error } = await sb.from('profiles').select('id').eq('id', id).maybeSingle();
+    if (error) throw new Error('Could not check whose data is on this phone. Please try signing in again.');
+    return !!data;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -248,6 +278,15 @@ export async function signOut(options: { discardUnsaved?: boolean } = {}): Promi
                 unsaved: true,
                 error: report.error ?? `${report.failed} change${report.failed === 1 ? '' : 's'} could not be backed up.`,
             };
+        }
+        // Signing out clears the phone, so the stores that are not table rows
+        // (settings, Echo, focus history, check-ins…) must be safely up too.
+        const me = (await sb.auth.getSession())?.data?.session?.user?.id;
+        if (me) {
+            await syncPersonal(me).catch(() => 0);
+            if (!(await backUpPersonal(me).catch(() => false))) {
+                return { ok: false, unsaved: true, error: 'Your settings, Echo’s memory and focus history could not be backed up.' };
+            }
         }
     }
 

@@ -118,3 +118,4 @@ class WatchSessionManager: NSObject, WCSessionDelegate {
         // Forward to React Native
         NotificationCenter.default.post(name: NSNotification.Name("WatchMessageReceived"), object: message)
     }
+}

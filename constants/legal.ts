@@ -3,7 +3,7 @@
  * kept word for word with the website's copies. Written from what the app
  * actually does; change it whenever that changes.
  */
-export const LEGAL_UPDATED = 'October 16, 2026';
+export const LEGAL_UPDATED = 'October 24, 2026';
 
 export type LegalDoc = 'privacy' | 'terms';
 export interface LegalSection { title: string; body: string }
@@ -13,11 +13,12 @@ export const LEGAL: Record<LegalDoc, { title: string; intro: string; sections: L
         title: 'Privacy policy',
         intro: 'Habyss is built to keep your life on your phone. This is everything it collects, why, and what you can do about it.',
         sections: [
-            { title: 'On your phone only', body: 'Your habits, tasks, goals, check-ins, brain dump, focus sessions and settings are stored on your device. Sleep read from Apple Health stays on your device and is never uploaded. Echo, the coach, runs on your device; nothing you write is sent to an AI service.' },
-            { title: 'When you sign in', body: 'If you create an account, we store your email address, display name, @username, profile photo and bio, and a backup of your habits, tasks, goals and check-ins so you can restore them and use Habyss on another device. This is kept with Supabase, our database provider.' },
+            { title: 'On your phone only', body: 'Your habits, tasks, goals, check-ins, brain dump, focus sessions and settings are stored on your device. Sleep read from Apple Health is used only to fill in your sleep habits. Places you save for a reminder (such as Home or Work) are kept with that habit. Echo, the coach, runs on your device; nothing you write is sent to an AI service.' },
+            { title: 'When you sign in', body: 'If you create an account, we store your email address, display name, @username, profile photo and bio, and a backup of your habits, tasks, goals and check-ins (including a sleep habit’s progress and the places saved for reminders) so you can restore them and use Habyss on another device. This is kept with Supabase, our database provider.' },
             { title: 'Friends', body: 'If you add friends, they can see your display name, @username, photo, Marks, rank, streak, your daily card (what you did that day) and the habits, tasks and goals you choose to share with them. Your status (focusing, in the app, asleep) is shown only to friends. You can turn off sharing your progress in Settings, and remove or block anyone at any time. The leaderboard shows your name, photo and Marks only to people in your league.' },
             { title: 'Notifications', body: 'To send you reminders and nudges from friends, we store your device’s push notification token.' },
             { title: 'Feedback', body: 'If you send feedback, we store your message with the screen you were on, the app version and your phone’s system version, and email it to the developer so it is read.' },
+            { title: 'Crash reports', body: 'If Habyss crashes, a crash report (what went wrong in the code, the app and system version, and your account id if you are signed in) is sent so the bug can be fixed. It never includes what you wrote.' },
             { title: 'Purchases', body: 'Purchases are handled by Apple, through RevenueCat. We never see your card details. RevenueCat receives an anonymous id or your account id so a purchase belongs to you.' },
             { title: 'What we never do', body: 'No ads. No tracking across apps or websites. No selling or sharing your data with anyone for marketing. No analytics tools.' },
             { title: 'Deleting your data', body: 'Settings → Privacy → Delete account removes your account, profile, photo, backup, friends and posts from the server, and everything on this device. Feedback you sent is kept without your name. It cannot be undone.' },

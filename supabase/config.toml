@@ -1,0 +1,10 @@
+# Edge function settings the dashboard would otherwise only keep in someone's
+# deploy flags. Both functions check their own credentials: mcp an hby_ key,
+# feedback-email the shared hook secret from the database trigger.
+project_id = "Habyss"
+
+[functions.mcp]
+verify_jwt = false
+
+[functions.feedback-email]
+verify_jwt = false

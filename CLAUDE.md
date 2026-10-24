@@ -57,6 +57,6 @@ Every new feature follows the structure above. No UI anywhere else.
 ## Working in this repo
 
 - Expo SDK 57 with a committed `ios/` folder: never run `expo prebuild --clean` (it deletes the widgets and the Watch app). Native changes need an EAS build; JavaScript changes ship with `eas update --channel preview`.
-- The update runtime is fixed at `1.0.0` in `app.json`. Bump it whenever native code changes.
+- The update runtime is fixed in `app.json` (`runtimeVersion`) and `ios/Habyss/Supporting/Expo.plist` (`EXUpdatesRuntimeVersion`); bump both whenever native code changes. `ios/` is built as is (no prebuild), so `app.json` `ios.infoPlist`, entitlements and plugin settings do not reach the build: edit `ios/Habyss/Info.plist` and the `.entitlements` files, and mirror them in `app.json`.
 - Install packages with `npx expo install <pkg>`.
 - Checks: `npm run type-check`, `npm run test:ci`, `npm run check:ui`.

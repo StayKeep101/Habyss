@@ -263,3 +263,31 @@ describe('how a completion was evidenced', () => {
         expect(completionToLocal({ ...local, evidence: 'nonsense', deleted_at: null }).evidence).toBeNull();
     });
 });
+
+describe('what the timeline plans with is backed up', () => {
+    it('sends a habit\'s urgency, difficulty and whether its time may move', () => {
+        const remote = habitToRemote({ id: 'h', name: 'Run', priority: 1, difficulty: 3, flexible: 0 }, 'u');
+        expect(remote).toMatchObject({ priority: 1, difficulty: 3, flexible: false });
+    });
+
+    it('sends a task\'s deadline, difficulty and flexibility', () => {
+        const remote = taskToRemote({ id: 't', title: 'Essay', deadline: '2026-10-30', difficulty: 2, flexible: 1 }, 'u');
+        expect(remote).toMatchObject({ deadline: '2026-10-30', difficulty: 2, flexible: true });
+    });
+
+    it('sends "not said" as null, and nonsense as null', () => {
+        expect(habitToRemote({ id: 'h', name: 'Run', difficulty: 9 }, 'u')).toMatchObject({ priority: null, difficulty: null, flexible: null });
+    });
+
+    it('brings them back down', () => {
+        expect(taskToLocal({ id: 't', title: 'Essay', deadline: '2026-10-30', difficulty: 2, flexible: false })).toMatchObject({ deadline: '2026-10-30', difficulty: 2, flexible: 0 });
+        expect(habitToLocal({ id: 'h', name: 'Run', priority: 0, difficulty: 1, flexible: true })).toMatchObject({ priority: 0, difficulty: 1, flexible: 1 });
+    });
+
+    it('never blanks them when the server has no such columns yet', () => {
+        const local = taskToLocal({ id: 't', title: 'Essay' });
+        expect('deadline' in local || 'difficulty' in local || 'flexible' in local).toBe(false);
+        const habit = habitToLocal({ id: 'h', name: 'Run' });
+        expect('priority' in habit || 'difficulty' in habit || 'flexible' in habit).toBe(false);
+    });
+});

@@ -118,8 +118,12 @@ export async function getTasks(options?: { includeDone?: boolean }): Promise<Tas
     if (!db) return [];
 
     const where = options?.includeDone ? '' : "AND status = 'open'";
+    // Only this person's: a phone can still hold another account's rows (see
+    // linkThisPhone). A task saved before any id existed has none and is theirs.
+    const uid = await getLocalUserId();
     const rows = await db.getAllAsync(
-        `SELECT * FROM tasks WHERE deleted = 0 ${where} ORDER BY due_date IS NULL, due_date ASC, priority ASC`,
+        `SELECT * FROM tasks WHERE deleted = 0 AND (user_id = ? OR user_id IS NULL) ${where} ORDER BY due_date IS NULL, due_date ASC, priority ASC`,
+        uid,
     );
     return (rows ?? []).map(rowToTask);
 }

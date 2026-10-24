@@ -26,7 +26,7 @@ import '@/lib/LocationService'; // Register background tasks
 import { AIPersonalityProvider } from '@/context/AIPersonalityContext';
 import { AppSettingsProvider } from '@/context/AppSettingsContext';
 import { AccentProvider, useAccentGradient } from '@/context/AccentContext';
-import { FocusTimeProvider, useFocusTime } from '@/context/FocusTimeContext';
+import { FocusTimeProvider, useFocusSession } from '@/context/FocusTimeContext';
 import { CreationModal } from '@/components/Create/CreationModal';
 import { DayCompleteCelebration } from '@/components/Celebrations/DayCompleteCelebration';
 import { MilestoneCelebration } from '@/components/Celebrations/MilestoneCelebration';
@@ -274,7 +274,7 @@ function InnerLayout() {
   }, []);
 
   // --- App Intents Listener (Siri/Shortcuts) ---
-  const { startTimer, stopTimer: globalStopTimer } = useFocusTime();
+  const { startTimer, stopTimer: globalStopTimer } = useFocusSession();
 
   useEffect(() => {
     const checkIntents = async () => {

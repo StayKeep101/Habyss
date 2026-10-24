@@ -16,9 +16,8 @@
         "NSSupportsLiveActivities": true,
         "NSSupportsLiveActivitiesFrequentUpdates": false,
         "NSUserNotificationUsageDescription": "Habyss uses notifications to remind you about your habits and help you stay consistent.",
-        "NSPhotoLibraryUsageDescription": "Habyss needs access to your photos to let you set custom backgrounds for your goals.",
-        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized content and improve your experience.",
-        "NSFaceIDUsageDescription": "Habyss uses FaceID to securely authenticate your access.",
+        "NSPhotoLibraryUsageDescription": "Habyss uses your photos when you choose a profile picture or a goal background.",
+        "NSFaceIDUsageDescription": "Habyss uses Face ID to unlock the app when App Lock is on.",
         "NSCalendarsUsageDescription": "Habyss uses calendar access to schedule habit reminders and sync with your calendar events.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Habyss needs your location to send reminders when you arrive at specific places like Home or Work.",
         "NSLocationWhenInUseUsageDescription": "Habyss needs your location to send reminders when you arrive at specific places like Home or Work.",
@@ -26,22 +25,18 @@
         "NSHealthShareUsageDescription": "Habyss reads your sleep from Apple Health — from Apple Watch, Garmin, Oura, Whoop or any sleep tracker — to fill in your sleep habits. Nothing else is read.",
         "NSHealthUpdateUsageDescription": "Habyss does not write to Apple Health.",
         "UIBackgroundModes": [
-          "remote-notification",
-          "location"
+          "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false,
-        "NSMotionUsageDescription": "Habyss uses motion data together with your location to time place-based reminders accurately.",
-        "NSAppleMusicUsageDescription": "Habyss can play your music during focus sessions.",
-        "NSSiriUsageDescription": "Habyss lets you log habits and tasks with Siri and Shortcuts.",
         "NSLocationAlwaysUsageDescription": "Habyss needs your location to send reminders when you arrive at specific places like Home or Work.",
-        "NSSpeechRecognitionUsageDescription": "Habyss turns what you say into a habit, task or goal when you hold the create button and speak."
+        "NSSpeechRecognitionUsageDescription": "Habyss turns what you say into a habit, task or goal when you hold the create button and speak.",
+        "NSCameraUsageDescription": "Habyss uses the camera to take your profile picture or a goal background, and to scan a friend's QR code to add them."
       },
       "entitlements": {
         "aps-environment": "production",
         "com.apple.security.application-groups": [
           "group.com.habyss.data"
         ],
-        "com.apple.developer.siri": true,
         "com.apple.developer.family-controls": true,
         "com.apple.developer.kernel.increased-memory-limit": true,
         "com.apple.developer.applesignin": [
@@ -71,8 +66,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "The app accesses your photos to let you set custom profile pictures and goal backgrounds.",
-          "cameraPermission": "The app accesses your camera to let you take profile pictures and goal backgrounds.",
+          "photosPermission": "Habyss uses your photos when you choose a profile picture or a goal background.",
+          "cameraPermission": "Habyss uses the camera to take your profile picture or a goal background, and to scan a friend's QR code to add them.",
           "microphonePermission": false
         }
       ],
@@ -93,7 +88,7 @@
         "expo-calendar",
         {
           "calendarPermission": "Habyss shows your calendar events on your timeline, so habits and tasks are planned around them.",
-          "remindersPermission": "The app needs to access your reminders to sync habits."
+          "remindersPermission": false
         }
       ],
       "expo-sqlite",
@@ -123,7 +118,7 @@
           "locationAlwaysAndWhenInUsePermission": "Habyss uses your saved places to remind you about habits when you arrive, even when the app is closed.",
           "locationWhenInUsePermission": "Save your current location for an optional habit arrival reminder.",
           "isAndroidBackgroundLocationEnabled": true,
-          "isIosBackgroundLocationEnabled": true
+          "isIosBackgroundLocationEnabled": false
         }
       ],
       "expo-web-browser",
@@ -136,7 +131,8 @@
       ],
       "expo-maps",
       "llama.rn",
-      "react-native-blob-util"
+      "react-native-blob-util",
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true
@@ -147,7 +143,7 @@
         "projectId": "9ce82041-a728-43a6-8b9a-1ffa254fbfb6"
       }
     },
-    "runtimeVersion": "1.0.1",
+    "runtimeVersion": "1.0.2",
     "updates": {
       "url": "https://u.expo.dev/9ce82041-a728-43a6-8b9a-1ffa254fbfb6"
     }

@@ -6,6 +6,7 @@ import {
     isUuid, orderForUpload, taskToLocal, taskToRemote,
 } from './cloudMapping';
 import { emit } from './appEvents';
+import { syncPersonal } from './personalBackup';
 
 /**
  * Backup and restore.
@@ -115,6 +116,8 @@ async function runSync(): Promise<SyncReport> {
         report.ok = report.failed === 0;
         report.at = new Date().toISOString();
         await AsyncStorage.setItem(LAST_SYNC_KEY, report.at);
+        // Settings, Echo, focus totals and the rest that are not table rows.
+        await syncPersonal(userId).catch(error => console.warn('[Backup] personal stores:', error?.message));
 
         if (report.downloaded > 0) await announceChanges();
         return report;
@@ -208,8 +211,20 @@ async function upload(db: any, sb: any, spec: TableSpec, userId: string) {
     let failed = skipped.length + (ordered.length - usable.length);
     let uploaded = 0;
 
-    for (const batch of chunk(usable, BATCH)) {
-        const payload = batch.map(row => spec.toRemote(row, userId));
+    // A task someone shared with you is their row on the server. Edits to the
+    // plan go up, but your ticks are yours: its done-state is left out, in
+    // batches of their own so a missing column never blanks the owner's.
+    const foreign = spec.local === 'tasks' ? await othersTasks(sb, usable, userId) : new Set<string>();
+    const toRemote = (row: any) => foreign.has(row.id)
+        ? withoutKeys(spec.toRemote(row, userId), PERSONAL_TASK_FIELDS)
+        : spec.toRemote(row, userId);
+    const batches = [
+        ...chunk(usable.filter(row => !foreign.has(row.id)), BATCH),
+        ...chunk(usable.filter(row => foreign.has(row.id)), BATCH),
+    ];
+
+    for (const batch of batches) {
+        const payload = batch.map(toRemote);
         const { error } = await upsertTolerant(sb, spec, payload);
 
         if (!error) {
@@ -228,7 +243,7 @@ async function upload(db: any, sb: any, spec: TableSpec, userId: string) {
         // One bad row fails the whole batch. Retry one at a time so every other
         // row still gets backed up, and only the bad one is reported.
         for (const row of batch) {
-            const single = await upsertTolerant(sb, spec, [spec.toRemote(row, userId)]);
+            const single = await upsertTolerant(sb, spec, [toRemote(row)]);
             if (single.error) {
                 failed += 1;
                 console.warn(`[Backup] ${spec.remote} ${row.id} refused:`, single.error.message);
@@ -239,6 +254,20 @@ async function upload(db: any, sb: any, spec: TableSpec, userId: string) {
     }
     return { uploaded, failed };
 }
+
+/** Which of these task rows belong to somebody else on the server (shared with you). */
+async function othersTasks(sb: any, rows: any[], userId: string): Promise<Set<string>> {
+    const ids = rows.map(row => row.id).filter(isUuid);
+    const found = new Set<string>();
+    for (const part of chunk(ids, BATCH)) {
+        const { data } = await sb.from('tasks').select('id').in('id', part).neq('user_id', userId);
+        for (const row of data ?? []) found.add(row.id);
+    }
+    return found;
+}
+
+const withoutKeys = (row: Record<string, any>, keys: string[]) =>
+    Object.fromEntries(Object.entries(row).filter(([key]) => !keys.includes(key)));
 
 /**
  * Marks rows uploaded only if they have not changed since they were read, so

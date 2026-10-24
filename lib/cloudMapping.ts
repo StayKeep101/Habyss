@@ -106,6 +106,7 @@ export function habitToRemote(row: Row, userId: string): Row {
         health_kit_target: finite(row.health_kit_target),
         ringtone: row.ringtone ?? 'default',
         goal_spec: parseJson(row.goal_spec, null),
+        ...planningToRemote(row),
         created_at: row.created_at ?? null,
         updated_at: row.updated_at ?? null,
         deleted_at: deletedAt(row),
@@ -153,12 +154,46 @@ export function habitToLocal(row: Row): Row {
         health_kit_target: finite(row.health_kit_target),
         ringtone: row.ringtone ?? 'default',
         goal_spec: row.goal_spec === null || row.goal_spec === undefined ? null : JSON.stringify(row.goal_spec),
+        ...planningToLocal(row),
         created_at: row.created_at ?? new Date().toISOString(),
         updated_at: row.updated_at ?? new Date().toISOString(),
         deleted: row.deleted_at ? 1 : 0,
         // Came from the server, so there is nothing to upload.
         synced: 1,
     };
+}
+
+/**
+ * How the timeline plans a habit or task: urgency (habits; a task's priority
+ * is mapped with the task), how hard it is (1 easy … 3 hard) and whether its
+ * set time may move. Null means "not said", as on the phone.
+ */
+function planningToRemote(row: Row, withPriority = true): Row {
+    const level = (value: unknown, low: number, high: number) => {
+        const number = finite(value);
+        return number !== null && number >= low && number <= high ? Math.round(number) : null;
+    };
+    return {
+        ...(withPriority ? { priority: level(row.priority, 0, 4) } : {}),
+        difficulty: level(row.difficulty, 1, 3),
+        flexible: row.flexible === null || row.flexible === undefined ? null : bool(row.flexible),
+    };
+}
+
+/**
+ * The same, coming down. Only what the server sent: one without these columns
+ * yet must not blank what this phone has.
+ */
+function planningToLocal(row: Row, fields = ['priority', 'difficulty', 'flexible']): Row {
+    const out: Row = {};
+    for (const field of fields) {
+        if (!(field in row)) continue;
+        const value = row[field];
+        out[field] = field === 'flexible'
+            ? (value === null || value === undefined ? null : value ? 1 : 0)
+            : finite(value);
+    }
+    return out;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -235,6 +270,8 @@ export function taskToRemote(row: Row, userId: string): Row {
         unit: typeof row.unit === 'string' ? row.unit.slice(0, 40) : null,
         amount: finite(row.amount),
         milestone_id: typeof row.milestone_id === 'string' ? row.milestone_id : null,
+        deadline: dateOnly(row.deadline),
+        ...planningToRemote(row, false),
         created_at: row.created_at ?? null,
         updated_at: row.updated_at ?? null,
         deleted_at: deletedAt(row),
@@ -261,6 +298,8 @@ export function taskToLocal(row: Row): Row {
         unit: row.unit ?? null,
         amount: finite(row.amount),
         milestone_id: row.milestone_id ?? null,
+        ...('deadline' in row ? { deadline: dateOnly(row.deadline) } : {}),
+        ...planningToLocal(row, ['difficulty', 'flexible']),
         created_at: row.created_at ?? new Date().toISOString(),
         updated_at: row.updated_at ?? new Date().toISOString(),
         deleted: row.deleted_at ? 1 : 0,

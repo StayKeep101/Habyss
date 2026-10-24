@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAccentGradient } from '@/context/AccentContext';
-import { useFocusTime } from '@/context/FocusTimeContext';
+import { useFocusSession } from '@/context/FocusTimeContext';
 import { HomeStatCard } from './HomeStatCard';
 
 /** "45m", "1.5h": short enough for the small card. */
@@ -17,7 +17,7 @@ export function focusFigure(seconds: number): string {
  */
 export function FocusCard({ onPress }: { onPress: () => void }) {
     const { primary } = useAccentGradient();
-    const { totalFocusToday, weeklyFocusTotal, isRunning } = useFocusTime();
+    const { totalFocusToday, weeklyFocusTotal, isRunning } = useFocusSession();
     return (
         <HomeStatCard
             icon={isRunning ? 'timer' : 'hourglass'}

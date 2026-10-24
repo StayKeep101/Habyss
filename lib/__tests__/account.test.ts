@@ -15,7 +15,7 @@ const mockRpc = jest.fn();
 const mockProfile = { row: null as null | { id: string } };
 const mockInsert = jest.fn(async () => ({ error: null }));
 const mockFrom = jest.fn(() => ({
-    select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: mockProfile.row }) }) }),
+    select: () => ({ eq: (_column: string, id: string) => ({ maybeSingle: async () => ({ data: mockProfile.row?.id === id ? mockProfile.row : null }) }) }),
     insert: mockInsert,
 }));
 
@@ -29,7 +29,16 @@ jest.mock('../cloudSync', () => ({
     syncNow: jest.fn(),
     resetSyncCursor: jest.fn(async () => undefined),
 }));
-jest.mock('../accountDeletion', () => ({ deleteAllLocalData: jest.fn(async () => ({ ok: true })) }));
+jest.mock('../accountDeletion', () => ({
+    deleteAllLocalData: jest.fn(async () => ({ ok: true })),
+    restartAfterDeletion: jest.fn(async () => true),
+}));
+jest.mock('../personalBackup', () => ({
+    backUpPersonal: jest.fn(async () => true),
+    syncPersonal: jest.fn(async () => 0),
+    clearPersonal: jest.fn(async () => undefined),
+    takeRestored: jest.fn(() => 0),
+}));
 
 import {
     deleteAccount, isEmail, linkThisPhone, requestCode, signInWithPassword,
@@ -38,6 +47,7 @@ import {
 import { syncNow, resetSyncCursor } from '../cloudSync';
 import { deleteAllLocalData } from '../accountDeletion';
 import { adoptUserId } from '../localUser';
+import { backUpPersonal, clearPersonal } from '../personalBackup';
 
 const ACCOUNT = 'aaaaaaaa-0000-4000-8000-000000000001';
 
@@ -106,6 +116,17 @@ describe('linking this phone to an account', () => {
         await linkThisPhone(ACCOUNT);
         expect(resetSyncCursor).toHaveBeenCalledWith(ACCOUNT);
     });
+
+    it('never moves another account\'s rows into this one when its session ended without signing out', async () => {
+        // The phone's id is an account's (it has a profile): somebody else.
+        mockProfile.row = { id: 'local-anonymous-id' };
+        await linkThisPhone(ACCOUNT);
+        const statements = mockDb.runAsync.mock.calls.map((call: any[]) => call[0] as string);
+        expect(statements.some(sql => sql.includes('SET user_id'))).toBe(false);
+        expect(clearPersonal).toHaveBeenCalled();
+        expect(adoptUserId).toHaveBeenCalledWith(ACCOUNT);
+        mockProfile.row = null;
+    });
 });
 
 describe('signing out never loses data silently', () => {
@@ -130,6 +151,15 @@ describe('signing out never loses data silently', () => {
         (syncNow as jest.Mock).mockResolvedValue({ ok: false, uploaded: 0, downloaded: 0, failed: 3 });
         const result = await signOut();
         expect(result.ok === false && result.error).toContain('3 changes');
+    });
+
+    it('stays signed in when settings, Echo and focus history could not be backed up', async () => {
+        (syncNow as jest.Mock).mockResolvedValue({ ok: true, uploaded: 0, downloaded: 0, failed: 0 });
+        mockAuth.getSession.mockResolvedValue({ data: { session: { user: { id: ACCOUNT } } } });
+        (backUpPersonal as jest.Mock).mockResolvedValueOnce(false);
+        const result = await signOut();
+        expect(result).toMatchObject({ ok: false, unsaved: true });
+        expect(deleteAllLocalData).not.toHaveBeenCalled();
     });
 
     it('signs out anyway only when the user explicitly accepts the loss', async () => {

@@ -8,6 +8,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * sent the next time it opens, as a feedback row marked `kind: crash` with
  * the message, where in the code it happened, and what the app was doing.
  * Nothing personal: no habits, no names, no account data.
+ *
+ * With a Sentry key in the build (EXPO_PUBLIC_SENTRY_DSN), crashes also go to
+ * Sentry, which catches what this cannot: native crashes, promises nobody
+ * handled, and every crash rather than the latest. Without a key, or on a
+ * build without its native module, only the record here is kept.
  */
 const KEY = 'habyss_pending_crash';
 let installed = false;
@@ -26,10 +31,37 @@ function record(error: unknown, fatal: boolean, where?: string): Promise<void> {
     return AsyncStorage.setItem(KEY, JSON.stringify(crash)).catch(() => undefined);
 }
 
+type SentryModule = typeof import('@sentry/react-native');
+let sentry: SentryModule | null = null;
+
+function startSentry(): void {
+    const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+    if (!dsn || __DEV__) return;
+    try {
+        const module = require('@sentry/react-native') as SentryModule;
+        let environment = 'production';
+        try { environment = (require('expo-updates') as typeof import('expo-updates')).channel || environment; } catch { /* keep production */ }
+        module.init({
+            dsn,
+            environment,
+            // Crashes only: no screen recording, no performance tracing, no
+            // personal data (the policy promises no analytics).
+            sendDefaultPii: false,
+            tracesSampleRate: 0,
+            enableAutoSessionTracking: false,
+            attachScreenshot: false,
+        });
+        sentry = module;
+    } catch {
+        sentry = null;
+    }
+}
+
 /** Catches what nothing else did. Called once, as early as the app starts. */
 export function installCrashReporting(): void {
     if (installed) return;
     installed = true;
+    startSentry();
     const utils = (globalThis as { ErrorUtils?: { getGlobalHandler: () => (e: unknown, fatal?: boolean) => void; setGlobalHandler: (h: (e: unknown, fatal?: boolean) => void) => void } }).ErrorUtils;
     if (!utils) return;
     const previous = utils.getGlobalHandler();
@@ -45,6 +77,7 @@ export function installCrashReporting(): void {
 /** For error boundaries: a render error the screen recovered from. */
 export function reportCaught(error: unknown, where: string): void {
     void record(error, false, where);
+    try { sentry?.captureException(error, { tags: { where } }); } catch { /* recorded above */ }
 }
 
 /** Sends a crash written down last time, then forgets it. */

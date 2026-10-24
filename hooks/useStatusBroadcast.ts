@@ -4,7 +4,7 @@ import { FeedService } from '@/lib/feedService';
 import { HEARTBEAT_MS } from '@/lib/presence';
 import { getDayWindow } from '@/lib/echo';
 import { announceChange } from '@/lib/livePulse';
-import { useFocusTime } from '@/context/FocusTimeContext';
+import { peekFocusTimeLeft, useFocusSession } from '@/context/FocusTimeContext';
 
 /**
  * Tells friends whether you are here: "live" while the app is open (refreshed
@@ -48,10 +48,11 @@ export function useStatusBroadcast() {
  * hours and renewed when it is resumed.
  */
 export function useFocusStatus() {
-    const focus = useFocusTime();
+    // The session only: this runs in the tab layout, which must not redraw every second.
+    const focus = useFocusSession();
     const running = focus.isRunning && !focus.isPaused;
-    const seconds = focus.activeMode === 'flow' ? 2 * 3600 : focus.timeLeft;
     useEffect(() => {
+        const seconds = focus.activeMode === 'flow' ? 2 * 3600 : peekFocusTimeLeft() || focus.totalDuration;
         const until = running ? new Date(Date.now() + Math.max(60, seconds) * 1000).toISOString() : null;
         void FeedService.setStatus({ focusUntil: until, focusLabel: running ? focus.activeHabitName ?? null : null })
             .then(() => announceChange())

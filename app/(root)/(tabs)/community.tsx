@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { IconTile } from '@/components/ui/IconTile';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -172,6 +172,21 @@ export default function CommunityScreen() {
         else announceChange();
     };
 
+    /** Reports a day card (its habit and task names are what others wrote). */
+    const reportPost = (post: FeedPost) => {
+        lightFeedback();
+        const file = async (reason: string) => {
+            const ok = await FriendsService.reportContent({ userId: post.userId, kind: 'other', reason, reference: `day_card:${post.day}` });
+            Alert.alert(ok ? 'Reported' : 'Could not send that', ok ? 'Thank you. Somebody will read it.' : 'Please try again.');
+        };
+        Alert.alert(`Report ${post.name}'s day`, 'What is wrong?', [
+            { text: 'Offensive words', onPress: () => void file('offensive') },
+            { text: 'Spam', onPress: () => void file('spam') },
+            { text: 'Something else', onPress: () => void file('other') },
+            { text: 'Cancel', style: 'cancel' },
+        ]);
+    };
+
     const openFriend = (userId: string) => {
         lightFeedback();
         router.push({ pathname: '/(root)/friend' as never, params: { id: userId } });
@@ -287,6 +302,7 @@ export default function CommunityScreen() {
                             ackFaces={item.ackUsers.flatMap(id => { const face = people.get(id); return face ? [face] : []; })}
                             onAcknowledge={() => void acknowledge(item)}
                             onOpenAuthor={() => (item.mine ? router.push('/(root)/profile') : openFriend(item.userId))}
+                            onReport={item.mine ? undefined : () => reportPost(item)}
                         />
                     </ListItem>
                 )}

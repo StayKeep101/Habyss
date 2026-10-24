@@ -30,7 +30,7 @@ import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { useAccentGradient } from '@/context/AccentContext';
-import { useFocusTime } from '@/context/FocusTimeContext';
+import { useFocusSession } from '@/context/FocusTimeContext';
 import { RoadmapFilters, type FilterAnchor } from '@/components/Home/RoadmapFilters';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Alert } from 'react-native';
@@ -95,7 +95,7 @@ const CalendarScreen = () => {
     const { primary: accentColor } = useAccentGradient();
     const { lightFeedback, selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
     const { cardSize } = useAppSettings();
-    const { activeHabitId, activeHabitName, isRunning: isFocusRunning, isPaused: isFocusPaused, timeLeft, totalDuration } = useFocusTime();
+    const { activeHabitId, activeHabitName, isRunning: isFocusRunning, isPaused: isFocusPaused, totalDuration } = useFocusSession();
     // Check-ins and skips come from the one shared copy (lib/dataStore.ts), the
     // same one the habit's page and every stat read. This screen used to keep
     // its own, loaded once and patched by events, and it could drift from it.
@@ -1185,7 +1185,7 @@ const CalendarScreen = () => {
                                                                         skipped={!!skipped[habit.id]}
                                                                         onSkip={handleHabitSkip}
                                                                         isActive={isLive(statusOf(habit))}
-                                                                        timeLeft={isLive(statusOf(habit)) ? timeLeft : undefined}
+                                                                        followFocus={isLive(statusOf(habit))}
                                                                         totalDuration={isLive(statusOf(habit)) ? totalDuration : undefined}
                                                                         canFocusNow={statusOf(habit) === 'focus-now' || nowId === habit.id}
                                                                         onFocusPress={handleFocusHabit}
@@ -1279,7 +1279,7 @@ const CalendarScreen = () => {
                                                 shared={sharedFor(habit.id)}
                                                 isDragging={draggingHabit?.id === habit.id}
                                                 isActive={isLive(statusOf(habit))}
-                                                timeLeft={isLive(statusOf(habit)) ? timeLeft : undefined}
+                                                followFocus={isLive(statusOf(habit))}
                                                 totalDuration={isLive(statusOf(habit)) ? totalDuration : undefined}
                                                 canFocusNow={statusOf(habit) === 'focus-now' || nowId === habit.id}
                                                 onFocusPress={handleFocusHabit}

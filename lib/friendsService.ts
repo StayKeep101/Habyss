@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSupabase } from './supabase';
 import { localDateKey } from './habitSchedule';
+import { isObjectionable } from './contentFilter';
 
 /** Which habits and tasks are shared, cached so a tick costs no network call. */
 const SHARED_IDS_KEY = 'habyss_shared_item_ids';
@@ -397,6 +398,7 @@ export async function setMyUsername(raw: string): Promise<UsernameResult> {
     if (!USERNAME_RULE.test(username)) {
         return { ok: false, error: '3 to 20 characters: letters, numbers, dots and underscores.' };
     }
+    if (isObjectionable(username)) return { ok: false, error: 'Choose a different username.' };
     const { data, error } = await ctx.sb.from('profiles').update({ username }).eq('id', ctx.me).select('username').single();
     if (error) {
         if (error.code === '23505') return { ok: false, error: 'That username is taken.' };

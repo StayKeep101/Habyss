@@ -29,6 +29,9 @@
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 		F58C228D66577EC94A1681A3 /* SharedDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4D352A872465CB1F4C53483 /* SharedDefaults.swift */; };
 		FB409C2E3BEEA019059C82C9 /* ScreenTimeModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E7BCBC66B78AA89F94FBAE /* ScreenTimeModule.swift */; };
+		AE96A6212F3E412000681BAF /* WatchModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE96A61C2F3E410F00681BAF /* WatchModule.swift */; };
+		AE96A6232F3E412000681BAF /* WatchModule.m in Sources */ = {isa = PBXBuildFile; fileRef = AE96A6222F3E412000681BAF /* WatchModule.m */; };
+		AE96A6242F3E412000681BAF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -92,8 +95,8 @@
 		AE7DC7FF2F4132FF00F32E02 /* HabyssRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = HabyssRelease.entitlements; path = Habyss/HabyssRelease.entitlements; sourceTree = "<group>"; };
 		AE96A5F12F3E3CAE00681BAF /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		AE96A5F32F3E3CAE00681BAF /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
-		AE96A61C2F3E410F00681BAF /* WatchModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchModule.swift; sourceTree = "<group>"; };
-		AE96A61E2F3E411700681BAF /* WatchSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSessionManager.swift; sourceTree = "<group>"; };
+		AE96A61C2F3E410F00681BAF /* WatchModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WatchModule.swift; path = Habyss/WatchModule.swift; sourceTree = "<group>"; };
+		AE96A61E2F3E411700681BAF /* WatchSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WatchSessionManager.swift; path = Habyss/WatchSessionManager.swift; sourceTree = "<group>"; };
 		B9E5A1344AAF6929B4699F1D /* Pods-Habyss.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Habyss.debug.xcconfig"; path = "Target Support Files/Pods-Habyss/Pods-Habyss.debug.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		BEEC303B5179A474C6A73405 /* libPods-Habyss.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Habyss.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -106,6 +109,7 @@
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Habyss/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Habyss-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Habyss-Bridging-Header.h"; path = "Habyss/Habyss-Bridging-Header.h"; sourceTree = "<group>"; };
 		WDG00004E5F6789012345678 /* Assets.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AE96A6222F3E412000681BAF /* WatchModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = WatchModule.m; path = Habyss/WatchModule.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -194,6 +198,7 @@
 				D975BC3A3D79467886582ADD /* noop-file.swift */,
 				2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */,
 				AE96A61C2F3E410F00681BAF /* WatchModule.swift */,
+				AE96A6222F3E412000681BAF /* WatchModule.m */,
 				AE96A61E2F3E411700681BAF /* WatchSessionManager.swift */,
 				7E09CEEF70BFCBBF875AEAAD /* WidgetExtension */,
 				C26442F3B83E5C3CD19B550E /* Managers */,
@@ -468,6 +473,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AE96A6242F3E412000681BAF /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -648,6 +654,8 @@
 				BA84A58A49474D71957AE493 /* noop-file.swift in Sources */,
 				961105958615E986AF44B725 /* ExpoModulesProvider.swift in Sources */,
 				AE96A61F2F3E411F00681BAF /* WatchSessionManager.swift in Sources */,
+				AE96A6212F3E412000681BAF /* WatchModule.swift in Sources */,
+				AE96A6232F3E412000681BAF /* WatchModule.m in Sources */,
 				71115719B805A76A1332FCD8 /* ScreenTimeManager.swift in Sources */,
 				6B108C6361DA61CE7F98C7AD /* ScreenTimePickerView.swift in Sources */,
 				FB409C2E3BEEA019059C82C9 /* ScreenTimeModule.swift in Sources */,
@@ -705,7 +713,7 @@
 				);
 				INFOPLIST_FILE = Habyss/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -740,7 +748,7 @@
 				DEVELOPMENT_TEAM = 4JYFVLU9NW;
 				INFOPLIST_FILE = Habyss/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -931,7 +939,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = HabyssW;
+				INFOPLIST_KEY_CFBundleDisplayName = Habyss;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.habyss.app;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -982,7 +990,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = HabyssW;
+				INFOPLIST_KEY_CFBundleDisplayName = Habyss;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.habyss.app;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1029,7 +1037,7 @@
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Widget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Widget;
+				INFOPLIST_KEY_CFBundleDisplayName = Habyss;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1078,7 +1086,7 @@
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Widget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Widget;
+				INFOPLIST_KEY_CFBundleDisplayName = Habyss;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
