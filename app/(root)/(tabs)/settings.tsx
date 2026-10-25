@@ -1,6 +1,6 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,8 @@ import { useSleep } from '@/hooks/useSleep';
 import { setSleepCardVisible, setSleepTarget } from '@/lib/sleepLog';
 import { CLOCK_STYLES, setClockStyle, type ClockStyle } from '@/lib/focusClock';
 import { useClockStyle } from '@/hooks/useClockStyle';
+import { setFocusBlocking, useFocusBlocking } from '@/lib/focusBlocking';
+import { ScreenTimeService } from '@/lib/ScreenTimeService';
 import { DEFAULT_WEEK_START, getWeekStart, setWeekStart, type WeekStart } from '@/lib/weekStart';
 import { syncBrainDumpReview } from '@/lib/brainDumpReview';
 import { DEFAULT_VOICE_DESTINATION, VOICE_DESTINATIONS, getVoiceDestination, setVoiceDestination, type VoiceDestination } from '@/lib/voiceDestination';
@@ -50,12 +52,13 @@ export default function ProfileScreen() {
     const { horizontalPadding, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
 
     // User state
-    const { selectionFeedback } = useHaptics();
+    const { selectionFeedback, lightFeedback } = useHaptics();
     const dailyTarget = useDailyTarget();
     // You, from the one profile store (lib/profile.ts).
     const me = useMyProfile();
     const sleep = useSleep();
     const clockStyle = useClockStyle();
+    const blocking = useFocusBlocking();
     const [voiceDestination, setVoiceDestinationState] = useState<VoiceDestination>(DEFAULT_VOICE_DESTINATION);
     const [weekStart, setWeekStartState] = useState<WeekStart>(DEFAULT_WEEK_START);
     useEffect(() => { void getWeekStart().then(setWeekStartState); }, []);
@@ -135,17 +138,33 @@ export default function ProfileScreen() {
                         <SettingsRow icon="checkmark-done" color="#FF9F0A" label="Tasks a day"
                             choices={[{ id: '3', label: '3' }, { id: '5', label: '5' }]}
                             chosen={String(dailyTarget)} onChoose={id => void saveDailyTarget(Number(id) as 3 | 5)} />
-                        {/* A night that reaches this earns Marks (Home's sleep card). */}
-                        <SettingsRow icon="moon" color="#5E5CE6" label="Sleep goal"
-                            choices={SLEEP_GOALS.map(hours => ({ id: String(hours), label: `${hours}h` }))}
-                            chosen={String(sleep.target / 60)} onChoose={id => void setSleepTarget(Number(id) * 60)} />
+                        {/* Sleep: one switch for Home's sleep card; while it is on, the goal a
+                            night has to reach to earn Marks sits right under it. */}
+                        <SettingsRow icon="moon" color="#5E5CE6" label="Sleep"
+                            toggle={sleep.showCard !== false} onToggle={value => void setSleepCardVisible(value)} />
+                        {sleep.showCard !== false ? (
+                            <SettingsRow icon="bed" color="#5E5CE6" label="Sleep goal"
+                                choices={SLEEP_GOALS.map(hours => ({ id: String(hours), label: `${hours}h` }))}
+                                chosen={String(sleep.target / 60)} onChoose={id => void setSleepTarget(Number(id) * 60)} />
+                        ) : null}
                         {/* What the Roadmap timeline is built around: your day, meals, calendar. */}
                         <SettingsRow icon="time" color="#FF9F0A" label="Timeline" onPress={() => router.push('/(root)/meals' as never)} />
-                        <SettingsRow icon="bed" color="#5E5CE6" label="Sleep card on Home"
-                            toggle={sleep.showCard !== false} onToggle={value => void setSleepCardVisible(value)} />
+
                         {/* How the focus mode clock looks, on its side especially. */}
                         <SettingsRow icon="timer" color="#FF375F" label="Focus clock"
                             choices={CLOCK_STYLES} chosen={clockStyle} onChoose={id => void setClockStyle(id as ClockStyle)} />
+                        {/* Focus blocks the apps chosen here (Screen Time) until it ends or is paused. */}
+                        <SettingsRow icon="hand-left" color="#FF9F0A" label="Block apps while focusing"
+                            toggle={blocking} onToggle={value => { lightFeedback(); void setFocusBlocking(value); }} />
+                        {blocking ? (
+                            <SettingsRow icon="apps" color="#FF9F0A" label="Apps to block"
+                                onPress={() => {
+                                    lightFeedback();
+                                    void ScreenTimeService.chooseApps().then(ok => {
+                                        if (!ok) Alert.alert('Screen Time not available', 'Allow Habyss in Settings → Screen Time, or update to the newest version of Habyss, then try again.');
+                                    });
+                                }} />
+                        ) : null}
                         {/* When a week ends: the brain dump is reviewed and cleared then. */}
                         <SettingsRow icon="calendar" color="#64D2FF" label="Week starts"
                             choices={[{ id: 'monday', label: 'Mon' }, { id: 'sunday', label: 'Sun' }]} chosen={weekStart}

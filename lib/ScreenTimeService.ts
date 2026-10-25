@@ -100,8 +100,10 @@ export const ScreenTimeService = {
         return true;
     },
 
-    async armShieldIfPossible(): Promise<'armed' | 'picking' | 'denied'> {
+    async armShieldIfPossible(): Promise<'armed' | 'picking' | 'denied' | 'off'> {
         if (Platform.OS !== 'ios' || !ScreenTimeModule) return 'denied';
+        const { focusBlockingOn } = require('./focusBlocking') as typeof import('./focusBlocking');
+        if (!(await focusBlockingOn())) return 'off';
 
         try {
             const authorized = (await this.isAuthorized()) || (await this.requestAuthorization());

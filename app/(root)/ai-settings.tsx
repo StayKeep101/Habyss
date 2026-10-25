@@ -7,6 +7,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { textOn } from '@/theme/tokens';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
+import { morningAlarmAvailable, syncMorningAlarm } from '@/lib/morningAlarm';
 import { AlivePreview } from '@/components/Echo/AlivePreview';
 import { aliveLine } from '@/lib/echoAlive';
 import { AnimatedFill } from '@/components/ui/Motion';
@@ -263,6 +264,19 @@ const AISettings = () => {
                     {/* Far behind on tasks: the screen's edge goes red and Echo goes at you, in its own voice. */}
                     <SettingsRow icon="flame" color="#FF453A" label="Demon mode" toggle={echo.demonMode !== false}
                         onToggle={value => saveEcho({ ...echo, demonMode: value })} />
+                    {/* A real alarm at wake time, in Echo's voice (iOS 26 and later). */}
+                    <SettingsRow icon="alarm" color="#FF9F0A" label="Morning alarm"
+                        value={morningAlarmAvailable() ? undefined : 'iOS 26'}
+                        toggle={echo.morningAlarm === true} disabled={!morningAlarmAvailable()}
+                        onToggle={value => {
+                            saveEcho({ ...echo, morningAlarm: value });
+                            setTimeout(() => {
+                                void syncMorningAlarm().then(result => {
+                                    if (result === 'denied') Alert.alert('Alarms are off for Habyss', 'Allow alarms for Habyss in Settings → Apps → Habyss, then turn this on again.');
+                                    if (result === 'failed') Alert.alert('Could not set the alarm', 'Please try again.');
+                                });
+                            }, 300);
+                        }} />
                 </SettingsGroup>
 
                 <Group title="Check-ins">

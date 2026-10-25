@@ -3,7 +3,7 @@ import type { Habit, HabitCategory, TimeOfDay } from './habitsSQLite';
 import { isHabitScheduledForDate, localDateKey } from './habitSchedule';
 import type { PersonalityModeId } from '@/constants/AIPersonalities';
 import type { AttemptsId, KillerId, TimeBudget, ToneId } from './onboardingAnswers';
-import type { BlockerId, ChronotypeId, HopeId, SleepAmountId, SourceId, TimingId } from './onboardingProfile';
+import type { BlockerId, ChronotypeId, HopeId, JuggleId, SleepAmountId, SourceId, TimingId } from './onboardingProfile';
 
 /**
  * The onboarding draft, and the schedule it turns into.
@@ -29,7 +29,7 @@ export interface PlanItem {
  * flow keeps its answers but starts again from the welcome screen, because its
  * step number would now point at a different question.
  */
-export const FLOW_VERSION = 4;
+export const FLOW_VERSION = 5;
 
 export interface OnboardingDraft {
     step: number;
@@ -46,6 +46,8 @@ export interface OnboardingDraft {
     /* What we ask about the person. See lib/onboardingProfile.ts. */
     /** Where they heard about Habyss. Asked once, never acted on. */
     source?: SourceId;
+    /** What they are carrying at once (job, school, side project…). Multi-select. */
+    juggling?: JuggleId[];
     /** What they are here for. Multi-select. */
     hope?: HopeId[];
     /** Early bird, night owl, or neither; seeds the day window. */

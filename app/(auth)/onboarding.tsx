@@ -24,9 +24,9 @@ import { markTutorialDue } from '@/lib/tutorial';
 import { localDateKey } from '@/lib/habitSchedule';
 import { FLOW_VERSION, clearDraft, loadDraft, saveDraft, type OnboardingDraft } from '@/lib/onboarding';
 import {
-    BLOCKERS, CHRONOTYPES, HOPES, SLEEP_AMOUNTS, SOURCES, TIMINGS,
+    BLOCKERS, CHRONOTYPES, HOPES, JUGGLES, SLEEP_AMOUNTS, SOURCES, TIMINGS,
     dayWindowFor, shouldOfferFriends, suggestEcho,
-    type BlockerId, type HopeId,
+    type BlockerId, type HopeId, type JuggleId,
 } from '@/lib/onboardingProfile';
 import { getName, hoursAwake, saveDayWindow, saveName } from '@/lib/echo';
 import { currentAccount, onAccountChange } from '@/lib/account';
@@ -61,8 +61,8 @@ const RAIL_PAGES = LAST_SETUP_STEP + 1;
 const NAME_TAG_MS = 900;
 
 const STEP = {
-    welcome: 0, name: 1, source: 2, hope: 3, sleep: 4, timing: 5, blockers: 6,
-    meetEcho: 7, echo: 8, friends: 9, account: 10,
+    welcome: 0, name: 1, source: 2, juggle: 3, hope: 4, sleep: 5, timing: 6, blockers: 7,
+    meetEcho: 8, echo: 9, friends: 10, account: 11,
 } as const;
 
 /**
@@ -369,12 +369,44 @@ export default function OnboardingScreen() {
                         selected={draft.source === option.id}
                         title={option.label}
                         icon={option.icon}
-                        onPress={() => chooseAndAdvance({ source: option.id }, STEP.hope)}
+                        onPress={() => chooseAndAdvance({ source: option.id }, STEP.juggle)}
                     />
                 ))}
             </View>
         </ScrollView>
     );
+
+    // Everything they carry at once: the reason Habyss exists.
+    const renderJuggle = () => {
+        const chosen = draft.juggling ?? [];
+        const toggle = (id: JuggleId) => {
+            lightFeedback();
+            update({ juggling: chosen.includes(id) ? chosen.filter(item => item !== id) : [...chosen, id] });
+        };
+        return (
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <SectionTitle description="The people who win run all of it at once. Most people drop one and never notice when.">What are you juggling right now?</SectionTitle>
+                <View style={{ gap: 8 }}>
+                    {JUGGLES.map(option => (
+                        <Choice
+                            key={option.id}
+                            selected={chosen.includes(option.id)}
+                            title={option.label}
+                            icon={option.icon}
+                            onPress={() => toggle(option.id)}
+                        />
+                    ))}
+                </View>
+                {chosen.length >= 2 ? (
+                    <Text style={[styles.hint, { color: colors.textSecondary, marginTop: 12 }]}>
+                        {chosen.length} things, one day. Habyss plans every hour of it so none of them falls behind.
+                    </Text>
+                ) : null}
+                <View style={{ height: 18 }} />
+                <PrimaryButton label="Continue" onPress={() => goTo(STEP.hope)} disabled={chosen.length === 0} />
+            </ScrollView>
+        );
+    };
 
     const renderHope = () => {
         const chosen = draft.hope ?? [];
@@ -384,7 +416,7 @@ export default function OnboardingScreen() {
         };
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <SectionTitle description="Pick as many as are true.">What do you hope to get from this?</SectionTitle>
+                <SectionTitle description="Pick everything you want. Every one of them is what Habyss is built for.">What would change if you never wasted a day again?</SectionTitle>
                 <View style={{ gap: 8 }}>
                     {HOPES.map(option => (
                         <Choice
@@ -409,7 +441,7 @@ export default function OnboardingScreen() {
 
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <SectionTitle>When are you at your best?</SectionTitle>
+                <SectionTitle description="Your hardest work goes in these hours. Waste them and nothing else makes up for it.">When are you at your sharpest?</SectionTitle>
                 <View style={{ gap: 8 }}>
                     {CHRONOTYPES.map(option => (
                         <Choice
@@ -436,7 +468,7 @@ export default function OnboardingScreen() {
                     ))}
                 </View>
                 <Text style={[styles.hint, { color: colors.textTertiary, marginTop: 10 }]}>
-                    {hoursAwake({ wake, sleep })} hours awake. Echo keeps its voice inside them.
+                    {hoursAwake({ wake, sleep })} hours awake, every day. Most people lose three or more of them without noticing. You will not.
                 </Text>
 
                 <View style={{ height: 22 }} />
@@ -467,7 +499,7 @@ export default function OnboardingScreen() {
 
     const renderTiming = () => (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <SectionTitle description="However you answer, Echo adapts to it.">When do things actually get done?</SectionTitle>
+            <SectionTitle description="The top 1% decide their day before it starts. Everyone else reacts to it.">Be honest: when does the work actually get done?</SectionTitle>
             <View style={{ gap: 8 }}>
                 {TIMINGS.map(option => (
                     <Choice
@@ -491,8 +523,8 @@ export default function OnboardingScreen() {
         };
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <SectionTitle description="Be honest. Nothing here is judged, and it is only used to help.">
-                    What stops you?
+                <SectionTitle description="Every one of these has a fix inside Habyss. Pick yours and Echo goes after it.">
+                    What has been stealing your days?
                 </SectionTitle>
                 <View style={{ gap: 8 }}>
                     {BLOCKERS.map(option => (
@@ -627,6 +659,7 @@ export default function OnboardingScreen() {
         [STEP.welcome]: renderWelcome,
         [STEP.name]: renderName,
         [STEP.source]: renderSource,
+        [STEP.juggle]: renderJuggle,
         [STEP.hope]: renderHope,
         [STEP.sleep]: renderSleep,
         [STEP.timing]: renderTiming,

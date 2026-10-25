@@ -45,6 +45,8 @@ export async function saveDayWindow(day: DayWindow): Promise<void> {
     if (!TIME.test(day.wake) || !TIME.test(day.sleep)) return;
     dayCache = { wake: day.wake, sleep: day.sleep };
     await AsyncStorage.setItem(DAY_KEY, JSON.stringify(dayCache));
+    // The morning alarm rings at wake time, so it moves with it.
+    void (require('./morningAlarm') as typeof import('./morningAlarm')).syncMorningAlarm().catch(() => undefined);
 }
 
 export const minutesOf = (time: string): number => {
@@ -125,6 +127,8 @@ export interface EchoConfig {
      * turned off.
      */
     demonMode?: boolean;
+    /** A real alarm at wake time with Echo's line (AlarmKit, iOS 26+; lib/morningAlarm.ts). Off unless turned on. */
+    morningAlarm?: boolean;
 }
 
 export const DEFAULT_ECHO: EchoConfig = { morning: false, evening: false, useName: true, writeReminders: false, alive: false, aliveFollowUp: true, weeklyReview: true };

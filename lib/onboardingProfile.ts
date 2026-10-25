@@ -19,6 +19,7 @@ export type ChronotypeId = 'early_bird' | 'night_owl' | 'neither';
 export type SleepAmountId = 'under_six' | 'six_seven' | 'seven_eight' | 'eight_plus';
 export type TimingId = 'straight_away' | 'planned' | 'last_minute' | 'rarely';
 export type BlockerId = 'forget' | 'no_time' | 'too_tired' | 'motivation' | 'overwhelmed' | 'alone' | 'perfect';
+export type JuggleId = 'job' | 'school' | 'side_project' | 'business' | 'training' | 'family';
 
 export const SOURCES: { id: SourceId; label: string; icon: string }[] = [
     { id: 'friend', label: 'A friend told me', icon: 'people-outline' },
@@ -29,13 +30,23 @@ export const SOURCES: { id: SourceId; label: string; icon: string }[] = [
     { id: 'other', label: 'Somewhere else', icon: 'ellipsis-horizontal' },
 ];
 
+/** Everything they are carrying at once: what Habyss is built to run together. */
+export const JUGGLES: { id: JuggleId; label: string; icon: string }[] = [
+    { id: 'job', label: 'A job', icon: 'briefcase-outline' },
+    { id: 'school', label: 'School or uni', icon: 'school-outline' },
+    { id: 'side_project', label: 'A side project', icon: 'rocket-outline' },
+    { id: 'business', label: 'A business', icon: 'trending-up-outline' },
+    { id: 'training', label: 'Training', icon: 'barbell-outline' },
+    { id: 'family', label: 'Family', icon: 'home-outline' },
+];
+
 export const HOPES: { id: HopeId; label: string; icon: string }[] = [
-    { id: 'consistency', label: 'To finally be consistent', icon: 'repeat-outline' },
-    { id: 'finish', label: 'To finish what I start', icon: 'checkmark-done-outline' },
-    { id: 'sleep', label: 'To sort my sleep out', icon: 'moon-outline' },
-    { id: 'calm', label: 'To feel less scattered', icon: 'leaf-outline' },
-    { id: 'proud', label: 'To be proud of my days', icon: 'sunny-outline' },
-    { id: 'together', label: 'To do it with someone', icon: 'heart-outline' },
+    { id: 'calm', label: 'Run all of it without dropping a thing', icon: 'layers-outline' },
+    { id: 'finish', label: 'Finish everything I start, on time', icon: 'checkmark-done-outline' },
+    { id: 'consistency', label: 'Never lose another day', icon: 'flame-outline' },
+    { id: 'proud', label: 'Out-work everyone around me', icon: 'trophy-outline' },
+    { id: 'sleep', label: 'Wake up sharp, every single morning', icon: 'sunny-outline' },
+    { id: 'together', label: 'Have someone who will not let me slack', icon: 'people-outline' },
 ];
 
 export const CHRONOTYPES: { id: ChronotypeId; label: string; detail: string; icon: string; wake: string; sleep: string }[] = [
@@ -52,20 +63,20 @@ export const SLEEP_AMOUNTS: { id: SleepAmountId; label: string; hours: number }[
 ];
 
 export const TIMINGS: { id: TimingId; label: string; detail: string; icon: string }[] = [
-    { id: 'straight_away', label: 'Straight away', detail: 'I would rather have it done than hanging over me', icon: 'flash-outline' },
-    { id: 'planned', label: 'When I planned to', detail: 'It goes in the day and it happens', icon: 'calendar-outline' },
-    { id: 'last_minute', label: 'At the last minute', detail: 'The deadline is what makes it real', icon: 'alarm-outline' },
-    { id: 'rarely', label: 'Honestly, often not at all', detail: 'Things slide, and then they are gone', icon: 'cloud-outline' },
+    { id: 'straight_away', label: 'The moment it lands', detail: 'Done before anyone else has started', icon: 'flash-outline' },
+    { id: 'planned', label: 'When I planned it', detail: 'Decided in advance, then it just happens', icon: 'calendar-outline' },
+    { id: 'last_minute', label: 'At the last minute', detail: 'Panic is my only deadline', icon: 'alarm-outline' },
+    { id: 'rarely', label: 'Honestly? A lot of it never does', detail: 'Days slip by and nothing moves', icon: 'cloud-outline' },
 ];
 
 export const BLOCKERS: { id: BlockerId; label: string; icon: string }[] = [
-    { id: 'forget', label: 'I simply forget', icon: 'notifications-off-outline' },
-    { id: 'no_time', label: 'There is never enough time', icon: 'hourglass-outline' },
-    { id: 'too_tired', label: 'I am too tired by then', icon: 'bed-outline' },
-    { id: 'motivation', label: 'The motivation runs out', icon: 'battery-half-outline' },
-    { id: 'overwhelmed', label: 'It all feels like too much', icon: 'rainy-outline' },
-    { id: 'alone', label: 'Nobody notices either way', icon: 'person-outline' },
-    { id: 'perfect', label: 'If I cannot do it properly, I do not start', icon: 'diamond-outline' },
+    { id: 'no_time', label: 'Busy all day, still behind', icon: 'hourglass-outline' },
+    { id: 'overwhelmed', label: 'So much on my plate I freeze', icon: 'layers-outline' },
+    { id: 'motivation', label: 'I start strong, then fade', icon: 'battery-half-outline' },
+    { id: 'forget', label: 'I forget until it is too late', icon: 'notifications-off-outline' },
+    { id: 'too_tired', label: 'Too drained to start', icon: 'bed-outline' },
+    { id: 'alone', label: 'Nobody holds me to it', icon: 'person-outline' },
+    { id: 'perfect', label: 'I wait for the perfect moment', icon: 'diamond-outline' },
 ];
 
 export interface Profile {

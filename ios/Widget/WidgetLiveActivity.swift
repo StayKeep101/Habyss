@@ -49,7 +49,7 @@ struct HabyssLiveActivity: Widget {
                         Text("–")
                         Text(Date(timeIntervalSince1970: end / 1000), style: .time)
                         Spacer()
-                        Text(context.isStale ? "Check in" : "Now").font(.caption.weight(.medium))
+                        WhenLabel(start: start, stale: context.isStale).font(.caption.weight(.medium))
                     }
                     .font(.subheadline).foregroundStyle(Habyss.dim)
                 }
@@ -107,7 +107,11 @@ struct HabyssLiveActivity: Widget {
                         .minimumScaleFactor(0.8)
                         
                 } else {
-                    Text(context.state.scheduledStartDateInMilliseconds == nil ? "\(Int(context.state.progress * 100))%" : (context.isStale ? "Check in" : "Now"))
+                    if let start = context.state.scheduledStartDateInMilliseconds {
+                        WhenLabel(start: start, stale: context.isStale)
+                    } else {
+                        Text("\(Int(context.state.progress * 100))%")
+                    }
                 }
             } minimal: {
                 if let imagePath = context.state.profileImagePath,
@@ -145,6 +149,22 @@ private struct HabyssMark: View {
             .resizable()
             .aspectRatio(contentMode: .fit)
             .frame(width: 20, height: 20)
+    }
+}
+
+/// "in 12 min" before it starts (the card for what is up next), "Now" while it runs.
+private struct WhenLabel: View {
+    let start: Double
+    let stale: Bool
+    var body: some View {
+        let date = Date(timeIntervalSince1970: start / 1000)
+        if stale {
+            Text("Check in")
+        } else if date > Date() {
+            Text(timerInterval: Date()...date, countsDown: true).monospacedDigit()
+        } else {
+            Text("Now")
+        }
     }
 }
 

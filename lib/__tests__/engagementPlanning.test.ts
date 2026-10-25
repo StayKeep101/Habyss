@@ -76,20 +76,20 @@ describe('Live Activity planning', () => {
         { key: 'habit:run:2026-09-26', kind: 'habit' as const, id: 'run', title: 'Run 5 km', start: at(8), end: at(8, 30) },
         { key: 'task:mail:2026-09-26', kind: 'task' as const, id: 'mail', title: 'Email', start: at(9), end: at(9, 20) },
     ];
-    it('is one card: what you are on now, else the next where iOS can start it on its own', () => {
+    it('is one card: what you are on now, else what comes next', () => {
         expect(activityPlan(slots, new Date(at(8, 5)), false).map(item => item.title)).toEqual(['Run 5 km']);
         expect(activityPlan(slots, new Date(at(8, 5)), true).map(item => item.title)).toEqual(['Run 5 km']);
-        expect(activityPlan(slots, new Date(at(8, 40)), false)).toEqual([]);
+        expect(activityPlan(slots, new Date(at(8, 40)), false).map(item => item.title)).toEqual(['Email']);
         expect(activityPlan(slots, new Date(at(8, 40)), true).map(item => item.title)).toEqual(['Email']);
         expect(activityPlan(slots, new Date(at(10)), true)).toEqual([]);
     });
-    it('comes from the timeline, auto-placed things included, and never from a fixed block', () => {
+    it('comes from the timeline, auto-placed things, meals and events included', () => {
         const flow = flowDay([
             { id: 'meal:lunch', kind: 'meal', title: 'Lunch', start: 720, minutes: 30, done: false, fixed: true },
             { id: 'read', kind: 'habit', title: 'Read', start: null, minutes: 20, done: false },
         ], 600, { wake: 420, sleep: 1380 });
         const made = slotsFromFlow(flow, '2026-09-26');
-        expect(made.map(slot => slot.key)).toEqual(['habit:read:2026-09-26']);
+        expect(made.map(slot => slot.key)).toEqual(['habit:read:2026-09-26', 'meal:meal:lunch:2026-09-26']);
         expect(made[0].start).toBe(new Date(2026, 8, 26, 10, 0).getTime());
     });
 });

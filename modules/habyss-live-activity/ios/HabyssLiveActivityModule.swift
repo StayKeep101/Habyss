@@ -1,5 +1,9 @@
 import ActivityKit
 import ExpoModulesCore
+import SwiftUI
+#if canImport(AlarmKit)
+import AlarmKit
+#endif
 
 // Must stay identical to WidgetAttributes in ios/Widget/WidgetLiveActivity.swift.
 // ActivityKit pairs an activity with the widget declaring an attributes type of the same name.
@@ -74,9 +78,75 @@ struct ScheduledActivityPlan: Record {
   @Field var accentHex: String = "#6B8AF5"
 }
 
+#if canImport(AlarmKit)
+/// Echo's morning alarm carries nothing but its title.
+@available(iOS 26.0, *)
+struct EchoAlarmMetadata: AlarmMetadata {}
+#endif
+
+/// Where the morning alarm's id is kept, so a new time replaces it rather than adding one.
+private let morningAlarmKey = "habyss_morning_alarm_id"
+
 public class HabyssLiveActivityModule: Module {
   public func definition() -> ModuleDefinition {
     Name("HabyssLiveActivity")
+
+    // Echo's morning alarm (AlarmKit, iOS 26+): a real alarm that rings through
+    // Silent and Focus at wake time, every day, with Echo's line as its title.
+    Function("alarmsAvailable") { () -> Bool in
+      #if canImport(AlarmKit)
+      if #available(iOS 26.0, *) { return true }
+      #endif
+      return false
+    }
+
+    AsyncFunction("scheduleMorningAlarm") { (hour: Int, minute: Int, title: String) async -> String in
+      #if canImport(AlarmKit)
+      guard #available(iOS 26.0, *) else { return "unavailable" }
+      let manager = AlarmManager.shared
+      do {
+        var state = manager.authorizationState
+        if state == .notDetermined { state = try await manager.requestAuthorization() }
+        guard state == .authorized else { return "denied" }
+        if let old = UserDefaults.standard.string(forKey: morningAlarmKey), let oldId = UUID(uuidString: old) {
+          try? manager.cancel(id: oldId)
+        }
+        let alert: AlarmPresentation.Alert
+        if #available(iOS 26.1, *) {
+          alert = AlarmPresentation.Alert(title: LocalizedStringResource(stringLiteral: title))
+        } else {
+          alert = AlarmPresentation.Alert(title: LocalizedStringResource(stringLiteral: title),
+            stopButton: AlarmButton(text: "Stop", textColor: .white, systemImageName: "stop.circle"))
+        }
+        let attributes = AlarmAttributes<EchoAlarmMetadata>(
+          presentation: AlarmPresentation(alert: alert), metadata: nil, tintColor: .indigo)
+        let everyDay: [Locale.Weekday] = [.sunday, .monday, .tuesday, .wednesday, .thursday, .friday, .saturday]
+        let configuration = AlarmManager.AlarmConfiguration(
+          countdownDuration: nil,
+          schedule: .relative(.init(time: .init(hour: hour, minute: minute), repeats: .weekly(everyDay))),
+          attributes: attributes,
+          sound: .default)
+        let id = UUID()
+        _ = try await manager.schedule(id: id, configuration: configuration)
+        UserDefaults.standard.set(id.uuidString, forKey: morningAlarmKey)
+        return "scheduled"
+      } catch {
+        return "failed"
+      }
+      #else
+      return "unavailable"
+      #endif
+    }
+
+    AsyncFunction("cancelMorningAlarm") { () async -> Void in
+      #if canImport(AlarmKit)
+      guard #available(iOS 26.0, *) else { return }
+      if let old = UserDefaults.standard.string(forKey: morningAlarmKey), let oldId = UUID(uuidString: old) {
+        try? AlarmManager.shared.cancel(id: oldId)
+      }
+      UserDefaults.standard.removeObject(forKey: morningAlarmKey)
+      #endif
+    }
 
     Function("areActivitiesEnabled") { () -> Bool in
       guard #available(iOS 16.2, *) else { return false }
@@ -93,6 +163,12 @@ public class HabyssLiveActivityModule: Module {
       let desired = Set(plans.map { "scheduled:" + $0.key })
       for activity in Activity<WidgetAttributes>.activities where activity.attributes.name.hasPrefix("scheduled:") {
         if !desired.contains(activity.attributes.name) {
+          await activity.end(nil, dismissalPolicy: .immediate)
+        }
+      }
+      // The timeline's card takes over from any focus card left behind: one card only.
+      if !plans.isEmpty {
+        for activity in Activity<WidgetAttributes>.activities where !activity.attributes.name.hasPrefix("scheduled:") {
           await activity.end(nil, dismissalPolicy: .immediate)
         }
       }
@@ -120,7 +196,10 @@ public class HabyssLiveActivityModule: Module {
             if #available(iOS 26.0, *) {
               _ = try Activity.request(attributes: attributes, content: content, pushType: nil, style: .standard,
                 alertConfiguration: AlertConfiguration(title: "Time for \(plan.title)", body: "Your next step is ready in Habyss.", sound: .default), start: start)
-            } else { continue }
+            } else {
+              // No scheduling before iOS 26: the card shows now, as what is up next.
+              _ = try Activity.request(attributes: attributes, content: content, pushType: nil)
+            }
           } else {
             _ = try Activity.request(attributes: attributes, content: content, pushType: nil)
           }
@@ -137,6 +216,9 @@ public class HabyssLiveActivityModule: Module {
 
     Function("startActivity") { (config: LiveActivityConfig, state: LiveActivityState) throws -> String in
       guard #available(iOS 16.2, *) else { throw LiveActivitiesUnavailableException() }
+      // Only ever one card: the new one replaces whatever is on the Lock Screen.
+      let previous = Activity<WidgetAttributes>.activities
+      Task { for old in previous { await old.end(nil, dismissalPolicy: .immediate) } }
       let activity = try Activity.request(
         attributes: WidgetAttributes(name: config.name, totalDurationSeconds: config.totalDurationSeconds),
         content: ActivityContent(state: state.contentState, staleDate: nil),

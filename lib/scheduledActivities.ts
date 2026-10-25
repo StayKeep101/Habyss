@@ -24,23 +24,32 @@ export function scheduledActivitiesCapability(): 'scheduled' | 'foreground' | 'u
  * not at the time it was first planned, and two cards never overlap: iOS does
  * not end a card by itself when its time is over, so there is only ever one.
  */
-export interface FlowSlot { key: string; kind: 'habit' | 'task'; id: string; title: string; start: number; end: number; color?: string }
+export interface FlowSlot { key: string; kind: 'habit' | 'task' | 'meal' | 'event'; id: string; title: string; start: number; end: number; color?: string }
 
-/** The open habits and tasks on today's timeline, as times. */
+/**
+ * Everything still ahead on today's timeline, as times: open habits and tasks,
+ * and meals and calendar events too, so the card always says what the day is
+ * on, from waking to bed.
+ */
 export function slotsFromFlow(flow: DayFlow, day: string): FlowSlot[] {
     const midnight = new Date(`${day}T00:00:00`).getTime();
     return flow.timeline
-        .filter(item => !item.fixed && !item.done && (item.kind === 'habit' || item.kind === 'task'))
+        .filter(item => !item.done && item.state !== 'done' && (item.kind === 'habit' || item.kind === 'task' || item.kind === 'meal' || item.kind === 'event'))
         .map(item => ({
-            key: `${item.kind}:${item.id}:${day}`, kind: item.kind as 'habit' | 'task', id: item.id, title: item.title,
+            key: `${item.kind}:${item.id}:${day}`, kind: item.kind as FlowSlot['kind'], id: item.id, title: item.title,
             start: midnight + item.start * 60000, end: midnight + item.end * 60000, color: item.color,
         }));
 }
 
-export function activityPlan(slots: FlowSlot[], now: Date, supportsScheduling: boolean) {
+/**
+ * The one card: what the day is on now, else what comes next (counting down
+ * to it). Where iOS can start a card on its own, the next one is scheduled for
+ * its time; elsewhere it shows now, as "up next".
+ */
+export function activityPlan(slots: FlowSlot[], now: Date, _supportsScheduling: boolean) {
     const at = now.getTime();
     const slot = slots.find(item => item.start <= at && at < item.end)
-        ?? (supportsScheduling ? slots.filter(item => item.start > at).sort((a, b) => a.start - b.start)[0] : undefined);
+        ?? slots.filter(item => item.start > at).sort((a, b) => a.start - b.start)[0];
     return slot ? [{
         key: slot.key, title: slot.title, start: slot.start, end: slot.end,
         url: slot.kind === 'habit' ? `habyss://habit-detail?habitId=${encodeURIComponent(slot.id)}` : 'habyss://roadmap',

@@ -7,7 +7,6 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { HealthKitService } from '@/lib/HealthKitService';
-import { ScreenTimeService } from '@/lib/ScreenTimeService';
 import { syncHealthKitData } from '@/lib/habitsSQLite';
 import { styles } from '@/styles/screens/integrations.styles';
 import { McpKeySheet } from '@/components/Integrations/McpKeySheet';
@@ -128,20 +127,6 @@ export default function IntegrationsScreen() {
     return (
         <SheetScreen title="Integrations" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {/* Screen Time: the apps blocked whenever a focus session runs. */}
-                <SettingsGroup title="Focus">
-                    <SettingsRow icon="hand-left" color={colors.warning} label="Apps blocked while focusing"
-                        onPress={() => {
-                            lightFeedback();
-                            void ScreenTimeService.chooseApps().then(ok => {
-                                if (!ok) Alert.alert('Screen Time not available', 'Allow Habyss in Settings → Screen Time, or update to the newest version of Habyss, then try again.');
-                            });
-                        }} />
-                </SettingsGroup>
-                <Text style={[styles.note, { color: colors.textTertiary }]}>
-                    Every focus session blocks these apps until it ends or you pause it.
-                </Text>
-
                 {/* Your calendars' events, as fixed blocks the day is planned around:
                     one switch, then each account folded into one row that opens to
                     its calendars, so a phone with five accounts stays one short card. */}

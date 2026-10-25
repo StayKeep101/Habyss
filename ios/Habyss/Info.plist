@@ -46,6 +46,8 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>Echo wakes you with an alarm at your wake time, when you turn on the morning alarm.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

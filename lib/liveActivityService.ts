@@ -19,12 +19,37 @@ export interface DailyProgress {
     habits?: { id: string; name: string; isCompleted: boolean }[];
 }
 
+/**
+ * One card at a time. Moving from one thing to the next stops one card and
+ * starts another; run together, the start could miss the old card's id and
+ * leave it on the Lock Screen beside the new one. Every call waits its turn.
+ */
+let turn: Promise<unknown> = Promise.resolve();
+const inTurn = <T>(work: () => Promise<T>): Promise<T> => {
+    const next = turn.catch(() => undefined).then(work);
+    turn = next;
+    return next;
+};
+
+/** Ends every card on the phone except `keep`: the timeline's, an earlier focus's, any left behind. */
+async function endOthers(keep?: string | null): Promise<void> {
+    if (!LiveActivity) return;
+    for (const id of LiveActivity.listActivities()) {
+        if (id === keep) continue;
+        await LiveActivity.stopActivity(id, { title: '', subtitle: '', progress: 0 }).catch(() => undefined);
+    }
+}
+
 export const LiveActivityService = {
     /**
      * Start or update the daily progress Live Activity.
      * Shows habit progress on Lock Screen and Dynamic Island.
      */
-    async startDailyProgress(stats: DailyProgress): Promise<void> {
+    startDailyProgress(stats: DailyProgress): Promise<void> {
+        return inTurn(() => this.startNow(stats));
+    },
+
+    async startNow(stats: DailyProgress): Promise<void> {
         if (!LiveActivity || Platform.OS !== 'ios' || !stats.activeHabitName) return;
 
         try {
@@ -32,7 +57,8 @@ export const LiveActivityService = {
             const existingId = await AsyncStorage.getItem(ACTIVITY_ID_KEY);
             if (existingId && LiveActivity.listActivities().includes(existingId)) {
                 // Update existing activity instead of creating a new one
-                await this.updateProgress(stats);
+                await endOthers(existingId);
+                await this.updateNow(stats);
                 return;
             }
 
@@ -64,7 +90,8 @@ export const LiveActivityService = {
 
             const profileImagePath: string | undefined = undefined;
 
-            console.log('Starting Activity with targetDate:', stats.targetDate);
+            // Only ever one card: whatever was there goes first.
+            await endOthers();
             const activityId = LiveActivity.startActivity(
                 {
                     name: 'Habyss Live Activity',
@@ -95,7 +122,11 @@ export const LiveActivityService = {
      * Update the Live Activity with new progress.
      * Called after each habit completion.
      */
-    async updateProgress(stats: DailyProgress): Promise<void> {
+    updateProgress(stats: DailyProgress): Promise<void> {
+        return inTurn(() => this.updateNow(stats));
+    },
+
+    async updateNow(stats: DailyProgress): Promise<void> {
         if (!LiveActivity || Platform.OS !== 'ios') return;
 
         try {
@@ -155,7 +186,11 @@ export const LiveActivityService = {
     /**
      * Stop the Live Activity.
      */
-    async stopActivity(): Promise<void> {
+    stopActivity(): Promise<void> {
+        return inTurn(() => this.stopNow());
+    },
+
+    async stopNow(): Promise<void> {
         if (!LiveActivity || Platform.OS !== 'ios') return;
 
         try {
@@ -169,7 +204,8 @@ export const LiveActivityService = {
             });
 
             await AsyncStorage.removeItem(ACTIVITY_ID_KEY);
-            console.log('Live Activity stopped');
+            // The timeline's card for whatever is now current takes its place.
+            setTimeout(() => { void (require('./scheduledActivities') as typeof import('./scheduledActivities')).refreshScheduledActivities(); }, 0);
 
             // Only the focus state is cleared. The day's counts belong to the
             // home screen widget, which is still on screen: zeroing them here
