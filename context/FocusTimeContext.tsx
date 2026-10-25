@@ -6,7 +6,7 @@ import { NotificationService } from '@/lib/notificationService';
 import { IntegrationService } from '@/lib/integrationService';
 import { getLocalUserId } from '@/lib/localUser';
 import { ScreenTimeService } from '@/lib/ScreenTimeService';
-import { setFocusQuiet } from '@/lib/focusQuiet';
+import { endFocusQuiet, startFocusQuiet } from '@/lib/focusQuiet';
 import { getCompletions, getHabits, saveHabitMeasurement, toggleCompletion } from '@/lib/habitsSQLite';
 import { localHabitDate, measurementFor } from '@/lib/habitMeasurement';
 
@@ -177,7 +177,18 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [isRunning, setIsRunning] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     // No notifications while in focus, paused or not (lib/focusQuiet.ts).
-    useEffect(() => { setFocusQuiet(isRunning || isPaused); }, [isRunning, isPaused]);
+    // Focus is silent, the app open or not (lib/focusQuiet.ts): reminders due
+    // before it ends are held back, and come back if still ahead once it ends.
+    const wasFocusing = useRef(false);
+    useEffect(() => {
+        const focusing = isRunning || isPaused;
+        if (focusing) {
+            void startFocusQuiet(isPaused || activeMode === 'flow' ? null : endTimeRef.current);
+        } else if (wasFocusing.current) {
+            void endFocusQuiet();
+        }
+        wasFocusing.current = focusing;
+    }, [isRunning, isPaused, activeMode]);
     const [timeLeft, setTimeLeft] = useState(0);
     const [totalDuration, setTotalDuration] = useState(0);
     // The session on the wrist too: started, paused or ended, the watch shows

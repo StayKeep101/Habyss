@@ -3,12 +3,10 @@ import { FontFamily } from '@/theme/designSystem';
 
 /** The look of app/(root)/habit-detail.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
-    strip: { flex: 1, flexDirection: 'row' },
     flex: { flex: 1 },
     swapped: { gap: 18 },
-    switcher: { position: 'absolute', left: 20, right: 20, bottom: 16 },
-    /** The focus button, in the bottom-right corner above the switcher. */
-    focusCorner: { position: 'absolute', right: 20, bottom: 84 },
+    /** The focus button, in the bottom-right corner. */
+    focusCorner: { position: 'absolute', right: 20, bottom: 28 },
     headerActions: { flexDirection: 'row', gap: 4 },
     content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 112, gap: 14 },
     empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
@@ -26,6 +24,5 @@ export const styles = StyleSheet.create({
     statTop: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     statValue: { fontFamily: FontFamily.display, fontSize: 19, lineHeight: 26, fontVariant: ['tabular-nums'] },
     statLabel: { fontFamily: FontFamily.regular, fontSize: 10, textAlign: 'center' },
-    note: { gap: 6, paddingHorizontal: 4 },
     heatmap: { padding: 16 },
 });

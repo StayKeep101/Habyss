@@ -17,7 +17,7 @@ import { emit, onAny } from './appEvents';
 import { scheduledMoments } from './scheduledMoments';
 import { buildAlivePlan } from './echoAlive';
 import { engagementLifecycle } from './engagementLifecycle';
-import { focusQuiet } from './focusQuiet';
+import { focusQuiet, quietUntil } from './focusQuiet';
 let reminderQueue: Promise<void> = Promise.resolve();
 let refreshPromise: Promise<void> | null = null;
 let refreshAgain = false;
@@ -295,6 +295,8 @@ export class NotificationService {
             seen.add(key);
             return true;
           })
+          // Focusing: nothing may fire before the session ends (lib/focusQuiet.ts).
+          .filter(item => item.date.getTime() > quietUntil())
           .slice(0, budget);
         const wanted = new Set(desired.map(item => item.identifier));
         for (const item of old) if (!wanted.has(item.identifier)) await Notifications.cancelScheduledNotificationAsync(item.identifier);
