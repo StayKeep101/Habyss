@@ -5,6 +5,7 @@ import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { localDateKey } from '@/lib/habitSchedule';
+import { useWeekStart } from '@/hooks/useWeekStart';
 
 interface Day { date: string; completed: boolean; skipped: boolean; scheduled: boolean }
 
@@ -18,7 +19,8 @@ interface Props {
     inset: number;
 }
 
-const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const MONDAY_FIRST = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const SUNDAY_FIRST = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const GAP = 6;
 
 /**
@@ -37,6 +39,9 @@ export function HabitCalendarMap({ history, color, startDate, today, inset }: Pr
     const { width } = useWindowDimensions();
     const cell = Math.floor((width - inset * 2 - 32 - GAP * 6) / 7);
     const byDate = useMemo(() => new Map(history.map(day => [day.date, day])), [history]);
+    // Weeks start on the day Settings says, like every other calendar in the app.
+    const startsMonday = useWeekStart() === 'monday';
+    const WEEKDAYS = startsMonday ? MONDAY_FIRST : SUNDAY_FIRST;
 
     const stats = useMemo(() => {
         const sorted = [...history].filter(day => (!startDate || day.date >= startDate) && day.date <= today)
@@ -62,7 +67,7 @@ export function HabitCalendarMap({ history, color, startDate, today, inset }: Pr
         const out: { key: string; label: string; cells: (string | null)[] }[] = [];
         for (let cursor = new Date(end.getFullYear(), end.getMonth(), 1); cursor >= from; cursor = new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)) {
             const first = new Date(cursor);
-            const lead = (first.getDay() + 6) % 7; // Monday first
+            const lead = startsMonday ? (first.getDay() + 6) % 7 : first.getDay();
             const length = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
             const cells: (string | null)[] = Array.from({ length: lead }, () => null);
             for (let day = 1; day <= length; day++) cells.push(localDateKey(new Date(first.getFullYear(), first.getMonth(), day, 12)));
@@ -73,7 +78,7 @@ export function HabitCalendarMap({ history, color, startDate, today, inset }: Pr
             });
         }
         return out;
-    }, [today, startDate]);
+    }, [today, startDate, startsMonday]);
 
     const tile = light ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)';
 
@@ -133,11 +138,6 @@ export function HabitCalendarMap({ history, color, startDate, today, inset }: Pr
                 );
             })}
 
-            <View style={styles.legend}>
-                <Legend swatch={<View style={[styles.swatch, { backgroundColor: color }]} />} label="Done" />
-                <Legend swatch={<View style={[styles.swatch, { backgroundColor: light ? 'rgba(15,23,42,0.09)' : 'rgba(255,255,255,0.08)' }]} />} label="Missed" />
-                <Legend swatch={<View style={[styles.swatch, { borderWidth: 1.2, borderStyle: 'dashed', borderColor: colors.textTertiary }]} />} label="Skipped" />
-            </View>
         </View>
     );
 }
@@ -153,15 +153,6 @@ function Stat({ value, label, color }: { value: string; label: string; color?: s
     );
 }
 
-function Legend({ swatch, label }: { swatch: React.ReactNode; label: string }) {
-    const { theme } = useTheme();
-    return (
-        <View style={styles.legendItem}>
-            {swatch}
-            <Text style={[styles.legendText, { color: Colors[theme].textTertiary }]}>{label}</Text>
-        </View>
-    );
-}
 
 const styles = StyleSheet.create({
     wrap: { gap: 14 },
@@ -177,8 +168,4 @@ const styles = StyleSheet.create({
     weekday: { textAlign: 'center', fontSize: 10, fontFamily: FontFamily.semibold, marginBottom: 2 },
     cell: { alignItems: 'center', justifyContent: 'center' },
     dayNumber: { fontSize: 12, fontVariant: ['tabular-nums'] },
-    legend: { flexDirection: 'row', justifyContent: 'center', gap: 18, marginTop: 4 },
-    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    swatch: { width: 12, height: 12, borderRadius: 4 },
-    legendText: { fontSize: 11, fontFamily: FontFamily.medium },
 });

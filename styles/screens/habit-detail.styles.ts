@@ -7,6 +7,8 @@ export const styles = StyleSheet.create({
     flex: { flex: 1 },
     swapped: { gap: 18 },
     switcher: { position: 'absolute', left: 20, right: 20, bottom: 16 },
+    /** The focus button, in the bottom-right corner above the switcher. */
+    focusCorner: { position: 'absolute', right: 20, bottom: 84 },
     headerActions: { flexDirection: 'row', gap: 4 },
     content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 112, gap: 14 },
     empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },

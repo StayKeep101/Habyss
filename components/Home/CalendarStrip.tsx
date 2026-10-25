@@ -11,6 +11,7 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import Svg, { Circle } from 'react-native-svg';
+import { useWeekStart } from '@/hooks/useWeekStart';
 
 interface CalendarStripProps {
   selectedDate: Date;
@@ -25,6 +26,8 @@ interface DateItem {
   fullDate: Date;
   id: string;
   progress: number;
+  /** The month's short name on its first day, where a week runs into a new month. */
+  monthMark?: string;
   isGoalDeadline?: boolean;
   goalColor?: string;
 }
@@ -51,9 +54,10 @@ const addDays = (date: Date, days: number) => {
   return next;
 };
 
-const getStartOfWeek = (date: Date) => {
+/** The first day of the week holding `date`: Sunday or Monday, as Settings → Week starts says. */
+const getStartOfWeek = (date: Date, startsMonday = false) => {
   const day = stripTime(date);
-  return addDays(day, -day.getDay());
+  return addDays(day, -(startsMonday ? (day.getDay() + 6) % 7 : day.getDay()));
 };
 
 const DateButtonComponent = ({
@@ -93,6 +97,11 @@ const DateButtonComponent = ({
         onPress={() => onSelect(item.fullDate)}
         style={{ width, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' }}
       >
+        {item.monthMark ? (
+          <Text style={{ position: 'absolute', top: -8, fontSize: 9, fontFamily: FontFamily.semibold, color: accentColor }}>
+            {item.monthMark}
+          </Text>
+        ) : null}
         <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
           {isDeadline ? <GoalDay color={deadlineColor} size={size} selected={selected} ring={isLight ? 'black' : 'white'} /> : null}
 
@@ -206,7 +215,8 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
   const itemWidth = pageWidth / 7;
 
   const today = useMemo(() => stripTime(new Date()), []);
-  const baseWeekStart = useMemo(() => getStartOfWeek(today), [today]);
+  const startsMonday = useWeekStart() === 'monday';
+  const baseWeekStart = useMemo(() => getStartOfWeek(today, startsMonday), [today, startsMonday]);
   const weekIndexes = useMemo(() => Array.from({ length: TOTAL_WEEKS }, (_, index) => index), []);
 
   const getWeekStartForIndex = useCallback((index: number) => {
@@ -214,11 +224,11 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
   }, [baseWeekStart]);
 
   const getWeekIndexForDate = useCallback((date: Date) => {
-    const selectedWeekStart = getStartOfWeek(date);
+    const selectedWeekStart = getStartOfWeek(date, startsMonday);
     const diffMs = stripTime(selectedWeekStart).getTime() - baseWeekStart.getTime();
     const diffWeeks = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
     return BASE_WEEK_INDEX + diffWeeks;
-  }, [baseWeekStart]);
+  }, [baseWeekStart, startsMonday]);
 
   // The week on screen. Scrolling is only asked for when the selected day is
   // in another week; asking to scroll to the week already showing used to set
@@ -249,6 +259,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
         fullDate: date,
         id: dateKey,
         progress: dayData && dayData.total > 0 ? dayData.completed / dayData.total : 0,
+        monthMark: date.getDate() === 1 ? date.toLocaleDateString(undefined, { month: 'short' }) : undefined,
         isGoalDeadline: !!deadlineInfo,
         goalColor: deadlineInfo?.color,
       };
