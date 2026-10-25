@@ -255,8 +255,8 @@ const AISettings = () => {
                     onChange={handleSelectGreeting}
                 />
 
-                {/* Grouped by what each does: waking you, how it talks, nudging around
-                    your plan, and your week. */}
+                {/* Grouped by what each does: waking you, how it talks, and nudging
+                    around your plan. */}
                 <Group title="Wake up & check-ins">
                     {/* A real alarm at wake time, in Echo's voice (iOS 26 and later). */}
                     <SettingsRow icon="alarm" color="#FF9F0A" label="Morning alarm"
@@ -289,6 +289,8 @@ const AISettings = () => {
                         accent={accentSolid}
                         onChange={(value: boolean) => saveEcho({ ...echo, evening: value })}
                     />
+                    <SettingsRow icon="notifications" color="#FF453A" label="Weekly review reminder" toggle={echo.weeklyReview !== false}
+                        onToggle={value => { saveEcho({ ...echo, weeklyReview: value }); setTimeout(() => { void (require('@/lib/weeklyReviewNotice') as typeof import('@/lib/weeklyReviewNotice')).syncWeeklyReviewNotice(); }, 300); }} />
                 </Group>
 
                 <Group title="How Echo talks to you">
@@ -320,6 +322,7 @@ const AISettings = () => {
                     {/* Far behind on tasks: the screen's edge goes red and Echo goes at you, in its own voice. */}
                     <SettingsRow icon="flame" color="#FF453A" label="Demon mode" toggle={echo.demonMode !== false}
                         onToggle={value => saveEcho({ ...echo, demonMode: value })} />
+                    <SettingsRow icon="bookmark" color="#FF9F0A" label="What Echo remembers" onPress={() => router.push('/(root)/echo-memory' as never)} />
                 </Group>
 
                 {/* Echo's nudges around a planned session, shown not explained. */}
@@ -341,13 +344,6 @@ const AISettings = () => {
                         accent={accentSolid}
                         onChange={(value: boolean) => saveEcho({ ...echo, aliveFollowUp: value })}
                     />
-                </Group>
-
-                <Group title="Your week">
-                    <SettingsRow icon="calendar" color="#30D158" label="Your week" onPress={() => router.push('/(root)/week-review' as never)} />
-                    <SettingsRow icon="bookmark" color="#FF9F0A" label="What Echo remembers" onPress={() => router.push('/(root)/echo-memory' as never)} />
-                    <SettingsRow icon="notifications" color="#FF453A" label="Weekly review reminder" toggle={echo.weeklyReview !== false}
-                        onToggle={value => { saveEcho({ ...echo, weeklyReview: value }); setTimeout(() => { void (require('@/lib/weeklyReviewNotice') as typeof import('@/lib/weeklyReviewNotice')).syncWeeklyReviewNotice(); }, 300); }} />
                 </Group>
 
                 <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: 22 }]}>On-device AI</Text>
