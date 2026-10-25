@@ -30,7 +30,7 @@ export interface WatchHabit {
     streakCount: number;
     targetCount: number;
     unit: string;
-    /** A timed habit is finished by its timer, not a tap. */
+    /** Whether a tap ticks it: always, timed habits included (kept for older watch apps). */
     canTick: boolean;
     /** Where the timeline has it today, in minutes from midnight (-1 when it has no place). */
     start: number;
@@ -101,7 +101,7 @@ export function buildWatchHabits(habits: Habit[], history: Record<string, string
             streakCount: summarizeHabit(habit, counted, today).streak,
             targetCount: 1,
             unit: habit.unit ?? '',
-            canTick: measurementFor(habit).kind !== 'timer',
+            canTick: true,
             ...(slots[habit.id] ?? NO_SLOT),
         }))
         .sort((a, b) => Number(a.completed) - Number(b.completed));

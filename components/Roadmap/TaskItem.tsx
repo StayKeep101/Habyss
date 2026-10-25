@@ -122,15 +122,15 @@ const TaskItemComponent: React.FC<Props> = ({
     const share = taskShare(task);
 
     /**
-     * A count or time task is ticked by logging what was done, not by a box:
-     * "how many calls?" adds to the running total and finishes it at the target.
+     * A tap ticks it. A task measured in time is done in one tap like any
+     * other; a counted one asks how many to add ("how many calls?"), with
+     * Finish right there.
      */
     const toggle = () => {
-        if (!amountLabel || doneByMe || Platform.OS !== 'ios') { onToggle(task); return; }
-        const isTime = task.measure === 'time';
+        if (!amountLabel || doneByMe || task.measure === 'time' || Platform.OS !== 'ios') { onToggle(task); return; }
         Alert.prompt(
             task.title,
-            `${amountLabel} so far. ${isTime ? 'Minutes' : 'How many'} to add?`,
+            `${amountLabel} so far. How many to add?`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Finish', onPress: () => onToggle(task) },

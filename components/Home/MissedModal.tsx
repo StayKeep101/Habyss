@@ -9,7 +9,7 @@ import { CountUp, ListItem } from '@/components/ui/Motion';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { Miss, Missed, MissLevel } from '@/lib/missed';
-import { isTimedHabit, toggleCompletion, type Habit } from '@/lib/habitsSQLite';
+import { toggleCompletion, type Habit } from '@/lib/habitsSQLite';
 import { setTaskStatus } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
 import { FontFamily, Spacing } from '@/theme/designSystem';
@@ -41,10 +41,8 @@ export const MissedModal: React.FC<{ visible: boolean; onClose: () => void; miss
         if (item.kind === 'habit') router.push({ pathname: '/habit-detail', params: { habitId: item.id } });
         else router.push('/(root)/(tabs)/roadmap' as never);
     };
-    // Done from here: it leaves the list. A timed habit is done by its timer, so it opens instead.
+    // Done from here: it leaves the list, timed or not.
     const finish = (item: Miss) => {
-        const habit = item.kind === 'habit' ? habits.find(h => h.id === item.id) : undefined;
-        if (habit && isTimedHabit(habit)) { open(item); return; }
         successFeedback();
         if (item.kind === 'habit') void toggleCompletion(item.id);
         else void setTaskStatus(item.id, 'done').then(() => emit('tasks_changed'));

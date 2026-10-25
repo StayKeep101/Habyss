@@ -682,32 +682,6 @@ export function setSkipped(habitId: string, skipped: boolean, dateISO = todayStr
     });
 }
 
-/**
- * A habit measured in time is done by doing the time.
- *
- * Ticking it, or typing "240 minutes" into it, would let a four-hour session be
- * banked in a tap; the only thing that adds time to one is the focus timer
- * actually running. Undoing and resetting are still allowed — taking time away
- * never claims anything.
- */
-export class TimedHabitError extends Error {
-    constructor() {
-        super('A timed habit is completed by running its timer.');
-        this.name = 'TimedHabitError';
-    }
-}
-
-async function isTimed(db: any, uid: string, habitId: string): Promise<boolean> {
-    const row = await db.getFirstAsync(
-        'SELECT goal_value AS goalValue, unit, duration_minutes AS durationMinutes, type, tracking_method AS trackingMethod FROM habits WHERE id = ? AND user_id = ?',
-        habitId, uid,
-    );
-    return !!row && measurementFor(row).kind === 'timer';
-}
-
-/** Whether a habit can only be completed through its timer. */
-export const isTimedHabit = (habit: Pick<Habit, 'unit' | 'goalValue' | 'durationMinutes' | 'type' | 'trackingMethod'>): boolean =>
-    measurementFor(habit).kind === 'timer';
 
 /**
  * Whether a tap on a finished habit in a list may take the tick back. Only
@@ -729,7 +703,6 @@ export function toggleCompletion(habitId: string, dateISO = todayString()): Prom
                 uid, habitId, dateISO,
             );
             completed = !existing;
-            if (completed && await isTimed(tx, uid, habitId)) throw new TimedHabitError();
             await tx.runAsync('DELETE FROM habit_measurements WHERE user_id = ? AND habit_id = ? AND date = ?', uid, habitId, dateISO);
             if (!completed) {
                 await tx.runAsync(
@@ -1039,7 +1012,6 @@ export function setCompletionValue(habitId: string, value: number, dateISO = tod
     return writeProgress(async () => {
         if (!Number.isFinite(value) || value < 0) throw new Error('Enter a valid amount.');
         const { uid, db } = await progressStorage();
-        if (value > 0 && !verified && await isTimed(db, uid, habitId)) throw new TimedHabitError();
         const now = new Date().toISOString();
         await progressTransaction(db, async (tx: any) => {
             await tx.runAsync('DELETE FROM habit_measurements WHERE user_id = ? AND habit_id = ? AND date = ?', uid, habitId, dateISO);
@@ -1078,10 +1050,7 @@ async function readMeasurement(db: any, uid: string, habitId: string, target: nu
 }
 
 // Serialize taps and completed focus sessions. A rejected write must not block the next one.
-/**
- * `fromTimer` is the focus timer's own write. Anything else may lower a timed
- * habit's total (undo, reset) but never raise it.
- */
+/** `fromTimer` is the focus timer's own write; any amount may be set, timed habits included. */
 export function saveHabitMeasurement(habitId: string, amount: number, dateISO = todayString(), add = false, fromTimer = false): Promise<number> {
     return writeProgress(async () => {
         if (!Number.isFinite(amount) || amount < 0 || amount > 100000000) throw new Error('Enter a valid amount.');
@@ -1099,14 +1068,6 @@ export function saveHabitMeasurement(habitId: string, amount: number, dateISO = 
         await progressTransaction(db, async (tx: any) => {
             const current = await readMeasurement(tx, uid, habitId, target, dateISO);
             if (add) value += current;
-            if (!fromTimer && value > current && measurementFor(habit).kind === 'timer') {
-                // Undoing a reset gives back time already run today (the
-                // day's row keeps its value when it is unticked); nothing more.
-                const earned = await tx.getFirstAsync(
-                    'SELECT value FROM completions WHERE user_id = ? AND habit_id = ? AND date = ? AND COALESCE(skipped, 0) = 0', uid, habitId, dateISO,
-                );
-                if (!earned || value > (earned.value || 0)) throw new TimedHabitError();
-            }
             if (!Number.isFinite(value) || value > 100000000) throw new Error('Enter a valid amount.');
             value = Math.round(value * 1000) / 1000;
             await tx.runAsync(

@@ -349,10 +349,9 @@ export class NotificationService {
       const habit = (await habits.getHabits()).find(habit => habit.id === data.habitId && !habit.isArchived && !habit.isGoal);
       const [done, skipped] = await Promise.all([habits.getCompletions(date), habits.getSkipped(date)]);
       unfinished = !!habit && !done[data.habitId] && !skipped[data.habitId];
-      // A timed habit is done by running its timer, so "Done" from a
-      // notification does nothing to it.
+      // "Done" from a notification ticks it, timed habits included.
       const { measurementFor }: typeof import('./habitMeasurement') = require('./habitMeasurement');
-      if (unfinished && action === 'ECHO_DONE' && measurementFor(habit!).kind !== 'timer') {
+      if (unfinished && action === 'ECHO_DONE') {
         await habits.setCompletionValue(data.habitId, measurementFor(habit!).target, date);
       }
     }

@@ -105,7 +105,6 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
     const note = saving ? 'Saving your progress…' : !ready ? 'Loading your progress…'
         : live ? 'Keeps running when you leave this screen'
         : kind === 'timer' && isToday && !complete && plan.cutFrom ? `Cut from ${formatDuration(plan.cutFrom, true)} to fit today`
-        : kind === 'timer' && isToday && !complete ? 'Completes when the time has actually been run'
         : !isToday ? 'Past days are read-only' : null;
 
     /**
@@ -174,12 +173,12 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
         // Done is done: tapping "Completed" again does nothing. Undoing is the
         // small Undo below, so hours of work are never lost to a stray tap.
         else if (complete) selectionFeedback();
-        else if (kind === 'timer') start();
-        else if (kind === 'boolean') onChange(target);
+        // One tap is done, timed habits too; the timer is there for whoever wants it.
+        else if (kind === 'boolean' || kind === 'timer') onChange(target);
         else onAdd(step);
     };
     const mainLabel = live ? (focus.isPaused ? 'Resume' : 'Pause') : complete ? 'Completed'
-        : kind === 'timer' ? (value > 0 ? 'Continue' : 'Start') : kind === 'boolean' ? (habit.type === 'quit' ? 'I stayed on track' : 'Mark as done') : `Add ${formatMeasurement(step)} ${unit}`;
+        : kind === 'boolean' && habit.type === 'quit' ? 'I stayed on track' : kind === 'boolean' || kind === 'timer' ? 'Mark as done' : `Add ${formatMeasurement(step)} ${unit}`;
     // Timed habits: what is left of the day's target, in seconds, ticking live.
     const remaining = secondsPerUnit ? (complete ? 0 : Math.max(0, (todayTarget - displayValue) * secondsPerUnit)) : 0;
     const targetLabel = todayTarget !== target ? formatDuration(todayTarget * secondsPerUnit, true) : describeAmount(habit, target);
@@ -258,14 +257,14 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                         <Animated.View style={[pressStyle, !ready && styles.disabled]}>
                             <Pressable onPress={primary} disabled={!ready || complete} accessibilityRole="button" accessibilityLabel={mainLabel} accessibilityState={{ disabled: !ready || complete }} onPressIn={() => press.set(withSpring(0.97))} onPressOut={() => press.set(withSpring(1))}>
                                 <MatteSurface radius={Radius.control} level="control" style={styles.primary}>
-                                    <AppIcon filled name={live ? (focus.isPaused ? 'play' : 'pause') : complete ? 'checkmark-circle' : kind === 'timer' ? 'play' : kind === 'boolean' ? 'checkmark' : 'add'} color={complete ? colors.success : colors.textPrimary} size={20} />
+                                    <AppIcon filled name={live ? (focus.isPaused ? 'play' : 'pause') : complete ? 'checkmark-circle' : kind === 'boolean' || kind === 'timer' ? 'checkmark' : 'add'} color={complete ? colors.success : colors.textPrimary} size={20} />
                                     <Text style={[Typography.button, { color: colors.textPrimary }]}>{mainLabel}</Text>
                                 </MatteSurface>
                             </Pressable>
                         </Animated.View>
                         <View style={styles.utilityRow}>
-                            {/* Ending keeps only the time actually run; there is no
-                                way to type time into a timed habit. */}
+                            {/* Ending keeps the time run so far. */}
+                            {!live && kind === 'timer' && isToday && !complete ? <Pressable onPress={start} accessibilityRole="button" style={styles.textButton}><AppIcon name="play-outline" size={16} color={colors.textSecondary} /><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>{value > 0 ? 'Continue timer' : 'Start timer'}</Text></Pressable> : null}
                             {live ? <Pressable onPress={finishSession} accessibilityRole="button" accessibilityHint="Saves the time you have run so far" style={styles.textButton}><AppIcon name="stop-outline" size={16} color={colors.textSecondary} /><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>End session</Text></Pressable>
                                 : kind === 'counter' ? <Pressable disabled={!editable} onPress={beginEditing} accessibilityRole="button" style={styles.textButton}><AppIcon name="create-outline" size={16} color={colors.textSecondary} /><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>Set exact total</Text></Pressable> : null}
                             {/* Focus mode for any habit without its own timer. */}

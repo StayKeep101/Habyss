@@ -235,10 +235,8 @@ async function drain(): Promise<{ habits: number; tasks: number }> {
             const { kind, id } = parseWidgetId(event.id);
             if (kind === 'habit') {
                 const found = habits.find(habit => habit.id === id && !habit.isGoal);
-                // A timed habit is completed by running its timer (the watch's
-                // focus timer counts); a plain tap is acknowledged and ignored.
-                const byTimer = 'source' in event && event.source === 'focus';
-                if (found && !(event.done && measurementFor(found).kind === 'timer' && !byTimer)) {
+                // A tap ticks anything, timed habits included.
+                if (found) {
                     const done = completions[event.day] ?? await getCompletions(event.day);
                     if (!!done[id] !== event.done) { await toggleCompletion(id, event.day); applied.habits++; }
                     completions[event.day] = { ...done, [id]: event.done };
