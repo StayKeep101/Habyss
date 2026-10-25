@@ -44,9 +44,9 @@ describe('the day as a flow', () => {
         const items = [item('read', at(20), 45), item('walk', null, 30)];
         const other = flowDay(items, null, window);
         expect(other.timeline.find(row => row.id === 'read')).toMatchObject({ start: at(20), end: at(20, 45) });
-        // Its time passed today without it: fitted in again from now, as long as it was.
+        // Its time passed today and it is not ticked: it keeps its start and runs on until it is.
         const late = flowDay([item('read', at(9), 45)], at(11), window);
-        expect(late.timeline[0]).toMatchObject({ start: at(11), end: at(11, 45) });
+        expect(late.timeline[0]).toMatchObject({ start: at(9), end: at(11) });
     });
 
     it('orders flexible ones of the same priority by the times they were given', () => {
@@ -240,11 +240,11 @@ describe('tasks before habits', () => {
 
 describe('exact time or flexible', () => {
     const window = { wake: 420, sleep: 1380 };
-    it('keeps an exact-time habit where it is, while a flexible one slides with the day', () => {
+    it('keeps an exact-time one where it is, and a late flexible one at its start until it is ticked', () => {
         // The 8:00 shower runs over to 8:38; at 8:30 a flexible task follows it, an exact one does not.
         const shower = { id: 'shower', kind: 'habit' as const, title: 'shower', start: 480, minutes: 30, done: false };
         const flexible = flowDay([shower, { id: 'call', kind: 'task' as const, title: 'call', start: 510, minutes: 30, done: false }], 518, window);
-        expect(flexible.timeline.find(row => row.id === 'call')!.start).toBe(518);
+        expect(flexible.timeline.find(row => row.id === 'call')!.start).toBe(510);
         const exact = flowDay([shower, { id: 'call', kind: 'task' as const, title: 'call', start: 510, minutes: 30, done: false, locked: true }], 518, window);
         expect(exact.timeline.find(row => row.id === 'call')).toMatchObject({ start: 510, end: 540, shift: 0 });
     });
@@ -303,5 +303,16 @@ describe('calendar events', () => {
         const during = flowDay(items, 580, window);
         expect(clash(during)).toEqual([]);
         expect(during.timeline.find(item => item.id === 'essay')!.start).toBeGreaterThanOrEqual(630);
+    });
+});
+
+describe('something not ticked keeps its start', () => {
+    it('stays at 4 PM and runs past its end until it is ticked', () => {
+        const study = { id: 'study', kind: 'habit' as const, title: 'Study', start: 16 * 60, minutes: 120, done: false };
+        const window = { wake: 7 * 60, sleep: 23 * 60 };
+        expect(flowDay([study], 16 * 60 + 42, window).timeline[0]).toMatchObject({ start: 960, end: 1080 });
+        expect(flowDay([study], 19 * 60, window).timeline[0]).toMatchObject({ start: 960, end: 1140 });
+        // Ticked: it sits where it was done, and stops growing.
+        expect(flowDay([{ ...study, done: true, doneAt: 18 * 60 }], 19 * 60, window).timeline[0]).toMatchObject({ start: 960, end: 1080 });
     });
 });

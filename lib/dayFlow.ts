@@ -180,10 +180,17 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
     // it takes: 20 minutes planned and four hours spent, it is still the one
     // you are on, and the rest waits behind it. The others that began and were
     // left are fitted in again.
+    //
+    // Its start never moves: something planned at 4 PM that is still not ticked
+    // at 4:42 reads 4:00 onwards, running past its end until it is ticked, not
+    // a fresh two hours from now. Where it was placed today (kept), else the
+    // time it was given.
+    const anchor = (item: FlowInput) => (item.kept && item.kept.end > item.kept.start ? item.kept
+        : item.start !== null && item.minutes > 0 && item.start >= window.wake ? { start: item.start, end: item.start + item.minutes } : null);
     const started = now === null ? [] : items.filter(item => !item.fixed && !item.done && !(item.locked && item.start !== null)
-        && !outside.has(item.id) && item.kept && item.kept.end > item.kept.start && item.kept.start <= now);
+        && !outside.has(item.id) && (anchor(item)?.start ?? Infinity) <= now);
     const onIt = (started.find(item => item.id === window.active)
-        ?? [...started].sort((a, b) => (b.kept as { start: number }).start - (a.kept as { start: number }).start)[0])?.id ?? null;
+        ?? [...started].sort((a, b) => (anchor(b) as { start: number }).start - (anchor(a) as { start: number }).start)[0])?.id ?? null;
     // A meeting or a meal never gives way to it: the first fixed block that
     // begins inside its slot ends it there. If that block has already begun,
     // it is no longer the one you are on; it is fitted in again after.
@@ -196,6 +203,7 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
     const untimed: FlowInput[] = [];
     for (const item of items) {
         const kept = item.kept && item.kept.end > item.kept.start ? item.kept : null;
+        const held = item.id === onIt ? anchor(item) : null;
         if (item.fixed) { timed.push(item); continue; }
         if (item.done) {
             // Done: shown where it was done, the same way every time — ending
@@ -222,10 +230,10 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
         if (now === null || outside.has(item.id)) { untimed.push(floating); continue; }
         // Under way: it holds its slot, running on past its end until it is done,
         // up to the next meeting or meal.
-        if (kept && item.id === onIt) {
-            const wall = wallFor(kept);
-            if (!wall) { timed.push({ ...item, start: kept.start, minutes: kept.end - kept.start, auto: true }); continue; }
-            if (wall.start > now) { timed.push({ ...item, start: kept.start, minutes: wall.start - kept.start, auto: true }); continue; }
+        if (held) {
+            const wall = wallFor(held);
+            if (!wall) { timed.push({ ...item, start: held.start, minutes: held.end - held.start, auto: true }); continue; }
+            if (wall.start > now) { timed.push({ ...item, start: held.start, minutes: wall.start - held.start, auto: true }); continue; }
         }
         untimed.push({ ...floating, moved: !!kept && kept.start <= now });
     }
