@@ -189,8 +189,9 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
         : item.start !== null && item.minutes > 0 && item.start >= window.wake ? { start: item.start, end: item.start + item.minutes } : null);
     const started = now === null ? [] : items.filter(item => !item.fixed && !item.done && !(item.locked && item.start !== null)
         && !outside.has(item.id) && (anchor(item)?.start ?? Infinity) <= now);
-    const onIt = (started.find(item => item.id === window.active)
-        ?? [...started].sort((a, b) => (anchor(b) as { start: number }).start - (anchor(a) as { start: number }).start)[0])?.id ?? null;
+    // Several begun and not ticked: the one being focused on, else the one
+    // that comes first by the rules (tasks, then urgency, then difficulty).
+    const onIt = (started.find(item => item.id === window.active) ?? [...started].sort(priorityOrder)[0])?.id ?? null;
     // A meeting or a meal never gives way to it: the first fixed block that
     // begins inside its slot ends it there. If that block has already begun,
     // it is no longer the one you are on; it is fitted in again after.
@@ -242,6 +243,23 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
     return fillDay(placed, untimed, now, window);
 }
 
+/** 1 urgent (set as urgent, overdue, or a deadline in a day or two), 2 normal, 3 not urgent. */
+const urgencyLevel = (item: FlowInput) => Math.floor(((item.urgency ?? 30) + 10) / 20);
+/**
+ * What goes first, strictly, in this order of rules:
+ *   1. tasks before habits: a task has to get done, a habit comes round again;
+ *   2. then the more urgent (urgent, normal, not urgent; overdue and near
+ *      deadlines count as urgent);
+ *   3. then the harder (hard, medium, easy);
+ *   4. then the finer urgency (how overdue, how close the deadline), the time
+ *      it was given, the longer one, and the name.
+ */
+export function priorityOrder(a: FlowInput, b: FlowInput): number {
+    const kindRank = (item: FlowInput) => (item.kind === 'task' ? 0 : 1);
+    return kindRank(a) - kindRank(b) || urgencyLevel(a) - urgencyLevel(b) || (b.difficulty ?? 2) - (a.difficulty ?? 2)
+        || (a.urgency ?? 50) - (b.urgency ?? 50) || (a.preferred ?? a.start ?? 1440) - (b.preferred ?? b.start ?? 1440) || b.minutes - a.minutes || a.title.localeCompare(b.title);
+}
+
 /** Gives every untimed item a slot, then settles which one is now and next. */
 function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window: DayWindowMinutes): DayFlow {
     const sleep = window.sleep > window.wake ? window.sleep : window.sleep + 1440;
@@ -255,16 +273,7 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
         return null;
     };
     const roundUp = (minutes: number) => Math.ceil(minutes / 5) * 5;
-    // 1 urgent (set as urgent, overdue, or a deadline in a day or two), 2 normal, 3 not urgent.
-    const level = (item: FlowInput) => Math.floor(((item.urgency ?? 30) + 10) / 20);
-    // The most urgent first; then the hardest, while there is the most in the
-    // tank; then everything else, easy things closing the day.
-    const tier = (item: FlowInput) => (level(item) <= 1 ? 0 : item.difficulty === 3 ? 1 : 2);
-    // Within each, tasks before habits: a task is a thing that has to get
-    // done; a habit comes round again.
-    const kindRank = (item: FlowInput) => (item.kind === 'task' ? 0 : 1);
-    const order = (a: FlowInput, b: FlowInput) => tier(a) - tier(b) || kindRank(a) - kindRank(b) || level(a) - level(b) || (b.difficulty ?? 2) - (a.difficulty ?? 2)
-        || (a.urgency ?? 50) - (b.urgency ?? 50) || (a.preferred ?? 1440) - (b.preferred ?? 1440) || b.minutes - a.minutes || a.title.localeCompare(b.title);
+    const order = priorityOrder;
     const peak = window.peak ?? null;
     const timeline = [...flow.timeline];
     const unfit: FlowInput[] = [];
@@ -455,6 +464,8 @@ export function flowInputs(input: {
     flexibleMeals?: boolean;
     /** Where each was last placed today (lib/dayMemory.ts). */
     kept?: Record<string, { start: number; end: number }>;
+    /** Where each done one was planned before it was ticked, so taking the tick back puts it back. */
+    planned?: Record<string, { start: number; end: number }>;
 }): FlowInput[] {
     // A tick's time, in minutes from midnight, when it was made on the day shown.
     const day = input.day ?? input.today;
@@ -487,7 +498,12 @@ export function flowInputs(input: {
             urgency: urgencyOf(task.priority, task.dueDate, input.today, task.deadline), difficulty: task.difficulty, deadline: task.deadline,
             doneAt: task.status === 'done' ? minuteOn(task.completedAt) : undefined });
     }
-    if (input.kept) for (const item of items) if (input.kept[item.id] && item.kind !== 'meal' && item.kind !== 'event') item.kept = input.kept[item.id];
+    if (input.kept) for (const item of items) {
+        if (item.kind === 'meal' || item.kind === 'event') continue;
+        // Not done (again): where it was planned, not where a tick put it.
+        const slot = (!item.done && input.planned?.[item.id]) || input.kept[item.id];
+        if (slot) item.kept = slot;
+    }
     return items;
 }
 

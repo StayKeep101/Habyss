@@ -21,7 +21,7 @@ export async function todayFlow(now = new Date()): Promise<DayFlow> {
     const items = flowInputs({
         habits: habits.filter(habit => !habit.isGoal && !habit.isArchived && isHabitScheduledForDate(habit, now)),
         tasks: tasksForDay(tasks, today, today), done, doneTimes, day: today, meals: mealSlots(meals), events, today, flexibleMeals: flexible,
-        kept: memory.day === today ? memory.slots : undefined,
+        kept: memory.day === today ? memory.slots : undefined, planned: memory.day === today ? memory.planned : undefined,
     });
     return flowDay(items, now.getHours() * 60 + now.getMinutes(), { wake: minutesOf(day.wake), sleep: minutesOf(day.sleep) });
 }

@@ -912,7 +912,7 @@ const CalendarScreen = () => {
         // no time is given a slot by urgency between waking and bedtime.
         return flowInputs({
             habits, tasks: tasksForDay(tasks, day, todayKey(clock)), done: completions, doneTimes, day, meals: mealSlots(meals), events: calendarEvents,
-            today: todayKey(clock), flexibleMeals, kept: memory.day === day ? memory.slots : undefined,
+            today: todayKey(clock), flexibleMeals, kept: memory.day === day ? memory.slots : undefined, planned: memory.day === day ? memory.planned : undefined,
         });
     }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, flexibleMeals, memory, doneTimes]);
     const flow = useMemo(() => flowDay(flowItems, flowNow, flowWindow), [flowItems, flowNow, flowWindow]);

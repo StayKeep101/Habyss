@@ -228,13 +228,13 @@ describe('tasks before habits', () => {
         // At the same urgency the task goes first, even when the habit is a little higher.
         expect(flowDay([row('walk', 'habit', 30), row('email', 'task', 50)], null, window).timeline.map(item => item.id)).toEqual(['email', 'walk']);
     });
-    it('puts the most urgent first, then the hardest, then the rest', () => {
+    it('puts every task before every habit, then the more urgent, then the harder', () => {
         const row = (id: string, kind: 'task' | 'habit', urgency: number, difficulty: 1 | 2 | 3) => ({ id, kind, title: id, start: null, minutes: 30, done: false, urgency, difficulty });
         const order = flowDay([
             row('easy chore', 'task', 30, 1), row('hard habit', 'habit', 30, 3), row('urgent habit', 'habit', 10, 1),
             row('normal task', 'task', 30, 2), row('urgent task', 'task', 10, 2),
         ], null, window).timeline.map(item => item.id);
-        expect(order).toEqual(['urgent task', 'urgent habit', 'hard habit', 'normal task', 'easy chore']);
+        expect(order).toEqual(['urgent task', 'normal task', 'easy chore', 'urgent habit', 'hard habit']);
     });
 });
 
@@ -314,5 +314,29 @@ describe('something not ticked keeps its start', () => {
         expect(flowDay([study], 19 * 60, window).timeline[0]).toMatchObject({ start: 960, end: 1140 });
         // Ticked: it sits where it was done, and stops growing.
         expect(flowDay([{ ...study, done: true, doneAt: 18 * 60 }], 19 * 60, window).timeline[0]).toMatchObject({ start: 960, end: 1080 });
+    });
+});
+
+describe('taking a tick back puts the day back', () => {
+    it('returns the task to its planned place, and what moved up returns behind it', () => {
+        const { remember, emptyMemory } = require('../dayMemory') as typeof import('../dayMemory');
+        const window = { wake: 420, sleep: 1380 };
+        const day = '2026-10-25';
+        const a = { id: 'essay', kind: 'task' as const, title: 'Essay', start: null, minutes: 60, done: false, urgency: 10 };
+        const b = { id: 'email', kind: 'task' as const, title: 'Email', start: null, minutes: 30, done: false, urgency: 30 };
+        const withMemory = (items: FlowInput[], memory: ReturnType<typeof emptyMemory>) => items.map(item => ({
+            ...item, kept: (!item.done && memory.planned?.[item.id]) || memory.slots[item.id],
+        }));
+        const first = flowDay([a, b], 600, window);
+        expect(first.timeline.map(item => [item.id, item.start])).toEqual([['essay', 600], ['email', 660]]);
+        const seen = remember(emptyMemory(day), day, first, 600);
+        // Ticked by accident at 10:05.
+        const ticked = flowDay(withMemory([{ ...a, done: true, doneAt: 605 }, b], seen), 605, window);
+        const afterTick = remember(seen, day, ticked, 605);
+        // Taken back a minute later: Essay where it was, Email behind it.
+        const back = flowDay(withMemory([a, b], afterTick), 606, window);
+        const order = back.timeline.map(item => [item.id, item.start]);
+        expect(order[0]).toEqual(['essay', 600]);
+        expect(back.timeline.find(item => item.id === 'email')!.start).toBeGreaterThanOrEqual(back.timeline.find(item => item.id === 'essay')!.end);
     });
 });

@@ -20,3 +20,10 @@ describe('how long focus runs', () => {
         expect(focusPlan({ task: {} })).toMatchObject({ seconds: null, fixed: false });
     });
 });
+
+describe('a task with no length of its own', () => {
+    it('focuses for as long as its place on today\'s timeline (5:00–5:30 is 30 minutes)', () => {
+        const { focusPlan } = require('../focusLength') as typeof import('../focusLength');
+        expect(focusPlan({ task: {}, slot: { start: 17 * 60, end: 17 * 60 + 30 } }).seconds).toBe(30 * 60);
+    });
+});

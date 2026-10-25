@@ -24,6 +24,8 @@ export interface DayMemory {
     moved: Record<string, true>;
     /** Had no room before bedtime when last seen. */
     unfit?: Record<string, true>;
+    /** Where each done one was before it was ticked: taking the tick back puts it there again. */
+    planned?: Record<string, Slot>;
 }
 
 /** Moving less than this is the flow breathing, not a change worth a dot. */
@@ -37,12 +39,15 @@ export function remember(prev: DayMemory, day: string, flow: DayFlow, now: numbe
     const slots: Record<string, Slot> = {};
     const done: Record<string, true> = {};
     const moved: Record<string, true> = { ...base.moved };
+    const planned: Record<string, Slot> = {};
     for (const item of flow.timeline) {
         if (item.fixed) continue;
         const before = base.slots[item.id];
         if (item.done) {
             done[item.id] = true;
             delete moved[item.id];
+            const plan = base.planned?.[item.id] ?? (!base.done[item.id] ? before : undefined);
+            if (plan) planned[item.id] = plan;
             if (base.done[item.id] || !before) { slots[item.id] = before ?? { start: item.start, end: item.end }; continue; }
             // Just finished: it keeps its slot, ending when it was done. Done
             // before its slot came, it is placed where it was really done.
@@ -60,7 +65,7 @@ export function remember(prev: DayMemory, day: string, flow: DayFlow, now: numbe
     // No longer fits today: that is a change too.
     for (const item of flow.unfit) if (base.slots[item.id]) moved[item.id] = true;
     const unfit = Object.fromEntries(flow.unfit.map(item => [item.id, true as const]));
-    return { day, slots, done, moved, unfit };
+    return { day, slots, done, moved, unfit, planned };
 }
 
 /** Opened: no dot until it moves again. */

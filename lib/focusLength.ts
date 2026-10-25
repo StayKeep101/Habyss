@@ -31,7 +31,8 @@ export function focusMinutesFor(habit: Pick<Habit, 'durationMinutes' | 'startTim
  *   one, and `cutFrom` says what it was meant to be.
  * - Time already banked today comes off what is left.
  * - Anything else with a length (a habit's slot, a task's estimate) offers it
- *   as the timer's default; with no length at all, `seconds` is null.
+ *   as the timer's default; with none of its own, the length of its place on
+ *   today's timeline; with nothing at all, `seconds` is null.
  */
 export interface FocusPlan {
     /** Seconds the timer runs for, or null when there is nothing to go on. */
@@ -68,6 +69,9 @@ export function focusPlan(input: {
             full = Number(input.task.estimatedMinutes) * 60; banked = 0;
         }
     }
+    // No length of its own (a task nobody sized, a habit without a time): the
+    // length today's timeline gave it, so 5:00–5:30 focuses for 30 minutes.
+    if (full === null && input.slot && input.slot.end > input.slot.start) full = (input.slot.end - input.slot.start) * 60;
     const cut = input.slot?.cutFrom ? Math.max(60, (input.slot.end - input.slot.start) * 60) : null;
     const length = cut !== null && (full === null || cut < full) ? cut : full;
     if (length === null) return { seconds: null, fixed, cutFrom: null, length: null };
