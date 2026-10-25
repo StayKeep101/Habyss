@@ -125,7 +125,7 @@ export default function IntegrationsScreen() {
     }, [successFeedback]);
 
     return (
-        <SheetScreen title="Integrations" onBack={() => router.back()}>
+        <SheetScreen title="Connected apps" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* Your calendars' events, as fixed blocks the day is planned around:
                     one switch, then each account folded into one row that opens to
