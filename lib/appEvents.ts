@@ -34,6 +34,8 @@ export interface AppEvents {
     task_reopened: { taskId: string };
     /** "Next" pressed on the watch during a focus session: finish this one, go to the next. */
     focus_next: { id?: string };
+    /** Settings → Focus → Turn sideways to focus changed. */
+    tilt_to_focus_changed: void;
     engagement_settings_changed: void;
     /** Every task and habit for the day is done. */
     day_complete: { tally: DayTally; streak: number; completedDates: string[] };

@@ -180,7 +180,7 @@ public class HabyssLiveActivityModule: Module {
         let end = Date(timeIntervalSince1970: plan.end / 1000)
         guard end > Date() else { continue }
         let state = WidgetAttributes.ContentState(
-          title: plan.title, subtitle: "Your time, your next step.", timerEndDateInMilliseconds: nil,
+          title: plan.title, subtitle: "", timerEndDateInMilliseconds: nil,
           progress: 0, profileImagePath: nil, scheduledStartDateInMilliseconds: plan.start,
           scheduledEndDateInMilliseconds: plan.end, url: plan.url, accentHex: plan.accentHex)
         let content = ActivityContent(state: state, staleDate: end)

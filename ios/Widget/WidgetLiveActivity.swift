@@ -12,51 +12,33 @@ import SwiftUI
 struct HabyssLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: WidgetAttributes.self) { context in
-            // Lock screen/banner UI
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading) {
+            // Lock Screen: what it is, how long is left, and a thin bar. Nothing else.
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .center, spacing: 12) {
+                    HabyssMark(size: 26)
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(context.state.title)
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        if context.isStale || !context.state.subtitle.isEmpty {
-                            Text(context.isStale ? "Session window finished · check in when you’re ready" : context.state.subtitle)
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                        }
+                            .font(.system(size: 17, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        StatusLine(state: context.state, stale: context.isStale)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Habyss.dim)
+                            .lineLimit(1)
                     }
-                    Spacer()
-                }
-                
-                // Big Timer for StandBy/Lock Screen
-                if let endDate = context.state.timerEndDateInMilliseconds {
-                    HStack {
-                        Spacer()
-                        Text(timerInterval: min(Date(), Date(timeIntervalSince1970: endDate / 1000))...Date(timeIntervalSince1970: endDate / 1000), countsDown: true)
-                            .font(.system(size: 60, weight: .bold)).monospacedDigit()
-                            // White, like the big numbers in the app; the colour lives in the progress bar.
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                        Spacer()
-                    }
-                }
-                
-                if let start = context.state.scheduledStartDateInMilliseconds,
-                   let end = context.state.scheduledEndDateInMilliseconds {
-                    HStack(spacing: 8) {
-                        Image(systemName: "clock")
-                        Text(Date(timeIntervalSince1970: start / 1000), style: .time)
-                        Text("–")
-                        Text(Date(timeIntervalSince1970: end / 1000), style: .time)
-                        Spacer()
-                        WhenLabel(start: start, stale: context.isStale).font(.caption.weight(.medium))
-                    }
-                    .font(.subheadline).foregroundStyle(Habyss.dim)
+                    Spacer(minLength: 8)
+                    TimeLeft(state: context.state, stale: context.isStale)
+                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 120, alignment: .trailing)
                 }
                 ActivityProgress(state: context.state)
                     .tint(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
             }
-            .padding()
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
             // The app's matte card: lit at the top, falling off below.
             .background(LinearGradient(colors: [Habyss.matteTop, Habyss.matteMid, Habyss.matteBottom], startPoint: .top, endPoint: .bottom))
             .activityBackgroundTint(Habyss.matteMid)
@@ -65,28 +47,29 @@ struct HabyssLiveActivity: Widget {
 
         } dynamicIsland: { context in
             DynamicIsland {
-                // Expanded UI
                 DynamicIslandExpandedRegion(.leading) {
-                    Text(context.state.title).font(.caption2)
+                    HStack(spacing: 8) {
+                        HabyssMark(size: 22)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(context.state.title).font(.system(size: 15, weight: .semibold, design: .rounded)).lineLimit(1)
+                            StatusLine(state: context.state, stale: context.isStale)
+                                .font(.system(size: 12, weight: .medium)).foregroundStyle(Habyss.dim).lineLimit(1)
+                        }
+                    }
+                    .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    // Timer or Icon
-                     if let endDate = context.state.timerEndDateInMilliseconds {
-                        Text(timerInterval: min(Date(), Date(timeIntervalSince1970: endDate / 1000))...Date(timeIntervalSince1970: endDate / 1000), countsDown: true)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 50)
-                            .monospacedDigit()
-                    }
+                    TimeLeft(state: context.state, stale: context.isStale)
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 90, alignment: .trailing)
+                        .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                     // Progress Bar in Expanded
-                     VStack {
-                         if context.isStale || !context.state.subtitle.isEmpty {
-                             Text(context.isStale ? "Session window finished · check in when you’re ready" : context.state.subtitle).font(.caption)
-                         }
-                         ActivityProgress(state: context.state)
-                             .tint(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
-                     }
+                    ActivityProgress(state: context.state)
+                        .tint(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
+                        .padding(.horizontal, 4)
                 }
             } compactLeading: {
                 if let imagePath = context.state.profileImagePath,
@@ -100,19 +83,11 @@ struct HabyssLiveActivity: Widget {
                     HabyssMark()
                 }
             } compactTrailing: {
-                if let endDate = context.state.timerEndDateInMilliseconds {
-                     Text(timerInterval: min(Date(), Date(timeIntervalSince1970: endDate / 1000))...Date(timeIntervalSince1970: endDate / 1000), countsDown: true)
-                        .monospacedDigit()
-                        .frame(maxWidth: 60) // Increased width
-                        .minimumScaleFactor(0.8)
-                        
-                } else {
-                    if let start = context.state.scheduledStartDateInMilliseconds {
-                        WhenLabel(start: start, stale: context.isStale)
-                    } else {
-                        Text("\(Int(context.state.progress * 100))%")
-                    }
-                }
+                TimeLeft(state: context.state, stale: context.isStale)
+                    .monospacedDigit()
+                    .foregroundStyle(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
+                    .frame(maxWidth: 56)
+                    .minimumScaleFactor(0.8)
             } minimal: {
                 if let imagePath = context.state.profileImagePath,
                    let image = getSharedImage(named: imagePath) {
@@ -144,26 +119,62 @@ struct HabyssLiveActivity: Widget {
 
 /// The Habyss logo, where the Dynamic Island and the Mac menu bar show the app.
 private struct HabyssMark: View {
+    var size: CGFloat = 20
     var body: some View {
         Image("HabyssMark")
             .resizable()
             .aspectRatio(contentMode: .fit)
-            .frame(width: 20, height: 20)
+            .frame(width: size, height: size)
     }
 }
 
-/// "in 12 min" before it starts (the card for what is up next), "Now" while it runs.
-private struct WhenLabel: View {
-    let start: Double
+/// When it is: "Now · until 6:07 PM", "Next · 6:30 PM", "Focusing", or "Check in" once its time is over.
+private struct StatusLine: View {
+    let state: WidgetAttributes.ContentState
     let stale: Bool
     var body: some View {
-        let date = Date(timeIntervalSince1970: start / 1000)
         if stale {
             Text("Check in")
-        } else if date > Date() {
-            Text(timerInterval: Date()...date, countsDown: true).monospacedDigit()
+        } else if let start = state.scheduledStartDateInMilliseconds {
+            let begins = Date(timeIntervalSince1970: start / 1000)
+            if begins > Date() {
+                Text("Next · ") + Text(begins, style: .time)
+            } else if let end = state.scheduledEndDateInMilliseconds {
+                Text("Now · until ") + Text(Date(timeIntervalSince1970: end / 1000), style: .time)
+            } else {
+                Text("Now")
+            }
+        } else if state.timerEndDateInMilliseconds != nil {
+            Text("Focusing")
         } else {
-            Text("Now")
+            Text("\(Int(state.progress * 100))% done")
+        }
+    }
+}
+
+/// The clock: time to its start while it is up next, then time left.
+private struct TimeLeft: View {
+    let state: WidgetAttributes.ContentState
+    let stale: Bool
+    var body: some View {
+        let now = Date()
+        if stale {
+            Text("—")
+        } else if let end = state.timerEndDateInMilliseconds {
+            let ends = Date(timeIntervalSince1970: end / 1000)
+            Text(timerInterval: min(now, ends)...ends, countsDown: true)
+        } else if let start = state.scheduledStartDateInMilliseconds {
+            let begins = Date(timeIntervalSince1970: start / 1000)
+            if begins > now {
+                Text(timerInterval: now...begins, countsDown: true)
+            } else if let end = state.scheduledEndDateInMilliseconds {
+                let ends = Date(timeIntervalSince1970: end / 1000)
+                Text(timerInterval: min(now, ends)...ends, countsDown: true)
+            } else {
+                Text("Now")
+            }
+        } else {
+            Text("\(Int(state.progress * 100))%")
         }
     }
 }

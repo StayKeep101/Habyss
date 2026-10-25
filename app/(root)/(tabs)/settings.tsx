@@ -14,6 +14,7 @@ import { setSleepCardVisible, setSleepTarget } from '@/lib/sleepLog';
 import { CLOCK_STYLES, setClockStyle, type ClockStyle } from '@/lib/focusClock';
 import { useClockStyle } from '@/hooks/useClockStyle';
 import { setFocusBlocking, useFocusBlocking } from '@/lib/focusBlocking';
+import { setTiltToFocus, tiltToFocusOn } from '@/lib/tiltToFocus';
 import { ScreenTimeService } from '@/lib/ScreenTimeService';
 import { DEFAULT_WEEK_START, getWeekStart, setWeekStart, type WeekStart } from '@/lib/weekStart';
 import { syncBrainDumpReview } from '@/lib/brainDumpReview';
@@ -59,6 +60,8 @@ export default function ProfileScreen() {
     const sleep = useSleep();
     const clockStyle = useClockStyle();
     const blocking = useFocusBlocking();
+    const [tilt, setTilt] = useState(true);
+    useEffect(() => { void tiltToFocusOn().then(setTilt); }, []);
     const [voiceDestination, setVoiceDestinationState] = useState<VoiceDestination>(DEFAULT_VOICE_DESTINATION);
     const [weekStart, setWeekStartState] = useState<WeekStart>(DEFAULT_WEEK_START);
     useEffect(() => { void getWeekStart().then(setWeekStartState); }, []);
@@ -162,6 +165,9 @@ export default function ProfileScreen() {
                                     });
                                 }} />
                         ) : null}
+                        {/* Phone on its side opens focus on what is due now. */}
+                        <SettingsRow icon="phone-landscape" color="#FF375F" label="Turn sideways to focus"
+                            toggle={tilt} onToggle={value => { lightFeedback(); setTilt(value); void setTiltToFocus(value); }} />
                         <SettingsRow icon="timer" color="#FF375F" label="Clock style"
                             choices={CLOCK_STYLES} chosen={clockStyle} onChoose={id => void setClockStyle(id as ClockStyle)} />
                     </SettingsGroup>
