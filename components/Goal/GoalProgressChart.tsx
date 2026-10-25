@@ -18,6 +18,10 @@ const RANGE_DAYS: Record<Range, number> = { '1W': 7, '1M': 30, '3M': 90, ALL: In
 
 interface Props {
     series: GoalPoint[];
+    /** Ranges always offered, however short the history (otherwise only those it can fill). */
+    ranges?: Range[];
+    /** The range shown first. */
+    initialRange?: Range;
     color: string;
     height?: number;
     /** Called with the point under the finger while scrubbing, then null. */
@@ -49,17 +53,17 @@ interface Props {
  * were still dragging. A pan gesture that gives vertical movement to the page
  * and keeps horizontal movement for itself does not have to fight anybody.
  */
-export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact, unbounded, label, sticky = true }) => {
+export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact, unbounded, label, sticky = true, ranges: offered, initialRange = 'ALL' }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
     const [width, setWidth] = useState(0);
-    const [range, setRange] = useState<Range>('ALL');
+    const [range, setRange] = useState<Range>(initialRange);
     // Unique per chart: several charts on one screen must not share a gradient.
     const gradientId = React.useId().replace(/:/g, '');
 
     // Only offer ranges the goal is old enough to fill, plus All.
-    const ranges = compact ? [] : (Object.keys(RANGE_DAYS) as Range[])
+    const ranges = compact ? [] : offered ?? (Object.keys(RANGE_DAYS) as Range[])
         .filter(option => option === 'ALL' || series.length > RANGE_DAYS[option]);
 
     const visible = useMemo(() => {

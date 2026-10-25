@@ -61,12 +61,16 @@ export const clockOf = (minutes: number): string => {
 
 /** How long a habit takes: its time range, its duration, or its timer target. */
 export function habitMinutes(habit: Habit): number {
+    // A timed habit ("2 hours of study") takes exactly its goal: that is what
+    // the habit page and the focus timer use, so an edited goal must move the
+    // timeline too, whatever slot or length it had before.
+    const { kind, target, secondsPerUnit } = measurementFor(habit);
+    if (kind === 'timer' && target > 0) return Math.round((target * secondsPerUnit) / 60);
     const start = toMinutes(habit.startTime);
     const end = toMinutes(habit.endTime);
     if (start !== null && end !== null && end > start) return end - start;
     if (Number(habit.durationMinutes) > 0) return Number(habit.durationMinutes);
-    const { kind, target, secondsPerUnit } = measurementFor(habit);
-    return kind === 'timer' ? Math.round((target * secondsPerUnit) / 60) : 0;
+    return 0;
 }
 
 export function buildDayPlan(input: {

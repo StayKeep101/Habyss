@@ -14,6 +14,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { MARKS, MAX_MULTIPLIER, RANKS, type MarkEvent } from '@/lib/marks';
 import type { GoalPoint } from '@/lib/goalInsights';
 import type { Marks } from '@/hooks/useMarks';
+import { PerfectLadder } from './PerfectLadder';
 
 const longDay = (date: string) =>
     new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
@@ -74,7 +75,8 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
 
                 <View style={{ height: 18 }} />
                 {series.length > 1 ? (
-                    <GoalProgressChart series={series} color={primary} height={190} onScrub={setScrub} unbounded label="Marks" sticky={false} />
+                    <GoalProgressChart series={series} color={primary} height={190} onScrub={setScrub} unbounded label="Marks" sticky={false}
+                        ranges={['1W', '1M', 'ALL']} initialRange="1M" />
                 ) : (
                     <View style={[styles.empty, { backgroundColor: tile }]}>
                         <Text style={[styles.sub, { color: colors.textTertiary }]}>From day two</Text>
@@ -147,17 +149,9 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                                 <Text style={[styles.ruleCell, { color: colors.error }]}>−{Math.abs(MARKS.miss.sleep)}</Text>
                             </View>
                         </View>
-                        {/* The multiplier: perfect days in a row raise everything you earn. */}
+                        {/* The multiplier: perfect days (everything due done) in a row raise what you earn. */}
                         <View style={[styles.rules, styles.sleepRules, { backgroundColor: tile }]}>
-                            <View style={styles.ruleRow}>
-                                <Text style={[styles.ruleCell, styles.ruleFirst, { color: colors.textSecondary }]}>
-                                    Perfect days (everything due done) raise what you earn: ×2 after 7 in a row, ×3 after 14, up to ×{MAX_MULTIPLIER}. Miss a day and it is back to ×1. Misses always cost the normal amount.
-                                </Text>
-                            </View>
-                            <View style={styles.ruleRow}>
-                                <Text style={[styles.ruleCell, styles.ruleFirst, { color: colors.textSecondary }]}>Now</Text>
-                                <Text style={[styles.ruleCell, { color: primary }]}>×{marks.multiplier} · {marks.perfectRun} perfect day{marks.perfectRun === 1 ? '' : 's'}</Text>
-                            </View>
+                            <PerfectLadder multiplier={marks.multiplier} run={marks.perfectRun} />
                         </View>
                 <Text style={[styles.section, { color: colors.textPrimary }]}>Ranks</Text>
                         <View style={[styles.card, { backgroundColor: tile }]}>

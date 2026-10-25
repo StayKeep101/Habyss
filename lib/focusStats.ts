@@ -28,6 +28,8 @@ const PREFIX = 'focus_session_';
 
 const dayKey = (date: Date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+/** The day `by` days from `day` (YYYY-MM-DD). */
+export const shiftDay = (day: string, by: number): string => shift(day, by);
 const shift = (day: string, by: number) => {
     const date = new Date(`${day}T12:00:00`);
     date.setDate(date.getDate() + by);

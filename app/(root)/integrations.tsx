@@ -41,6 +41,8 @@ export default function IntegrationsScreen() {
         for (const item of calendars) groups.set(item.source, [...(groups.get(item.source) ?? []), item]);
         return [...groups.entries()];
     }, [calendars]);
+    /** The account whose calendars are open in the list, if any. */
+    const [openAccount, setOpenAccount] = useState<string | null>(null);
     const toggleCalendar = async (next: boolean) => {
         lightFeedback();
         const done = await setCalendarOn(next);
@@ -140,25 +142,31 @@ export default function IntegrationsScreen() {
                     Every focus session blocks these apps until it ends or you pause it.
                 </Text>
 
-                {/* Your calendars' events, as fixed blocks the day is planned around. */}
+                {/* Your calendars' events, as fixed blocks the day is planned around:
+                    one switch, then each account folded into one row that opens to
+                    its calendars, so a phone with five accounts stays one short card. */}
                 <SettingsGroup title="Calendar">
                     <SettingsRow icon="calendar" color={colors.error} label="Apple & Google Calendar"
                         toggle={calendar} onToggle={value => void toggleCalendar(value)} />
+                    {calendar ? accounts.flatMap(([account, list]) => {
+                        const on = list.filter(item => shown(item.id)).length;
+                        const open = openAccount === account;
+                        return [
+                            <SettingsRow key={account} icon={open ? 'chevron-down' : 'person-circle'} color={colors.textTertiary}
+                                label={account} value={`${on} of ${list.length}`}
+                                onPress={() => { lightFeedback(); setOpenAccount(open ? null : account); }} />,
+                            ...(open ? list.map(item => (
+                                <SettingsRow key={item.id} icon="calendar" color={item.color || colors.error} label={item.title}
+                                    toggle={shown(item.id)} onToggle={value => { lightFeedback(); setShown(item.id, value); }} />
+                            )) : []),
+                        ];
+                    }) : null}
                 </SettingsGroup>
                 <Text style={[styles.note, { color: colors.textTertiary }]}>
                     {calendar
-                        ? `${todayEvents.length} ${todayEvents.length === 1 ? 'event' : 'events'} on your timeline today, as fixed blocks. Google Calendar comes in once your Google account is added in iPhone Settings → Apps → Calendar → Calendar Accounts.`
-                        : 'Your events show on the timeline as fixed blocks, and habits and tasks are planned around them. Google Calendar comes in through the Google account on this iPhone. Read on this phone only.'}
+                        ? `${todayEvents.length} ${todayEvents.length === 1 ? 'event' : 'events'} on your timeline today. Tap an account to choose its calendars.`
+                        : 'Events show on your timeline as fixed blocks, and habits and tasks are planned around them. Google Calendar comes in through the Google account on this iPhone.'}
                 </Text>
-                {/* Each calendar on this iPhone, by account: switch off the ones that should stay off the timeline. */}
-                {calendar && accounts.map(([account, list]) => (
-                    <SettingsGroup key={account} title={account}>
-                        {list.map(item => (
-                            <SettingsRow key={item.id} icon="calendar" color={item.color || colors.error} label={item.title}
-                                toggle={shown(item.id)} onToggle={value => { lightFeedback(); setShown(item.id, value); }} />
-                        ))}
-                    </SettingsGroup>
-                ))}
 
                 {/* One switch. Everything that writes to Health — watches,
                     rings, gyms — comes through it. */}

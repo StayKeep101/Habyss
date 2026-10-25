@@ -49,3 +49,12 @@ describe('what is on at a minute', () => {
         expect(blocksAt(plan, 700)).toEqual([]);
     });
 });
+
+describe('a timed habit\'s length on the timeline', () => {
+    it('follows its goal after an edit, not the slot or length it had before', () => {
+        const { habitMinutes } = require('../dayPlan') as typeof import('../dayPlan');
+        // "Study" was 4 hours (09:00–13:00, 240 minutes), then edited to a 2-hour goal.
+        const study = { id: 's', name: 'Study', startTime: '09:00', endTime: '13:00', durationMinutes: 240, unit: 'hours', goalValue: 2, trackingMethod: 'numeric', type: 'build' } as any;
+        expect(habitMinutes(study)).toBe(120);
+    });
+});

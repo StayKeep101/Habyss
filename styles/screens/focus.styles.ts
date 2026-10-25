@@ -17,5 +17,10 @@ export const styles = StyleSheet.create({
     doneSub: { fontFamily: FontFamily.medium, fontSize: 16, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: Spacing.sm },
     next: { alignSelf: 'stretch', gap: Spacing.md, marginTop: Spacing.section },
     nextLabel: { fontFamily: FontFamily.semibold, fontSize: 13, color: 'rgba(255,255,255,0.5)', textAlign: 'center' },
+    /** Timer and Stopwatch, side by side. */
+    modes: { flexDirection: 'row', gap: Spacing.md },
+    mode: { flex: 1 },
+    /** Focus stats, tucked in the bottom corner of the start screen. */
+    statsCorner: { position: 'absolute', right: Spacing.xl },
     nextTitle: { fontFamily: FontFamily.bold, fontSize: 22, color: '#FFFFFF', textAlign: 'center' },
 });

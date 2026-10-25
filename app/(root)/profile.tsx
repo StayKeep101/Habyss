@@ -17,7 +17,6 @@ import { ageFrom, initials, saveProfile, type Profile } from '@/lib/profile';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { FreezeCard } from '@/components/Profile/FreezeCard';
-import { FocusCard } from '@/components/Profile/FocusCard';
 import { seriesForProfile } from '@/lib/marksSync';
 import { UsernameCard, UsernameInline, UsernamePill } from '@/components/Profile/UsernameCard';
 import { FeedService } from '@/lib/feedService';
@@ -163,7 +162,6 @@ export default function ProfileScreen() {
                 >
                     {/* Yours alone: friends' view of your profile never shows it. */}
                     <FreezeCard />
-                    <FocusCard onPress={() => router.push('/(root)/focus-stats')} />
                 </ProfileView>
 
             </ScrollView>

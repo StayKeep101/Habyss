@@ -11,6 +11,8 @@ export const styles = StyleSheet.create({
     trendRow: { flexDirection: 'row', alignItems: 'center', gap: s(10), flexWrap: 'wrap' },
     trend: { flexDirection: 'row', alignItems: 'center', gap: s(4), paddingHorizontal: s(10), paddingVertical: vs(4), borderRadius: 999, borderWidth: 1 },
     trendText: { fontSize: ms(12), fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
+    /** Which days the chart shows, or the tapped day and its total. */
+    windowLabel: { fontFamily: FontFamily.medium, fontSize: ms(13), textAlign: 'center' },
     chart: { flexDirection: 'row', alignItems: 'flex-end', gap: s(4), height: vs(150) },
     barTrack: { flex: 1, height: '100%', justifyContent: 'flex-end' },
     bar: { width: '100%', borderRadius: s(6), minHeight: vs(4) },

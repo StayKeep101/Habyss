@@ -64,6 +64,9 @@ import { getRemoveDrag, isOverOrb, setRemoveDrag } from '@/lib/dragBridge';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { styles } from '@/styles/screens/tabs/roadmap.styles';
 
+/** Days of history read for the calendar strip's day circles. */
+const HISTORY_DAYS = 90;
+
 if (Platform.OS === 'android') {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
         UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -206,7 +209,7 @@ const CalendarScreen = () => {
     const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
     // Loaded once here, and re-read whenever a habit is ticked anywhere —
     // this screen used to fetch on mount only and then quietly go stale.
-    const { history: pastDone, skips: pastSkips } = useHistory(90);
+    const { history: pastDone, skips: pastSkips } = useHistory(HISTORY_DAYS);
     const stripTarget = useDailyTarget();
     const [draggingHabit, setDraggingHabit] = useState<Habit | null>(null);
     const [draggingTask, setDraggingTask] = useState<Task | null>(null);
@@ -861,7 +864,9 @@ const CalendarScreen = () => {
     const weeklyCompletions = useMemo(() => {
         const today = todayKey();
         const result: Record<string, { completed: number; total: number }> = {};
-        for (let offset = -7; offset <= 7; offset++) {
+        // Every day the history covers, so going back weeks on the strip still
+        // shows how each day went, not only this week and last.
+        for (let offset = -HISTORY_DAYS; offset <= 7; offset++) {
             const date = new Date();
             date.setDate(date.getDate() + offset);
             const key = todayKey(date);

@@ -9,8 +9,14 @@ import { nextStep, todayFlow } from '@/lib/todayFlow';
  * time, is a step of its own that ends when its time does. Nothing left: the
  * day's end.
  */
+/** One move at a time: the timer running out and Next pressed together must not move twice. */
+let moving = false;
+
 export function useFocusDay() {
     return useCallback(async (skip?: string) => {
+        if (moving) return;
+        moving = true;
+        setTimeout(() => { moving = false; }, 1500);
         const now = new Date();
         const flow = await todayFlow(now).catch(() => null);
         const step = nextStep(flow, now.getHours() * 60 + now.getMinutes(), skip);
