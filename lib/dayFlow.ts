@@ -466,6 +466,8 @@ export function flowInputs(input: {
     doneTimes?: Record<string, string>;
     meals?: { id: string; name: string; start: number; minutes: number }[];
     events?: { id: string; title: string; start: number; minutes: number; color?: string }[];
+    /** Travel to and from events, by event name (lib/eventTravel.ts). */
+    travel?: Record<string, { before: number; after: number }>;
     today?: string;
     /** Meals may wait for a full day (Settings → Timeline). */
     flexibleMeals?: boolean;
@@ -489,6 +491,10 @@ export function flowInputs(input: {
     }));
     for (const event of input.events ?? []) {
         items.push({ id: `event:${event.id}`, kind: 'event', title: event.title, start: event.start, minutes: event.minutes, done: false, icon: 'calendar', color: event.color, fixed: true });
+        // Getting there and back: fixed like the event, so nothing is planned in it.
+        const travel = input.travel?.[event.title.trim().toLowerCase().replace(/\s+/g, ' ')];
+        if (travel?.before) items.push({ id: `event:${event.id}:to`, kind: 'event', title: `To ${event.title}`, start: Math.max(0, event.start - travel.before), minutes: Math.min(travel.before, event.start), done: false, icon: 'car', color: event.color, fixed: true });
+        if (travel?.after) items.push({ id: `event:${event.id}:back`, kind: 'event', title: `Back from ${event.title}`, start: event.start + event.minutes, minutes: travel.after, done: false, icon: 'car', color: event.color, fixed: true });
     }
     for (const habit of input.habits) {
         items.push({

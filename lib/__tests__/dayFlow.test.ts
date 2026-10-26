@@ -345,3 +345,20 @@ describe('taking a tick back puts the day back', () => {
         expect(back.timeline.find(item => item.id === 'email')!.start).toBeGreaterThanOrEqual(back.timeline.find(item => item.id === 'essay')!.end);
     });
 });
+
+describe('travel to and from a calendar event', () => {
+    it('keeps an hour before and after School free, and plans around it', () => {
+        const items = flowInputs({
+            habits: [], tasks: [{ id: 'essay', title: 'Essay', status: 'open', priority: 2, estimatedMinutes: 60 } as never], done: {}, today: '2026-10-26',
+            events: [{ id: 'school', title: 'School', start: 690, minutes: 80 }],
+            travel: { school: { before: 60, after: 60 } },
+        });
+        expect(items.filter(item => item.kind === 'event').map(item => [item.title, item.start, item.minutes])).toEqual([
+            ['School', 690, 80], ['To School', 630, 60], ['Back from School', 770, 60],
+        ]);
+        // At 10:00 an hour-long essay does not fit before the 10:30 travel, so it goes after the trip back (13:50).
+        const flow = flowDay(items, 600, { wake: 8 * 60, sleep: 23 * 60 });
+        const essay = flow.timeline.find(item => item.id.includes('essay'))!;
+        expect(essay.start).toBe(830);
+    });
+});

@@ -13,14 +13,16 @@ export async function todayFlow(now = new Date()): Promise<DayFlow> {
     const { loadMeals, loadMealsFlexible, mealSlots } = require('./meals') as typeof import('./meals');
     const { eventsFor } = require('./calendarEvents') as typeof import('./calendarEvents');
     const { loadMemory } = require('./dayMemory') as typeof import('./dayMemory');
+    const { loadTravel } = require('./eventTravel') as typeof import('./eventTravel');
     const today = localDateKey(now);
     const [habits, tasks, done, day, meals, flexible, events, memory, doneTimes] = await Promise.all([
         getHabits(), getTasks(), getCompletions(today), getDayWindow(), loadMeals(), loadMealsFlexible(), eventsFor(today).catch(() => []), loadMemory(),
         getCompletionTimes(today).catch(() => ({})),
     ]);
+    const travel = await loadTravel().catch(() => ({}));
     const items = flowInputs({
         habits: habits.filter(habit => !habit.isGoal && !habit.isArchived && isHabitScheduledForDate(habit, now)),
-        tasks: tasksForDay(tasks, today, today), done, doneTimes, day: today, meals: mealSlots(meals), events, today, flexibleMeals: flexible,
+        tasks: tasksForDay(tasks, today, today), done, doneTimes, day: today, meals: mealSlots(meals), events, travel, today, flexibleMeals: flexible,
         kept: memory.day === today ? memory.slots : undefined, planned: memory.day === today ? memory.planned : undefined,
     });
     return flowDay(items, now.getHours() * 60 + now.getMinutes(), { wake: minutesOf(day.wake), sleep: minutesOf(day.sleep) });

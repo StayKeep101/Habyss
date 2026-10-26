@@ -52,6 +52,8 @@ import { burstMarks, habitDone, taskEarned } from '@/lib/marksOrbs';
 import { counts as countsShared } from '@/lib/sharedGate';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { openInCalendar } from '@/lib/calendarEvents';
+import { useEventTravel } from '@/hooks/useEventTravel';
+import { EventSheet } from '@/components/Roadmap/EventSheet';
 import { useEchoPatterns } from '@/hooks/useEchoPatterns';
 import { peakWindow } from '@/lib/echoPatterns';
 import { energyCurve } from '@/lib/energyCurve';
@@ -894,6 +896,9 @@ const CalendarScreen = () => {
     // Where each thing was placed today, so done things stay put and moves get a dot.
     const memory = useDayMemory();
     const calendarEvents = useCalendarEvents(localDateKey(selectedDate));
+    // Travel to and from events (tap an event to set it): kept free of work.
+    const eventTravel = useEventTravel();
+    const [eventSheet, setEventSheet] = useState<{ title: string; start: number; end: number } | null>(null);
     // Your best hours: learnt hour by hour from energy answers and focus
     // sessions (lib/energyCurve.ts); until that is clear, Echo's patterns.
     // Hard things are fitted in there.
@@ -913,10 +918,10 @@ const CalendarScreen = () => {
         // Meals and calendar events are fixed; the rest flows, and whatever has
         // no time is given a slot by urgency between waking and bedtime.
         return flowInputs({
-            habits, tasks: tasksForDay(tasks, day, todayKey(clock)), done: completions, doneTimes, day, meals: mealSlots(meals), events: calendarEvents,
+            habits, tasks: tasksForDay(tasks, day, todayKey(clock)), done: completions, doneTimes, day, meals: mealSlots(meals), events: calendarEvents, travel: eventTravel,
             today: todayKey(clock), flexibleMeals, kept: memory.day === day ? memory.slots : undefined, planned: memory.day === day ? memory.planned : undefined,
         });
-    }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, flexibleMeals, memory, doneTimes]);
+    }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, eventTravel, flexibleMeals, memory, doneTimes]);
     const flow = useMemo(() => flowDay(flowItems, flowNow, flowWindow), [flowItems, flowNow, flowWindow]);
     // Open tasks whose "due by" is this day but which are planned for another:
     // named at the top of the day so the deadline is seen.
@@ -955,12 +960,18 @@ const CalendarScreen = () => {
     const openFlowItem = useCallback((item: FlowInput) => {
         lightFeedback();
         markSeen(item.id);
-        // A calendar event opens where it lives: Apple Calendar, at its time.
-        if (item.kind === 'event') openInCalendar(localDateKey(selectedDate), item.start ?? 0);
+        // A calendar event (or the travel either side of it): how long it takes
+        // to get there and back, with Calendar one tap further.
+        if (item.kind === 'event') {
+            const eventId = item.id.replace(/:(to|back)$/, '').replace(/^event:/, '');
+            const event = calendarEvents.find(slot => slot.id === eventId);
+            if (event) setEventSheet({ title: event.title, start: event.start, end: event.start + event.minutes });
+            else openInCalendar(localDateKey(selectedDate), item.start ?? 0);
+        }
         else if (item.kind === 'meal') router.push('/(root)/meals' as never);
         else if (item.kind === 'habit') router.push({ pathname: '/habit-detail', params: { habitId: item.id } });
         else { const task = tasks.find(t => t.id === item.id); if (task) openTask(task); }
-    }, [tasks, openTask, lightFeedback, router, selectedDate]);
+    }, [tasks, openTask, lightFeedback, router, selectedDate, calendarEvents]);
     const focusFlowItem = useCallback((item: FlowInput) => {
         mediumFeedback();
         router.push({ pathname: '/(root)/focus', params: { kind: item.kind, id: item.id, title: item.title } });
@@ -1364,6 +1375,8 @@ const CalendarScreen = () => {
                 </View>
             </SafeAreaView>
 
+            <EventSheet event={eventSheet} onClose={() => setEventSheet(null)}
+                onOpenCalendar={() => { if (eventSheet) openInCalendar(localDateKey(selectedDate), eventSheet.start); setEventSheet(null); }} />
         </VoidShell>
     );
 };
