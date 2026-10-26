@@ -3,7 +3,7 @@ import { getDatabase } from './database';
 import { getSupabase } from './supabase';
 import {
     chunk, completionToLocal, completionToRemote, habitToLocal, habitToRemote,
-    isUuid, orderForUpload, taskToLocal, taskToRemote,
+    isUuid, milestoneToLocal, milestoneToRemote, orderForUpload, taskToLocal, taskToRemote,
 } from './cloudMapping';
 import { emit } from './appEvents';
 import { syncPersonal } from './personalBackup';
@@ -26,7 +26,7 @@ import { syncPersonal } from './personalBackup';
  * phone's clock, so a phone with the wrong time cannot skip changes.
  */
 
-type Table = 'habits' | 'completions' | 'tasks';
+type Table = 'habits' | 'completions' | 'tasks' | 'milestones';
 
 interface TableSpec {
     local: Table;
@@ -47,6 +47,8 @@ const TABLES: TableSpec[] = [
     // its id: local ids are "<habit>_<date>", which the server cannot store.
     { local: 'completions', remote: 'habit_completions', toRemote: completionToRemote, toLocal: completionToLocal, onConflict: 'user_id,habit_id,date', localConflict: 'habit_id, date' },
     { local: 'tasks', remote: 'tasks', toRemote: taskToRemote, toLocal: taskToLocal, onConflict: 'id', localConflict: 'id' },
+    // A goal's checkpoints, after the goals they belong to.
+    { local: 'milestones', remote: 'goal_milestones', toRemote: milestoneToRemote, toLocal: milestoneToLocal, onConflict: 'id', localConflict: 'id' },
 ];
 
 const BATCH = 200;
@@ -471,6 +473,7 @@ async function announceRemote(): Promise<void> {
         // Screens still refresh on their next focus.
     }
     emit('tasks_changed');
+    emit('milestones_changed', {});
     emit('habit_completion_updated', {});
     emit('cloud_restored');
 }

@@ -120,6 +120,7 @@ export const styles = StyleSheet.create({
   tabBody: { marginTop: Spacing.xl },
   todayBody: { paddingHorizontal: Spacing.xl },
   paceGap: { marginBottom: Spacing.md },
+  milestonesGap: { marginBottom: Spacing.section },
   daysTag: {
     marginLeft: 8,
     paddingHorizontal: 8,

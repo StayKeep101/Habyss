@@ -29,6 +29,8 @@ export interface AppEvents {
     habit_deleted: { habitId: string };
     goal_deleted: { goalId: string };
     tasks_changed: void;
+    /** A goal's milestones were added, changed, reached or removed. */
+    milestones_changed: { goalId?: string };
     task_completed: { taskId: string };
     /** A done task opened again: it can earn again. */
     task_reopened: { taskId: string };

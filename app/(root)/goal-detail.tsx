@@ -25,6 +25,10 @@ import { ShareGoalModal } from '@/components/Social/ShareGoalModal';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
 import { GoalHabitRow, SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
 import { SectionTitle } from '@/components/ui/SectionTitle';
+import { GoalMilestones } from '@/components/Goal/GoalMilestones';
+import { MilestoneSheet } from '@/components/Goal/MilestoneSheet';
+import { useMilestones } from '@/hooks/useMilestones';
+import { addMilestones, splitIntoMilestones, updateMilestone, type Milestone } from '@/lib/goalMilestones';
 import { GoalStatsView } from '@/components/Goal/GoalStatsView';
 import { GoalPlanView } from '@/components/Goal/GoalPlanView';
 import { GoalPace } from '@/components/Goal/GoalPace';
@@ -151,6 +155,33 @@ const GoalDetail = () => {
   // A new habit made from this page belongs to this goal.
   const [addingHabit, setAddingHabit] = useState(false);
   const [view, setView] = useState<'today' | 'stats' | 'plan'>('today');
+  // The checkpoints between today and the goal's end (lib/goalMilestones.ts).
+  const milestones = useMilestones(goal?.id);
+  const [milestoneSheet, setMilestoneSheet] = useState<{ milestone: Milestone | null } | null>(null);
+  const goalEnd = insights && goal?.targetDate ? insights.endDate : undefined;
+  /** "Read 24 books by Dec 31" split into Book 1 … Book 24, evenly through the time left. */
+  const splitPlan = useMemo(() => {
+    if (!goal || !goalEnd) return [];
+    let target = insights?.measure.total ?? 0;
+    let unit: string | null = insights?.measure.unit ?? null;
+    try {
+      const spec = goal.goalSpec ? JSON.parse(goal.goalSpec) : null;
+      if (spec?.target > 0) { target = Number(spec.target); unit = spec.metric_unit ?? unit; }
+    } catch { /* the measure above will do */ }
+    const verb = goal.name.trim().split(/\s+/)[0];
+    return splitIntoMilestones({ target, unit, verb: /^\d/.test(verb) ? undefined : verb, start: today, end: goalEnd });
+  }, [goal, goalEnd, insights, today]);
+  const splitIntoSteps = () => {
+    if (!goal || !splitPlan.length) return;
+    lightFeedback();
+    Alert.alert(`Add ${splitPlan.length} milestones?`, `${splitPlan[0].title} by ${dateAt(splitPlan[0].dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, then evenly up to the goal's end.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Add', onPress: () => { void addMilestones(goal.id, splitPlan).catch(() => Alert.alert('Milestones not saved', 'Something went wrong saving them on this phone. Try again.')); } },
+    ]);
+  };
+  const toggleMilestone = (milestone: Milestone) => {
+    void updateMilestone(milestone, { done: !milestone.doneAt }).catch(() => Alert.alert('Not saved', 'That milestone could not be updated. Try again.'));
+  };
   // Shared goals are not available yet; kept so the owner-only actions stay gated.
   const [isSharedGoal] = useState(false);
 
@@ -264,6 +295,9 @@ const GoalDetail = () => {
     ...(!isSharedGoal ? [
       { label: 'Add habit', icon: 'repeat-outline' as const, onPress: () => { lightFeedback(); setAddingHabit(true); } },
       { label: 'Add task', icon: 'checkbox-outline' as const, onPress: () => openTask() },
+      { label: 'Add milestone', icon: 'flag-outline' as const, onPress: () => { lightFeedback(); setMilestoneSheet({ milestone: null }); } },
+      ...(splitPlan.length > 1 && milestones.length === 0
+        ? [{ label: 'Split into milestones', icon: 'git-commit-outline' as const, onPress: splitIntoSteps }] : []),
     ] : []),
     { label: 'Change cover photo', icon: 'image-outline', onPress: () => handleChangeBackground() },
     ...(!isSharedGoal ? [
@@ -486,7 +520,14 @@ const GoalDetail = () => {
              the whole plan replace it in place, from the tabs above. Building
              the plan happens on the roadmap, not here. */
           <Animated.View key="today" entering={FadeIn.duration(220)} style={[styles.tabBody, styles.todayBody]}>
-          <SectionTitle first right={todayTotal > 0 ? <ValuePill value={`${todayDone}/${todayTotal}`} /> : undefined}>Today</SectionTitle>
+          {milestones.length > 0 ? (
+            <View style={styles.milestonesGap}>
+              <GoalMilestones milestones={milestones} color={goal.color || accentColor} today={today}
+                onToggle={isSharedGoal ? () => undefined : toggleMilestone}
+                onOpen={milestone => { if (!isSharedGoal) setMilestoneSheet({ milestone }); }} />
+            </View>
+          ) : null}
+          <SectionTitle first={milestones.length === 0} right={todayTotal > 0 ? <ValuePill value={`${todayDone}/${todayTotal}`} /> : undefined}>Today</SectionTitle>
           {insights && insights.measure.total > 0 ? (
             <View style={styles.paceGap}>
               <GoalPace measure={insights.measure} color={goal.color || accentColor} />
@@ -567,6 +608,9 @@ const GoalDetail = () => {
       </View>
 
 
+      {milestoneSheet && goal ? (
+        <MilestoneSheet visible goalId={goal.id} goalEnd={goalEnd} milestone={milestoneSheet.milestone} onClose={() => setMilestoneSheet(null)} />
+      ) : null}
       {editingHabit && <HabitSheet visible habit={editingHabit} goalId={editingHabit.goalId} onClose={() => setEditingHabit(null)} />}
       {addingHabit && <HabitSheet visible goalId={goal.id} onClose={() => setAddingHabit(false)} onSaved={() => setAddingHabit(false)} />}
       {editingGoal && goal && (

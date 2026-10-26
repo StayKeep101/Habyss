@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 17;
+const SCHEMA_VERSION = 18;
 
 let dbInstance: any = null;
 /**
@@ -129,6 +129,7 @@ async function runMigrations(db: any): Promise<void> {
         [15, migrateToV15],
         [16, migrateToV16],
         [17, migrateToV17],
+        [18, migrateToV18],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -146,6 +147,35 @@ async function runMigrations(db: any): Promise<void> {
             await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
         });
     }
+}
+
+/**
+ * Migration to version 18 — a goal's milestones.
+ *
+ * "Read 24 books by December 31" is kept on track by checkpoints: Book 1 by
+ * Nov 2, Book 2 by Nov 9. They belong to the goal and nothing else (never on
+ * the timeline or in a task list), each with the day it is due and when it
+ * was reached. Backed up like habits and tasks.
+ */
+async function migrateToV18(db: any): Promise<void> {
+    await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS milestones (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            goal_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            due_date TEXT,
+            done_at TEXT,
+            position INTEGER DEFAULT 0,
+            created_at TEXT,
+            updated_at TEXT,
+            deleted INTEGER DEFAULT 0,
+            synced INTEGER DEFAULT 0
+        );
+    `);
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_milestones_goal ON milestones (goal_id, deleted);');
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_milestones_unsynced ON milestones (synced) WHERE synced = 0;');
+    console.log('[Database] Migrated to schema v18');
 }
 
 /**

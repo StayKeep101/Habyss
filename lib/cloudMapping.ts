@@ -308,6 +308,41 @@ export function taskToLocal(row: Row): Row {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Milestones                                                                 */
+/* -------------------------------------------------------------------------- */
+
+export function milestoneToRemote(row: Row, userId: string): Row {
+    return {
+        id: row.id,
+        user_id: userId,
+        goal_id: isUuid(row.goal_id) ? row.goal_id : null,
+        title: String(row.title ?? '').slice(0, 200),
+        due_date: dateOnly(row.due_date),
+        done_at: row.done_at ?? null,
+        position: Number.isFinite(Number(row.position)) ? Math.round(Number(row.position)) : 0,
+        created_at: row.created_at ?? null,
+        updated_at: row.updated_at ?? null,
+        deleted_at: deletedAt(row),
+    };
+}
+
+export function milestoneToLocal(row: Row): Row {
+    return {
+        id: row.id,
+        user_id: row.user_id,
+        goal_id: row.goal_id,
+        title: row.title,
+        due_date: dateOnly(row.due_date),
+        done_at: row.done_at ?? null,
+        position: row.position ?? 0,
+        created_at: row.created_at ?? new Date().toISOString(),
+        updated_at: row.updated_at ?? new Date().toISOString(),
+        deleted: row.deleted_at ? 1 : 0,
+        synced: 1,
+    };
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Upload order                                                               */
 /* -------------------------------------------------------------------------- */
 
