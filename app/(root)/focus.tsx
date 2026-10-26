@@ -18,28 +18,21 @@ import { useClockStyle } from '@/hooks/useClockStyle';
 import { useTasks } from '@/hooks/useTasks';
 import { getHabits, type Habit } from '@/lib/habitsSQLite';
 import { styles } from '@/styles/screens/focus.styles';
-import { Spacing } from '@/theme/designSystem';
-
-type Mode = 'timer' | 'stopwatch';
-const DEFAULT_SECONDS = 25 * 60;
 
 /**
- * Focus mode, for any habit or task.
- *
- * A habit with a time is done by focusing on it: the timer starts at what is
- * left. Anything else can be focused on too, with a timer you set or a
- * stopwatch that runs until you are finished. Full screen and pure black,
- * awake while it runs, on its side if you turn the phone, with app blocking
- * on (where Screen Time is set up).
+ * Focus mode, for any habit or task. It starts the moment it opens, nothing
+ * to choose: a timer for as long as the thing lasts, counted from when it
+ * begins on today's timeline (a 5:00–5:30 task opened at 5:10 has 20 minutes
+ * left). When the time is up it carries on as a stopwatch, counting the whole
+ * time since it began (at 6:00 that task shows 1:00:00), until it is done.
+ * Full screen and pure black, awake while it runs, with app blocking on
+ * (where Screen Time is set up).
  *
  * While it runs there is nothing on screen but the clock and a faint ×. Tap
  * anywhere to pause or carry on, like a video. A long press (or the ×) grows
  * the × into a small window: Finished saves the time and counts the habit or
- * task as done; Exit leaves without saving anything. A timer that runs out counts as Finished too.
- *
- * Something with no set length (a task you cannot size) starts on the
- * stopwatch. Once it is finished, the next thing in the day is offered right
- * there: one tap and you are focusing on it, no waiting for its slot.
+ * task as done; Exit leaves without saving anything. Done · Next does the
+ * same as Finished and moves on to the next thing in the day.
  */
 export default function FocusRoute() {
     const { id, kind, day, end, title, from, until, nextKind } = useLocalSearchParams<{
@@ -64,7 +57,7 @@ function FocusDayStart() {
 }
 
 function FocusScreen() {
-    const { kind, id, title, banked: bankedParam, start: autoStart, day: dayParam } = useLocalSearchParams<{ kind?: string; id?: string; title?: string; banked?: string; start?: string; day?: string }>();
+    const { kind, id, title, banked: bankedParam, day: dayParam } = useLocalSearchParams<{ kind?: string; id?: string; title?: string; banked?: string; start?: string; day?: string }>();
     // Every focus follows the day: when this one is done (its time up, or
     // Next pressed here or on the watch), the next thing starts by itself.
     void dayParam;
@@ -91,7 +84,6 @@ function FocusScreen() {
     // length if today's timeline cut it short), less what is already done.
     const plan = useFocusPlan(id, { habit, task }, Number(bankedParam) || 0);
     const timesRead = plan.ready && (isTask ? !!task : !!habit);
-    const planned = plan.seconds ?? DEFAULT_SECONDS;
 
     const mine = focus.activeHabitId === id;
     const active = mine && (focus.isRunning || focus.isPaused);
@@ -131,24 +123,27 @@ function FocusScreen() {
     useEffect(() => { if (focus.isRunning && mine) wake(); return () => { if (idle.current) clearTimeout(idle.current); }; }, [focus.isRunning, mine]); // eslint-disable-line react-hooks/exhaustive-deps
     const chromeStyle = useAnimatedStyle(() => ({ opacity: chrome.value }));
 
-    /** Starts straight away: the timer at its planned length, or the stopwatch. */
-    const start = (mode: Mode = plan.seconds === null ? 'stopwatch' : 'timer') => {
+    /**
+     * Starts straight away: a timer for its length, counted from when it began
+     * on the timeline (if it has); already past that, the stopwatch. Nothing
+     * to time it by at all: the stopwatch from now.
+     */
+    const start = () => {
         if (!id) return;
         if ((focus.isRunning || focus.isPaused) && !mine) {
             Alert.alert('Another focus is running', `Finish “${focus.activeHabitName ?? 'it'}” first.`);
+            close();
             return;
         }
         mediumFeedback();
-        // Fixed length: always the timer, never the stopwatch; nothing to go on: the stopwatch.
-        const stopwatch = mode === 'stopwatch' && !plan.fixed;
-        focus.startTimer(id, title ?? habit?.name ?? task?.title ?? 'Focus', stopwatch ? 3600 * 12 : planned, stopwatch ? 'flow' : 'deep_focus');
+        const name = title ?? habit?.name ?? task?.title ?? 'Focus';
+        if (plan.seconds === null) focus.startTimer(id, name, 3600 * 12, 'flow');
+        else focus.startTimer(id, name, plan.seconds, 'deep_focus', plan.since ?? undefined);
     };
-    // Chained from the last focus: straight in, no setup screen.
     const started = useRef(false);
     useEffect(() => {
-        // Chained, or a fixed length (nothing to choose): straight in.
-        if ((autoStart !== '1' && !plan.fixed) || started.current || active || !id) return;
-        if (!timesRead) return; // wait for the item and today's timeline, in case it was cut short
+        if (started.current || active || !id) return;
+        if (!timesRead) return; // wait for the item and today's timeline
         started.current = true;
         start();
     });
@@ -212,25 +207,11 @@ function FocusScreen() {
             ) : active ? (
                 <View style={styles.center}>
                     <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary}
-                        label={focus.isPaused ? 'Paused · tap to carry on' : undefined} />
+                        label={focus.isPaused ? 'Paused · tap to carry on' : stopwatch && focus.totalDuration < 3600 * 12 ? 'Over time' : undefined} />
                     {/* Done with it: count it and go to the next thing in the day. */}
                     <View style={styles.next}>
                         <AppButton label="Done · Next" icon="arrow-forward" onPress={nextNow} />
                     </View>
-                </View>
-            ) : (
-                // Nothing to read, nothing to set: what it is, and two ways in.
-                <View style={styles.setup}>
-                    <Text style={styles.setupTitle}>{name}</Text>
-                    <View style={styles.modes}>
-                        <AppButton label="Timer" icon="timer" onPress={() => start('timer')} style={styles.mode} />
-                        <AppButton label="Stopwatch" icon="stopwatch" onPress={() => start('stopwatch')} style={styles.mode} />
-                    </View>
-                </View>
-            )}
-            {!active && !finished ? (
-                <View style={[styles.statsCorner, { bottom: insets.bottom + Spacing.lg }]}>
-                    <IconButton icon="stats-chart" label="Your focus time" onPress={() => router.push('/(root)/focus-stats')} diameter={44} size={18} color="#FFFFFF" />
                 </View>
             ) : null}
         </Pressable>

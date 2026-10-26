@@ -60,7 +60,12 @@ interface FocusTimeContextType {
     totalSessionsThisWeek: number;
 
     // Actions
-    startTimer: (habitId: string, habitName: string, durationSeconds: number, mode?: FocusMode) => boolean;
+    /**
+     * `since` (ms) anchors the clock to when the thing began on the timeline:
+     * a 5:00–5:30 task opened at 5:10 has 20 minutes left, and opened at 6:00
+     * it is already over time, so it starts as a stopwatch at 1:00:00.
+     */
+    startTimer: (habitId: string, habitName: string, durationSeconds: number, mode?: FocusMode, since?: number) => boolean;
     pauseTimer: () => void;
     resumeTimer: () => void;
     stopTimer: () => void;
@@ -205,7 +210,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         pushFocusToWatch({
             id: activeHabitId, title: activeHabitName ?? 'Focus', stopwatch, paused: isPaused,
             left: timeLeftRef.current, endsAt: isPaused || stopwatch ? 0 : Date.now() + timeLeftRef.current * 1000,
-            startedAt: Date.now() - Math.max(0, totalRef.current - timeLeftRef.current) * 1000,
+            startedAt: Date.now() - (stopwatch ? (currentSessionRef.current?.actualDuration ?? 0) * 1000 + (focusStartRef.current ? Date.now() - focusStartRef.current : 0) : Math.max(0, totalRef.current - timeLeftRef.current) * 1000),
         });
     }, [isRunning, isPaused, activeHabitId, activeHabitName, activeMode]);
 
@@ -531,9 +536,10 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     const remaining = Math.ceil((endTimeRef.current - now) / 1000);
 
                     if (remaining <= 0) {
-                        setTimeLeft(0);
+                        // Over time: the timer becomes a stopwatch counting the
+                        // whole time since it began, until it is ticked.
                         if (intervalRef.current) clearInterval(intervalRef.current);
-                        handleTimerComplete();
+                        goOverTime();
                     } else {
                         setTimeLeft(remaining);
                     }
@@ -553,50 +559,25 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         };
     }, [isRunning, isPaused, activeMode]);
 
-    // ============================================
-    // Timer complete handler
-    // ============================================
-    const handleTimerComplete = useCallback(() => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-
+    /** The countdown reached zero: carry on as a stopwatch, nothing saved or ticked yet. */
+    const goOverTime = useCallback(() => {
         const session = currentSessionRef.current;
-        const duration = session?.plannedDuration || totalDuration;
-
-        // Update stats with COMPLETED = true
-        updateStats(duration, true);
-
-        // Save session to DB
-        if (session) {
-            session.endedAt = new Date();
-            session.actualDuration = duration;
-            session.completed = true;
-            saveFocusSession(session);
-        }
-
-        // Disable Screen Time Shield
-        ScreenTimeService.setShieldEnabled(false);
-
-        // Reset state
-        setIsRunning(false);
-        setIsPaused(false);
-        setActiveHabitId(null);
-        setActiveHabitName(null);
-        setTimeLeft(0);
+        if (!session) return;
+        const now = Date.now();
+        const elapsed = session.actualDuration + (focusStartRef.current ? Math.floor((now - focusStartRef.current) / 1000) : 0);
         endTimeRef.current = null;
-        focusStartRef.current = null;
-        currentSessionRef.current = null;
-        hasShownBlockingSetupPromptRef.current = false;
-        persistActive(null);
-
-        // End Live Activity - Handled by _layout.tsx
-        // Actually, we should handle it here to be safe and immediate
+        setActiveMode('flow');
+        setTimeLeft(elapsed);
+        session.mode = 'flow';
+        persistActive({
+            habitId: session.habitId, habitName: session.habitName, mode: 'flow', totalDuration: session.plannedDuration, paused: false,
+            endTime: null, focusStart: focusStartRef.current, timeLeft: elapsed,
+            startedAt: session.startedAt.toISOString(), actualDuration: session.actualDuration,
+        });
+        Vibration.vibrate([0, 300, 150, 300]);
         const { LiveActivityService } = require('@/lib/liveActivityService');
-        LiveActivityService.stopActivity();
-
-        // Haptic + Notification
-        Vibration.vibrate([0, 500, 200, 500]);
-        NotificationService.sendCompletionNotification(session?.habitName || 'Focus Session');
-    }, [totalDuration, updateStats, saveFocusSession, persistActive]);
+        LiveActivityService.updateProgress({ completed: 0, total: 0, activeHabitName: `${session.habitName} · over time`, targetDate: undefined });
+    }, [persistActive]);
 
     // ============================================
     // Restore the session a relaunch interrupted
@@ -635,46 +616,43 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // ============================================
     // Start Timer
     // ============================================
-    const startTimer = useCallback((habitId: string, habitName: string, durationSeconds: number, mode: FocusMode = 'pomodoro'): boolean => {
+    const startTimer = useCallback((habitId: string, habitName: string, durationSeconds: number, requested: FocusMode = 'pomodoro', since?: number): boolean => {
         if (isRunning || isPaused) return false;
+
+        // Begun earlier on the timeline: the clock counts from then. Already
+        // past its length: straight onto the stopwatch (lib/focusLength.ts).
+        const { focusClock } = require('@/lib/focusLength') as typeof import('@/lib/focusLength');
+        const clockNow = focusClock(requested === 'flow' ? Infinity : durationSeconds, since, Date.now());
+        const { began } = clockNow;
+        const mode: FocusMode = requested === 'flow' || clockNow.stopwatch ? 'flow' : requested;
+        const elapsed = Math.floor((Date.now() - began) / 1000);
 
         setActiveHabitId(habitId);
         setActiveHabitName(habitName);
         setActiveMode(mode);
-
-        // For flow mode, start at 0
-        if (mode === 'flow') {
-            setTimeLeft(0);
-        } else {
-            setTimeLeft(durationSeconds);
-        }
-
+        setTimeLeft(mode === 'flow' ? elapsed : clockNow.seconds);
         setTotalDuration(durationSeconds);
         setIsRunning(true);
         setIsPaused(false);
 
-        const now = Date.now();
-        focusStartRef.current = now;
-
-        if (mode !== 'flow') {
-            endTimeRef.current = now + (durationSeconds * 1000);
-        }
+        focusStartRef.current = began;
+        endTimeRef.current = mode !== 'flow' ? began + durationSeconds * 1000 : null;
 
         // Create session record
         currentSessionRef.current = {
             habitId,
             habitName,
             mode,
-            startedAt: new Date(now),
+            startedAt: new Date(began),
             plannedDuration: durationSeconds,
             actualDuration: 0,
             completed: false,
         };
         persistActive({
             habitId, habitName, mode, totalDuration: durationSeconds, paused: false,
-            endTime: endTimeRef.current, focusStart: now,
-            timeLeft: mode === 'flow' ? 0 : durationSeconds,
-            startedAt: new Date(now).toISOString(), actualDuration: 0,
+            endTime: endTimeRef.current, focusStart: began,
+            timeLeft: mode === 'flow' ? elapsed : durationSeconds - elapsed,
+            startedAt: new Date(began).toISOString(), actualDuration: 0,
         });
 
         // Block the chosen apps: asks for Screen Time access and opens the
@@ -694,7 +672,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             completed: 0, // In Focus Mode, we might not have access to total habits easily here, or we can pass it
             total: 0,
             activeHabitName: habitName,
-            targetDate: endTimeRef.current || (Date.now() + durationSeconds * 1000),
+            targetDate: endTimeRef.current ?? undefined,
             // We could pass current habit ID to show icon if needed
         });
 

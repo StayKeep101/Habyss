@@ -8,9 +8,10 @@ type Slot = { start: number; end: number; cutFrom?: number } | null;
 /**
  * The focus length for a habit or task today (lib/focusLength.ts), with
  * today's timeline read once so a cut-short one gets its cut length.
- * `ready` is false until the timeline has been read.
+ * `ready` is false until the timeline has been read; `since` is when it
+ * begins on today's timeline (ms), so the clock can count from then.
  */
-export function useFocusPlan(id: string | undefined, item: { habit?: Habit | null; task?: Task | null }, banked = 0): FocusPlan & { ready: boolean } {
+export function useFocusPlan(id: string | undefined, item: { habit?: Habit | null; task?: Task | null }, banked = 0): FocusPlan & { ready: boolean; since: number | null } {
     const [slot, setSlot] = useState<Slot>(null);
     const [ready, setReady] = useState(false);
     useEffect(() => {
@@ -22,5 +23,9 @@ export function useFocusPlan(id: string | undefined, item: { habit?: Habit | nul
             .finally(() => { if (alive) setReady(true); });
         return () => { alive = false; };
     }, [id]);
-    return useMemo(() => ({ ...focusPlan({ habit: item.habit, task: item.task, slot, banked }), ready }), [item.habit, item.task, slot, banked, ready]);
+    return useMemo(() => {
+        const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+        const since = slot ? midnight.getTime() + slot.start * 60000 : null;
+        return { ...focusPlan({ habit: item.habit, task: item.task, slot, banked }), ready, since };
+    }, [item.habit, item.task, slot, banked, ready]);
 }
