@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 18;
+const SCHEMA_VERSION = 19;
 
 let dbInstance: any = null;
 /**
@@ -130,6 +130,7 @@ async function runMigrations(db: any): Promise<void> {
         [16, migrateToV16],
         [17, migrateToV17],
         [18, migrateToV18],
+        [19, migrateToV19],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -147,6 +148,18 @@ async function runMigrations(db: any): Promise<void> {
             await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
         });
     }
+}
+
+/**
+ * Migration to version 19 — a task's steps.
+ *
+ * "Write, edit and publish the blog post" is one task with three steps,
+ * ticked one by one. Kept as JSON on the task ([{ id, title, done }]), backed
+ * up with it; null on older rows, which is a task with no steps.
+ */
+async function migrateToV19(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'tasks', 'subtasks', 'TEXT');
+    console.log('[Database] Migrated to schema v19');
 }
 
 /**

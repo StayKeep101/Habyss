@@ -186,7 +186,20 @@ export function findPriority(text: string): { priority: 1 | 2 | 3; phrase: strin
 }
 
 /** "from 2 to 4pm", "2-3:30pm", "9am to 11am": a start and a length. */
-export function findTimeRange(text: string): { start: string; minutes: number; phrase: string } | null {
+export function findTimeRange(input: string): { start: string; minutes: number; phrase: string } | null {
+    // "between noon and 5 PM": noon and midnight as clock times, "between…and" as a range.
+    const words: Record<string, string> = { noon: '12pm', midday: '12pm', midnight: '11:59pm' };
+    const spoken = input.replace(/\b(noon|midday|midnight)\b/gi, word => words[word.toLowerCase()]);
+    const between = spoken.match(/\bbetween\s+(\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm)?)\s+and\s+(\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm)?)\b/i);
+    const text = between ? spoken.replace(between[0], `from ${between[1]} to ${between[2]}`) : spoken;
+    const found = findRange(text);
+    if (!found) return null;
+    // The words to take out are the ones that were written.
+    const phrase = between ? input.match(/\bbetween\s+\S+(?:\s*(?:am|pm))?\s+and\s+\S+(?:\s*(?:am|pm))?/i)?.[0] ?? found.phrase : found.phrase;
+    return { ...found, phrase };
+}
+
+function findRange(text: string): { start: string; minutes: number; phrase: string } | null {
     const match = text.match(/\b(?:from\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?\s*(?:-|–|to|till|until)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)\b/i)
         ?? text.match(/\bfrom\s+(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?\s*(?:-|–|to|till|until)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?\b/i);
     if (!match) return null;

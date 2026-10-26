@@ -52,6 +52,8 @@ export interface Task {
     milestoneId?: string;
     /** 1 easy, 2 medium, 3 hard: the timeline puts hard things in your best hours. Kept on this phone. */
     difficulty?: TaskDifficulty;
+    /** The steps it is made of, ticked one by one ("Write", "Edit", "Publish"). */
+    subtasks?: Subtask[];
     /**
      * "YYYY-MM-DD": when it must be done by, when that is later than its day
      * (`dueDate`, the day you plan to do it). Kept on this phone.
@@ -61,6 +63,23 @@ export interface Task {
     flexible?: boolean;
     createdAt: string;
     updatedAt: string;
+}
+
+/** One step of a task. */
+export interface Subtask { id: string; title: string; done: boolean }
+
+/** Steps as stored (JSON text), read defensively: a bad value is no steps. */
+export function parseSubtasks(raw: unknown): Subtask[] | undefined {
+    try {
+        const value = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!Array.isArray(value)) return undefined;
+        const steps = value
+            .filter(item => item && typeof item.title === 'string' && item.title.trim())
+            .map(item => ({ id: String(item.id ?? item.title), title: String(item.title).slice(0, 200), done: !!item.done }));
+        return steps.length ? steps : undefined;
+    } catch {
+        return undefined;
+    }
 }
 
 export interface TaskInput {
@@ -81,6 +100,7 @@ export interface TaskInput {
     difficulty?: TaskDifficulty;
     deadline?: string;
     flexible?: boolean;
+    subtasks?: Subtask[];
 }
 
 const rowToTask = (row: any): Task => ({
@@ -104,6 +124,7 @@ const rowToTask = (row: any): Task => ({
     difficulty: row.difficulty === 1 || row.difficulty === 2 || row.difficulty === 3 ? row.difficulty : undefined,
     deadline: typeof row.deadline === 'string' && row.deadline ? row.deadline : undefined,
     flexible: row.flexible === 0 ? false : row.flexible === 1 ? true : undefined,
+    subtasks: parseSubtasks(row.subtasks),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
 });
@@ -145,7 +166,7 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
         ['dueTime', 'due_time'], ['estimatedMinutes', 'estimated_minutes'],
         ['priority', 'priority'], ['goalId', 'goal_id'], ['source', 'source'],
         ['measure', 'measure'], ['target', 'target'], ['unit', 'unit'], ['milestoneId', 'milestone_id'],
-        ['difficulty', 'difficulty'], ['deadline', 'deadline'], ['flexible', 'flexible'],
+        ['difficulty', 'difficulty'], ['deadline', 'deadline'], ['flexible', 'flexible'], ['subtasks', 'subtasks'],
     ];
     const updates = importedColumns.filter(([key]) => Object.prototype.hasOwnProperty.call(input, key))
         .map(([, column]) => `${column} = excluded.${column}`);
@@ -155,15 +176,16 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
     await db.runAsync(
         `INSERT INTO tasks (
             id, user_id, title, description, due_date, due_time, estimated_minutes,
-            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id, difficulty, deadline, flexible,
+            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id, difficulty, deadline, flexible, subtasks,
             created_at, updated_at, deleted, synced
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
         id, uid, title, input.description ?? null, input.dueDate ?? null, input.dueTime ?? null,
         input.estimatedMinutes ?? null, input.priority ?? 2, input.goalId ?? null,
         input.source ?? 'app', input.externalId ?? null,
         input.measure && input.measure !== 'done' ? input.measure : null,
         input.measure && input.measure !== 'done' ? input.target ?? null : null,
-        input.unit?.trim() || null, input.milestoneId ?? null, input.difficulty ?? null, input.deadline ?? null, input.flexible === undefined ? null : input.flexible ? 1 : 0, now, now,
+        input.unit?.trim() || null, input.milestoneId ?? null, input.difficulty ?? null, input.deadline ?? null, input.flexible === undefined ? null : input.flexible ? 1 : 0,
+        input.subtasks?.length ? JSON.stringify(input.subtasks) : null, now, now,
     );
 
     const row = input.externalId
@@ -186,7 +208,7 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
         estimatedMinutes: 'estimated_minutes', priority: 'priority', goalId: 'goal_id',
         source: 'source', externalId: 'external_id',
         measure: 'measure', target: 'target', unit: 'unit', amount: 'amount', milestoneId: 'milestone_id',
-        difficulty: 'difficulty', deadline: 'deadline', flexible: 'flexible',
+        difficulty: 'difficulty', deadline: 'deadline', flexible: 'flexible', subtasks: 'subtasks',
     };
 
     const sets: string[] = [];
@@ -194,7 +216,9 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
     for (const [key, column] of Object.entries(columns) as [keyof TaskInput, string][]) {
         if (!Object.prototype.hasOwnProperty.call(patch, key)) continue;
         const raw = patch[key] ?? null;
-        const value = typeof raw === 'boolean' ? (raw ? 1 : 0) : raw;
+        const value = key === 'subtasks'
+            ? (Array.isArray(raw) && raw.length ? JSON.stringify(raw) : null)
+            : typeof raw === 'boolean' ? (raw ? 1 : 0) : raw;
         // Clearing a due date or notes must stick; clearing the title cannot.
         if (value === null && REQUIRED.includes(key)) continue;
         sets.push(`${column} = ?`);

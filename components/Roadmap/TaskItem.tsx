@@ -242,6 +242,13 @@ const TaskItemComponent: React.FC<Props> = ({
                             {amountLabel ? (
                                 <Text style={[styles.meta, { color: done ? colors.textTertiary : TASK_COLOR, fontVariant: ['tabular-nums'] }]}>{amountLabel}</Text>
                             ) : null}
+                            {/* Its steps: how many are done. */}
+                            {task.subtasks?.length ? (
+                                <Text accessibilityLabel={`${task.subtasks.filter(step => step.done).length} of ${task.subtasks.length} steps done`}
+                                    style={[styles.meta, { color: colors.textTertiary, fontVariant: ['tabular-nums'] }]}>
+                                    {`${task.subtasks.filter(step => step.done).length}/${task.subtasks.length} steps`}
+                                </Text>
+                            ) : null}
                             {shared ? (
                                 <SharedFaces people={shared.people} tint={TASK_COLOR} size={isSmall ? 20 : 24} />
                             ) : goalName && !isSmall ? (

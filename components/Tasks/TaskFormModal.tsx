@@ -24,7 +24,8 @@ import { useSmartParse } from '@/hooks/useSmartParse';
 import { smartParseTask } from '@/lib/smartParse';
 import { describeParsedTask, parseTaskText } from '@/lib/taskParser';
 import { DIFFICULTIES, difficultyLabel, type Difficulty } from '@/lib/difficulty';
-import { createTask, updateTask, type Task, type TaskMeasure, type TaskPriority } from '@/lib/tasks';
+import { createTask, updateTask, type Subtask, type Task, type TaskMeasure, type TaskPriority } from '@/lib/tasks';
+import { SubtaskEditor } from '@/components/Tasks/SubtaskEditor';
 import { localDateKey } from '@/lib/habitSchedule';
 import { getGoals, type Habit } from '@/lib/habitsSQLite';
 import { emit, on } from '@/lib/appEvents';
@@ -76,11 +77,14 @@ interface Draft {
     /** A count, or minutes for time. */
     target?: number;
     unit?: string;
+    /** The steps it is made of. */
+    subtasks?: Subtask[];
 }
 
 
 const fromTask = (task: Task): Draft => ({
     title: task.title,
+    subtasks: task.subtasks,
     description: task.description,
     dueDate: task.dueDate,
     deadline: task.deadline,
@@ -234,6 +238,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 priority: draft.priority,
                 difficulty: draft.difficulty,
                 goalId: draft.goalId,
+                subtasks: draft.subtasks,
             };
             if (current) await updateTask(current.id, input);
             else {
@@ -359,6 +364,12 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 />
             ),
         }] : []),
+        {
+            // "Write, edit and publish": one task, its steps ticked one by one.
+            id: 'steps', icon: 'list-outline', label: 'Steps',
+            value: draft.subtasks?.length ? `${draft.subtasks.filter(step => step.done).length}/${draft.subtasks.length}` : undefined,
+            content: <SubtaskEditor steps={draft.subtasks ?? []} onChange={subtasks => change({ subtasks })} color={accent} />,
+        },
         {
             id: 'notes', icon: 'document-text-outline', label: 'Notes',
             value: draft.description ? 'Written' : undefined,

@@ -116,3 +116,17 @@ describe('the shared phrase reader, on tasks', () => {
         expect(read('https://example.com/article read this later').title.startsWith('https://example.com/article')).toBe(true);
     });
 });
+
+describe('time windows and steps', () => {
+    it('reads "between noon and 5 PM" as a window', () => {
+        expect(parseTaskText('The package is arriving between noon and 5 PM', new Date(2026, 9, 26, 10)))
+            .toMatchObject({ title: 'The package is arriving', dueTime: '12:00', estimatedMinutes: 300 });
+    });
+    it('keeps only well-formed steps', () => {
+        const { parseSubtasks } = require('../tasks') as typeof import('../tasks');
+        expect(parseSubtasks('[{"id":"a","title":"Write","done":true},{"title":""},{"id":"c","title":"Publish"}]'))
+            .toEqual([{ id: 'a', title: 'Write', done: true }, { id: 'c', title: 'Publish', done: false }]);
+        expect(parseSubtasks('not json')).toBeUndefined();
+        expect(parseSubtasks(null)).toBeUndefined();
+    });
+});
