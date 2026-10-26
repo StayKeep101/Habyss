@@ -209,22 +209,15 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
         const held = item.id === onIt ? anchor(item) : null;
         if (item.fixed) { timed.push(item); continue; }
         if (item.done) {
-            // Done: shown where it was done, the same way every time — ending
-            // the moment it was ticked and as long as it was expected to take
-            // (its cut length, if it was cut). A 30-minute task ticked at 5:55
-            // reads 5:25–5:55, early or late, ticked here, on Home or the watch.
-            //
-            // Done before its time even came (9–11 PM sourcing ticked at noon):
-            // it stays where it was planned, ticked, and 9 PM is free of it.
+            // Ticked: it never moves. At its own set time when it has one
+            // (Morning run 8:30–9:00 stays there, ticked at 10:42 or at 7);
+            // otherwise where it was planned today; only something never
+            // placed at all goes where it was done, ending at the tick.
             const planned = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
-            const expected = Math.max(5, kept ? Math.min(planned, kept.end - kept.start) : planned);
-            const at = item.doneAt ?? (kept && now !== null && now < kept.end ? now : undefined);
-            const before = item.planned ?? (item.start !== null ? { start: item.start, end: item.start + planned } : kept);
-            let slot = kept;
-            if (at !== undefined && before && at < before.start) slot = before;
-            else if (at !== undefined) { const start = Math.max(0, at - expected); slot = { start, end: Math.max(at, start + 1) }; }
-            if (slot) timed.push({ ...item, start: slot.start, minutes: slot.end - slot.start, auto: item.auto || item.start === null || slot.start !== item.start });
-            else if (item.start !== null) timed.push(item);
+            const own = item.start !== null ? { start: item.start, end: item.start + planned } : null;
+            let slot = own ?? item.planned ?? kept;
+            if (!slot && item.doneAt !== undefined) slot = { start: Math.max(0, item.doneAt - planned), end: Math.max(item.doneAt, 1) };
+            if (slot) timed.push({ ...item, start: slot.start, minutes: Math.max(1, slot.end - slot.start), auto: item.auto || item.start === null || slot.start !== item.start });
             else untimed.push(item);
             continue;
         }

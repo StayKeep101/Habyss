@@ -12,6 +12,18 @@ import { nextStep, todayFlow } from '@/lib/todayFlow';
 /** One move at a time: the timer running out and Next pressed together must not move twice. */
 let moving = false;
 
+/**
+ * The focus page shows the next step in place: its params change and the
+ * screen redraws, with no navigation. router.replace pushed a fresh copy of
+ * the page, which iOS animates as the page closing and another opening.
+ * Every param is given, so nothing from the last step lingers.
+ */
+type FocusParams = { day?: string; end?: string; kind?: string; id?: string; title?: string; from?: string; until?: string; nextKind?: string; start?: string; banked?: string };
+export function showFocusStep(params: FocusParams): void {
+    const all: FocusParams = { day: undefined, end: undefined, kind: undefined, id: undefined, title: undefined, from: undefined, until: undefined, nextKind: undefined, start: undefined, banked: undefined, ...params };
+    router.setParams(all as never);
+}
+
 export function useFocusDay() {
     return useCallback(async (skip?: string) => {
         if (moving) return;
@@ -20,15 +32,15 @@ export function useFocusDay() {
         const now = new Date();
         const flow = await todayFlow(now).catch(() => null);
         const step = nextStep(flow, now.getHours() * 60 + now.getMinutes(), skip);
-        if (!step) { router.replace({ pathname: '/(root)/focus', params: { day: '1', end: '1' } }); return; }
+        if (!step) { showFocusStep({ day: '1', end: '1' }); return; }
         const { item, wait } = step;
         if (wait || item.kind === 'meal' || item.kind === 'event') {
-            router.replace({ pathname: '/(root)/focus', params: {
+            showFocusStep({
                 day: '1', kind: wait && item.kind !== 'meal' && item.kind !== 'event' ? 'wait' : item.kind, id: item.id, title: item.title,
                 from: String(item.start), until: String(wait && (item.kind === 'habit' || item.kind === 'task') ? item.start : item.end), nextKind: item.kind,
-            } });
+            });
             return;
         }
-        router.replace({ pathname: '/(root)/focus', params: { day: '1', kind: item.kind, id: item.id, title: item.title, start: '1' } });
+        showFocusStep({ day: '1', kind: item.kind, id: item.id, title: item.title, start: '1' });
     }, []);
 }

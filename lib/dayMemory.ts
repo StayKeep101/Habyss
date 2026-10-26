@@ -34,7 +34,7 @@ export const MOVE_MINUTES = 10;
 export const emptyMemory = (day: string): DayMemory => ({ day, slots: {}, done: {}, moved: {} });
 
 /** Today's memory, brought up to date with the flow as it is now. */
-export function remember(prev: DayMemory, day: string, flow: DayFlow, now: number): DayMemory {
+export function remember(prev: DayMemory, day: string, flow: DayFlow, _now: number): DayMemory {
     const base = prev.day === day ? prev : emptyMemory(day);
     const slots: Record<string, Slot> = {};
     const done: Record<string, true> = {};
@@ -48,13 +48,10 @@ export function remember(prev: DayMemory, day: string, flow: DayFlow, now: numbe
             delete moved[item.id];
             const plan = base.planned?.[item.id] ?? (!base.done[item.id] ? before : undefined);
             if (plan) planned[item.id] = plan;
-            if (base.done[item.id] || !before) { slots[item.id] = before ?? { start: item.start, end: item.end }; continue; }
-            // Just finished: it keeps its slot, ending when it was done. Done
-            // before its slot came, it is placed where it was really done.
-            const length = before.end - before.start;
-            slots[item.id] = before.start <= now
-                ? { start: before.start, end: Math.max(before.start + 5, Math.min(before.end, now)) }
-                : { start: Math.max(0, now - length), end: now };
+            // Ticked: it never moves. Where the timeline shows it (lib/dayFlow.ts)
+            // is where it stays; this used to move it to "now" and then the
+            // timeline put it back, so a ticked item jumped up and down.
+            slots[item.id] = { start: item.start, end: item.end };
             continue;
         }
         slots[item.id] = { start: item.start, end: item.end };

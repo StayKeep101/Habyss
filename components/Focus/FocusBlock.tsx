@@ -7,7 +7,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { FocusClock } from '@/components/Focus/FocusClock';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useClockStyle } from '@/hooks/useClockStyle';
-import { useFocusDay } from '@/hooks/useFocusDay';
+import { showFocusStep, useFocusDay } from '@/hooks/useFocusDay';
 import { useHaptics } from '@/hooks/useHaptics';
 import { clockLabel } from '@/lib/dayFlow';
 import { on } from '@/lib/appEvents';
@@ -49,14 +49,14 @@ export function FocusBlock({ kind, id, title, from, until, nextKind }: { kind: s
     useEffect(() => {
         if (moved.current || before || left > 0) return;
         moved.current = true;
-        if (waitingFor) router.replace({ pathname: '/(root)/focus', params: { day: '1', kind: nextKind ?? 'habit', id, title, start: '1' } });
+        if (waitingFor) showFocusStep({ day: '1', kind: nextKind ?? 'habit', id, title, start: '1' });
         else void proceed(id);
     }, [left, before, waitingFor, id, title, proceed, nextKind]);
     const nextRef = useRef(() => {});
     const next = () => {
         mediumFeedback();
         moved.current = true;
-        if (waitingFor) router.replace({ pathname: '/(root)/focus', params: { day: '1', kind: nextKind ?? 'habit', id, title, start: '1' } });
+        if (waitingFor) showFocusStep({ day: '1', kind: nextKind ?? 'habit', id, title, start: '1' });
         else void proceed(id);
     };
     nextRef.current = next;

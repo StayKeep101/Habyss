@@ -273,17 +273,20 @@ describe('where a done thing sits', () => {
         const sourcing = flowDay([done('sourcing', 120, { planned: { start: 1260, end: 1380 }, kept: { start: 600, end: 720 }, doneAt: 720 })], 730, window);
         expect(sourcing.timeline[0]).toMatchObject({ start: 1260, end: 1380, state: 'done' });
     });
-    it('ends when it was ticked and is as long as it was expected to take, once its time has come', () => {
-        // Started at 17:00, ticked at 17:10: still the 30 minutes it was expected to take, ending at 17:10.
+    it('never moves once ticked: its own time, else where it was planned, early or late', () => {
+        // Morning run 8:30–9:00, ticked at 10:42: still 8:30–9:00.
+        const run = flowDay([done('run', 30, { start: 510, doneAt: 642 })], 700, window);
+        expect(run.timeline[0]).toMatchObject({ start: 510, end: 540, state: 'done' });
+        // No time of its own, placed 17:00–17:30, ticked partway at 17:10: stays 17:00–17:30.
         const partway = flowDay([done('essay', 30, { kept: { start: 1020, end: 1050 }, doneAt: 1030 })], 1200, window);
-        expect(partway.timeline[0]).toMatchObject({ start: 1000, end: 1030 });
-        // Never placed at all (ticked from the list): the same rule.
+        expect(partway.timeline[0]).toMatchObject({ start: 1020, end: 1050 });
+        // Never placed at all (ticked from the list): where it was done.
         const unplaced = flowDay([done('call', 20, { doneAt: 600 })], 700, window);
         expect(unplaced.timeline[0]).toMatchObject({ start: 580, end: 600 });
     });
-    it('counts a cut one at the length it was cut to', () => {
+    it('keeps a cut one at the slot it was cut to', () => {
         const cut = flowDay([done('read', 60, { kept: { start: 1320, end: 1350 }, doneAt: 1345 })], 1360, window);
-        expect(cut.timeline[0]).toMatchObject({ start: 1315, end: 1345 });
+        expect(cut.timeline[0]).toMatchObject({ start: 1320, end: 1350 });
     });
     it('reads the time a task was finished, on the day it was finished', () => {
         const at = new Date(2026, 9, 22, 17, 55).toISOString();

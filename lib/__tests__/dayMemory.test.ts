@@ -9,17 +9,17 @@ const row = (id: string, start: number, end: number, extra: Partial<FlowItem> = 
 const flowOf = (timeline: FlowItem[], unfit: FlowItem[] = []): DayFlow => ({ timeline, anytime: [], unfit, current: null });
 
 describe('what the timeline remembers', () => {
-    it('keeps a finished thing in its slot, cut short when it was done early', () => {
+    it('keeps a ticked thing exactly where the timeline shows it, and remembers its plan', () => {
         const before = remember(emptyMemory(DAY), DAY, flowOf([row('report', 600, 660)]), 590);
-        const after = remember(before, DAY, flowOf([row('report', 480, 540, { done: true, state: 'done' })]), 620);
-        expect(after.slots.report).toEqual({ start: 600, end: 620 });
-        // Seen done again later, it stays put.
-        expect(remember(after, DAY, flowOf([row('report', 480, 540, { done: true, state: 'done' })]), 700).slots.report).toEqual({ start: 600, end: 620 });
+        const after = remember(before, DAY, flowOf([row('report', 600, 660, { done: true, state: 'done' })]), 620);
+        expect(after.slots.report).toEqual({ start: 600, end: 660 });
+        expect(after.planned?.report).toEqual({ start: 600, end: 660 });
+        expect(remember(after, DAY, flowOf([row('report', 600, 660, { done: true, state: 'done' })]), 700).slots.report).toEqual({ start: 600, end: 660 });
     });
 
-    it('done before its slot came: placed where it was really done', () => {
+    it('done before its slot came: it does not move up to now', () => {
         const before = remember(emptyMemory(DAY), DAY, flowOf([row('call', 900, 930)]), 600);
-        expect(remember(before, DAY, flowOf([row('call', 900, 930, { done: true })]), 610).slots.call).toEqual({ start: 580, end: 610 });
+        expect(remember(before, DAY, flowOf([row('call', 900, 930, { done: true })]), 610).slots.call).toEqual({ start: 900, end: 930 });
     });
 
     it('dots what moved until it is opened, and starts each day afresh', () => {
