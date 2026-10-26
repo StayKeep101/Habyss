@@ -118,9 +118,6 @@ export const styles = StyleSheet.create({
   goalTarget: Typography.caption,
   /** Where every tab (Today, Stats, Roadmap) starts under the description. */
   tabBody: { marginTop: Spacing.xl },
-  todayBody: { paddingHorizontal: Spacing.xl },
-  paceGap: { marginBottom: Spacing.md },
-  milestonesGap: { marginBottom: Spacing.section },
   daysTag: {
     marginLeft: 8,
     paddingHorizontal: 8,
@@ -193,9 +190,6 @@ export const styles = StyleSheet.create({
   todayDate: { fontSize: 13, fontFamily: FontFamily.regular, marginTop: 2 },
   todayCount: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   todayCountText: { fontSize: 12, fontFamily: FontFamily.semibold },
-  restDay: { alignItems: 'center', paddingVertical: 26, gap: 6 },
-  restTitle: { fontSize: 16, fontFamily: FontFamily.semibold },
-  restBody: { fontSize: 13, lineHeight: 19, fontFamily: FontFamily.regular, textAlign: 'center', paddingHorizontal: 12 },
   addRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   addPill: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 999, borderWidth: 1, borderStyle: 'dashed' },
   addText: { fontSize: 13, fontFamily: FontFamily.medium },
@@ -205,10 +199,6 @@ export const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
   },
   swapped: { paddingBottom: 8 },
-  mainPanel: {
-    padding: Spacing.xl,
-    borderRadius: 26,
-  },
   addBtn: {
     width: 32, height: 32,
     borderRadius: 16,

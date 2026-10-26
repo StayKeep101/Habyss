@@ -4,14 +4,13 @@ import { GoalSheet } from '@/components/Create/GoalSheet';
 import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
 import { BottomFade } from '@/components/ui/BottomFade';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Alert, Dimensions, Image, ImageBackground, Platform, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Dimensions, Image, ImageBackground, Platform, StatusBar } from 'react-native';
 import { MorphMenu, type MorphMenuItem } from '@/components/ui/MorphMenu';
 import { IconButton } from '@/components/ui/IconButton';
-import { CountUp, ListItem } from '@/components/ui/Motion';
+import { CountUp } from '@/components/ui/Motion';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
@@ -20,20 +19,16 @@ import { HalfCircleProgress } from '@/components/ui/HalfCircleProgress';
 import { PanelCap } from '@/components/Goal/PanelCap';
 import { Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, toggleCompletion } from '@/lib/habitsSQLite';
 import { cachedCover, resolveCover, setGoalCover } from '@/lib/goalCover';
-import { DeviceEventEmitter } from 'react-native';
 import { ShareGoalModal } from '@/components/Social/ShareGoalModal';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
-import { GoalHabitRow, SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
 import { SectionTitle } from '@/components/ui/SectionTitle';
-import { GoalMilestones } from '@/components/Goal/GoalMilestones';
+import { GoalPlanBoard } from '@/components/Goal/GoalPlanBoard';
 import { MilestoneSheet } from '@/components/Goal/MilestoneSheet';
 import { useMilestones } from '@/hooks/useMilestones';
 import { addMilestones, splitIntoMilestones, updateMilestone, type Milestone } from '@/lib/goalMilestones';
 import { GoalStatsView } from '@/components/Goal/GoalStatsView';
-import { GoalPlanView } from '@/components/Goal/GoalPlanView';
 import { GoalPace } from '@/components/Goal/GoalPace';
-import { dateAt, friendlyDate } from '@/lib/goalInsights';
-import { TaskItem } from '@/components/Roadmap/TaskItem';
+import { dateAt } from '@/lib/goalInsights';
 import { setTaskStatus, deleteTask, type Task } from '@/lib/tasks';
 
 import { useHaptics } from '@/hooks/useHaptics';
@@ -43,7 +38,6 @@ import Animated, {
     useSharedValue,
     useAnimatedStyle, FadeIn,
 } from 'react-native-reanimated';
-import { VoidCard } from '@/components/ui/VoidCard';
 import { emit } from '@/lib/appEvents';
 import { styles } from '@/styles/screens/goal-detail.styles';
 
@@ -154,7 +148,7 @@ const GoalDetail = () => {
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   // A new habit made from this page belongs to this goal.
   const [addingHabit, setAddingHabit] = useState(false);
-  const [view, setView] = useState<'today' | 'stats' | 'plan'>('today');
+  const [view, setView] = useState<'plan' | 'stats'>('plan');
   // The checkpoints between today and the goal's end (lib/goalMilestones.ts).
   const milestones = useMilestones(goal?.id);
   const [milestoneSheet, setMilestoneSheet] = useState<{ milestone: Milestone | null } | null>(null);
@@ -215,25 +209,6 @@ const GoalDetail = () => {
   }, [goalId]);
 
   const progress = insights?.progress ?? 0;
-
-  // What this goal asks of today: habits scheduled today, tasks due today
-  // (kept after ticking, so the list does not jump), and anything overdue.
-  const todayHabits = useMemo(
-    () => (insights?.habits ?? []).filter(summary => summary.scheduledToday || summary.doneToday),
-    [insights],
-  );
-  const todayTasks = useMemo(
-    () => (insights ? [
-      ...insights.tasks.upcoming.filter(task => task.dueDate === today),
-      ...insights.tasks.completed.filter(task => task.dueDate === today),
-    ] : []),
-    [insights, today],
-  );
-  const overdueTasks = insights?.tasks.overdue ?? [];
-  const todayTotal = todayHabits.length + todayTasks.length;
-  const todayDone = todayHabits.filter(summary => summary.doneToday).length
-    + todayTasks.filter(task => task.status === 'done').length;
-  const nextUp = insights?.upNext.find(item => item.date > today) ?? null;
 
   const scrollHandler = useAnimatedScrollHandler(event => {
     scrollY.value = event.contentOffset.y;
@@ -312,7 +287,7 @@ const GoalDetail = () => {
    * another one: Today, the numbers, or the whole plan. Tapping the button
    * you are already on brings Today back.
    */
-  const showView = (next: 'today' | 'stats' | 'plan') => {
+  const showView = (next: 'plan' | 'stats') => {
     lightFeedback();
     setView(next);
   };
@@ -509,84 +484,26 @@ const GoalDetail = () => {
           {/* Today, Stats and Roadmap all start the same distance under the
               description, each with the same heading, so switching between
               them moves nothing but the content. */}
-          {view !== 'today' ? (
-            <Animated.View key={view} entering={FadeIn.duration(220)} style={[styles.tabBody, styles.swapped]}>
-              {view === 'stats'
-                ? <GoalStatsView goalId={goal.id} embedded />
-                : <GoalPlanView goalId={goal.id} embedded readOnly={isSharedGoal} />}
-            </Animated.View>
-          ) : (
-          /* Today: only what this goal asks of the user today. The numbers and
-             the whole plan replace it in place, from the tabs above. Building
-             the plan happens on the roadmap, not here. */
-          <Animated.View key="today" entering={FadeIn.duration(220)} style={[styles.tabBody, styles.todayBody]}>
-          {milestones.length > 0 ? (
-            <View style={styles.milestonesGap}>
-              <GoalMilestones milestones={milestones} color={goal.color || accentColor} today={today}
-                onToggle={isSharedGoal ? () => undefined : toggleMilestone}
-                onOpen={milestone => { if (!isSharedGoal) setMilestoneSheet({ milestone }); }} />
-            </View>
-          ) : null}
-          <SectionTitle first={milestones.length === 0} right={todayTotal > 0 ? <ValuePill value={`${todayDone}/${todayTotal}`} /> : undefined}>Today</SectionTitle>
-          {insights && insights.measure.total > 0 ? (
-            <View style={styles.paceGap}>
-              <GoalPace measure={insights.measure} color={goal.color || accentColor} />
-            </View>
-          ) : null}
-          <VoidCard glass style={[styles.mainPanel]}>
-
-            {overdueTasks.length > 0 ? (
-              <>
-                <SectionLabel first tone={colors.error}>Overdue</SectionLabel>
-                {overdueTasks.map(task => (
-                  <ListItem key={task.id}><TaskItem key={task.id} task={task} today={today} onToggle={toggleTask} onPress={() => openTask(task)} onEdit={() => openTask(task)} onDelete={removeTask} /></ListItem>
-                ))}
-              </>
+          {/* Plan (a day, a week, a month or all of it) and Stats start the
+              same distance under the description, so switching moves only
+              the content. */}
+          <Animated.View key={view} entering={FadeIn.duration(220)} style={[styles.tabBody, styles.swapped]}>
+            {view === 'stats' ? <GoalStatsView goalId={goal.id} embedded /> : insights ? (
+              <GoalPlanBoard
+                goalId={goal.id} insights={insights} milestones={milestones} today={today}
+                color={goal.color || accentColor} readOnly={isSharedGoal}
+                pace={insights.measure.total > 0 ? <GoalPace measure={insights.measure} color={goal.color || accentColor} /> : undefined}
+                onToggleTask={task => void toggleTask(task)}
+                onOpenTask={openTask}
+                onRemoveTask={removeTask}
+                onToggleHabit={handleHabitPress}
+                onOpenHabit={habit => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
+                onEditHabit={habit => setEditingHabit(habit)}
+                onToggleMilestone={toggleMilestone}
+                onOpenMilestone={milestone => setMilestoneSheet({ milestone })}
+              />
             ) : null}
-
-            {todayHabits.length > 0 ? (
-              <>
-                <SectionLabel first={overdueTasks.length === 0}>Habits</SectionLabel>
-                {todayHabits.map(summary => (
-                  <GoalHabitRow
-                    key={summary.habit.id}
-                    summary={summary}
-                    color={goal.color || accentColor}
-                    detail={summary.streak > 1 ? `${summary.schedule} · ${summary.streak} in a row` : summary.schedule}
-                    onToggle={() => handleHabitPress(summary.habit)}
-                    onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: summary.habit.id } })}
-                    onLongPress={() => setEditingHabit(summary.habit)}
-                  />
-                ))}
-              </>
-            ) : null}
-
-            {todayTasks.length > 0 ? (
-              <>
-                <SectionLabel first={overdueTasks.length === 0 && todayHabits.length === 0}>Tasks</SectionLabel>
-                {todayTasks.map(task => (
-                  <ListItem key={task.id}><TaskItem key={task.id} task={task} today={today} onToggle={toggleTask} onPress={() => openTask(task)} onEdit={() => openTask(task)} onDelete={removeTask} /></ListItem>
-                ))}
-              </>
-            ) : null}
-
-            {todayTotal === 0 && overdueTasks.length === 0 ? (
-              <View style={styles.restDay}>
-                <Ionicons name={insights?.status === 'empty' ? 'map-outline' : 'moon-outline'} size={26} color={colors.textTertiary} />
-                <Text style={[styles.restTitle, { color: colors.textPrimary }]}>
-                  {insights?.status === 'empty' ? 'No plan yet' : 'Nothing due today'}
-                </Text>
-                {insights?.status !== 'empty' && nextUp ? (
-                  <Text style={[styles.restBody, { color: colors.textTertiary }]}>
-                    {`Next: ${nextUp.title}, ${friendlyDate(nextUp.date, today).toLowerCase()}${nextUp.time ? ` at ${nextUp.time}` : ''}`}
-                  </Text>
-                ) : null}
-              </View>
-            ) : null}
-
-          </VoidCard>
           </Animated.View>
-          )}
 
           </View>
         </Animated.View>
@@ -597,9 +514,8 @@ const GoalDetail = () => {
       <View pointerEvents="box-none" style={[styles.floatingRow, { bottom: insets.bottom + 16 }]}>
         <ViewSwitcher
           options={[
-            { id: 'today', label: 'Today', icon: 'today-outline' },
+            { id: 'plan', label: 'Plan', icon: 'map-outline' },
             { id: 'stats', label: 'Stats', icon: 'stats-chart-outline' },
-            { id: 'plan', label: 'Roadmap', icon: 'map-outline' },
           ]}
           value={view}
           onChange={showView}
