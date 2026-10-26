@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Keyboard, Modal, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MatteSurface } from '@/components/ui/MatteSurface';
 import { elevationFor, surfaceFor } from '@/theme/designSystem';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
     Easing, ReduceMotion, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';
@@ -33,9 +31,11 @@ const CLOSE = { duration: 190, easing: Easing.in(Easing.cubic), reduceMotion: Re
  * above it. A page sheet is still right for anything with its own body of
  * work — writing a habit, editing a goal.
  *
- * Drag it down to dismiss. The whole panel is the handle, not the small bar at
- * the top, because that bar is much too small a target to be the only one and
- * people grab the sheet itself.
+ * Nothing on it but its title and what it asks: no grabber bar, no × (they
+ * were noise). It closes the ways people already know: drag the panel down
+ * (the whole panel is the handle), tap outside it, the back gesture, or
+ * VoiceOver's escape. When the keyboard opens, the sheet rides up on top of
+ * it, so the field being typed in is never hidden.
  */
 export const VoidSheet: React.FC<{
     visible: boolean;
@@ -62,6 +62,21 @@ export const VoidSheet: React.FC<{
     const progress = useSharedValue(0);
     /** How far it has been dragged down, in points. */
     const drag = useSharedValue(0);
+    /** The keyboard's height while it is open, so the sheet sits on top of it. */
+    const keyboard = useSharedValue(0);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    useEffect(() => {
+        if (!mounted) return;
+        const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', event => {
+            setKeyboardHeight(event.endCoordinates.height);
+            keyboard.set(withTiming(event.endCoordinates.height, { duration: event.duration || 250, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System }));
+        });
+        const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', event => {
+            setKeyboardHeight(0);
+            keyboard.set(withTiming(0, { duration: event.duration || 220, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System }));
+        });
+        return () => { show.remove(); hide.remove(); };
+    }, [mounted, keyboard]);
 
     // Mounted while rendering rather than from the effect: the panel has to
     // exist before the opening animation can run on it, and setting state in an
@@ -87,7 +102,7 @@ export const VoidSheet: React.FC<{
     const panel = useAnimatedStyle(() => ({
         transform: [{
             // Off the bottom when closed, and following the finger when dragged.
-            translateY: interpolate(progress.get(), [0, 1], [height, 0]) + drag.get(),
+            translateY: interpolate(progress.get(), [0, 1], [height, 0]) + drag.get() - keyboard.get(),
         }],
     }));
 
@@ -123,14 +138,16 @@ export const VoidSheet: React.FC<{
                 <GestureDetector gesture={pull}>
                     <Animated.View
                         accessibilityViewIsModal
+                        onAccessibilityEscape={dismiss}
                         style={[
                             styles.panel,
                             panel,
                             {
                                 // Never more than two thirds of the screen. Past
                                 // that it is a screen, and should be a page sheet.
-                                maxHeight: height * maxShare,
-                                paddingBottom: insets.bottom + vs(8),
+                                // With the keyboard up, whatever is left above it.
+                                maxHeight: keyboardHeight ? Math.min(height * maxShare, height - keyboardHeight - insets.top - vs(12)) : height * maxShare,
+                                paddingBottom: (keyboardHeight ? 0 : insets.bottom) + vs(8),
                                 borderColor: tone.lip,
                                 backgroundColor: tone.fill,
                             },
@@ -143,8 +160,6 @@ export const VoidSheet: React.FC<{
                             <LinearGradient colors={[tone.top, tone.fill, tone.bottom]} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
                         </View>
 
-                        <View style={[styles.grabber, { backgroundColor: colors.textTertiary }]} />
-
                         <View style={styles.head}>
                             <View style={styles.headText}>
                                 <Text numberOfLines={1} style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
@@ -152,11 +167,6 @@ export const VoidSheet: React.FC<{
                                     <Text numberOfLines={1} style={[styles.caption, { color: colors.textTertiary }]}>{caption}</Text>
                                 ) : null}
                             </View>
-                            <Pressable accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} onPress={dismiss}>
-                                <MatteSurface radius={s(14)} level="control" style={styles.close}>
-                                    <Ionicons name="close" size={ms(16)} color={colors.textSecondary} />
-                                </MatteSurface>
-                            </Pressable>
                         </View>
 
                         {children}
@@ -177,14 +187,12 @@ const styles = StyleSheet.create({
         // Not clipped, so its shadow shows; the gradient layer clips itself.
         paddingTop: vs(8),
     },
-    grabber: { alignSelf: 'center', width: s(36), height: vs(4), borderRadius: 999, opacity: 0.4 },
     head: {
         flexDirection: 'row', alignItems: 'center', gap: s(10),
-        paddingHorizontal: s(18), paddingTop: vs(10), paddingBottom: vs(6),
+        paddingHorizontal: s(18), paddingTop: vs(14), paddingBottom: vs(10),
     },
     headText: { flex: 1 },
-    title: { fontSize: ms(17), fontFamily: FontFamily.semibold },
+    title: { fontSize: ms(20), fontFamily: FontFamily.bold },
     caption: { fontSize: ms(12), fontFamily: FontFamily.regular, marginTop: vs(1) },
-    close: { width: s(28), height: s(28), alignItems: 'center', justifyContent: 'center' },
     fillLayer: { borderTopLeftRadius: s(24), borderTopRightRadius: s(24), overflow: 'hidden' },
 });

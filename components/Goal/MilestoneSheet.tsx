@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { VoidSheet } from '@/components/ui/VoidSheet';
 import { AppTextField } from '@/components/ui/AppTextField';
 import { AppButton } from '@/components/ui/AppButton';
@@ -72,18 +72,19 @@ export function MilestoneSheet({ visible, goalId, goalEnd, milestone, onClose }:
                     {milestone ? <AppButton label="Delete milestone" variant="danger" onPress={remove} /> : null}
                 </View>
             }>
-            <View style={styles.body}>
+            <ScrollView style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 <AppTextField label="Name" value={title} onChangeText={setTitle} placeholder="Finish book 1" autoFocus={!milestone}
                     returnKeyType="done" onSubmitEditing={() => void save()} maxLength={200} />
                 <ChoiceRow accessibilityLabel="Due date" value={dated} onChange={setDated}
                     options={[{ id: 'date', label: 'By a date' }, { id: 'none', label: 'No date' }]} />
                 {dated === 'date' ? <DateWheels value={date} onChange={setDate} minYear={new Date().getFullYear()} maxDate={far} /> : null}
-            </View>
+            </ScrollView>
         </VoidSheet>
     );
 }
 
 const styles = StyleSheet.create({
-    body: { gap: Spacing.lg },
-    footer: { gap: Spacing.sm },
+    scroll: { flexGrow: 0 },
+    body: { gap: Spacing.lg, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg },
+    footer: { gap: Spacing.sm, paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm },
 });

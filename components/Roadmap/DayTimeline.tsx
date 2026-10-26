@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 // The gesture handler's Pressable for every touch on a row, so the one under
 // the finger wins: Focus or the tick no longer also opens the habit behind them.
@@ -100,7 +100,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
                 return (
                     <ListItem key={`${item.kind}-${item.id}`} index={index} rise>
                         <Row size={size} item={item} turn={turns[index]} color={colorOf(item)} last={index === flow.timeline.length - 1}
-                            nextColor={next ? colorOf(next) : undefined} day={day}
+                            nextColor={next ? colorOf(next) : undefined} nextStart={next?.start} day={day}
                             now={now} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus} />
                     </ListItem>
                 );
@@ -160,8 +160,8 @@ function Chips({ title, icon, tint, items, onOpen }: { title: string; icon: stri
     );
 }
 
-function Row({ size, item, turn, color, nextColor, last, now, updated, onToggle, onOpen, onFocus, day }: {
-    size: Size; item: FlowItem; turn: { delay: number; duration: number }; color: string; nextColor?: string; last: boolean; now: number | null; updated: boolean; day?: string;
+function Row({ size, item, turn, color, nextColor, nextStart, last, now, updated, onToggle, onOpen, onFocus, day }: {
+    size: Size; item: FlowItem; turn: { delay: number; duration: number }; color: string; nextColor?: string; nextStart?: number; last: boolean; now: number | null; updated: boolean; day?: string;
     onToggle: (item: FlowInput) => void; onOpen: (item: FlowInput) => void; onFocus: (item: FlowInput) => void;
 }) {
     const t = useTokens();
@@ -191,7 +191,7 @@ function Row({ size, item, turn, color, nextColor, last, now, updated, onToggle,
         <View style={styles.row}>
             <View style={[styles.rail, { width: size.pill }]}>
                 <Pressable onPress={() => onOpen(item)} accessibilityRole="button" accessibilityLabel={`Open ${item.title}`}>
-                    <View style={[styles.pill, { width: size.pill, borderRadius: corner, height }]}>
+                    <View style={[styles.pill, { width: size.pill, borderRadius: corner, height, backgroundColor: t.color.background }]}>
                         {/* A faint tint of its colour, filled from the top as its time passes.
                             Done keeps its full colour: only the name is struck through. */}
                         <View style={[StyleSheet.absoluteFill, styles.tint, { backgroundColor: color }]} />
@@ -199,9 +199,9 @@ function Row({ size, item, turn, color, nextColor, last, now, updated, onToggle,
                         <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon} color={elapsed >= 0.5 ? t.color.onAccent : color} />
                     </View>
                 </Pressable>
-                {/* The line to the next one carries both colours, this one's
-                    melting into the next one's, so the day reads as one stream. */}
-                {!last ? <LinearGradient colors={[color, nextColor ?? color]} style={styles.link} /> : null}
+                {/* The line to the next one: this one's colour melting into the
+                    next one's, filling as the time between them passes. */}
+                {!last ? <Link from={color} to={nextColor ?? color} progress={linkProgress(item, nextStart, now)} turn={turn} /> : null}
             </View>
 
             <Pressable onPress={() => onOpen(item)} style={[styles.body, { minHeight: height, paddingLeft: size.gap, paddingBottom: size.pad }]} accessibilityRole="button"
@@ -255,6 +255,38 @@ function Check({ size, done, color, onPress, label }: { size: Size; done: boolea
 }
 
 /** The solid part of a pill: as tall as the share of its time already gone, gliding as the clock moves. */
+/**
+ * How far the line below an item has filled: the time from its end to the
+ * next one's start, gone so far. Back-to-back items fill the moment the next
+ * begins; a day that is not today is drawn full.
+ */
+function linkProgress(item: FlowItem, nextStart: number | undefined, now: number | null): number {
+    if (now === null || item.state === 'done' && nextStart !== undefined && now >= nextStart) return 1;
+    if (nextStart === undefined) return 0;
+    const from = Math.min(item.end, nextStart);
+    if (nextStart <= from) return now >= nextStart ? 1 : 0;
+    return Math.max(0, Math.min(1, (now - from) / (nextStart - from)));
+}
+
+/**
+ * The line between two items. It runs under both pills, so it meets them with
+ * no gap; the part already lived is coloured, this item's colour blending into
+ * the next one's, and the rest is the quiet track.
+ */
+function Link({ from, to, progress, turn }: { from: string; to: string; progress: number; turn: { delay: number; duration: number } }) {
+    const t = useTokens();
+    const [length, setLength] = useState(0);
+    const shown = useProgress(Math.max(0, Math.min(1, progress)), turn.delay + turn.duration, undefined, turn.duration, POUR);
+    const style = useAnimatedStyle(() => ({ height: shown.get() * length }));
+    return (
+        <View style={[styles.link, { backgroundColor: t.color.border }]} onLayout={event => setLength(event.nativeEvent.layout.height)}>
+            <Animated.View pointerEvents="none" style={[styles.linkFill, style]}>
+                <LinearGradient colors={[from, to]} style={{ height: length }} />
+            </Animated.View>
+        </View>
+    );
+}
+
 function Fill({ color, height, progress, turn }: { color: string; height: number; progress: number; turn: { delay: number; duration: number } }) {
     // Arriving (a page opened, a day switched), it waits for the pill above to
     // be full, then fills; after that it glides with the clock.
@@ -266,10 +298,13 @@ function Fill({ color, height, progress, turn }: { color: string; height: number
 const styles = StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'stretch' },
     rail: { alignItems: 'center' },
-    pill: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    pill: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 1 },
     tint: { opacity: 0.3 },
     fill: { position: 'absolute', top: 0, left: 0, right: 0 },
-    link: { width: s(4), flex: 1, minHeight: vs(10), borderRadius: s(2) },
+    // Runs a little under the pill above and the one below, so the line meets
+    // them with no gap; the pills are drawn over it.
+    link: { width: s(4), flex: 1, minHeight: vs(10), marginTop: -s(10), marginBottom: -s(10), zIndex: -1, overflow: 'hidden' },
+    linkFill: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
     body: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     name: { fontFamily: FontFamily.semibold },
     text: { flex: 1, gap: vs(2) },

@@ -13,6 +13,16 @@ import { useTokens } from '@/hooks/useTokens';
 import type { TypeToken } from '@/theme/tokens';
 import type { GoalPoint } from '@/lib/goalInsights';
 import { styles } from '@/styles/screens/ui-catalog.styles';
+import { GoalMilestones } from '@/components/Goal/GoalMilestones';
+import type { Milestone } from '@/lib/goalMilestones';
+
+const CATALOG_TODAY = '2026-11-05';
+const SAMPLE_MILESTONES: Milestone[] = [
+    { id: 'm1', goalId: 'g', title: 'Finish Book 1', dueDate: '2026-11-02', doneAt: '2026-11-01', position: 1 },
+    { id: 'm2', goalId: 'g', title: 'Finish Book 2', dueDate: '2026-11-04', position: 2 },
+    { id: 'm3', goalId: 'g', title: 'Finish Book 3', dueDate: '2026-11-09', position: 3 },
+    { id: 'm4', goalId: 'g', title: 'Finish Book 4', dueDate: '2026-11-16', position: 4 },
+];
 
 const TYPE_STYLES: TypeToken[] = ['display', 'screenTitle', 'title', 'heading', 'body', 'bodySmall', 'caption'];
 
@@ -44,6 +54,7 @@ export default function UICatalog() {
     const [taskDone, setTaskDone] = useState(true);
     const [modal, setModal] = useState(false);
     const [sheet, setSheet] = useState(false);
+    const [catalogMilestones, setCatalogMilestones] = useState<Milestone[]>(SAMPLE_MILESTONES);
     // Motion demos: replay remounts them, change moves their value.
     const [replay, setReplay] = useState(0);
     const [level, setLevel] = useState(0.62);
@@ -320,6 +331,11 @@ export default function UICatalog() {
                         </Reveal>
                     </Specimen>
 
+                    <Specimen number={38} name="Goal milestones" file="components/Goal/GoalMilestones.tsx" note="A path of flags: reached, next, late, ahead. Tap a flag to reach it.">
+                        <GoalMilestones color={t.color.accent} today={CATALOG_TODAY} milestones={catalogMilestones}
+                            onToggle={milestone => setCatalogMilestones(list => list.map(item => item.id === milestone.id ? { ...item, doneAt: item.doneAt ? undefined : 'now' } : item))}
+                            onOpen={() => setSheet(true)} />
+                    </Specimen>
                     <Specimen number={37} name="Cells fading in" file="components/ui/Motion.tsx" note="PopIn">
                         <View style={styles.wrap}>
                             {Array.from({ length: 21 }, (_, index) => (
@@ -339,8 +355,11 @@ export default function UICatalog() {
             </VoidModal>
 
             <VoidSheet visible={sheet} onClose={() => setSheet(false)} title="Bottom sheet" caption="Morning run"
-                footer={<AppButton label="Done" onPress={() => setSheet(false)} />}>
-                <Toggle label="Daily reminder" value={on} onChange={setOn} />
+                footer={<View style={styles.sheetBody}><AppButton label="Done" onPress={() => setSheet(false)} /></View>}>
+                <View style={styles.sheetBody}>
+                    <AppTextField label="Name" value={text} onChangeText={setText} placeholder="Type here: the sheet rides up over the keyboard" />
+                    <Toggle label="Daily reminder" value={on} onChange={setOn} />
+                </View>
             </VoidSheet>
         </SheetScreen>
     );

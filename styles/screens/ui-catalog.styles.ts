@@ -15,4 +15,6 @@ export const styles = StyleSheet.create({
     motionTrack: { height: space.sm, borderRadius: radius.full, overflow: 'hidden' },
     motionFill: { height: '100%', borderRadius: radius.full },
     popCell: { width: space['2xl'], height: space['2xl'], borderRadius: radius.sm },
+    /** Inside the sample bottom sheet: the same side margins as a real one. */
+    sheetBody: { paddingHorizontal: space.xl, gap: space.md },
 });
