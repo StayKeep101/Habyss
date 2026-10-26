@@ -1,5 +1,6 @@
-import RevenueCatPaywall from '@/components/Paywall/RevenueCatPaywall';
+import { router } from 'expo-router';
+import { Paywall } from '@/components/Paywall/Paywall';
 
 export default function PaywallScreen() {
-    return <RevenueCatPaywall />;
+    return <Paywall mode="open" onClose={() => router.back()} />;
 }

@@ -54,6 +54,7 @@ import { setTaskStatus, type Task } from '@/lib/tasks';
 import { StreakCard } from '@/components/Home/StreakCard';
 import { useCoachTarget } from '@/hooks/useCoachTarget';
 import { startTour } from '@/lib/coachMarks';
+import { useAccess } from '@/hooks/useAccess';
 import { FocusCard } from '@/components/Home/FocusCard';
 import { localDateKey } from '@/lib/habitSchedule';
 import { echoWeek } from '@/lib/echoInsights';
@@ -190,7 +191,11 @@ const Home = () => {
   const focusRef = useCoachTarget<View>('focus-today');
   const missedRef = useCoachTarget<View>('missed');
   const goalsRef = useCoachTarget<View>('goals');
+  // Only once the app is open to you: not under the free-week screen.
+  const { access } = useAccess();
+  const open = access.kind === 'owned' || access.kind === 'trial';
   useEffect(() => {
+    if (!open) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const { takeTutorialDue } = require('@/lib/tutorial') as typeof import('@/lib/tutorial');
     void takeTutorialDue().then(due => {
@@ -199,7 +204,7 @@ const Home = () => {
     // Asked for again from Settings → How Habyss works.
     const again = on('start_walkthrough', startTour);
     return () => { if (timer) clearTimeout(timer); again.remove(); };
-  }, []);
+  }, [open]);
 
   // Subscribe to habits
   useEffect(() => {

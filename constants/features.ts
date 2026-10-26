@@ -1,8 +1,8 @@
 /**
  * Product switches.
  *
- * PAYWALL_ENABLED: while false, everyone has every feature and nothing in the
- * app asks for payment or mentions Pro. Flip it back to true to restore the
- * RevenueCat checks, the upgrade buttons and the Subscription row.
+ * PAYWALL_ENABLED: the free week, then one payment of $20 (half with friends),
+ * lib/access.ts. It only ever locks when the store is reachable: with no
+ * RevenueCat key on the build, everyone has everything, as when this is false.
  */
-export const PAYWALL_ENABLED = false;
+export const PAYWALL_ENABLED = true;

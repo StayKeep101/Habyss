@@ -23,7 +23,6 @@ To bring a page in line with the design system, open its file here and swap its 
 | `app/(root)/integrations.tsx` | `styles/screens/integrations.styles.ts` |
 | `app/+not-found.tsx` | `styles/screens/not-found.styles.ts` |
 | `app/(root)/notifications.tsx` | `styles/screens/notifications.styles.ts` |
-| `app/(root)/onboarding-paywall.tsx` | `styles/screens/onboarding-paywall.styles.ts` |
 | `app/(root)/privacy.tsx` | `styles/screens/privacy.styles.ts` |
 | `app/(root)/profile.tsx` | `styles/screens/profile.styles.ts` |
 | `app/(root)/progress.tsx` | `styles/screens/progress.styles.ts` |

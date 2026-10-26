@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { AccessGate } from '@/components/Paywall/AccessGate';
 import { Stack } from 'expo-router';
 import { DemonEdge } from '@/components/ui/DemonEdge';
 import { TiltToFocus } from '@/hooks/useTiltToFocus';
@@ -168,6 +169,8 @@ export default function RootLayout() {
         />
 
       </Stack>
+      {/* The free week, and the lock after it until Habyss is bought. */}
+      <AccessGate />
       {/* Demon mode: far behind on tasks, the edge of the screen glows red (lib/taskPressure.ts). */}
       <DemonEdge on={demon} />
       {/* Phone on its side: focus on what is due now. */}

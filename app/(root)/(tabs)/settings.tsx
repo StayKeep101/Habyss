@@ -29,6 +29,7 @@ import { saveDailyTarget } from '@/lib/dailyFocus';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { PAYWALL_ENABLED } from '@/constants/features';
+import { useAccess } from '@/hooks/useAccess';
 import { hasAnyIntegration } from '@/lib/integrationAvailability';
 import { APP_SLOGAN } from '@/constants/brand';
 import { currentAccount, onAccountChange } from '@/lib/account';
@@ -49,6 +50,7 @@ const showDeveloper = (() => {
 })();
 
 export default function ProfileScreen() {
+    const { access } = useAccess();
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { horizontalPadding, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
@@ -204,7 +206,9 @@ export default function ProfileScreen() {
                         <SettingsRow icon="people" color="#30D158" label="Friends & sharing" onPress={() => router.push('/(root)/sharing')} />
                         <SettingsRow icon="lock-closed" color="#8A8A94" label="Privacy" onPress={() => router.push('/(root)/privacy')} />
                         {PAYWALL_ENABLED ? (
-                            <SettingsRow icon="star" color="#FFB020" label="Subscription" onPress={() => router.push('/(root)/paywall')} />
+                            <SettingsRow icon="star" color="#FFB020" label="Habyss"
+                                value={access.kind === 'owned' ? 'Yours for good' : access.kind === 'trial' ? `Free · ${access.daysLeft} ${access.daysLeft === 1 ? 'day' : 'days'} left` : undefined}
+                                onPress={() => router.push('/(root)/paywall')} />
                         ) : null}
                     </SettingsGroup>
 

@@ -182,6 +182,20 @@ class RevenueCatService {
         }
     }
 
+    /** Whether Habyss is bought, and when the free trial purchase was made (ms), or null if unreachable. */
+    async customerInfo(): Promise<{ owned: boolean; trialStart: number | null } | null> {
+        if (!(await this.ensureInitialized())) return null;
+        try {
+            const info = await Purchases.getCustomerInfo();
+            const { PRODUCTS } = require('@/lib/access') as typeof import('@/lib/access');
+            const trial = info.nonSubscriptionTransactions.find(transaction => transaction.productIdentifier === PRODUCTS.trial);
+            const trialStart = trial ? new Date(trial.purchaseDate).getTime() : null;
+            return { owned: this.checkProEntitlement(info), trialStart: Number.isFinite(trialStart) ? trialStart : null };
+        } catch {
+            return null;
+        }
+    }
+
     async restorePurchases(): Promise<boolean> {
         const initialized = await this.ensureInitialized();
         if (!initialized) return false;

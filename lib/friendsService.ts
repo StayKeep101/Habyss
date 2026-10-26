@@ -464,6 +464,9 @@ export async function addFriendByUsername(input: string): Promise<AddFriendResul
 
     const sent = await FriendsService.sendFriendRequest(target.id);
     if (!sent) return { ok: false, error: 'Could not send the request. Try again.' };
+    // Adding the friend who invited you is how an invite counts toward the
+    // friend price (only for a new account, once; the server decides).
+    void (require('@/lib/referrals') as typeof import('@/lib/referrals')).claimReferral(username);
     const nowFriends = (await friendIds(ctx)).includes(target.id);
     return { ok: true, username, nowFriends };
 }
