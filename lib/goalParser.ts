@@ -213,7 +213,8 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     // would never match. Splitting them first keeps every unit pattern simple.
     // Expand "10k" before splitting digits from letters, which would otherwise
     // turn it into "10 k" and leave the k stranded.
-    const text = ` ${expandThousands(raw.toLowerCase()).replace(/(\d)\s*([a-z])/g, '$1 $2')} `;
+    // "50,000 words" is fifty thousand, not 0.
+    const text = ` ${expandThousands(raw.toLowerCase().replace(/(\d),(?=\d{3}\b)/g, '$1')).replace(/(\d)\s*([a-z])/g, '$1 $2')} `;
 
     const missing: string[] = [];
     const spec: GoalSpec = {
@@ -537,6 +538,13 @@ function buildTitle(raw: string, spec: GoalSpec, subject: string, today: Date, d
     const name = subject ? titleCase(subject) : titleCase(withoutDate);
     if (spec.delta_from_baseline === null && (spec.target === null || !spec.metric_unit)) {
         return titleCase(withoutDate);
+    }
+    // Your own words when they already hold the amount: "Run a 5 km without
+    // stopping" stays that, not "Run without stopping 5 km".
+    const ownWords = withoutDate.replace(/(\d)(km|kms|kg|kgs|lbs?|mi|miles?|min|mins|hrs?|hours?|pages?|k)\b/gi, '$1 $2').replace(/\s{2,}/g, ' ').trim();
+    if (spec.metric_unit !== 'days' && spec.target !== null && spec.metric_unit !== 'percent'
+        && new RegExp(`(^|[^\\d.])${String(spec.target).replace('.', '\\.')}(?![\\d.])`).test(ownWords.replace(/,(?=\d{3})/g, ''))) {
+        return titleCase(ownWords);
     }
     // Days out of a span: the name is what is done ("Write a personal journal").
     if (spec.metric_unit === 'days') {

@@ -278,7 +278,7 @@ describe('losing an amount is a change, not a destination', () => {
         const result = parse('Get down to 75kg by christmas');
         expect(result.goal.target).toBe(75);
         expect(result.goal.delta_from_baseline).toBeNull();
-        expect(result.goal.title).toContain('Reach 75 kg');
+        expect(result.goal.title).toContain('75 kg');
     });
 });
 
@@ -391,5 +391,20 @@ describe('spans: for 365 days, for a year, within 6 months, before summer', () =
     });
     it('reads seasons as dates', () => {
         expect(read('lose 10 lbs before summer').window).toEqual({ kind: 'fixed', start: '2026-10-26', end: '2027-06-21' });
+    });
+});
+
+describe('the title is your own words, without the date or the rhythm', () => {
+    const today = new Date(2026, 9, 26);
+    const title = (text: string) => parseGoalText(text, { today }).goal.title;
+    it('keeps your word order when it already holds the amount', () => {
+        expect(title('run a 5 km without stopping')).toBe('Run a 5 km without stopping');
+        expect(title('hit 100 pushups in a row')).toBe('Hit 100 pushups in a row');
+    });
+    it('reads thousands with a comma and spaces a unit from its number', () => {
+        const goal = parseGoalText('write 50,000 words by the end of the year', { today }).goal;
+        expect(goal.title).toBe('Write 50,000 words');
+        expect(goal.target).toBe(50000);
+        expect(title('run 50km this month')).toBe('Run 50 km');
     });
 });
