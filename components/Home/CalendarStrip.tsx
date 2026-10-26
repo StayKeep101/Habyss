@@ -100,11 +100,6 @@ const DateButtonComponent = ({
         accessibilityLabel={`${item.fullDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${isDeadline ? ', goal deadline' : ''}`}
         style={{ width, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' }}
       >
-        {item.monthMark ? (
-          <Text style={{ position: 'absolute', top: -10, fontSize: 11, fontFamily: FontFamily.semibold, color: accentColor }}>
-            {item.monthMark}
-          </Text>
-        ) : null}
         <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
           {isDeadline ? <GoalDay color={deadlineColor} size={size} selected={selected} ring={isLight ? 'black' : 'white'} /> : null}
 
@@ -150,12 +145,14 @@ const DateButtonComponent = ({
 
         <Text
           style={{
-            color: selected ? (isLight ? 'black' : 'white') : (isDeadline ? deadlineColor : (isLight ? 'rgba(0,0,0,0.6)' : colors.textTertiary)),
-            fontFamily: isDeadline ? FontFamily.bold : FontFamily.medium,
+            color: selected ? (isLight ? 'black' : 'white') : (isDeadline ? deadlineColor : item.monthMark ? accentColor : (isLight ? 'rgba(0,0,0,0.6)' : colors.textTertiary)),
+            fontFamily: isDeadline || item.monthMark ? FontFamily.bold : FontFamily.medium,
             fontSize: 12,
           }}
         >
-          {item.dayName}
+          {/* A new month: its name in place of the weekday (Nov under the 1st),
+              inside the strip where nothing can cut it off. */}
+          {item.monthMark ?? item.dayName}
         </Text>
 
       </TouchableOpacity>

@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 // The gesture handler's Pressable for every touch on a row, so the one under
@@ -198,7 +199,9 @@ function Row({ size, item, turn, color, nextColor, last, now, updated, onToggle,
                         <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon} color={elapsed >= 0.5 ? t.color.onAccent : color} />
                     </View>
                 </Pressable>
-                {!last ? <View style={[styles.link, { backgroundColor: nextColor ?? color }]} /> : null}
+                {/* The line to the next one carries both colours, this one's
+                    melting into the next one's, so the day reads as one stream. */}
+                {!last ? <LinearGradient colors={[color, nextColor ?? color]} style={styles.link} /> : null}
             </View>
 
             <Pressable onPress={() => onOpen(item)} style={[styles.body, { minHeight: height, paddingLeft: size.gap, paddingBottom: size.pad }]} accessibilityRole="button"
@@ -264,9 +267,9 @@ const styles = StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'stretch' },
     rail: { alignItems: 'center' },
     pill: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-    tint: { opacity: 0.2 },
+    tint: { opacity: 0.3 },
     fill: { position: 'absolute', top: 0, left: 0, right: 0 },
-    link: { width: s(3), flex: 1, minHeight: vs(10), opacity: 0.6 },
+    link: { width: s(4), flex: 1, minHeight: vs(10), borderRadius: s(2) },
     body: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     name: { fontFamily: FontFamily.semibold },
     text: { flex: 1, gap: vs(2) },
