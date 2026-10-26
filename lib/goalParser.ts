@@ -34,6 +34,7 @@ export type GoalWindow =
  */
 import { isPeakGoal, raceDistance } from './peakPlan';
 import { findDate, findDeadline } from './dateWords';
+import { NUMBER_WORD, toNumber } from './phrases';
 
 export type GoalKind = 'number' | 'complete' | 'time';
 
@@ -214,7 +215,19 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     // Expand "10k" before splitting digits from letters, which would otherwise
     // turn it into "10 k" and leave the k stranded.
     // "50,000 words" is fifty thousand, not 0.
-    const text = ` ${expandThousands(raw.toLowerCase().replace(/(\d),(?=\d{3}\b)/g, '$1')).replace(/(\d)\s*([a-z])/g, '$1 $2')} `;
+    const lowered = raw.toLowerCase()
+        .replace(/(\d),(?=\d{3}\b)/g, '$1')
+        .replace(/(\d+(?:\.\d+)?)\s*million\b/g, (_all, amount: string) => String(Math.round(Number(amount) * 1_000_000)))
+        // "five meaningful friendships", "three languages": numbers, for reading only.
+        .replace(new RegExp(`\\b(${NUMBER_WORD})\\b`, 'gi'), word => String(toNumber(word) ?? word))
+        // "before age 30" is when, not how much.
+        .replace(/\b(?:before|by|until|at)\s+(?:the\s+)?age\s+(?:of\s+)?\d{1,3}\b/g, ' ');
+    // "100-day streak", "30-day challenge", "1,000 consecutive days": every day, that many days.
+    const streak = lowered.match(/\b(\d{1,4})[- ]days?\s+(?:[a-z]+\s+)?(?:streak|challenge|run)\b|\b(\d{1,4})\s+(?:consecutive|straight)\s+days\b|\b(\d{1,4})\s+days\s+in\s+a\s+row\b/);
+    const text = ` ${expandThousands(lowered
+        // "a 12-week bootcamp", "a six-month safety net": a length, not an amount.
+        .replace(/\b\d+-(?:day|week|month|year|hour|minute)\b/g, ' '))
+        .replace(/(\d)\s*([a-z])/g, '$1 $2')} `;
 
     const missing: string[] = [];
     const spec: GoalSpec = {
@@ -234,7 +247,7 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     }
 
     /* ------------------------------------------------------------- direction */
-    const isLimit = /\b(no more than|less than|under|at most|max|maximum|limit)\b/i.test(text);
+    const isLimit = /\b(no more than|less than|under|at most|max|maximum|limit)\b/i.test(text) && raceDistance(text) === null;
     const isTargetValue = /\b(get down to|down to|get to|reach|weigh|hit)\b/i.test(text)
         || MEASUREMENT_UNITS.some(unit => new RegExp(`\\b${unit}\\b`).test(text));
 
@@ -299,15 +312,16 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
         window = { kind: 'fixed', start: dateKey(today), end: dateKey(end) };
         datePhrase = season[0];
     }
-    const rhythm: 'day' | 'week' | 'month' | null = /\b(a|per|each|every)\s*day\b|\bdaily\b/i.test(text) ? 'day'
-        : /\b(a|per|each|every)\s*week\b|\bweekly\b/i.test(text) ? 'week'
-        : /\b(a|per|each|every)\s*month\b|\bmonthly\b/i.test(text) ? 'month' : null;
-    const relative = window ? null : text.match(/\b(?:(?:a|per|each|every)\s*(?:day|week|month)|daily|weekly|monthly|(?:by\s+|before\s+|until\s+)?(?:the\s+end\s+of\s+)?(?:this|next)\s+(?:week|month|year))\b/i);
+    // "monthly revenue", "weekly review" describe; "every month", "monthly" at the end set the rhythm.
+    const rhythm: 'day' | 'week' | 'month' | null = /\b(a|per|each|every)\s*(?:day|night)\b|\bdaily\b(?!\s+(?!for\b|until\b|by\b|this\b|in\b|on\b)[a-z])/i.test(text) ? 'day'
+        : /\b(a|per|each|every)\s*week\b|\bweekly\b(?!\s+(?!for\b|until\b|by\b|this\b|in\b|on\b)[a-z])/i.test(text) ? 'week'
+        : /\b(a|per|each|every)\s*month\b|\bmonthly\b(?!\s+(?!for\b|until\b|by\b|this\b|in\b|on\b)[a-z])/i.test(text) ? 'month' : null;
+    const relative = window ? null : text.match(/\b(?:(?:a|per|each|every)\s*(?:day|night|week|month)|(?:daily|weekly|monthly)(?!\s+(?!for\b|until\b|by\b|this\b|in\b|on\b)[a-z])|(?:by\s+|before\s+|until\s+)?(?:the\s+end\s+of\s+)?(?:this|next)\s+(?:week|month|year))\b/i);
     if (relative) datePhrase = relative[0];
     if (window) { /* a span or a season, read above */ }
-    else if (/\b(a|per|each|every)\s*day\b|\bdaily\b/i.test(text)) window = { kind: 'recurring', period: 'day' };
-    else if (/\b(a|per|each|every)\s*week\b|\bweekly\b/i.test(text)) window = { kind: 'recurring', period: 'week' };
-    else if (/\b(a|per|each|every)\s*month\b|\bmonthly\b/i.test(text)) window = { kind: 'recurring', period: 'month' };
+    else if (rhythm === 'day') window = { kind: 'recurring', period: 'day' };
+    else if (rhythm === 'week') window = { kind: 'recurring', period: 'week' };
+    else if (rhythm === 'month') window = { kind: 'recurring', period: 'month' };
     else if (/\bthis month\b/i.test(text)) window = { kind: 'fixed', start: dateKey(today), end: dateKey(endOfMonth(today)) };
     else if (/\bthis week\b/i.test(text)) window = { kind: 'fixed', start: dateKey(today), end: dateKey(addDays(today, 6 - today.getDay())) };
     else if (/\bthis year\b/i.test(text)) window = { kind: 'fixed', start: dateKey(today), end: `${today.getFullYear()}-12-31` };
@@ -385,11 +399,21 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     const amountMatch = body.match(/\b(\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?|pages?|kilometers?|kilometres?|kms?|km|miles?|mi|steps?|kilos?|kilograms?|kgs?|kg|pounds?|lbs?|lb|glasses|glass|liters?|litres?|dollars?|words?|reps?)\b/i);
 
     let target: number | null = null;
+    // "$5,000", "€200": money is counted in its currency.
+    const money = body.match(/([$€£])\s*(\d+(?:\.\d+)?)/);
     // "a half marathon" is 21.1 km.
     const race = raceDistance(text);
-    if (race !== null && !amountMatch) { unit = 'km'; unitFactor = 1; }
-    if (race !== null && !amountMatch) {
+    // "Complete a marathon in under 4 hours": finishing is the goal; the time is how.
+    const finishTime = race !== null && /\b(?:in\s+)?under\b|\bsub-?\s?\d/.test(text);
+    if (race !== null && !amountMatch && !finishTime) { unit = 'km'; unitFactor = 1; }
+    if (finishTime) {
+        target = null;
+        unit = null;
+    } else if (race !== null && !amountMatch) {
         target = race;
+    } else if (money && !amountMatch) {
+        target = Number(money[2]);
+        unit = money[1] === '$' ? 'dollars' : money[1] === '€' ? 'euros' : 'GBP';
     } else if (percentMatch) {
         target = Number(percentMatch[1] ?? percentMatch[2]) / 100;
     } else if (amountMatch) {
@@ -399,7 +423,21 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     } else {
         const bare = body.match(/\b(\d+(?:\.\d+)?)\b/);
         if (bare) target = Number(bare[1]);
+        // What is counted: the noun after the number, past the words describing
+        // it ("100 paying customers", "50 educational YouTube videos", "a 3.8 GPA").
+        if (bare && !unit) {
+            const after = body.slice((bare.index ?? 0) + bare[0].length).trim().split(/\s+/);
+            // "a 10-song album" counts songs.
+            const joined = after[0]?.match(/^-([a-z]+)$/);
+            const stop = after.findIndex(word => /^(for|to|from|with|in|on|at|by|through|via|of|that|who|which|per|a|an|the|and|this|next|before|after|until|every|each|while|learn|get|become|reach)$/.test(word));
+            const nouns = (stop === -1 ? after : after.slice(0, stop)).slice(0, 4).filter(word => /^[a-z][a-z'-]*$/.test(word));
+            // The first plural ("20 people learn…", "50 educational YouTube videos"), else the last word.
+            const noun = joined ? `${joined[1]}s` : nouns.find(word => /^(people|children|men|women|kids)$/.test(word) || (/s$/.test(word) && !/ss$/.test(word))) ?? nouns[nouns.length - 1];
+            if (noun && !/^(days?|weeks?|months?|years?|times?|x|percent)$/.test(noun)) unit = noun.replace(/[^a-z-]/g, '');
+        }
     }
+    // A level you check rather than add up: a GPA, a score, a net worth, a weight.
+    const level = /\b(gpa|grade|score|net worth|heart rate|resting|weight|rating|rank|level|salary|balance)\b/i.test(text) && target !== null;
 
     /* ------------------------------------------------------------------ type */
     const isConsistency = !!percentMatch && /\bdays?\b/i.test(text);
@@ -419,7 +457,7 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
         spec.type = 'peak';
         spec.aggregation = 'max';
         spec.direction = 'reach';
-    } else if (isTargetValue && unit && MEASUREMENT_UNITS.includes(unit)) {
+    } else if ((isTargetValue || /\b(lose|losing|drop|shed|gain|gaining|put on)\b/i.test(text)) && unit && MEASUREMENT_UNITS.includes(unit)) {
         spec.type = 'target_value';
         spec.aggregation = 'latest';
         spec.direction = 'reach';
@@ -431,7 +469,15 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
         if (/\b(lose|losing|drop|shed|cut)\b/i.test(text) && target !== null) {
             spec.delta_from_baseline = target;
             target = null;
+        } else if (/\b(gain|gaining|put on|add)\b/i.test(text) && target !== null) {
+            // "Gain 5 kg": five more than now, which is the start weight less minus five.
+            spec.delta_from_baseline = -target;
+            target = null;
         }
+    } else if (level) {
+        spec.type = 'target_value';
+        spec.aggregation = 'latest';
+        spec.direction = 'reach';
     } else if (frequencyMatch || (unit === 'sessions' && target !== null)) {
         spec.type = 'frequency';
         spec.aggregation = 'count_days';
@@ -441,6 +487,16 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
         spec.type = 'volume';
         spec.aggregation = 'sum';
         spec.direction = 'at_least';
+    }
+
+    // A streak or a challenge: every day, that many days, from today.
+    if (streak) {
+        const days = Number(streak[1] ?? streak[2] ?? streak[3]);
+        if (days > 0 && days <= 5000) {
+            spec.type = 'frequency'; spec.aggregation = 'count_days'; spec.direction = 'at_least';
+            unit = 'days'; target = days;
+            if (!window) window = { kind: 'fixed', start: dateKey(today), end: dateKey(addDays(today, days - 1)) };
+        }
     }
 
     // Doing it through a span: "journal for 365 days", "meditate daily for 30
@@ -459,6 +515,9 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
             unit = 'days'; target = span.days;
         }
     }
+
+    // "Score 90%", "Automate 80% of my work": counted in percent.
+    if (percentMatch && !unit && target !== null) unit = 'percent';
 
     spec.metric_unit = unit;
     spec.target = target;
@@ -541,10 +600,11 @@ function buildTitle(raw: string, spec: GoalSpec, subject: string, today: Date, d
     }
     // Your own words when they already hold the amount: "Run a 5 km without
     // stopping" stays that, not "Run without stopping 5 km".
-    const ownWords = withoutDate.replace(/(\d)(km|kms|kg|kgs|lbs?|mi|miles?|min|mins|hrs?|hours?|pages?|k)\b/gi, '$1 $2').replace(/\s{2,}/g, ' ').trim();
-    if (spec.metric_unit !== 'days' && spec.target !== null && spec.metric_unit !== 'percent'
-        && new RegExp(`(^|[^\\d.])${String(spec.target).replace('.', '\\.')}(?![\\d.])`).test(ownWords.replace(/,(?=\d{3})/g, ''))) {
-        return titleCase(ownWords);
+    // "10k" as 10000 (or "5K" run as 5 km), and a unit spaced from its number.
+    const ownWords = expandThousands(withoutDate).replace(/(\d)(km|kms|kg|kgs|lbs?|mi|miles?|min|mins|hrs?|hours?|pages?)\b/gi, '$1 $2').replace(/\s{2,}/g, ' ').trim();
+    // Any number in them at all ("100 hours", "five friendships", "1 million").
+    if (/\d/.test(ownWords) || new RegExp(`\\b(${NUMBER_WORD})\\b`, 'i').test(ownWords)) {
+        return titleCase(ownWords.replace(/\s+(?:every|each|per|a)\s+(?:day|night|week|month)$/i, ''));
     }
     // Days out of a span: the name is what is done ("Write a personal journal").
     if (spec.metric_unit === 'days') {

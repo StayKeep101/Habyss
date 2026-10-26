@@ -44,8 +44,9 @@ describe('the goal sheet', () => {
         const screen = render(<GoalSheet visible />);
         write(screen, 'Get better at the guitar');
 
-        // No number in it, so it reads as a project: it only needs a date.
-        expect(screen.getByText('Add a finish date')).toBeTruthy();
+        // No number in it, so it reads as a project, and a date is optional:
+        // it can be saved as it is, as an ongoing goal.
+        expect(screen.getByText('Create goal')).toBeTruthy();
         // As a number goal, the button says what it still needs.
         fireEvent.press(screen.getByRole('radio', { name: 'Number' }));
         const button = screen.getByText('Add a number to hit');
@@ -147,16 +148,18 @@ describe('the goal sheet', () => {
         expect(JSON.parse(saved().goalSpec)).toMatchObject({ target: 5.5, metric_unit: 'mi' });
     });
 
-    it('requires a finish date instead of saving recurring goals', async () => {
+    it('saves a goal with no date as ongoing, never as a repeating goal', async () => {
         const screen = render(<GoalSheet visible />);
         write(screen, 'Run 5 km every week');
-        fireEvent.press(screen.getByText('Add a finish date'));
+        // The finish date is optional, and the picker still offers no repeating windows.
+        fireEvent.press(screen.getByText('By when'));
         expect(screen.queryByText('Every day')).toBeNull();
         expect(screen.queryByText('Every week')).toBeNull();
-        expect(screen.queryByText('Every month')).toBeNull();
         expect(screen.getByTestId('goal-calendar')).toBeTruthy();
-        expect(addHabit).not.toHaveBeenCalled();
-        await act(async () => {});
+        await act(async () => { fireEvent.press(screen.getByText('Create goal')); });
+        await waitFor(() => expect(addHabit).toHaveBeenCalled());
+        expect(saved().targetDate).toBeUndefined();
+        expect(JSON.parse(saved().goalSpec).window).toBeNull();
     });
 
     it('opens the look from the icon beside the name, not from a chip', () => {

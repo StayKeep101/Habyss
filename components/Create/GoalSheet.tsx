@@ -252,7 +252,8 @@ export const GoalSheet: React.FC<{
     } else if (draft.target === undefined && draft.deltaFromBaseline === undefined) missing.push({ row: 'target', what: kind === 'time' ? 'how long' : 'a number to hit' });
     else if (kind === 'number' && !draft.unit) missing.push({ row: 'target', what: 'what it is measured in' });
     if (kind === 'number' && needsBaseline && draft.baseline === undefined) missing.push({ row: 'baseline', what: 'where you are starting from' });
-    if (draft.window?.kind !== 'fixed') missing.push({ row: 'window', what: 'a finish date' });
+    // A finish date is optional: without one the goal is Ongoing (paced by its
+    // habits, never "behind"), which is what "no deadline" means.
     const ready = !!text.trim() && missing.length === 0;
 
     const save = async () => {
@@ -268,7 +269,9 @@ export const GoalSheet: React.FC<{
             const target = draft.target ?? (draft.baseline !== undefined && draft.deltaFromBaseline !== undefined
                 ? draft.baseline - draft.deltaFromBaseline
                 : undefined);
-            const window = draft.window!;
+            // No date given: an ongoing goal, from today, with no end.
+            const window: GoalWindow = draft.window ?? { kind: 'recurring', period: 'day' };
+            const dated = draft.window?.kind === 'fixed';
             // Time is kept in minutes, whatever it was typed in.
             const unit = kind === 'complete' ? 'tasks' : kind === 'time' ? 'minutes' : (draft.unit ?? 'sessions');
             const amount = kind === 'complete' ? null
@@ -280,14 +283,14 @@ export const GoalSheet: React.FC<{
                 ...previous,
                 kind,
                 title,
-                type: result?.goal.type ?? (window.kind === 'recurring' ? 'frequency' : 'volume'),
+                type: result?.goal.type ?? (draft.window?.kind === 'recurring' ? 'frequency' : 'volume'),
                 metric_unit: unit,
                 aggregation: result?.goal.aggregation ?? (unit === 'percent' ? 'completion_rate' : 'sum'),
                 direction: draft.direction,
                 target: amount,
                 baseline: draft.baseline ?? null,
                 delta_from_baseline: draft.deltaFromBaseline ?? null,
-                window,
+                window: draft.window ?? null,
                 linked_habits: draft.linked,
                 suggested_habit: draft.suggested ?? null,
             };
@@ -309,7 +312,7 @@ export const GoalSheet: React.FC<{
                     ? (window.period === 'day' ? 'daily' : window.period === 'week' ? 'weekly' : 'monthly')
                     : 'daily',
                 startDate: current?.startDate ?? (window.kind === 'fixed' ? window.start : localDateKey(new Date())),
-                targetDate: window.kind === 'fixed' ? window.end : undefined,
+                targetDate: dated && window.kind === 'fixed' ? window.end : undefined,
                 // The full contract, so the goal stays calculable.
                 goalSpec: JSON.stringify(spec),
             };

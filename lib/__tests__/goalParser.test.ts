@@ -28,7 +28,8 @@ describe('the four examples from the contract', () => {
         });
         expect(result.goal.suggested_habit).toMatchObject({ unit: 'minutes' });
         expect(result.goal.suggested_habit!.name.toLowerCase()).toContain('tiktok');
-        expect(result.goal.title).toContain('Max 60 minutes');
+        // The title is the user's own words (the limit and its amount are settings).
+        expect(result.goal.title).toBe('No more than 1 hour on tiktok');
     });
 
     it('get down to 75kg by christmas needs a baseline', () => {
@@ -406,5 +407,38 @@ describe('the title is your own words, without the date or the rhythm', () => {
         expect(goal.title).toBe('Write 50,000 words');
         expect(goal.target).toBe(50000);
         expect(title('run 50km this month')).toBe('Run 50 km');
+    });
+});
+
+describe('goals as people write them (the 400-case pass)', () => {
+    const today = new Date(2026, 9, 26);
+    const read = (text: string) => parseGoalText(text, { today }).goal;
+    it('counts money and any counted thing', () => {
+        expect(read('Save $5,000 for an emergency fund')).toMatchObject({ target: 5000, metric_unit: 'dollars' });
+        expect(read('Acquire 100 paying customers')).toMatchObject({ target: 100, metric_unit: 'customers' });
+        expect(read('Publish 50 educational YouTube videos').metric_unit).toBe('videos');
+        expect(read('Help 20 people learn basic computer skills').metric_unit).toBe('people');
+        expect(read('Create a 10-song music album')).toMatchObject({ target: 10, metric_unit: 'songs' });
+        expect(read('Mentor five younger students')).toMatchObject({ target: 5, metric_unit: 'students' });
+        expect(read('Walk 1 million steps in 100 days').target).toBe(1_000_000);
+    });
+    it('does not invent a number from a length, an age or a finish time', () => {
+        expect(read('Complete a 12-week programming bootcamp').target).toBeNull();
+        expect(read('Become debt-free before age 30').target).toBeNull();
+        expect(read('Complete a marathon in under 4 hours')).toMatchObject({ target: null, title: 'Complete a marathon in under 4 hours' });
+    });
+    it('reads "monthly revenue" as a description, not a rhythm', () => {
+        expect(read('Reach $10,000 in monthly business revenue').window).toBeNull();
+        expect(read('Complete 12 monthly personal challenges').target).toBe(12);
+    });
+    it('reads levels you check, streaks and challenges', () => {
+        expect(read('Achieve a 3.8 GPA this semester')).toMatchObject({ type: 'target_value', aggregation: 'latest', target: 3.8 });
+        expect(read('Reach a $100,000 net worth')).toMatchObject({ aggregation: 'latest', target: 100000, metric_unit: 'dollars' });
+        expect(read('Maintain a 100-day consistency streak')).toMatchObject({ target: 100, metric_unit: 'days', window: { kind: 'fixed', start: '2026-10-26', end: '2027-02-02' } });
+        expect(read('Reach 1,000 consecutive days of journaling')).toMatchObject({ target: 1000, metric_unit: 'days' });
+    });
+    it('reads losing and gaining weight as a change from where you are', () => {
+        expect(read('Lose 10 pounds sustainably')).toMatchObject({ delta_from_baseline: 10, metric_unit: 'lb' });
+        expect(read('Gain 5 kg of muscle')).toMatchObject({ delta_from_baseline: -5, metric_unit: 'kg' });
     });
 });
