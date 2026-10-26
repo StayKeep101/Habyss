@@ -201,7 +201,10 @@ function Row({ size, item, turn, color, nextColor, nextStart, last, now, updated
                 </Pressable>
                 {/* The line to the next one: this one's colour melting into the
                     next one's, filling as the time between them passes. */}
-                {!last ? <Link from={color} to={nextColor ?? color} progress={linkProgress(item, nextStart, now)} turn={turn} /> : null}
+                {/* Free time before the next one shows as line, on the same
+                    scale as the pills: an hour free is a long stretch, back to back is short. */}
+                {!last ? <Link from={color} to={nextColor ?? color} progress={linkProgress(item, nextStart, now)} turn={turn}
+                    gap={nextStart !== undefined ? Math.min(vs(240), Math.max(0, nextStart - item.end) * size.per) : 0} /> : null}
             </View>
 
             <Pressable onPress={() => onOpen(item)} style={[styles.body, { minHeight: height, paddingLeft: size.gap, paddingBottom: size.pad }]} accessibilityRole="button"
@@ -273,13 +276,13 @@ function linkProgress(item: FlowItem, nextStart: number | undefined, now: number
  * no gap; the part already lived is coloured, this item's colour blending into
  * the next one's, and the rest is the quiet track.
  */
-function Link({ from, to, progress, turn }: { from: string; to: string; progress: number; turn: { delay: number; duration: number } }) {
+function Link({ from, to, progress, turn, gap = 0 }: { from: string; to: string; progress: number; turn: { delay: number; duration: number }; gap?: number }) {
     const t = useTokens();
     const [length, setLength] = useState(0);
     const shown = useProgress(Math.max(0, Math.min(1, progress)), turn.delay + turn.duration, undefined, turn.duration, POUR);
     const style = useAnimatedStyle(() => ({ height: shown.get() * length }));
     return (
-        <View style={[styles.link, { backgroundColor: t.color.border }]} onLayout={event => setLength(event.nativeEvent.layout.height)}>
+        <View style={[styles.link, { backgroundColor: t.color.border, minHeight: vs(10) + gap }]} onLayout={event => setLength(event.nativeEvent.layout.height)}>
             <Animated.View pointerEvents="none" style={[styles.linkFill, style]}>
                 <LinearGradient colors={[from, to]} style={{ height: length }} />
             </Animated.View>
@@ -305,7 +308,8 @@ const styles = StyleSheet.create({
     // them with no gap; the pills are drawn over it.
     link: { width: s(4), flex: 1, minHeight: vs(10), marginTop: -s(10), marginBottom: -s(10), zIndex: -1, overflow: 'hidden' },
     linkFill: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
-    body: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+    // Beside its pill, even when free time below makes the row taller.
+    body: { flex: 1, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
     name: { fontFamily: FontFamily.semibold },
     text: { flex: 1, gap: vs(2) },
     meta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
