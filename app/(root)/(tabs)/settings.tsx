@@ -8,6 +8,7 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
+import { emit } from '@/lib/appEvents';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { useSleep } from '@/hooks/useSleep';
 import { setSleepCardVisible, setSleepTarget } from '@/lib/sleepLog';
@@ -208,7 +209,11 @@ export default function ProfileScreen() {
                     </SettingsGroup>
 
                     <SettingsGroup title="Help">
-                        <SettingsRow icon="book" color="#FFB020" label="How Habyss works" onPress={() => router.push('/(root)/guide')} />
+                        {/* The walkthrough itself, on the real screen (Home), not a page about it. */}
+                        <SettingsRow icon="book" color="#FFB020" label="How Habyss works" onPress={() => {
+                            router.navigate('/(root)/(tabs)/home');
+                            setTimeout(() => emit('start_walkthrough'), 450);
+                        }} />
                         <SettingsRow icon="help-buoy" color="#64D2FF" label="Help & feedback" onPress={() => router.push('/(root)/help')} />
                         {/* Testing tools: development and preview builds only, never the App Store build. */}
                         {showDeveloper ? (

@@ -29,6 +29,8 @@ export interface AppEvents {
     habit_deleted: { habitId: string };
     goal_deleted: { goalId: string };
     tasks_changed: void;
+    /** Settings → How Habyss works: Home runs the first-run walkthrough again. */
+    start_walkthrough: void;
     /** A goal's milestones were added, changed, reached or removed. */
     milestones_changed: { goalId?: string; reached?: boolean };
     task_completed: { taskId: string };

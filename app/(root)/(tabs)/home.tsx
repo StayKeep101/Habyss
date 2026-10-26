@@ -194,7 +194,9 @@ const Home = () => {
     void takeTutorialDue().then(due => {
       if (due) timer = setTimeout(() => setCoaching(true), 900);
     });
-    return () => { if (timer) clearTimeout(timer); };
+    // Asked for again from Settings → How Habyss works.
+    const again = on('start_walkthrough', () => setCoaching(true));
+    return () => { if (timer) clearTimeout(timer); again.remove(); };
   }, []);
 
   // Subscribe to habits

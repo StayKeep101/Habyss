@@ -301,6 +301,13 @@ export default function OnboardingScreen() {
 
     /* ----------------------------------------------------------------- steps */
 
+    // The name given on the first question, so the next ones speak to them
+    // ("Hey Andrew, how did you find us?"). Just the first name, capitalised.
+    const firstName = (() => {
+        const word = (draft.name ?? '').trim().split(/\s+/)[0] ?? '';
+        return word ? word.charAt(0).toUpperCase() + word.slice(1) : '';
+    })();
+
     const renderWelcome = () => (
         // The mark, the line, and the two-second way in. Signing in here brings
         // a previous phone's data back, and a new account carries on with setup.
@@ -322,7 +329,7 @@ export default function OnboardingScreen() {
 
     const renderSource = () => (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <SectionTitle>How did you find us?</SectionTitle>
+            <SectionTitle>{firstName ? `Hey ${firstName}, how did you find us?` : 'How did you find us?'}</SectionTitle>
             <View style={{ gap: 8 }}>
                 {SOURCES.map(option => (
                     <Choice
@@ -346,7 +353,7 @@ export default function OnboardingScreen() {
         };
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <SectionTitle description="The people who win run all of it at once. Most people drop one and never notice when.">What are you juggling right now?</SectionTitle>
+                <SectionTitle description="The people who win run all of it at once. Most people drop one and never notice when.">{firstName ? `So ${firstName}, what are you juggling right now?` : 'What are you juggling right now?'}</SectionTitle>
                 <View style={{ gap: 8 }}>
                     {JUGGLES.map(option => (
                         <Choice
@@ -377,7 +384,7 @@ export default function OnboardingScreen() {
         };
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <SectionTitle description="Pick everything you want. Every one of them is what Habyss is built for.">What would change if you never wasted a day again?</SectionTitle>
+                <SectionTitle description="Pick everything you want. Every one of them is what Habyss is built for.">{firstName ? `${firstName}, what would change if you never wasted a day again?` : 'What would change if you never wasted a day again?'}</SectionTitle>
                 <View style={{ gap: 8 }}>
                     {HOPES.map(option => (
                         <Choice
