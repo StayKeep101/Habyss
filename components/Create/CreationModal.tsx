@@ -2,6 +2,8 @@ import { FontFamily } from '@/theme/designSystem';
 import { useEffect, useRef, useState } from 'react';
 import {Dimensions, Pressable, StyleSheet, Text, View} from 'react-native';
 import { MatteSurface } from '@/components/ui/MatteSurface';
+import { IconTile } from '@/components/ui/IconTile';
+import { TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import Animated, {
     Easing, interpolate, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
@@ -28,15 +30,15 @@ const CLOSE = { duration: 180, easing: Easing.in(Easing.cubic) };
  *
  * It opens exactly where the button is, because the button measures itself and
  * sends its position: the same plus, in the same place, turning 45 degrees into
- * a close button rather than being replaced by one somewhere nearby. The three
- * options rise out of it one after another and fall back into it on the way
- * out, so the button and the menu read as one object.
+ * a close button rather than being replaced by one somewhere nearby. The
+ * choices are one card above it, like an iOS menu: each row the same width,
+ * its kind's icon in the colour it has across the app, the name and a line
+ * on what it is for. It settles up out of the button, eased, with no bounce.
  */
 export const CreationModal = () => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const { primary, buttonColors, shadowColor } = useAccentGradient();
+    const { primary, secondary, buttonColors, shadowColor } = useAccentGradient();
     const { horizontalPadding, floatingButtonSize, tabBarBottomOffset } = useResponsiveLayout();
     const { mediumFeedback, lightFeedback } = useHaptics();
 
@@ -108,12 +110,19 @@ export const CreationModal = () => {
         transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 45])}deg` }],
     }));
 
+    // Each kind in the colour it wears everywhere else in the app.
     const items = [
-        { id: 'goal', label: 'Goal', icon: 'flag-outline', color: primary, hint: 'Where you are heading' },
-        { id: 'habit', label: 'Habit', icon: 'repeat', color: '#10B981', hint: 'Something you repeat' },
-        { id: 'task', label: 'Task', icon: 'checkmark-circle-outline', color: '#F59E0B', hint: 'Done once, by a date' },
-        { id: 'thought', label: 'Thought', icon: 'bulb-outline', color: '#FFD60A', hint: 'Get it out of your head' },
+        { id: 'goal', label: 'Goal', icon: 'flag', color: colors.success, hint: 'Where you are heading' },
+        { id: 'habit', label: 'Habit', icon: 'repeat', color: primary, hint: 'Something you repeat' },
+        { id: 'task', label: 'Task', icon: 'checkmark-circle', color: TASK_COLOR, hint: 'Done once, by a date' },
+        { id: 'thought', label: 'Thought', icon: 'bulb', color: secondary || primary, hint: 'Get it out of your head' },
     ] as const;
+    // One card, settling up out of the button: eased, no bounce.
+    const cardStyle = useAnimatedStyle(() => ({
+        opacity: progress.value,
+        transform: [{ translateY: interpolate(progress.value, [0, 1], [12, 0]) }, { scale: interpolate(progress.value, [0, 1], [0.97, 1]) }],
+    }));
+    const cardWidth = Math.min(300, screen.width - horizontalPadding * 2);
 
     return (
         visible ? <View style={StyleSheet.absoluteFill}>
@@ -127,19 +136,25 @@ export const CreationModal = () => {
                 </Pressable>
 
                 <View accessibilityViewIsModal pointerEvents="box-none" style={[styles.stack, { right, bottom }]}>
-                    {items.map((item, index) => (
-                        <MenuRow
-                            key={item.id}
-                            item={item}
-                            index={index}
-                            count={items.length}
-                            progress={progress}
-                            size={size}
-                            colors={colors}
-                            isLight={isLight}
-                            onPress={() => choose(item.id)}
-                        />
-                    ))}
+                    {/* One card, like an iOS menu: every row the same width, an
+                        icon in its kind's colour, the name, and what it is for. */}
+                    <Animated.View style={[{ width: cardWidth }, cardStyle]}>
+                        <MatteSurface radius={22} elevation="floating" style={styles.card}>
+                            {items.map((item, index) => (
+                                <View key={item.id}>
+                                    {index > 0 ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
+                                    <Pressable accessibilityRole="button" accessibilityLabel={`Create ${item.label.toLowerCase()}`} accessibilityHint={item.hint}
+                                        onPress={() => choose(item.id)} style={styles.row}>
+                                        <IconTile icon={item.icon} color={item.color} size={36} shape="square" />
+                                        <View style={styles.words}>
+                                            <Text style={[styles.label, { color: colors.textPrimary }]}>{item.label}</Text>
+                                            <Text numberOfLines={1} style={[styles.hint, { color: colors.textSecondary }]}>{item.hint}</Text>
+                                        </View>
+                                    </Pressable>
+                                </View>
+                            ))}
+                        </MatteSurface>
+                    </Animated.View>
 
                     {/* The same button, turned: 45 degrees is a close button. */}
                     <Pressable
@@ -165,56 +180,17 @@ export const CreationModal = () => {
     );
 };
 
-/** One option, rising out of the button and settling above it. */
-const MenuRow = ({ item, index, count, progress, size, colors, isLight, onPress }: any) => {
-    // Last in the list leaves first, so they unfold upward from the button.
-    const start = 0.12 * (count - 1 - index);
-    const style = useAnimatedStyle(() => {
-        const local = Math.min(1, Math.max(0, (progress.value - start) / (1 - start)));
-        return {
-            opacity: local,
-            transform: [
-                { translateY: interpolate(local, [0, 1], [size * 0.7, 0]) },
-                { scale: interpolate(local, [0, 1], [0.82, 1]) },
-            ],
-        };
-    });
-
-    return (
-        <Animated.View style={style}>
-            <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Create ${item.label.toLowerCase()}`}
-                onPress={onPress}
-                // Static, not a function: see ViewSwitcher — a function style
-                // loses the layout on this React Native.
-                style={styles.row}
-            >
-                {/* A matte pill, floating on its shadow: just the word and a
-                    matte disc with the filled icon in its colour. */}
-                <MatteSurface radius={999} elevation="floating" style={styles.pill}>
-                    <Text style={[styles.label, { color: colors.textPrimary }]}>{item.label}</Text>
-                    <MatteSurface radius={21} level="control" style={styles.chip}>
-                        <Ionicons filled name={item.icon} size={20} color={item.color} />
-                    </MatteSurface>
-                </MatteSurface>
-            </Pressable>
-        </Animated.View>
-    );
-};
-
 const styles = StyleSheet.create({
-    stack: { position: 'absolute', alignItems: 'flex-end', gap: 12 },
+    stack: { position: 'absolute', alignItems: 'flex-end', gap: 14 },
     orb: {
         alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
         shadowOpacity: 0.45, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 8,
     },
     orbFill: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
-    row: { alignItems: 'flex-end' },
-    pill: {
-        flexDirection: 'row', alignItems: 'center', gap: 12,
-        paddingLeft: 20, paddingRight: 8, paddingVertical: 8,
-    },
-    label: { fontSize: 15, fontFamily: FontFamily.semibold },
-    chip: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+    card: { paddingVertical: 6 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 60 },
+    words: { flex: 1, gap: 2 },
+    label: { fontSize: 17, fontFamily: FontFamily.semibold },
+    hint: { fontSize: 13, fontFamily: FontFamily.regular },
+    divider: { height: StyleSheet.hairlineWidth, marginLeft: 66 },
 });
