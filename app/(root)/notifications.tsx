@@ -166,8 +166,7 @@ const SettingRow = ({ icon, color, label, value, disabled, onChange }: {
         <IconTile icon={icon} color={color} size={30} shape="square" />
         <Text style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>
       </View>
-      <Switch accessibilityLabel={label} value={value} disabled={disabled} onValueChange={onChange}
-        trackColor={{ false: colors.border, true: primary }} />
+      <Switch accessibilityLabel={label} value={value} disabled={disabled} onValueChange={onChange} />
     </View>
   );
 };

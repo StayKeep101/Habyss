@@ -265,10 +265,15 @@ describe('exact time or flexible', () => {
 describe('where a done thing sits', () => {
     const window = { wake: 420, sleep: 1380 };
     const done = (id: string, minutes: number, extra: Partial<FlowInput> = {}): FlowInput => ({ id, kind: 'task', title: id, start: null, minutes, done: true, ...extra });
-    it('ends when it was ticked and is as long as it was expected to take, early or late', () => {
-        // Planned 18:00–18:30, ticked at 17:55: shown 17:25–17:55.
+    it('stays where it was planned when it was done before its time came', () => {
+        // Planned 18:00–18:30, ticked at 17:55: still 18:00–18:30, ticked.
         const early = flowDay([done('essay', 30, { kept: { start: 1080, end: 1110 }, doneAt: 1075 })], 1200, window);
-        expect(early.timeline[0]).toMatchObject({ start: 1045, end: 1075 });
+        expect(early.timeline[0]).toMatchObject({ start: 1080, end: 1110, state: 'done' });
+        // Sourcing, 21:00–23:00 every day, done by noon: 21:00 is not asked for again.
+        const sourcing = flowDay([done('sourcing', 120, { planned: { start: 1260, end: 1380 }, kept: { start: 600, end: 720 }, doneAt: 720 })], 730, window);
+        expect(sourcing.timeline[0]).toMatchObject({ start: 1260, end: 1380, state: 'done' });
+    });
+    it('ends when it was ticked and is as long as it was expected to take, once its time has come', () => {
         // Started at 17:00, ticked at 17:10: still the 30 minutes it was expected to take, ending at 17:10.
         const partway = flowDay([done('essay', 30, { kept: { start: 1020, end: 1050 }, doneAt: 1030 })], 1200, window);
         expect(partway.timeline[0]).toMatchObject({ start: 1000, end: 1030 });

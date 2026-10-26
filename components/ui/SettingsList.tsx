@@ -83,7 +83,7 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
             <View style={[styles.stack, disabled && styles.disabled]}>
                 <View style={styles.stackHead}>
                     <IconTile icon={icon} color={color} size={30} shape="square" />
-                    <Text numberOfLines={1} style={[styles.label, { color: destructive ? colors.error : colors.textPrimary }]}>{label}</Text>
+                    <Text numberOfLines={2} style={[styles.label, { color: destructive ? colors.error : colors.textPrimary }]}>{label}</Text>
                 </View>
                 <View style={styles.stackChoices}>{pills}</View>
             </View>
@@ -92,7 +92,7 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
     const content = (
         <>
             <IconTile icon={icon} color={color} size={30} shape="square" />
-            <Text numberOfLines={1} style={[styles.label, { color: destructive ? colors.error : colors.textPrimary }]}>{label}</Text>
+            <Text numberOfLines={2} style={[styles.label, { color: destructive ? colors.error : colors.textPrimary }]}>{label}</Text>
             {isSwitch ? (
                 <AppSwitch value={toggle} disabled={disabled} onValueChange={next => { selectionFeedback(); onToggle?.(next); }} />
             ) : choices ? (
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     title: { ...UIStyles.sectionTitle, marginBottom: 0 },
     card: { paddingHorizontal: 14 },
     divider: { height: StyleSheet.hairlineWidth, marginLeft: 42 },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 54 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 54, paddingVertical: 8 },
     disabled: { opacity: 0.5 },
     label: { flex: 1, fontSize: 15, fontFamily: FontFamily.medium },
     value: { maxWidth: '45%', fontSize: 14, fontFamily: FontFamily.regular },

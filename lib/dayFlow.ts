@@ -50,6 +50,8 @@ export interface FlowInput {
      * there; something under way holds it until it runs out.
      */
     kept?: { start: number; end: number };
+    /** Done ones: where it was planned before it was ticked. */
+    planned?: { start: number; end: number };
     /** A meal that may wait when the day is full (Settings → Timeline); otherwise as fixed as any. */
     flex?: boolean;
     /**
@@ -211,11 +213,16 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
             // the moment it was ticked and as long as it was expected to take
             // (its cut length, if it was cut). A 30-minute task ticked at 5:55
             // reads 5:25–5:55, early or late, ticked here, on Home or the watch.
+            //
+            // Done before its time even came (9–11 PM sourcing ticked at noon):
+            // it stays where it was planned, ticked, and 9 PM is free of it.
             const planned = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
             const expected = Math.max(5, kept ? Math.min(planned, kept.end - kept.start) : planned);
             const at = item.doneAt ?? (kept && now !== null && now < kept.end ? now : undefined);
+            const before = item.planned ?? (item.start !== null ? { start: item.start, end: item.start + planned } : kept);
             let slot = kept;
-            if (at !== undefined) { const start = Math.max(0, at - expected); slot = { start, end: Math.max(at, start + 1) }; }
+            if (at !== undefined && before && at < before.start) slot = before;
+            else if (at !== undefined) { const start = Math.max(0, at - expected); slot = { start, end: Math.max(at, start + 1) }; }
             if (slot) timed.push({ ...item, start: slot.start, minutes: slot.end - slot.start, auto: item.auto || item.start === null || slot.start !== item.start });
             else if (item.start !== null) timed.push(item);
             else untimed.push(item);
@@ -503,6 +510,7 @@ export function flowInputs(input: {
         // Not done (again): where it was planned, not where a tick put it.
         const slot = (!item.done && input.planned?.[item.id]) || input.kept[item.id];
         if (slot) item.kept = slot;
+        if (item.done && input.planned?.[item.id]) item.planned = input.planned[item.id];
     }
     return items;
 }
