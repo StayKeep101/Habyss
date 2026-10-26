@@ -31,8 +31,12 @@ import { styles } from '@/styles/screens/focus.styles';
  * While it runs there is nothing on screen but the clock and a faint ×. Tap
  * anywhere to pause or carry on, like a video. A long press (or the ×) grows
  * the × into a small window: Finished saves the time and counts the habit or
- * task as done; Exit leaves without saving anything. Done · Next does the
- * same as Finished and moves on to the next thing in the day.
+ * task as done and closes; Exit leaves without saving anything. Nothing
+ * moves on by itself: focus is chosen.
+ *
+ * Done · Next is the routine: it counts this one done and the next thing in
+ * the day takes its place straight away, its clock already running, no
+ * closing, no "done" screen in between.
  */
 export default function FocusRoute() {
     const { id, kind, day, end, title, from, until, nextKind } = useLocalSearchParams<{
@@ -58,12 +62,8 @@ function FocusDayStart() {
 
 function FocusScreen() {
     const { kind, id, title, banked: bankedParam, day: dayParam } = useLocalSearchParams<{ kind?: string; id?: string; title?: string; banked?: string; start?: string; day?: string }>();
-    // Every focus follows the day: when this one is done (its time up, or
-    // Next pressed here or on the watch), the next thing starts by itself.
     void dayParam;
-    const allDay = true;
     const proceed = useFocusDay();
-    const stopped = useRef(false);
     const insets = useSafeAreaInsets();
     const { primary } = useAccentGradient();
     const { selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
@@ -87,23 +87,13 @@ function FocusScreen() {
 
     const mine = focus.activeHabitId === id;
     const active = mine && (focus.isRunning || focus.isPaused);
-    // A countdown that runs out is Finished: saved, done, and a moment to see it.
-    const [finished, setFinished] = useState(false);
+    // Ended somewhere else (the Live Activity, the watch): nothing left to show here.
     const leaving = useRef(false);
     const wasActive = useRef(false);
     useEffect(() => {
-        if (wasActive.current && !active && !focus.isRunning && !focus.isPaused && !leaving.current) {
-            setFinished(true);
-            successFeedback();
-        }
+        if (wasActive.current && !active && !focus.isRunning && !focus.isPaused && !leaving.current) router.back();
         wasActive.current = active;
-    }, [active, focus.isRunning, focus.isPaused, successFeedback]);
-    // All day: a moment to see it done, then on to the next thing (a meal or an event included).
-    useEffect(() => {
-        if (!finished || !allDay) return;
-        const go = setTimeout(() => { if (!stopped.current) void proceed(id); }, 1200);
-        return () => clearTimeout(go);
-    }, [finished, allDay, proceed, id]);
+    }, [active, focus.isRunning, focus.isPaused]);
     // Awake while it runs.
     useEffect(() => {
         const keep = require('expo-keep-awake') as typeof import('expo-keep-awake');
@@ -164,9 +154,16 @@ function FocusScreen() {
         mediumFeedback();
         endMenu.current?.open();
     };
-    const finishNow = () => { leaving.current = true; successFeedback(); focus.finishTimer(); setFinished(true); };
-    // Next: counts this one done and moves on to the next thing in the day.
-    const nextNow = () => { if (!active) return; mediumFeedback(); finishNow(); };
+    // Finished: saved, counted done, and the page closes. The timeline shows what is next.
+    const finishNow = () => { leaving.current = true; successFeedback(); focus.finishTimer(); close(); };
+    // Done · Next: counted done, and the next thing in the day takes over right here.
+    const nextNow = () => {
+        if (!active) return;
+        leaving.current = true;
+        successFeedback();
+        focus.finishTimer();
+        void proceed(id);
+    };
     // Next from the wrist does the same.
     const nextRef = useRef(nextNow);
     nextRef.current = nextNow;
@@ -185,26 +182,18 @@ function FocusScreen() {
             onPress={toggle} onLongPress={active ? askEnd : undefined} delayLongPress={600} accessible={false}>
             <Animated.View style={[styles.top, chromeStyle]}>
                 {active ? (
-                    <MorphMenu menuRef={endMenu} icon="close" iconColor="#FFFFFF" label="End focus" title="End focus?" titleIcon="timer" diameter={40} items={[
+                    <MorphMenu menuRef={endMenu} icon="close" iconColor="#FFFFFF" label="End focus" title="End focus?" titleIcon="timer" items={[
                         { label: 'Finished', icon: 'checkmark-circle', onPress: finishNow },
                         { label: 'Exit without saving', icon: 'close-circle', destructive: true, onPress: exitNow },
                     ]} />
                 ) : (
-                    <IconButton icon="close" label="Close" onPress={close} diameter={40} size={18} color="#FFFFFF" />
+                    <IconButton icon="close" label="Close" onPress={close} size={18} color="#FFFFFF" />
                 )}
                 <Text numberOfLines={1} style={styles.title}>{name}</Text>
-                <View style={{ width: 40 }} />
+                <View style={styles.topSpacer} />
             </Animated.View>
 
-            {finished ? (
-                <View style={styles.center}>
-                    <Text style={styles.doneTitle}>Done</Text>
-                    <Text style={styles.doneSub}>{allDay ? 'On to the next thing…' : 'Saved, and counted as done.'}</Text>
-                    <View style={styles.next}>
-                        <AppButton label="Stop here" variant="ghost" onPress={() => { stopped.current = true; close(); }} />
-                    </View>
-                </View>
-            ) : active ? (
+            {active ? (
                 <View style={styles.center}>
                     <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary}
                         label={focus.isPaused ? 'Paused · tap to carry on' : stopwatch && focus.totalDuration < 3600 * 12 ? 'Over time' : undefined} />

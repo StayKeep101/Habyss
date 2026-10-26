@@ -655,16 +655,10 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             startedAt: new Date(began).toISOString(), actualDuration: 0,
         });
 
-        // Block the chosen apps: asks for Screen Time access and opens the
-        // picker the first time; says so once only if access is refused.
-        if (Platform.OS === 'ios') {
-            ScreenTimeService.armShieldIfPossible().then((result) => {
-                if (result === 'denied' && !hasShownBlockingSetupPromptRef.current) {
-                    hasShownBlockingSetupPromptRef.current = true;
-                    Alert.alert('Apps are not blocked', 'Habyss needs Screen Time access to block apps while you focus.');
-                }
-            });
-        }
+        // Block the chosen apps where the phone can (asks for Screen Time
+        // access and opens the picker the first time). Never a popup: moving
+        // from one thing to the next must not be interrupted.
+        if (Platform.OS === 'ios') void ScreenTimeService.armShieldIfPossible().catch(() => undefined);
 
         // LIVE ACTIVITY START
         const { LiveActivityService } = require('@/lib/liveActivityService');
