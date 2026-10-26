@@ -40,6 +40,10 @@ interface Props {
     /** Present when editing. */
     task?: Task | null;
     listenToGlobalEvents?: boolean;
+    /** Mounted on a page (not the root): the goal a new task is filed under. */
+    goalId?: string;
+    /** Mounted on a page: the row to open on, e.g. 'due'. */
+    focus?: string;
 }
 
 const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
@@ -111,7 +115,7 @@ const shortDate = (date?: string) => {
  * The day matters more here than anywhere else in the app: a task shows up on
  * the day it was given and on no other, so giving it the wrong day hides it.
  */
-export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task, listenToGlobalEvents }) => {
+export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task, listenToGlobalEvents, goalId, focus }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -120,7 +124,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
 
     const [eventVisible, setEventVisible] = useState(false);
     const [editing, setEditing] = useState<Task | null>(null);
-    const [eventGoal, setEventGoal] = useState<string | undefined>(undefined);
+    const [eventGoal, setEventGoal] = useState<string | undefined>(goalId);
     const [text, setText] = useState('');
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<string | null>(null);
@@ -128,7 +132,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     /** A row the opener asked for, and the one this session actually opened on. */
-    const [requestedRow, setRequestedRow] = useState<string | null>(null);
+    const [requestedRow, setRequestedRow] = useState<string | null>(focus ?? null);
     const [openedWith, setOpenedWith] = useState<string | null>(null);
     const savingRef = useRef(false);
 

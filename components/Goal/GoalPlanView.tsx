@@ -32,7 +32,7 @@ import { updateMilestone, type Milestone } from '@/lib/goalMilestones';
  * Each part says in one line what it is for and ends with its own add button,
  * so building the plan happens right here.
  */
-export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readOnly?: boolean }> = ({ goalId, embedded = false, readOnly = false }) => {
+export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readOnly?: boolean; onOpenTask?: (task?: Task) => void }> = ({ goalId, embedded = false, readOnly = false, onOpenTask }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary: accent } = useAccentGradient();
@@ -58,7 +58,10 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readO
     const color = goal.color || accent;
     const { tasks } = insights;
 
+    // On the goal page the page opens the sheet itself (a second modal over a
+    // modal route freezes iOS); elsewhere the root's copy does.
     const addTask = () => {
+        if (onOpenTask) { onOpenTask(); return; }
         lightFeedback();
         emit('show_task_form', { goalId: goal.id });
     };
@@ -71,6 +74,7 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readO
      * all live where the task itself lives.
      */
     const openTask = (task?: Task) => {
+        if (onOpenTask) { onOpenTask(task); return; }
         lightFeedback();
         emit('show_task_form', task ? { task, focus: 'due' } : { goalId: goal.id });
     };

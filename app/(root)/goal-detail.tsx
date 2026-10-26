@@ -23,6 +23,7 @@ import { ShareGoalModal } from '@/components/Social/ShareGoalModal';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { GoalPlanBoard } from '@/components/Goal/GoalPlanBoard';
+import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
 import { MilestoneSheet } from '@/components/Goal/MilestoneSheet';
 import { useMilestones } from '@/hooks/useMilestones';
 import { addMilestones, splitIntoMilestones, updateMilestone, type Milestone } from '@/lib/goalMilestones';
@@ -255,9 +256,16 @@ const GoalDetail = () => {
     ]);
   };
 
+  /**
+   * The task sheet, mounted on this page. Asking the copy at the root for it
+   * (show_task_form) presented a second modal over this modal route, which
+   * iOS answers by freezing the app; the goal and habit sheets are mounted
+   * here for the same reason.
+   */
+  const [taskForm, setTaskForm] = useState<{ task: Task | null; key: number } | null>(null);
   const openTask = (task?: Task) => {
     lightFeedback();
-    emit('show_task_form', task ? { task } : { goalId: goal?.id });
+    setTaskForm({ task: task ?? null, key: Date.now() });
   };
 
   /**
@@ -524,6 +532,10 @@ const GoalDetail = () => {
       </View>
 
 
+      {taskForm && goal ? (
+        <TaskFormModal key={taskForm.key} visible task={taskForm.task} goalId={goal.id}
+          onClose={() => setTaskForm(null)} onSaved={() => emit('tasks_changed')} />
+      ) : null}
       {milestoneSheet && goal ? (
         <MilestoneSheet visible goalId={goal.id} goalEnd={goalEnd} milestone={milestoneSheet.milestone} onClose={() => setMilestoneSheet(null)} />
       ) : null}

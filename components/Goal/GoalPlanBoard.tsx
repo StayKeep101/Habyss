@@ -123,7 +123,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
 
             {range === 'all' ? (
                 <Animated.View key="all" entering={FadeIn.duration(200)}>
-                    <GoalPlanView goalId={goalId} embedded readOnly={readOnly} />
+                    <GoalPlanView goalId={goalId} embedded readOnly={readOnly} onOpenTask={onOpenTask} />
                 </Animated.View>
             ) : plan ? (
                 <Animated.View key={`${range}:${offset}`} entering={FadeIn.duration(200)} style={styles.body}>
