@@ -36,12 +36,14 @@ function whenLabel(milestone: Milestone, state: MilestoneState, today: string): 
  * one says so in red. Tap the flag to reach it (or take it back), the row to
  * change it. Only on the goal: milestones never reach the timeline or a list.
  */
-export function GoalMilestones({ milestones, color, today, onToggle, onOpen }: {
+export function GoalMilestones({ milestones, color, today, onToggle, onOpen, header = true }: {
     milestones: Milestone[];
     color: string;
     today: string;
     onToggle: (milestone: Milestone) => void;
     onOpen: (milestone: Milestone) => void;
+    /** Its own "Milestones" heading; off when the page gives it one. */
+    header?: boolean;
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -60,7 +62,7 @@ export function GoalMilestones({ milestones, color, today, onToggle, onOpen }: {
     if (!milestones.length) return null;
     return (
         <View style={styles.wrap}>
-            <SectionTitle first right={<ValuePill value={`${reached}/${milestones.length}`} />}>Milestones</SectionTitle>
+            {header ? <SectionTitle first right={<ValuePill value={`${reached}/${milestones.length}`} />}>Milestones</SectionTitle> : null}
             <View style={[styles.track, { backgroundColor: colors.border }]} accessible accessibilityRole="progressbar"
                 accessibilityLabel={`${reached} of ${milestones.length} milestones reached`}>
                 <AnimatedFill progress={reached / milestones.length} replay={reached} style={[styles.fill, { backgroundColor: color }]} />

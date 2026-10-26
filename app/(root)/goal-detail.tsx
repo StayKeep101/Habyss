@@ -513,7 +513,7 @@ const GoalDetail = () => {
             <Animated.View key={view} entering={FadeIn.duration(220)} style={[styles.tabBody, styles.swapped]}>
               {view === 'stats'
                 ? <GoalStatsView goalId={goal.id} embedded />
-                : <GoalPlanView goalId={goal.id} embedded />}
+                : <GoalPlanView goalId={goal.id} embedded readOnly={isSharedGoal} />}
             </Animated.View>
           ) : (
           /* Today: only what this goal asks of the user today. The numbers and

@@ -17,17 +17,22 @@ import { addDays } from '@/lib/goalInsights';
 import { toggleCompletion, type Habit } from '@/lib/habitsSQLite';
 import { deleteTask, setTaskStatus, updateTask, type Task } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
+import { GoalMilestones } from '@/components/Goal/GoalMilestones';
+import { MilestoneSheet } from '@/components/Goal/MilestoneSheet';
+import { useMilestones } from '@/hooks/useMilestones';
+import { updateMilestone, type Milestone } from '@/lib/goalMilestones';
 
 /**
- * Every step between here and the goal, as one path.
+ * The goal's roadmap: everything that gets it done, in three plain parts.
  *
- * It opens on the goal's number and what each day now needs. Then the path:
- * for a project, each step in order with the tasks inside it, so you can see
- * what is finished, what is under way and what has not been touched; for a
- * number or time goal, the tasks laid out on the days they are due. The habits
- * that carry it every day sit beside the path, and the path ends at the flag.
+ * - Milestones: by when each part should be done ("Beta ready by Nov 30").
+ * - Tasks: the steps to finish it, the most urgent first, done ones folded away.
+ * - Habits: what you keep doing, each with its rhythm ("Every day").
+ *
+ * Each part says in one line what it is for and ends with its own add button,
+ * so building the plan happens right here.
  */
-export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = ({ goalId, embedded = false }) => {
+export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readOnly?: boolean }> = ({ goalId, embedded = false, readOnly = false }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary: accent } = useAccentGradient();
@@ -36,6 +41,9 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
     const [showDone, setShowDone] = useState(false);
     const Outer: any = embedded ? View : ScrollView;
     const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+    const [addingHabit, setAddingHabit] = useState(false);
+    const milestones = useMilestones(goal?.id);
+    const [milestoneSheet, setMilestoneSheet] = useState<{ milestone: Milestone | null } | null>(null);
 
     if (!goal || !insights) {
         return (
@@ -131,17 +139,37 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
                 {/* The page above already shows the number and the days
                     left; this tab is only the plan. */}
 
+                {/* 1 · Milestones: by when each part should be done. */}
+                <SectionLabel first right={milestones.length ? <ValuePill value={`${milestones.filter(m => m.doneAt).length}/${milestones.length}`} /> : undefined}>Milestones</SectionLabel>
+                <Text style={[styles.lead, { color: colors.textTertiary }]}>By when each part should be done.</Text>
+                {milestones.length ? (
+                    <GoalMilestones header={false} milestones={milestones} color={color} today={today}
+                        onToggle={milestone => { if (!readOnly) void updateMilestone(milestone, { done: !milestone.doneAt }).catch(() => Alert.alert('Not saved', 'That milestone could not be updated. Try again.')); }}
+                        onOpen={milestone => { if (!readOnly) setMilestoneSheet({ milestone }); }} />
+                ) : null}
+                {!readOnly ? <View style={styles.addRow}><AddButton label="Milestone" icon="flag-outline" onPress={() => { lightFeedback(); setMilestoneSheet({ milestone: null }); }} /></View> : null}
+
+                {/* 2 · Tasks: the steps to finish it. */}
+                <SectionLabel right={tasks.total ? <ValuePill value={`${tasks.done}/${tasks.total}`} /> : undefined}>Tasks</SectionLabel>
+                <Text style={[styles.lead, { color: colors.textTertiary }]}>The steps to finish it, most urgent first.</Text>
+                {/* One list, most urgent first: each row already says when it is due. */}
+                {[...tasks.overdue, ...tasks.upcoming, ...tasks.undated].map(renderTask)}
+                {tasks.completed.length ? (
                     <>
-                        <SectionLabel first right={tasks.total ? <ValuePill value={`${tasks.done}/${tasks.total}`} /> : undefined}>Tasks</SectionLabel>
-                        {/* One list, most urgent first: each row already says when it is due. */}
-                        {[...tasks.overdue, ...tasks.upcoming, ...tasks.undated].map(renderTask)}
-
-                        <View style={styles.addRow}>
-                            <AddButton label="Task" onPress={addTask} />
-                        </View>
+                        <TouchableOpacity accessibilityRole="button" onPress={() => { lightFeedback(); setShowDone(!showDone); }} style={styles.doneToggle}>
+                            <Text style={[styles.doneToggleText, { color: colors.textSecondary }]}>
+                                {showDone ? 'Hide' : 'Show'} {tasks.completed.length} done
+                            </Text>
+                            <Ionicons name={showDone ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                        {showDone ? tasks.completed.map(renderTask) : null}
                     </>
+                ) : null}
+                {!readOnly ? <View style={styles.addRow}><AddButton label="Task" icon="checkbox-outline" onPress={addTask} /></View> : null}
 
-                {insights.habits.length ? <SectionLabel>Habits</SectionLabel> : null}
+                {/* 3 · Habits: what you keep doing, each with its rhythm. */}
+                <SectionLabel right={insights.habits.length ? <ValuePill value={String(insights.habits.length)} /> : undefined}>Habits</SectionLabel>
+                <Text style={[styles.lead, { color: colors.textTertiary }]}>What you keep doing, and how often.</Text>
                 {insights.habits.map(summary => {
                     return (
                         <GoalHabitRow
@@ -156,18 +184,14 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
                     );
                 })}
 
-                {tasks.completed.length ? (
-                    <>
-                        <TouchableOpacity accessibilityRole="button" onPress={() => { lightFeedback(); setShowDone(!showDone); }} style={styles.doneToggle}>
-                            <Text style={[styles.doneToggleText, { color: colors.textSecondary }]}>
-                                {showDone ? 'Hide' : 'Show'} {tasks.completed.length} done
-                            </Text>
-                            <Ionicons name={showDone ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                        {showDone ? tasks.completed.map(renderTask) : null}
-                    </>
-                ) : null}
+                {!readOnly ? <View style={styles.addRow}><AddButton label="Habit" icon="repeat-outline" onPress={() => { lightFeedback(); setAddingHabit(true); }} /></View> : null}
             </Outer>
+
+            {addingHabit ? <HabitSheet visible goalId={goal.id} onClose={() => setAddingHabit(false)} onSaved={() => setAddingHabit(false)} /> : null}
+            {milestoneSheet ? (
+                <MilestoneSheet visible goalId={goal.id} goalEnd={goal.targetDate ? insights.endDate : undefined}
+                    milestone={milestoneSheet.milestone} onClose={() => setMilestoneSheet(null)} />
+            ) : null}
 
             {editingHabit ? (
                 <HabitSheet visible habit={editingHabit} goalId={editingHabit.goalId} onClose={() => setEditingHabit(null)} />
@@ -177,14 +201,14 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
 }
 
 /** A matte pill to add something to the plan. */
-const AddButton: React.FC<{ label: string; onPress: () => void }> = ({ label, onPress }) => {
+const AddButton: React.FC<{ label: string; icon?: string; onPress: () => void }> = ({ label, icon = 'add', onPress }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     return (
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Add ${label.toLowerCase()}`} onPress={onPress} activeOpacity={0.8} style={{ flex: 1 }}>
             <MatteSurface radius={999} level="control" style={styles.addButton}>
-                <Ionicons name="add" size={18} color={colors.textPrimary} />
-                <Text style={[styles.addButtonText, { color: colors.textPrimary }]}>{label}</Text>
+                <Ionicons name={icon as never} size={18} color={colors.textPrimary} />
+                <Text style={[styles.addButtonText, { color: colors.textPrimary }]}>Add {label.toLowerCase()}</Text>
             </MatteSurface>
         </TouchableOpacity>
     );
@@ -192,6 +216,8 @@ const AddButton: React.FC<{ label: string; onPress: () => void }> = ({ label, on
 
 const styles = StyleSheet.create({
     content: { paddingHorizontal: 20, paddingBottom: 48 },
+    /** One line under each heading: what that part of the plan is for. */
+    lead: { fontSize: 13, fontFamily: FontFamily.regular, marginTop: -4, marginBottom: 12 },
     empty: { textAlign: 'center', marginTop: 40, fontFamily: FontFamily.regular },
     goalName: { fontSize: 22, fontFamily: FontFamily.bold, marginTop: 4 },
     range: { fontSize: 13, fontFamily: FontFamily.regular, marginTop: 4 },
