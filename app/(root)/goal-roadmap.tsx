@@ -1,6 +1,7 @@
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { IconTile } from '@/components/ui/IconTile';
 import { CountUp, ListItem } from '@/components/ui/Motion';
@@ -48,6 +49,9 @@ export default function GoalRoadmapScreen() {
     const isLight = theme === 'light';
     const { primary: accent } = useAccentGradient();
     const { lightFeedback } = useHaptics();
+    // This page is a modal: the task sheet is mounted here, since the root's
+    // copy cannot appear over it (tapping a task used to open nothing).
+    const [editing, setEditing] = useState<{ task: Task; key: number } | null>(null);
 
     // The shared goal data: the same habits, tasks and progress every other
     // goal screen shows, already in memory, so this page opens instantly.
@@ -96,7 +100,7 @@ export default function GoalRoadmapScreen() {
             <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel={`Task: ${task.title}`}
-                onPress={() => { lightFeedback(); emit('show_task_form', { task }); }}
+                onPress={() => { lightFeedback(); setEditing({ task, key: Date.now() }); }}
                 style={styles.leaf}
             >
                 <Ionicons name={done ? 'checkbox' : 'square-outline'} size={15} color={done ? colors.textTertiary : TASK_COLOR} />
@@ -164,6 +168,7 @@ export default function GoalRoadmapScreen() {
                         ) : null}
                     </ScrollView>
                 )}
+                {editing ? <TaskFormModal key={editing.key} visible task={editing.task} onClose={() => setEditing(null)} onSaved={() => emit('tasks_changed')} /> : null}
             </SheetScreen>
     );
 }

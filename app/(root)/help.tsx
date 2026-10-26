@@ -9,6 +9,7 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { emit } from '@/lib/appEvents';
 import { CoffeePopup } from '@/components/Common/CoffeePopup';
+import { FeedbackSheet } from '@/components/Common/FeedbackSheet';
 import { styles } from '@/styles/screens/help.styles';
 
 /** The one answer that is typed out, slowly, and then owns up. */
@@ -54,6 +55,9 @@ export default function Help() {
     const colors = Colors[theme];
     const [open, setOpen] = useState<number | null>(null);
     const [coffee, setCoffee] = useState(false);
+    // Help is a modal screen: its feedback sheet is mounted here (the root's
+    // copy cannot appear over a modal, so the button used to open nothing).
+    const [feedback, setFeedback] = useState(false);
     const showCoffee = useCallback(() => setCoffee(true), []);
     const version = Constants.expoConfig?.version || '1.0.0';
 
@@ -66,7 +70,7 @@ export default function Help() {
 
                 <SettingsGroup>
                     <SettingsRow icon="chatbubble" color="#5B8CFF" label="Send feedback"
-                        onPress={() => emit('show_feedback', { screen: 'help' })} />
+                        onPress={() => setFeedback(true)} />
                 </SettingsGroup>
 
                 <SettingsGroup title="Questions">
@@ -95,6 +99,7 @@ export default function Help() {
                 </View>
             </ScrollView>
             <CoffeePopup visible={coffee} onClose={() => setCoffee(false)} />
+            <FeedbackSheet open={feedback} onClose={() => setFeedback(false)} screenName="help" />
         </SheetScreen>
     );
 }

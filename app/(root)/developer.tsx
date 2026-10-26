@@ -31,8 +31,6 @@ export default function DeveloperScreen() {
                 <SettingsGroup title="Moments">
                     <SettingsRow icon="trophy" color="#FFD60A" label="Rank up: Beginner (league unlocked)" onPress={() => play(() => emit('preview_climb', { rank: 'Beginner' }))} />
                     <SettingsRow icon="trophy" color="#FF9F0A" label="Rank up: Master" onPress={() => play(() => emit('preview_climb', { rank: 'Master' }))} />
-                    <SettingsRow icon="snow" color="#64D2FF" label="Easter egg: help a friend" onPress={() => play(() => emit('preview_egg', { egg: 'help_friend' }))} />
-                    <SettingsRow icon="key" color="#BF5AF2" label="Easter egg: the vault" onPress={() => play(() => emit('preview_egg', { egg: 'vault' }))} />
                     <SettingsRow icon="happy" color="#FF375F" label="Quick question: mood" onPress={() => play(() => emit('preview_question', { kind: 'mood' }))} />
                 </SettingsGroup>
                 <Text style={[styles.note, { color: colors.textTertiary }]}>These only play the moment; your Marks, rank and data stay as they are.</Text>

@@ -27,7 +27,7 @@ export const BACKED_UP_KEYS = [
     'habyss_notification_prefs', 'habyss_roadmap_filter', 'habyss_voice_destination',
     'habyss_daily_focus_target', 'habyss_onboarding_complete', 'habyss_focus_blocking', 'habyss_tilt_to_focus',
     'habyss_echo_config', 'habyss_echo_memory', 'habyss_echo_patterns', 'habyss_echo_experiments',
-    'habyss_echo_written_lines', 'habyss_echo_eggs', 'echo_recent_lines',
+    'habyss_echo_written_lines', 'echo_recent_lines',
     'habyss_check_ins', 'habyss_brain_dump', 'habyss_day_memory', 'habyss_sleep_log',
     'habyss_meals', 'habyss_meals_flexible', 'habyss_event_travel', 'habyss_goal_logs', 'habyss_moved_tasks', 'habyss_peak_targets',
     'habyss_marks_kept', 'marks_local_total', 'habyss_climb_state',

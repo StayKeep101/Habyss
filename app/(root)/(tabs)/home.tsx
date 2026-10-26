@@ -2,10 +2,8 @@ import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {View, Text, ScrollView, RefreshControl} from 'react-native';
 import { EchoLine } from '@/components/Home/EchoLine';
-import { EggPopup } from '@/components/Echo/EggPopup';
 import { CheckInPopup } from '@/components/Echo/CheckInPopup';
 import { useEchoMemory } from '@/hooks/useEchoMemory';
-import { eggLine, loadEggs, markFound, markShown, pickEgg, type EggId } from '@/lib/echoEggs';
 import { answer as answerCheckIn, leadInFor, loadCheckIns, markAsked, pickQuestion, type CheckInKind } from '@/lib/checkIns';
 import { coverYesterdayIfMissed, loadFreezes } from '@/lib/streakFreeze';
 import { useMyProfile } from '@/hooks/useMyProfile';
@@ -98,8 +96,6 @@ const Home = () => {
   const { avatar: profileAvatar } = useMyProfile();
   const [refreshing, setRefreshing] = useState(false);
   const [motivationalQuote, setMotivationalQuote] = useState('');
-  const [echoEgg, setEchoEgg] = useState<EggId | null>(null);
-  const [openEgg, setOpenEgg] = useState<EggId | null>(null);
   // One of Echo's quick questions, asked now and then after a pull down.
   const [question, setQuestion] = useState<CheckInKind | null>(null);
   /** The question waiting for Echo's line to finish typing. */
@@ -126,24 +122,13 @@ const Home = () => {
     const name = await getName();
     const personality = normalizeAIPersonality(aiPersonality || 'friendly');
     const stats = echoStatsRef.current;
-    // Behind on tasks: that comes before any stat or easter egg, more worried
+    // Behind on tasks: that comes before any stat, more worried
     // the further behind, up to demon mode (lib/taskPressure.ts).
     const pressure = pressureRef.current;
     if (pressureSpeaks(pressure)) {
       const line = pressureLine(pressure.level === 4 && !pressure.demonAllowed ? { ...pressure, level: 3 } : pressure, personality);
-      if (line) { setEchoEgg(null); setMotivationalQuote(line); return; }
+      if (line) { setMotivationalQuote(line); return; }
     }
-    // Now and then the line is an easter egg instead: tap it to open it.
-    const now = new Date();
-    const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const egg = pickEgg(await loadEggs(), { today: todayKey, hasFriends: true, hasMemory: true });
-    if (egg) {
-      setEchoEgg(egg);
-      setMotivationalQuote(eggLine(egg));
-      void markShown(egg, todayKey);
-      return;
-    }
-    setEchoEgg(null);
     // Now and then, something Echo found in your record instead.
     const found = nextPatternLine(echoPatternsRef.current);
     if (found) { setMotivationalQuote(found); return; }
@@ -167,7 +152,6 @@ const Home = () => {
     const kind = pickQuestion(await loadCheckIns(), new Date());
     if (kind) {
       void markAsked(kind);
-      setEchoEgg(null);
       pendingQuestion.current = kind;
       setMotivationalQuote(leadInFor(kind, normalizeAIPersonality(aiPersonality || 'friendly')));
     } else {
@@ -260,14 +244,6 @@ const Home = () => {
   const { overall: avgGoalProgress, tasks: allTasks, skippedToday, today: todayKeyString } = goalsData;
   // Marks, from the same habits, tasks and history already loaded here.
   const marks = useMarks(goalsData);
-  // What the "memory" easter egg says: something real Echo noticed, or a real number.
-  const echoMemory = useEchoMemory();
-  const memoryLine = useMemo(() => {
-    const notes = echoMemory.notes.filter(note => note.source === 'echo' || note.kind === 'strategy');
-    // A different one each day, never the same pick twice in a render.
-    if (notes.length) return notes[Number(todayKeyString.replace(/-/g, '')) % notes.length].text;
-    return marks.total > 0 ? `You have earned ${marks.total.toLocaleString()} Marks so far. Every one of them is something you did.` : 'You opened the app today. That is where it starts.';
-  }, [echoMemory.notes, marks.total, todayKeyString]);
 
   // One-go goals ("run 21 km"): their training habit steps up each week (lib/peakPlan.ts).
   useEffect(() => {
@@ -319,13 +295,11 @@ const Home = () => {
       const index = RANKS.findIndex(item => item.name === rank);
       if (index > 0) { setClimbMoment({ kind: 'rankUp', rank, index }); playLevelUp(); }
     });
-    const egg = on('preview_egg', ({ egg: which }) => setOpenEgg(which));
     const ask = on('preview_question', ({ kind }) => {
-      setEchoEgg(null);
       pendingQuestion.current = kind;
       setMotivationalQuote(leadInFor(kind, normalizeAIPersonality(aiPersonality || 'friendly')));
     });
-    return () => { sub.remove(); egg.remove(); ask.remove(); };
+    return () => { sub.remove(); ask.remove(); };
   }, [playLevelUp, aiPersonality]);
   const [showMarks, setShowMarks] = useState(false);
 
@@ -488,9 +462,8 @@ const Home = () => {
 
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
-          {motivationalQuote ? <EchoLine text={motivationalQuote} secret={!!echoEgg} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)} style={{ marginTop: sectionGap }}
-            onDone={() => { const kind = pendingQuestion.current; if (kind) { pendingQuestion.current = null; setTimeout(() => setQuestion(kind), 400); } }}
-            onPress={echoEgg ? () => { lightFeedback(); setOpenEgg(echoEgg); void markFound(echoEgg); } : undefined} /> : null}
+          {motivationalQuote ? <EchoLine text={motivationalQuote} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)} style={{ marginTop: sectionGap }}
+            onDone={() => { const kind = pendingQuestion.current; if (kind) { pendingQuestion.current = null; setTimeout(() => setQuestion(kind), 400); } }} /> : null}
 
           {/* Spacer after header */}
           <View style={{ height: sectionGap }} />
@@ -540,8 +513,7 @@ const Home = () => {
         </ScrollView>
 
 
-        {/* Echo's easter eggs and its quick questions. */}
-        <EggPopup egg={openEgg} memory={memoryLine} onClose={() => setOpenEgg(null)} />
+        {/* Echo's quick questions. */}
         <CheckInPopup kind={question} onClose={() => setQuestion(null)}
           onAnswer={(kind, value) => { void answerCheckIn(kind, value); setQuestion(null); successFeedback(); }} />
 

@@ -30,9 +30,12 @@ const MORPH = LinearTransition.duration(200).easing(Easing.out(Easing.cubic));
  * going. The only thing worse than a Send button that lies is one that loses
  * what you wrote.
  *
- * Mounted once at the root, raised by `show_feedback` from anywhere.
+ * Mounted once at the root, raised by `show_feedback` from the tab pages.
+ * A page that is itself a modal (Help) mounts its own copy with `open`: the
+ * root's copy cannot appear over a modal screen, so it opened nothing there.
  */
-export const FeedbackSheet: React.FC = () => {
+export const FeedbackSheet: React.FC<{ open?: boolean; onClose?: () => void; screenName?: string }> = ({ open, onClose, screenName }) => {
+    const local = open !== undefined;
     const { theme } = useTheme();
     const colors = Colors[theme];
     const tone = surfaceFor(theme);
@@ -45,7 +48,15 @@ export const FeedbackSheet: React.FC = () => {
     const [sending, setSending] = useState(false);
     const [sent, setSent] = useState(false);
 
+    // Mounted on a page: opened and closed by that page.
     useEffect(() => {
+        if (!local) return;
+        if (open) { setScreen(screenName); setMessage(''); setSent(false); }
+        setVisible(!!open);
+    }, [local, open, screenName]);
+
+    useEffect(() => {
+        if (local) return;
         const subscription = on('show_feedback', data => {
             setScreen(data?.screen);
             setMessage('');
@@ -53,11 +64,12 @@ export const FeedbackSheet: React.FC = () => {
             setVisible(true);
         });
         return () => subscription.remove();
-    }, []);
+    }, [local]);
 
     const close = () => {
         Keyboard.dismiss();
         setVisible(false);
+        onClose?.();
     };
 
     const send = async () => {
@@ -69,7 +81,7 @@ export const FeedbackSheet: React.FC = () => {
         setSent(true);
         Keyboard.dismiss();
         // Long enough to be read, short enough not to be in the way.
-        setTimeout(() => setVisible(false), 1400);
+        setTimeout(() => { setVisible(false); onClose?.(); }, 1400);
     };
 
     return (

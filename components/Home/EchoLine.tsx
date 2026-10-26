@@ -14,8 +14,8 @@ import { useAccentGradient } from '@/context/AccentContext';
  */
 const MOODS = ['Echo', 'Echo · concerned', 'Echo · worried', 'Echo · alarmed', 'Echo · DEMON MODE'];
 
-export function EchoLine({ text, style, onPress, secret, onDone, mood = 0 }: {
-    text: string; style?: object; onPress?: () => void; secret?: boolean;
+export function EchoLine({ text, style, onPress, onDone, mood = 0 }: {
+    text: string; style?: object; onPress?: () => void;
     /** How worried Echo is about your tasks, 0 calm to 4 demon (lib/taskPressure.ts): its label says so, and reddens. */
     mood?: number;
     /** Called once the line has finished typing out (e.g. to ask a question after it). */
@@ -41,8 +41,8 @@ export function EchoLine({ text, style, onPress, secret, onDone, mood = 0 }: {
 
     return (
         <Pressable style={style} onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityHint={onPress ? 'Opens Echo' : undefined}>
-            <Text style={[styles.label, { color: secret ? primary : mood >= 4 ? colors.error : mood >= 2 ? colors.warning : colors.textTertiary }]}>
-                {secret ? 'Echo  ✦  tap me' : MOODS[Math.max(0, Math.min(4, mood))]}
+            <Text style={[styles.label, { color: mood >= 4 ? colors.error : mood >= 2 ? colors.warning : colors.textTertiary }]}>
+                {MOODS[Math.max(0, Math.min(4, mood))]}
             </Text>
             <Text style={[styles.line, { color: colors.text }]}>
                 {shown}

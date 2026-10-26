@@ -72,7 +72,6 @@ export interface AppEvents {
     /** Developer page: play the rank-up moment for a rank, without changing anything. */
     preview_climb: { rank: string };
     /** Developer page: open an easter egg, or ask a quick question, now. */
-    preview_egg: { egg: 'help_friend' | 'memory' | 'vault' };
     preview_question: { kind: 'mood' | 'energy' };
 }
 

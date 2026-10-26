@@ -1,6 +1,5 @@
 import { leadInFor, pickQuestion, todays, type CheckInState } from '../checkIns';
 import { dayScores, moodEnergy } from '../moodEnergy';
-import { eggLine, pickEgg, tryWord, VAULT } from '../echoEggs';
 import { streakFrom } from '../dayComplete';
 import type { Habit } from '../habitsSQLite';
 
@@ -78,23 +77,6 @@ describe('mood and energy', () => {
     });
 });
 
-describe('easter eggs', () => {
-    it('are rare, at most once a day, and never the same twice in a row', () => {
-        const context = { today: '2026-10-18', hasFriends: true, hasMemory: true };
-        expect(pickEgg({ found: [], words: [] }, context, () => 0.5)).toBeNull();
-        expect(pickEgg({ found: [], words: [] }, context, () => 0.01)).not.toBeNull();
-        expect(pickEgg({ found: [], words: [], lastDay: '2026-10-18' }, context, () => 0.01)).toBeNull();
-        const next = pickEgg({ found: [], words: [], lastDay: '2026-10-17', lastEgg: 'help_friend' }, context, () => 0.01);
-        expect(next).not.toBe('help_friend');
-        expect(pickEgg({ found: [], words: [] }, { ...context, hasFriends: false, hasMemory: false }, () => 0.01)).toBe('vault');
-        expect(typeof eggLine('vault', () => 0)).toBe('string');
-    });
-
-    it('opens the vault only for the right words, whatever the case', async () => {
-        expect(await tryWord('  ABYSS ')).toBe(VAULT.abyss);
-        expect(await tryWord('nope')).toBeNull();
-    });
-});
 
 describe('streak freezes', () => {
     it('keep the streak going over a covered day', () => {
