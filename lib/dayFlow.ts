@@ -151,7 +151,8 @@ export function flowDay(items: FlowInput[], now: number | null, window: DayWindo
         // Nothing known at all (no time of its own, no plan, no tick time): it takes no time, now.
         if (!slotOf(item) && item.doneAt === undefined) return true;
         const at = item.doneAt ?? now;
-        return !!slot && at < slot.start;
+        // At or before its start (ticked the moment it began counts too): it took no time.
+        return !!slot && at <= slot.start;
     });
     if (!early.length) return flowDayLaid(items, now, window);
     const flow = flowDayLaid(items.filter(item => !early.includes(item)), now, window);
@@ -165,7 +166,8 @@ function placeInstants(timeline: FlowItem[], early: FlowInput[], slotOf: (item: 
     for (const item of [...early].sort((a, b) => (slotOf(a)?.start ?? now) - (slotOf(b)?.start ?? now))) {
         const planned = slotOf(item)?.start ?? now;
         const before = placed.filter(entry => entry.ref < planned).sort((a, b) => b.ref - a.ref || b.item.end - a.item.end)[0];
-        const at = before ? before.item.end : planned;
+        // Never in the past: right after what came before it, or now, whichever is later.
+        const at = Math.max(before ? before.item.end : planned, now);
         const instant: FlowItem = { ...item, start: at, end: at, plannedStart: planned, shift: at - planned, state: 'done', auto: true };
         placed.push({ ref: planned, item: instant });
     }

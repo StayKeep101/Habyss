@@ -402,3 +402,17 @@ describe('after a reload', () => {
         expect(flow.timeline[0]).toMatchObject({ start: 959, end: 959, state: 'done' });
     });
 });
+
+describe('ticked the moment it began', () => {
+    it('Study 4:02–6:02 ticked at 4:02 stays at 4:02, taking no time, after Lunch ended long ago', () => {
+        const window = { wake: 8 * 60, sleep: 23 * 60 + 30 };
+        const flow = flowDay([
+            { id: 'lunch', kind: 'meal', title: 'Lunch', start: 750, minutes: 45, done: false, fixed: true } as never,
+            { id: 'study', kind: 'habit', title: 'Study', start: null, minutes: 120, done: true, doneAt: 962, kept: { start: 962, end: 1082 } } as never,
+            { id: 'next', kind: 'habit', title: 'Next', start: null, minutes: 30, done: false } as never,
+        ], 962, window);
+        const at = (id: string) => flow.timeline.find(item => item.id === id)!;
+        expect(at('study')).toMatchObject({ start: 962, end: 962, state: 'done' });
+        expect(at('next')).toMatchObject({ start: 962, end: 992 });
+    });
+});

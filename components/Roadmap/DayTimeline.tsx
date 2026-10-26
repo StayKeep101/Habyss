@@ -4,7 +4,8 @@ import { StyleSheet, Text, View } from 'react-native';
 // The gesture handler's Pressable for every touch on a row, so the one under
 // the finger wins: Focus or the tick no longer also opens the habit behind them.
 import { Pressable } from 'react-native-gesture-handler';
-import Animated, { Easing, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { MOTION } from '@/components/ui/Motion';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { CheckPop } from '@/components/ui/CheckPop';
 import { ListItem, useProgress } from '@/components/ui/Motion';
@@ -23,9 +24,9 @@ import { s, vs } from '@/theme/scale';
 const SIZES = {
     // `per`: points per minute, one scale for pills and the free time between
     // them, so an hour is always twice as tall as half an hour.
-    small: { pill: s(38), min: vs(42), max: vs(360), per: vs(1.5), icon: s(15), ring: s(22), check: s(13), gap: s(10), pad: vs(6), titleType: 'bodySmall' as const },
-    standard: { pill: s(46), min: vs(50), max: vs(440), per: vs(1.9), icon: s(18), ring: s(25), check: s(14), gap: s(12), pad: vs(8), titleType: 'body' as const },
-    big: { pill: s(54), min: vs(58), max: vs(520), per: vs(2.3), icon: s(21), ring: s(28), check: s(16), gap: s(14), pad: vs(10), titleType: 'heading' as const },
+    small: { pill: s(38), min: vs(34), max: vs(280), per: vs(1.1), icon: s(15), ring: s(22), check: s(13), gap: s(10), pad: vs(6), titleType: 'bodySmall' as const },
+    standard: { pill: s(46), min: vs(40), max: vs(340), per: vs(1.4), icon: s(18), ring: s(25), check: s(14), gap: s(12), pad: vs(8), titleType: 'body' as const },
+    big: { pill: s(54), min: vs(46), max: vs(400), per: vs(1.7), icon: s(21), ring: s(28), check: s(16), gap: s(14), pad: vs(10), titleType: 'heading' as const },
 };
 type Size = (typeof SIZES)[keyof typeof SIZES];
 /** How long one pill takes to fill in the intro's domino run. */
@@ -190,17 +191,24 @@ function Row({ size, item, turn, color, nextColor, nextStart, last, now, updated
     const elapsed = elapsedOf(item, now);
     // A habit's pill is round; a task's has squarer corners.
     const corner = item.kind === 'task' ? t.radius.sm : size.pill / 2;
+    // A change of length grows or shrinks the pill with the same timing the
+    // row moves with, so nothing snaps while the list glides.
+    const shownHeight = useSharedValue(height);
+    React.useEffect(() => {
+        shownHeight.set(withTiming(height, { duration: MOTION.duration, easing: MOTION.easing, reduceMotion: ReduceMotion.System }));
+    }, [height, shownHeight]);
+    const pillStyle = useAnimatedStyle(() => ({ height: shownHeight.get() }));
     return (
         <View style={styles.row}>
             <View style={[styles.rail, { width: size.pill }]}>
                 <Pressable onPress={() => onOpen(item)} accessibilityRole="button" accessibilityLabel={`Open ${item.title}`}>
-                    <View style={[styles.pill, { width: size.pill, borderRadius: corner, height, backgroundColor: t.color.background }]}>
+                    <Animated.View style={[styles.pill, { width: size.pill, borderRadius: corner, backgroundColor: t.color.background }, pillStyle]}>
                         {/* A faint tint of its colour, filled from the top as its time passes.
                             Done keeps its full colour: only the name is struck through. */}
                         <View style={[StyleSheet.absoluteFill, styles.tint, { backgroundColor: color }]} />
                         <Fill color={color} height={height} progress={elapsed} turn={turn} />
                         <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon} color={elapsed >= 0.5 ? t.color.onAccent : color} />
-                    </View>
+                    </Animated.View>
                 </Pressable>
                 {/* The line to the next one: this one's colour melting into the
                     next one's, filling as the time between them passes. */}
@@ -284,13 +292,19 @@ function Link({ from, to, progress, turn, gap = 0 }: { from: string; to: string;
     const [length, setLength] = useState(0);
     const shown = useProgress(Math.max(0, Math.min(1, progress)), turn.delay + turn.duration, undefined, turn.duration, POUR);
     const style = useAnimatedStyle(() => ({ height: shown.get() * length }));
+    // The line tucks s(10) under each pill, so free time adds that back to show at its true length.
+    const target = gap > 0 ? gap + s(20) : vs(10);
+    const minHeight = useSharedValue(target);
+    React.useEffect(() => {
+        minHeight.set(withTiming(target, { duration: MOTION.duration, easing: MOTION.easing, reduceMotion: ReduceMotion.System }));
+    }, [target, minHeight]);
+    const lengthStyle = useAnimatedStyle(() => ({ minHeight: minHeight.get() }));
     return (
-        // The line tucks s(10) under each pill, so free time adds that back to show at its true length.
-        <View style={[styles.link, { backgroundColor: t.color.border, minHeight: gap > 0 ? gap + s(20) : vs(10) }]} onLayout={event => setLength(event.nativeEvent.layout.height)}>
+        <Animated.View style={[styles.link, { backgroundColor: t.color.border }, lengthStyle]} onLayout={event => setLength(event.nativeEvent.layout.height)}>
             <Animated.View pointerEvents="none" style={[styles.linkFill, style]}>
                 <LinearGradient colors={[from, to]} style={{ height: length }} />
             </Animated.View>
-        </View>
+        </Animated.View>
     );
 }
 
