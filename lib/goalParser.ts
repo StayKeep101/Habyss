@@ -200,6 +200,12 @@ function linkHabits(subject: string, unit: string | null, habits: HabitRef[]): s
     }).map(habit => habit.id);
 }
 
+const SPAN_NUMBERS: Record<string, number> = {
+    a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12,
+};
+/** Month (0-based) and day each season starts, in the northern hemisphere. */
+const SEASON_STARTS: Record<string, [number, number]> = { spring: [2, 20], summer: [5, 21], fall: [8, 22], autumn: [8, 22], winter: [11, 21] };
+
 export function parseGoalText(input: string, options: ParseOptions): GoalParseResult {
     const { today, habits = [] } = options;
     const raw = (input ?? '').trim();
@@ -248,9 +254,57 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     // subject: otherwise "by January 1, 2027" made the target 1 and put
     // "january" into the title.
     let datePhrase = '';
-    const relative = text.match(/\b(?:(?:a|per|each|every)\s*(?:day|week|month)|daily|weekly|monthly|(?:by\s+|before\s+|until\s+)?(?:the\s+end\s+of\s+)?(?:this|next)\s+(?:week|month|year))\b/i);
+    // A span: "for 365 days", "for a year", "over the next 3 months", "within 6
+    // weeks", "during the next 30 days". It runs from today to that far ahead
+    // (365 days later is the end). "for/during/over" means doing it through the
+    // span; "in/within" is a deadline.
+    const spanMatch = text.match(new RegExp(String.raw`\b(for|over|during|within|in)\s+(?:the\s+)?(?:next\s+|coming\s+|following\s+|whole\s+|full\s+|entire\s+)?(${Object.keys(SPAN_NUMBERS).join('|')}|\d{1,4})\s*(days?|weeks?|months?|years?)\b`, 'i'));
+    let span: { days: number; through: boolean } | null = null;
+    if (spanMatch) {
+        const amount = SPAN_NUMBERS[spanMatch[2].toLowerCase()] ?? Number(spanMatch[2]);
+        const unitWord = spanMatch[3].toLowerCase();
+        const end = new Date(today);
+        if (unitWord.startsWith('day')) end.setDate(end.getDate() + amount);
+        else if (unitWord.startsWith('week')) end.setDate(end.getDate() + amount * 7);
+        else if (unitWord.startsWith('month')) end.setMonth(end.getMonth() + amount);
+        else end.setFullYear(end.getFullYear() + amount);
+        if (amount > 0 && amount <= 5000) {
+            span = { days: Math.round((end.getTime() - today.getTime()) / 86400000), through: !/^(in|within)$/i.test(spanMatch[1]) };
+            window = { kind: 'fixed', start: dateKey(today), end: dateKey(end) };
+            datePhrase = spanMatch[0];
+        }
+    }
+    // "every day this year", "daily this month": doing it through the rest of it.
+    const throughRest = !window && /\b(a|per|each|every)\s*day\b|\bdaily\b/i.test(text)
+        ? text.match(/\b(?:(?:for\s+|through\s+|until\s+the\s+end\s+of\s+)?(?:the\s+rest\s+of\s+)?)(this|next)\s+(week|month|year)\b/i) : null;
+    if (throughRest) {
+        const next = throughRest[1].toLowerCase() === 'next';
+        const part = throughRest[2].toLowerCase();
+        let start = new Date(today);
+        let end: Date;
+        if (part === 'year') { if (next) start = new Date(today.getFullYear() + 1, 0, 1); end = new Date(start.getFullYear(), 11, 31); }
+        else if (part === 'month') { if (next) start = new Date(today.getFullYear(), today.getMonth() + 1, 1); end = endOfMonth(start); }
+        else { if (next) start = addDays(today, 7 - today.getDay()); end = addDays(start, 6 - start.getDay()); }
+        window = { kind: 'fixed', start: dateKey(start), end: dateKey(end) };
+        span = { days: Math.round((end.getTime() - start.getTime()) / 86400000) + 1, through: true };
+        datePhrase = throughRest[0];
+    }
+    // "before summer", "by winter": the season's first day, the next one to come.
+    const season = !window ? text.match(/\b(?:by|before|until)\s+(?:the\s+)?(?:start\s+of\s+)?(spring|summer|fall|autumn|winter)\b/i) : null;
+    if (season) {
+        const [month, day] = SEASON_STARTS[season[1].toLowerCase()];
+        let end = new Date(today.getFullYear(), month, day);
+        if (dateKey(end) <= dateKey(today)) end = new Date(today.getFullYear() + 1, month, day);
+        window = { kind: 'fixed', start: dateKey(today), end: dateKey(end) };
+        datePhrase = season[0];
+    }
+    const rhythm: 'day' | 'week' | 'month' | null = /\b(a|per|each|every)\s*day\b|\bdaily\b/i.test(text) ? 'day'
+        : /\b(a|per|each|every)\s*week\b|\bweekly\b/i.test(text) ? 'week'
+        : /\b(a|per|each|every)\s*month\b|\bmonthly\b/i.test(text) ? 'month' : null;
+    const relative = window ? null : text.match(/\b(?:(?:a|per|each|every)\s*(?:day|week|month)|daily|weekly|monthly|(?:by\s+|before\s+|until\s+)?(?:the\s+end\s+of\s+)?(?:this|next)\s+(?:week|month|year))\b/i);
     if (relative) datePhrase = relative[0];
-    if (/\b(a|per|each|every)\s*day\b|\bdaily\b/i.test(text)) window = { kind: 'recurring', period: 'day' };
+    if (window) { /* a span or a season, read above */ }
+    else if (/\b(a|per|each|every)\s*day\b|\bdaily\b/i.test(text)) window = { kind: 'recurring', period: 'day' };
     else if (/\b(a|per|each|every)\s*week\b|\bweekly\b/i.test(text)) window = { kind: 'recurring', period: 'week' };
     else if (/\b(a|per|each|every)\s*month\b|\bmonthly\b/i.test(text)) window = { kind: 'recurring', period: 'month' };
     else if (/\bthis month\b/i.test(text)) window = { kind: 'fixed', start: dateKey(today), end: dateKey(endOfMonth(today)) };
@@ -388,6 +442,23 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
         spec.direction = 'at_least';
     }
 
+    // Doing it through a span: "journal for 365 days", "meditate daily for 30
+    // days", "no sugar for 2 weeks" count the days it is done, out of the span;
+    // "gym 3 times a week for 6 months" counts sessions, 3 for every week.
+    if (span && spec.type !== 'limit' && spec.type !== 'target_value' && spec.type !== 'peak' && !percentMatch) {
+        const perPeriod = frequencyMatch ? Number(frequencyMatch[1]) : null;
+        if (rhythm === 'week' && perPeriod) {
+            spec.type = 'frequency'; spec.aggregation = 'count_days'; spec.direction = 'at_least';
+            unit = 'sessions'; target = perPeriod * Math.max(1, Math.round(span.days / 7));
+        } else if (rhythm === 'month' && perPeriod) {
+            spec.type = 'frequency'; spec.aggregation = 'count_days'; spec.direction = 'at_least';
+            unit = 'sessions'; target = perPeriod * Math.max(1, Math.round(span.days / 30));
+        } else if (rhythm === 'day' || (span.through && !amountMatch && !frequencyMatch && race === null)) {
+            spec.type = 'frequency'; spec.aggregation = 'count_days'; spec.direction = 'at_least';
+            unit = 'days'; target = span.days;
+        }
+    }
+
     spec.metric_unit = unit;
     spec.target = target;
     spec.window = window;
@@ -401,6 +472,11 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
 
     /* ----------------------------------------------------------------- title */
     spec.title = buildTitle(raw, spec, subject, today, datePhrase);
+    // "Go to the gym 3 times a week for 6 months": the rhythm is the goal's
+    // wording, the span its dates; the session total is worked out, not named.
+    if (span && unit === 'sessions' && rhythm && datePhrase) {
+        spec.title = titleCase(raw.replace(new RegExp(datePhrase.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), ' ').replace(/\s{2,}/g, ' ').trim());
+    }
 
     /* --------------------------------------------------- what is still needed */
     // A vague goal never produces a target the user did not state.
@@ -461,6 +537,10 @@ function buildTitle(raw: string, spec: GoalSpec, subject: string, today: Date, d
     const name = subject ? titleCase(subject) : titleCase(withoutDate);
     if (spec.delta_from_baseline === null && (spec.target === null || !spec.metric_unit)) {
         return titleCase(withoutDate);
+    }
+    // Days out of a span: the name is what is done ("Write a personal journal").
+    if (spec.metric_unit === 'days') {
+        return titleCase(withoutDate.replace(/\b(every ?day|daily|each day|a day|per day)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim());
     }
 
     const amount = spec.metric_unit === 'percent'

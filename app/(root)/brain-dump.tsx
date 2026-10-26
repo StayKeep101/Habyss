@@ -67,9 +67,18 @@ export default function BrainDumpScreen() {
     // Talking fills the field; return (or the mic again) saves it like typing does.
     const base = useRef('');
     const join = (heard: string) => `${base.current}${base.current && heard ? ' ' : ''}${heard}`;
+    // What the mic last wrote, so an edit of your own can be told apart from it.
+    const written = useRef<string | null>(null);
+    const write = (value: string) => { written.current = value; setDraft(value); };
     // Live while talking; tidied once finished (fillers out, a ramble condensed).
-    const dictation = useDictation(heard => setDraft(join(heard)), heard => { void tidySpeech(heard).then(clean => setDraft(join(clean))); });
-    const talk = () => { base.current = draft.trim(); void dictation.toggle(); };
+    const dictation = useDictation(heard => write(join(heard)), heard => {
+        void tidySpeech(heard).then(clean => { if (written.current !== null) write(join(clean)); written.current = null; });
+    });
+    // Typed or deleted while it listens: your edit stays, the mic stops.
+    useEffect(() => {
+        if (written.current !== null && dictation.listening && draft !== written.current) { written.current = null; dictation.cancel(); }
+    }, [draft, dictation]);
+    const talk = () => { base.current = draft.trim(); written.current = dictation.listening ? written.current : draft; void dictation.toggle(); };
 
     const save = async () => {
         const thought = await addThought(draft);

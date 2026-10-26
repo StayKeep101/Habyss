@@ -367,3 +367,29 @@ describe('a deadline is not a name', () => {
         expect(result.goal.title).toBe('Launch Habyss');
     });
 });
+
+describe('spans: for 365 days, for a year, within 6 months, before summer', () => {
+    const today = new Date(2026, 9, 26);
+    const read = (text: string) => parseGoalText(text, { today }).goal;
+    it('"write a personal journal for 365 days" runs from today to 365 days later, counting days', () => {
+        const goal = read('write a personal journal for 365 days');
+        expect(goal).toMatchObject({ title: 'Write a personal journal', type: 'frequency', target: 365, metric_unit: 'days' });
+        expect(goal.window).toEqual({ kind: 'fixed', start: '2026-10-26', end: '2027-10-26' });
+    });
+    it('reads the many ways of saying it', () => {
+        expect(read('journal every day for a year')).toMatchObject({ title: 'Journal', target: 365, metric_unit: 'days' });
+        expect(read('meditate daily for 30 days')).toMatchObject({ title: 'Meditate', target: 30 });
+        expect(read('no sugar for 2 weeks')).toMatchObject({ title: 'No sugar', target: 14 });
+        expect(read('read every day this year')).toMatchObject({ title: 'Read', metric_unit: 'days', window: { kind: 'fixed', start: '2026-10-26', end: '2026-12-31' } });
+    });
+    it('an amount within a span is a deadline for the amount', () => {
+        expect(read('read 12 books within 6 months')).toMatchObject({ title: 'Read 12 books', target: 12, window: { kind: 'fixed', end: '2027-04-26' } });
+        expect(read('learn spanish in a year').window).toEqual({ kind: 'fixed', start: '2026-10-26', end: '2027-10-26' });
+    });
+    it('a rhythm through a span counts every session, and keeps its wording', () => {
+        expect(read('go to the gym 3 times a week for 6 months')).toMatchObject({ title: 'Go to the gym 3 times a week', target: 78, metric_unit: 'sessions' });
+    });
+    it('reads seasons as dates', () => {
+        expect(read('lose 10 lbs before summer').window).toEqual({ kind: 'fixed', start: '2026-10-26', end: '2027-06-21' });
+    });
+});

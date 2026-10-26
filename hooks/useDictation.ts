@@ -81,6 +81,18 @@ export function useDictation(onText: (heard: string) => void, onDone?: (heard: s
     }, [module, transcript]);
 
     const stop = useCallback(() => { if (module && mine.current) module.stop(); }, [module]);
+    /**
+     * You changed the text yourself while it was listening (deleted it, say):
+     * your edit wins. It stops, and nothing it heard is written back.
+     */
+    const cancel = useCallback(() => {
+        if (!module || !mine.current) return;
+        mine.current = false;
+        hush();
+        heardSoFar.current = '';
+        setListening(false);
+        module.abort?.();
+    }, [module]);
 
-    return { available: !!module, listening, start, stop, toggle: listening ? stop : start };
+    return { available: !!module, listening, start, stop, cancel, toggle: listening ? stop : start };
 }

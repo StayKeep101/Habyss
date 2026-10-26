@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { MicButton } from '@/components/ui/MicButton';
 import { Spacing } from '@/theme/designSystem';
@@ -17,8 +17,17 @@ export function DictateField({ text, onText, children, leading }: {
 }) {
     const base = useRef('');
     const join = (heard: string) => `${base.current}${base.current && heard ? ' ' : ''}${heard}`;
+    // What the mic last wrote, so an edit of your own can be told apart from it.
+    const written = useRef<string | null>(null);
+    const write = (value: string) => { written.current = value; onText(value); };
     // Live while talking; tidied once finished (fillers out, a ramble condensed).
-    const dictation = useDictation(heard => onText(join(heard)), heard => { void tidySpeech(heard).then(clean => onText(join(clean))); });
+    const dictation = useDictation(heard => write(join(heard)), heard => {
+        void tidySpeech(heard).then(clean => { if (written.current !== null) write(join(clean)); written.current = null; });
+    });
+    // Typed or deleted while it listens: your edit stays, the mic stops.
+    useEffect(() => {
+        if (written.current !== null && dictation.listening && text !== written.current) { written.current = null; dictation.cancel(); }
+    }, [text, dictation]);
     return (
         <View style={leading ? styles.row : undefined}>
             {leading ? <View style={styles.leading}>{leading}</View> : null}
@@ -26,7 +35,7 @@ export function DictateField({ text, onText, children, leading }: {
             {children}
             {dictation.available ? (
                 <View style={styles.mic}>
-                    <MicButton size={32} listening={dictation.listening} onPress={() => { base.current = text.trim(); void dictation.toggle(); }} />
+                    <MicButton size={32} listening={dictation.listening} onPress={() => { base.current = text.trim(); written.current = dictation.listening ? written.current : text; void dictation.toggle(); }} />
                 </View>
             ) : null}
             </View>
