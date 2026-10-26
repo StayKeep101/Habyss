@@ -1,4 +1,4 @@
-import { milestoneStates, sortMilestones, splitIntoMilestones, type Milestone } from '../goalMilestones';
+import { milestoneStates, readMilestoneText, sortMilestones, splitIntoMilestones, type Milestone } from '../goalMilestones';
 
 jest.mock('../database', () => ({ getDatabase: jest.fn(async () => null), isSQLiteAvailable: () => false, generateId: () => 'id', nowISO: () => '' }));
 
@@ -35,5 +35,24 @@ describe('where each milestone stands', () => {
     });
     it('puts undated ones last', () => {
         expect(sortMilestones([m('x'), m('y', '2026-11-01')]).map(x => x.id)).toEqual(['y', 'x']);
+    });
+});
+
+describe('reading the date out of a milestone name', () => {
+    const today = new Date(2026, 9, 26, 12);
+    it('takes the date out of the name and sets it', () => {
+        expect(readMilestoneText('Finish book 1 by October 31', today)).toEqual({ title: 'Finish book 1', dueDate: '2026-10-31' });
+        expect(readMilestoneText('Beta ready by Nov 30, 2026', today)).toEqual({ title: 'Beta ready', dueDate: '2026-11-30' });
+        expect(readMilestoneText('Finish book 3 on November 9', today)).toEqual({ title: 'Finish book 3', dueDate: '2026-11-09' });
+        expect(readMilestoneText('MVP by 12/15', today)).toEqual({ title: 'MVP', dueDate: '2026-12-15' });
+        expect(readMilestoneText('Chapter 3 in 2 weeks', today)).toEqual({ title: 'Chapter 3', dueDate: '2026-11-09' });
+    });
+    it('reads the end of a month, the month or the year', () => {
+        expect(readMilestoneText('Design done by the end of november', today)).toEqual({ title: 'Design done', dueDate: '2026-11-30' });
+        expect(readMilestoneText('Landing page by end of the month', today)).toEqual({ title: 'Landing page', dueDate: '2026-10-31' });
+        expect(readMilestoneText('Launch by the end of the year', today).dueDate).toBe('2026-12-31');
+    });
+    it('leaves a name with no date alone', () => {
+        expect(readMilestoneText('Just a name', today)).toEqual({ title: 'Just a name' });
     });
 });

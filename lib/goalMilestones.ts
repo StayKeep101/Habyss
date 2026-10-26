@@ -87,6 +87,43 @@ export function splitIntoMilestones(input: {
     return out;
 }
 
+const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+const keyOf = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+/**
+ * A milestone's name as typed or said, with its date read out of it: "Finish
+ * book 1 by October 31" is "Finish book 1", due Oct 31 (the date wheels jump
+ * there). Reads "by/before/on <date>", "Oct 31st", "12/15", "next Friday",
+ * "in 2 weeks", and "by the end of November / the month / the year". Pure.
+ */
+export function readMilestoneText(text: string, today: Date = new Date()): { title: string; dueDate?: string } {
+    const { findDate, findDeadline } = require('./dateWords') as typeof import('./dateWords');
+    let found: { date: string; phrase: string } | null = null;
+    const endOf = text.match(new RegExp(String.raw`\b(?:by|before|until|for)?\s*(?:the\s+)?end\s+of\s+(?:the\s+|this\s+)?(week|month|year|${MONTH_NAMES.join('|')}|${MONTH_NAMES.map(m => m.slice(0, 3)).join('|')})\b`, 'i'));
+    if (endOf) {
+        const what = endOf[1].toLowerCase();
+        let end: Date;
+        if (what === 'week') end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (6 - today.getDay()));
+        else if (what === 'month') end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        else if (what === 'year') end = new Date(today.getFullYear(), 11, 31);
+        else {
+            const month = MONTH_NAMES.findIndex(name => name.startsWith(what.slice(0, 3)));
+            const year = month < today.getMonth() ? today.getFullYear() + 1 : today.getFullYear();
+            end = new Date(year, month + 1, 0);
+        }
+        found = { date: keyOf(end), phrase: endOf[0] };
+    }
+    found = found ?? findDeadline(text, today) ?? findDate(text, today);
+    if (!found) return { title: text.trim() };
+    const escaped = found.phrase.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const title = text
+        .replace(new RegExp(String.raw`(?:\b(?:by|before|until|on|due)\s+)?${escaped}`, 'i'), ' ')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/[\s,.;:-]+$/, '')
+        .trim();
+    return { title: title || text.trim(), dueDate: found.date };
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Reading and writing                                                        */
 /* -------------------------------------------------------------------------- */
