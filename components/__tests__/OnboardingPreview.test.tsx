@@ -19,7 +19,7 @@ jest.mock('@/lib/localUser', () => ({ setOnboardingComplete: jest.fn() }));
 
 it('test mode opens on the welcome screen and climbs to the name question', async () => {
     const screen = render(<OnboardingScreen />);
-    expect(screen.getByText('Start climbing')).toBeTruthy();
-    await act(async () => { fireEvent.press(screen.getByText('Start climbing')); });
+    expect(screen.getByText('Start')).toBeTruthy();
+    await act(async () => { fireEvent.press(screen.getByText('Start')); });
     expect(screen.getByText('What’s your name?')).toBeTruthy();
 });

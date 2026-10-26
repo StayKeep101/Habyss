@@ -26,6 +26,8 @@ export const styles = StyleSheet.create({
     dayRowWrap: { borderRadius: 16, overflow: 'hidden' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8 },
     headerSide: { width: 56, height: 44, justifyContent: 'center' },
+    progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden', marginHorizontal: 8 },
+    progressFill: { height: '100%', borderRadius: 2 },
     addHalf: { flex: 1, justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed', backgroundColor: 'transparent' },
     skipBtn: { paddingHorizontal: 8, paddingVertical: 10 },
     skipText: { fontSize: 14, fontFamily: FontFamily.medium },

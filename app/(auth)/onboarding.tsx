@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { MatteSurface } from '@/components/ui/MatteSurface';
-import { space, textOn } from '@/theme/tokens';
+import { textOn } from '@/theme/tokens';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,14 +28,13 @@ import {
     dayWindowFor, shouldOfferFriends, suggestEcho,
     type BlockerId, type HopeId, type JuggleId,
 } from '@/lib/onboardingProfile';
-import { getName, hoursAwake, saveDayWindow, saveName } from '@/lib/echo';
+import { hoursAwake, saveDayWindow, saveName } from '@/lib/echo';
 import { currentAccount, onAccountChange } from '@/lib/account';
 import { SignInOptions } from '@/components/Auth/SignInOptions';
-import { ClimbIntro } from '@/components/Onboarding/ClimbIntro';
-import { ClimbRail, RAIL_WIDTH } from '@/components/Onboarding/ClimbRail';
+import { WelcomeMark } from '@/components/Onboarding/WelcomeMark';
+import { AnimatedFill } from '@/components/ui/Motion';
 import { EchoArrival } from '@/components/Onboarding/EchoArrival';
 import { EchoVoicePicker } from '@/components/Onboarding/EchoVoicePicker';
-import type { SyncReport } from '@/lib/cloudSync';
 import { styles } from '@/styles/screens/auth/onboarding.styles';
 
 /** Just long enough for the selected state to paint before the step changes. */
@@ -49,8 +48,8 @@ const SELECT_ADVANCE_MS = 180;
  * gentler and more useful: they are answerable honestly on a bad day, and each
  * one changes something the app actually does.
  *
- * It is one climb, not a stack of pages: the light is you, and each page is
- * a dot up the rail on the left (components/Onboarding/ClimbRail).
+ * It opens on the mark alone and one Start button; each question then rises
+ * into place, with a thin line along the top for how far through you are.
  * Choosing Echo's voice ends setup; the rest is backup and friends.
  */
 const LAST_SETUP_STEP = 8;
@@ -72,7 +71,7 @@ const STEP = {
  * is a new type on every render, which threw the header away and rebuilt it
  * each time an answer changed.
  */
-const Header = ({ onBack, onSkip }: { onBack?: () => void; onSkip?: () => void }) => {
+const Header = ({ onBack, onSkip, progress }: { onBack?: () => void; onSkip?: () => void; progress?: number | null }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { lightFeedback } = useHaptics();
@@ -83,7 +82,15 @@ const Header = ({ onBack, onSkip }: { onBack?: () => void; onSkip?: () => void }
                     <IconButton icon="chevron-back" label="Back" onPress={() => { lightFeedback(); onBack(); }} diameter={40} size={26} color={colors.textPrimary} />
                 ) : null}
             </View>
-            <View style={styles.flex} />
+            {/* How far through: a thin line that fills as you go. */}
+            <View style={styles.flex}>
+                {progress != null ? (
+                    <View accessible accessibilityRole="progressbar" accessibilityLabel="Setup progress" accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}
+                        style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+                        <AnimatedFill progress={progress} replay={progress} style={[styles.progressFill, { backgroundColor: colors.textPrimary }]} />
+                    </View>
+                ) : null}
+            </View>
             <View style={[styles.headerSide, { alignItems: 'flex-end' }]}>
                 {/* Every question can be passed over; nothing here is required. */}
                 {onSkip ? (
@@ -114,8 +121,6 @@ export default function OnboardingScreen() {
     // guess. Test mode starts fresh straight away and never reads the saved one.
     const [draft, setDraftState] = useState<OnboardingDraft | null>(() => preview
         ? { step: 0, flow: FLOW_VERSION, startDate: localDateKey(new Date()), recurrence: 'daily' } : null);
-    const [startingSignIn, setStartingSignIn] = useState(false);
-    const [signInError, setSignInError] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     // Auto-advance after a single choice; held so a second tap can cancel it.
     const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -240,47 +245,6 @@ export default function OnboardingScreen() {
         else goTo(STEP.account);
     };
 
-    /**
-     * "Start climbing": sign in at once with the phone's own account (Apple on
-     * an Apple device, Google elsewhere), then carry on. Closing the sign-in
-     * sheet, or a build without either, just carries on into setup: the
-     * account step later offers it again. Test mode never signs in.
-     */
-    const startClimbing = async () => {
-        lightFeedback();
-        if (preview || signedIn) { goTo(STEP.name); return; }
-        setStartingSignIn(true);
-        setSignInError(null);
-        try {
-            const social = require('@/lib/socialSignIn') as typeof import('@/lib/socialSignIn');
-            const useApple = Platform.OS === 'ios' && await social.isAppleSignInAvailable();
-            const useGoogle = !useApple && social.isGoogleSignInAvailable();
-            if (!useApple && !useGoogle) { goTo(STEP.name); return; }
-            const result = useApple ? await social.signInWithApple() : await social.signInWithGoogle();
-            if (result.ok) { await afterWelcomeSignIn(result.value); return; }
-            if (!('cancelled' in result)) setSignInError('Couldn’t sign in just now. You can add an account at the end.');
-            goTo(STEP.name);
-        } catch {
-            goTo(STEP.name);
-        } finally {
-            setStartingSignIn(false);
-        }
-    };
-
-    /**
-     * Signing in from the welcome screen: an account with a backup goes
-     * straight to it, a new one carries on with setup, already linked.
-     */
-    const afterWelcomeSignIn = async (report: SyncReport) => {
-        if (report.downloaded > 0) {
-            if (!preview) { await setOnboardingComplete(); await clearDraft(); }
-            router.replace(preview ? '/(root)/(tabs)/settings' : '/(root)/(tabs)/home');
-            return;
-        }
-        const known = await getName();
-        update({ name: draft.name ?? known ?? undefined, step: STEP.name });
-    };
-
     /* ------------------------------------------------------------ shared bits */
 
     // Black or white, whichever reads better on the user's accent colour.
@@ -342,17 +306,14 @@ export default function OnboardingScreen() {
         // a previous phone's data back, and a new account carries on with setup.
         <View style={styles.splash}>
             <View style={styles.splashInner}>
-                {/* The story's first frame: the bottom of the abyss, and Echo. */}
-                <ClimbIntro />
+                <WelcomeMark />
             </View>
 
-            <View style={styles.welcomeActions}>
-                {/* One button. It signs you in straight away (Apple on an Apple
-                    device, Google otherwise), then carries on into setup. */}
-                <PrimaryButton label="Start climbing" busy={startingSignIn} onPress={() => void startClimbing()} />
-                {signInError ? <Text style={[styles.welcomeOrText, { color: colors.textTertiary, textAlign: 'center' }]}>{signInError}</Text> : null}
-
-            </View>
+            {/* One button, straight into the questions. Signing in waits until
+                the end (Apple: delay sign-in), where the account step offers it. */}
+            <Animated.View entering={FadeInUp.delay(1300).duration(600)} style={styles.welcomeActions}>
+                <PrimaryButton label="Start" onPress={() => { lightFeedback(); goTo(STEP.name); }} />
+            </Animated.View>
         </View>
     );
 
@@ -692,17 +653,14 @@ export default function OnboardingScreen() {
         <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                    {/* Always there (empty on welcome), so nothing below shifts when the climb starts. */}
-                    <Header onBack={backFor(draft.step)} onSkip={skipFor(draft.step)} />
+                    {/* Always there (empty on welcome), so nothing below shifts when the questions start. */}
+                    <Header onBack={backFor(draft.step)} onSkip={skipFor(draft.step)}
+                        progress={draft.step > STEP.welcome ? Math.min(draft.step, RAIL_PAGES) / RAIL_PAGES : null} />
                     <View style={styles.flex}>
-                        {/* Each question arrives from above as the light climbs to it, beside the rail. */}
-                        <Animated.View key={draft.step} entering={FadeInUp.delay(draft.step === STEP.name ? 700 : 220).duration(450)}
-                            style={[styles.flex, draft.step > STEP.welcome && { paddingLeft: RAIL_WIDTH - space.md }]}>
+                        {/* Each question rises softly into place. */}
+                        <Animated.View key={draft.step} entering={FadeInUp.delay(160).duration(500).springify().damping(18)} style={styles.flex}>
                             {(screens[draft.step] ?? renderWelcome)()}
                         </Animated.View>
-                        {/* The light is you. It never leaves the screen: every page is a dot up the rail. */}
-                        <ClimbRail step={Math.min(draft.step, RAIL_PAGES)} pages={RAIL_PAGES}
-                            name={draft.step > STEP.name ? draft.name?.trim() || null : nameTag} />
                     </View>
                 </KeyboardAvoidingView>
             </SafeAreaView>
