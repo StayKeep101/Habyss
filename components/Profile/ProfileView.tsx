@@ -95,7 +95,9 @@ export const ProfileView: React.FC<{
                         <>
                             {/* Above the page, the colour the backdrop starts with, so
                                 pulling or scrolling never shows a hard edge. */}
-                            <View style={[styles.above, { height: screenHeight, backgroundColor: primary + '40' }]} />
+                            <View style={[styles.above, { height: screenHeight }]}>
+                                <LinearGradient colors={[primary + '40', primary + '40']} style={StyleSheet.absoluteFill} />
+                            </View>
                             <View style={[styles.below, { top: screenHeight }]}>
                                 <LinearGradient colors={[primary + '40', primary + '10', 'transparent']} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
                             </View>
