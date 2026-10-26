@@ -25,6 +25,7 @@ import { createTask } from '@/lib/tasks';
 import { addHabit } from '@/lib/habitsSQLite';
 import { parseHabitText, parsedToHabit } from '@/lib/habitParser';
 import { queueGoals } from '@/lib/goalQueue';
+import { SortThoughtSheet } from '@/components/BrainDump/SortThoughtSheet';
 import { copyText } from '@/lib/copyText';
 import { localDateKey } from '@/lib/habitSchedule';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
@@ -180,6 +181,32 @@ export default function BrainDumpScreen() {
         queueGoals(list.map(item => item.text));
     };
 
+    /**
+     * A thought sorted into its pieces (lib/thoughtSplit.ts): tasks and habits
+     * made at once, goals opened one after another, notes kept as thoughts.
+     */
+    const [sorting, setSorting] = useState<Thought | null>(null);
+    const createSorted = async (pieces: { text: string; kind: 'task' | 'habit' | 'goal' | 'note' }[]) => {
+        const thought = sorting;
+        setSorting(null);
+        if (!thought) return;
+        const asThoughts = (kind: string) => pieces.filter(piece => piece.kind === kind)
+            .map((piece, index) => ({ id: `${thought.id}:${kind}:${index}`, text: piece.text, createdAt: thought.createdAt }));
+        const notes = pieces.filter(piece => piece.kind === 'note');
+        const tasks = asThoughts('task');
+        const habits = asThoughts('habit');
+        const goals = asThoughts('goal');
+        if (tasks.length) await intoTasks(tasks);
+        if (habits.length) await intoHabits(habits);
+        // The thought itself goes once everything in it has a home; notes stay as thoughts.
+        if (tasks.length || habits.length || goals.length) {
+            await remove(thought, 'Sorted');
+            for (const note of notes) await addThought(note.text);
+            setThoughts(await getThoughts());
+        }
+        if (goals.length) intoGoals(goals);
+    };
+
     /** On the clipboard, one thought per line. */
     const copy = async (list: Thought[]) => {
         const copied = await copyText(list.map(item => item.text).join('\n'));
@@ -203,6 +230,7 @@ export default function BrainDumpScreen() {
         setActing(null);
         const one = list.length === 1 ? list[0] : null;
         if (action === 'copy') { void copy(list); return; }
+        if (action === 'sort') { if (one) setTimeout(() => setSorting(one), 250); return; }
         if (one && !selecting) { setTimeout(() => turnInto(one, action), 250); return; }
         if (action === 'task') void intoTasks(list);
         else if (action === 'habit') void intoHabits(list);
@@ -377,6 +405,7 @@ export default function BrainDumpScreen() {
                     ) : null}
                 </View>
                 ) : null}
+                <SortThoughtSheet text={sorting?.text ?? null} onClose={() => setSorting(null)} onCreate={pieces => void createSorted(pieces)} />
                 <ThoughtActions visible={!!acting} count={acting?.list.length ?? 0}
                     caption={acting?.list.length === 1 ? acting.list[0].text : undefined}
                     goals={goals} startWithGoals={acting?.goals}

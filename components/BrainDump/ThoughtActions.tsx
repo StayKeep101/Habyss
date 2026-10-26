@@ -8,7 +8,7 @@ import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { FontFamily } from '@/theme/designSystem';
 
-export type ThoughtAction = 'task' | 'habit' | 'goal' | 'copy';
+export type ThoughtAction = 'sort' | 'task' | 'habit' | 'goal' | 'copy';
 
 /**
  * What a held thought (or several selected ones) can become, as a small sheet
@@ -35,6 +35,8 @@ export function ThoughtActions({ visible, count, caption, goals, startWithGoals,
     useEffect(() => { if (visible) setPicking(!!startWithGoals); }, [visible, startWithGoals]);
     const many = count > 1;
     const tiles: { id: ThoughtAction; label: string; icon: string; color: string }[] = [
+        // One thought: the things in it, each as what it should be.
+        ...(many ? [] : [{ id: 'sort' as const, label: 'Sort it out', icon: 'sparkles', color: t.color.accent }]),
         { id: 'task', label: many ? `${count} tasks` : 'Task', icon: 'checkbox', color: t.color.warning },
         { id: 'habit', label: many ? `${count} habits` : 'Habit', icon: 'repeat', color: t.color.accent },
         { id: 'goal', label: many ? `${count} goals` : 'Goal', icon: 'flag', color: t.color.success },
