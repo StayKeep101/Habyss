@@ -7,6 +7,7 @@ import { tidySpeech } from '@/lib/voiceClean';
 import { getVoiceDestination } from '@/lib/voiceDestination';
 import { addThought } from '@/lib/brainDump';
 import { normaliseLevel, voiceLevel } from '@/lib/voiceLevel';
+import { speechOptions, Transcript } from '@/lib/speechOptions';
 
 type Speech = typeof import('expo-speech-recognition')['ExpoSpeechRecognitionModule'];
 
@@ -36,6 +37,7 @@ function speech(): Speech | null {
 export function VoiceCapture() {
     const { mediumFeedback, lightFeedback } = useHaptics();
     const latest = useRef('');
+    const transcript = useRef(new Transcript()).current;
     const active = useRef(false);
     /** Let go before the microphone was even ready: stop as soon as it is. */
     const releasedEarly = useRef(false);
@@ -74,7 +76,7 @@ export function VoiceCapture() {
             // the same speech module and must not open the + button's pill.
             module.addListener('result', event => {
                 if (!active.current) return;
-                latest.current = event.results[0]?.transcript ?? '';
+                latest.current = transcript.push(event);
                 emit('voice_state', { listening: true, heard: latest.current });
             }),
             module.addListener('volumechange', event => { if (active.current) voiceLevel.value = normaliseLevel(event.value); }),
@@ -89,6 +91,7 @@ export function VoiceCapture() {
         const start = on('voice_start', async () => {
             releasedEarly.current = false;
             latest.current = '';
+            transcript.reset();
             emit('voice_state', { listening: true, heard: '' });
             const permission = await module.requestPermissionsAsync().catch(() => null);
             if (!permission?.granted) {
@@ -100,10 +103,7 @@ export function VoiceCapture() {
             if (releasedEarly.current) { emit('voice_state', { listening: false, heard: '' }); return; }
             mediumFeedback();
             active.current = true;
-            module.start({
-                lang: 'en-US', interimResults: true, continuous: true, addsPunctuation: false,
-                volumeChangeEventOptions: { enabled: true, intervalMillis: 80 },
-            });
+            module.start(await speechOptions({ punctuation: false, levels: true }));
         });
         const stop = on('voice_stop', () => {
             if (!active.current) { releasedEarly.current = true; emit('voice_state', { listening: false, heard: '' }); return; }

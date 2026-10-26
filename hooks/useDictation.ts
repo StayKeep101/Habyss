@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
+import { speechOptions, Transcript } from '@/lib/speechOptions';
+
+/** Quiet this long after speaking ends it; a pause to think is shorter. */
+const QUIET_MS = 2500;
 
 type Speech = typeof import('expo-speech-recognition')['ExpoSpeechRecognitionModule'];
 
@@ -13,8 +17,10 @@ function speech(): Speech | null {
 
 /**
  * Speaking into a text field: tap the mic, talk, and the words appear in the
- * field as they are heard; tap again (or pause) to stop. The same speech
- * module as holding +, one session at a time. Absent on a build without it.
+ * field as they are heard; tap again, or stay quiet a moment, to stop. A
+ * pause to think does not cut you off, and nothing said before a pause is
+ * lost (lib/speechOptions.ts). The same speech module as holding +, one
+ * session at a time. Absent on a build without it.
  */
 export function useDictation(onText: (heard: string) => void, onDone?: (heard: string) => void) {
     const module = useRef(speech()).current;
@@ -25,26 +31,34 @@ export function useDictation(onText: (heard: string) => void, onDone?: (heard: s
     const latestOnDone = useRef(onDone);
     latestOnDone.current = onDone;
     const heardSoFar = useRef('');
+    const transcript = useRef(new Transcript()).current;
+    const quiet = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const hush = () => { if (quiet.current) clearTimeout(quiet.current); quiet.current = null; };
 
     useEffect(() => {
         if (!module) return;
         const listeners = [
             module.addListener('result', event => {
                 if (!mine.current) return;
-                heardSoFar.current = event.results[0]?.transcript ?? '';
+                heardSoFar.current = transcript.push(event);
                 latestOnText.current(heardSoFar.current);
+                // Still talking: the quiet timer starts again.
+                hush();
+                quiet.current = setTimeout(() => { if (mine.current) module.stop(); }, QUIET_MS);
             }),
             // Finished: the caller gets the whole of it, to tidy (lib/voiceClean.ts).
             module.addListener('end', () => {
                 if (!mine.current) return;
                 mine.current = false;
+                hush();
                 setListening(false);
                 if (heardSoFar.current) latestOnDone.current?.(heardSoFar.current);
             }),
-            module.addListener('error', () => { if (mine.current) { mine.current = false; setListening(false); } }),
+            module.addListener('error', () => { if (mine.current) { mine.current = false; hush(); setListening(false); } }),
         ];
         return () => {
             listeners.forEach(listener => listener.remove());
+            hush();
             if (mine.current) module.stop();
         };
     }, [module]);
@@ -58,9 +72,13 @@ export function useDictation(onText: (heard: string) => void, onDone?: (heard: s
         }
         mine.current = true;
         heardSoFar.current = '';
+        transcript.reset();
         setListening(true);
-        module.start({ lang: 'en-US', interimResults: true, continuous: false, addsPunctuation: true });
-    }, [module]);
+        module.start(await speechOptions({ punctuation: true }));
+        // Tapped and nothing said: it stops by itself rather than listening forever.
+        hush();
+        quiet.current = setTimeout(() => { if (mine.current) module.stop(); }, 8000);
+    }, [module, transcript]);
 
     const stop = useCallback(() => { if (module && mine.current) module.stop(); }, [module]);
 
