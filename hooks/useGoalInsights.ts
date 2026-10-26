@@ -3,6 +3,7 @@ import { subscribeToHabits, type Habit } from '@/lib/habitsSQLite';
 import { localDateKey } from '@/lib/habitSchedule';
 import { buildGoalInsights, combineSeries, type GoalInsights, type GoalPoint } from '@/lib/goalInsights';
 import { useData } from '@/hooks/useData';
+import { useGoalLogs } from '@/hooks/useGoalLogs';
 import type { Task } from '@/lib/tasks';
 
 export interface GoalsData {
@@ -72,14 +73,16 @@ export function useGoalsInsights(): GoalsData {
         [data.history, completions, today],
     );
     const mergedSkips = data.skips;
+    // Progress written straight onto goals ("ran 4 km", "weighed 82 kg").
+    const logs = useGoalLogs();
     const insightsById = useMemo(() => {
         const map: Record<string, GoalInsights> = {};
         // Archived goals too, so an archived goal's own page still opens.
         for (const goal of habits.filter(habit => habit.isGoal)) {
-            map[goal.id] = buildGoalInsights({ goal, habits, tasks, history: merged, skips: mergedSkips, today });
+            map[goal.id] = buildGoalInsights({ goal, habits, tasks, history: merged, skips: mergedSkips, logs: logs[goal.id], today });
         }
         return map;
-    }, [habits, tasks, merged, mergedSkips, today]);
+    }, [habits, tasks, merged, mergedSkips, logs, today]);
 
     const overall = goals.length
         ? Math.round(goals.reduce((sum, goal) => sum + (insightsById[goal.id]?.progress ?? 0), 0) / goals.length)

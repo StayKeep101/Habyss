@@ -24,6 +24,7 @@ import { useGoalInsights } from '@/hooks/useGoalInsights';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { GoalPlanBoard } from '@/components/Goal/GoalPlanBoard';
 import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
+import { LogProgressSheet, type LogMode } from '@/components/Goal/LogProgressSheet';
 import { MilestoneSheet } from '@/components/Goal/MilestoneSheet';
 import { useMilestones } from '@/hooks/useMilestones';
 import { addMilestones, splitIntoMilestones, updateMilestone, type Milestone } from '@/lib/goalMilestones';
@@ -263,6 +264,12 @@ const GoalDetail = () => {
    * here for the same reason.
    */
   const [taskForm, setTaskForm] = useState<{ task: Task | null; key: number } | null>(null);
+  // Progress written straight onto the goal: how it counts follows what it is.
+  const [logging, setLogging] = useState(false);
+  const logSpec = (() => { try { return goal?.goalSpec ? JSON.parse(goal.goalSpec) : null; } catch { return null; } })();
+  const logMode: LogMode = logSpec?.aggregation === 'max' ? 'best' : logSpec?.aggregation === 'latest' ? 'latest' : 'sum';
+  const canLog = !!logSpec && (logSpec.target > 0 || logSpec.delta_from_baseline !== null && logSpec.delta_from_baseline !== undefined) && logSpec.kind !== 'complete';
+  const logUnit = String(logSpec?.metric_unit ?? '').replace(/^minutes$/, 'min');
   const openTask = (task?: Task) => {
     lightFeedback();
     setTaskForm({ task: task ?? null, key: Date.now() });
@@ -279,6 +286,7 @@ const GoalDetail = () => {
       { label: 'Add habit', icon: 'repeat-outline' as const, onPress: () => { lightFeedback(); setAddingHabit(true); } },
       { label: 'Add task', icon: 'checkbox-outline' as const, onPress: () => openTask() },
       { label: 'Add milestone', icon: 'flag-outline' as const, onPress: () => { lightFeedback(); setMilestoneSheet({ milestone: null }); } },
+      ...(canLog ? [{ label: 'Log progress', icon: 'create-outline' as const, onPress: () => { lightFeedback(); setLogging(true); } }] : []),
       ...(splitPlan.length > 1 && milestones.length === 0
         ? [{ label: 'Split into milestones', icon: 'git-commit-outline' as const, onPress: splitIntoSteps }] : []),
     ] : []),
@@ -509,6 +517,7 @@ const GoalDetail = () => {
                 onEditHabit={habit => setEditingHabit(habit)}
                 onToggleMilestone={toggleMilestone}
                 onOpenMilestone={milestone => setMilestoneSheet({ milestone })}
+                onLog={canLog && !isSharedGoal ? () => { lightFeedback(); setLogging(true); } : undefined}
               />
             ) : null}
           </Animated.View>
@@ -532,6 +541,9 @@ const GoalDetail = () => {
       </View>
 
 
+      {logging && goal ? (
+        <LogProgressSheet visible goalId={goal.id} goalName={goal.name} unit={logUnit} mode={logMode} onClose={() => setLogging(false)} />
+      ) : null}
       {taskForm && goal ? (
         <TaskFormModal key={taskForm.key} visible task={taskForm.task} goalId={goal.id}
           onClose={() => setTaskForm(null)} onSaved={() => emit('tasks_changed')} />

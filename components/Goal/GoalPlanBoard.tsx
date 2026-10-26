@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { ChoiceRow } from '@/components/ui/ChoiceRow';
+import { AppButton } from '@/components/ui/AppButton';
 import { IconButton } from '@/components/ui/IconButton';
 import { ListItem } from '@/components/ui/Motion';
 import { GoalHabitRow, SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
@@ -47,7 +48,7 @@ function periodLabel(range: Exclude<Range, 'all'>, offset: number, from: string,
  * and their Add buttons. Ticking works on today; other days are to look ahead
  * or back.
  */
-export function GoalPlanBoard({ goalId, insights, milestones, today, color, readOnly, pace, onToggleTask, onOpenTask, onRemoveTask, onToggleHabit, onOpenHabit, onEditHabit, onToggleMilestone, onOpenMilestone }: {
+export function GoalPlanBoard({ goalId, insights, milestones, today, color, readOnly, pace, onToggleTask, onOpenTask, onRemoveTask, onToggleHabit, onOpenHabit, onEditHabit, onToggleMilestone, onOpenMilestone, onLog }: {
     goalId: string;
     insights: GoalInsights;
     milestones: Milestone[];
@@ -64,6 +65,8 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
     onEditHabit: (habit: Habit) => void;
     onToggleMilestone: (milestone: Milestone) => void;
     onOpenMilestone: (milestone: Milestone) => void;
+    /** For a goal you measure: write today's progress on it. */
+    onLog?: () => void;
 }) {
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
@@ -128,6 +131,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
             ) : plan ? (
                 <Animated.View key={`${range}:${offset}`} entering={FadeIn.duration(200)} style={styles.body}>
                     {range === 'day' && offset === 0 && pace ? pace : null}
+                    {range === 'day' && offset === 0 && onLog ? <AppButton label="Log progress" icon="create-outline" variant="ghost" onPress={onLog} /> : null}
 
                     {plan.dueMilestones.length ? (
                         <View>

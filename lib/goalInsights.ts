@@ -122,6 +122,8 @@ export interface GoalInsightInput {
      * habit had not been scheduled: never a miss, never part of the total.
      */
     skips?: Record<string, string[]>;
+    /** Progress written straight onto this goal (lib/goalLogs.ts). */
+    logs?: { date: string; amount: number }[];
     today: string;
 }
 
@@ -253,7 +255,7 @@ const taskDay = (task: Task): string | null => {
  * cannot disagree.
  */
 function measureByDay(input: GoalInsightInput): {
-    kind: GoalKind; unit: string; total: number; byDay: Map<string, number>; peak?: boolean;
+    kind: GoalKind; unit: string; total: number; byDay: Map<string, number>; peak?: boolean; latest?: boolean;
 } {
     const { goal, today } = input;
     const habits = linkedHabits(goal, input.habits);
@@ -274,6 +276,22 @@ function measureByDay(input: GoalInsightInput): {
         byDay.set(day, Math.max(byDay.get(day) ?? 0, amount));
     };
     const { targetOn } = require('./peakPlan') as typeof import('./peakPlan');
+    const logs = (input.logs ?? []).filter(log => log.date <= today);
+
+    // A level you check (a weight, a GPA, a net worth): the latest value
+    // written, as the distance gone from where it started toward the target.
+    const spec = readSpec(goal);
+    if (spec.aggregation === 'latest' && logs.length) {
+        const delta = Number(spec.delta_from_baseline);
+        const baseline = Number.isFinite(Number(spec.baseline)) && spec.baseline !== null ? Number(spec.baseline) : logs[0].amount;
+        const goalValue = target?.amount ?? (Number.isFinite(delta) ? baseline - delta : null);
+        if (goalValue !== null && goalValue !== baseline) {
+            const towards = Math.sign(goalValue - baseline);
+            const total = Math.abs(goalValue - baseline);
+            for (const log of logs) byDay.set(log.date, Math.max(0, Math.min(total, (log.amount - baseline) * towards)));
+            return { kind: 'number', unit: target?.unit || String(spec.metric_unit ?? ''), total, byDay, latest: true };
+        }
+    }
 
     if (kind !== 'complete' && target) {
         const unit = kind === 'time' ? 'minutes' : target.unit;
@@ -295,6 +313,8 @@ function measureByDay(input: GoalInsightInput): {
             }
         }
         for (const task of tasks) (peak ? best : add)(taskDay(task), taskAmount(task, kind, unit));
+        // Written straight onto the goal: added up, or the best for a one-go goal.
+        for (const log of logs) (peak ? best : add)(log.date, kind === 'time' ? log.amount * (MINUTES_PER[target.unit] ?? 1) : log.amount);
         return { kind, unit, total, byDay, peak };
     }
 
@@ -328,6 +348,20 @@ export function goalMeasure(input: GoalInsightInput, measured = measureByDay(inp
     const { start, end } = goalRange(input.goal, input.today);
     let done = 0;
     let beforeToday = 0;
+    if (measured.latest) {
+        // A level: where the latest value stands, not a sum.
+        const days = [...byDay.keys()].filter(day => day <= input.today).sort();
+        const last = days[days.length - 1];
+        const lastBefore = days.filter(day => day < input.today).pop();
+        done = last ? byDay.get(last)! : 0;
+        beforeToday = lastBefore ? byDay.get(lastBefore)! : 0;
+        const dated = !!input.goal.targetDate;
+        return {
+            kind, done: round1(done), total: round1(total), unit, remaining: round1(Math.max(0, total - done)),
+            daysLeft: dated ? Math.max(0, daysBetween(input.today < start ? start : input.today, end) + 1) : null,
+            perDay: null, perWeek: null, today: round1(done - beforeToday), leftToday: null,
+        };
+    }
     for (const [day, amount] of byDay) {
         // Finished before the goal started still counts, as day one.
         if (day > input.today) continue;
@@ -402,10 +436,11 @@ export function buildGoalInsights(input: GoalInsightInput): GoalInsights {
     const total = measure.total;
     let soFar = 0;
     // One-go goals chart the best so far; others the running total.
-    const step = (from: number, amount: number) => measured.peak ? Math.max(from, amount) : from + amount;
-    for (const [day, amount] of byDay) if (day < start) soFar = step(soFar, amount);
+    // A level charts the latest value written, carried forward between entries.
+    const step = (from: number, amount: number) => measured.latest ? amount : measured.peak ? Math.max(from, amount) : from + amount;
+    for (const [day, amount] of [...byDay].sort(([a], [b]) => a.localeCompare(b))) if (day < start) soFar = step(soFar, amount);
     for (let day = start, index = 1; day <= lastDay; day = addDays(day, 1), index++) {
-        soFar = step(soFar, byDay.get(day) ?? 0);
+        if (!measured.latest || byDay.has(day)) soFar = step(soFar, byDay.get(day) ?? 0);
         series.push({
             date: day,
             actual: total ? Math.round(Math.min(1, soFar / total) * 1000) / 10 : 0,
