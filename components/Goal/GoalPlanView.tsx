@@ -14,7 +14,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
 import { addDays } from '@/lib/goalInsights';
-import { tapUnticks, toggleCompletion, type Habit } from '@/lib/habitsSQLite';
+import { toggleCompletion, type Habit } from '@/lib/habitsSQLite';
 import { deleteTask, setTaskStatus, updateTask, type Task } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
 
@@ -91,11 +91,7 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
         ]);
     };
     const toggleHabit = (habit: Habit, done: boolean) => {
-        // A tap ticks anything; a finished counted or timed one is undone on its page.
-        if (done && !tapUnticks(habit)) {
-            router.push({ pathname: '/habit-detail', params: { habitId: habit.id } });
-            return;
-        }
+        // A tap ticks anything; a second tap takes it back.
         selectionFeedback();
         setCompletion(habit.id, !done);
         toggleCompletion(habit.id, today).catch(() => {

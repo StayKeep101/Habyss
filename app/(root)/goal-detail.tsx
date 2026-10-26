@@ -18,7 +18,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { HalfCircleProgress } from '@/components/ui/HalfCircleProgress';
 import { PanelCap } from '@/components/Goal/PanelCap';
-import { Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, tapUnticks, toggleCompletion } from '@/lib/habitsSQLite';
+import { Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, toggleCompletion } from '@/lib/habitsSQLite';
 import { cachedCover, resolveCover, setGoalCover } from '@/lib/goalCover';
 import { DeviceEventEmitter } from 'react-native';
 import { ShareGoalModal } from '@/components/Social/ShareGoalModal';
@@ -301,11 +301,7 @@ const GoalDetail = () => {
 
   const handleHabitPress = (habit: Habit) => {
     const isCompleted = !completions[habit.id];
-    // A tap ticks anything; a finished counted or timed one is undone on its page.
-    if (!isCompleted && !tapUnticks(habit)) {
-      router.push({ pathname: '/habit-detail', params: { habitId: habit.id } });
-      return;
-    }
+    // A tap ticks anything; a second tap takes it back.
     if (isCompleted) {
       playComplete();
       selectionFeedback();

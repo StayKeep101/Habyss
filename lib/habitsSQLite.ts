@@ -683,15 +683,6 @@ export function setSkipped(habitId: string, skipped: boolean, dateISO = todayStr
 }
 
 
-/**
- * Whether a tap on a finished habit in a list may take the tick back. Only
- * for a plain done-or-not habit, which costs one tap to redo; four hours of
- * study or 30 push-ups are not lost to a stray tap: the tap opens the habit,
- * where undoing is a deliberate choice.
- */
-export const tapUnticks = (habit: Pick<Habit, 'unit' | 'goalValue' | 'durationMinutes' | 'type' | 'trackingMethod'>): boolean =>
-    measurementFor(habit).kind === 'boolean';
-
 export function toggleCompletion(habitId: string, dateISO = todayString()): Promise<Record<string, boolean>> {
     return writeProgress(async () => {
         const { uid, db } = await progressStorage();
