@@ -213,9 +213,16 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
             // (Morning run 8:30–9:00 stays there, ticked at 10:42 or at 7);
             // otherwise where it was planned today; only something never
             // placed at all goes where it was done, ending at the tick.
+            //
+            // Finished partway through (Study 3–5 PM, done at 3:30): it keeps
+            // its start and ends when it was finished, so the rest of its time
+            // goes to whatever is next, straight away.
             const planned = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
             const own = item.start !== null ? { start: item.start, end: item.start + planned } : null;
             let slot = own ?? item.planned ?? kept;
+            // When it was ticked: the recorded time, or now if it was just ticked inside its slot.
+            const at = item.doneAt ?? (slot && now !== null && now > slot.start && now < slot.end ? now : undefined);
+            if (slot && at !== undefined && at > slot.start && at < slot.end) slot = { start: slot.start, end: Math.max(slot.start + 5, at) };
             if (!slot && item.doneAt !== undefined) slot = { start: Math.max(0, item.doneAt - planned), end: Math.max(item.doneAt, 1) };
             if (slot) timed.push({ ...item, start: slot.start, minutes: Math.max(1, slot.end - slot.start), auto: item.auto || item.start === null || slot.start !== item.start });
             else untimed.push(item);
