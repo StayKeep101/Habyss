@@ -142,6 +142,14 @@ export default function MobileLayout() {
   // The phone runs the newest published update, not the one before it.
   useEffect(() => watchForUpdates(), []);
 
+  // Your profile and its photo, read as the app opens, so the profile page
+  // shows the picture at once rather than after a download.
+  useEffect(() => {
+    void (require('@/lib/profile') as typeof import('@/lib/profile')).getProfile()
+      .then(profile => { if (profile.avatar) void (require('@/lib/imageCache') as typeof import('@/lib/imageCache')).cacheImage(profile.avatar); })
+      .catch(() => undefined);
+  }, []);
+
   // The brain dump's week: clear last week's thoughts, schedule this week's review.
   useEffect(() => {
     const { syncBrainDumpReview } = require('@/lib/brainDumpReview') as typeof import('@/lib/brainDumpReview');

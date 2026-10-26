@@ -6,6 +6,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTokens } from '@/hooks/useTokens';
+import { useRetained } from '@/hooks/useRetained';
 import { splitThought, type ThoughtKind, type ThoughtPiece } from '@/lib/thoughtSplit';
 
 const KINDS: { id: ThoughtKind; label: string }[] = [
@@ -18,20 +19,22 @@ const KINDS: { id: ThoughtKind; label: string }[] = [
  * press Create. "Saturday: clean the apartment, wash clothes, buy groceries"
  * is three tasks for Saturday; "What if…?" is an idea to keep.
  */
-export function SortThoughtSheet({ text, onClose, onCreate }: {
+export function SortThoughtSheet({ text: asked, onClose, onCreate }: {
     text: string | null;
     onClose: () => void;
     onCreate: (pieces: ThoughtPiece[]) => void;
 }) {
     const t = useTokens();
+    // Kept while it slides away, so closing is as smooth as opening.
+    const text = useRetained(asked);
     const [pieces, setPieces] = useState<ThoughtPiece[]>([]);
-    useEffect(() => { if (text) setPieces(splitThought(text)); }, [text]);
+    useEffect(() => { if (asked) setPieces(splitThought(asked)); }, [asked]);
     if (!text) return null;
     const making = pieces.filter(piece => piece.kind !== 'note').length;
     const set = (index: number, kind: ThoughtKind) => setPieces(list => list.map((piece, at) => (at === index ? { ...piece, kind } : piece)));
 
     return (
-        <VoidSheet visible onClose={onClose} title={pieces.length > 1 ? `${pieces.length} things in this` : 'Sort it out'} maxShare={0.85}
+        <VoidSheet visible={!!asked} onClose={onClose} title={pieces.length > 1 ? `${pieces.length} things in this` : 'Sort it out'} maxShare={0.85}
             footer={
                 <View style={styles.footer}>
                     <AppButton label={making ? `Create ${making}` : 'Keep as a note'} onPress={() => onCreate(pieces)} />

@@ -11,22 +11,21 @@ export function focusFigure(seconds: number): string {
 }
 
 /**
- * Focus: how long you have focused today, and this week under it. Taps
- * through to the focus stats. Counted by FocusTimeContext, the one place
+ * Focus: how long you have focused today, and nothing more on the card: the
+ * week and its days are on the focus stats page it taps through to. Counted by FocusTimeContext, the one place
  * sessions are recorded.
  */
 export function FocusCard({ onPress }: { onPress: () => void }) {
     const { primary } = useAccentGradient();
-    const { totalFocusToday, weeklyFocusTotal, isRunning } = useFocusSession();
+    const { totalFocusToday, isRunning } = useFocusSession();
     return (
         <HomeStatCard
             icon={isRunning ? 'timer' : 'hourglass'}
             tint={primary}
             value={focusFigure(totalFocusToday)}
             label="Focus today"
-            note={`${focusFigure(weeklyFocusTotal)} this week`}
             onPress={onPress}
-            accessibilityLabel={`Focus: ${Math.round(totalFocusToday / 60)} minutes today, ${Math.round(weeklyFocusTotal / 60)} this week`}
+            accessibilityLabel={`Focus: ${Math.round(totalFocusToday / 60)} minutes today`}
         />
     );
 }

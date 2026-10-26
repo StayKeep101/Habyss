@@ -8,6 +8,7 @@ import { useTokens } from '@/hooks/useTokens';
 import { useAccentGradient } from '@/context/AccentContext';
 import { setTravel, travelFor } from '@/lib/eventTravel';
 import { useEventTravel } from '@/hooks/useEventTravel';
+import { useRetained } from '@/hooks/useRetained';
 
 const OPTIONS = ['0', '15', '30', '45', '60', '90', '120'] as const;
 type Minutes = typeof OPTIONS[number];
@@ -20,13 +21,15 @@ const clock = (minutes: number) => new Date(2000, 0, 1, Math.floor(minutes / 60)
  * timeline plans everything else around it. Set once per event name, so
  * every School gets it. The event itself still opens in Calendar.
  */
-export function EventSheet({ event, onClose, onOpenCalendar }: {
+export function EventSheet({ event: asked, onClose, onOpenCalendar }: {
     event: { title: string; start: number; end: number } | null;
     onClose: () => void;
     onOpenCalendar: () => void;
 }) {
     const t = useTokens();
     const { primary } = useAccentGradient();
+    // Kept while it slides away, so closing is as smooth as opening.
+    const event = useRetained(asked);
     const all = useEventTravel();
     const [before, setBefore] = useState<Minutes>('0');
     const [after, setAfter] = useState<Minutes>('0');
@@ -37,7 +40,7 @@ export function EventSheet({ event, onClose, onOpenCalendar }: {
         const nearest = (minutes: number) => OPTIONS.reduce((best, option) => Math.abs(Number(option) - minutes) < Math.abs(Number(best) - minutes) ? option : best, '0' as Minutes);
         setBefore(nearest(travel.before));
         setAfter(nearest(travel.after));
-    }, [event, all]);
+    }, [event, all, asked]);
 
     const choose = (which: 'before' | 'after', value: Minutes) => {
         if (!event) return;
@@ -48,7 +51,7 @@ export function EventSheet({ event, onClose, onOpenCalendar }: {
     if (!event) return null;
     const free = { from: event.start - Number(before), to: event.end + Number(after) };
     return (
-        <VoidSheet visible onClose={onClose} title={event.title} caption={`${clock(event.start)} – ${clock(event.end)}`}
+        <VoidSheet visible={!!asked} onClose={onClose} title={event.title} caption={`${clock(event.start)} – ${clock(event.end)}`}
             footer={
                 <View style={styles.footer}>
                     <AppButton label="Done" onPress={onClose} />

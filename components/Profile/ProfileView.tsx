@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/Community/StatusBadge';
 import { STATUS_LABEL, type FriendStatus } from '@/lib/presence';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useCachedImage } from '@/hooks/useCachedImage';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { Colors } from '@/theme/colors';
@@ -77,6 +78,8 @@ export const ProfileView: React.FC<{
     const { height: screenHeight, width: screenWidth } = useWindowDimensions();
     // The banner, plus the half of the avatar that overlaps it.
     const coverHeight = topInset + vs(150) + s(48);
+    // The photo from the phone's own copy, at once (lib/imageCache.ts).
+    const avatarShown = useCachedImage(avatar);
 
 
     return (
@@ -90,6 +93,9 @@ export const ProfileView: React.FC<{
                 <View pointerEvents="none" style={[styles.backdrop, { top: -screenHeight, height: screenHeight + coverHeight }]}>
                     {marksSeries && marksSeries.length > 1 ? (
                         <>
+                            {/* Above the page, the colour the backdrop starts with, so
+                                pulling or scrolling never shows a hard edge. */}
+                            <View style={[styles.above, { height: screenHeight, backgroundColor: primary + '40' }]} />
                             <View style={[styles.below, { top: screenHeight }]}>
                                 <LinearGradient colors={[primary + '40', primary + '10', 'transparent']} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
                             </View>
@@ -132,7 +138,7 @@ export const ProfileView: React.FC<{
                         reads as sitting on the banner rather than in it. */}
                     <View style={[styles.avatar, { borderColor: colors.background, backgroundColor: colors.surfaceSecondary }]}>
                         {avatar ? (
-                            <Image source={{ uri: avatar }} style={styles.photo} />
+                            <Image source={{ uri: avatarShown ?? avatar }} style={styles.photo} fadeDuration={0} />
                         ) : initials ? (
                             <Text style={[styles.initials, { color: primary }]}>{initials}</Text>
                         ) : (

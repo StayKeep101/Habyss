@@ -24,6 +24,7 @@ import { useGoalInsights } from '@/hooks/useGoalInsights';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { GoalPlanBoard } from '@/components/Goal/GoalPlanBoard';
 import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
+import { useRetained } from '@/hooks/useRetained';
 import { LogProgressSheet, type LogMode } from '@/components/Goal/LogProgressSheet';
 import { MilestoneSheet } from '@/components/Goal/MilestoneSheet';
 import { useMilestones } from '@/hooks/useMilestones';
@@ -154,6 +155,8 @@ const GoalDetail = () => {
   // The checkpoints between today and the goal's end (lib/goalMilestones.ts).
   const milestones = useMilestones(goal?.id);
   const [milestoneSheet, setMilestoneSheet] = useState<{ milestone: Milestone | null } | null>(null);
+  // Kept while the sheet slides away.
+  const shownMilestoneSheet = useRetained(milestoneSheet);
   const goalEnd = insights && goal?.targetDate ? insights.endDate : undefined;
   /** "Read 24 books by Dec 31" split into Book 1 … Book 24, evenly through the time left. */
   const splitPlan = useMemo(() => {
@@ -541,15 +544,15 @@ const GoalDetail = () => {
       </View>
 
 
-      {logging && goal ? (
-        <LogProgressSheet visible goalId={goal.id} goalName={goal.name} unit={logUnit} mode={logMode} onClose={() => setLogging(false)} />
+      {goal && canLog ? (
+        <LogProgressSheet visible={logging} goalId={goal.id} goalName={goal.name} unit={logUnit} mode={logMode} onClose={() => setLogging(false)} />
       ) : null}
       {taskForm && goal ? (
         <TaskFormModal key={taskForm.key} visible task={taskForm.task} goalId={goal.id}
           onClose={() => setTaskForm(null)} onSaved={() => emit('tasks_changed')} />
       ) : null}
-      {milestoneSheet && goal ? (
-        <MilestoneSheet visible goalId={goal.id} goalEnd={goalEnd} milestone={milestoneSheet.milestone} onClose={() => setMilestoneSheet(null)} />
+      {goal ? (
+        <MilestoneSheet visible={!!milestoneSheet} goalId={goal.id} goalEnd={goalEnd} milestone={shownMilestoneSheet?.milestone ?? null} onClose={() => setMilestoneSheet(null)} />
       ) : null}
       {editingHabit && <HabitSheet visible habit={editingHabit} goalId={editingHabit.goalId} onClose={() => setEditingHabit(null)} />}
       {addingHabit && <HabitSheet visible goalId={goal.id} onClose={() => setAddingHabit(false)} onSaved={() => setAddingHabit(false)} />}

@@ -20,6 +20,7 @@ import { emit } from '@/lib/appEvents';
 import { GoalMilestones } from '@/components/Goal/GoalMilestones';
 import { MilestoneSheet } from '@/components/Goal/MilestoneSheet';
 import { useMilestones } from '@/hooks/useMilestones';
+import { useRetained } from '@/hooks/useRetained';
 import { updateMilestone, type Milestone } from '@/lib/goalMilestones';
 
 /**
@@ -44,6 +45,7 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readO
     const [addingHabit, setAddingHabit] = useState(false);
     const milestones = useMilestones(goal?.id);
     const [milestoneSheet, setMilestoneSheet] = useState<{ milestone: Milestone | null } | null>(null);
+    const shownMilestoneSheet = useRetained(milestoneSheet);
 
     if (!goal || !insights) {
         return (
@@ -192,10 +194,8 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readO
             </Outer>
 
             {addingHabit ? <HabitSheet visible goalId={goal.id} onClose={() => setAddingHabit(false)} onSaved={() => setAddingHabit(false)} /> : null}
-            {milestoneSheet ? (
-                <MilestoneSheet visible goalId={goal.id} goalEnd={goal.targetDate ? insights.endDate : undefined}
-                    milestone={milestoneSheet.milestone} onClose={() => setMilestoneSheet(null)} />
-            ) : null}
+            <MilestoneSheet visible={!!milestoneSheet} goalId={goal.id} goalEnd={goal.targetDate ? insights.endDate : undefined}
+                milestone={shownMilestoneSheet?.milestone ?? null} onClose={() => setMilestoneSheet(null)} />
 
             {editingHabit ? (
                 <HabitSheet visible habit={editingHabit} goalId={editingHabit.goalId} onClose={() => setEditingHabit(null)} />

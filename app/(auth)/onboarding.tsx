@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import Animated, { Easing, FadeInUp } from 'react-native-reanimated';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { textOn } from '@/theme/tokens';
 import { IconButton } from '@/components/ui/IconButton';
@@ -658,7 +658,7 @@ export default function OnboardingScreen() {
                         progress={draft.step > STEP.welcome ? Math.min(draft.step, RAIL_PAGES) / RAIL_PAGES : null} />
                     <View style={styles.flex}>
                         {/* Each question rises softly into place. */}
-                        <Animated.View key={draft.step} entering={FadeInUp.delay(160).duration(500).springify().damping(18)} style={styles.flex}>
+                        <Animated.View key={draft.step} entering={FadeInUp.delay(120).duration(420).easing(Easing.out(Easing.cubic))} style={styles.flex}>
                             {(screens[draft.step] ?? renderWelcome)()}
                         </Animated.View>
                     </View>

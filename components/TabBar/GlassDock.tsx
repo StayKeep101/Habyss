@@ -80,6 +80,13 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const { width: screenWidth } = useWindowDimensions();
     /** True while the button is held for voice, so letting go stops listening. */
     const voiceHeld = React.useRef(false);
+    // Whether the microphone is on (VoiceCapture says so): a tap then stops it
+    // rather than opening the create menu on top of it.
+    const voiceOn = React.useRef(false);
+    React.useEffect(() => {
+        const sub = on('voice_state', state => { voiceOn.current = !!state?.listening; });
+        return () => sub.remove();
+    }, []);
 
     /**
      * While something in a goal is dragged on the Roadmap, the plus becomes
@@ -203,6 +210,8 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 onLongPress={() => { voiceHeld.current = true; emit('voice_start'); }}
                 onPressOut={() => { if (voiceHeld.current) { voiceHeld.current = false; emit('voice_stop'); } }}
                 onPress={() => {
+                    // Listening: the tap ends it, and what was said is used.
+                    if (voiceOn.current) { mediumFeedback(); emit('voice_stop'); return; }
                     mediumFeedback();
                     // The menu opens exactly on top of this button, wherever the
                     // phone puts it, so the plus can turn into the close button.
