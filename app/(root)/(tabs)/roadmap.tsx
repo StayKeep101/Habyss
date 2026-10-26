@@ -54,6 +54,9 @@ import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { openInCalendar } from '@/lib/calendarEvents';
 import { useEchoPatterns } from '@/hooks/useEchoPatterns';
 import { peakWindow } from '@/lib/echoPatterns';
+import { energyCurve } from '@/lib/energyCurve';
+import { useCheckIns } from '@/hooks/useCheckIns';
+import { useFocusRecords } from '@/hooks/useFocusRecords';
 import { mealSlots } from '@/lib/meals';
 import { DEFAULT_ROADMAP_FILTER, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type RoadmapView, type ShownKind } from '@/lib/roadmapFilter';
 import { tallyDay } from '@/lib/dayComplete';
@@ -891,9 +894,15 @@ const CalendarScreen = () => {
     // Where each thing was placed today, so done things stay put and moves get a dot.
     const memory = useDayMemory();
     const calendarEvents = useCalendarEvents(localDateKey(selectedDate));
-    // Your best hours, from Echo's patterns: hard things are fitted in there.
+    // Your best hours: learnt hour by hour from energy answers and focus
+    // sessions (lib/energyCurve.ts); until that is clear, Echo's patterns.
+    // Hard things are fitted in there.
     const patterns = useEchoPatterns();
-    const peak = useMemo(() => peakWindow(patterns), [patterns]);
+    const checkIns = useCheckIns();
+    const focusRecords = useFocusRecords();
+    const peak = useMemo(() => energyCurve({
+        checkIns: checkIns.entries, focus: focusRecords, now: new Date(), wake: minutesOf(dayWindow.wake), sleep: minutesOf(dayWindow.sleep),
+    }).peak ?? peakWindow(patterns), [patterns, checkIns, focusRecords, dayWindow]);
     const flowNow = dayPlan.isToday ? clock.getHours() * 60 + clock.getMinutes() : null;
     const flowWindow = useMemo(() => ({ wake: minutesOf(dayWindow.wake), sleep: minutesOf(dayWindow.sleep), peak, active: activeHabitId }), [dayWindow, peak, activeHabitId]);
     // When each habit was ticked on the day shown, so a done one sits where it was really done.

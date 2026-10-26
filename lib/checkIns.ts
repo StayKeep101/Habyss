@@ -84,17 +84,27 @@ const dayOf = (iso: string) => {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
+/** Morning (before noon), afternoon (before 6 PM), evening. */
+const partOf = (hour: number) => (hour < 12 ? 0 : hour < 18 ? 1 : 2);
+
 /**
  * Which question to ask now, if any. Pure: `random` is passed in, so the
  * learning can be tested. The chance is the answer rate (with a prior of one
  * answer in two) times how much answers cluster at this hour, kept between
  * 10% and 75% so it is never pushy and never silent for good.
+ *
+ * Mood is asked once a day. Energy changes through the day, so it can be
+ * asked once in each part of it (morning, afternoon, evening), and more
+ * readily in the part with the fewest answers: that is how the energy curve
+ * (lib/energyCurve.ts) learns your whole day, not just the hour you usually
+ * answer.
  */
 export function pickQuestion(current: CheckInState, now: Date, random: () => number = Math.random): CheckInKind | null {
     const today = dayOf(now.toISOString());
     const hour = now.getHours();
     const kinds = (Object.keys(QUESTIONS) as CheckInKind[]).filter(kind => {
-        if (current.entries.some(entry => entry.kind === kind && dayOf(entry.at) === today)) return false;
+        const answeredToday = current.entries.filter(entry => entry.kind === kind && dayOf(entry.at) === today);
+        if (kind === 'mood' ? answeredToday.length > 0 : answeredToday.some(entry => partOf(new Date(entry.at).getHours()) === partOf(hour))) return false;
         const last = current.stats[kind].lastAsked;
         return !last || now.getTime() - new Date(last).getTime() >= GAP_HOURS * 3600000;
     });
@@ -104,7 +114,13 @@ export function pickQuestion(current: CheckInState, now: Date, random: () => num
         const rate = (s.answered + 1) / (s.asked + 2);
         const total = s.hours.reduce((sum, n) => sum + n, 0);
         const affinity = total >= 3 ? (s.hours[hour] + s.hours[(hour + 23) % 24] + s.hours[(hour + 1) % 24] + 1) / (total / 8 + 1) : 1;
-        return Math.max(0.1, Math.min(0.75, 0.4 * rate * 2 * Math.min(1.8, affinity)));
+        // Energy: a part of the day with few answers is worth asking about.
+        let explore = 1;
+        if (kind === 'energy' && total >= 3) {
+            const inPart = s.hours.reduce((sum, n, h) => sum + (partOf(h) === partOf(hour) ? n : 0), 0);
+            explore = 1 + 0.6 * Math.max(0, 1 / 3 - inPart / total) * 3;
+        }
+        return Math.max(0.1, Math.min(0.75, 0.4 * rate * 2 * Math.min(1.8, affinity * explore)));
     };
     // The least recently asked goes first, so both get their turn.
     const ordered = kinds.sort((a, b) => (current.stats[a].lastAsked ?? '').localeCompare(current.stats[b].lastAsked ?? ''));
