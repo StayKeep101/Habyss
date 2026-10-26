@@ -139,6 +139,6 @@ const styles = StyleSheet.create({
     barCol: { alignItems: 'center', gap: Spacing.xs },
     barTrack: { width: 10, height: BAR_HEIGHT, justifyContent: 'flex-end' },
     bar: { width: '100%', borderRadius: 5 },
-    barLabel: { fontFamily: FontFamily.regular, fontSize: 10 },
+    barLabel: { fontFamily: FontFamily.regular, fontSize: 11 },
     barLabelToday: { fontFamily: FontFamily.semibold },
 });

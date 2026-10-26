@@ -157,5 +157,5 @@ const styles = StyleSheet.create({
     lived: { position: 'absolute', left: 0, height: 4, borderRadius: 2, opacity: 0.3 },
     cursor: { position: 'absolute', left: 0, width: 3, height: 22, top: -4, borderRadius: 1.5 },
     axis: { height: 14, marginTop: 4 },
-    axisText: { position: 'absolute', width: 32, textAlign: 'center', fontSize: 10, fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
+    axisText: { position: 'absolute', width: 32, textAlign: 'center', fontSize: 11, fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
 });

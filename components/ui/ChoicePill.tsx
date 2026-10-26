@@ -33,7 +33,7 @@ export function ChoicePill({ label, icon, on, color, onPress, radius = 999, styl
     const colors = Colors[theme] ?? Colors.abyss;
     const ink = on ? textOn(color) : disabled ? colors.textTertiary : colors.textSecondary;
     return (
-        <Pressable accessibilityRole={role} accessibilityState={role === 'checkbox' ? { checked: on, disabled } : { selected: on, disabled }}
+        <Pressable hitSlop={6} accessibilityRole={role} accessibilityState={role === 'checkbox' ? { checked: on, disabled } : { selected: on, disabled }}
             accessibilityLabel={accessibilityLabel ?? label} accessibilityHint={accessibilityHint}
             disabled={disabled} onPress={onPress} style={pressStyle}>
             <MatteSurface radius={radius} level="control" elevation="none" tint={on ? color : undefined} style={[styles.pill, style]}>

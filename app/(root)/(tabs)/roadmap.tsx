@@ -1093,7 +1093,7 @@ const CalendarScreen = () => {
                                         style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                                     >
                                         <Ionicons name="filter" size={10} color={accentColor} />
-                                        <Text style={{ color: accentColor, fontSize: 9, fontFamily: FontFamily.semibold, letterSpacing: 0.5 }}>
+                                        <Text style={{ color: accentColor, fontSize: 11, fontFamily: FontFamily.semibold, letterSpacing: 0.5 }}>
                                             {[
                                                 (!shown.goals || !shown.habits || !shown.tasks) && (['goals', 'habits', 'tasks'] as const).filter(kind => shown[kind]).map(kind => kind.charAt(0).toUpperCase() + kind.slice(1)).join(' + '),
                                                 selectedGoalFilter && goals.find(g => g.id === selectedGoalFilter)?.name?.slice(0, 12),

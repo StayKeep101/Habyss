@@ -7,7 +7,7 @@ export const styles = StyleSheet.create({
     monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
     month: { fontSize: 17, fontFamily: FontFamily.semibold },
     grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-    weekday: { width: '14.2857%', textAlign: 'center', fontSize: 10, fontFamily: FontFamily.medium, marginBottom: 8 },
+    weekday: { width: '14.2857%', textAlign: 'center', fontSize: 11, fontFamily: FontFamily.medium, marginBottom: 8 },
     cell: { width: '14.2857%', alignItems: 'center', paddingVertical: 4 },
     // The band joining perfect days in a row: half a cell each side, so two
     // neighbours' halves meet into one stretch. Faint, behind the discs.

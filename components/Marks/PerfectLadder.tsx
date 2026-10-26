@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     steps: { flexDirection: 'row', justifyContent: 'space-between' },
     step: { alignItems: 'center', gap: 4 },
     dot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1.5 },
-    stepLabel: { fontFamily: FontFamily.medium, fontSize: 10, fontVariant: ['tabular-nums'] },
+    stepLabel: { fontFamily: FontFamily.medium, fontSize: 11, fontVariant: ['tabular-nums'] },
     next: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     track: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
     fill: { height: '100%', borderRadius: 3 },

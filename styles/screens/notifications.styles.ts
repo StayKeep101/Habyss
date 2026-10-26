@@ -5,7 +5,7 @@ import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
 export const styles = StyleSheet.create({
   detail: { paddingHorizontal: 16, paddingBottom: 16, fontSize: 12, lineHeight: 18, fontFamily: FontFamily.regular },
   preview: { marginHorizontal: 16, marginBottom: 12, padding: 13, borderRadius: 14, gap: 6 },
-  previewTime: { fontSize: 9, letterSpacing: 0.8, fontFamily: FontFamily.medium },
+  previewTime: { fontSize: 11, letterSpacing: 0.8, fontFamily: FontFamily.medium },
   previewTitle: { fontSize: 13, fontFamily: FontFamily.medium },
   previewBody: { fontSize: 12, lineHeight: 18, fontFamily: FontFamily.regular },
   echoLink: { padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },

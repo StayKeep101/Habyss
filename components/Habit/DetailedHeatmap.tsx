@@ -214,7 +214,7 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
             </ScrollView>
 
             <View style={styles.footer}>
-                <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: FontFamily.regular }}>
+                <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular }}>
                     Less
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 3, alignItems: 'center', marginHorizontal: 4 }}>
@@ -231,7 +231,7 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
                         />
                     ))}
                 </View>
-                <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: FontFamily.regular }}>
+                <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular }}>
                     More
                 </Text>
             </View>
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
         fontFamily: FontFamily.semibold,
     },
     subtitle: {
-        fontSize: 10,
+        fontSize: 11,
         fontFamily: FontFamily.regular,
     },
     footer: {

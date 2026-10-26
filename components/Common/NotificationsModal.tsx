@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
         lineHeight: 16,
     },
     notificationTime: {
-        fontSize: 9,
+        fontSize: 11,
         fontFamily: FontFamily.regular,
         marginLeft: 8,
     },

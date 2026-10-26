@@ -15,7 +15,7 @@ export const styles = StyleSheet.create({
     body: { fontSize: ms(12), lineHeight: ms(18), fontFamily: FontFamily.regular },
     side: { alignItems: 'flex-end', gap: vs(4) },
     dot: { width: s(7), height: s(7), borderRadius: s(4) },
-    when: { fontSize: ms(10), fontFamily: FontFamily.regular },
+    when: { fontSize: ms(11), fontFamily: FontFamily.regular },
     actions: { flexDirection: 'row', gap: s(8) },
     action: { flex: 1, minHeight: 40, borderRadius: s(12), alignItems: 'center', justifyContent: 'center' },
     actionText: { fontSize: ms(13), fontFamily: FontFamily.semibold },

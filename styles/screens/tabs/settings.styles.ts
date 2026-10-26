@@ -128,7 +128,7 @@ export const styles = StyleSheet.create({
         borderWidth: 1,
     },
     tagText: {
-        fontSize: 9,
+        fontSize: 11,
         fontFamily: FontFamily.bold,
     },
     groupCard: {
@@ -167,7 +167,7 @@ export const styles = StyleSheet.create({
         fontFamily: FontFamily.regular,
     },
     version: {
-        fontSize: 9,
+        fontSize: 11,
         marginTop: 6,
         fontFamily: FontFamily.regular,
     },
@@ -189,7 +189,7 @@ export const styles = StyleSheet.create({
         borderRadius: 6,
     },
     proBadgeText: {
-        fontSize: 9,
+        fontSize: 11,
         color: '#fff',
         fontFamily: FontFamily.bold,
     },

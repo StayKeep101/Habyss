@@ -104,6 +104,6 @@ const styles = StyleSheet.create({
         borderRadius: s(6),
         borderWidth: StyleSheet.hairlineWidth,
     },
-    chipText: { fontSize: ms(9), fontFamily: FontFamily.medium },
+    chipText: { fontSize: ms(11), fontFamily: FontFamily.medium },
     urgent: { fontFamily: FontFamily.bold, letterSpacing: -0.5, lineHeight: ms(15) },
 });

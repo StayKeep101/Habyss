@@ -22,6 +22,11 @@ for (const file of [...files('app'), ...files('components'), ...files('styles')]
         if (!line.includes('ui-allow') && (/letterSpacing: [1-9]/.test(line) || /textTransform: 'uppercase'/.test(line))) {
             problems.push(`${file}:${index + 1} Spaced capitals: headings are SectionTitle, labels are sentence case.`);
         }
+        // Apple's minimum text size is 11 pt (HIG typography › Ensuring legibility).
+        const small = line.match(/fontSize: *(?:ms\()?(\d+(?:\.\d+)?)\b/);
+        if (!line.includes('ui-allow') && small && Number(small[1]) < 11) {
+            problems.push(`${file}:${index + 1} Text under 11 pt: Apple's minimum is 11 (use 11 or a Typography style).`);
+        }
         // A Pressable whose style is a function does not lay out as a row here.
         if (/style=\{\(\{ pressed \}\)/.test(line)) {
             problems.push(`${file}:${index + 1} Pressable style function: use a static style (it breaks flex rows).`);

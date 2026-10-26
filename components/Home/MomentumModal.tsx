@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     barCol: { flex: 1, alignItems: 'center', gap: Spacing.xs },
     barTrack: { width: 18, height: CHART, justifyContent: 'flex-end' },
     bar: { width: '100%', borderRadius: 6 },
-    barLabel: { fontFamily: FontFamily.medium, fontSize: 10, fontVariant: ['tabular-nums'] },
+    barLabel: { fontFamily: FontFamily.medium, fontSize: 11, fontVariant: ['tabular-nums'] },
     axis: { flexDirection: 'row', justifyContent: 'space-between' },
     axisText: { fontFamily: FontFamily.regular, fontSize: 11 },
     list: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xs },

@@ -119,5 +119,5 @@ const styles = StyleSheet.create({
         position: 'absolute', right: -s(6), bottom: -s(3), minWidth: s(24), height: s(18),
         paddingHorizontal: s(5), borderRadius: s(9), borderWidth: s(2), alignItems: 'center', justifyContent: 'center',
     },
-    badgeText: { fontFamily: FontFamily.bold, fontSize: ms(10), fontVariant: ['tabular-nums'] },
+    badgeText: { fontFamily: FontFamily.bold, fontSize: ms(11), fontVariant: ['tabular-nums'] },
 });

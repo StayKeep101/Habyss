@@ -38,6 +38,10 @@
  *
  * Colours, fonts, corners and shadows come from theme/. Change a block here
  * and every screen that uses it changes with it.
+ *
+ * Apple's floor, built into these blocks (see CLAUDE.md): text 11 pt or more,
+ * contrast 4.5:1, a 44 pt tap area (hitSlop where the drawing is smaller),
+ * a VoiceOver label on every control, Reduce Motion respected.
  */
 export { VoidShell } from './VoidShell';
 export { SheetScreen } from './SheetScreen';

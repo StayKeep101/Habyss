@@ -326,7 +326,7 @@ function HeatmapChart({ color, completionData }: {
 const Key = ({ swatch, label, colors }: { swatch: object; label: string; colors: typeof Colors.light }) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
         <View style={[{ width: 10, height: 10, borderRadius: 2 }, swatch]} />
-        <Text style={{ fontSize: 9, color: colors.textTertiary, fontFamily: FontFamily.regular }}>{label}</Text>
+        <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular }}>{label}</Text>
     </View>
 );
 

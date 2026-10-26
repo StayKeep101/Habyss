@@ -51,8 +51,8 @@ export function IconButton({ icon, label, onPress, disabled, loading, size = Con
 const styles = StyleSheet.create({
     centre: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
     badge: {
-        position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, borderWidth: 2,
+        position: 'absolute', top: -2, right: -2, minWidth: 20, height: 20, borderRadius: 10, borderWidth: 2,
         paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center',
     },
-    badgeText: { color: '#FFFFFF', fontSize: 9, fontFamily: FontFamily.bold },
+    badgeText: { color: '#FFFFFF', fontSize: 11, fontFamily: FontFamily.bold },
 });

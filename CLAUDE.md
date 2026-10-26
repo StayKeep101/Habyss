@@ -33,6 +33,13 @@ docs/             notes, the UI audit, old SQL
 - Never add a new token without asking the user.
 - New screens must match the layout, spacing and hierarchy of the existing screens around them, built from the same `components/ui` pieces.
 - Before finishing any UI task, check the changed files for raw values and fix them.
+- Every UI change is reviewed with the `apple-design` skill (Apple's Human Interface Guidelines). The floor, enforced in `components/ui` so every screen gets it:
+  - text at least 11 pt (`npm run check:ui` fails below that); body around 15–17 pt;
+  - text contrast at least 4.5:1 (3:1 for 18 pt+ or bold), in every theme;
+  - anything tappable at least 44×44 pt, using `hitSlop` when the drawing is smaller;
+  - every icon-only control has an `accessibilityLabel`; toggles and ticks say their state;
+  - meaning never by colour alone; motion follows Reduce Motion (already in `Motion.tsx`).
+  Fix it in the shared piece in `components/ui`, not on one screen, so it applies app-wide.
 
 ## Building a new feature — where each part goes
 

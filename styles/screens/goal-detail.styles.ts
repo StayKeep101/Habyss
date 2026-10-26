@@ -127,7 +127,7 @@ export const styles = StyleSheet.create({
     borderRadius: 6,
   },
   daysTagText: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: FontFamily.bold,
   },
   goalDescription: {

@@ -57,6 +57,7 @@ export function ChipPicker<T extends string>({ options, value, onChange, accent 
                     const on = option.id === value;
                     return (
                         <Pressable
+                            hitSlop={8}
                             key={option.id}
                             accessibilityRole="radio"
                             accessibilityState={{ selected: on }}
