@@ -52,6 +52,9 @@ import { useData } from '@/hooks/useData';
 import { getData } from '@/lib/dataStore';
 import { setTaskStatus, type Task } from '@/lib/tasks';
 import { StreakCard } from '@/components/Home/StreakCard';
+import { CoachMarks } from '@/components/ui/CoachMarks';
+import { useCoachTarget } from '@/hooks/useCoachTarget';
+import { FIRST_RUN } from '@/lib/coachMarks';
 import { FocusCard } from '@/components/Home/FocusCard';
 import { localDateKey } from '@/lib/habitSchedule';
 import { echoWeek } from '@/lib/echoInsights';
@@ -181,15 +184,18 @@ const Home = () => {
   );
 
 
-  // Straight after onboarding: How Habyss works, once.
+  // Straight after onboarding, once: a walkthrough on the real screen, like a
+  // game's (the + button, the timeline, the streak, Settings), not a page.
+  const [coaching, setCoaching] = useState(false);
+  const streakRef = useCoachTarget<View>('streak');
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const { takeTutorialDue } = require('@/lib/tutorial') as typeof import('@/lib/tutorial');
     void takeTutorialDue().then(due => {
-      if (due) timer = setTimeout(() => router.push({ pathname: '/(root)/guide', params: { intro: '1' } }), 900);
+      if (due) timer = setTimeout(() => setCoaching(true), 900);
     });
     return () => { if (timer) clearTimeout(timer); };
-  }, [router]);
+  }, []);
 
   // Subscribe to habits
   useEffect(() => {
@@ -491,11 +497,14 @@ const Home = () => {
 
           {/* 3-Column Stats Row: Streak | Consistency | Completion */}
           <Animated.View style={{ flexDirection: 'row', gap: isCompactWidth ? s(8) : s(12), marginTop: sectionGap }}>
-            <StreakCard
-              streak={streak}
-              completionTier={completionTier}
-              onPress={() => { lightFeedback(); router.push('/(root)/progress'); }}
-            />
+            {/* Measured by the first-run walkthrough ("Keep the streak"). */}
+            <View ref={streakRef} collapsable={false} style={{ flex: 1 }}>
+              <StreakCard
+                streak={streak}
+                completionTier={completionTier}
+                onPress={() => { lightFeedback(); router.push('/(root)/progress'); }}
+              />
+            </View>
             {/* Focus in place of "Kept": time focused today, this week under it. */}
             <FocusCard onPress={() => { lightFeedback(); router.push('/(root)/focus-stats' as never); }} />
             <MissedCard
@@ -513,6 +522,7 @@ const Home = () => {
         </ScrollView>
 
 
+        <CoachMarks steps={FIRST_RUN} visible={coaching} onDone={() => setCoaching(false)} />
         {/* Echo's quick questions. */}
         <CheckInPopup kind={question} onClose={() => setQuestion(null)}
           onAnswer={(kind, value) => { void answerCheckIn(kind, value); setQuestion(null); successFeedback(); }} />

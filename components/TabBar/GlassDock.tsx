@@ -11,6 +11,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { RAIL_WIDTH, useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
+import { registerTarget } from '@/lib/coachMarks';
 import { AppState } from 'react-native';
 import { FriendsService } from '@/lib/friendsService';
 import { getRemoveDrag, setOrbRect, subscribeRemoveDrag, type RemoveDrag } from '@/lib/dragBridge';
@@ -77,6 +78,19 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const { mediumFeedback } = useHaptics();
     const { horizontalPadding, tabBarHeight, floatingButtonSize, tabBarBottomOffset, isCompactWidth, railed, insets } = useResponsiveLayout();
     const orbRef = React.useRef<any>(null);
+    // The first-run walkthrough lights up the + button and the tabs (lib/coachMarks.ts).
+    const tabRefs = React.useRef<Record<string, any>>({});
+    React.useEffect(() => {
+        const measure = (view: any) => () => new Promise<{ x: number; y: number; width: number; height: number } | null>(resolve => {
+            if (!view?.measureInWindow) { resolve(null); return; }
+            view.measureInWindow((x: number, y: number, width: number, height: number) => resolve(width > 0 ? { x, y, width, height } : null));
+        });
+        const offs = [
+            registerTarget('plus', () => measure(orbRef.current)()),
+            ...['home', 'roadmap', 'community', 'settings'].map(name => registerTarget(`tab-${name}`, () => measure(tabRefs.current[name])())),
+        ];
+        return () => offs.forEach(off => off());
+    }, []);
     const { width: screenWidth } = useWindowDimensions();
     /** True while the button is held for voice, so letting go stops listening. */
     const voiceHeld = React.useRef(false);
@@ -155,6 +169,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                         return (
                             <TouchableOpacity
                                 key={route.key}
+                                ref={(view: any) => { tabRefs.current[route.name] = view; }}
                                 accessibilityRole="tab"
                                 accessibilityLabel={options.title ?? route.name}
                                 accessibilityHint={route.name === 'settings' ? 'Hold to send feedback' : undefined}
