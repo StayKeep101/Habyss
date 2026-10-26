@@ -518,11 +518,11 @@ export const HabitSheet: React.FC<{
                         </TypingPlaceholder>
                     </DictateField>
 
-                    {(draft.name && draft.name !== text.trim()) || smart.request || smart.thinking || smart.result ? (
+                    {/* No "Habit: name" line: the field already says it. Only while
+                        the smart read is working, or if it could not, a quiet badge. */}
+                    {smart.thinking || smart.failed ? (
                         <View style={styles.readRow}>
-                            <Text numberOfLines={1} style={[styles.read, { color: colors.textSecondary }]}>
-                                Habit: <Text style={{ color: colors.textPrimary, fontFamily: FontFamily.medium }}>{draft.name}</Text>
-                            </Text>
+                            <View style={styles.flexSpacer} />
                             <AIBadge thinking={smart.thinking} used={!!smart.result} color={accent} onRequest={smart.request} failed={smart.failed} />
                         </View>
                     ) : null}
@@ -583,6 +583,7 @@ const styles = StyleSheet.create({
     content: { paddingHorizontal: 16, paddingBottom: 10, gap: 8 },
     input: { minHeight: 64, borderWidth: 1, borderRadius: 14, padding: 14, fontSize: 16, lineHeight: 22, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
     readRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    flexSpacer: { flex: 1 },
     read: { flexShrink: 1, fontSize: 11, fontFamily: FontFamily.regular },
     days: { flexDirection: 'row', gap: 6 },
     day: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1 },

@@ -529,11 +529,11 @@ export const GoalSheet: React.FC<{
                         })}
                     </View>
 
-                    {(draft.title && draft.title !== text.trim()) || smart.request || smart.thinking || smart.result ? (
+                    {/* No "Goal: name" line: the field already says it. Only while
+                        the smart read is working, or if it could not, a quiet badge. */}
+                    {smart.thinking || smart.failed ? (
                         <View style={styles.readRow}>
-                            <Text numberOfLines={1} style={[styles.read, { color: colors.textSecondary }]}>
-                                Goal: <Text style={{ color: colors.textPrimary, fontFamily: FontFamily.medium }}>{draft.title}</Text>
-                            </Text>
+                            <View style={styles.flexSpacer} />
                             <AIBadge thinking={smart.thinking} used={!!smart.result} color={accent} onRequest={smart.request} failed={smart.failed} />
                         </View>
                     ) : null}
@@ -586,6 +586,7 @@ const styles = StyleSheet.create({
     content: { paddingHorizontal: 16, paddingBottom: 10, gap: 8 },
     input: { minHeight: 64, borderWidth: 1, borderRadius: 14, padding: 14, fontSize: 16, lineHeight: 22, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
     readRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    flexSpacer: { flex: 1 },
     read: { flexShrink: 1, fontSize: 11, fontFamily: FontFamily.regular },
     targetRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     number: { width: 110, borderWidth: 1, borderRadius: 11, paddingHorizontal: 14, paddingVertical: 11, fontSize: 17, fontFamily: FontFamily.semibold },
