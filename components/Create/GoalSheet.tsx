@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useCoachTarget } from '@/hooks/useCoachTarget';
 import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ChoicePill } from '@/components/ui/ChoicePill';
 import { IconButton } from '@/components/ui/IconButton';
@@ -243,6 +244,11 @@ export const GoalSheet: React.FC<{
         if (listenToGlobalEvents) (require('@/lib/goalQueue') as typeof import('@/lib/goalQueue')).openNextGoal();
     };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
+    // What the first-run tour points at while it shows how to make a goal.
+    const textTarget = useCoachTarget<View>('goal-text');
+    const kindTarget = useCoachTarget<View>('goal-kind');
+    const detailsTarget = useCoachTarget<View>('goal-details');
+    const saveTarget = useCoachTarget<View>('goal-save');
 
     // A goal needs a starting point only when the target is relative to it.
     const needsBaseline = draft.deltaFromBaseline !== undefined && draft.target === undefined;
@@ -321,6 +327,7 @@ export const GoalSheet: React.FC<{
             else {
                 const made = await addHabit(fields);
                 if (!made?.id) throw new Error('not saved');
+                emit('goal_created', { goalId: made.id });
                 await share.applyTo(made.id);
                 // Reached in one go ("run 21 km by January"): the app makes the
                 // training habit itself, three times a week, starting at this
@@ -490,6 +497,7 @@ export const GoalSheet: React.FC<{
                     // Only rubber-bands when there is really more to see.
                     alwaysBounceVertical={false}
                 >
+                    <View ref={textTarget} collapsable={false}>
                     <DictateField text={text} onText={value => { setText(value); setTargetText(null); }}
                         leading={<LookButton icon={draft.icon} color={draft.color} open={openRow === 'look'} onPress={() => toggleRow(openRow === 'look' ? null : 'look')} />}>
                         <TypingPlaceholder examples={goalExamples} active={!text}>
@@ -520,8 +528,9 @@ export const GoalSheet: React.FC<{
                             )}
                         </TypingPlaceholder>
                     </DictateField>
+                    </View>
 
-                    <View style={styles.kinds} accessibilityRole="radiogroup">
+                    <View ref={kindTarget} collapsable={false} style={styles.kinds} accessibilityRole="radiogroup">
                         {KINDS.map(option => {
                             const on = kind === option.id;
                             return (
@@ -551,9 +560,11 @@ export const GoalSheet: React.FC<{
                     ) : null}
                 </ScrollView>
 
-                <DetailBar fitContent items={items} open={openRow} onToggle={toggleRow} accent={accent} />
+                <View ref={detailsTarget} collapsable={false}>
+                    <DetailBar fitContent items={items} open={openRow} onToggle={toggleRow} accent={accent} />
+                </View>
 
-                <View style={styles.footer}>
+                <View ref={saveTarget} collapsable={false} style={styles.footer}>
                     <Pressable
                         accessibilityRole="button"
                         accessibilityState={{ disabled: !text.trim() }}

@@ -27,6 +27,7 @@ import { statusOf } from '@/lib/presence';
 import { listenToFriends, announceChange } from '@/lib/livePulse';
 import { onAccountChange } from '@/lib/account';
 import { on } from '@/lib/appEvents';
+import { useCoachTarget } from '@/hooks/useCoachTarget';
 import { OFFLINE_LINES, useOnline } from '@/lib/connectivity';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { styles } from '@/styles/screens/tabs/community.styles';
@@ -63,6 +64,8 @@ export default function CommunityScreen() {
     const [loadingMore, setLoadingMore] = useState(false);
     const [endReached, setEndReached] = useState(false);
     const [showAddFriend, setShowAddFriend] = useState(false);
+    // The tour ends here: friends are added from this button.
+    const addFriendTarget = useCoachTarget<View>('add-friend');
     // Status depends on the clock (bedtime, a focus session ending), so it is
     // recomputed every minute without fetching anything.
     const [clock, setClock] = useState(() => new Date());
@@ -217,7 +220,9 @@ export default function CommunityScreen() {
                         <IconButton icon={unread > 0 ? 'notifications' : 'notifications-outline'}
                             label={unread > 0 ? `Inbox, ${unread} waiting` : 'Inbox'}
                             onPress={() => { lightFeedback(); router.push('/(root)/inbox'); }} diameter={40} size={20} badge={unread} />
-                        <IconButton icon="person-add" label="Add a friend" onPress={() => { mediumFeedback(); setShowAddFriend(true); }} diameter={40} size={20} />
+                        <View ref={addFriendTarget} collapsable={false}>
+                            <IconButton icon="person-add" label="Add a friend" onPress={() => { mediumFeedback(); setShowAddFriend(true); }} diameter={40} size={20} />
+                        </View>
                     </View>
                 ) : null}
             </View>

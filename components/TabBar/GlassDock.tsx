@@ -160,6 +160,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                                 canPreventDefault: true,
                             });
 
+                            emit('tab_selected', route.name);
                             if (!isFocused && !event.defaultPrevented) {
                                 mediumFeedback();
                                 navigation.navigate(route.name);

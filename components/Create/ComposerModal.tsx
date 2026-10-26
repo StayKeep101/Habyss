@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import { CoachLayer } from '@/components/ui/CoachMarks';
 import { Keyboard, Modal, Pressable, StyleSheet, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import Animated, {
     Easing, ReduceMotion, runOnJS, useAnimatedKeyboard, useAnimatedStyle,
@@ -145,6 +146,8 @@ export const ComposerModal: React.FC<{
                         <ComposerSpace.Provider value={space}>{children}</ComposerSpace.Provider>
                     </Animated.View>
                 </Animated.View>
+                {/* The tour, over the sheet, when it is showing what is in it. */}
+                <CoachLayer />
             </GestureHandlerRootView>
         </Modal>
     );

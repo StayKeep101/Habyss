@@ -14,8 +14,7 @@ import type { TypeToken } from '@/theme/tokens';
 import type { GoalPoint } from '@/lib/goalInsights';
 import { styles } from '@/styles/screens/ui-catalog.styles';
 import { GoalMilestones } from '@/components/Goal/GoalMilestones';
-import { CoachMarks } from '@/components/ui/CoachMarks';
-import { FIRST_RUN } from '@/lib/coachMarks';
+import { startTour } from '@/lib/coachMarks';
 import type { Milestone } from '@/lib/goalMilestones';
 
 const CATALOG_TODAY = '2026-11-05';
@@ -57,7 +56,6 @@ export default function UICatalog() {
     const [modal, setModal] = useState(false);
     const [sheet, setSheet] = useState(false);
     const [catalogMilestones, setCatalogMilestones] = useState<Milestone[]>(SAMPLE_MILESTONES);
-    const [coach, setCoach] = useState(false);
     // Motion demos: replay remounts them, change moves their value.
     const [replay, setReplay] = useState(0);
     const [level, setLevel] = useState(0.62);
@@ -339,8 +337,8 @@ export default function UICatalog() {
                             onToggle={milestone => setCatalogMilestones(list => list.map(item => item.id === milestone.id ? { ...item, doneAt: item.doneAt ? undefined : 'now' } : item))}
                             onOpen={() => setSheet(true)} />
                     </Specimen>
-                    <Specimen number={39} name="First-run walkthrough" file="components/ui/CoachMarks.tsx" note="Lights up the real + button, the tabs and the streak, one at a time.">
-                        <AppButton label="Show walkthrough" onPress={() => setCoach(true)} />
+                    <Specimen number={39} name="First-run tour" file="components/ui/CoachMarks.tsx" note="In order across screens: Home's cards, making a first goal yourself, Roadmap, friends.">
+                        <AppButton label="Start the tour" onPress={() => { router.navigate('/(root)/(tabs)/home'); setTimeout(startTour, 450); }} />
                     </Specimen>
                     <Specimen number={37} name="Cells fading in" file="components/ui/Motion.tsx" note="PopIn">
                         <View style={styles.wrap}>
@@ -352,7 +350,6 @@ export default function UICatalog() {
                 </View>
             </ScrollView>
 
-            <CoachMarks steps={FIRST_RUN} visible={coach} onDone={() => setCoach(false)} />
             <VoidModal visible={modal} onClose={() => setModal(false)}>
                 <View style={{ gap: t.space.md }}>
                     <Text variant="title">Centred window</Text>

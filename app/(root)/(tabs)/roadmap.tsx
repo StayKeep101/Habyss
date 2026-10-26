@@ -38,6 +38,7 @@ import { VoidShell } from '@/components/ui/VoidShell';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
+import { registerTarget } from '@/lib/coachMarks';
 import { DayPlanCard } from '@/components/Roadmap/DayPlanCard';
 import { flowDay, flowInputs, type FlowInput } from '@/lib/dayFlow';
 import { DayTimeline } from '@/components/Roadmap/DayTimeline';
@@ -1035,6 +1036,27 @@ const CalendarScreen = () => {
             if (activeSort === 'progress') return sortDirection * ((goalProgress[a.id] || 0) - (goalProgress[b.id] || 0));
             return sortDirection * a.createdAt.localeCompare(b.createdAt);
         }), [goals, activeSort, sortDirection, goalProgress, selectedGoalFilter, activeTimeFilter, habitsByGoal]);
+
+    // The tour's "Plan inside your goal": Roadmap shows its list, where goals
+    // hold their habits and tasks, and goes back to how it was when the tour ends.
+    useEffect(() => registerTarget('roadmap-goal', () => new Promise(resolve => {
+        const first = sortedGoals[0];
+        const view = first ? goalRefs.current[first.id] : null;
+        if (!view) { resolve(null); return; }
+        view.measureInWindow((x, y, width, height) => resolve(width > 0 ? { x, y, width, height } : null));
+    })), [sortedGoals]);
+    const viewBeforeTour = useRef<RoadmapView | null>(null);
+    useEffect(() => {
+        const show = on('tour_roadmap_list', () => {
+            setRoadmapView(view => { viewBeforeTour.current ??= view; return 'list'; });
+            setExpandedGoals(open => sortedGoals[0] ? { ...open, [sortedGoals[0].id]: true } : open);
+        });
+        const end = on('tour_end', () => {
+            if (viewBeforeTour.current) setRoadmapView(viewBeforeTour.current);
+            viewBeforeTour.current = null;
+        });
+        return () => { show.remove(); end.remove(); };
+    }, [sortedGoals]);
 
     return (
         <VoidShell>

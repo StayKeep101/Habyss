@@ -20,7 +20,7 @@
  *   MorphMenu (a ⋯ button that grows into its own menu), MicButton (talk instead of typing),
  *   FocusPill (the solid "Focus" pill on whatever is on right now)
  *   DemonEdge (the red glow round the screen in Echo's demon mode)
- *   CoachMarks (the first-run walkthrough: one real control lit up, a line and an arrow)
+ *   CoachLayer (the first-run tour across screens: one real control lit up, a line and an arrow)
  *
  * Content
  *   Avatar (a face: photo or initial, optional ring and badge), IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
@@ -90,4 +90,4 @@ export { TimeWheels } from './TimeWheels';
 export { DateWheels } from './DateWheels';
 export { PopupCard } from './PopupCard';
 export { DemonEdge } from './DemonEdge';
-export { CoachMarks } from './CoachMarks';
+export { CoachLayer } from './CoachMarks';

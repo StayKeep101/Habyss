@@ -31,6 +31,13 @@ export interface AppEvents {
     tasks_changed: void;
     /** Settings → How Habyss works: Home runs the first-run walkthrough again. */
     start_walkthrough: void;
+    /** A tab in the dock was tapped (its route name): the tour waits for Roadmap and Community. */
+    tab_selected: string;
+    /** A new goal was saved from the goal sheet. */
+    goal_created: { goalId: string };
+    /** The tour is on the goals in Roadmap: Roadmap shows its list, not the timeline, until the tour ends. */
+    tour_roadmap_list: void;
+    tour_end: void;
     /** A goal's milestones were added, changed, reached or removed. */
     milestones_changed: { goalId?: string; reached?: boolean };
     task_completed: { taskId: string };

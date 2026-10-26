@@ -52,9 +52,8 @@ import { useData } from '@/hooks/useData';
 import { getData } from '@/lib/dataStore';
 import { setTaskStatus, type Task } from '@/lib/tasks';
 import { StreakCard } from '@/components/Home/StreakCard';
-import { CoachMarks } from '@/components/ui/CoachMarks';
 import { useCoachTarget } from '@/hooks/useCoachTarget';
-import { FIRST_RUN } from '@/lib/coachMarks';
+import { startTour } from '@/lib/coachMarks';
 import { FocusCard } from '@/components/Home/FocusCard';
 import { localDateKey } from '@/lib/habitSchedule';
 import { echoWeek } from '@/lib/echoInsights';
@@ -184,18 +183,21 @@ const Home = () => {
   );
 
 
-  // Straight after onboarding, once: a walkthrough on the real screen, like a
-  // game's (the + button, the timeline, the streak, Settings), not a page.
-  const [coaching, setCoaching] = useState(false);
+  // Straight after onboarding, once: the tour on the real screens, like a
+  // game's (Home's cards, a first goal, Roadmap, friends), not a page.
   const streakRef = useCoachTarget<View>('streak');
+  const todayRef = useCoachTarget<View>('today-focus');
+  const focusRef = useCoachTarget<View>('focus-today');
+  const missedRef = useCoachTarget<View>('missed');
+  const goalsRef = useCoachTarget<View>('goals');
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const { takeTutorialDue } = require('@/lib/tutorial') as typeof import('@/lib/tutorial');
     void takeTutorialDue().then(due => {
-      if (due) timer = setTimeout(() => setCoaching(true), 900);
+      if (due) timer = setTimeout(startTour, 900);
     });
     // Asked for again from Settings → How Habyss works.
-    const again = on('start_walkthrough', () => setCoaching(true));
+    const again = on('start_walkthrough', startTour);
     return () => { if (timer) clearTimeout(timer); again.remove(); };
   }, []);
 
@@ -478,16 +480,19 @@ const Home = () => {
 
           {/* Goals Progress Bar */}
           <Animated.View>
+            <View ref={goalsRef} collapsable={false}>
             <GoalsProgressBar
               progress={avgGoalProgress}
               goalsCount={goals.length}
               series={goalsData.overallSeries}
               onPress={() => router.push('/goals-overview')}
             />
+          </View>
           </Animated.View>
 
           {/* The day's promise, and the few things that would keep it. */}
           <Animated.View style={{ marginTop: sectionGap }}>
+            <View ref={todayRef} collapsable={false}>
             <DailyFocusCard
               focus={focus}
               multiplier={marks.multiplier}
@@ -495,6 +500,7 @@ const Home = () => {
               onOpen={() => router.push('/task-stats')}
               onAdd={() => emit('show_task_form')}
             />
+          </View>
           </Animated.View>
 
           {/* 3-Column Stats Row: Streak | Consistency | Completion */}
@@ -508,11 +514,15 @@ const Home = () => {
               />
             </View>
             {/* Focus in place of "Kept": time focused today, this week under it. */}
-            <FocusCard onPress={() => { lightFeedback(); router.push('/(root)/focus-stats' as never); }} />
-            <MissedCard
-              missed={missed}
-              onPress={() => { lightFeedback(); setShowMissed(true); }}
-            />
+            <View ref={focusRef} collapsable={false} style={{ flex: 1 }}>
+              <FocusCard onPress={() => { lightFeedback(); router.push('/(root)/focus-stats' as never); }} />
+            </View>
+            <View ref={missedRef} collapsable={false} style={{ flex: 1 }}>
+              <MissedCard
+                missed={missed}
+                onPress={() => { lightFeedback(); setShowMissed(true); }}
+              />
+            </View>
           </Animated.View>
 
           {/* Under the three numbers: last night's sleep; good nights earn Marks. */}
@@ -524,7 +534,6 @@ const Home = () => {
         </ScrollView>
 
 
-        <CoachMarks steps={FIRST_RUN} visible={coaching} onDone={() => setCoaching(false)} />
         {/* Echo's quick questions. */}
         <CheckInPopup kind={question} onClose={() => setQuestion(null)}
           onAnswer={(kind, value) => { void answerCheckIn(kind, value); setQuestion(null); successFeedback(); }} />

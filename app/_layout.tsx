@@ -1,6 +1,7 @@
 import { MarksOrbs } from '@/components/Marks/MarksOrbs';
 import { noteTouch } from '@/lib/marksOrbs';
 import '@/lib/polyfills'; // Must be first
+import { CoachLayer } from '@/components/ui/CoachMarks';
 import { getLocalUserId } from '@/lib/localUser';
 import { ThemeProvider } from "@/context/ThemeContext";
 import { useFonts, Lexend_400Regular, Lexend_500Medium, Lexend_600SemiBold, Lexend_700Bold } from '@expo-google-fonts/lexend';
@@ -428,6 +429,8 @@ function InnerLayout() {
         {/* Mounted once, raised from anywhere with `show_feedback`. Telling us
             something should never depend on being on the right screen. */}
         <FeedbackSheet />
+        {/* The first-run tour, over every screen. */}
+        <CoachLayer root />
         {/* Orbs flying to your Marks whenever something earns them. Last, so they fly over everything. */}
         <MarksOrbs />
         <StatusBar style={isDark ? "light" : "dark"} />

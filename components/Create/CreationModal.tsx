@@ -14,6 +14,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
+import { useCoachTarget } from '@/hooks/useCoachTarget';
 
 const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 
@@ -179,10 +180,13 @@ const MenuRow = ({ item, index, count, progress, size, colors, isLight, onPress 
             ],
         };
     });
+    // The tour points at "Goal" when it walks you through making one.
+    const pill = useCoachTarget<View>(`create-${item.id}`);
 
     return (
         <Animated.View style={style}>
             <Pressable
+                ref={pill}
                 accessibilityRole="button"
                 accessibilityLabel={`Create ${item.label.toLowerCase()}`}
                 onPress={onPress}
