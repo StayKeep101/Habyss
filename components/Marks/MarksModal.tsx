@@ -149,6 +149,13 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                                 <Text style={[styles.ruleCell, { color: colors.error }]}>−{Math.abs(MARKS.miss.sleep)}</Text>
                             </View>
                         </View>
+                        {/* A goal's checkpoints: each one reached is worth more than a task. */}
+                        <View style={[styles.rules, styles.sleepRules, { backgroundColor: tile }]}>
+                            <View style={styles.ruleRow}>
+                                <Text style={[styles.ruleCell, styles.ruleFirst, { color: colors.textSecondary }]}>Milestone reached</Text>
+                                <Text style={[styles.ruleCell, { color: colors.textPrimary }]}>+{MARKS.complete.milestone}</Text>
+                            </View>
+                        </View>
                         {/* The multiplier: perfect days (everything due done) in a row raise what you earn. */}
                         <View style={[styles.rules, styles.sleepRules, { backgroundColor: tile }]}>
                             <PerfectLadder multiplier={marks.multiplier} run={marks.perfectRun} />

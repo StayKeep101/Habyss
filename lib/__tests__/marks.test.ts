@@ -161,3 +161,14 @@ describe("the perfect-day multiplier", () => {
     });
 
 });
+
+describe('milestones', () => {
+    it('earns +30 for each milestone reached, on the day it was reached', () => {
+        const result = computeMarks({
+            habits: [], tasks: [], history: {}, today: '2026-10-26',
+            milestones: [{ title: 'Finish Book 1', doneAt: new Date(2026, 9, 25, 15).toISOString() }],
+        });
+        expect(result.total).toBe(30);
+        expect(result.events[0]).toMatchObject({ date: '2026-10-25', points: 30, kind: 'complete', item: 'milestone', title: 'Finish Book 1' });
+    });
+});

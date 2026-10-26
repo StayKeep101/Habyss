@@ -139,6 +139,18 @@ export async function getMilestones(goalId: string): Promise<Milestone[]> {
     return sortMilestones((rows ?? []).map(rowToMilestone));
 }
 
+/** Every milestone reached, on any goal: what Marks counts (+30 each). */
+export async function getReachedMilestones(): Promise<{ title: string; doneAt: string }[]> {
+    if (!isSQLiteAvailable()) return [];
+    const db = await getDatabase();
+    if (!db) return [];
+    const uid = await getLocalUserId().catch(() => null);
+    const rows = await db.getAllAsync(
+        'SELECT title, done_at FROM milestones WHERE done_at IS NOT NULL AND deleted = 0 AND (user_id = ? OR user_id IS NULL)', uid,
+    );
+    return (rows ?? []).map((row: any) => ({ title: row.title, doneAt: row.done_at }));
+}
+
 export async function addMilestones(goalId: string, items: { title: string; dueDate?: string }[]): Promise<void> {
     const db = await getDatabase();
     if (!db) throw new Error('Milestones could not be saved on this phone.');
@@ -171,7 +183,8 @@ export async function updateMilestone(milestone: Milestone, patch: { title?: str
         'UPDATE milestones SET title = ?, due_date = ?, done_at = ?, updated_at = ?, synced = 0 WHERE id = ?',
         title, dueDate, doneAt, nowISO(), milestone.id,
     );
-    emit('milestones_changed', { goalId: milestone.goalId });
+    // Reached just now: Marks bursts its +30 (components/Marks/MarksOrbs.tsx).
+    emit('milestones_changed', { goalId: milestone.goalId, reached: patch.done === true && !milestone.doneAt });
 }
 
 export async function deleteMilestone(milestone: Milestone): Promise<void> {

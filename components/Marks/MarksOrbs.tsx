@@ -11,7 +11,7 @@ import { on } from '@/lib/appEvents';
 import { counts } from '@/lib/sharedGate';
 import { localDateKey } from '@/lib/habitSchedule';
 import {
-    burstMarks, goalDone, habitDone, marksRange, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskEarned, type Burst, type Point,
+    burstMarks, goalDone, milestoneDone, habitDone, marksRange, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskEarned, type Burst, type Point,
 } from '@/lib/marksOrbs';
 import { s, vs } from '@/theme/scale';
 
@@ -55,6 +55,7 @@ export function MarksOrbs() {
             }),
             on('task_reopened', event => { taskEarned(event.taskId, localDateKey(new Date()), false); }),
             on('goal_complete', () => { burstMarks(goalDone()); }),
+            on('milestones_changed', event => { if (event?.reached) burstMarks(milestoneDone()); }),
         ];
         return () => subs.forEach(sub => sub.remove());
     }, []);

@@ -30,7 +30,7 @@ export interface AppEvents {
     goal_deleted: { goalId: string };
     tasks_changed: void;
     /** A goal's milestones were added, changed, reached or removed. */
-    milestones_changed: { goalId?: string };
+    milestones_changed: { goalId?: string; reached?: boolean };
     task_completed: { taskId: string };
     /** A done task opened again: it can earn again. */
     task_reopened: { taskId: string };

@@ -85,6 +85,7 @@ export function taskEarned(taskId: string, date: string, completed: boolean): nu
     return MARKS.complete.task;
 }
 export const goalDone = () => MARKS.complete.goal;
+export const milestoneDone = () => MARKS.complete.milestone;
 
 /**
  * Your Marks total as last shown (Home's Marks bar reports it), so the pill

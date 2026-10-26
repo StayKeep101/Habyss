@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { on } from '@/lib/appEvents';
-import { getMilestones, type Milestone } from '@/lib/goalMilestones';
+import { getMilestones, getReachedMilestones, type Milestone } from '@/lib/goalMilestones';
 
 /** A goal's milestones (lib/goalMilestones.ts), kept fresh as they change or sync in. */
 export function useMilestones(goalId: string | undefined): Milestone[] {
@@ -14,5 +14,17 @@ export function useMilestones(goalId: string | undefined): Milestone[] {
         const sub = on('milestones_changed', ({ goalId: changed }) => { if (!changed || changed === goalId) load(); });
         return () => sub.remove();
     }, [goalId, load]);
+    return list;
+}
+
+/** Every milestone reached on any goal, for Marks (+30 each). */
+export function useReachedMilestones(): { title: string; doneAt: string }[] {
+    const [list, setList] = useState<{ title: string; doneAt: string }[]>([]);
+    useEffect(() => {
+        const load = () => { void getReachedMilestones().then(setList).catch(() => undefined); };
+        load();
+        const sub = on('milestones_changed', load);
+        return () => sub.remove();
+    }, []);
     return list;
 }
