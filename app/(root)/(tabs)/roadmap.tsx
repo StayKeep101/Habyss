@@ -1,6 +1,6 @@
 import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager, AppState } from 'react-native';
 import { IconTile } from '@/components/ui/IconTile';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { ListItem } from '@/components/ui/Motion';
@@ -828,15 +828,22 @@ const CalendarScreen = () => {
 
     // The waking day, as set in Notifications; re-read whenever the tab shows.
     const [dayWindow, setDayWindow] = useState<DayWindow>(DEFAULT_DAY);
+    // Until the real waking day is read, the default (7:00) must not shape the saved layout.
+    const [dayWindowReady, setDayWindowReady] = useState(false);
     useFocusEffect(useCallback(() => {
-        getDayWindow().then(setDayWindow).catch(() => undefined);
+        getDayWindow().then(window => { setDayWindow(window); setDayWindowReady(true); }).catch(() => setDayWindowReady(true));
     }, []));
     // A minute is fine enough for "time left", and keeps the card still.
     const [clock, setClock] = useState(() => new Date());
     useEffect(() => {
         const timer = setInterval(() => setClock(new Date()), 60_000);
-        return () => clearInterval(timer);
+        // Back from the background: the time now, not when it was left.
+        const sub = AppState.addEventListener('change', state => { if (state === 'active') setClock(new Date()); });
+        return () => { clearInterval(timer); sub.remove(); };
     }, []);
+    // Something ticked: "now" is this moment, so the next thing is Now at once,
+    // not up to a minute later when the clock next moved.
+    useEffect(() => { setClock(new Date()); }, [completions, tasks]);
     const dayPlan = useMemo(() => {
         const day = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
         const isToday = day === todayKey(clock);
@@ -911,7 +918,7 @@ const CalendarScreen = () => {
     const flowNow = dayPlan.isToday ? clock.getHours() * 60 + clock.getMinutes() : null;
     const flowWindow = useMemo(() => ({ wake: minutesOf(dayWindow.wake), sleep: minutesOf(dayWindow.sleep), peak, active: activeHabitId }), [dayWindow, peak, activeHabitId]);
     // When each habit was ticked on the day shown, so a done one sits where it was really done.
-    const doneTimes = useDoneTimes(localDateKey(selectedDate), completions);
+    const { times: doneTimes, ready: doneTimesReady } = useDoneTimes(localDateKey(selectedDate), completions);
     const flowItems = useMemo(() => {
         const day = localDateKey(selectedDate);
         const habits = habitsStore.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, selectedDate)) as StoreHabit[];
@@ -923,6 +930,11 @@ const CalendarScreen = () => {
         });
     }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, eventTravel, flexibleMeals, memory, doneTimes]);
     const flow = useMemo(() => flowDay(flowItems, flowNow, flowWindow), [flowItems, flowNow, flowWindow]);
+    // Whether this flow was built from everything it needs: the stored layout,
+    // the tick times and the waking day. Saving one built before they arrived
+    // is what once moved every ticked thing to the morning after a reload.
+    // (Read during this render, so a save never uses a flow built a moment before they loaded.)
+    const flowComplete = memoryReady() && doneTimesReady && dayWindowReady;
     // Open tasks whose "due by" is this day but which are planned for another:
     // named at the top of the day so the deadline is seen.
     const dueToday = useMemo(() => {
@@ -933,14 +945,14 @@ const CalendarScreen = () => {
     // Today's flow is remembered as it changes, and Echo is told when the
     // thing you are on would run out, so it can say where it went.
     useEffect(() => {
-        if (flowNow === null || !memoryReady()) return;
+        if (flowNow === null || !flowComplete) return;
         // Nothing is moved to another day: a full day is fitted by cutting the
         // biggest things short (lib/dayFlow.ts), and a task not done stays open.
         rememberFlow(localDateKey(selectedDate), flow, flowNow);
         void schedulePlanAlert(planAlert(flowItems, flow, flowNow, flowWindow));
         // The Lock Screen card follows this timeline, the one truth.
         setTodayFlow(localDateKey(selectedDate), flow);
-    }, [flow, flowItems, flowNow, flowWindow, selectedDate]);
+    }, [flow, flowItems, flowNow, flowWindow, selectedDate, flowComplete]);
     // The strip at the top shows the same day as the timeline: placed things included.
     const stripPlan = useMemo(() => ({
         ...dayPlan.plan,

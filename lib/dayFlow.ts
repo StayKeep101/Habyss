@@ -137,24 +137,33 @@ export function flowDay(items: FlowInput[], now: number | null, window: DayWindo
     // took no time out of the day. It stays in its place in the order, right
     // after what came before it, starting and ending at the same moment, and
     // everything after flows on as if it were not there.
+    // A remembered slot that ends before waking was never really the day (it
+    // came from a layout built before the day had loaded): it is not trusted.
+    const trusted = (slot?: { start: number; end: number }) => (slot && slot.end > window.wake ? slot : undefined);
+    items = items.map(item => (item.done && !item.fixed && (item.kept || item.planned)
+        ? { ...item, kept: trusted(item.kept), planned: trusted(item.planned) } : item));
     const slotOf = (item: FlowInput) => item.start !== null ? { start: item.start, end: item.start + item.minutes } : item.planned ?? item.kept ?? null;
     const early = now === null ? [] : items.filter(item => {
         if (!item.done || item.fixed) return false;
         const slot = slotOf(item);
+        // Tick time not read yet: a remembered zero-length slot means it was ticked early.
+        if (item.doneAt === undefined && item.kept && item.kept.end === item.kept.start) return true;
+        // Nothing known at all (no time of its own, no plan, no tick time): it takes no time, now.
+        if (!slotOf(item) && item.doneAt === undefined) return true;
         const at = item.doneAt ?? now;
         return !!slot && at < slot.start;
     });
     if (!early.length) return flowDayLaid(items, now, window);
     const flow = flowDayLaid(items.filter(item => !early.includes(item)), now, window);
-    return { ...flow, timeline: placeInstants(flow.timeline, early, slotOf) };
+    return { ...flow, timeline: placeInstants(flow.timeline, early, slotOf, now as number) };
 }
 
 /** Zero-length done items, each right after whatever came before it in the plan. */
-function placeInstants(timeline: FlowItem[], early: FlowInput[], slotOf: (item: FlowInput) => { start: number; end: number } | null): FlowItem[] {
+function placeInstants(timeline: FlowItem[], early: FlowInput[], slotOf: (item: FlowInput) => { start: number; end: number } | null, now: number): FlowItem[] {
     // Where each item stood in the plan (its memory, else where it is now), to know what came before.
     const placed: { ref: number; item: FlowItem }[] = timeline.map(item => ({ ref: item.kept?.start ?? item.plannedStart, item }));
-    for (const item of [...early].sort((a, b) => (slotOf(a)?.start ?? 0) - (slotOf(b)?.start ?? 0))) {
-        const planned = slotOf(item)!.start;
+    for (const item of [...early].sort((a, b) => (slotOf(a)?.start ?? now) - (slotOf(b)?.start ?? now))) {
+        const planned = slotOf(item)?.start ?? now;
         const before = placed.filter(entry => entry.ref < planned).sort((a, b) => b.ref - a.ref || b.item.end - a.item.end)[0];
         const at = before ? before.item.end : planned;
         const instant: FlowItem = { ...item, start: at, end: at, plannedStart: planned, shift: at - planned, state: 'done', auto: true };
@@ -251,7 +260,10 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
             const planned = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
             const own = item.start !== null ? { start: item.start, end: item.start + planned } : null;
             let slot = own ?? item.planned ?? kept;
-            // When it was ticked: the recorded time, or now if it was just ticked inside its slot.
+            // When it was ticked: the recorded time. Not read yet (just after the
+            // app opens): where it was last shown (kept) already says it, so use
+            // that rather than treating an old tick as if it happened now.
+            if (item.doneAt === undefined && kept && !(now !== null && now > kept.start && now < kept.end)) slot = kept;
             const at = item.doneAt ?? (slot && now !== null && now > slot.start && now < slot.end ? now : undefined);
             if (slot && at !== undefined && at > slot.start && at < slot.end) slot = { start: slot.start, end: Math.max(slot.start + 5, at) };
             if (!slot && item.doneAt !== undefined) slot = { start: Math.max(0, item.doneAt - planned), end: Math.max(item.doneAt, 1) };

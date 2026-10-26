@@ -389,3 +389,16 @@ describe('finishing partway through', () => {
         expect(flow.timeline[0]).toMatchObject({ start: 900, end: 900, state: 'done' });
     });
 });
+
+describe('after a reload', () => {
+    const window = { wake: 8 * 60, sleep: 23 * 60 + 30 };
+    it('does not trust a remembered slot before waking: a ticked item goes back to when it was done', () => {
+        // Learn AI was saved at 7:00–7:30 by a layout built before the day loaded; it was ticked at 15:56.
+        const flow = flowDay([{ id: 'ai', kind: 'habit', title: 'Learn AI', start: null, minutes: 30, done: true, doneAt: 956, kept: { start: 420, end: 450 }, planned: { start: 420, end: 450 } } as never], 959, window);
+        expect(flow.timeline[0]).toMatchObject({ start: 926, end: 956, state: 'done' });
+    });
+    it('places a ticked item it knows nothing about at now, taking no time, never in the morning', () => {
+        const flow = flowDay([{ id: 'x', kind: 'habit', title: 'X', start: null, minutes: 30, done: true } as never], 959, window);
+        expect(flow.timeline[0]).toMatchObject({ start: 959, end: 959, state: 'done' });
+    });
+});
