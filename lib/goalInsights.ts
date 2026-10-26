@@ -4,7 +4,7 @@ import type { Task } from './tasks';
 /** Late: past its deadline, or past its day with no deadline (as lib/tasks isLate, kept here free of storage). */
 const isLate = (task: Task, today: string) => task.status === 'open' && !!(task.deadline ?? task.dueDate) && (task.deadline ?? task.dueDate)! < today;
 import type { GoalKind } from './goalParser';
-import { createHabitSchedule, localDateKey, parseHabitDate } from './habitSchedule';
+import { createHabitRequirement, isHabitScheduledForDate, isQuotaHabit, localDateKey, parseHabitDate } from './habitSchedule';
 import { countedHistory, countedTasks } from './sharedGate';
 
 /**
@@ -306,13 +306,13 @@ function measureByDay(input: GoalInsightInput): {
     }
 
     // Only habits so far: check-ins kept out of all those scheduled.
-    const schedules = habits.map(habit => ({ habit, scheduled: createHabitSchedule(habit) }));
+    const schedules = habits.map(habit => ({ habit, due: createHabitRequirement(habit), quota: isQuotaHabit(habit) }));
     let total = 0;
     for (let day = start; day <= end; day = addDays(day, 1)) {
-        const date = dateAt(day);
         const doneIds = new Set(input.history[day]);
-        for (const { habit, scheduled } of schedules) {
-            if (!scheduled(date) || wasSkipped(input.skips, day, habit.id)) continue;
+        for (const { habit, due, quota } of schedules) {
+            const doneOn = (key: string) => !!input.history[key]?.includes(habit.id);
+            if (!(due(day, doneOn) || (quota && doneOn(day))) || wasSkipped(input.skips, day, habit.id)) continue;
             total++;
             if (day <= today && doneIds.has(habit.id)) add(day, 1);
         }
@@ -494,10 +494,13 @@ export function summarizeHabit(
 ): HabitSummary {
     const isDone = (day: string) => !!history[day]?.includes(habit.id);
     const isSkipped = (day: string) => wasSkipped(skips, day, habit.id);
-    const schedule = createHabitSchedule(habit);
-    const isScheduled = (day: string) => schedule(dateAt(day)) && !isSkipped(day);
+    // Due that day, or (a "3 times a week" one) done on a day it was free.
+    const required = createHabitRequirement(habit);
+    const quota = isQuotaHabit(habit);
+    const isScheduled = (day: string) => (required(day, isDone) || (quota && isDone(day))) && !isSkipped(day);
 
-    const scheduledToday = isScheduled(today);
+    // A "3 times a week" habit can be done any day the week still needs it.
+    const scheduledToday = isScheduled(today) || (quota && !isSkipped(today) && isHabitScheduledForDate(habit, dateAt(today)));
     const doneToday = isDone(today);
 
     const last7: DayMark[] = [];

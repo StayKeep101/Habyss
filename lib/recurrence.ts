@@ -27,7 +27,14 @@ export type Recurrence =
     | { kind: 'monthly'; every: number; dates: number[] }
     | { kind: 'monthly'; every: number; ordinal: Ordinal; day: DaySelector }
     | { kind: 'yearly'; every: number; months: number[] }
-    | { kind: 'yearly'; every: number; months: number[]; ordinal: Ordinal; day: DaySelector };
+    | { kind: 'yearly'; every: number; months: number[]; ordinal: Ordinal; day: DaySelector }
+    /**
+     * "3 times a week", "once a month": that many times in each week (Monday
+     * to Sunday) or month, on whichever days. Offered every day until the
+     * period's count is reached; see lib/habitSchedule.ts habitRequirement
+     * for when a day is actually due, and when one counts as missed.
+     */
+    | { kind: 'quota'; every: number; times: number; period: 'week' | 'month' };
 
 export const WEEKDAYS: Weekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 export const WEEKDAY_NAME: Record<Weekday, string> = {
@@ -108,6 +115,11 @@ export function matches(rule: Recurrence, date: Date, start: Date): boolean {
         case 'hourly':
             return true;
 
+        case 'quota':
+            // Any day may count toward it; whether one is due is decided with
+            // the history (habitRequirement), not by the calendar alone.
+            return true;
+
         case 'daily':
             return daysBetween(start, date) % every === 0;
 
@@ -170,6 +182,11 @@ export function describe(rule: Recurrence): string {
         case 'hourly':
             return every === 1 ? 'Every hour' : `Every ${every} hours`;
 
+        case 'quota': {
+            const times = rule.times === 1 ? 'Once' : rule.times === 2 ? 'Twice' : `${rule.times} times`;
+            return `${times} a ${rule.period}`;
+        }
+
         case 'daily':
             return every === 1 ? 'Every day' : `Every ${every} days`;
 
@@ -221,6 +238,11 @@ export function parseRecurrence(raw: string | null | undefined): Recurrence | nu
             case 'hourly':
             case 'daily':
                 return { kind: value.kind, every };
+            case 'quota': {
+                const times = Number(value.times);
+                if (!Number.isInteger(times) || times < 1 || times > 31) return null;
+                return value.period === 'week' || value.period === 'month' ? { kind: 'quota', every: 1, times, period: value.period } : null;
+            }
             case 'weekly': {
                 const weekdays = Array.isArray(value.weekdays)
                     ? value.weekdays.filter((day: unknown): day is Weekday => WEEKDAYS.includes(day as Weekday))

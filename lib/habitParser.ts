@@ -1,6 +1,8 @@
 import type { Habit } from './habitsSQLite';
 import { findDeadline, findDifficulty, findPriority, findTimeRange, findTiming, readDate } from './dateWords';
 import { localDateKey } from './habitSchedule';
+import { NUMBER, TAKEN, shield, tidyTaken, toNumber } from './phrases';
+import { serialiseRecurrence, type Recurrence } from './recurrence';
 
 /**
  * Quick add: turn one line of plain text into a habit.
@@ -27,6 +29,10 @@ export interface ParsedHabit {
     endDate?: string;
     /** YYYY-MM-DD it begins: "starting January 1, 2027", "from Monday". */
     startDate?: string;
+    /** A schedule beyond weekdays: "4 times a week", "every other day", "the last Sunday of each month". */
+    recurrence?: Recurrence;
+    /** 'quit' for something to stay away from: "Avoid…", "No sugar…", "Quit smoking". */
+    habitType?: 'build' | 'quit';
     /** "high priority", "no rush". */
     priority?: 1 | 2 | 3;
     /** "hard", "easy one". */
@@ -55,8 +61,10 @@ const DAY_ORDER = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 /** Units we recognise as a countable target rather than a duration. */
 const COUNT_UNITS = [
-    'pages', 'page', 'glasses', 'glass', 'reps', 'rep', 'sets', 'set',
-    'times', 'time', 'steps', 'words', 'chapters', 'chapter', 'km', 'miles', 'mile',
+    'pages', 'page', 'glasses', 'glass', 'reps', 'rep', 'sets', 'set', 'steps', 'words', 'chapters', 'chapter',
+    'km', 'kilometres', 'kilometers', 'miles', 'mile', 'litres', 'liters', 'litre', 'liter', 'l', 'ml', 'cups', 'cup', 'bottles',
+    'servings', 'serving', 'push-ups', 'pushups', 'push ups', 'pull-ups', 'pullups', 'sit-ups', 'situps', 'squats', 'lunges', 'burpees', 'planks',
+    'flashcards', 'cards', 'problems', 'questions', 'lessons', 'lesson', 'pomodoros', 'calories', 'grams', 'g',
 ];
 
 const DURATION_UNITS = ['minutes', 'minute', 'mins', 'min', 'hours', 'hour', 'hrs', 'hr'];
@@ -80,18 +88,31 @@ const tidyName = (value: string): string => {
 export function parseHabitText(input: string, today: Date = new Date()): ParsedHabit {
     const assumptions: string[] = [];
     const matched = { days: false, time: false, duration: false, target: false };
-    let rest = ` ${input} `;
-    const strike = (pattern: RegExp) => { rest = rest.replace(pattern, ' '); };
-    const take = (phrase: string) => { rest = rest.replace(phrase, ' '); };
+    // Links, "Monday's", "about Saturday": not schedule words (lib/phrases.ts).
+    const shielded = shield((input ?? '').trim());
+    let rest = ` ${shielded.text} `;
+    const strike = (pattern: RegExp) => { rest = rest.replace(pattern, TAKEN); };
+    const take = (phrase: string) => { rest = rest.replace(phrase, TAKEN); };
+    const N = `(${NUMBER}|once|twice|thrice)`;
+    const timesOf = (word: string) => /^once$/i.test(word) ? 1 : /^twice$/i.test(word) ? 2 : /^thrice$/i.test(word) ? 3 : toNumber(word);
+
+    // Something to stay away from: "Avoid my phone…", "Quit smoking", "No
+    // sugar on weekdays", "Limit takeout to once a week". Tracked as a quit
+    // habit: a tick means you kept clean that day. Its words are its name,
+    // so "the first 30 minutes" is never read as a 30-minute timer.
+    const quit = /^\s*(?:avoid|quit|stop|no|don'?t|do not|never|limit|cut out|cut back on|give up|resist|stay off|abstain from)\b/i.test(shielded.text)
+        || /\bzero as the (?:daily )?target\b/i.test(shielded.text);
+    if (quit) strike(/,?\s*with\s+zero\s+as\s+the\s+(?:daily\s+)?target\b/i);
 
     /* ------------------------------------------------------- when it stops */
     // Read first: "until Friday" names a last day, not a day it repeats on.
     let endDate: string | undefined;
     const until = findDeadline(rest, today);
-    const forSpan = rest.match(/\bfor\s+(?:the\s+next\s+)?(a|an|one|two|three|four|\d{1,3})\s*(days?|weeks?|months?)\b/i);
+    const forSpan = rest.match(new RegExp(String.raw`\bfor\s+(?:the\s+next\s+)?(${NUMBER})\s*(days?|weeks?|months?)\b`, 'i'));
     if (until) { endDate = until.date; take(until.phrase); }
     else if (forSpan) {
-        const end = readDate(`in ${forSpan[1]} ${forSpan[2]}`, today);
+        const amount = toNumber(forSpan[1]);
+        const end = amount ? readDate(`in ${amount} ${forSpan[2]}`, today) : null;
         if (end) { end.setDate(end.getDate() - 1); endDate = localDateKey(end); take(forSpan[0]); }
     }
 
@@ -113,40 +134,135 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
     const timing = findTiming(rest);
     if (timing) take(timing.phrase);
 
-    /* ----------------------------------------------------------------- days */
-    let taskDays: string[] = [];
+    // "at the end of each day": the evening, every day (read before "each day" alone).
+    let endOfDayTime: string | undefined;
+    const endOfDay = quit ? null : rest.match(/\bat\s+the\s+end\s+of\s+(?:the|each|every)\s+day\b/i);
+    if (endOfDay) { endOfDayTime = PART_HOURS.evening; matched.days = true; matched.time = true; take(endOfDay[0]); }
 
-    if (/\b(every ?day|daily|each day)\b/i.test(rest)) {
-        matched.days = true;
-        strike(/\b(every ?day|daily|each day)\b/gi);
-    } else if (/\bweek ?days?\b/i.test(rest)) {
-        taskDays = [...WEEKDAYS];
-        matched.days = true;
-        strike(/\b(on )?week ?days?\b/gi);
-    } else if (/\bweek ?ends?\b/i.test(rest)) {
-        taskDays = [...WEEKEND];
-        matched.days = true;
-        strike(/\b(on )?week ?ends?\b/gi);
-    } else {
-        const dayPattern = /\b(sundays?|sun|mondays?|mon|tuesdays?|tues|tue|wednesdays?|weds|wed|thursdays?|thurs|thur|thu|fridays?|fri|saturdays?|sat)\b/gi;
-        const found = new Set<string>();
-        for (const match of rest.matchAll(dayPattern)) {
-            const key = match[1].toLowerCase().replace(/s$/, '');
-            const day = DAY_WORDS[key] ?? DAY_WORDS[key.slice(0, 3)];
-            if (day) found.add(day);
-        }
-        if (found.size) {
-            taskDays = DAY_ORDER.filter(day => found.has(day));
+    /* ------------------------------------------------------- how often */
+    let taskDays: string[] = [];
+    let recurrence: Recurrence | undefined;
+    let perDay: number | undefined;
+
+    // Several times a day: "eight times a day", "twice daily", "morning and night".
+    const many = rest.match(new RegExp(String.raw`\b${N}\s*(?:times?\s*|x\s*)?(?:a|per|each|every)\s+(day|workday|weekday)\b|\b${N}\s+(?:times?\s+)?daily\b`, 'i'));
+    const twoParts = rest.match(/\b(?:every\s+|each\s+)?(?:morning|mornings)\s+and\s+(?:night|nights|evening|evenings)\b/i);
+    if (many) {
+        const times = timesOf(many[1] ?? many[3]);
+        if (times && times > 1) {
+            perDay = times;
             matched.days = true;
-            strike(dayPattern);
-            strike(/\b(on|every)\b/gi);
+            // "four times per workday": on workdays.
+            if (/work|week/i.test(many[2] ?? '')) taskDays = [...WEEKDAYS];
+            take(many[0]);
+        }
+    }
+    if (twoParts) { perDay = Math.max(perDay ?? 0, 2); matched.days = true; take(twoParts[0]); }
+
+    // So many times a week or month, any days: "4 times a week", "twice per
+    // week", "five days a week", "once a month", "three times weekly".
+    // An amount per week ("Read 100 pages per week", "Complete 100 squats per
+    // week", "Learn one new recipe per week"): once a week, the amount kept
+    // in the name, since one tick a day of 100 pages was never the habit.
+    let weeklyAmount = false;
+    const spread = rest.match(new RegExp(String.raw`\b${N}\s+((?:[\w-]+\s+){1,3}?)(?:a|per|each|every)\s+(week|month)\b(?:\s+rather\s+than\s+daily)?`, 'i'));
+    const plain = /^(?:times?|x|days?|evenings?|mornings?|nights?|sessions?|workouts?|runs?)\s*$/i;
+    const quota = spread && !plain.test(spread[2]) ? null : rest.match(new RegExp(String.raw`\b${N}\s*(?:times?|x|days?|evenings?|mornings?|nights?|sessions?|workouts?|runs?)?\s*(?:a|per|each|every|in\s+a)\s+(week|month|workweek)\b|\b${N}\s*(?:times?|x)?\s+(weekly|monthly)\b`, 'i'));
+    if (spread && !quota) {
+        const times = timesOf(spread[1]);
+        const period: 'week' | 'month' = spread[3].toLowerCase() === 'month' ? 'month' : 'week';
+        const words = spread[2].trim().split(/\s+/);
+        const last = words[words.length - 1].toLowerCase();
+        // A count of things done one at a time ("3 blog posts a week") is that many times; an amount is once.
+        const many = times && times >= 2 && times <= (period === 'week' ? 7 : 31) && !COUNT_UNITS.includes(last);
+        recurrence = { kind: 'quota', every: 1, times: many ? times! : 1, period };
+        weeklyAmount = true;
+        matched.days = true;
+        take(spread[0].slice(spread[0].search(/\b(?:a|per|each|every)\s+(?:week|month)\b/i)));
+    }
+    if (quota) {
+        const times = timesOf(quota[1] ?? quota[3]);
+        const word = (quota[2] ?? quota[4]).toLowerCase();
+        const period: 'week' | 'month' = word.startsWith('month') ? 'month' : 'week';
+        if (times && times >= 1 && times <= (period === 'week' ? 7 : 31)) {
+            recurrence = { kind: 'quota', every: 1, times, period };
+            matched.days = true;
+            take(quota[0]);
+        }
+    }
+
+    if (!recurrence) {
+        const ordinals: Record<string, number> = { first: 1, '1st': 1, second: 2, '2nd': 2, third: 3, '3rd': 3, fourth: 4, '4th': 4, last: -1 };
+        const nthOfMonth = rest.match(new RegExp(String.raw`\b(?:on\s+)?the\s+(first|1st|second|2nd|third|3rd|fourth|4th|last)\s+(${DAY_NAMES})\s+of\s+(?:each|every|the)\s+month\b`, 'i'));
+        const dateOfMonth = rest.match(/\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)?\s+(?:day\s+)?(?:of\s+)?(?:each|every)\s+month\b|\b(?:on\s+)?the\s+(first|last)\s+(?:day\s+)?of\s+(?:each|every|the)\s+month\b/i);
+        const everyOtherDay = rest.match(new RegExp(String.raw`\bevery\s+(?:other|second|2nd|(${NUMBER}))\s+days?\b`, 'i'));
+        const everyOtherWeekday = rest.match(new RegExp(String.raw`\bevery\s+(?:other|second|2nd|alternate)\s+(${DAY_NAMES})s?\b`, 'i'));
+        const alternateWeeks = rest.match(/\b(?:on\s+)?(?:alternat(?:e|ing)\s+weeks|every\s+(?:other|second|2nd)\s+week)\b/i);
+        const monthly = rest.match(/\b(?:once\s+a\s+month|every\s+month|each\s+month|monthly)\b/i);
+        const weekly = rest.match(/\b(?:once\s+a\s+week|every\s+week|each\s+week)\b/i);
+        // "Set a weekly spending limit": once a week, and "weekly" stays in the name.
+        const weeklyWord = !weekly && /\bweekly\b/i.test(rest) && !/\b(sundays?|mondays?|tuesdays?|wednesdays?|thursdays?|fridays?|saturdays?)\b/i.test(rest);
+        if (nthOfMonth) {
+            recurrence = { kind: 'monthly', every: 1, ordinal: ordinals[nthOfMonth[1].toLowerCase()] as 1, day: DAY_WORDS[nthOfMonth[2].toLowerCase()] as never };
+            take(nthOfMonth[0]);
+        } else if (dateOfMonth) {
+            const date = dateOfMonth[1] ? Number(dateOfMonth[1]) : dateOfMonth[2]?.toLowerCase() === 'last' ? 31 : 1;
+            if (date >= 1 && date <= 31) { recurrence = { kind: 'monthly', every: 1, dates: [date] }; take(dateOfMonth[0]); }
+        } else if (everyOtherDay) {
+            const every = everyOtherDay[1] ? toNumber(everyOtherDay[1]) : 2;
+            if (every && every >= 2 && every <= 30) { recurrence = { kind: 'daily', every }; take(everyOtherDay[0]); }
+        } else if (everyOtherWeekday) {
+            recurrence = { kind: 'weekly', every: 2, weekdays: [DAY_WORDS[everyOtherWeekday[1].toLowerCase()] as never] };
+            take(everyOtherWeekday[0]);
+        } else if (monthly) {
+            recurrence = { kind: 'quota', every: 1, times: 1, period: 'month' };
+            take(monthly[0]);
+        } else if (weekly || weeklyWord) {
+            recurrence = { kind: 'quota', every: 1, times: 1, period: 'week' };
+            if (weekly) take(weekly[0]);
+        }
+        if (recurrence) matched.days = true;
+        if (alternateWeeks && !recurrence) {
+            recurrence = { kind: 'weekly', every: 2, weekdays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] };
+            matched.days = true;
+            take(alternateWeeks[0]);
+        }
+    }
+
+    if (!recurrence && !matched.days) {
+        if (/\b(every ?day|daily|each day|a day|per day)\b/i.test(rest)) {
+            matched.days = true;
+            strike(/\b(every ?day|daily|each day|per day)\b/i);
+        } else if (/\b(?:week ?days?|weeknights?|work ?days?)\b/i.test(rest)) {
+            taskDays = [...WEEKDAYS];
+            matched.days = true;
+            strike(/\b(?:on\s+|every\s+)?(?:week ?days?|weeknights?|work ?days?)\b/gi);
+        } else if (/\bweek ?ends?\b/i.test(rest)) {
+            taskDays = [...WEEKEND];
+            matched.days = true;
+            strike(/\b(?:on\s+|every\s+)?week ?ends?\b/gi);
+        } else {
+            const dayPattern = /\b(sundays?|sun|mondays?|mon|tuesdays?|tues|tue|wednesdays?|weds|wed|thursdays?|thurs|thur|thu|fridays?|fri|saturdays?|sat)\b/gi;
+            const found = new Set<string>();
+            for (const match of rest.matchAll(dayPattern)) {
+                const key = match[1].toLowerCase().replace(/s$/, '');
+                const day = DAY_WORDS[key] ?? DAY_WORDS[key.slice(0, 3)];
+                if (day) found.add(day);
+            }
+            if (found.size) {
+                taskDays = DAY_ORDER.filter(day => found.has(day));
+                matched.days = true;
+                // "every Monday, Wednesday and Friday": the days, and the words joining them.
+                rest = rest.replace(/\b(?:on|every|each)\s+(?=(?:sundays?|sun|mondays?|mon|tuesdays?|tues|tue|wednesdays?|weds|wed|thursdays?|thurs|thur|thu|fridays?|fri|saturdays?|sat)\b)/gi, TAKEN);
+                strike(dayPattern);
+            }
         }
     }
 
     /* ------------------------------------------------- "from 7 to 8am" */
-    let startTime: string | undefined;
+    let startTime: string | undefined = endOfDayTime;
     let durationMinutes: number | undefined;
-    const range = findTimeRange(rest);
+    const range = quit ? null : findTimeRange(rest);
     if (range) {
         startTime = range.start;
         durationMinutes = range.minutes;
@@ -156,45 +272,64 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
     }
 
     /* ------------------------------------------------------------- duration */
-    const durationMatch = durationMinutes !== undefined ? null : rest.match(
-        new RegExp(String.raw`\b(?:for\s+)?(\d{1,3})\s*(${DURATION_UNITS.join('|')})\b`, 'i'),
+    // "20 minutes", "one hour", "a 90-minute session". Not for a quit habit,
+    // whose minutes are part of what it avoids.
+    const durationMatch = durationMinutes !== undefined || quit || weeklyAmount ? null : rest.match(
+        new RegExp(String.raw`\b(?:for\s+)?(${NUMBER}|an|a)(?:\s+|-)(${DURATION_UNITS.join('|')})\b`, 'i'),
     );
     if (durationMatch) {
-        const amount = Number(durationMatch[1]);
-        durationMinutes = /^h/i.test(durationMatch[2]) ? amount * 60 : amount;
-        matched.duration = true;
-        strike(new RegExp(escapeRegex(durationMatch[0]), 'i'));
+        const amount = /^an?$/i.test(durationMatch[1]) ? 1 : toNumber(durationMatch[1]);
+        if (amount && amount > 0) {
+            durationMinutes = /^h/i.test(durationMatch[2]) ? amount * 60 : amount;
+            matched.duration = true;
+            take(durationMatch[0]);
+        }
     }
 
     /* --------------------------------------------------------------- target */
     // Counted targets are taken before times so "10 pages" can never be read as
-    // ten o'clock.
+    // ten o'clock; "8,000 steps" and "two servings" are numbers too.
     let targetValue: number | undefined;
     let targetUnit: string | undefined;
-    const countMatch = rest.match(
-        new RegExp(String.raw`\b(\d{1,4})\s*(${COUNT_UNITS.join('|')})\b`, 'i'),
+    const countMatch = quit || weeklyAmount ? null : rest.match(
+        new RegExp(String.raw`\b(?:at\s+least\s+)?(${NUMBER})\s*(${COUNT_UNITS.join('|')})\b(?:\s+of\s+([a-z]+))?`, 'i'),
     );
+    // "five new Spanish words": counted, and the words describing them stay in the name.
+    const describedCount = quit || weeklyAmount || countMatch ? null : rest.match(
+        new RegExp(String.raw`\b(${NUMBER})\s+(?:[a-z-]+\s+){1,2}?(${COUNT_UNITS.join('|')})\b`, 'i'),
+    );
+    if (describedCount) {
+        const amount = toNumber(describedCount[1]);
+        if (amount && amount > 1) { targetValue = amount; targetUnit = describedCount[2].toLowerCase(); matched.target = true; }
+    }
     if (countMatch) {
-        targetValue = Number(countMatch[1]);
-        targetUnit = countMatch[2].toLowerCase();
-        matched.target = true;
-        strike(new RegExp(escapeRegex(countMatch[0]), 'i'));
+        const amount = toNumber(countMatch[1]);
+        if (amount && amount > 0) {
+            targetValue = amount;
+            targetUnit = countMatch[2].toLowerCase();
+            matched.target = true;
+            // "two servings of fruit": the amount goes, the fruit stays.
+            take(countMatch[3] ? countMatch[0].replace(new RegExp(String.raw`\s+of\s+${countMatch[3]}$`, 'i'), '') : countMatch[0]);
+            if (countMatch[3]) rest = rest.replace(new RegExp(String.raw`${TAKEN}\s*of\s+`), `${TAKEN} `);
+        }
     }
 
     /* ----------------------------------------------------------------- time */
-    // Each pattern needs a real signal — "at", a colon, or am/pm — so a leftover
-    // number never silently becomes a start time.
+    // Each pattern needs a real signal: "at", a colon, or am/pm. "Before 9
+    // AM", "by 11 PM" and "after 9 PM" are limits, not start times, and stay
+    // in the name where they mean something.
     const timePatterns: { regex: RegExp; hasMinutes: boolean; bare?: boolean }[] = [
         { regex: /\bat\s+(\d{1,2})[:.](\d{2})\s*(am|pm)?\b/i, hasMinutes: true },
-        { regex: /\b(\d{1,2})[:.](\d{2})\s*(am|pm)?\b/i, hasMinutes: true },
+        { regex: /\b(?:at\s+)?(\d{1,2})[:.](\d{2})\s*(am|pm)?\b/i, hasMinutes: true },
         { regex: /\bat\s+(\d{1,2})\s*(am|pm)\b/i, hasMinutes: false },
         { regex: /\b(\d{1,2})\s*(am|pm)\b/i, hasMinutes: false },
         { regex: /\bat\s+(\d{1,2})\b/i, hasMinutes: false, bare: true },
     ];
-
-    for (const pattern of startTime ? [] : timePatterns) {
+    const limitWords = /\b(before|by|after|until|till|no later than)\s*$/i;
+    for (const pattern of startTime || quit ? [] : timePatterns) {
         const match = rest.match(pattern.regex);
-        if (!match) continue;
+        if (!match || match.index === undefined) continue;
+        if (limitWords.test(rest.slice(0, match.index))) continue;
 
         let hour = Number(match[1]);
         const minute = pattern.hasMinutes ? Number(match[2]) : 0;
@@ -214,34 +349,40 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
         if (hour >= 24) continue;
         startTime = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
         matched.time = true;
-        strike(new RegExp(escapeRegex(match[0]), 'i'));
+        take(match[0]);
         break;
     }
 
     /* ------------------------------------------------------- part of the day */
     // "each morning", "every night", "in the evening": a time, and with
-    // every/each, every day. Only a starting hour when none was given.
-    const part = rest.match(/\b(?:(every|each)\s+|in\s+the\s+|at\s+)?(morning|afternoon|evening|night)s?\b/i);
+    // every/each, every day. Only a starting hour when none was given; never
+    // the "night" in "late-night".
+    const part = quit ? null : rest.match(new RegExp(String.raw`(?:^|[^\w-])((?:(every|each)\s+|in\s+the\s+|this\s+|(?=${TAKEN}))${TAKEN}?\s*(morning|afternoon|evening|night)s?)\b`, 'i'));
     if (part) {
-        if (part[1]) matched.days = true;
+        if (part[2]) matched.days = true;
         if (!startTime) {
-            startTime = PART_HOURS[part[2].toLowerCase()];
+            startTime = PART_HOURS[part[3].toLowerCase()];
             matched.time = true;
-            assumptions.push(`Read "${part[2].toLowerCase()}" as ${startTime} — tap the time to change it`);
+            assumptions.push(`Read "${part[3].toLowerCase()}" as ${startTime} — tap the time to change it`);
         }
-        strike(new RegExp(escapeRegex(part[0]), 'i'));
+        take(part[1]);
     }
 
     /* ----------------------------------------------------------------- name */
-    strike(/\b(a day|per day|each|every|of)\b/gi);
-    const name = tidyName(rest);
+    let name = tidyName(tidyTaken(shielded.restore(rest)));
+    if (/^(?:do|complete|perform|make|get|hit)$/i.test(name) && targetUnit && targetUnit !== 'min') name = `${name} ${targetUnit}`;
+    name = name.replace(/^(spend)\s+(?!time\b|an?\b|the\b|my\b|more\b|quality\b)(?=\w+ing\b|outdoors\b|outside\b)/i, '$1 time ');
 
+    // Several times a day is a count of times: "eight times a day" is 8.
+    if (perDay && targetValue === undefined) { targetValue = perDay; targetUnit = 'times'; matched.target = true; }
     // A duration with no explicit count becomes the target, so "45 minutes"
     // tracks as 45 min rather than a yes/no tick.
     if (targetValue === undefined && durationMinutes !== undefined) {
         targetValue = durationMinutes;
         targetUnit = 'min';
     }
+    // One of something is a yes or a no.
+    if (targetValue === 1 && targetUnit !== 'min') { targetValue = undefined; targetUnit = undefined; }
 
     if (!matched.days) assumptions.push('No days found, so this repeats every day');
 
@@ -255,6 +396,8 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
         trackingMethod: targetValue !== undefined ? 'numeric' : 'boolean',
         endDate,
         startDate,
+        recurrence,
+        habitType: quit ? 'quit' : 'build',
         priority: urgency?.priority,
         difficulty: hardness?.difficulty,
         flexible: timing?.flexible,
@@ -273,8 +416,10 @@ export function parsedToHabit(parsed: ParsedHabit, startDate: string): Partial<H
         goalValue: parsed.targetValue ?? 1,
         unit: parsed.targetUnit ?? 'time',
         trackingMethod: parsed.trackingMethod,
-        type: 'build',
-        frequency: 'daily',
+        type: parsed.habitType ?? 'build',
+        recurrence: parsed.recurrence ? serialiseRecurrence(parsed.recurrence) : undefined,
+        frequency: parsed.recurrence?.kind === 'monthly' ? 'monthly' : 'daily',
+        weekInterval: parsed.recurrence?.kind === 'weekly' ? parsed.recurrence.every : undefined,
         goalPeriod: 'daily',
         category: 'personal',
         icon: 'ellipse-outline',

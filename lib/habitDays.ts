@@ -1,5 +1,5 @@
 import type { Habit } from './habitsSQLite';
-import { isHabitScheduledForDate, localDateKey, parseHabitDate } from './habitSchedule';
+import { createHabitRequirement, isQuotaHabit, localDateKey, parseHabitDate } from './habitSchedule';
 
 export interface HistoryDay { date: string; completedIds: string[]; skippedIds?: string[] }
 
@@ -50,11 +50,17 @@ export function habitDays(
     const skipBy = new Map(history.map(day => [day.date, day.skippedIds ?? []]));
     doneBy.set(liveToday, Object.keys(completions).filter(id => completions[id]));
 
+    // Due that day (a "3 times a week" one only once it could not wait); a
+    // quota one done on a day it was free to skip still counts as kept.
+    const due = active.map(habit => ({ habit, required: createHabitRequirement(habit), quota: isQuotaHabit(habit) }));
     const out: HabitDay[] = [];
     for (let back = days - 1; back >= 0; back--) {
         const date = shiftDay(end, -back);
         const when = parseHabitDate(date);
-        const scheduled = when ? active.filter(habit => isHabitScheduledForDate(habit, when)).map(habit => habit.id) : [];
+        const scheduled = when ? due.filter(({ habit, required, quota }) => {
+            const doneOn = (key: string) => (doneBy.get(key) ?? []).includes(habit.id);
+            return required(date, doneOn) || (quota && doneOn(date));
+        }).map(({ habit }) => habit.id) : [];
         const doneIds = doneBy.get(date) ?? [];
         const skipIds = skipBy.get(date) ?? [];
         out.push({

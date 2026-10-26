@@ -152,7 +152,8 @@ export function findDifficulty(text: string): { difficulty: 1 | 2 | 3; phrase: s
         + `|(?:[,(-]|\\s)\\s*(?:${words})\\s*\\)?\\s*$)`, 'i');
     const hard = text.match(said('hard|difficult|tough|challenging')) ?? text.match(/\b(?:high\s+effort|(?:difficulty|effort)\s*:?\s*(?:high|3))\b/i);
     if (hard) return { difficulty: 3, phrase: hard[0] };
-    const easy = text.match(said('easy|simple|light')) ?? text.match(/\b(?:low\s+effort|(?:difficulty|effort)\s*:?\s*(?:low|1))\b/i);
+    const easy = text.match(said('easy'))
+        ?? text.match(/\b(?:it'?s|its|is)\s+(?:really\s+|very\s+|pretty\s+)?(?:simple|light)\b|\b(?:simple|light)\s+(?:one|task|habit)\b/i) ?? text.match(/\b(?:low\s+effort|(?:difficulty|effort)\s*:?\s*(?:low|1))\b/i);
     if (easy) return { difficulty: 1, phrase: easy[0] };
     const medium = text.match(said('medium|moderate|normal'));
     if (medium) return { difficulty: 2, phrase: medium[0] };
@@ -173,7 +174,8 @@ export function findPriority(text: string): { priority: 1 | 2 | 3; phrase: strin
     // "Maybe this isn't actually important" is a thought, not a priority.
     if (/\b(?:isn'?t|is not|wasn'?t|was not|aren'?t|are not)\s+(?:\w+\s+)?(?:urgent|important)\b/i.test(text)) return null;
     // "Not urgent" before "urgent", so the "urgent" inside it is not read as high.
-    const low = text.match(/\b(?:low\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*low|not\s+(?:very\s+|that\s+|really\s+)?(?:urgent|important)|no\s+rush|no\s+hurry|sometime|whenever|eventually|p3)\b/i);
+    const low = text.match(/\b(?:low\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*low|not\s+(?:very\s+|that\s+|really\s+)?(?:urgent|important)|no\s+rush|no\s+hurry|p3)\b/i)
+        ?? text.match(/(?:^|[,(;-]\s*|\s)(?:sometime|whenever|eventually)\s*[.!)]*\s*$/i);
     if (low) return { priority: 3, phrase: low[0] };
     const high = text.match(/\b(?:(?:very\s+|super\s+|really\s+)?urgent|urgently|asap|high\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*high|top\s+priority|must\s+do|p1)\b/i)
         ?? text.match(/(?:^|[,(;-]\s*|\bit'?s\s+|\bvery\s+|\bsuper\s+|\breally\s+)(?:important|critical)\b|\b(?:important|critical)[!.\s)]*$/i);

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
-import { isHabitScheduledForDate, localDateKey } from './habitSchedule';
+import { createHabitRequirement, isHabitScheduledForDate, isQuotaHabit, localDateKey } from './habitSchedule';
 import { DEFAULT_TARGET, doneOnDay, type DailyTarget } from './dailyFocus';
 import { tasksForDay } from './tasks';
 import { emit } from './appEvents';
@@ -25,8 +25,11 @@ export function tallyDay(
     target: DailyTarget = DEFAULT_TARGET,
 ): DayTally {
     const date = new Date(`${today}T12:00:00`);
-    const due = habits.filter(habit =>
-        !habit.isGoal && !habit.isArchived && !skipped[habit.id] && isHabitScheduledForDate(habit, date));
+    // A "3 times a week" habit is part of the day once it cannot wait, or when done today.
+    const due = habits.filter(habit => {
+        if (habit.isGoal || habit.isArchived || skipped[habit.id] || !isHabitScheduledForDate(habit, date)) return false;
+        return !isQuotaHabit(habit) || completions[habit.id] || createHabitRequirement(habit)(today);
+    });
 
     // The task half of a day is the promise the user made — three things, or
     // five — not every task that happens to carry today's date. Those were two

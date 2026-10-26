@@ -26,9 +26,89 @@ const calendarDay = (date: Date) => Date.UTC(date.getFullYear(), date.getMonth()
 const startOfWeek = (date: Date) => calendarDay(date) - date.getDay();
 const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
 
-/** The same local calendar schedule is shared by Home, Roadmap and statistics. */
+/**
+ * Whether a habit is on the day's list: the calendar's answer, and for a
+ * "3 times a week" habit, whether the week still needs it (or it was done
+ * that day). Home, the timeline, widgets and reminders all read this. What
+ * counts as due, and as missed, is habitRequirement below.
+ */
 export function isHabitScheduledForDate(habit: Habit, date: Date): boolean {
-    return createHabitSchedule(habit)(date);
+    if (!createHabitSchedule(habit)(date)) return false;
+    const quota = quotaOf(habit);
+    if (!quota) return true;
+    return quotaState(habit, quota, localDateKey(date), historyDone(habit.id)).offered;
+}
+
+type Quota = { times: number; period: 'week' | 'month' };
+/** A "3 times a week" habit: done on any days, due only once it cannot wait. */
+export const isQuotaHabit = (habit: Habit): boolean => parseRecurrence(habit.recurrence)?.kind === 'quota';
+const quotaOf = (habit: Habit): Quota | null => {
+    const rule = parseRecurrence(habit.recurrence);
+    return rule?.kind === 'quota' ? { times: rule.times, period: rule.period } : null;
+};
+
+/** Ticks from the app's one copy of history (lib/dataStore.ts), for display. */
+function historyDone(habitId: string): (key: string) => boolean {
+    try {
+        const { getData } = require('./dataStore') as typeof import('./dataStore');
+        const history = getData().history;
+        return key => !!history[key]?.includes(habitId);
+    } catch {
+        return () => false;
+    }
+}
+
+const keyAt = (day: number) => {
+    const date = new Date(day * MS_PER_DAY);
+    return localDateKey(new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12));
+};
+
+/**
+ * Where a quota habit stands on a day: how many its week (Monday to Sunday)
+ * or month still needs before that day, and the days left in it.
+ * - offered: the period still needs it, or it was done that day;
+ * - required: it can no longer wait. Needing 3 with Friday, Saturday and
+ *   Sunday left makes each of them due; Monday to Thursday never were.
+ */
+function quotaState(habit: Habit, quota: Quota, key: string, doneOn: (key: string) => boolean): { offered: boolean; required: boolean } {
+    const date = parseHabitDate(key);
+    const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
+    if (!date || !start) return { offered: false, required: false };
+    const day = calendarDay(date);
+    let from: number;
+    let to: number;
+    if (quota.period === 'week') {
+        from = day - ((date.getDay() + 6) % 7);
+        to = from + 6;
+    } else {
+        from = calendarDay(new Date(date.getFullYear(), date.getMonth(), 1, 12));
+        to = calendarDay(new Date(date.getFullYear(), date.getMonth() + 1, 0, 12));
+    }
+    const ends = [habit.endDate, habit.targetDate].map(parseHabitDate).filter((value): value is Date => value !== null);
+    if (ends.length) to = Math.min(to, ...ends.map(calendarDay));
+    from = Math.max(from, calendarDay(start));
+    let done = 0;
+    for (let at = from; at < day; at++) if (doneOn(keyAt(at))) done++;
+    const needed = quota.times - done;
+    const daysLeft = to - day + 1;
+    return { offered: needed > 0 || doneOn(key), required: needed > 0 && needed >= daysLeft };
+}
+
+/**
+ * Whether a habit was due on a day, for everything that counts kept and
+ * missed (streaks, Marks, perfect days, goal progress). The calendar's answer
+ * for every habit except a quota one, which is due only once it cannot wait
+ * (see quotaState). `doneOn` reads that habit's ticks; by default the app's history.
+ */
+export function createHabitRequirement(habit: Habit): (key: string, doneOn?: (key: string) => boolean) => boolean {
+    const schedule = createHabitSchedule(habit);
+    const quota = quotaOf(habit);
+    return (key, doneOn) => {
+        const date = parseHabitDate(key);
+        if (!date || !schedule(date)) return false;
+        if (!quota) return true;
+        return quotaState(habit, quota, key, doneOn ?? historyDone(habit.id)).required;
+    };
 }
 
 /** Compile once when evaluating years of history for the same habit. */

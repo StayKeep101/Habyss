@@ -49,6 +49,8 @@ type Row = 'repeat' | 'time' | 'target' | 'reminder' | 'priority' | 'difficulty'
 
 interface Draft {
     name: string;
+    /** 'quit' for something to stay away from. */
+    habitType?: 'build' | 'quit';
     days: string[];
     startTime?: string;
     durationMinutes?: number;
@@ -96,6 +98,7 @@ const blank = (): Draft => ({ name: '', days: EVERY_DAY, icon: 'ellipse-outline'
 
 const fromHabit = (from: Habit): Draft => ({
     name: from.name,
+    habitType: from.type,
     priority: from.priority,
     difficulty: from.difficulty,
     flexible: from.flexible,
@@ -240,9 +243,13 @@ export const HabitSheet: React.FC<{
             // schedule is the rule now. Naming days is always a weekly rule,
             // whatever the draft started as; a rule the user built by hand
             // still wins, because their edits are applied after this.
-            rule: parsed.taskDays?.length
+            // A schedule beyond weekdays read from the words ("4 times a week",
+            // "every other day") wins; then named days; then what it had.
+            rule: rules?.recurrence ?? (parsed.taskDays?.length
                 ? { kind: 'weekly', every: start.rule.kind === 'weekly' ? start.rule.every : 1, weekdays: days as Weekday[] }
-                : start.rule,
+                : start.rule),
+            // Only ever switches to quit; editing a quit habit's words never makes it a build one.
+            habitType: rules?.habitType === 'quit' ? 'quit' : start.habitType,
             startTime: parsed.startTime ?? start.startTime,
             durationMinutes: parsed.durationMinutes ?? start.durationMinutes,
             amount: parsed.targetValue ?? start.amount,
@@ -296,7 +303,8 @@ export const HabitSheet: React.FC<{
                 goalId: linkedGoal,
                 icon: draft.icon,
                 color: draft.color,
-                type: current?.type ?? 'build',
+                // "Avoid…", "Quit…", "No…": a quit habit, a tick a day kept clean.
+                type: draft.habitType ?? current?.type ?? 'build',
                 recurrence: serialiseRecurrence(draft.rule),
                 frequency: draft.rule.kind === 'monthly' ? 'monthly' : draft.rule.kind === 'yearly' ? 'yearly' : 'daily',
                 weekInterval: draft.rule.kind === 'weekly' ? draft.rule.every : 1,

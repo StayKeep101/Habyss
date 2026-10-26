@@ -158,3 +158,49 @@ describe('a clean name: when it begins and the part of the day are settings', ()
         expect(parsed.startTime).toBe('22:00');
     });
 });
+
+describe('habits as people write them (the 400-case pass)', () => {
+    const today = new Date(2026, 9, 26, 10);
+    const read = (text: string) => parseHabitText(text, today);
+    it('reads so many times a week or a month, on any days', () => {
+        expect(read('Go to the gym four times a week')).toMatchObject({ name: 'Go to the gym', recurrence: { kind: 'quota', times: 4, period: 'week' } });
+        expect(read('Cycle to work twice per week').recurrence).toEqual({ kind: 'quota', every: 1, times: 2, period: 'week' });
+        expect(read('Prepare lunch at home five days a week').recurrence).toMatchObject({ times: 5 });
+        expect(read('Attend a community event once a month').recurrence).toMatchObject({ times: 1, period: 'month' });
+    });
+    it('keeps an amount per week as a weekly habit with its amount', () => {
+        expect(read('Read 100 pages per week rather than daily')).toMatchObject({ name: 'Read 100 pages', recurrence: { kind: 'quota', times: 1, period: 'week' }, trackingMethod: 'boolean' });
+    });
+    it('reads the schedules the app already knows', () => {
+        expect(read('Take vitamins every other day').recurrence).toEqual({ kind: 'daily', every: 2 });
+        expect(read('Work out every second Tuesday').recurrence).toEqual({ kind: 'weekly', every: 2, weekdays: ['tue'] });
+        expect(read('Do a digital detox on the last Sunday of each month').recurrence).toEqual({ kind: 'monthly', every: 1, ordinal: -1, day: 'sun' });
+        expect(read('Review subscriptions on the first of every month').recurrence).toEqual({ kind: 'monthly', every: 1, dates: [1] });
+    });
+    it('counts several times a day', () => {
+        expect(read('Drink water eight times a day')).toMatchObject({ name: 'Drink water', targetValue: 8, targetUnit: 'times' });
+        expect(read('Perform a habit twice daily, morning and night')).toMatchObject({ targetValue: 2, targetUnit: 'times' });
+    });
+    it('makes "avoid…" a quit habit and never a timer', () => {
+        expect(read('Avoid my phone for the first 30 minutes')).toMatchObject({ name: 'Avoid my phone for the first 30 minutes', habitType: 'quit', trackingMethod: 'boolean' });
+        expect(read('Avoid smoking entirely, with zero as the daily target')).toMatchObject({ name: 'Avoid smoking entirely', habitType: 'quit' });
+        expect(read('Avoid late-night snacking after 9 PM').name).toBe('Avoid late-night snacking after 9 PM');
+    });
+    it('reads numbers in words and thousands, and keeps names whole', () => {
+        expect(read('Walk at least 8,000 steps daily')).toMatchObject({ targetValue: 8000, targetUnit: 'steps' });
+        expect(read('Meditate for five minutes')).toMatchObject({ name: 'Meditate', targetValue: 5, targetUnit: 'min' });
+        expect(read('Drink a glass of water after waking up').name).toBe('Drink a glass of water after waking up');
+        expect(read('Track every purchase daily').name).toBe('Track every purchase');
+        expect(read('Do 10 minutes of stretching').name).toBe('Do stretching');
+        expect(read('Do 30 push-ups every day').name).toBe('Do push-ups');
+    });
+    it('keeps "before 9 AM" and "by 11 PM" as part of what it is, and reads weeknights', () => {
+        expect(read('Eat breakfast before 9 AM')).toMatchObject({ name: 'Eat breakfast before 9 AM', startTime: undefined });
+        expect(read('Go to bed by 11 PM on weeknights')).toMatchObject({ name: 'Go to bed by 11 PM', taskDays: ['mon', 'tue', 'wed', 'thu', 'fri'] });
+    });
+    it('turns a quota into the habit the store keeps', () => {
+        const habit = parsedToHabit(read('Practice guitar four evenings a week'), '2026-10-26');
+        expect(JSON.parse(habit.recurrence!)).toEqual({ kind: 'quota', every: 1, times: 4, period: 'week' });
+        expect(parsedToHabit(read('Avoid sugary drinks on weekdays'), '2026-10-26').type).toBe('quit');
+    });
+});

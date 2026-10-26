@@ -64,7 +64,8 @@ export function shield(text: string): { text: string; restore: (value: string) =
     let out = text
         .replace(/\bhttps?:\/\/\S+|\bwww\.\S+|\b[\w.+-]+@[\w-]+\.[\w.]+/gi, hold)
         .replace(new RegExp(`\\b(?:${DAY_WORD})['’]s\\b`, 'gi'), hold)
-        .replace(new RegExp(`\\b(?:about|regarding|from|since|last)\\s+(?:${DAY_WORD})\\b`, 'gi'), hold)
+        // "last Sunday" is a past day; "the last Sunday of each month" is a schedule.
+        .replace(new RegExp(`\\b(?:about|regarding|from|since|last)\\s+(?:${DAY_WORD})\\b(?!\\s+of\\b)`, 'gi'), hold)
         .replace(/(^|[.!?]\s+)(today|yesterday|tonight)(?=\s+(?:was|is|has|had|felt|went|turned|i\b))/gi, (_all, before: string, word: string) => before + hold(word));
     return {
         text: out,
@@ -90,7 +91,9 @@ export function tidyTaken(value: string): string {
         const next = out
             .replace(new RegExp(`${gap}\\b${joiner}\\b${gap}${TAKEN}`, 'gi'), TAKEN)
             .replace(new RegExp(`${TAKEN}${gap}\\b${joiner}\\b(?=${gap}(?:${TAKEN}|$))`, 'gi'), TAKEN)
-            .replace(new RegExp(`${TAKEN}(?:\\s|[,;:–—-])*${TAKEN}`, 'g'), TAKEN);
+            .replace(new RegExp(`${TAKEN}(?:\\s|[,;:–—-])*${TAKEN}`, 'g'), TAKEN)
+            // "Do [10 minutes] of stretching": the "of" belonged to the amount.
+            .replace(new RegExp(`${TAKEN}\\s+of\\b`, 'gi'), TAKEN);
         if (next === out) break;
         out = next;
     }

@@ -19,8 +19,8 @@ import {
 /** Timed, never sprung: the panel changes height and a spring would bounce it. */
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 
-type Preset = 'daily' | 'weekdays' | 'weekends' | 'weekly' | 'monthly' | 'yearly' | 'hourly';
-type Kind = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'hourly';
+type Preset = 'daily' | 'weekdays' | 'weekends' | 'weekly' | 'monthly' | 'yearly' | 'hourly' | 'quota';
+type Kind = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'hourly' | 'quota';
 
 /** The kinds of rule, as a segmented control: all of them visible, one tap each. */
 const KINDS: { id: Kind; label: string }[] = [
@@ -29,6 +29,8 @@ const KINDS: { id: Kind; label: string }[] = [
     { id: 'monthly', label: 'Monthly' },
     { id: 'yearly', label: 'Yearly' },
     { id: 'hourly', label: 'Hourly' },
+    // "3 times a week, any days".
+    { id: 'quota', label: 'Flexible' },
 ];
 
 const ORDINALS: { id: Ordinal; label: string }[] = [
@@ -49,6 +51,7 @@ function presetOf(rule: Recurrence): Preset {
     if (rule.kind === 'daily') return 'daily';
     if (rule.kind === 'monthly') return 'monthly';
     if (rule.kind === 'yearly') return 'yearly';
+    if (rule.kind === 'quota') return 'quota';
     const days = rule.weekdays;
     if (rule.every === 1 && days.length === 5 && ['mon', 'tue', 'wed', 'thu', 'fri'].every(day => days.includes(day as Weekday))) return 'weekdays';
     if (rule.every === 1 && days.length === 2 && days.includes('sat') && days.includes('sun')) return 'weekends';
@@ -70,6 +73,8 @@ function ruleForPreset(preset: Preset, current: Recurrence): Recurrence {
             return current.kind === 'monthly' ? current : { kind: 'monthly', every, dates: [1] };
         case 'yearly':
             return current.kind === 'yearly' ? current : { kind: 'yearly', every, months: [0] };
+        case 'quota':
+            return current.kind === 'quota' ? current : { kind: 'quota', every: 1, times: 3, period: 'week' };
     }
 }
 
@@ -127,13 +132,29 @@ export const RepeatPicker: React.FC<{
             </View>
 
             {/* "Every N ___" — only where an interval means anything. */}
-            {preset !== 'weekdays' && preset !== 'weekends' ? (
+            {preset !== 'weekdays' && preset !== 'weekends' && preset !== 'quota' ? (
                 <Animated.View layout={MORPH} style={styles.everyRow}>
                     <Text style={[styles.label, { color: colors.textSecondary }]}>Every</Text>
                     <View style={styles.everyWheel}>
                         <Wheel testID="repeat-every" options={everyOptions} value={Math.min(every, maxEvery)} onChange={setEvery} rowHeight={32} style={styles.everyDigit} />
                     </View>
                     <Text style={[styles.label, { color: colors.textSecondary }]}>{every === 1 ? unitWord.replace(/s$/, '') : unitWord}</Text>
+                </Animated.View>
+            ) : null}
+
+            {/* Flexible: so many times a week or a month, on whichever days. */}
+            {value.kind === 'quota' ? (
+                <Animated.View layout={MORPH} entering={FadeIn.duration(180)} style={styles.section}>
+                    <View style={styles.everyRow}>
+                        <View style={styles.everyWheel}>
+                            <Wheel testID="repeat-times" options={Array.from({ length: value.period === 'week' ? 7 : 31 }, (_, index) => ({ id: index + 1, label: String(index + 1) }))}
+                                value={Math.min(value.times, value.period === 'week' ? 7 : 31)} onChange={times => onChange({ ...value, times })} rowHeight={32} style={styles.everyDigit} />
+                        </View>
+                        <Text style={[styles.label, { color: colors.textSecondary }]}>{value.times === 1 ? 'time a' : 'times a'}</Text>
+                    </View>
+                    <Choices options={[{ id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }]} value={value.period} accent={accent}
+                        onChange={period => onChange({ ...value, period: period as 'week' | 'month', times: period === 'week' ? Math.min(value.times, 7) : value.times })} />
+                    <Text style={[styles.label, { color: colors.textTertiary }]}>Any days you like. A day only counts as missed when there aren't enough days left.</Text>
                 </Animated.View>
             ) : null}
 

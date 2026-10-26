@@ -70,6 +70,11 @@ export async function smartParseHabit(text: string): Promise<ParsedHabit | null>
     const unit = target ? (cleanName(answer.unit, 20)?.toLowerCase() ?? base.targetUnit) : base.targetUnit;
 
     return {
+        // The rules' reading of schedule and kind stays: the model is not asked for them.
+        recurrence: base.recurrence,
+        habitType: base.habitType,
+        startDate: base.startDate,
+        endDate: base.endDate,
         name: cleanName(answer.name) ?? base.name,
         taskDays: days.length ? days : base.taskDays,
         startTime: time,

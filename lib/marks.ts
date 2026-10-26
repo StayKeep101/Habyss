@@ -1,6 +1,6 @@
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
-import { createHabitSchedule, localDateKey, parseHabitDate } from './habitSchedule';
+import { createHabitRequirement, localDateKey, parseHabitDate } from './habitSchedule';
 import { addDays, dateAt } from './goalInsights';
 import { countedHistory, countedTasks } from './sharedGate';
 
@@ -206,7 +206,9 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     // deliberately skipped. Today has not ended, so it is never a miss yet.
     for (const habit of habits) {
         if (habit.isArchived) continue;
-        const scheduled = createHabitSchedule(habit);
+        // Due that day (a "3 times a week" one only once it could not wait).
+        const due = createHabitRequirement(habit);
+        const doneOn = (key: string) => !!input.history[key]?.includes(habit.id);
         const started = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
         const created = dayOf(habit.createdAt);
         let from = started ? localDateKey(started) : created;
@@ -214,7 +216,7 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
         if (created && created > from) from = created;
         if (from < floor) from = floor;
         for (let day = from; day < today; day = addDays(day, 1)) {
-            if (!scheduled(dateAt(day))) continue;
+            if (!due(day, doneOn)) continue;
             if (input.history[day]?.includes(habit.id)) continue;
             if (input.skips?.[day]?.includes(habit.id)) continue;
             record(day, MARKS.miss.habit, 'miss', 'habit', habit.name);
