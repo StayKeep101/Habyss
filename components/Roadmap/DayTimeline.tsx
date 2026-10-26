@@ -21,9 +21,11 @@ import { s, vs } from '@/theme/scale';
  * proportions, so the timeline is as dense or as roomy as the lists.
  */
 const SIZES = {
-    small: { pill: s(38), min: vs(42), max: vs(90), per: 0.45, icon: s(15), ring: s(22), check: s(13), gap: s(10), pad: vs(6), titleType: 'bodySmall' as const },
-    standard: { pill: s(46), min: vs(50), max: vs(116), per: 0.6, icon: s(18), ring: s(25), check: s(14), gap: s(12), pad: vs(8), titleType: 'body' as const },
-    big: { pill: s(54), min: vs(58), max: vs(140), per: 0.75, icon: s(21), ring: s(28), check: s(16), gap: s(14), pad: vs(10), titleType: 'heading' as const },
+    // `per`: points per minute, one scale for pills and the free time between
+    // them, so an hour is always twice as tall as half an hour.
+    small: { pill: s(38), min: vs(42), max: vs(360), per: vs(1.5), icon: s(15), ring: s(22), check: s(13), gap: s(10), pad: vs(6), titleType: 'bodySmall' as const },
+    standard: { pill: s(46), min: vs(50), max: vs(440), per: vs(1.9), icon: s(18), ring: s(25), check: s(14), gap: s(12), pad: vs(8), titleType: 'body' as const },
+    big: { pill: s(54), min: vs(58), max: vs(520), per: vs(2.3), icon: s(21), ring: s(28), check: s(16), gap: s(14), pad: vs(10), titleType: 'heading' as const },
 };
 type Size = (typeof SIZES)[keyof typeof SIZES];
 /** How long one pill takes to fill in the intro's domino run. */
@@ -39,7 +41,8 @@ const elapsedOf = (item: FlowItem, now: number | null) => item.state === 'done' 
     : now !== null && now > item.start ? (now - item.start) / Math.max(1, item.end - item.start) : 0;
 
 /** Taller for longer things, within reason, so the day reads at a glance. */
-const pillHeight = (size: Size, minutes: number) => Math.max(size.min, Math.min(size.max, size.min + (minutes - 30) * size.per));
+/** Height by length on one scale; very short ones keep room for their icon. */
+const pillHeight = (size: Size, minutes: number) => Math.max(size.min, Math.min(size.max, minutes * size.per));
 
 /**
  * The day as one continuous routine: each habit and task in time order, a
@@ -204,7 +207,7 @@ function Row({ size, item, turn, color, nextColor, nextStart, last, now, updated
                 {/* Free time before the next one shows as line, on the same
                     scale as the pills: an hour free is a long stretch, back to back is short. */}
                 {!last ? <Link from={color} to={nextColor ?? color} progress={linkProgress(item, nextStart, now)} turn={turn}
-                    gap={nextStart !== undefined ? Math.min(vs(240), Math.max(0, nextStart - item.end) * size.per) : 0} /> : null}
+                    gap={nextStart !== undefined ? Math.min(size.max, Math.max(0, nextStart - item.end) * size.per) : 0} /> : null}
             </View>
 
             <Pressable onPress={() => onOpen(item)} style={[styles.body, { minHeight: height, paddingLeft: size.gap, paddingBottom: size.pad }]} accessibilityRole="button"
@@ -282,7 +285,8 @@ function Link({ from, to, progress, turn, gap = 0 }: { from: string; to: string;
     const shown = useProgress(Math.max(0, Math.min(1, progress)), turn.delay + turn.duration, undefined, turn.duration, POUR);
     const style = useAnimatedStyle(() => ({ height: shown.get() * length }));
     return (
-        <View style={[styles.link, { backgroundColor: t.color.border, minHeight: vs(10) + gap }]} onLayout={event => setLength(event.nativeEvent.layout.height)}>
+        // The line tucks s(10) under each pill, so free time adds that back to show at its true length.
+        <View style={[styles.link, { backgroundColor: t.color.border, minHeight: gap > 0 ? gap + s(20) : vs(10) }]} onLayout={event => setLength(event.nativeEvent.layout.height)}>
             <Animated.View pointerEvents="none" style={[styles.linkFill, style]}>
                 <LinearGradient colors={[from, to]} style={{ height: length }} />
             </Animated.View>

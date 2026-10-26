@@ -133,6 +133,37 @@ export interface DayWindowMinutes {
 }
 
 export function flowDay(items: FlowInput[], now: number | null, window: DayWindowMinutes = { wake: 7 * 60, sleep: 23 * 60 }): DayFlow {
+    // Ticked before its time came (the dishes, planned 4:50, done at 3:51): it
+    // took no time out of the day. It stays in its place in the order, right
+    // after what came before it, starting and ending at the same moment, and
+    // everything after flows on as if it were not there.
+    const slotOf = (item: FlowInput) => item.start !== null ? { start: item.start, end: item.start + item.minutes } : item.planned ?? item.kept ?? null;
+    const early = now === null ? [] : items.filter(item => {
+        if (!item.done || item.fixed) return false;
+        const slot = slotOf(item);
+        const at = item.doneAt ?? now;
+        return !!slot && at < slot.start;
+    });
+    if (!early.length) return flowDayLaid(items, now, window);
+    const flow = flowDayLaid(items.filter(item => !early.includes(item)), now, window);
+    return { ...flow, timeline: placeInstants(flow.timeline, early, slotOf) };
+}
+
+/** Zero-length done items, each right after whatever came before it in the plan. */
+function placeInstants(timeline: FlowItem[], early: FlowInput[], slotOf: (item: FlowInput) => { start: number; end: number } | null): FlowItem[] {
+    // Where each item stood in the plan (its memory, else where it is now), to know what came before.
+    const placed: { ref: number; item: FlowItem }[] = timeline.map(item => ({ ref: item.kept?.start ?? item.plannedStart, item }));
+    for (const item of [...early].sort((a, b) => (slotOf(a)?.start ?? 0) - (slotOf(b)?.start ?? 0))) {
+        const planned = slotOf(item)!.start;
+        const before = placed.filter(entry => entry.ref < planned).sort((a, b) => b.ref - a.ref || b.item.end - a.item.end)[0];
+        const at = before ? before.item.end : planned;
+        const instant: FlowItem = { ...item, start: at, end: at, plannedStart: planned, shift: at - planned, state: 'done', auto: true };
+        placed.push({ ref: planned, item: instant });
+    }
+    return placed.map(entry => entry.item).sort((a, b) => a.start - b.start || a.end - b.end);
+}
+
+function flowDayLaid(items: FlowInput[], now: number | null, window: DayWindowMinutes): DayFlow {
     const first = layOut(items, now, window);
     // How much the day had to give: anything left out counts far more than minutes cut.
     const cost = (flow: DayFlow) => flow.unfit.length * 10000 + flow.timeline.reduce((sum, item) => sum + (item.cutFrom ? item.cutFrom - (item.end - item.start) : 0), 0);

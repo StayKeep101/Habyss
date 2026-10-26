@@ -265,13 +265,21 @@ describe('exact time or flexible', () => {
 describe('where a done thing sits', () => {
     const window = { wake: 420, sleep: 1380 };
     const done = (id: string, minutes: number, extra: Partial<FlowInput> = {}): FlowInput => ({ id, kind: 'task', title: id, start: null, minutes, done: true, ...extra });
-    it('stays where it was planned when it was done before its time came', () => {
-        // Planned 18:00–18:30, ticked at 17:55: still 18:00–18:30, ticked.
-        const early = flowDay([done('essay', 30, { kept: { start: 1080, end: 1110 }, doneAt: 1075 })], 1200, window);
-        expect(early.timeline[0]).toMatchObject({ start: 1080, end: 1110, state: 'done' });
-        // Sourcing, 21:00–23:00 every day, done by noon: 21:00 is not asked for again.
-        const sourcing = flowDay([done('sourcing', 120, { planned: { start: 1260, end: 1380 }, kept: { start: 600, end: 720 }, doneAt: 720 })], 730, window);
-        expect(sourcing.timeline[0]).toMatchObject({ start: 1260, end: 1380, state: 'done' });
+    it('done before its time came, it takes no time: right after what came before it, and the rest moves up', () => {
+        // Study 15:00–17:00 done at 15:51; Learn AI next; the dishes (planned 16:50) ticked at 15:51;
+        // then Learn How to Sell and Improve UI. Now it is 15:55.
+        const flow = flowDay([
+            { id: 'study', kind: 'habit', title: 'Study', start: 900, minutes: 120, done: true, doneAt: 951 } as never,
+            { id: 'ai', kind: 'habit', title: 'Learn AI', start: null, minutes: 30, done: false, kept: { start: 955, end: 985 } } as never,
+            { id: 'dishes', kind: 'habit', title: 'Dishes', start: null, minutes: 30, done: true, doneAt: 951, planned: { start: 1010, end: 1040 }, kept: { start: 1010, end: 1040 } } as never,
+            { id: 'sell', kind: 'habit', title: 'Sell', start: null, minutes: 30, done: false, kept: { start: 1040, end: 1070 } } as never,
+        ], 955, window);
+        const at = (id: string) => flow.timeline.find(item => item.id === id)!;
+        expect(at('study')).toMatchObject({ start: 900, end: 951 });
+        expect(at('ai')).toMatchObject({ start: 955, end: 985 });
+        expect(at('dishes')).toMatchObject({ start: 985, end: 985, state: 'done' });
+        expect(at('sell')).toMatchObject({ start: 985, end: 1015 });
+        expect(flow.timeline.map(item => item.id)).toEqual(['study', 'ai', 'dishes', 'sell']);
     });
     it('never moves once ticked: its own time, else where it was planned, early or late', () => {
         // Morning run 8:30–9:00, ticked at 10:42: still 8:30–9:00.
@@ -376,8 +384,8 @@ describe('finishing partway through', () => {
         expect(flow.timeline.find(item => item.id === 'study')).toMatchObject({ start: 900, end: 930, state: 'done' });
         expect(flow.timeline.find(item => item.id === 'write')).toMatchObject({ start: 930, end: 990 });
     });
-    it('ticked before its time, it still does not move', () => {
+    it('ticked before its time with nothing before it, it sits at its own time, taking none', () => {
         const flow = flowDay([{ id: 'study', kind: 'habit', title: 'Study', start: 900, minutes: 120, done: true, doneAt: 600 } as never], 610, { wake: 480, sleep: 1380 });
-        expect(flow.timeline[0]).toMatchObject({ start: 900, end: 1020 });
+        expect(flow.timeline[0]).toMatchObject({ start: 900, end: 900, state: 'done' });
     });
 });
