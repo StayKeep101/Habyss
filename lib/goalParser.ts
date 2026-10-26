@@ -248,6 +248,8 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     // subject: otherwise "by January 1, 2027" made the target 1 and put
     // "january" into the title.
     let datePhrase = '';
+    const relative = text.match(/\b(?:(?:a|per|each|every)\s*(?:day|week|month)|daily|weekly|monthly|(?:by\s+|before\s+|until\s+)?(?:the\s+end\s+of\s+)?(?:this|next)\s+(?:week|month|year))\b/i);
+    if (relative) datePhrase = relative[0];
     if (/\b(a|per|each|every)\s*day\b|\bdaily\b/i.test(text)) window = { kind: 'recurring', period: 'day' };
     else if (/\b(a|per|each|every)\s*week\b|\bweekly\b/i.test(text)) window = { kind: 'recurring', period: 'week' };
     else if (/\b(a|per|each|every)\s*month\b|\bmonthly\b/i.test(text)) window = { kind: 'recurring', period: 'month' };
@@ -465,17 +467,10 @@ function buildTitle(raw: string, spec: GoalSpec, subject: string, today: Date, d
         ? `${Math.round((spec.target ?? 0) * 100)}%`
         : `${spec.target} ${spec.metric_unit}`;
 
-    let when = '';
-    if (spec.window?.kind === 'recurring') {
-        when = ` per ${spec.window.period}`;
-    } else if (spec.window?.kind === 'fixed') {
-        const end = new Date(`${spec.window.end}T12:00:00`);
-        const sameMonth = end.getFullYear() === today.getFullYear() && end.getMonth() === today.getMonth();
-        const month = MONTHS[end.getMonth()].replace(/^./, char => char.toUpperCase());
-        // The year only when it is not this one, so "by January 1, 2027" stays unambiguous.
-        const year = end.getFullYear() !== today.getFullYear() ? `, ${end.getFullYear()}` : '';
-        when = sameMonth ? ` in ${month}` : ` by ${month} ${end.getDate()}${year}`;
-    }
+    // The deadline and the rhythm are the goal's settings, shown beside it;
+    // the title is only what it is ("Read 24 books", not "… by December 31").
+    void today;
+    const when = '';
 
     if (spec.type === 'limit') return `Max ${amount} of ${name}${when}`;
     if (spec.type === 'target_value') {

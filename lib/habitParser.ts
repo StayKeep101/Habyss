@@ -25,6 +25,8 @@ export interface ParsedHabit {
     trackingMethod: 'boolean' | 'numeric';
     /** YYYY-MM-DD it stops: "until Dec 1", "due by Friday", "for 30 days". */
     endDate?: string;
+    /** YYYY-MM-DD it begins: "starting January 1, 2027", "from Monday". */
+    startDate?: string;
     /** "high priority", "no rush". */
     priority?: 1 | 2 | 3;
     /** "hard", "easy one". */
@@ -59,6 +61,11 @@ const COUNT_UNITS = [
 
 const DURATION_UNITS = ['minutes', 'minute', 'mins', 'min', 'hours', 'hour', 'hrs', 'hr'];
 
+const DAY_NAMES = 'sunday|monday|tuesday|wednesday|thursday|friday|saturday';
+const MONTH_NAMES = 'january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec';
+/** Where a part of the day starts, when no hour was said. */
+const PART_HOURS: Record<string, string> = { morning: '08:00', afternoon: '14:00', evening: '19:00', night: '21:00' };
+
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // A joining word left dangling once the days are taken out ("Run Monday and Wednesday" → "Run").
 const clean = (value: string) => value.replace(/\s+/g, ' ').replace(/\s+,/g, ',').replace(/(,\s*)+,/g, ',').replace(/^[,\s./-]+|[,\s./-]+$/g, '').replace(/\s+(?:and|&|or)$/i, '').trim();
@@ -86,6 +93,16 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
     else if (forSpan) {
         const end = readDate(`in ${forSpan[1]} ${forSpan[2]}`, today);
         if (end) { end.setDate(end.getDate() - 1); endDate = localDateKey(end); take(forSpan[0]); }
+    }
+
+    /* ------------------------------------------------------ when it begins */
+    // "starting January 1, 2027", "from next Monday", "beginning tomorrow": a
+    // setting, never part of the name.
+    let startDate: string | undefined;
+    const begins = rest.match(new RegExp(String.raw`\b(?:starting|beginning|from|as of)\s+(?:on\s+)?(today|tomorrow|next\s+(?:week|month|${DAY_NAMES})|(?:this\s+)?(?:${DAY_NAMES})|(?:${MONTH_NAMES})\.?\s*\d{1,2}(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?|\d{4}-\d{2}-\d{2})\b`, 'i'));
+    if (begins) {
+        const when = readDate(begins[1], today) ?? readDate(begins[1].replace(/(\d)(st|nd|rd|th)\b/i, '$1'), today);
+        if (when) { startDate = localDateKey(when); take(begins[0]); }
     }
 
     /* ------------------------------------------- priority, difficulty, timing */
@@ -201,6 +218,20 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
         break;
     }
 
+    /* ------------------------------------------------------- part of the day */
+    // "each morning", "every night", "in the evening": a time, and with
+    // every/each, every day. Only a starting hour when none was given.
+    const part = rest.match(/\b(?:(every|each)\s+|in\s+the\s+|at\s+)?(morning|afternoon|evening|night)s?\b/i);
+    if (part) {
+        if (part[1]) matched.days = true;
+        if (!startTime) {
+            startTime = PART_HOURS[part[2].toLowerCase()];
+            matched.time = true;
+            assumptions.push(`Read "${part[2].toLowerCase()}" as ${startTime} — tap the time to change it`);
+        }
+        strike(new RegExp(escapeRegex(part[0]), 'i'));
+    }
+
     /* ----------------------------------------------------------------- name */
     strike(/\b(a day|per day|each|every|of)\b/gi);
     const name = tidyName(rest);
@@ -223,6 +254,7 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
         targetUnit,
         trackingMethod: targetValue !== undefined ? 'numeric' : 'boolean',
         endDate,
+        startDate,
         priority: urgency?.priority,
         difficulty: hardness?.difficulty,
         flexible: timing?.flexible,
@@ -246,7 +278,7 @@ export function parsedToHabit(parsed: ParsedHabit, startDate: string): Partial<H
         goalPeriod: 'daily',
         category: 'personal',
         icon: 'ellipse-outline',
-        startDate,
+        startDate: parsed.startDate ?? startDate,
         endDate: parsed.endDate,
         priority: parsed.priority,
         difficulty: parsed.difficulty,

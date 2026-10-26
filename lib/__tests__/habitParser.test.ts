@@ -142,3 +142,19 @@ describe('handing the result to the store', () => {
         expect(summary).toContain('21:00');
     });
 });
+
+describe('a clean name: when it begins and the part of the day are settings', () => {
+    const today = new Date(2026, 9, 26, 10);
+    it('reads "starting January 1, 2027" as the start date and "each morning" as a time', () => {
+        const parsed = parseHabitText('meditate 10 minutes each morning starting january 1, 2027', today);
+        expect(parsed.name).toBe('Meditate');
+        expect(parsed.startDate).toBe('2027-01-01');
+        expect(parsed.startTime).toBe('08:00');
+        expect(parsed.matched.days).toBe(true);
+    });
+    it('keeps "every night" out of the name, and a said hour wins', () => {
+        const parsed = parseHabitText('journal every night at 10pm', today);
+        expect(parsed.name).toBe('Journal');
+        expect(parsed.startTime).toBe('22:00');
+    });
+});

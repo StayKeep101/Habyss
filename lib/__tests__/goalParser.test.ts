@@ -14,7 +14,7 @@ describe('the four examples from the contract', () => {
             linked_habits: ['h_1'], suggested_habit: null,
         });
         expect(result.goal.title).toContain('50 km');
-        expect(result.goal.title).toContain('September');
+        expect(result.goal.title).not.toContain('September');
         expect(result.missing_fields).toEqual([]);
         expect(result.clarifying_question).toBeNull();
     });
@@ -288,7 +288,8 @@ describe('dates with a year or an ISO date', () => {
     it('keeps the date out of the title and the amount', () => {
         const result = parseGoalText('Save 10000 dollars by December 31, 2026', { today });
         expect(result.goal.target).toBe(10000);
-        expect(result.goal.title).toBe('Save 10000 dollars by December 31');
+        expect(result.goal.title).toBe('Save 10000 dollars');
+        expect(result.goal.window).toEqual({ kind: 'fixed', start: '2026-09-19', end: '2026-12-31' });
         expect(result.goal.window).toEqual({ kind: 'fixed', start: '2026-09-19', end: '2026-12-31' });
     });
 
@@ -298,9 +299,10 @@ describe('dates with a year or an ISO date', () => {
         expect(result.goal.window).toEqual({ kind: 'fixed', start: '2026-09-19', end: '2027-01-01' });
     });
 
-    it('shows the year in the title when it is not this year', () => {
+    it('keeps a deadline in another year out of the title too, as the goal\'s end date', () => {
         const result = parseGoalText('Read 3000 pages by March 1, 2027', { today });
-        expect(result.goal.title).toBe('Read 3000 pages by March 1, 2027');
+        expect(result.goal.title).toBe('Read 3000 pages');
+        expect(result.goal.window).toEqual({ kind: 'fixed', start: '2026-09-19', end: '2027-03-01' });
     });
 
     it('reads ISO dates and ordinals', () => {
@@ -326,6 +328,21 @@ describe('goal unit vocabulary', () => {
         const result = parseGoalText(text as string, { today: new Date(2026, 8, 25) });
         expect(result.status).toBe('complete');
         expect(result.goal).toMatchObject({ metric_unit: unit, target });
+    });
+});
+
+describe('a clean title: the deadline is a setting, never part of the name', () => {
+    const today = new Date(2026, 9, 26);
+    it('reads "by this year" as December 31 and leaves "Read 24 books"', () => {
+        const result = parseGoalText('read 24 books by this year', { today });
+        expect(result.goal.title).toBe('Read 24 books');
+        expect(result.goal.target).toBe(24);
+        expect(result.goal.window).toEqual({ kind: 'fixed', start: '2026-10-26', end: '2026-12-31' });
+    });
+    it('reads "by January 1, 2027" as the end date', () => {
+        const result = parseGoalText('launch habyss by january 1, 2027', { today });
+        expect(result.goal.title).toBe('Launch habyss');
+        expect(result.goal.window).toEqual({ kind: 'fixed', start: '2026-10-26', end: '2027-01-01' });
     });
 });
 

@@ -77,6 +77,8 @@ interface Draft {
     flexible?: boolean;
     /** YYYY-MM-DD it stops, when it has an end ("until Dec 1"). */
     endDate?: string;
+    /** YYYY-MM-DD it begins; today when not said. */
+    startDate?: string;
 }
 
 const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
@@ -248,6 +250,7 @@ export const HabitSheet: React.FC<{
             // Read by the rules alone (the model is not asked for these):
             // "until Friday", "high priority", "hard", "at 7 sharp".
             endDate: rules?.endDate ?? start.endDate,
+            startDate: rules?.startDate ?? start.startDate,
             priority: rules?.priority ?? start.priority,
             difficulty: rules?.difficulty ?? start.difficulty,
             flexible: rules?.flexible ?? start.flexible,
@@ -310,7 +313,7 @@ export const HabitSheet: React.FC<{
                     ? draft.health : undefined,
                 goalPeriod: current?.goalPeriod ?? 'daily',
                 category: current?.category ?? 'personal',
-                startDate: current?.startDate ?? localDateKey(new Date()),
+                startDate: draft.startDate ?? current?.startDate ?? localDateKey(new Date()),
             };
 
             if (current) await updateHabit({ id: current.id, ...fields });
