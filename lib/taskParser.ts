@@ -2,6 +2,7 @@ import { localDateKey } from './habitSchedule';
 import { formatDuration } from './habitMeasurement';
 import type { TaskPriority } from './tasks';
 import { findDeadline, findDifficulty, findPriority, findTimeRange, findTiming } from './dateWords';
+import { NUMBER, TAKEN, afterCorrection, shield, tidyTaken, toNumber } from './phrases';
 
 /**
  * Task parser.
@@ -51,16 +52,12 @@ const MONTHS: Record<string, number> = {
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+/** The title once its phrases are out: tidied only where they were (lib/phrases.ts). */
 const tidyTitle = (value: string): string => {
-    const cleaned = value
-        .replace(/\s+/g, ' ')
-        // Commas left behind by the phrases taken out: "Essay , , 2 hours".
-        .replace(/\s+,/g, ',').replace(/(,\s*)+,/g, ',')
-        .replace(/\s*[,;:]\s*$/g, '')
-        .replace(/^\s*[,;:-]\s*/g, '')
-        .replace(/\b(on|at|by|for|in|this|next)\s*$/i, '')
-        .trim();
-    return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : '';
+    const cleaned = tidyTaken(value);
+    if (!cleaned) return '';
+    // A link stays exactly as written.
+    return /^(https?:|www\.)/i.test(cleaned) ? cleaned : cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 };
 
 const addDays = (from: Date, days: number): Date => {
@@ -71,9 +68,13 @@ const addDays = (from: Date, days: number): Date => {
 
 export function parseTaskText(input: string, today: Date = new Date()): ParsedTaskText {
     const matched: ParsedTaskText['matched'] = { date: false, time: false, estimate: false, priority: false };
-    let rest = ` ${(input ?? '').trim()} `;
-    const strike = (pattern: RegExp) => { rest = rest.replace(pattern, ' '); };
-    const take = (phrase: string) => { rest = rest.replace(phrase, ' '); };
+    // "Monday's meeting", "about Saturday", links: not dates (lib/phrases.ts).
+    const shielded = shield((input ?? '').trim());
+    let rest = ` ${shielded.text} `;
+    const strike = (pattern: RegExp) => { rest = rest.replace(pattern, TAKEN); };
+    const take = (phrase: string) => { rest = rest.replace(phrase, TAKEN); };
+    // "Meeting on Tuesday, wait, they moved it to Thursday": the date meant is the last one.
+    const corrected = afterCorrection(rest);
     const base = new Date(today);
     base.setHours(12, 0, 0, 0);
 
@@ -114,11 +115,16 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
     }
 
     /* ------------------------------------------------------------- estimate */
-    const estimate = estimatedMinutes === undefined ? rest.match(/\b(?:for\s+|takes\s+)?(\d{1,3})\s*(minutes?|mins?|m|hours?|hrs?|h)\b/i) : null;
+    // "30 minutes", "takes one hour", "a 90-minute session", "2h". A bare
+    // "14 h" is a clock time in French, not a length, so "h" needs no space.
+    const estimate = estimatedMinutes === undefined
+        ? rest.match(new RegExp(`\\b(?:for\\s+|takes?\\s+(?:only\\s+|about\\s+|around\\s+)?|estimated\\s+(?:to\\s+take\\s+|at\\s+)?)?(${NUMBER})(?:\\s+|-)(minutes?|mins?|hours?|hrs?)\\b`, 'i'))
+            ?? rest.match(/\b(\d{1,3})(m|h)\b/i)
+        : null;
     if (estimate) {
-        const amount = Number(estimate[1]);
+        const amount = toNumber(estimate[1]) ?? NaN;
         const minutes = /^h/i.test(estimate[2]) ? amount * 60 : amount;
-        if (minutes > 0 && minutes <= 24 * 60) {
+        if (minutes > 0 && minutes <= 200 * 60) {
             estimatedMinutes = minutes;
             matched.estimate = true;
             strike(new RegExp(escapeRegex(estimate[0]), 'i'));
@@ -127,7 +133,18 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
 
     /* ----------------------------------------------------------------- date */
     let due: Date | undefined;
+    // Read from the whole sentence: "due tonight" may already be taken as the deadline.
+    let saidTonight = /\b(tonight|this evening|in the evening)\b/i.test(shielded.text);
 
+    // After a correction, the date meant is in the words that follow it; the
+    // one before it is dropped too.
+    const scope = corrected && /\b(today|tonight|tomorrow|sunday|monday|tuesday|wednesday|thursday|friday|saturday|january|february|march|april|may|june|july|august|september|october|november|december|\d{1,2}\/\d{1,2})\b/i.test(corrected) ? corrected : null;
+    if (scope) {
+        const before = rest.slice(0, rest.length - scope.length);
+        const cleared = before.replace(/\b(?:on\s+|this\s+|next\s+)?(today|tomorrow|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi, TAKEN)
+            .replace(/\b(?:wait|actually|no wait|correction|i mean|scratch that)\b[,:]?/gi, TAKEN);
+        rest = cleared + scope.replace(/\b(?:i think\s+)?(?:they\s+)?(?:moved|changed)\s+it\s+to\b/gi, TAKEN);
+    }
     const named = rest.match(/\b(today|tonight|tomorrow|tmr|the day after tomorrow)\b/i);
     const relative = rest.match(/\bin\s+(\d{1,3})\s*(days?|weeks?)\b/i);
     const nextWeekday = rest.match(/\b(?:next|this|on|by)\s+(sunday|sun|monday|mon|tuesday|tues|tue|wednesday|weds|wed|thursday|thurs|thur|thu|friday|fri|saturday|sat)\b/i);
@@ -148,7 +165,7 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
                 : addDays(base, 1);
         strike(new RegExp(escapeRegex(named[0]), 'i'));
         // "Tonight" is a time as much as a date.
-        if (word === 'tonight') matched.time = true;
+        if (word === 'tonight') { matched.time = true; saidTonight = true; }
     } else if (relative) {
         const amount = Number(relative[1]);
         due = addDays(base, /^w/i.test(relative[2]) ? amount * 7 : amount);
@@ -161,7 +178,11 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
         let ahead = (wanted - base.getDay() + 7) % 7;
         if (ahead === 0) ahead = 7;
         due = addDays(base, ahead);
-        strike(new RegExp(escapeRegex(match[0]), 'i'));
+        // "Buy ingredients for Sunday dinner": the day describes the dinner,
+        // so it sets the date and stays in the name.
+        const after = rest.slice((match.index ?? 0) + match[0].length).match(/^\s+([a-z]+)/i)?.[1]?.toLowerCase();
+        const describes = !!after && /^(dinner|lunch|breakfast|brunch|meeting|class|lecture|service|party|game|match|plans?|shift|school|session|call|practice|rehearsal|market|night|show|brunch)$/.test(after);
+        if (!describes) strike(new RegExp(escapeRegex(match[0]), 'i'));
     } else if (monthFirst || dayFirst) {
         const month = MONTHS[(monthFirst ? monthFirst[1] : dayFirst![2]).toLowerCase()];
         const day = Number(monthFirst ? monthFirst[2] : dayFirst![1]);
@@ -169,6 +190,10 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
             let candidate = new Date(base.getFullYear(), month, day, 12);
             // A date already gone means next year, the way a calendar does it.
             if (candidate < base) candidate = new Date(base.getFullYear() + 1, month, day, 12);
+            // February 29: the next year that has one.
+            for (let ahead = 1; ahead <= 4 && month === 1 && day === 29 && candidate.getMonth() !== month; ahead++) {
+                candidate = new Date(base.getFullYear() + ahead, 1, 29, 12);
+            }
             if (candidate.getMonth() === month) { due = candidate; strike(new RegExp(escapeRegex((monthFirst ?? dayFirst)![0]), 'i')); }
         }
     } else if (nextWeek) {
@@ -182,7 +207,8 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
     let dueTime: string | undefined = rangeStart;
     const wordTimes: { pattern: RegExp; time: string }[] = [
         { pattern: /\b(at\s+)?noon\b/i, time: '12:00' },
-        { pattern: /\b(at\s+)?midnight\b/i, time: '00:00' },
+        // Midnight is the end of the day it is due, never 00:00 that morning.
+        { pattern: /\b(?:at\s+|before\s+|by\s+)?midnight\b/i, time: '23:59' },
         { pattern: /\bmorning\b/i, time: '09:00' },
         { pattern: /\bafternoon\b/i, time: '14:00' },
         { pattern: /\b(evening|tonight)\b/i, time: '19:00' },
@@ -203,16 +229,21 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
         const meridiem = (pattern.hasMinutes ? match[3] : match[2])?.toLowerCase();
         if (hour > 24 || minute > 59) continue;
         if (meridiem === 'pm' && hour < 12) hour += 12;
+        // "Due at 12:00 AM" is the end of that day, not the morning already gone.
+        const endOfDay = meridiem === 'am' && hour === 12;
         if (meridiem === 'am' && hour === 12) hour = 0;
+        // "Tonight at 11:59": the evening one.
+        if (!meridiem && saidTonight && hour >= 1 && hour < 12) hour += 12;
         // A bare hour of 1-6 reads as the afternoon, which is how people say it.
-        if (pattern.bare && hour >= 1 && hour <= 6) hour += 12;
+        else if (pattern.bare && hour >= 1 && hour <= 6) hour += 12;
         if (hour >= 24) continue;
-        dueTime = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+        dueTime = endOfDay && minute === 0 ? '23:59' : `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
         matched.time = true;
         strike(new RegExp(escapeRegex(match[0]), 'i'));
         break;
     }
 
+    if (!dueTime && saidTonight) { dueTime = '19:00'; matched.time = true; }
     if (!dueTime) {
         for (const word of wordTimes) {
             const match = rest.match(word.pattern);
@@ -240,8 +271,7 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
     }
 
     /* ---------------------------------------------------------------- title */
-    strike(/\b(due|on|by)\b/gi);
-    const title = tidyTitle(rest);
+    const title = tidyTitle(shielded.restore(rest));
 
     return {
         title,
@@ -274,13 +304,22 @@ export function describeParsedTask(parsed: ParsedTaskText, today: Date = new Dat
  * the start, so "Call the bank at 2pm" stays a done-or-not task.
  */
 export function readTaskMeasure(text: string): { measure: 'count' | 'time'; target: number; unit?: string } | null {
-    const head = text.trim().match(/^[a-z]+\s+(\d[\d,]*(?:\.\d+)?)\s*([a-z]+)/i);
+    const clean = text.trim();
+    // "Complete calculus questions 1–20": twenty questions.
+    const range = clean.match(/^[a-z]+\s+(?:[a-z]+\s+){0,3}?([a-z]+)\s+(\d{1,4})\s*[–-]\s*(\d{1,4})\b/i);
+    if (range && Number(range[3]) > Number(range[2])) return { measure: 'count', target: Number(range[3]) - Number(range[2]) + 1, unit: range[1].toLowerCase() };
+    const head = clean.match(new RegExp(`^[a-z]+\\s+(${NUMBER})\\s*([a-z][a-z-]*)((?:\\s+[a-z][a-z-]*){0,3})`, 'i'));
     if (!head) return null;
-    const amount = Number(head[1].replace(/,/g, ''));
-    if (!Number.isFinite(amount) || amount <= 0) return null;
+    const amount = toNumber(head[1]);
+    if (amount === null || !Number.isFinite(amount) || amount <= 0) return null;
     const word = head[2].toLowerCase();
     if (/^(h|hr|hrs|hour|hours)$/.test(word)) return { measure: 'time', target: Math.round(amount * 60) };
     if (/^(m|min|mins|minute|minutes)$/.test(word)) return { measure: 'time', target: Math.round(amount) };
     if (/^(am|pm|st|nd|rd|th)$/.test(word) || amount < 2) return null;
-    return { measure: 'count', target: amount, unit: word };
+    // The thing counted is the last word before a joining word: "30 new
+    // customer leads for the launch" counts leads, not "new".
+    const words = [word, ...head[3].trim().split(/\s+/).filter(Boolean).map(item => item.toLowerCase())];
+    const stop = words.findIndex((item, index) => index > 0 && /^(for|to|from|with|in|on|at|by|about|and|of|the|a|an|before|after|this|next|every|each|per)$/.test(item));
+    const nouns = stop === -1 ? words : words.slice(0, stop);
+    return { measure: 'count', target: amount, unit: nouns[nouns.length - 1] };
 }

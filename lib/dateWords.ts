@@ -88,6 +88,11 @@ export function readDate(phrase: string, today: Date = new Date()): Date | null 
     const dayMonth = (day: number, month: number, year?: number) => {
         if (day < 1 || day > 31 || month < 0 || month > 11) return null;
         let date = new Date(year ?? base.getFullYear(), month, day, 12);
+        // February 29 with no year: the next one there is.
+        if (date.getMonth() !== month && !year && month === 1 && day === 29) {
+            for (let ahead = 0; ahead <= 4 && date.getMonth() !== month; ahead++) date = new Date(base.getFullYear() + ahead, 1, 29, 12);
+            return date.getMonth() === month ? date : null;
+        }
         if (date.getMonth() !== month) return null;
         // Gone already this year: next year, the way a calendar reads it.
         if (!year && date < base) date = new Date(base.getFullYear() + 1, month, day, 12);
@@ -165,10 +170,13 @@ export function findTiming(text: string): { flexible: boolean; phrase: string } 
 
 /** Priority words: "urgent", "important", "high priority" / "low priority", "no rush". */
 export function findPriority(text: string): { priority: 1 | 2 | 3; phrase: string } | null {
+    // "Maybe this isn't actually important" is a thought, not a priority.
+    if (/\b(?:isn'?t|is not|wasn'?t|was not|aren'?t|are not)\s+(?:\w+\s+)?(?:urgent|important)\b/i.test(text)) return null;
     // "Not urgent" before "urgent", so the "urgent" inside it is not read as high.
     const low = text.match(/\b(?:low\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*low|not\s+(?:very\s+|that\s+|really\s+)?(?:urgent|important)|no\s+rush|no\s+hurry|sometime|whenever|eventually|p3)\b/i);
     if (low) return { priority: 3, phrase: low[0] };
-    const high = text.match(/\b(?:(?:very\s+|super\s+|really\s+)?urgent|urgently|asap|important|critical|high\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*high|top\s+priority|must\s+do|p1)\b/i);
+    const high = text.match(/\b(?:(?:very\s+|super\s+|really\s+)?urgent|urgently|asap|high\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*high|top\s+priority|must\s+do|p1)\b/i)
+        ?? text.match(/(?:^|[,(;-]\s*|\bit'?s\s+|\bvery\s+|\bsuper\s+|\breally\s+)(?:important|critical)\b|\b(?:important|critical)[!.\s)]*$/i);
     if (high) return { priority: 1, phrase: high[0] };
     const normal = text.match(/\b(?:(?:normal|medium)\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*(?:normal|medium)|p2)\b/i);
     if (normal) return { priority: 2, phrase: normal[0] };

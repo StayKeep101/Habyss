@@ -1,4 +1,4 @@
-import { describeParsedTask, parseTaskText } from '../taskParser';
+import { describeParsedTask, parseTaskText, readTaskMeasure } from '../taskParser';
 
 // A Wednesday, so "friday" is two days out and "monday" is five.
 const TODAY = new Date(2026, 8, 23, 9, 0, 0);
@@ -79,5 +79,40 @@ describe('the line under the field', () => {
     it('says plainly when there is no date at all', () => {
         expect(describeParsedTask(parse('Think about the redesign'), TODAY))
             .toContain('No date');
+    });
+});
+
+describe('the shared phrase reader, on tasks', () => {
+    const today = new Date(2026, 9, 26, 10); // Monday
+    const read = (text: string) => parseTaskText(text, today);
+    it('keeps day words that belong to something in the title', () => {
+        expect(read("Prepare slides for Monday's meeting").title).toBe("Prepare slides for Monday's meeting");
+        expect(read("Attend tomorrow's online seminar").dueDate).toBeUndefined();
+        expect(read('Respond to the group chat about Saturday').title).toBe('Respond to the group chat about Saturday');
+        expect(read('Buy ingredients for Sunday dinner')).toMatchObject({ title: 'Buy ingredients for Sunday dinner', dueDate: '2026-11-01' });
+    });
+    it('reads midnight as the end of the day and tonight as the evening', () => {
+        expect(read('Submit my essay before midnight')).toMatchObject({ title: 'Submit my essay', dueDate: '2026-10-26', dueTime: '23:59' });
+        expect(read('The assignment is due tonight at 11:59').dueTime).toBe('23:59');
+        expect(read('Call my grandmother tonight').dueTime).toBe('19:00');
+    });
+    it('reads numbers in words and long estimates, and leaves names whole', () => {
+        expect(read('Schedule a task that takes only one minute')).toMatchObject({ title: 'Schedule a task', estimatedMinutes: 1 });
+        expect(read('Work on a task estimated to take 40 hours')).toMatchObject({ title: 'Work on a task', estimatedMinutes: 2400 });
+        expect(read('Postpone an unfinished task to next week').title).toBe('Postpone an unfinished task');
+        expect(read('Log in to the bank').title).toBe('Log in to the bank');
+    });
+    it('counts what is counted', () => {
+        expect(readTaskMeasure('Review 30 new customer leads')).toEqual({ measure: 'count', target: 30, unit: 'leads' });
+        expect(readTaskMeasure('Send five personalized outreach emails')).toEqual({ measure: 'count', target: 5, unit: 'emails' });
+        expect(readTaskMeasure('Complete calculus homework questions 1–20')).toEqual({ measure: 'count', target: 20, unit: 'questions' });
+    });
+    it('takes the corrected date and the next February 29', () => {
+        expect(read('Meeting on Tuesday, wait, they moved it to Thursday').dueDate).toBe('2026-10-29');
+        expect(read('Finish the report by February 29').deadline).toBe('2028-02-29');
+    });
+    it('does not turn a thought into a priority, and keeps links as written', () => {
+        expect(read("Maybe this isn't actually important")).toMatchObject({ title: "Maybe this isn't actually important", priority: 2 });
+        expect(read('https://example.com/article read this later').title.startsWith('https://example.com/article')).toBe(true);
     });
 });
