@@ -95,10 +95,13 @@ const DateButtonComponent = ({
     <View style={{ width, alignItems: 'center', justifyContent: 'center' }}>
       <TouchableOpacity
         onPress={() => onSelect(item.fullDate)}
+        accessibilityRole="button"
+        accessibilityState={{ selected }}
+        accessibilityLabel={`${item.fullDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${isDeadline ? ', goal deadline' : ''}`}
         style={{ width, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' }}
       >
         {item.monthMark ? (
-          <Text style={{ position: 'absolute', top: -8, fontSize: 9, fontFamily: FontFamily.semibold, color: accentColor }}>
+          <Text style={{ position: 'absolute', top: -10, fontSize: 11, fontFamily: FontFamily.semibold, color: accentColor }}>
             {item.monthMark}
           </Text>
         ) : null}
@@ -139,7 +142,7 @@ const DateButtonComponent = ({
               justifyContent: 'center',
             }}
           >
-            <Text style={{ color: isDeadline ? textOn(deadlineColor) : selected ? 'white' : (isLight ? 'black' : colors.textSecondary), fontSize: 14, fontFamily: FontFamily.bold }}>
+            <Text style={{ color: isDeadline ? textOn(deadlineColor) : selected ? textOn(accentColor) : (isLight ? 'black' : colors.textSecondary), fontSize: 14, fontFamily: FontFamily.bold }}>
               {item.dayNumber}
             </Text>
           </View>

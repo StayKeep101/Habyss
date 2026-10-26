@@ -232,7 +232,7 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
               accessibilityState={{ checked: !!doneByMe }}
               accessibilityLabel={skipped ? `${habit.name}, skipped today` : isCompleted ? `Undo ${habit.name}` : `Mark ${habit.name} done`}
               onPress={() => onToggle && onToggle(habit)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={Math.max(10, (44 - checkboxSize) / 2)}
             >
               <CheckPop active={!!doneByMe} color={accentColor} size={checkboxSize}>
                 <View style={[
@@ -269,15 +269,15 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
                 <View style={styles.sharedRow}>
                   <SharedFaces people={shared.people} tint={accentColor} size={isSmall ? 20 : 24} />
                   {!isSmall ? (
-                    <Text numberOfLines={1} style={{ fontSize: 10, color: shared.waitingOnYou ? colors.warning : colors.textTertiary, fontFamily: FontFamily.medium }}>
+                    <Text numberOfLines={1} style={{ fontSize: 11, color: shared.waitingOnYou ? colors.warning : colors.textTertiary, fontFamily: FontFamily.medium }}>
                       {shared.line}
                     </Text>
                   ) : null}
                 </View>
               ) : skipped && !isCompleted && !isSmall ? (
-                <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: FontFamily.medium, marginTop: 2 }}>Skipped today</Text>
+                <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.medium, marginTop: 2 }}>Skipped today</Text>
               ) : goalName && !isSmall ? (
-                <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: FontFamily.regular, marginTop: 2 }} numberOfLines={1}>{goalName}</Text>
+                <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, marginTop: 2 }} numberOfLines={1}>{goalName}</Text>
               ) : ((habit.streak ?? 0) > 0 && !isSmall) ? (
                 <Text style={[styles.streakText, { color: '#F59E0B' }]}><Ionicons name="flame-outline" size={12} color="#F59E0B" /> <CountUp value={habit.streak ?? 0} /></Text>
               ) : null}
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   },
   sharedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
   streakText: {
-    fontSize: 9,
+    fontSize: 11,
     fontFamily: FontFamily.bold,
     marginTop: 1,
   },

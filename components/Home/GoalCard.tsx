@@ -128,6 +128,9 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         <TouchableOpacity
           onPress={onToggleExpand}
           activeOpacity={0.6}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isExpanded }}
+          accessibilityLabel={`${isExpanded ? 'Hide' : 'Show'} ${linkedHabitsCount} habits`}
           style={[styles.toggleBtn, {
             borderLeftColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)',
             padding, // Match the padding of the left side content roughly, or specific vertical padding
@@ -136,7 +139,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             justifyContent: 'center'
           }]}
         >
-          <Text style={{ color: colors.textTertiary, fontSize: 10, fontFamily: FontFamily.bold, marginRight: 4 }}>
+          <Text style={{ color: colors.textTertiary, fontSize: 11, fontFamily: FontFamily.bold, marginRight: 4 }}>
             {linkedHabitsCount}
           </Text>
           <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color={colors.textTertiary} />
@@ -174,7 +177,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   daysText: {
-    fontSize: 9,
+    fontSize: 11,
     fontFamily: FontFamily.semibold,
   },
   progressBg: {

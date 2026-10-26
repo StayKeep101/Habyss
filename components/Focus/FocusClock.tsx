@@ -6,6 +6,8 @@ import { clockText, type ClockStyle } from '@/lib/focusClock';
 
 const FOCUS_TEXT = '#FFFFFF';
 const FOCUS_DIM = 'rgba(255,255,255,0.35)';
+/** Words under the clock (Paused, Over time): 0.6 white on black reads at 7:1, the dim tone only 3:1. */
+const FOCUS_LABEL = 'rgba(255,255,255,0.6)';
 
 /**
  * The focus clock, drawn as cheaply as possible: plain text and, for the
@@ -41,7 +43,7 @@ export function FocusClock({ seconds, progress, style, accent, label }: {
                         strokeDasharray={`${c} ${c}`} strokeDashoffset={c * (1 - (progress ?? 1))} rotation={-90} origin={`${size / 2}, ${size / 2}`} />
                 </Svg>
                 <Text style={[styles.digits, { fontSize: digits * 0.62, color: FOCUS_TEXT }]}>{text}</Text>
-                {label ? <Text style={[styles.label, { color: FOCUS_DIM }]}>{label}</Text> : null}
+                {label ? <Text style={[styles.label, { color: FOCUS_LABEL }]}>{label}</Text> : null}
             </View>
         );
     }
@@ -60,7 +62,7 @@ export function FocusClock({ seconds, progress, style, accent, label }: {
     return (
         <View style={styles.center}>
             <Text style={[styles.digits, { fontSize: digits, color: FOCUS_TEXT }]}>{text}</Text>
-            {label ? <Text style={[styles.label, { color: FOCUS_DIM }]}>{label}</Text> : null}
+            {label ? <Text style={[styles.label, { color: FOCUS_LABEL }]}>{label}</Text> : null}
         </View>
     );
 }

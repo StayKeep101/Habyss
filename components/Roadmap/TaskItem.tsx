@@ -202,7 +202,7 @@ const TaskItemComponent: React.FC<Props> = ({
                         accessibilityState={{ checked: doneByMe }}
                         accessibilityLabel={done ? `Reopen ${task.title}` : `Mark ${task.title} done`}
                         onPress={toggle}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        hitSlop={Math.max(10, (44 - boxSize) / 2)}
                     >
                         <CheckPop active={doneByMe} color={TASK_COLOR} size={boxSize}>
                             <View style={[styles.box, {
@@ -281,10 +281,10 @@ const styles = StyleSheet.create({
     box: { borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
     iconBox: { borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
     title: { fontFamily: FontFamily.medium },
-    meta: { fontSize: 10, fontFamily: FontFamily.regular, flexShrink: 1 },
+    meta: { fontSize: 11, fontFamily: FontFamily.regular, flexShrink: 1 },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
     track: { height: 3, borderRadius: 2, marginTop: 5, overflow: 'hidden' },
     fill: { height: 3, borderRadius: 2 },
-    estimate: { fontSize: 9, fontFamily: FontFamily.regular, marginBottom: 1 },
+    estimate: { fontSize: 11, fontFamily: FontFamily.regular, marginBottom: 1 },
     when: { fontFamily: FontFamily.regular, fontVariant: ['tabular-nums'] },
 });

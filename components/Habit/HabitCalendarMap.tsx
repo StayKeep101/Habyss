@@ -6,6 +6,7 @@ import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { localDateKey } from '@/lib/habitSchedule';
 import { useWeekStart } from '@/hooks/useWeekStart';
+import { textOn } from '@/theme/tokens';
 
 interface Day { date: string; completed: boolean; skipped: boolean; scheduled: boolean }
 
@@ -134,7 +135,7 @@ export function HabitCalendarMap({ history, color, startDate, today, inset }: Pr
                                     }]}
                                 >
                                     <Text style={[styles.dayNumber, {
-                                        color: done ? '#FFFFFF' : isToday ? color : colors.textSecondary,
+                                        color: done ? textOn(color) : isToday ? color : colors.textSecondary,
                                         fontFamily: done || isToday ? FontFamily.semibold : FontFamily.regular,
                                     }]}>{Number(date.slice(8))}</Text>
                                 </View>
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
     statLabel: { fontSize: 12, fontFamily: FontFamily.regular },
     month: { fontSize: 15, fontFamily: FontFamily.bold, marginTop: 6 },
     row: { flexDirection: 'row' },
-    weekday: { textAlign: 'center', fontSize: 10, fontFamily: FontFamily.semibold },
+    weekday: { textAlign: 'center', fontSize: 11, fontFamily: FontFamily.semibold },
     cell: { alignItems: 'center', justifyContent: 'center' },
     dayNumber: { fontSize: 12, fontVariant: ['tabular-nums'] },
 });

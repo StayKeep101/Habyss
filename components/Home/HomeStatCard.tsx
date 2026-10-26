@@ -38,5 +38,5 @@ const styles = StyleSheet.create({
     readout: { alignItems: 'center' },
     value: { fontSize: 22, lineHeight: 26, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
     label: { fontSize: 11, fontFamily: FontFamily.medium },
-    note: { fontSize: 10, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
+    note: { fontSize: 11, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
 });
