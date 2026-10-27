@@ -14,15 +14,17 @@ const WEEKDAY = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'F
 
 /**
  * The habit's face: its icon inside a ring of how much of this week is kept,
- * its name, and how it repeats. The ring is the only thing in its colour.
+ * on the left under the back arrow, and beside it its name, how it repeats
+ * and the goal it serves, with the whole width for the words. The ring is the
+ * only thing in its colour.
  */
 export function HabitHero({ icon, name, schedule, color, weekShare, goalName, onGoal }: {
     icon?: string; name: string; schedule: string; color: string; weekShare: number;
     goalName?: string; onGoal?: () => void;
 }) {
     const t = useTokens();
-    const size = 112;
-    const stroke = 6;
+    const size = 84;
+    const stroke = 5;
     const r = (size - stroke) / 2;
     const c = 2 * Math.PI * r;
     const shown = useProgress(Math.max(0, Math.min(1, weekShare)));
@@ -38,9 +40,10 @@ export function HabitHero({ icon, name, schedule, color, weekShare, goalName, on
                         strokeDasharray={`${c} ${c}`} animatedProps={arc} rotation={-90} origin={`${size / 2}, ${size / 2}`} opacity={weekShare > 0 ? 1 : 0} />
                 </Svg>
                 {photo ? <Image source={{ uri: icon }} style={styles.photo} />
-                    : <AppIcon name={icon || 'repeat'} filled size={38} color={color} />}
+                    : <AppIcon name={icon || 'repeat'} filled size={30} color={color} />}
             </View>
-            <Text style={[styles.name, { color: t.color.textPrimary }]} numberOfLines={2} accessibilityRole="header">{name}</Text>
+            <View style={styles.heroText}>
+            <Text style={[styles.name, { color: t.color.textPrimary }]} numberOfLines={3} accessibilityRole="header">{name}</Text>
             <Text style={[styles.schedule, { color: t.color.textMuted }]}>{schedule}</Text>
             {goalName ? (
                 <Pressable onPress={onGoal} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Part of the goal ${goalName}. Open it`}>
@@ -50,6 +53,7 @@ export function HabitHero({ icon, name, schedule, color, weekShare, goalName, on
                     </MatteSurface>
                 </Pressable>
             ) : null}
+            </View>
         </View>
     );
 }
@@ -162,11 +166,12 @@ export function HabitInsight({ record }: { record: HabitRecord }) {
 
 const styles = StyleSheet.create({
     flex: { flex: 1 },
-    hero: { alignItems: 'center', gap: Spacing.xs, paddingTop: Spacing.sm },
-    photo: { width: 80, height: 80, borderRadius: 40 },
-    name: { fontSize: 28, lineHeight: 34, fontFamily: FontFamily.bold, letterSpacing: -0.5, textAlign: 'center', marginTop: Spacing.md },
+    hero: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, paddingTop: Spacing.sm },
+    heroText: { flex: 1, alignItems: 'flex-start', gap: Spacing.xs },
+    photo: { width: 62, height: 62, borderRadius: 31 },
+    name: { fontSize: 26, lineHeight: 31, fontFamily: FontFamily.bold, letterSpacing: -0.5 },
     schedule: { fontSize: 15, fontFamily: FontFamily.medium },
-    goalChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.md, minHeight: 32, marginTop: Spacing.sm, maxWidth: 260 },
+    goalChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.md, minHeight: 32, marginTop: Spacing.xs, maxWidth: 260 },
     goalText: { fontSize: 13, fontFamily: FontFamily.semibold, flexShrink: 1 },
     today: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     doneButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 52 },

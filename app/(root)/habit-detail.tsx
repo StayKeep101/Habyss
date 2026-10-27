@@ -163,7 +163,7 @@ export default function HabitDetailScreen() {
     }));
     const heroFade = useAnimatedStyle(() => ({
         opacity: interpolate(scrollY.value, [0, 150], [1, 0], Extrapolation.CLAMP),
-        transform: [{ scale: interpolate(scrollY.value, [-80, 0, 150], [1.06, 1, 0.88], Extrapolation.CLAMP) }],
+        transform: [{ translateY: interpolate(scrollY.value, [0, 150], [0, -12], Extrapolation.CLAMP) }],
     }));
     const focus = () => { if (habit) router.push({ pathname: '/(root)/focus', params: { kind: 'habit', id: habit.id, title: habit.name } }); };
 

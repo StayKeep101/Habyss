@@ -38,7 +38,7 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
                 </View>
                 {series.length > 1 ? (
                     <View pointerEvents="none" style={styles.chart}>
-                        <GoalProgressChart series={series} color={primary} compact height={vs(56)} label="Goal progress over time" />
+                        <GoalProgressChart series={series} color={primary} compact pace={false} height={vs(56)} label="Goal progress over time" />
                     </View>
                 ) : (
                     <View style={[styles.track, { backgroundColor: colors.border }]}>
