@@ -366,7 +366,8 @@ export function taskRank(task: Task, today: string): number {
 export function topTasksForToday(tasks: Task[], today: string, limit = 3): Task[] {
     return tasks
         .filter(task => task.status === 'open')
-        .filter(task => !task.dueDate || task.dueDate <= today)
+        // A goal's to-do with no day waits in its list, as in tasksForDay.
+        .filter(task => (!task.dueDate && !task.goalId) || (!!task.dueDate && task.dueDate <= today))
         .sort((a, b) => taskRank(a, today) - taskRank(b, today) || a.createdAt.localeCompare(b.createdAt))
         .slice(0, Math.max(0, limit));
 }
@@ -393,7 +394,9 @@ export function tasksForDay(tasks: Task[], day: string, today: string = todayKey
         if (task.status === 'cancelled') return false;
         if (task.dueDate === day) return true;
         if (!isToday) return false;
-        if (!task.dueDate) return task.status === 'open';
+        // No day: today's, unless it belongs to a goal. Then it is one of the
+        // goal's to-dos, waiting in its list to be planned on a day.
+        if (!task.dueDate) return task.status === 'open' && !task.goalId;
         return task.dueDate < day && task.status === 'open';
     });
 }
