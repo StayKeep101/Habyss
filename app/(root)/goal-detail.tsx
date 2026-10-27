@@ -32,12 +32,18 @@ import { addMilestones, splitIntoMilestones, updateMilestone, type Milestone } f
 import { GoalStatsView } from '@/components/Goal/GoalStatsView';
 import { GoalPace } from '@/components/Goal/GoalPace';
 import { dateAt } from '@/lib/goalInsights';
-import { setTaskStatus, deleteTask, type Task } from '@/lib/tasks';
+import { setTaskStatus, deleteTask, updateTask, type Task } from '@/lib/tasks';
+import { useTasks } from '@/hooks/useTasks';
+import { DragDropProvider } from '@/components/ui/DragDrop';
+import { GoalTodoList, startNewSection } from '@/components/Goal/GoalTodoList';
+import { PlanDaySheet } from '@/components/Goal/PlanDaySheet';
+import { plannableDays, unplanned } from '@/lib/goalTodo';
 
 import { useHaptics } from '@/hooks/useHaptics';
 import { useRemoveHabit } from '@/hooks/useRemoveHabit';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import Animated, {
+    useAnimatedRef,
     useAnimatedScrollHandler,
     useSharedValue,
     useAnimatedStyle, FadeIn,
@@ -152,7 +158,7 @@ const GoalDetail = () => {
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   // A new habit made from this page belongs to this goal.
   const [addingHabit, setAddingHabit] = useState(false);
-  const [view, setView] = useState<'plan' | 'stats'>('plan');
+  const [view, setView] = useState<'plan' | 'todo' | 'stats'>('plan');
   // The checkpoints between today and the goal's end (lib/goalMilestones.ts).
   const milestones = useMilestones(goal?.id);
   const [milestoneSheet, setMilestoneSheet] = useState<{ milestone: Milestone | null } | null>(null);
@@ -280,13 +286,45 @@ const GoalDetail = () => {
   };
 
   /**
+   * The to-do list: the goal's tasks, under headings, each planned on a day
+   * (here, or by dragging it onto a day on the plan) from today to the
+   * deadline.
+   */
+  const allTasks = useTasks();
+  const goalTasks = useMemo(() => allTasks.filter(task => task.goalId === goalId), [allTasks, goalId]);
+  const todos = useMemo(() => unplanned(goalTasks), [goalTasks]);
+  const planRange = plannableDays(today, goal?.targetDate && insights ? insights.endDate : null);
+  const [planning, setPlanning] = useState<Task | null>(null);
+  const planTodo = (task: Task, day: string | null) => {
+    setPlanning(null);
+    void updateTask(task.id, { dueDate: day }).then(() => emit('tasks_changed'))
+      .catch(() => Alert.alert('Not planned', 'That to-do could not be saved. Try again.'));
+  };
+  // Carrying a to-do: the page holds still, and scrolls along at its edges.
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const [carrying, setCarrying] = useState(false);
+  const scrollBy = React.useCallback((dy: number) => {
+    scrollRef.current?.scrollTo({ y: Math.max(0, scrollY.value + dy), animated: false });
+  }, [scrollRef, scrollY]);
+  const dropTodo = React.useCallback((taskId: string, day: string) => {
+    const task = goalTasks.find(item => item.id === taskId);
+    if (task) planTodo(task, day);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goalTasks]);
+
+  /**
    * One menu instead of four buttons competing with the goal's own name.
    * A shared goal is someone else's, so it only offers what it can do.
    */
-  /** The goal's options, in the menu the ⋯ button grows into. */
+  /** The goal's options, in the menu the ⋯ button grows into: first what fits the page you are on. */
   const goalMenu: MorphMenuItem[] = [
+    // On the to-do list: a new heading, and a to-do with a day already.
+    ...(!isSharedGoal && view === 'todo' ? [
+      { label: 'New section', icon: 'list-outline' as const, onPress: () => { lightFeedback(); if (goal) startNewSection(goal.id); } },
+      { label: 'Add task with a day', icon: 'checkbox-outline' as const, onPress: () => openTask(undefined, today) },
+    ] : []),
     // Anything added from here is filed under this goal straight away.
-    ...(!isSharedGoal ? [
+    ...(!isSharedGoal && view !== 'todo' ? [
       { label: 'Add habit', icon: 'repeat-outline' as const, onPress: () => { lightFeedback(); setAddingHabit(true); } },
       { label: 'Add task', icon: 'checkbox-outline' as const, onPress: () => openTask() },
       { label: 'Add milestone', icon: 'flag-outline' as const, onPress: () => { lightFeedback(); setMilestoneSheet({ milestone: null }); } },
@@ -307,7 +345,7 @@ const GoalDetail = () => {
    * another one: Today, the numbers, or the whole plan. Tapping the button
    * you are already on brings Today back.
    */
-  const showView = (next: 'plan' | 'stats') => {
+  const showView = (next: 'plan' | 'todo' | 'stats') => {
     lightFeedback();
     setView(next);
   };
@@ -436,7 +474,10 @@ const GoalDetail = () => {
         <MorphMenu items={goalMenu} title={goal?.name} titleIcon="flag" label="Goal options" diameter={40} pageHeight={pageHeight} />
       </View>
 
+      <DragDropProvider onDrop={dropTodo} onDragging={setCarrying} scrollBy={scrollBy} style={styles.dragLayer}>
       <Animated.ScrollView
+        ref={scrollRef}
+        scrollEnabled={!carrying}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         // The dome takes the space the arc used to overlap into, sitting a
@@ -504,7 +545,12 @@ const GoalDetail = () => {
               same distance under the description, so switching moves only
               the content. */}
           <Animated.View key={view} entering={FadeIn.duration(220)} style={[styles.tabBody, styles.swapped]}>
-            {view === 'stats' ? <GoalStatsView goalId={goal.id} embedded /> : insights ? (
+            {view === 'stats' ? <GoalStatsView goalId={goal.id} embedded /> : view === 'todo' ? (
+              <View style={styles.todoBody}>
+                <GoalTodoList goalId={goal.id} tasks={goalTasks} today={today} color={goal.color || accentColor} readOnly={isSharedGoal}
+                  onOpenTask={task => openTask(task)} onPlan={task => { lightFeedback(); setPlanning(task); }} onToggle={task => void toggleTask(task)} />
+              </View>
+            ) : insights ? (
               <GoalPlanBoard
                 goalId={goal.id} insights={insights} milestones={milestones} today={today}
                 color={goal.color || accentColor} readOnly={isSharedGoal}
@@ -518,6 +564,9 @@ const GoalDetail = () => {
                 onToggleMilestone={toggleMilestone}
                 onOpenMilestone={milestone => setMilestoneSheet({ milestone })}
                 onLog={canLog && !isSharedGoal ? () => { lightFeedback(); setLogging(true); } : undefined}
+                todos={todos} planUntil={planRange.to}
+                onPlanTodo={(task, day) => planTodo(task, day)}
+                onChooseDay={task => setPlanning(task)}
               />
             ) : null}
           </Animated.View>
@@ -525,6 +574,7 @@ const GoalDetail = () => {
           </View>
         </Animated.View>
       </Animated.ScrollView>
+      </DragDropProvider>
       {/* The page dims into this behind the switcher, as it does behind the tab bar. */}
       <BottomFade height={insets.bottom + 16 + 64 + 56} />
       {/* Today, the numbers, or the whole plan — without leaving the page. */}
@@ -532,6 +582,7 @@ const GoalDetail = () => {
         <ViewSwitcher
           options={[
             { id: 'plan', label: 'Plan', icon: 'map-outline' },
+            { id: 'todo', label: 'To-do', icon: 'list-outline' },
             { id: 'stats', label: 'Stats', icon: 'stats-chart-outline' },
           ]}
           value={view}
@@ -547,6 +598,10 @@ const GoalDetail = () => {
       {taskForm && goal ? (
         <TaskFormModal key={taskForm.key} visible task={taskForm.task} goalId={goal.id} dueDate={taskForm.dueDate}
           onClose={() => setTaskForm(null)} onSaved={() => emit('tasks_changed')} />
+      ) : null}
+      {goal && insights ? (
+        <PlanDaySheet task={planning} insights={insights} milestones={milestones} today={today} from={planRange.from} to={planRange.to}
+          color={goal.color || accentColor} onPlan={planTodo} onClose={() => setPlanning(null)} />
       ) : null}
       {goal ? (
         <MilestoneSheet visible={!!milestoneSheet} goalId={goal.id} goalEnd={goalEnd} milestone={shownMilestoneSheet?.milestone ?? null} onClose={() => setMilestoneSheet(null)} />

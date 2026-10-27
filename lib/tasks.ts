@@ -61,6 +61,8 @@ export interface Task {
     deadline?: string;
     /** At its set time: false keeps it exactly there; otherwise the timeline may move it. Kept on this phone. */
     flexible?: boolean;
+    /** The heading it sits under in its goal's to-do list ("Research"). Kept on this phone. */
+    section?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -101,6 +103,7 @@ export interface TaskInput {
     deadline?: string;
     flexible?: boolean;
     subtasks?: Subtask[];
+    section?: string;
 }
 
 const rowToTask = (row: any): Task => ({
@@ -125,6 +128,7 @@ const rowToTask = (row: any): Task => ({
     deadline: typeof row.deadline === 'string' && row.deadline ? row.deadline : undefined,
     flexible: row.flexible === 0 ? false : row.flexible === 1 ? true : undefined,
     subtasks: parseSubtasks(row.subtasks),
+    section: typeof row.section === 'string' && row.section ? row.section : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
 });
@@ -166,7 +170,7 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
         ['dueTime', 'due_time'], ['estimatedMinutes', 'estimated_minutes'],
         ['priority', 'priority'], ['goalId', 'goal_id'], ['source', 'source'],
         ['measure', 'measure'], ['target', 'target'], ['unit', 'unit'], ['milestoneId', 'milestone_id'],
-        ['difficulty', 'difficulty'], ['deadline', 'deadline'], ['flexible', 'flexible'], ['subtasks', 'subtasks'],
+        ['difficulty', 'difficulty'], ['deadline', 'deadline'], ['flexible', 'flexible'], ['subtasks', 'subtasks'], ['section', 'section'],
     ];
     const updates = importedColumns.filter(([key]) => Object.prototype.hasOwnProperty.call(input, key))
         .map(([, column]) => `${column} = excluded.${column}`);
@@ -176,16 +180,16 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
     await db.runAsync(
         `INSERT INTO tasks (
             id, user_id, title, description, due_date, due_time, estimated_minutes,
-            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id, difficulty, deadline, flexible, subtasks,
+            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id, difficulty, deadline, flexible, subtasks, section,
             created_at, updated_at, deleted, synced
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
         id, uid, title, input.description ?? null, input.dueDate ?? null, input.dueTime ?? null,
         input.estimatedMinutes ?? null, input.priority ?? 2, input.goalId ?? null,
         input.source ?? 'app', input.externalId ?? null,
         input.measure && input.measure !== 'done' ? input.measure : null,
         input.measure && input.measure !== 'done' ? input.target ?? null : null,
         input.unit?.trim() || null, input.milestoneId ?? null, input.difficulty ?? null, input.deadline ?? null, input.flexible === undefined ? null : input.flexible ? 1 : 0,
-        input.subtasks?.length ? JSON.stringify(input.subtasks) : null, now, now,
+        input.subtasks?.length ? JSON.stringify(input.subtasks) : null, input.section?.trim() || null, now, now,
     );
 
     const row = input.externalId
@@ -208,7 +212,7 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
         estimatedMinutes: 'estimated_minutes', priority: 'priority', goalId: 'goal_id',
         source: 'source', externalId: 'external_id',
         measure: 'measure', target: 'target', unit: 'unit', amount: 'amount', milestoneId: 'milestone_id',
-        difficulty: 'difficulty', deadline: 'deadline', flexible: 'flexible', subtasks: 'subtasks',
+        difficulty: 'difficulty', deadline: 'deadline', flexible: 'flexible', subtasks: 'subtasks', section: 'section',
     };
 
     const sets: string[] = [];

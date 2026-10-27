@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 19;
+const SCHEMA_VERSION = 20;
 
 let dbInstance: any = null;
 /**
@@ -131,6 +131,7 @@ async function runMigrations(db: any): Promise<void> {
         [17, migrateToV17],
         [18, migrateToV18],
         [19, migrateToV19],
+        [20, migrateToV20],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -157,6 +158,19 @@ async function runMigrations(db: any): Promise<void> {
  * ticked one by one. Kept as JSON on the task ([{ id, title, done }]), backed
  * up with it; null on older rows, which is a task with no steps.
  */
+/**
+ * Migration to version 20 — a to-do's section in its goal's list.
+ *
+ * A goal's to-do list is its tasks, grouped under headings you name
+ * ("Research", "Build", "Launch"). The heading is kept on the task, so a
+ * to-do planned onto a day still knows where it came from. Null: no section.
+ * On this phone only, like v15–v17.
+ */
+async function migrateToV20(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'tasks', 'section', 'TEXT');
+    console.log('[Database] Migrated to schema v20');
+}
+
 async function migrateToV19(db: any): Promise<void> {
     await addColumnIfMissing(db, 'tasks', 'subtasks', 'TEXT');
     console.log('[Database] Migrated to schema v19');

@@ -1,15 +1,18 @@
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { AppButton } from '@/components/ui/AppButton';
 import { IconButton } from '@/components/ui/IconButton';
 import { ListItem } from '@/components/ui/Motion';
+import { Draggable, DropTarget } from '@/components/ui/DragDrop';
+import { MatteSurface } from '@/components/ui/MatteSurface';
+import { AppIcon } from '@/components/ui/AppIcon';
 import { GoalHabitRow, SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
 import { GoalMilestones } from '@/components/Goal/GoalMilestones';
 import { GoalDayCard, GoalMonth, GoalMonthKey } from '@/components/Goal/GoalDays';
 import { TaskItem } from '@/components/Roadmap/TaskItem';
-import { FontFamily, Spacing } from '@/theme/designSystem';
+import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useWeekStart } from '@/hooks/useWeekStart';
@@ -49,8 +52,13 @@ function periodLabel(range: Exclude<Range, 'all'>, offset: number, from: string,
  * day with a bar per thing it asks; tap one to see that day under the grid.
  * All is the same calendar from the day the goal began to its deadline.
  * Adding lives in the goal's ⋯ menu. The arrows step weeks and months.
+ *
+ * Over the week, the month and all of it sits the to-do list's unplanned
+ * to-dos, in a row: touch and hold one and drag it onto a day (a card, or a
+ * day in the calendar) to plan it there, or tap it to choose the day. A day's
+ * "Plan a task" offers them too. Only days from today to the deadline take one.
  */
-export function GoalPlanBoard({ goalId, insights, milestones, today, color, readOnly, pace, onToggleTask, onOpenTask, onRemoveTask, onToggleHabit, onOpenHabit, onEditHabit, onToggleMilestone, onOpenMilestone, onLog }: {
+export function GoalPlanBoard({ goalId, insights, milestones, today, color, readOnly, pace, onToggleTask, onOpenTask, onRemoveTask, onToggleHabit, onOpenHabit, onEditHabit, onToggleMilestone, onOpenMilestone, onLog, todos = [], planUntil, onPlanTodo, onChooseDay }: {
     goalId: string;
     insights: GoalInsights;
     milestones: Milestone[];
@@ -70,6 +78,13 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
     onOpenMilestone: (milestone: Milestone) => void;
     /** For a goal you measure: write today's progress on it. */
     onLog?: () => void;
+    /** The to-do list's to-dos with no day yet. */
+    todos?: Task[];
+    /** The last day a to-do can be planned on (the deadline). */
+    planUntil?: string;
+    onPlanTodo?: (task: Task, day: string) => void;
+    /** Choose a day for a to-do (the calendar sheet). */
+    onChooseDay?: (task: Task) => void;
 }) {
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
@@ -140,10 +155,51 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
         else if (item.kind === 'task') onOpenTask(item.task);
         else onOpenMilestone(item.milestone);
     };
+    const plannable = (day: string) => !readOnly && day >= today && (!planUntil || day <= planUntil);
+    // A day's "Plan a task": one of the to-dos waiting for a day, or a new task.
+    const addOnDay = (dayKey: string) => {
+        if (!todos.length || !onPlanTodo || !plannable(dayKey)) { onOpenTask(undefined, dayKey); return; }
+        const offered = todos.slice(0, 8);
+        const labels = [...offered.map(task => task.title), 'New task'];
+        const pickIndex = (index: number) => {
+            if (index < offered.length) onPlanTodo(offered[index], dayKey);
+            else if (index === offered.length) onOpenTask(undefined, dayKey);
+        };
+        const title = `Plan on ${dateOf(dayKey).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}`;
+        if (Platform.OS === 'ios') {
+            ActionSheetIOS.showActionSheetWithOptions({ title, message: 'From your to-do list', options: [...labels, 'Cancel'], cancelButtonIndex: labels.length }, pickIndex);
+        } else {
+            Alert.alert(title, undefined, [...labels.map((text, index) => ({ text, onPress: () => pickIndex(index) })), { text: 'Cancel', style: 'cancel' as const }]);
+        }
+    };
     const dayCard = (day: GoalDay) => (
-        <GoalDayCard key={day.day} day={day} today={today} color={color} readOnly={readOnly}
-            onToggle={toggleItem} onOpen={openItem} onAddTask={readOnly ? undefined : dayKey => onOpenTask(undefined, dayKey)} />
+        <DropTarget key={day.day} id={day.day} accepts={plannable(day.day)} radius={Radius.card}>
+            <GoalDayCard day={day} today={today} color={color} readOnly={readOnly}
+                onToggle={toggleItem} onOpen={openItem} onAddTask={readOnly ? undefined : addOnDay} />
+        </DropTarget>
     );
+    // The to-dos waiting for a day, in a row over the calendar.
+    const tray = todos.length && !readOnly && onChooseDay ? (
+        <View style={styles.tray}>
+            <View style={styles.trayHead}>
+                <Text style={[styles.trayTitle, { color: t.color.textPrimary }]}>{`To plan · ${todos.length}`}</Text>
+                <Text style={[styles.trayHint, { color: t.color.textMuted }]}>Hold one, drag it onto a day</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trayRow}>
+                {todos.map(task => (
+                    <Draggable key={task.id} payload={task.id} label={task.title}>
+                        <Pressable onPress={() => { selectionFeedback(); onChooseDay(task); }} accessibilityRole="button"
+                            accessibilityLabel={`${task.title}. Tap to choose a day, or touch and hold and drag it onto a day`}>
+                            <MatteSurface radius={t.radius.full} level="control" style={styles.chip}>
+                                <View style={[styles.chipMark, { borderColor: t.color.warning }]} />
+                                <Text numberOfLines={1} style={[styles.chipText, { color: t.color.textPrimary }]}>{task.title}</Text>
+                            </MatteSurface>
+                        </Pressable>
+                    </Draggable>
+                ))}
+            </ScrollView>
+        </View>
+    ) : null;
     const pick = (day: string) => { selectionFeedback(); setPicked(day); };
 
     const choose = (next: Range) => { setRange(next); setOffset(0); setPicked(null); };
@@ -180,10 +236,11 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
             {range === 'all' && calendar ? (
                 <Animated.View key="all" entering={FadeIn.duration(200)}>
                     <View style={styles.body}>
+                        {tray}
                         {monthsBetween(calendar.from, calendar.to).map(month => (
                             <View key={month} style={styles.monthBlock}>
                                 <GoalMonth month={month} days={calendar.byDay} selected={chosenDay} today={today} color={color}
-                                    weekStartsMonday={weekStartsMonday} inRange={inGoal} onSelect={pick}
+                                    weekStartsMonday={weekStartsMonday} inRange={inGoal} onSelect={pick} droppable={plannable}
                                     title={dateOf(month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })} />
                                 {chosenDay && chosenDay.slice(0, 7) === month.slice(0, 7) && calendar.byDay[chosenDay] ? dayCard(calendar.byDay[chosenDay]) : null}
                             </View>
@@ -193,6 +250,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
                 </Animated.View>
             ) : range === 'week' && calendar && plan ? (
                 <Animated.View key={`week:${offset}`} entering={FadeIn.duration(200)} style={styles.body}>
+                    {tray}
                     {plan.overdue.length ? (
                         <View>
                             <SectionLabel first tone={t.color.danger}>Overdue</SectionLabel>
@@ -203,8 +261,9 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
                 </Animated.View>
             ) : range === 'month' && calendar && plan ? (
                 <Animated.View key={`month:${offset}`} entering={FadeIn.duration(200)} style={styles.body}>
+                    {tray}
                     <GoalMonth month={calendar.from} days={calendar.byDay} selected={chosenDay} today={today} color={color}
-                        weekStartsMonday={weekStartsMonday} inRange={inGoal} onSelect={pick} />
+                        weekStartsMonday={weekStartsMonday} inRange={inGoal} onSelect={pick} droppable={plannable} />
                     <GoalMonthKey color={color} />
                     {chosenDay && calendar.byDay[chosenDay] ? dayCard(calendar.byDay[chosenDay]) : null}
                     {plan.overdue.length ? (
@@ -286,4 +345,12 @@ const styles = StyleSheet.create({
     empty: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.section },
     emptyTitle: { fontSize: 16, fontFamily: FontFamily.semibold },
     emptyBody: { fontSize: 13, fontFamily: FontFamily.regular, textAlign: 'center' },
+    tray: { gap: Spacing.sm },
+    trayHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: Spacing.sm },
+    trayTitle: { fontSize: 15, fontFamily: FontFamily.semibold },
+    trayHint: { fontSize: 12, fontFamily: FontFamily.medium },
+    trayRow: { gap: Spacing.sm, paddingRight: Spacing.xl },
+    chip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, minHeight: 44, maxWidth: 220 },
+    chipMark: { width: 14, height: 14, borderRadius: 4, borderWidth: 2 },
+    chipText: { fontSize: 15, fontFamily: FontFamily.medium, flexShrink: 1 },
 });

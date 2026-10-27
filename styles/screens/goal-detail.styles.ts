@@ -5,6 +5,9 @@ const { height } = Dimensions.get('window');
 
 /** The look of app/(root)/goal-detail.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
+    /** The page under the header: where a carried to-do is drawn. */
+    dragLayer: { flex: 1 },
+    todoBody: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.section },
   heroClip: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
   navHeader: {
     position: 'absolute',

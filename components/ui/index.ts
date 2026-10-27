@@ -20,6 +20,7 @@
  *   MorphMenu (a ⋯ button that grows into its own menu), MicButton (talk instead of typing),
  *   FocusPill (the solid "Focus" pill on whatever is on right now)
  *   DemonEdge (the red glow round the screen in Echo's demon mode)
+ *   DragDropProvider, Draggable, DropTarget (touch and hold to carry something onto a place that takes it)
  *   CoachLayer (the first-run tour across screens: one real control lit up, a line and an arrow)
  *
  * Content
@@ -90,4 +91,5 @@ export { TimeWheels } from './TimeWheels';
 export { DateWheels } from './DateWheels';
 export { PopupCard } from './PopupCard';
 export { DemonEdge } from './DemonEdge';
+export { DragDropProvider, Draggable, DropTarget } from './DragDrop';
 export { CoachLayer } from './CoachMarks';

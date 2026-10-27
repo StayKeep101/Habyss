@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { PopIn } from '@/components/ui/Motion';
+import { DropTarget } from '@/components/ui/DragDrop';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
 import { useTokens } from '@/hooks/useTokens';
@@ -106,7 +107,7 @@ function GoalItemLine({ item, color, canTick, onToggle, onOpen }: {
  * it started, after its deadline) are not drawn, and a week with none of the
  * goal's days is left out, so the calendar runs from its first day to its last.
  */
-export function GoalMonth({ month, days, selected, today, color, weekStartsMonday, inRange, onSelect, title }: {
+export function GoalMonth({ month, days, selected, today, color, weekStartsMonday, inRange, onSelect, title, droppable }: {
     /** Any day in the month, YYYY-MM-DD. */
     month: string;
     days: Record<string, GoalDay>;
@@ -117,6 +118,8 @@ export function GoalMonth({ month, days, selected, today, color, weekStartsMonda
     inRange: (day: string) => boolean;
     onSelect: (day: string) => void;
     title?: string;
+    /** Days a carried to-do can be put down on (see DragDrop). */
+    droppable?: (day: string) => boolean;
 }) {
     const t = useTokens();
     const kindColor = useKindColor(color);
@@ -141,7 +144,7 @@ export function GoalMonth({ month, days, selected, today, color, weekStartsMonda
                         const shown = items.slice(0, 4);
                         const label = `${dateOf(key).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}. `
                             + (items.length ? items.map(item => `${item.title}${item.done ? ', done' : ''}`).join('; ') : 'Nothing planned');
-                        return (
+                        const cell = (
                             <Pressable key={key} onPress={() => onSelect(key)} style={styles.cell}
                                 accessibilityRole="button" accessibilityState={{ selected: isSelected }} accessibilityLabel={label}>
                                 <PopIn index={rowIndex * 7 + column} style={[styles.cellInner,
@@ -158,6 +161,9 @@ export function GoalMonth({ month, days, selected, today, color, weekStartsMonda
                                 </PopIn>
                             </Pressable>
                         );
+                        return droppable ? (
+                            <DropTarget key={key} id={key} accepts={droppable(key)} radius={Radius.small} style={styles.cell}>{cell}</DropTarget>
+                        ) : cell;
                     })}
                 </View>
             ))}
