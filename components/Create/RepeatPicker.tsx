@@ -6,7 +6,6 @@ import { ChoicePill } from '@/components/ui/ChoicePill';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Choices, usePanelRoom } from '@/components/Create/DetailBar';
 import { Wheel } from '@/components/ui/Wheel';
-import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -119,26 +118,26 @@ export const RepeatPicker: React.FC<{
 
     return (
         <Animated.View layout={MORPH} style={styles.wrap}>
-            {/* Every kind on screen at once, as iOS does it. Weekdays and
+            {/* Every kind in one row that scrolls sideways, each word whole
+                (six squeezed into the width read "D…", "W…"). Weekdays and
                 weekends are weekly rules, so they live under Weekly as one-tap
                 shortcuts beside the days themselves. */}
-            <View style={styles.segmented}>
-                <ChoiceRow
-                    accessibilityLabel="Kind of repeat"
-                    options={KINDS}
-                    value={(preset === 'weekdays' || preset === 'weekends' ? 'weekly' : preset) as Kind}
-                    onChange={kind => onChange(ruleForPreset(kind, value))}
-                />
-            </View>
+            <Choices
+                oneLine
+                options={KINDS}
+                value={(preset === 'weekdays' || preset === 'weekends' ? 'weekly' : preset) as Kind}
+                accent={accent}
+                onChange={kind => onChange(ruleForPreset(kind, value))}
+            />
 
             {/* "Every N ___" — only where an interval means anything. */}
             {preset !== 'weekdays' && preset !== 'weekends' && preset !== 'quota' ? (
                 <Animated.View layout={MORPH} style={styles.everyRow}>
-                    <Text style={[styles.label, { color: colors.textSecondary }]}>Every</Text>
+                    <Text style={[styles.everyWord, styles.right, { color: colors.textPrimary }]}>Every</Text>
                     <View style={styles.everyWheel}>
-                        <Wheel testID="repeat-every" options={everyOptions} value={Math.min(every, maxEvery)} onChange={setEvery} rowHeight={32} style={styles.everyDigit} />
+                        <Wheel testID="repeat-every" options={everyOptions} value={Math.min(every, maxEvery)} onChange={setEvery} rowHeight={40} style={styles.everyDigit} />
                     </View>
-                    <Text style={[styles.label, { color: colors.textSecondary }]}>{every === 1 ? unitWord.replace(/s$/, '') : unitWord}</Text>
+                    <Text style={[styles.everyWord, { color: colors.textPrimary }]}>{every === 1 ? unitWord.replace(/s$/, '') : unitWord}</Text>
                 </Animated.View>
             ) : null}
 
@@ -312,13 +311,15 @@ const styles = StyleSheet.create({
     onThe: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     onTheWord: { fontSize: 13, fontFamily: FontFamily.regular },
     wrap: { gap: 10 },
-    segmented: {},
     shortcuts: { flexDirection: 'row', gap: 8 },
     shortcut: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
-    everyRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    everyWheel: { width: 64 },
-    everyDigit: { fontSize: 18, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
+    /** "Every 2 weeks", centred and read as one sentence. */
+    everyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, paddingVertical: 4 },
+    everyWheel: { width: 76 },
+    everyDigit: { fontSize: 22, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
+    everyWord: { fontSize: 17, fontFamily: FontFamily.medium, minWidth: 64 },
     label: { fontSize: 14, fontFamily: FontFamily.regular },
+    right: { textAlign: 'right' },
     number: {
         minWidth: 52, textAlign: 'center', fontSize: 15, fontFamily: FontFamily.medium,
         borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 10,

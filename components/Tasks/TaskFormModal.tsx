@@ -298,7 +298,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         },
         {
             // A deadline apart from the day: planned for today, due Friday.
-            id: 'deadline', icon: 'flag-outline', label: 'Due by',
+            id: 'deadline', icon: 'flag-outline', label: 'Deadline',
             value: draft.deadline && draft.dueDate && draft.deadline > draft.dueDate ? shortDate(draft.deadline) : undefined,
             content: (
                 <>

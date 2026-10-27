@@ -15,10 +15,11 @@ import { emit } from '@/lib/appEvents';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { TASK_COLOR } from '@/components/Roadmap/TaskItem';
 
-const SECTIONS: { level: MissLevel[]; title: string; note: string }[] = [
-    { level: ['twice'], title: 'Missed twice or more', note: 'Two misses in a row is how a habit slips away. Start here.' },
-    { level: ['once'], title: 'Missed once', note: 'One miss is fine. Do it next time and it stays a one-off.' },
-    { level: ['late', 'moved'], title: 'Tasks', note: 'Past their day and still open.' },
+// Headings only: the list says enough without a line of advice under each.
+const SECTIONS: { level: MissLevel[]; title: string }[] = [
+    { level: ['twice'], title: 'Missed twice or more' },
+    { level: ['once'], title: 'Missed once' },
+    { level: ['late', 'moved'], title: 'Tasks' },
 ];
 
 /**
@@ -32,7 +33,7 @@ export const MissedModal: React.FC<{ visible: boolean; onClose: () => void; miss
     const total = missed.items.length;
     const verdict = missed.twice
         ? `${missed.twice} ${missed.twice === 1 ? 'habit' : 'habits'} missed twice or more in a row. That's where to start.`
-        : total ? 'Nothing missed twice in a row. Keep each miss a one-off.' : "Nothing missed. You're all caught up.";
+        : total ? 'Nothing missed twice in a row.' : "Nothing missed. You're all caught up.";
     const tone = (level: MissLevel) => level === 'twice' ? t.color.danger : level === 'once' ? t.color.warning : t.color.textMuted;
 
     const open = (item: Miss) => {
@@ -63,7 +64,6 @@ export const MissedModal: React.FC<{ visible: boolean; onClose: () => void; miss
                     return (
                         <View key={section.title}>
                             <SectionTitle>{section.title}</SectionTitle>
-                            <Text style={[t.type.caption, { color: t.color.textSubtle, marginBottom: t.space.sm }]}>{section.note}</Text>
                             <VoidCard style={{ paddingHorizontal: t.space.lg, paddingVertical: t.space.xs }}>
                                 {rows.map((item, index) => (
                                     <ListItem key={item.key} index={index}>

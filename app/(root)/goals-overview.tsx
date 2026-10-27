@@ -31,11 +31,9 @@ function verdict(insights: GoalInsights, colors: typeof Colors.light): { label: 
 /**
  * All your goals, readable at a glance on a tired night.
  *
- * The first line answers the only question that matters — are you on track —
- * in plain words. The chart keeps the portfolio line people like, with its two
- * lines named for what they are. Each goal is then one row: its name, on track
- * or behind, how far along, and what it needs next. No percentage points, no
- * seven-day deltas, nothing to decode.
+ * The figure and its line say how it is going, with nothing to read on top
+ * of them. Each goal is then one row: its name, how far along, its own line,
+ * and one quiet line of where it stands and what it needs next.
  */
 export default function GoalsOverview() {
     const router = useRouter();
@@ -48,7 +46,6 @@ export default function GoalsOverview() {
     const [scrub, setScrub] = useState<GoalPoint | null>(null);
 
     const list = goals.map(goal => ({ goal, insights: insightsById[goal.id] })).filter(item => item.insights);
-    const onTrack = list.filter(item => item.insights.progress >= 100 || item.insights.status === 'ahead' || item.insights.status === 'on_pace').length;
     const weekAgo = overallSeries.length > 7 ? overallSeries[overallSeries.length - 8].actual : 0;
     const week = Math.round(overall - weekAgo);
     const track = light ? 'rgba(15,23,42,0.07)' : 'rgba(255,255,255,0.08)';
@@ -63,12 +60,6 @@ export default function GoalsOverview() {
                     </VoidCard>
                 ) : (
                     <>
-                        {/* The answer, in words. */}
-                        <Text style={[styles.answer, { color: colors.textPrimary }]}>
-                            {onTrack === list.length
-                                ? (list.length === 1 ? 'Your goal is on track' : `All ${list.length} goals on track`)
-                                : `${onTrack} of ${list.length} goals on track`}
-                        </Text>
                         <View style={styles.numberRow}>
                             {/* While the finger reads a day the figure follows it exactly; otherwise it counts. */}
                             {scrub
