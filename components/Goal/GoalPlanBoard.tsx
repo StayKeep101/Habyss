@@ -7,7 +7,6 @@ import { IconButton } from '@/components/ui/IconButton';
 import { ListItem } from '@/components/ui/Motion';
 import { GoalHabitRow, SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
 import { GoalMilestones } from '@/components/Goal/GoalMilestones';
-import { GoalPlanView } from '@/components/Goal/GoalPlanView';
 import { GoalDayCard, GoalMonth, GoalMonthKey } from '@/components/Goal/GoalDays';
 import { TaskItem } from '@/components/Roadmap/TaskItem';
 import { FontFamily, Spacing } from '@/theme/designSystem';
@@ -48,8 +47,8 @@ function periodLabel(range: Exclude<Range, 'all'>, offset: number, from: string,
  * Week is a column of its seven days, each a card with everything it asks,
  * so a week can be planned day by day. Month is a calendar of the month, each
  * day with a bar per thing it asks; tap one to see that day under the grid.
- * All is the same calendar from the day the goal began to its deadline, then
- * the whole roadmap with its Add buttons. The arrows step weeks and months.
+ * All is the same calendar from the day the goal began to its deadline.
+ * Adding lives in the goal's ⋯ menu. The arrows step weeks and months.
  */
 export function GoalPlanBoard({ goalId, insights, milestones, today, color, readOnly, pace, onToggleTask, onOpenTask, onRemoveTask, onToggleHabit, onOpenHabit, onEditHabit, onToggleMilestone, onOpenMilestone, onLog }: {
     goalId: string;
@@ -188,9 +187,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
                             </View>
                         ))}
                         <GoalMonthKey color={color} />
-                        <SectionLabel>The whole plan</SectionLabel>
                     </View>
-                    <GoalPlanView goalId={goalId} embedded readOnly={readOnly} onOpenTask={onOpenTask} />
                 </Animated.View>
             ) : range === 'week' && calendar && plan ? (
                 <Animated.View key={`week:${offset}`} entering={FadeIn.duration(200)} style={styles.body}>
@@ -268,7 +265,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
                     {!plan.tasks.length && !plan.habits.length && !plan.dueMilestones.length && !plan.overdue.length ? (
                         <View style={styles.empty}>
                             <Text style={[styles.emptyTitle, { color: t.color.textPrimary }]}>{`Nothing planned ${range === 'day' ? (offset === 0 ? 'today' : 'that day') : `this ${range}`}`}</Text>
-                            <Text style={[styles.emptyBody, { color: t.color.textMuted }]}>Add milestones, tasks and habits in All.</Text>
+                            <Text style={[styles.emptyBody, { color: t.color.textMuted }]}>Add milestones, tasks and habits from the ⋯ menu.</Text>
                         </View>
                     ) : null}
                 </Animated.View>
