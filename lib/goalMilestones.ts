@@ -139,6 +139,18 @@ export async function getMilestones(goalId: string): Promise<Milestone[]> {
     return sortMilestones((rows ?? []).map(rowToMilestone));
 }
 
+/** The days a milestone still ahead is due, on any goal: the white dots on the day strip. */
+export async function getOpenMilestoneDays(): Promise<string[]> {
+    if (!isSQLiteAvailable()) return [];
+    const db = await getDatabase();
+    if (!db) return [];
+    const uid = await getLocalUserId().catch(() => null);
+    const rows = await db.getAllAsync(
+        'SELECT DISTINCT due_date FROM milestones WHERE done_at IS NULL AND due_date IS NOT NULL AND deleted = 0 AND (user_id = ? OR user_id IS NULL)', uid,
+    );
+    return (rows ?? []).map((row: any) => String(row.due_date).slice(0, 10));
+}
+
 /** Every milestone reached, on any goal: what Marks counts (+30 each). */
 export async function getReachedMilestones(): Promise<{ title: string; doneAt: string }[]> {
     if (!isSQLiteAvailable()) return [];

@@ -1,8 +1,11 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Dimensions, ListRenderItemInfo } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Dimensions, ListRenderItemInfo, Pressable } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
-import { useAnimatedProps } from 'react-native-reanimated';
+import Animated, { ReduceMotion, interpolate, runOnJS, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { MONTH_HEAD, MONTH_ROW, MonthGrid, monthWeeks } from '@/components/Home/MonthGrid';
+import { useHaptics } from '@/hooks/useHaptics';
 import { textOn } from '@/theme/tokens';
 import { AnimatedCircle, useProgress } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -18,7 +21,11 @@ interface CalendarStripProps {
   completionData?: Record<string, { completed: number; total: number }>;
   /** The goals due on each day, by date key. */
   goalDeadlines?: Record<string, DeadlineGoal[]>;
+  /** Days with a task's deadline or a milestone due, by date key: a dot each under the day. */
+  dayMarks?: Record<string, DayMarks>;
 }
+
+export interface DayMarks { deadline?: boolean; milestone?: boolean }
 
 interface DeadlineGoal { color: string; icon?: string; name: string }
 
@@ -32,6 +39,7 @@ interface DateItem {
   monthMark?: string;
   /** The goals due that day: each one's own icon, in its colour, on the ring. */
   deadlines?: DeadlineGoal[];
+  marks?: DayMarks;
 }
 
 const TOTAL_WEEKS = 10000;
@@ -100,10 +108,10 @@ const DateButtonComponent = ({
         onPress={() => onSelect(item.fullDate)}
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        accessibilityLabel={`${item.fullDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${isDeadline ? `, ${deadlines.length === 1 ? 'deadline for' : `${deadlines.length} goal deadlines:`} ${deadlines.map(goal => goal.name).join(', ')}` : ''}`}
+        accessibilityLabel={`${item.fullDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${isDeadline ? `, ${deadlines.length === 1 ? 'deadline for' : `${deadlines.length} goal deadlines:`} ${deadlines.map(goal => goal.name).join(', ')}` : ''}${item.marks?.deadline ? ', a task deadline' : ''}${item.marks?.milestone ? ', a milestone due' : ''}`}
         style={{ width, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' }}
       >
-        <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+        <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
           <View style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
             <Svg width={size} height={size}>
               <Circle
@@ -145,6 +153,14 @@ const DateButtonComponent = ({
           {isDeadline ? <DeadlineFlags goals={deadlines} cutout={colors.background} muted={colors.textSecondary} /> : null}
         </View>
 
+        {/* At a glance: a yellow dot for a task's deadline, a white one for a
+            milestone, between the day and its name. Always the same height,
+            so every day's name stays on one line. */}
+        <View style={{ height: DOT, marginTop: 9, marginBottom: 3, flexDirection: 'row', gap: 3 }}>
+          {item.marks?.deadline ? <View style={{ width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: colors.warning }} /> : null}
+          {item.marks?.milestone ? <View style={{ width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: colors.textPrimary }} /> : null}
+        </View>
+
         <Text
           style={{
             color: selected ? (isLight ? 'black' : 'white') : (isDeadline ? deadlineColor : item.monthMark ? accentColor : (isLight ? 'rgba(0,0,0,0.6)' : colors.textTertiary)),
@@ -165,6 +181,7 @@ const DateButtonComponent = ({
 DateButtonComponent.displayName = 'DateButton';
 
 const FLAG = 20;
+const DOT = 5;
 /** How far each badge sits from the one before it: they overlap by a third. */
 const FLAG_STEP = 13;
 
@@ -212,6 +229,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
   onSelectDate,
   completionData = {},
   goalDeadlines = {},
+  dayMarks = {},
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
@@ -271,9 +289,10 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
         progress: dayData && dayData.total > 0 ? dayData.completed / dayData.total : 0,
         monthMark: date.getDate() === 1 ? date.toLocaleDateString(undefined, { month: 'short' }) : undefined,
         deadlines: deadlineInfo,
+        marks: dayMarks[dateKey],
       };
     });
-  }, [completionData, getWeekStartForIndex, goalDeadlines]);
+  }, [completionData, getWeekStartForIndex, goalDeadlines, dayMarks]);
 
   const renderWeek = useCallback(({ item: weekIndex }: ListRenderItemInfo<number>) => {
     const weekItems = buildWeekItems(weekIndex);
@@ -337,6 +356,43 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
   const headerTitle = isTodaySelected ? 'Today' : selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
   const headerDate = selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+  // Pull the strip down and the whole month opens under it; push it back up,
+  // or pick a day, and it closes. The month starts at the selected day's.
+  const { selectionFeedback } = useHaptics();
+  const [month, setMonth] = useState(() => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 12));
+  const [monthOpen, setMonthOpen] = useState(false);
+  const [followed, setFollowed] = useState(selectedDate);
+  if (!monthOpen && followed !== selectedDate) {
+    setFollowed(selectedDate);
+    setMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 12));
+  }
+  const monthHeight = MONTH_HEAD + monthWeeks(month, startsMonday).length * MONTH_ROW;
+  const open = useSharedValue(0);
+  const grid = useSharedValue(monthHeight);
+  useEffect(() => { grid.set(monthHeight); }, [grid, monthHeight]);
+  const from = useSharedValue(0);
+  const SPRING = { damping: 22, stiffness: 220, reduceMotion: ReduceMotion.System };
+  const settle = useCallback((to: 0 | 1) => {
+    open.set(withSpring(to, SPRING));
+    setMonthOpen(to === 1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+  const announce = useCallback((opened: boolean) => { setMonthOpen(opened); selectionFeedback(); }, [selectionFeedback]);
+  const pull = useMemo(() => Gesture.Pan()
+    // Up and down only: a sideways swipe still changes the week.
+    .activeOffsetY([-12, 12]).failOffsetX([-16, 16])
+    .onBegin(() => { from.set(open.get()); })
+    .onUpdate(event => { open.set(Math.min(1, Math.max(0, from.get() + event.translationY / grid.get()))); })
+    .onEnd(event => {
+      const to = event.velocityY > 500 ? 1 : event.velocityY < -500 ? 0 : open.get() > 0.5 ? 1 : 0;
+      open.set(withSpring(to, SPRING));
+      runOnJS(announce)(to === 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }), [open, from, grid, announce]);
+  const sheet = useAnimatedStyle(() => ({ height: open.get() * grid.get(), opacity: interpolate(open.get(), [0, 0.3], [0, 1], 'clamp') }));
+  const grabber = useAnimatedStyle(() => ({ transform: [{ rotate: `${open.get() * 180}deg` }] }));
+  const goalDays = useMemo(() => Object.fromEntries(Object.entries(goalDeadlines).map(([day, goals]) => [day, goals[0]?.color ?? accentColor])), [goalDeadlines, accentColor]);
+
   const handlePrevWeek = () => {
     onSelectDate(addDays(selectedDate, -7));
   };
@@ -346,6 +402,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
   };
 
   return (
+    <GestureDetector gesture={pull}>
     <View style={{ paddingTop: 8, paddingBottom: 4, backgroundColor: 'transparent' }}
       onLayout={event => { const next = Math.round(event.nativeEvent.layout.width); if (next && next !== Math.round(pageWidth)) setPageWidth(next); }}>
       <View style={{ paddingHorizontal: 24, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -385,6 +442,23 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
         windowSize={5}
         removeClippedSubviews
       />
+
+      <Animated.View style={[{ overflow: 'hidden' }, sheet]} pointerEvents={monthOpen ? 'auto' : 'none'}>
+        <MonthGrid month={month} selected={selectedDate} today={today} startsMonday={startsMonday}
+          marks={dayMarks} goalDays={goalDays} colors={colors} accent={accentColor}
+          onMonth={delta => { selectionFeedback(); setMonth(current => new Date(current.getFullYear(), current.getMonth() + delta, 1, 12)); }}
+          onSelect={date => { selectionFeedback(); onSelectDate(date); settle(0); }} />
+      </Animated.View>
+
+      {/* The handle: pull it (or the strip) down for the month, or tap it. */}
+      <Pressable onPress={() => { selectionFeedback(); settle(monthOpen ? 0 : 1); }} hitSlop={12}
+        accessibilityRole="button" accessibilityLabel={monthOpen ? 'Hide the month' : 'Show the month'}
+        style={{ alignSelf: 'center', height: 20, width: 64, alignItems: 'center', justifyContent: 'center' }}>
+        <Animated.View style={grabber}>
+          <Ionicons name="chevron-down" size={16} color={colors.textTertiary} />
+        </Animated.View>
+      </Pressable>
     </View>
+    </GestureDetector>
   );
 };

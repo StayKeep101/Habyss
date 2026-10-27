@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { on } from '@/lib/appEvents';
-import { getMilestones, getReachedMilestones, type Milestone } from '@/lib/goalMilestones';
+import { getMilestones, getOpenMilestoneDays, getReachedMilestones, type Milestone } from '@/lib/goalMilestones';
 
 /** A goal's milestones (lib/goalMilestones.ts), kept fresh as they change or sync in. */
 export function useMilestones(goalId: string | undefined): Milestone[] {
@@ -15,6 +15,18 @@ export function useMilestones(goalId: string | undefined): Milestone[] {
         return () => sub.remove();
     }, [goalId, load]);
     return list;
+}
+
+/** The days a milestone still ahead is due, on any goal. */
+export function useMilestoneDays(): string[] {
+    const [days, setDays] = useState<string[]>([]);
+    useEffect(() => {
+        const load = () => { void getOpenMilestoneDays().then(setDays).catch(() => undefined); };
+        load();
+        const sub = on('milestones_changed', load);
+        return () => sub.remove();
+    }, []);
+    return days;
 }
 
 /** Every milestone reached on any goal, for Marks (+30 each). */

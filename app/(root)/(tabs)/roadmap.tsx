@@ -12,7 +12,8 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/theme/colors';
-import { CalendarStrip } from '@/components/Home/CalendarStrip';
+import { CalendarStrip, type DayMarks } from '@/components/Home/CalendarStrip';
+import { useMilestoneDays } from '@/hooks/useMilestones';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { useSharedItems } from '@/hooks/useSharedItems';
 import { GoalCard } from '@/components/Home/GoalCard';
@@ -1038,6 +1039,17 @@ const CalendarScreen = () => {
         setSharedOnly(false);
     }, [selectionFeedback]);
 
+    // A yellow dot under each day a task must be done by, a white one under
+    // each day a milestone is due (components/Home/CalendarStrip.tsx).
+    const milestoneDays = useMilestoneDays();
+    const dayMarks = useMemo(() => {
+        const marks: Record<string, DayMarks> = {};
+        for (const task of tasks) {
+            if (task.deadline && task.status === 'open') marks[task.deadline] = { ...marks[task.deadline], deadline: true };
+        }
+        for (const day of milestoneDays) marks[day] = { ...marks[day], milestone: true };
+        return marks;
+    }, [tasks, milestoneDays]);
     const sortedGoals = useMemo(() => goals
         .filter(goal => (!selectedGoalFilter || goal.id === selectedGoalFilter) && (activeTimeFilter === 'all' || (habitsByGoal[goal.id] || []).length > 0))
         .sort((a, b) => {
@@ -1087,6 +1099,7 @@ const CalendarScreen = () => {
                                 }
                                 return map;
                             }, [goals, accentColor])}
+                            dayMarks={dayMarks}
                         />
                     </View>
 
