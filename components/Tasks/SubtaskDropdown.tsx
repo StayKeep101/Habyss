@@ -1,5 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+// The gesture handler's Pressable: the rows these sit in are gesture-handler
+// touchables, and a plain Pressable lost the tap to the row, opening the task.
+import { Pressable } from 'react-native-gesture-handler';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import Animated, { Easing, FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { useTokens } from '@/hooks/useTokens';
@@ -18,11 +22,15 @@ export function SubtaskToggle({ steps, open, onToggle, color }: { steps: Subtask
     const { selectionFeedback } = useHaptics();
     const done = steps.filter(step => step.done).length;
     return (
-        <Pressable onPress={() => { selectionFeedback(); onToggle(); }} hitSlop={12} style={styles.toggle}
+        <Pressable onPress={() => { selectionFeedback(); onToggle(); }} hitSlop={14}
             accessibilityRole="button" accessibilityState={{ expanded: open }}
             accessibilityLabel={`${done} of ${steps.length} subtasks done. ${open ? 'Hide' : 'Show'} them`}>
-            <Text style={[styles.count, { color: done === steps.length ? color : t.color.textMuted }]}>{`${done}/${steps.length}`}</Text>
-            <AppIcon name={open ? 'chevron-up' : 'chevron-down'} size={12} color={t.color.textMuted} />
+            {/* A small chip of its own, so it reads as something to tap and is big enough to hit. */}
+            <MatteSurface radius={t.radius.full} level="control" style={styles.toggle}>
+                <AppIcon name="list" size={12} color={t.color.textMuted} />
+                <Text style={[styles.count, { color: done === steps.length ? color : t.color.textMuted }]}>{`${done}/${steps.length}`}</Text>
+                <AppIcon name={open ? 'chevron-up' : 'chevron-down'} size={13} color={t.color.textMuted} />
+            </MatteSurface>
         </Pressable>
     );
 }
@@ -52,7 +60,7 @@ export function SubtaskList({ taskId, steps, color, indent = 0 }: { taskId: stri
 }
 
 const styles = StyleSheet.create({
-    toggle: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+    toggle: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, minHeight: 28 },
     count: { fontSize: 12, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
     list: { gap: 2, paddingTop: Spacing.xs },
     row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 36 },

@@ -1,207 +1,120 @@
-import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import { useAnimatedProps } from 'react-native-reanimated';
+import Svg, { Circle } from 'react-native-svg';
+// The gesture handler's Pressable, like the other rows in the list, so the
+// chevron is never lost to the card around it.
+import { Pressable } from 'react-native-gesture-handler';
 import { SharedFaces } from '@/components/Common/SharedFaces';
 import type { SharedState } from '@/lib/shared';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { textOn } from '@/theme/tokens';
-import { AnimatedFill, CountUp } from '@/components/ui/Motion';
-import { Colors } from '@/theme/colors';
-import { useTheme } from '@/context/ThemeContext';
-import { Habit } from '@/lib/habitsSQLite';
+import { AnimatedCircle, CountUp, useProgress } from '@/components/ui/Motion';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
+import { useTokens } from '@/hooks/useTokens';
 import { useAccentGradient } from '@/context/AccentContext';
-
-import { RoadMapCardSize } from '@/context/AppSettingsContext';
-
-import { VoidCard } from '@/components/ui/VoidCard';
+import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
+import type { Habit } from '@/lib/habitsSQLite';
+import type { RoadMapCardSize } from '@/context/AppSettingsContext';
 
 interface GoalCardProps {
-  goal: Habit;
-  progress: number;
-  onPress: () => void;
-  size: RoadMapCardSize;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-  linkedHabitsCount: number;
-  shared?: SharedState | null;
-  isDropTarget?: boolean;
+    goal: Habit;
+    progress: number;
+    onPress: () => void;
+    size: RoadMapCardSize;
+    isExpanded: boolean;
+    onToggleExpand: () => void;
+    linkedHabitsCount: number;
+    shared?: SharedState | null;
+    isDropTarget?: boolean;
 }
 
+/** Days from today to a date-only deadline, counted on the calendar (today is 0). */
+function daysUntil(targetDate?: string | null): number | null {
+    if (!targetDate) return null;
+    const end = new Date(`${targetDate.slice(0, 10)}T12:00:00`);
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    return Math.round((end.getTime() - today.getTime()) / 86_400_000);
+}
+
+/**
+ * A goal on the Roadmap, as one quiet card: its icon inside a ring of how far
+ * it has come (the only thing in the goal's own colour), its name, one line
+ * of when it is due and what it holds, the figure, and a chevron that opens
+ * its habits. A deadline today or past reads in amber, never in alarm red.
+ */
 export const GoalCard: React.FC<GoalCardProps> = ({
-  goal, progress, onPress, size, isExpanded, onToggleExpand, linkedHabitsCount, shared, isDropTarget = false
+    goal, progress, onPress, size, isExpanded, onToggleExpand, linkedHabitsCount, shared, isDropTarget = false,
 }) => {
-  const { theme } = useTheme();
-  const colors = Colors[theme];
-  const isLight = theme === 'light';
-  const { primary } = useAccentGradient();
-  const defaultColor = primary;
+    const t = useTokens();
+    const { primary } = useAccentGradient();
+    const color = goal.color || primary;
+    const days = daysUntil(goal.targetDate);
+    const isSmall = size === 'small';
+    const isBig = size === 'big';
+    const ring = isSmall ? 36 : isBig ? 52 : 44;
+    const stroke = isSmall ? 3 : 3.5;
+    const r = (ring - stroke) / 2;
+    const circumference = 2 * Math.PI * r;
+    const shown = useProgress(Math.max(0, Math.min(1, progress / 100)));
+    const arc = useAnimatedProps(() => ({ strokeDashoffset: circumference * (1 - shown.get()) }));
 
-  const daysLeft = goal.targetDate
-    ? Math.max(0, Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-    : null;
+    const due = days === null ? 'No deadline'
+        : days < 0 ? `${-days === 1 ? '1 day' : `${-days} days`} past the deadline`
+        : days === 0 ? 'Due today'
+        : days === 1 ? 'Due tomorrow'
+        : `${days} days left`;
+    const urgent = days !== null && days <= 1;
+    const holds = linkedHabitsCount === 1 ? '1 habit' : `${linkedHabitsCount} habits`;
+    const photo = !!goal.icon && (goal.icon.includes('/') || goal.icon.startsWith('file:'));
 
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  };
-
-  // Dynamic Styles based on Size
-  const isSmall = size === 'small';
-  const isBig = size === 'big';
-
-  const padding = isSmall ? 8 : (isBig ? 16 : 12);
-  const iconSize = isSmall ? 14 : (isBig ? 24 : 18);
-  const iconBoxSize = isSmall ? 28 : (isBig ? 48 : 36);
-  const titleSize = isSmall ? 12 : (isBig ? 18 : 14);
-  const barHeight = isSmall ? 3 : (isBig ? 6 : 4);
-
-  return (
-    <VoidCard
-      glass
-      intensity={isLight ? 20 : (isBig ? 80 : 60)}
-      style={[
-        styles.card,
-        { padding: 0 },
-        isLight && { backgroundColor: colors.surfaceSecondary },
-        isDropTarget && {
-          borderColor: goal.color || defaultColor,
-          borderWidth: 1.5,
-          shadowColor: goal.color || defaultColor,
-          shadowOpacity: 0.2,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 6 },
-          elevation: 8,
-          transform: [{ scale: 1.01 }],
-        }
-      ]}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-        {/* LEFT SIDE: Details Trigger */}
-        <TouchableOpacity
-          onPress={onPress}
-          activeOpacity={0.7}
-          style={{ flexDirection: 'row', alignItems: 'center', flex: 1, padding }}
-        >
-          {/* Icon Box */}
-          <View
-            style={[styles.iconBox, {
-              width: iconBoxSize, height: iconBoxSize,
-              backgroundColor: goal.color || defaultColor,
-              overflow: 'hidden'
-            }]}
-          >
-            {(goal.icon && (goal.icon.includes('/') || goal.icon.startsWith('file:'))) ? (
-              <Image
-                source={{ uri: goal.icon }}
-                style={{ width: '100%', height: '100%' }}
-                resizeMode="cover"
-              />
-            ) : (
-              <Ionicons filled name={(goal.icon as any) || 'flag'} size={iconSize} color={textOn(goal.color || defaultColor)} />
-            )}
-          </View>
-
-          {/* Content (Expands) */}
-          <View style={styles.content}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: isBig ? 6 : 2 }}>
-              <Text style={[styles.name, { color: colors.textPrimary, fontSize: titleSize }]} numberOfLines={1}>{goal.name}</Text>
-              {daysLeft !== null && (
-                <View style={[styles.daysChip, { backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }, daysLeft < 7 && { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
-                  <CountUp style={[styles.daysText, { color: colors.textSecondary }, daysLeft < 7 && { color: '#EF4444' }]} value={`${daysLeft}d`} />
+    return (
+        <MatteSurface radius={Radius.card} style={[styles.card, isDropTarget && { borderWidth: 1.5, borderColor: color }]}>
+            <Pressable onPress={onPress} style={[styles.main, { paddingVertical: isSmall ? Spacing.sm : Spacing.md }]}
+                accessibilityRole="button" accessibilityLabel={`${goal.name}, ${Math.round(progress)}% done. ${due}. ${holds}. Open`}>
+                <View style={{ width: ring, height: ring, alignItems: 'center', justifyContent: 'center' }}>
+                    <Svg width={ring} height={ring} style={StyleSheet.absoluteFill}>
+                        <Circle cx={ring / 2} cy={ring / 2} r={r} stroke={t.color.border} strokeWidth={stroke} fill="none" />
+                        <AnimatedCircle cx={ring / 2} cy={ring / 2} r={r} stroke={color} strokeWidth={stroke} fill="none" strokeLinecap="round"
+                            strokeDasharray={`${circumference} ${circumference}`} animatedProps={arc} rotation={-90} origin={`${ring / 2}, ${ring / 2}`}
+                            opacity={progress > 0 ? 1 : 0} />
+                    </Svg>
+                    {photo ? (
+                        <Image source={{ uri: goal.icon }} style={{ width: ring - 14, height: ring - 14, borderRadius: (ring - 14) / 2 }} />
+                    ) : (
+                        <Ionicons filled name={(goal.icon as never) || 'flag'} size={ring * 0.4} color={color} />
+                    )}
                 </View>
-              )}
-            </View>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={[styles.progressBg, { height: barHeight, backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }]}>
-                <AnimatedFill progress={progress / 100} style={[styles.progressFill, { backgroundColor: goal.color || defaultColor }]} />
-              </View>
-              <Text style={[styles.progressText, { color: goal.color || defaultColor, fontSize: isSmall ? 9 : 11 }]}><CountUp value={`${Math.round(progress)}%`} /></Text>
-            </View>
-          </View>
+                <View style={styles.text}>
+                    <Text numberOfLines={1} style={[styles.name, { color: t.color.textPrimary, fontSize: isSmall ? 15 : isBig ? 18 : 16 }]}>{goal.name}</Text>
+                    <View style={styles.meta}>
+                        {urgent ? <Ionicons name="flag" filled size={11} color={t.color.warning} /> : null}
+                        <Text numberOfLines={1} style={[styles.metaText, { color: urgent ? t.color.warning : t.color.textMuted }]}>{due}</Text>
+                        {linkedHabitsCount ? <Text style={[styles.metaText, { color: t.color.textSubtle }]}>{`· ${holds}`}</Text> : null}
+                    </View>
+                </View>
 
-          {/* Who it is shared with: their photos, right on the card. */}
-          {shared ? <View style={{ marginRight: 8 }}><SharedFaces people={shared.people} tint={goal.color || colors.textPrimary} size={24} /></View> : null}
-        </TouchableOpacity>
+                {shared ? <SharedFaces people={shared.people} tint={color} size={22} /> : null}
+                <CountUp style={[styles.percent, { color: t.color.textPrimary }]} value={`${Math.round(progress)}%`} />
+            </Pressable>
 
-        {/* RIGHT SIDE: Expand Trigger */}
-        <TouchableOpacity
-          onPress={onToggleExpand}
-          activeOpacity={0.6}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: isExpanded }}
-          accessibilityLabel={`${isExpanded ? 'Hide' : 'Show'} ${linkedHabitsCount} habits`}
-          style={[styles.toggleBtn, {
-            borderLeftColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)',
-            padding, // Match the padding of the left side content roughly, or specific vertical padding
-            paddingLeft: 12,
-            alignSelf: 'stretch', // Full height
-            justifyContent: 'center'
-          }]}
-        >
-          <Text style={{ color: colors.textTertiary, fontSize: 11, fontFamily: FontFamily.bold, marginRight: 4 }}>
-            {linkedHabitsCount}
-          </Text>
-          <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color={colors.textTertiary} />
-        </TouchableOpacity>
-      </View>
-    </VoidCard>
-  );
+            <Pressable onPress={onToggleExpand} style={styles.chevron} hitSlop={4}
+                accessibilityRole="button" accessibilityState={{ expanded: isExpanded }}
+                accessibilityLabel={`${isExpanded ? 'Hide' : 'Show'} its ${holds}`}>
+                <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={t.color.textMuted} />
+            </Pressable>
+        </MatteSurface>
+    );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-  },
-  iconBox: {
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  content: {
-    flex: 1,
-    marginRight: 8,
-  },
-  name: {
-
-    fontFamily: FontFamily.bold,
-    marginRight: 8,
-    flex: 1,
-  },
-  daysChip: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  daysText: {
-    fontSize: 11,
-    fontFamily: FontFamily.semibold,
-  },
-  progressBg: {
-    flex: 1,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginRight: 8,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  progressText: {
-
-    fontFamily: FontFamily.bold,
-    minWidth: 28,
-    textAlign: 'right',
-  },
-  toggleBtn: {
-    paddingLeft: 8,
-    paddingVertical: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderLeftWidth: 1,
-    marginLeft: 4,
-  }
+    card: { flexDirection: 'row', alignItems: 'center', paddingLeft: Spacing.md },
+    main: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+    text: { flex: 1, gap: 2 },
+    name: { fontFamily: FontFamily.semibold },
+    meta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    metaText: { fontSize: 13, fontFamily: FontFamily.medium },
+    percent: { fontSize: 15, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
+    chevron: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: Spacing.xs },
 });
