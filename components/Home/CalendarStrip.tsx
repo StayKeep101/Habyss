@@ -16,7 +16,7 @@ interface CalendarStripProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   completionData?: Record<string, { completed: number; total: number }>;
-  goalDeadlines?: Record<string, { count: number; color: string }>;
+  goalDeadlines?: Record<string, { count: number; color: string; icon?: string }>;
 }
 
 interface DateItem {
@@ -29,6 +29,8 @@ interface DateItem {
   monthMark?: string;
   isGoalDeadline?: boolean;
   goalColor?: string;
+  /** The goal's own icon, on the badge of the day it is due. */
+  goalIcon?: string;
 }
 
 const TOTAL_WEEKS = 10000;
@@ -138,7 +140,7 @@ const DateButtonComponent = ({
               {item.dayNumber}
             </Text>
           </View>
-          {isDeadline ? <DeadlineFlag color={deadlineColor} cutout={colors.background} /> : null}
+          {isDeadline ? <DeadlineFlag color={deadlineColor} cutout={colors.background} icon={item.goalIcon} /> : null}
         </View>
 
         <Text
@@ -162,15 +164,16 @@ DateButtonComponent.displayName = 'DateButton';
 
 /**
  * A goal's finish day: the day keeps its own ring and number, and a small
- * flag in the goal's colour sits on the bottom of the ring, cut out from the
+ * badge with the goal's own icon, in the goal's colour, sits on the bottom of the ring, cut out from the
  * page so it reads as a mark on the day rather than a second selected day.
  */
-const DeadlineFlag = ({ color, cutout }: { color: string; cutout: string }) => (
+const DeadlineFlag = ({ color, cutout, icon }: { color: string; cutout: string; icon?: string }) => (
   <View pointerEvents="none" style={{
     position: 'absolute', bottom: -7, width: 20, height: 20, borderRadius: 10, borderWidth: 2.5, borderColor: cutout,
     backgroundColor: color, alignItems: 'center', justifyContent: 'center',
   }}>
-    <Ionicons name="flag" filled size={9} color={textOn(color)} />
+    {/* The goal's own icon (a photo or a typed glyph falls back to the flag). */}
+    <Ionicons name={icon && !icon.includes('/') && !icon.startsWith('file:') ? icon : 'flag'} filled size={9} color={textOn(color)} />
   </View>
 );
 
@@ -241,6 +244,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
         monthMark: date.getDate() === 1 ? date.toLocaleDateString(undefined, { month: 'short' }) : undefined,
         isGoalDeadline: !!deadlineInfo,
         goalColor: deadlineInfo?.color,
+        goalIcon: deadlineInfo?.icon,
       };
     });
   }, [completionData, getWeekStartForIndex, goalDeadlines]);

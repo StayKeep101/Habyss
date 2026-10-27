@@ -54,9 +54,19 @@ Habyss is a comprehensive personal improvement app that combines habit tracking,
    ```
 
 4. **Run on your device**
-   - Scan the QR code with Expo Go app (iOS/Android)
-   - Press `i` for iOS simulator
-   - Press `a` for Android emulator
+   Habyss uses custom native modules and requires a development build.
+   For the iOS simulator, run:
+   ```bash
+   npx expo run:ios
+   ```
+   After changing native dependencies or iOS autolinking settings, run
+   `cd ios && pod install && cd ..` before rebuilding. Metro reloads alone
+   cannot apply native changes.
+
+   `expo.autolinking.ios.buildFromSource` in `package.json` keeps
+   `expo-modules-core` compiled against this project's React Native headers.
+   The precompiled core caused a startup crash in `ExpoViewProps` /
+   `facebook::react::Props::Props()` with the current native dependency set.
 
 ## 📁 Project Structure
 

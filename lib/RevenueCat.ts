@@ -222,18 +222,18 @@ class RevenueCatService {
         }
     }
 
+    /**
+     * Bought: the Pro entitlement is active, or, should the entitlement not be
+     * attached to the products in RevenueCat, the store shows a finished
+     * purchase of either price. A payment must never leave the app locked.
+     */
     private checkProEntitlement(customerInfo: CustomerInfo): boolean {
-        console.log('[RevenueCat] Checking Entitlements:', JSON.stringify(customerInfo.entitlements.active, null, 2));
-
-        for (const entitlementId of ENTITLEMENT_IDS) {
-            if (customerInfo.entitlements.active[entitlementId] !== undefined) {
-                console.log('[RevenueCat] User IS Pro');
-                return true;
-            }
-        }
-
-        console.log('[RevenueCat] User is NOT Pro');
-        return false;
+        if (ENTITLEMENT_IDS.some(id => customerInfo.entitlements.active[id] !== undefined)) return true;
+        const { PRODUCTS } = require('@/lib/access') as typeof import('@/lib/access');
+        const bought = customerInfo.nonSubscriptionTransactions.some(transaction =>
+            transaction.productIdentifier === PRODUCTS.full || transaction.productIdentifier === PRODUCTS.friend);
+        if (__DEV__) console.log(`[RevenueCat] ${bought ? 'Bought (no entitlement attached)' : 'Not bought'}`);
+        return bought;
     }
 }
 
