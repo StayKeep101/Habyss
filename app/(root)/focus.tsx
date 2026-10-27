@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import Svg from 'react-native-svg';
-import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -116,16 +116,33 @@ function FocusScreen() {
         return () => { void keep.deactivateKeepAwake('habyss-focus').catch(() => undefined); };
     }, [focus.isRunning, mine]);
 
-    // The × steps back after a few seconds; a tap brings it back.
+    // Left alone for a few seconds, the page goes quiet: the corner buttons
+    // dim, the player's buttons fade away, and the name and time grow into the
+    // room. A tap anywhere brings it all back. Paused, the buttons stay.
     const chrome = useSharedValue(1);
+    const calmness = useSharedValue(0);
+    const [calm, setCalm] = useState(false);
+    const pausedNow = useRef(false);
+    pausedNow.current = focus.isPaused;
     const idle = useRef<ReturnType<typeof setTimeout> | null>(null);
     const wake = () => {
         chrome.value = withTiming(1, { duration: 200 });
+        calmness.set(withTiming(0, { duration: 260, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System }));
+        setCalm(false);
         if (idle.current) clearTimeout(idle.current);
-        idle.current = setTimeout(() => { chrome.value = withTiming(0.15, { duration: 800 }); }, 4000);
+        idle.current = setTimeout(() => {
+            chrome.value = withTiming(0.15, { duration: 800 });
+            if (pausedNow.current) return;
+            calmness.set(withTiming(1, { duration: 700, easing: Easing.inOut(Easing.cubic), reduceMotion: ReduceMotion.System }));
+            setCalm(true);
+        }, 4000);
     };
     useEffect(() => { if (focus.isRunning && mine) wake(); return () => { if (idle.current) clearTimeout(idle.current); }; }, [focus.isRunning, mine]); // eslint-disable-line react-hooks/exhaustive-deps
     const chromeStyle = useAnimatedStyle(() => ({ opacity: chrome.value }));
+    const headingGrow = useAnimatedStyle(() => ({ transform: [{ scale: 1 + calmness.get() * 0.12 }] }));
+    const digitsGrow = useAnimatedStyle(() => ({ transform: [{ scale: 1 + calmness.get() * 0.28 }] }));
+    // Paused: the buttons come back and stay.
+    useEffect(() => { if (focus.isPaused) wake(); }, [focus.isPaused]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /**
      * Starts straight away: a timer for its length, counted from when it began
@@ -234,8 +251,8 @@ function FocusScreen() {
     const ringSize = landscape ? Math.min(usable * 0.62, screen.width * 0.34) : Math.min(screen.width * 0.6, usable * 0.32);
     const digitSize = landscape ? Math.min(usable * 0.2, screen.width * 0.11) : Math.min(screen.width * 0.18, usable * 0.095);
     const label = focus.isPaused ? undefined : endsAt ? `Ends at ${endsAt}` : undefined;
-    const controls = (
-        <View style={styles.controls}>
+    const controls = calm ? null : (
+        <Animated.View entering={FadeIn.duration(220).reduceMotion(ReduceMotion.System)} exiting={FadeOut.duration(400).reduceMotion(ReduceMotion.System)} style={styles.controls}>
             <Pressable onPress={restart} style={styles.side} accessibilityRole="button" accessibilityLabel="Start over" hitSlop={6}>
                 <AppIcon name="refresh" size={22} color="#FFFFFF" />
             </Pressable>
@@ -246,14 +263,15 @@ function FocusScreen() {
             <Pressable onPress={nextNow} style={styles.side} accessibilityRole="button" accessibilityLabel="Done, go to the next thing" hitSlop={6}>
                 <AppIcon name="play-skip-forward" filled size={22} color="#FFFFFF" />
             </Pressable>
-        </View>
+        </Animated.View>
     );
+    const MOVE = LinearTransition.duration(500).easing(Easing.inOut(Easing.cubic));
     const heading = (
-        <View style={styles.heading}>
+        <Animated.View layout={MOVE} style={[styles.heading, headingGrow]}>
             <Text style={[styles.eyebrow, { color: primary }]}>{eyebrow}</Text>
             <Text numberOfLines={landscape ? 1 : 2} adjustsFontSizeToFit minimumFontScale={0.75}
                 style={[styles.name, landscape && styles.nameSide]} accessibilityRole="header">{name}</Text>
-        </View>
+        </Animated.View>
     );
 
     return (
@@ -296,8 +314,10 @@ function FocusScreen() {
                         {clock === 'ring' ? <FocusRing size={ringSize} progress={progress} accent={primary} running={!focus.isPaused} /> : null}
                         <View style={styles.sideColumn}>
                             {heading}
-                            {clock === 'ring' ? <FocusDigits seconds={focus.timeLeft} size={digitSize} label={label} />
-                                : <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused} label={label} />}
+                            <Animated.View layout={MOVE} style={digitsGrow}>
+                                {clock === 'ring' ? <FocusDigits seconds={focus.timeLeft} size={digitSize} label={label} />
+                                    : <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused} label={label} />}
+                            </Animated.View>
                             {controls}
                         </View>
                     </View>
@@ -305,11 +325,17 @@ function FocusScreen() {
                     <View style={styles.center}>
                         {heading}
                         {clock === 'ring' ? (
-                            <View style={styles.clockStack}>
+                            <Animated.View layout={MOVE} style={styles.clockStack}>
                                 <FocusRing size={ringSize} progress={progress} accent={primary} running={!focus.isPaused} />
-                                <FocusDigits seconds={focus.timeLeft} size={digitSize} label={label} />
-                            </View>
-                        ) : <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused} label={label} />}
+                                <Animated.View style={digitsGrow}>
+                                    <FocusDigits seconds={focus.timeLeft} size={digitSize} label={label} />
+                                </Animated.View>
+                            </Animated.View>
+                        ) : (
+                            <Animated.View layout={MOVE} style={digitsGrow}>
+                                <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused} label={label} />
+                            </Animated.View>
+                        )}
                         {controls}
                     </View>
                 )

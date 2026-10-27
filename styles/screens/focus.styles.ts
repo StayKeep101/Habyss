@@ -11,11 +11,13 @@ export const styles = StyleSheet.create({
     /** Balances the × so the title sits centred; the × is a 44 pt control. */
     topSpacer: { width: Control.hitTarget },
     title: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 16, textAlign: 'center', color: '#FFFFFF' },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'space-evenly', paddingHorizontal: Spacing.xl },
-    clockStack: { alignItems: 'center', gap: Spacing.lg },
+    // Centred on the screen itself, not on what is left under the top buttons:
+    // the bottom padding matches the top row, so it never sits low.
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.section, paddingHorizontal: Spacing.xl, paddingBottom: Control.hitTarget },
+    clockStack: { alignItems: 'center', gap: Spacing.xl },
     /** On its side: the ring on the left, everything else in a column on the right. */
-    sideways: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.section, paddingHorizontal: Spacing.xl },
-    sideColumn: { flex: 1, maxWidth: 420, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
+    sideways: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.section, paddingHorizontal: Spacing.xl, paddingBottom: Control.hitTarget },
+    sideColumn: { flex: 1, maxWidth: 420, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg },
     topRight: { flexDirection: 'row', gap: Spacing.sm },
     holdLayer: { position: 'absolute', top: 0, left: 0, width: Control.hitTarget, height: Control.hitTarget, alignItems: 'center', justifyContent: 'center' },
     holdHint: { position: 'absolute', top: Control.hitTarget + 6, left: 0, width: 120, fontFamily: FontFamily.medium, fontSize: 13, color: 'rgba(255,255,255,0.75)' },
