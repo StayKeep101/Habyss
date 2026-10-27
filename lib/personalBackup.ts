@@ -25,7 +25,7 @@ export const BACKED_UP_KEYS = [
     'app_settings', 'profile_nickname',
     'habyss_accent_gradient', 'habyss_custom_colors', 'habyss_week_start', 'habyss_day_window',
     'habyss_notification_prefs', 'habyss_roadmap_filter', 'habyss_voice_destination',
-    'habyss_daily_focus_target', 'habyss_onboarding_complete', 'habyss_focus_blocking', 'habyss_tilt_to_focus',
+    'habyss_daily_focus_target', 'habyss_onboarding_complete', 'habyss_focus_blocking',
     'habyss_echo_config', 'habyss_echo_memory', 'habyss_echo_patterns', 'habyss_echo_experiments',
     'habyss_echo_written_lines', 'echo_recent_lines',
     'habyss_check_ins', 'habyss_brain_dump', 'habyss_day_memory', 'habyss_sleep_log',
@@ -84,6 +84,8 @@ export async function collectPersonal(userId: string, today = new Date()): Promi
 export async function applyPersonal(doc: PersonalDocument, userId: string): Promise<number> {
     const entries = Object.entries(doc.stores ?? {}).filter(([key, value]) => isBackedUp(key) && typeof value === 'string');
     if (entries.length) await AsyncStorage.multiSet(entries);
+    // Your waking day is kept in memory once read: read the restored one instead.
+    if (entries.some(([key]) => key === 'habyss_day_window')) (require('./echo') as typeof import('./echo')).forgetDayWindow();
     let written = entries.length;
     const db = await getDatabase();
     if (db && doc.measurements?.length) {

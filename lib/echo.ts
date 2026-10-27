@@ -41,6 +41,22 @@ export async function getDayWindow(): Promise<DayWindow> {
     return DEFAULT_DAY;
 }
 
+/**
+ * Changes one end of the day and keeps the other exactly as saved: a screen
+ * that had not read your day yet used to send the default with it, so
+ * moving your wake time quietly put bedtime back to 11 PM.
+ */
+export async function updateDayWindow(patch: Partial<DayWindow>): Promise<DayWindow> {
+    const next = { ...(await getDayWindow()), ...patch };
+    await saveDayWindow(next);
+    return dayCache ?? next;
+}
+
+/** A restore wrote the stored day: read it again rather than keep the old copy. */
+export function forgetDayWindow(): void {
+    dayCache = null;
+}
+
 export async function saveDayWindow(day: DayWindow): Promise<void> {
     if (!TIME.test(day.wake) || !TIME.test(day.sleep)) return;
     dayCache = { wake: day.wake, sleep: day.sleep };

@@ -16,7 +16,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import * as Notifs from 'expo-notifications';
 import { NotificationService } from '@/lib/notificationService';
 import { TimeRow } from '@/components/ui/TimeRow';
-import { cachedDayWindow, DEFAULT_DAY, getDayWindow, saveDayWindow, type DayWindow } from '@/lib/echo';
+import { cachedDayWindow, DEFAULT_DAY, getDayWindow, updateDayWindow, type DayWindow } from '@/lib/echo';
 import { scheduledActivitiesEnabled, setScheduledActivitiesEnabled, scheduledActivitiesCapability } from '@/lib/scheduledActivities';
 import { styles } from '@/styles/screens/notifications.styles';
 
@@ -31,10 +31,11 @@ const Notifications = () => {
 
   // When not to be interrupted. This lived on the Echo page, which is about
   // how Echo talks rather than when anything is allowed to reach you at all.
-  const saveDay = (next: DayWindow) => {
-    setDay(next);
-    saveDayWindow(next)
-      .then(() => NotificationService.refreshReminders())
+  // Only the end that was changed is saved; the other stays as it was saved.
+  const saveDay = (patch: Partial<DayWindow>) => {
+    setDay(current => ({ ...current, ...patch }));
+    updateDayWindow(patch)
+      .then(saved => { setDay(saved); return NotificationService.refreshReminders(); })
       .catch(() => undefined);
   };
   // Your saved day from the start, never the default first (lib/echo.ts).
@@ -144,8 +145,8 @@ const Notifications = () => {
 
           {/* Nothing reaches you outside these hours. */}
           <VoidCard style={[styles.card, { opacity: notificationsEnabled ? 1 : 0.5 }]}>
-            <TimeRow icon="sunny-outline" label="Wake up" value={day.wake} accent={accentColor} onChange={time => saveDay({ ...day, wake: time })} />
-            <TimeRow icon="moon-outline" label="Sleep" value={day.sleep} accent={accentColor} onChange={time => saveDay({ ...day, sleep: time })} />
+            <TimeRow icon="sunny-outline" label="Wake up" value={day.wake} accent={accentColor} onChange={time => saveDay({ wake: time })} />
+            <TimeRow icon="moon-outline" label="Sleep" value={day.sleep} accent={accentColor} onChange={time => saveDay({ sleep: time })} />
           </VoidCard>
         </ScrollView>
       </SheetScreen>

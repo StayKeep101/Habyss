@@ -10,7 +10,7 @@ import { useMeals, useMealsFlexible } from '@/hooks/useMeals';
 import { useCalendarOn } from '@/hooks/useCalendarEvents';
 import { MEAL_NAMES, saveMeal, setMealsFlexible, type MealId } from '@/lib/meals';
 import { MealRow } from '@/components/Roadmap/MealRow';
-import { cachedDayWindow, DEFAULT_DAY, getDayWindow, saveDayWindow, type DayWindow } from '@/lib/echo';
+import { cachedDayWindow, DEFAULT_DAY, getDayWindow, updateDayWindow, type DayWindow } from '@/lib/echo';
 import { explainCalendarRefused, setCalendarOn } from '@/lib/calendarEvents';
 import { NotificationService } from '@/lib/notificationService';
 import { styles } from '@/styles/screens/meals.styles';
@@ -31,7 +31,8 @@ export default function TimelineSettingsScreen() {
     const [day, setDay] = useState<DayWindow>(() => cachedDayWindow() ?? DEFAULT_DAY);
     useEffect(() => { void getDayWindow().then(setDay); }, []);
     // Quiet hours follow the same day, so reminders are rescheduled with it.
-    const saveDay = (next: DayWindow) => { setDay(next); void saveDayWindow(next).then(() => NotificationService.refreshReminders()).catch(() => undefined); };
+    // Only the end that was changed is saved; the other stays as it was saved.
+    const saveDay = (patch: Partial<DayWindow>) => { setDay(current => ({ ...current, ...patch })); void updateDayWindow(patch).then(saved => { setDay(saved); return NotificationService.refreshReminders(); }).catch(() => undefined); };
 
     const toggleCalendar = async (next: boolean) => {
         const done = await setCalendarOn(next);
@@ -43,8 +44,8 @@ export default function TimelineSettingsScreen() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <SectionTitle first>Your day</SectionTitle>
                 <View>
-                    <TimeRow icon="sunny-outline" label="Wake up" value={day.wake} accent={t.color.accent} onChange={time => saveDay({ ...day, wake: time })} />
-                    <TimeRow icon="moon-outline" label="Bedtime" value={day.sleep} accent={t.color.accent} onChange={time => saveDay({ ...day, sleep: time })} />
+                    <TimeRow icon="sunny-outline" label="Wake up" value={day.wake} accent={t.color.accent} onChange={time => saveDay({ wake: time })} />
+                    <TimeRow icon="moon-outline" label="Bedtime" value={day.sleep} accent={t.color.accent} onChange={time => saveDay({ sleep: time })} />
                 </View>
 
                 <SettingsGroup title="Calendar">

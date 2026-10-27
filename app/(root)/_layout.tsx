@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { AccessGate } from '@/components/Paywall/AccessGate';
 import { Stack } from 'expo-router';
 import { DemonEdge } from '@/components/ui/DemonEdge';
-import { TiltToFocus } from '@/hooks/useTiltToFocus';
 import { useTaskPressure } from '@/hooks/useTaskPressure';
 
 // A direct account/email link still needs a screen beneath its modal.
@@ -174,7 +173,6 @@ export default function RootLayout() {
       {/* Demon mode: far behind on tasks, the edge of the screen glows red (lib/taskPressure.ts). */}
       <DemonEdge on={demon} />
       {/* Phone on its side: focus on what is due now. */}
-      <TiltToFocus />
     </>
   );
 }

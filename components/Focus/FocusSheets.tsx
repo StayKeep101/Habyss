@@ -1,11 +1,10 @@
-import React, { useEffect, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useSyncExternalStore } from 'react';
 import { VoidSheet } from '@/components/ui/VoidSheet';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useClockStyle } from '@/hooks/useClockStyle';
 import { CLOCK_STYLES, setClockStyle, type ClockStyle } from '@/lib/focusClock';
 import { setFocusBlocking, useFocusBlocking } from '@/lib/focusBlocking';
-import { setTiltToFocus, tiltToFocusOn } from '@/lib/tiltToFocus';
 import { FOCUS_SOUNDS, currentFocusSound, loadFocusSound, setFocusSound, subscribeFocusSound } from '@/lib/focusSounds';
 
 /** The sound chosen to focus to, kept in step everywhere. */
@@ -15,15 +14,13 @@ export function useFocusSoundChoice() {
 }
 
 /**
- * Focus settings, from the focus page itself: how the clock looks, blocking
- * apps, turning sideways to focus. The same switches as in Settings.
+ * Focus settings, from the focus page itself: how the clock looks and
+ * blocking apps. The same switches as in Settings.
  */
 export function FocusSettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
     const { lightFeedback } = useHaptics();
     const clock = useClockStyle();
     const blocking = useFocusBlocking();
-    const [tilt, setTilt] = useState(true);
-    useEffect(() => { void tiltToFocusOn().then(setTilt); }, [visible]);
     return (
         <VoidSheet visible={visible} onClose={onClose} title="Focus settings">
             <SettingsGroup>
@@ -31,8 +28,6 @@ export function FocusSettingsSheet({ visible, onClose }: { visible: boolean; onC
                     onChoose={id => { lightFeedback(); void setClockStyle(id as ClockStyle); }} />
                 <SettingsRow icon="hand-left" color="#FF375F" label="Block apps while focusing"
                     toggle={blocking} onToggle={value => { lightFeedback(); void setFocusBlocking(value); }} />
-                <SettingsRow icon="phone-landscape" color="#FF9F0A" label="Turn sideways to focus"
-                    toggle={tilt} onToggle={value => { lightFeedback(); setTilt(value); void setTiltToFocus(value); }} />
             </SettingsGroup>
         </VoidSheet>
     );

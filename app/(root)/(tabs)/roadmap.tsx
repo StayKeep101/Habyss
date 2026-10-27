@@ -66,7 +66,7 @@ import { DEFAULT_ROADMAP_FILTER, cachedRoadmapFilter, isFiltered, loadRoadmapFil
 import { tallyDay } from '@/lib/dayComplete';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { buildDayPlan } from '@/lib/dayPlan';
-import { DEFAULT_DAY, getDayWindow, minutesOf, type DayWindow } from '@/lib/echo';
+import { DEFAULT_DAY, getDayWindow, minutesOf, type DayWindow, cachedDayWindow } from '@/lib/echo';
 import { getRemoveDrag, isOverOrb, setRemoveDrag } from '@/lib/dragBridge';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { styles } from '@/styles/screens/tabs/roadmap.styles';
@@ -834,9 +834,9 @@ const CalendarScreen = () => {
     }, [tasks, selectedDate, sharedOnly, sharedTaskFor]);
 
     // The waking day, as set in Notifications; re-read whenever the tab shows.
-    const [dayWindow, setDayWindow] = useState<DayWindow>(DEFAULT_DAY);
+    const [dayWindow, setDayWindow] = useState<DayWindow>(() => cachedDayWindow() ?? DEFAULT_DAY);
     // Until the real waking day is read, the default (7:00) must not shape the saved layout.
-    const [dayWindowReady, setDayWindowReady] = useState(false);
+    const [dayWindowReady, setDayWindowReady] = useState(() => !!cachedDayWindow());
     useFocusEffect(useCallback(() => {
         getDayWindow().then(window => { setDayWindow(window); setDayWindowReady(true); }).catch(() => setDayWindowReady(true));
     }, []));
