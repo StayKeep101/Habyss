@@ -58,7 +58,11 @@ describe('native reminder refresh', () => {
     it('refreshes using existing permission without prompting and routes to the habit', async () => {
         await NotificationService.refreshHabitReminders();
         expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
-        expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(48);
+        // 48 reminders, then the note that says they have run out.
+        expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(49);
+        const requests = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request);
+        expect(requests[48].identifier).toBe('reminders-keep-alive');
+        expect(requests[48].trigger.date.getTime()).toBeGreaterThan(requests[47].trigger.date.getTime());
         expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(expect.objectContaining({
             content: expect.objectContaining({ data: expect.objectContaining({ url: '/habit-detail?habitId=read' }) }),
             trigger: expect.objectContaining({ type: 'date' }),
@@ -216,7 +220,8 @@ describe('Echo Alive native scheduling and actions', () => {
     afterEach(() => jest.useRealTimers());
     it('replaces the regular timed reminder with encouragement and a follow-up', async () => {
         await NotificationService.refreshReminders();
-        const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request);
+        const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request)
+            .filter(item => item.content.data.kind !== 'keep-alive');
         expect(calls).toHaveLength(14);
         expect(calls.every(item => item.content.data.kind === 'echo-alive')).toBe(true);
         expect(calls[0].trigger.date).toEqual(new Date(2026, 8, 16, 7, 50));
@@ -230,7 +235,8 @@ describe('Echo Alive native scheduling and actions', () => {
         ]);
         await NotificationService.refreshReminders();
         expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('old-followup');
-        const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request);
+        const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request)
+            .filter(item => item.content.data.kind !== 'keep-alive');
         expect(calls).toHaveLength(12);
         expect(calls.every(item => item.content.data.scheduledDate !== '2026-09-16')).toBe(true);
     });

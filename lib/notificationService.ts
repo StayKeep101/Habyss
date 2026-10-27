@@ -18,6 +18,7 @@ import { scheduledMoments } from './scheduledMoments';
 import { buildAlivePlan } from './echoAlive';
 import { engagementLifecycle } from './engagementLifecycle';
 import { focusQuiet, quietUntil } from './focusQuiet';
+import { KEEP_ALIVE_CONTENT, KEEP_ALIVE_ID, keepAliveAt } from './reminderKeepAlive';
 let reminderQueue: Promise<void> = Promise.resolve();
 let refreshPromise: Promise<void> | null = null;
 let refreshAgain = false;
@@ -212,7 +213,7 @@ export class NotificationService {
         // were never recognised here, so they kept firing beside the new ones
         // and every reminder arrived twice.
         const ours = (item: Notifications.NotificationRequest) =>
-          ['habit-reminder', 'task-reminder', 'echo-check-in', 'echo-alive'].includes(String(item.content.data?.kind))
+          ['habit-reminder', 'task-reminder', 'echo-check-in', 'echo-alive', 'keep-alive'].includes(String(item.content.data?.kind))
           || typeof item.content.data?.habitId === 'string' || typeof item.content.data?.taskId === 'string';
         const old = pending.filter(ours);
         // One budget includes Echo, regular reminders, and daily check-ins.
@@ -295,9 +296,15 @@ export class NotificationService {
             seen.add(key);
             return true;
           })
-          // Focusing: nothing may fire before the session ends (lib/focusQuiet.ts).
-          .filter(item => item.date.getTime() > quietUntil())
-          .slice(0, budget);
+          // Never in the past: iOS delivers a past date at once, and every
+          // refresh would deliver it again. Focusing: nothing may fire before
+          // the session ends (lib/focusQuiet.ts).
+          .filter(item => item.date.getTime() > Math.max(now.getTime(), quietUntil()))
+          // One place kept for the note after the last of them.
+          .slice(0, Math.max(0, budget - 1));
+        const pauseAt = keepAliveAt(desired);
+        if (pauseAt) desired.push({ identifier: KEEP_ALIVE_ID, date: pauseAt,
+          content: { ...KEEP_ALIVE_CONTENT, sound: false, data: { kind: 'keep-alive', url: '/(root)/(tabs)/home' } } });
         const wanted = new Set(desired.map(item => item.identifier));
         for (const item of old) if (!wanted.has(item.identifier)) await Notifications.cancelScheduledNotificationAsync(item.identifier);
         for (const item of desired) {

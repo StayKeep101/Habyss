@@ -477,8 +477,12 @@ export async function removeHabitEverywhere(habitId: string): Promise<void> {
             }
         } catch (e) {
             console.error('[Habits] SQLite delete failed:', e);
+            throw e;
         }
     }
+    // Said out loud, like updateHabit: a delete that quietly did nothing left
+    // the screen saying it was gone and the habit back on the next launch.
+    throw new Error('Habit storage is unavailable. Nothing was deleted.');
 }
 
 export async function removeGoalWithLinkedHabits(goalId: string): Promise<void> {

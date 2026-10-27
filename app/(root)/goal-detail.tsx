@@ -17,7 +17,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { HalfCircleProgress } from '@/components/ui/HalfCircleProgress';
 import { PanelCap } from '@/components/Goal/PanelCap';
-import { Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, toggleCompletion } from '@/lib/habitsSQLite';
+import { Habit, removeGoalWithLinkedHabits, toggleCompletion } from '@/lib/habitsSQLite';
 import { cachedCover, resolveCover, setGoalCover } from '@/lib/goalCover';
 import { ShareGoalModal } from '@/components/Social/ShareGoalModal';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
@@ -35,6 +35,7 @@ import { dateAt } from '@/lib/goalInsights';
 import { setTaskStatus, deleteTask, type Task } from '@/lib/tasks';
 
 import { useHaptics } from '@/hooks/useHaptics';
+import { useRemoveHabit } from '@/hooks/useRemoveHabit';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import Animated, {
     useAnimatedScrollHandler,
@@ -344,12 +345,8 @@ const GoalDetail = () => {
     });
   };
 
-  const handleDeleteHabit = (habit: Habit) => {
-    Alert.alert("Delete Habit", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => removeHabitEverywhere(habit.id) }
-    ]);
-  };
+  const askRemoveHabit = useRemoveHabit();
+  const handleDeleteHabit = (habit: Habit) => askRemoveHabit(habit);
 
   const handleChangeBackground = async () => {
     if (!ImagePicker) {

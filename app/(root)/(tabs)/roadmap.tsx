@@ -22,6 +22,7 @@ import { getTasks, setTaskStatus, updateTask, deleteTask as removeTask, tasksFor
 import { setSkipped as setSkippedHabit, subscribeToHabits, toggleCompletion, removeHabitEverywhere, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useRemoveHabit } from '@/hooks/useRemoveHabit';
 import { useHistory } from '@/hooks/useHistory';
 import { useData } from '@/hooks/useData';
 import { habitStatus, isLive } from '@/lib/habitStatus';
@@ -453,9 +454,10 @@ const CalendarScreen = () => {
         emit('show_task_form', { task });
     }, []);
 
+    const askRemoveHabit = useRemoveHabit();
     const handleDelete = async (habit: Habit) => {
-        // A habit goes on the gesture alone. A goal takes its whole plan with
-        // it, which is more than one swipe should be allowed to decide.
+        // A goal takes its whole plan with it, which is more than one swipe
+        // should be allowed to decide.
         if (habit.isGoal) {
             Alert.alert('Delete goal', 'This removes the goal and everything planned under it.', [
                 { text: 'Cancel', style: 'cancel' },
@@ -463,8 +465,8 @@ const CalendarScreen = () => {
             ]);
             return;
         }
-        try { await removeHabitEverywhere(habit.id); }
-        catch { Alert.alert('Could not delete', 'Your habit is still saved. Please try again.'); }
+        // It repeats, so the swipe asks which: today, from today, or all of it.
+        askRemoveHabit(habit);
     };
 
     const handleEdit = (habit: Habit) => {
