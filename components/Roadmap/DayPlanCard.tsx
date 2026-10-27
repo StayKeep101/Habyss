@@ -8,7 +8,6 @@ import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { blocksAt, clockOf, spanLabel, type DayPlan } from '@/lib/dayPlan';
-import { formatClock } from '@/lib/habitMeasurement';
 
 /**
  * The waking day as a calendar shows it: a thin hour track, the part already
@@ -104,7 +103,13 @@ export const DayPlanCard: React.FC<{
         >
             <View style={styles.head}>
                 {scrub === null ? (
-                    isToday ? <LiveClock sleep={plan.sleep} accent={accent} /> : (
+                    isToday ? (
+                        // Your waking day on the left, what is left of it on the right.
+                        <>
+                            <Text style={[styles.summary, { color: colors.textSecondary }]}>{clockOf(plan.wake)}–{clockOf(plan.sleep)}</Text>
+                            <Text style={[styles.summary, { color: plan.left > 0 ? accent : colors.textTertiary }]}>{summary}</Text>
+                        </>
+                    ) : (
                         <Text style={[styles.summary, { color: colors.textSecondary }]}>{summary}</Text>
                     )
                 ) : (
@@ -143,41 +148,11 @@ export const DayPlanCard: React.FC<{
     );
 };
 
-/**
- * Today, the time to the second and what is left of the waking day, both
- * running: "09:10:23" and "13:49:37 left". Its own clock, so only these two
- * lines redraw each second, not the strip or the page around it.
- */
-function LiveClock({ sleep, accent }: { sleep: number; accent: string }) {
-    const { theme } = useTheme();
-    const colors = Colors[theme];
-    const [now, setNow] = useState(() => new Date());
-    useEffect(() => {
-        // Lined up on the second, so it ticks with the phone's own clock.
-        let timer: ReturnType<typeof setInterval> | undefined;
-        const align = setTimeout(() => { setNow(new Date()); timer = setInterval(() => setNow(new Date()), 1000); }, 1000 - (Date.now() % 1000));
-        return () => { clearTimeout(align); if (timer) clearInterval(timer); };
-    }, []);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-    const secondsIn = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-    const left = sleep * 60 - secondsIn;
-    return (
-        <>
-            <Text style={[styles.clock, { color: colors.textPrimary }]} accessibilityLabel={`It is ${time.slice(0, 5)}`}>{time}</Text>
-            <Text style={[styles.summary, { color: left > 0 ? accent : colors.textTertiary }]}>
-                {left > 0 ? `${formatClock(left).padStart(5, '0')} left` : 'Day done'}
-            </Text>
-        </>
-    );
-}
-
 const styles = StyleSheet.create({
     wrap: { marginBottom: 14, paddingTop: 2 },
     head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 },
     summary: { fontSize: 13, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
     window: { fontSize: 12, fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
-    clock: { fontSize: 15, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
     trackArea: { height: 14, justifyContent: 'center' },
     track: { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2 },
     tick: { position: 'absolute', width: StyleSheet.hairlineWidth * 2, height: 10 },

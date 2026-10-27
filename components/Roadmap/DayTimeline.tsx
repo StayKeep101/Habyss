@@ -1,4 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 // The gesture handler's Pressable for every touch on a row, so the one under
@@ -32,6 +31,8 @@ const SIZES = {
 type Size = (typeof SIZES)[keyof typeof SIZES];
 /** How long one pill takes to fill in the intro's domino run. */
 const FILL_MS = 340;
+/** And one line between two of them: shorter, so the pour keeps one pace down the page. */
+const LINK_MS = 160;
 /**
  * At an even speed, so pill after pill reads as one steady pour rather than
  * each one rushing and stopping.
@@ -82,13 +83,19 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
     // The intro fills the pills like dominoes: each one fills completely
     // before the next begins, top to bottom, a partly gone one only as far as
     // the clock says. Each knows when its turn comes and how long it takes.
+    // One pour, top to bottom: a pill fills, then the line below it, then the
+    // next pill, each starting the moment the one above finishes, at one even
+    // speed, so the line never trails behind the pills.
     const turns = React.useMemo(() => {
         let at = 0;
-        return flow.timeline.map(item => {
+        return flow.timeline.map((item, index) => {
             const share = elapsedOf(item, now);
-            const turn = { delay: at, duration: Math.max(1, Math.round(FILL_MS * share)) };
-            at += turn.duration;
-            return turn;
+            const pill = { delay: at, duration: Math.max(1, Math.round(FILL_MS * share)) };
+            at += pill.duration;
+            const linkShare = linkProgress(item, flow.timeline[index + 1]?.start, now);
+            const link = { delay: at, duration: Math.max(1, Math.round(LINK_MS * linkShare)) };
+            at += link.duration;
+            return { pill, link };
         });
     }, [flow.timeline, now]);
     const colorOf = (item: FlowInput) => item.color || (item.kind === 'meal' ? t.color.textMuted : item.kind === 'task' ? t.color.warning : t.color.accent);
@@ -104,7 +111,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
                 const next = flow.timeline[index + 1];
                 return (
                     <ListItem key={`${item.kind}-${item.id}`} index={index} rise>
-                        <Row size={size} item={item} turn={turns[index]} color={colorOf(item)} last={index === flow.timeline.length - 1} first={index === 0}
+                        <Row size={size} item={item} turn={turns[index].pill} linkTurn={turns[index].link} color={colorOf(item)} last={index === flow.timeline.length - 1} first={index === 0}
                             nextColor={next ? colorOf(next) : undefined} nextStart={next?.start} day={day}
                             now={now} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus} />
                     </ListItem>
@@ -165,8 +172,8 @@ function Chips({ title, icon, tint, items, onOpen }: { title: string; icon: stri
     );
 }
 
-function Row({ size, item, turn, color, nextColor, nextStart, last, first, now, updated, onToggle, onOpen, onFocus, day }: {
-    size: Size; item: FlowItem; turn: { delay: number; duration: number }; color: string; nextColor?: string; nextStart?: number; last: boolean; first?: boolean; now: number | null; updated: boolean; day?: string;
+function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, first, now, updated, onToggle, onOpen, onFocus, day }: {
+    size: Size; item: FlowItem; turn: { delay: number; duration: number }; linkTurn: { delay: number; duration: number }; color: string; nextColor?: string; nextStart?: number; last: boolean; first?: boolean; now: number | null; updated: boolean; day?: string;
     onToggle: (item: FlowInput) => void; onOpen: (item: FlowInput) => void; onFocus: (item: FlowInput) => void;
 }) {
     const t = useTokens();
@@ -213,20 +220,18 @@ function Row({ size, item, turn, color, nextColor, nextStart, last, first, now, 
             <View style={[styles.rail, { width: size.pill }]}>
                 <Pressable onPress={() => onOpen(item)} accessibilityRole="button" accessibilityLabel={`Open ${item.title}`}>
                     <Animated.View style={[styles.pill, { width: size.pill, borderRadius: corner, backgroundColor: t.color.surfaceRaised }, pillStyle]}>
-                        {/* Matte, like every card: still to come, the plain card
-                            surface with its icon in colour; filled from the top in
-                            its own colour as its time passes; a soft light over the
-                            whole pill. Done keeps its full colour: only the name is struck through. */}
+                        {/* Still to come: the plain card surface with its icon in
+                            colour; filled from the top in its own flat colour as its
+                            time passes. Done keeps its full colour: only the name is struck through. */}
                         <Fill color={color} height={height} progress={elapsed} turn={turn} />
-                        <LinearGradient pointerEvents="none" colors={['rgba(255,255,255,0.12)', 'rgba(255,255,255,0)']} locations={[0, 0.7]} style={StyleSheet.absoluteFill} />
                         <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon} color={elapsed >= 0.5 ? t.color.onAccent : color} />
                     </Animated.View>
                 </Pressable>
-                {/* The line to the next one: this one's colour melting into the
-                    next one's, filling as the time between them passes. */}
+                {/* The line to the next one, in this one's colour, filling as
+                    the time between them passes. */}
                 {/* Free time before the next one shows as line, on the same
                     scale as the pills: an hour free is a long stretch, back to back is short. */}
-                {!last ? <Link from={color} to={nextColor ?? color} progress={linkProgress(item, nextStart, now)} turn={turn}
+                {!last ? <Link color={color} progress={linkProgress(item, nextStart, now)} turn={linkTurn}
                     gap={nextStart !== undefined ? Math.min(size.max, Math.max(0, nextStart - item.end) * size.per) : 0} /> : null}
             </View>
 
@@ -296,13 +301,13 @@ function linkProgress(item: FlowItem, nextStart: number | undefined, now: number
 
 /**
  * The line between two items. It runs under both pills, so it meets them with
- * no gap; the part already lived is coloured, this item's colour blending into
- * the next one's, and the rest is the quiet track.
+ * no gap; the part already lived is in this item's flat colour, and the rest
+ * is the quiet track.
  */
-function Link({ from, to, progress, turn, gap = 0 }: { from: string; to: string; progress: number; turn: { delay: number; duration: number }; gap?: number }) {
+function Link({ color, progress, turn, gap = 0 }: { color: string; progress: number; turn: { delay: number; duration: number }; gap?: number }) {
     const t = useTokens();
     const [length, setLength] = useState(0);
-    const shown = useProgress(Math.max(0, Math.min(1, progress)), turn.delay + turn.duration, undefined, turn.duration, POUR);
+    const shown = useProgress(Math.max(0, Math.min(1, progress)), turn.delay, undefined, turn.duration, POUR);
     const style = useAnimatedStyle(() => ({ height: shown.get() * length }));
     // The line tucks s(10) under each pill, so free time adds that back to show at its true length.
     const target = gap > 0 ? gap + s(20) : vs(10);
@@ -314,7 +319,7 @@ function Link({ from, to, progress, turn, gap = 0 }: { from: string; to: string;
     return (
         <Animated.View style={[styles.link, { backgroundColor: t.color.border }, lengthStyle]} onLayout={event => setLength(event.nativeEvent.layout.height)}>
             <Animated.View pointerEvents="none" style={[styles.linkFill, style]}>
-                <LinearGradient colors={[from, to]} style={{ height: length }} />
+                <View style={{ height: length, backgroundColor: color }} />
             </Animated.View>
         </Animated.View>
     );
@@ -325,12 +330,7 @@ function Fill({ color, height, progress, turn }: { color: string; height: number
     // be full, then fills; after that it glides with the clock.
     const shown = useProgress(Math.max(0, Math.min(1, progress)), turn.delay, undefined, turn.duration, POUR);
     const style = useAnimatedStyle(() => ({ height: shown.get() * height }));
-    // A little lighter at the top, its own colour below: the matte card's light.
-    return (
-        <Animated.View pointerEvents="none" style={[styles.fill, { backgroundColor: color }, style]}>
-            <LinearGradient colors={['rgba(255,255,255,0.18)', 'rgba(255,255,255,0)']} style={{ height }} />
-        </Animated.View>
-    );
+    return <Animated.View pointerEvents="none" style={[styles.fill, { backgroundColor: color }, style]} />;
 }
 
 /**
