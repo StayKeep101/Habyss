@@ -62,7 +62,7 @@ import { energyCurve } from '@/lib/energyCurve';
 import { useCheckIns } from '@/hooks/useCheckIns';
 import { useFocusRecords } from '@/hooks/useFocusRecords';
 import { mealSlots } from '@/lib/meals';
-import { DEFAULT_ROADMAP_FILTER, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type RoadmapView, type ShownKind } from '@/lib/roadmapFilter';
+import { DEFAULT_ROADMAP_FILTER, cachedRoadmapFilter, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type RoadmapView, type ShownKind } from '@/lib/roadmapFilter';
 import { tallyDay } from '@/lib/dayComplete';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { buildDayPlan } from '@/lib/dayPlan';
@@ -195,10 +195,13 @@ const CalendarScreen = () => {
     const [sortDirection, setSortDirection] = useState<1 | -1>(-1);
     const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>('all');
     // Timeline (the day in time order, as one flow) or the lists; remembered.
-    const [roadmapView, setRoadmapView] = useState<RoadmapView>(DEFAULT_ROADMAP_FILTER.view);
+    const [roadmapView, setRoadmapView] = useState<RoadmapView>(() => cachedRoadmapFilter()?.view ?? DEFAULT_ROADMAP_FILTER.view);
     const filterLoaded = useRef(false);
+    // Until the saved view is known nothing is drawn, so one view never flashes before the other.
+    const [filterReady, setFilterReady] = useState(() => !!cachedRoadmapFilter());
     useEffect(() => {
         void loadRoadmapFilter().then(saved => {
+            setFilterReady(true);
             setShown(saved.shown); setSharedOnly(saved.sharedOnly); setActiveSort(saved.sort);
             setSortDirection(saved.direction); setActiveTimeFilter(saved.time); setRoadmapView(saved.view);
             filterLoaded.current = true;
@@ -938,6 +941,9 @@ const CalendarScreen = () => {
     // is what once moved every ticked thing to the morning after a reload.
     // (Read during this render, so a save never uses a flow built a moment before they loaded.)
     const flowComplete = memoryReady() && doneTimesReady && dayWindowReady;
+    // Once shown it stays: switching days must not blank it while the next day's tick times are read.
+    const timelineShown = useRef(false);
+    if (flowComplete) timelineShown.current = true;
     // Open tasks whose "due by" is this day but which are planned for another:
     // named at the top of the day so the deadline is seen.
     const dueToday = useMemo(() => {
@@ -1171,8 +1177,11 @@ const CalendarScreen = () => {
                                 else is on it — which is where somebody looks
                                 for their own habits anyway. */}
 
-                            {timelineView ? (
-                                <>
+                            {!filterReady ? null : timelineView ? (
+                                // Drawn once it has all it needs (the kept layout, the tick
+                                // times, the waking day): drawn before, it laid the day out
+                                // twice and the rows jumped into place in front of you.
+                                !flowComplete && !timelineShown.current ? <View style={styles.timelineWait} /> : <>
                                 <CalendarPrompt />
                                 <DayTimeline flow={shownFlow} day={localDateKey(selectedDate)} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
                                     wake={flowWindow.wake} sleep={flowWindow.sleep} dueToday={dueToday}

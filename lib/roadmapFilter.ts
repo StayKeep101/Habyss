@@ -63,15 +63,25 @@ export const isFiltered = (state: RoadmapFilterState): boolean =>
     !state.shown.goals || !state.shown.habits || !state.shown.tasks
     || state.time !== 'all' || state.sharedOnly || state.sort !== 'default';
 
+/**
+ * Read once (the tab bar asks for it at launch) and kept, so the Roadmap opens
+ * already in the view you left it in, never the default for a frame first.
+ */
+let cached: RoadmapFilterState | null = null;
+export const cachedRoadmapFilter = (): RoadmapFilterState | null => cached;
+
 export async function loadRoadmapFilter(): Promise<RoadmapFilterState> {
+    if (cached) return cached;
     try {
         const raw = await AsyncStorage.getItem(KEY);
-        return normalizeRoadmapFilter(raw ? JSON.parse(raw) : null);
+        cached = normalizeRoadmapFilter(raw ? JSON.parse(raw) : null);
     } catch {
-        return DEFAULT_ROADMAP_FILTER;
+        cached = DEFAULT_ROADMAP_FILTER;
     }
+    return cached;
 }
 
 export async function saveRoadmapFilter(state: RoadmapFilterState): Promise<void> {
+    cached = state;
     await AsyncStorage.setItem(KEY, JSON.stringify(state)).catch(() => undefined);
 }

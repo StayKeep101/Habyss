@@ -7,6 +7,8 @@ import { useAppSounds } from '@/hooks/useAppSounds';
 import { useLivePulse } from '@/hooks/useLivePulse';
 import { useFocusStatus, useStatusBroadcast } from '@/hooks/useStatusBroadcast';
 import { READABLE_WIDTH, useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { useEffect } from 'react';
+import { loadRoadmapFilter } from '@/lib/roadmapFilter';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -23,6 +25,8 @@ export default function TabLayout() {
   // iPad and an open foldable: the tabs become a rail down the left and each
   // page keeps a readable width in the space beside it.
   const { railed } = useResponsiveLayout();
+  // Read before the Roadmap is opened, so it opens in your view straight away.
+  useEffect(() => { void loadRoadmapFilter(); }, []);
 
   return (
     <Tabs

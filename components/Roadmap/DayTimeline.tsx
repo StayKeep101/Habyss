@@ -14,6 +14,7 @@ import { useTokens } from '@/hooks/useTokens';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { clockLabel, dueLabel, lengthLabel, rangeLabel, type DayFlow, type FlowInput, type FlowItem } from '@/lib/dayFlow';
 import { MatteSurface } from '@/components/ui/MatteSurface';
+import { textOn } from '@/theme/tokens';
 import { FontFamily } from '@/theme/designSystem';
 import { s, vs } from '@/theme/scale';
 
@@ -208,17 +209,16 @@ function Row({ size, item, turn, color, nextColor, nextStart, last, first, now, 
         : null;
     return (
         <View style={styles.row}>
-            {nowAt !== null ? <NowLine top={nowAt} rail={size.pill} /> : null}
+            {nowAt !== null ? <NowLine top={nowAt} rail={size.pill} color={color} /> : null}
             <View style={[styles.rail, { width: size.pill }]}>
                 <Pressable onPress={() => onOpen(item)} accessibilityRole="button" accessibilityLabel={`Open ${item.title}`}>
-                    <Animated.View style={[styles.pill, { width: size.pill, borderRadius: corner, backgroundColor: t.color.surface, borderColor: t.color.border }, pillStyle]}>
-                        {/* Matte, like every card: a quiet wash of its colour, filled
-                            from the top as its time passes, the fill lighter at the top
-                            and deeper at the bottom, and a soft light over the whole pill.
-                            Done keeps its full colour: only the name is struck through. */}
-                        <View style={[StyleSheet.absoluteFill, styles.tint, { backgroundColor: color }]} />
+                    <Animated.View style={[styles.pill, { width: size.pill, borderRadius: corner, backgroundColor: t.color.surfaceRaised }, pillStyle]}>
+                        {/* Matte, like every card: still to come, the plain card
+                            surface with its icon in colour; filled from the top in
+                            its own colour as its time passes; a soft light over the
+                            whole pill. Done keeps its full colour: only the name is struck through. */}
                         <Fill color={color} height={height} progress={elapsed} turn={turn} />
-                        <LinearGradient pointerEvents="none" colors={['rgba(255,255,255,0.16)', 'rgba(255,255,255,0)']} locations={[0, 0.6]} style={StyleSheet.absoluteFill} />
+                        <LinearGradient pointerEvents="none" colors={['rgba(255,255,255,0.12)', 'rgba(255,255,255,0)']} locations={[0, 0.7]} style={StyleSheet.absoluteFill} />
                         <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon} color={elapsed >= 0.5 ? t.color.onAccent : color} />
                     </Animated.View>
                 </Pressable>
@@ -325,21 +325,20 @@ function Fill({ color, height, progress, turn }: { color: string; height: number
     // be full, then fills; after that it glides with the clock.
     const shown = useProgress(Math.max(0, Math.min(1, progress)), turn.delay, undefined, turn.duration, POUR);
     const style = useAnimatedStyle(() => ({ height: shown.get() * height }));
-    // Lighter at the top, its own colour at the bottom: the matte card's light.
+    // A little lighter at the top, its own colour below: the matte card's light.
     return (
         <Animated.View pointerEvents="none" style={[styles.fill, { backgroundColor: color }, style]}>
-            <LinearGradient colors={['rgba(255,255,255,0.22)', 'rgba(0,0,0,0.12)']} style={{ height }} />
+            <LinearGradient colors={['rgba(255,255,255,0.18)', 'rgba(255,255,255,0)']} style={{ height }} />
         </Animated.View>
     );
 }
 
 /**
- * Now, across the day: a thin line at this moment, from a dot on the rail,
- * with the time to the second at its end. Its own clock, so only it redraws
- * each second.
+ * Now, on the rail: the time to the second in a small chip of the colour it
+ * sits on, riding down the line as the day goes. Its own clock, so only it
+ * redraws each second.
  */
-function NowLine({ top, rail }: { top: number; rail: number }) {
-    const t = useTokens();
+function NowLine({ top, rail, color }: { top: number; rail: number; color: string }) {
     const [clock, setClock] = useState(() => new Date());
     React.useEffect(() => {
         let timer: ReturnType<typeof setInterval> | undefined;
@@ -348,13 +347,11 @@ function NowLine({ top, rail }: { top: number; rail: number }) {
     }, []);
     const pad = (n: number) => String(n).padStart(2, '0');
     const text = `${pad(clock.getHours())}:${pad(clock.getMinutes())}:${pad(clock.getSeconds())}`;
+    const chip = s(66);
     return (
-        <View pointerEvents="none" style={[styles.now, { top: top - s(10) }]} accessibilityLabel={`Now, ${text.slice(0, 5)}`}>
-            <View style={[styles.nowDot, { left: rail / 2 - s(4), backgroundColor: t.color.accent, borderColor: t.color.background }]} />
-            <View style={[styles.nowLine, { left: rail / 2, backgroundColor: t.color.accent }]} />
-            {/* At the line's end, where it covers no words. */}
-            <View style={[styles.nowLabel, { backgroundColor: t.color.accent }]}>
-                <Text style={[styles.nowText, { color: t.color.onAccent }]}>{text}</Text>
+        <View pointerEvents="none" style={[styles.now, { top: top - s(10), left: rail / 2 - chip / 2, width: chip }]} accessibilityLabel={`Now, ${text.slice(0, 5)}`}>
+            <View style={[styles.nowLabel, { backgroundColor: color }]}>
+                <Text style={[styles.nowText, { color: textOn(color) }]}>{text}</Text>
             </View>
         </View>
     );
@@ -363,13 +360,10 @@ function NowLine({ top, rail }: { top: number; rail: number }) {
 const styles = StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'stretch' },
     rail: { alignItems: 'center' },
-    pill: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 1, borderWidth: StyleSheet.hairlineWidth },
-    tint: { opacity: 0.16 },
-    // The now line sits over the row, centred on its height of s(20).
-    now: { position: 'absolute', left: 0, right: 0, height: s(20), justifyContent: 'center', zIndex: 5 },
-    nowDot: { position: 'absolute', width: s(8), height: s(8), borderRadius: s(4), borderWidth: s(1.5), zIndex: 2 },
-    nowLine: { position: 'absolute', right: 0, height: StyleSheet.hairlineWidth * 3, opacity: 0.85 },
-    nowLabel: { position: 'absolute', right: 0, paddingHorizontal: s(7), height: s(20), borderRadius: s(10), justifyContent: 'center' },
+    pill: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 1 },
+    // The now chip sits on the rail, centred on its own height of s(20).
+    now: { position: 'absolute', height: s(20), alignItems: 'center', justifyContent: 'center', zIndex: 5 },
+    nowLabel: { height: s(20), paddingHorizontal: s(6), borderRadius: s(10), justifyContent: 'center' },
     nowText: { fontSize: 11, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
     fill: { position: 'absolute', top: 0, left: 0, right: 0 },
     // Runs a little under the pill above and the one below, so the line meets

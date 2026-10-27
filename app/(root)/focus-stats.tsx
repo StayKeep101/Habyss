@@ -11,7 +11,6 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { VoidCard } from '@/components/ui/VoidCard';
-import { ValuePill } from '@/components/Goal/GoalRows';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
@@ -19,7 +18,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useFocusRecords } from '@/hooks/useFocusRecords';
 import { useWeekStart } from '@/hooks/useWeekStart';
 import { useHaptics } from '@/hooks/useHaptics';
-import { focusDuration, focusSummary, hourLabel, shiftDay, weekSoFar } from '@/lib/focusStats';
+import { focusDuration, focusSummary, shiftDay, weekSoFar } from '@/lib/focusStats';
 import { localDateKey } from '@/lib/habitSchedule';
 import { startOfWeek } from '@/lib/weekStart';
 import { getHabits, type Habit } from '@/lib/habitsSQLite';
@@ -38,9 +37,8 @@ const shortDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateStri
  * set in Settings), and beside it the change against the same days of last
  * week. Underneath, a bar per day: the week, Monday (or Sunday) to its end, or
  * the last 30 days. Drag a finger along the bars and the big number follows
- * it, day by day, like a stock chart; the arrows go back in time. Then plain
- * numbers — days in a row, longest session, how often you finish, your best
- * hour — and which habits and tasks took the time.
+ * it, day by day, like a stock chart; the arrows go back in time. Under it,
+ * only what the time went to, most first (for the picked day, when one is).
  */
 export default function FocusStatsScreen() {
     const router = useRouter();
@@ -171,22 +169,9 @@ export default function FocusStatsScreen() {
                             )}
                         </View>
 
-                        <View>
-                            <SectionTitle first>Numbers</SectionTitle>
-                            <VoidCard style={styles.list}>
-                                <NumberRow label="Today" value={focusDuration(summary.today)} />
-                                <NumberRow label="Days in a row" value={`${summary.streak}`} />
-                                <NumberRow label="Longest session" value={focusDuration(summary.longest)} />
-                                <NumberRow label="Average session" value={focusDuration(summary.average)} />
-                                <NumberRow label="Finished" value={summary.finishedRate === null ? '—' : `${summary.finishedRate}%`} />
-                                <NumberRow label="Best hour" value={summary.bestHour === null ? '—' : hourLabel(summary.bestHour)} />
-                                <NumberRow label="All time" value={focusDuration(summary.total)} />
-                            </VoidCard>
-                        </View>
-
                         {listed.length ? (
                             <View>
-                                <SectionTitle>{pickedDay ? `${shortDay(pickedDay.date)} went to` : page > 0 ? 'Those days went to' : range === 7 ? 'This week went to' : 'The last 30 days went to'}</SectionTitle>
+                                <SectionTitle first>{pickedDay ? `${shortDay(pickedDay.date)} went to` : page > 0 ? 'Those days went to' : range === 7 ? 'This week went to' : 'The last 30 days went to'}</SectionTitle>
                                 <VoidCard style={styles.list}>
                                     {listed.slice(0, 8).map((item, index) => (
                                         <ListItem key={item.itemId} index={index}>
@@ -211,17 +196,6 @@ export default function FocusStatsScreen() {
         </SheetScreen>
     );
 }
-
-const NumberRow = ({ label, value }: { label: string; value: string }) => {
-    const { theme } = useTheme();
-    const colors = Colors[theme];
-    return (
-        <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
-            <ValuePill value={value} />
-        </View>
-    );
-};
 
 /** One day's bar. The picked day stays bright and the rest step back. */
 const DayBar = ({ share, index, replay, tint, lit, dim }: { share: number; index: number; replay: unknown; tint: string; lit: boolean; dim: boolean }) => {
