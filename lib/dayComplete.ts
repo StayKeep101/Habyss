@@ -187,3 +187,20 @@ export async function checkDayComplete(): Promise<void> {
         // Nothing to celebrate is not an error.
     }
 }
+
+/** The longest run of days in a row among these dates (YYYY-MM-DD, any order): your best streak. */
+export function longestRun(dates: string[]): number {
+    const sorted = [...new Set(dates)].sort();
+    let best = 0;
+    let run = 0;
+    let previous: string | null = null;
+    for (const date of sorted) {
+        const next = previous ? new Date(`${previous}T12:00:00`) : null;
+        next?.setDate(next.getDate() + 1);
+        const follows = next && `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}` === date;
+        run = follows ? run + 1 : 1;
+        best = Math.max(best, run);
+        previous = date;
+    }
+    return best;
+}

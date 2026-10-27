@@ -21,13 +21,15 @@ import { useTasks } from '@/hooks/useTasks';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { useHistory } from '@/hooks/useHistory';
 import { dayFill, monthDays, monthTotals, type DaySummary } from '@/lib/progressMonth';
-import { streakFrom } from '@/lib/dayComplete';
+import { longestRun, streakFrom } from '@/lib/dayComplete';
+import { useWeekStart } from '@/hooks/useWeekStart';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { dateAt } from '@/lib/goalInsights';
 import { styles } from '@/styles/screens/progress.styles';
 
-const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const MONDAY_FIRST = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const SUNDAY_FIRST = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const OPEN = { duration: 320, easing: Easing.out(Easing.cubic) };
 const CLOSE = { duration: 220, easing: Easing.in(Easing.cubic) };
 
@@ -81,10 +83,13 @@ export default function ProgressScreen() {
         return monthTotals(all.slice(0, Math.max(1, elapsed)));
     }, [habits, tasks, history, skips, month, today, elapsed]);
     // Your streak, worked out exactly as Home works it out.
-    const streak = useMemo(() => {
+    // And the best run there has ever been, from the same days.
+    const { streak, best } = useMemo(() => {
         const merged = { ...history, [today]: Object.keys(completions).filter(id => completions[id]) };
-        return streakFrom(habits, tasks, merged, skips, today, undefined, dailyTarget).streak;
+        const result = streakFrom(habits, tasks, merged, skips, today, undefined, dailyTarget);
+        return { streak: result.streak, best: Math.max(result.streak, longestRun(result.completedDates)) };
     }, [habits, tasks, history, skips, completions, today, dailyTarget]);
+    const mondayFirst = useWeekStart() === 'monday';
     const name = (id: string) => habits.find(habit => habit.id === id)?.name ?? 'Habit';
     const taskName = (id: string) => tasks.find(task => task.id === id)?.title ?? 'Task';
 
@@ -160,24 +165,32 @@ export default function ProgressScreen() {
         opacity: interpolate(Math.abs(drag.get()), [0, screenWidth * 0.6], [1, 0]),
     }));
 
-    // Weeks start on Monday, so the first row is padded to that.
-    const firstWeekday = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
+    // Weeks start on the day set in Settings; the first row is padded to that.
+    const firstWeekday = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + (mondayFirst ? 6 : 0)) % 7;
     const screen = Dimensions.get('window');
 
     return (
         <SheetScreen title="Streak" onBack={() => router.back()} backIcon="close">
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!selected}>
-                {/* The answer first, and the month in four numbers — small, so
-                    the whole calendar fits on screen underneath. */}
-                <View style={styles.hero}>
+                {/* The answer first, centred and large, with a small flame over it
+                    and your best run under it; then the month in four numbers. */}
+                <View style={styles.hero} accessible accessibilityLabel={`${streak} ${streak === 1 ? 'day' : 'days'} in a row. Best ${best}.`}>
+                    <Ionicons name="flame" filled size={22} color={colors.warning} />
                     <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={streak} />
-                    <Ionicons name="flame" size={18} color={colors.warning} />
                     <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{streak === 1 ? 'day in a row' : 'days in a row'}</Text>
+                    {best > streak ? (
+                        <Text style={[styles.heroBest, { color: colors.textTertiary }]}>{`Best ${best} ${best === 1 ? 'day' : 'days'}`}</Text>
+                    ) : streak > 1 ? (
+                        <Text style={[styles.heroBest, { color: colors.textTertiary }]}>Your best yet</Text>
+                    ) : null}
                 </View>
                 <VoidCard style={styles.stats}>
                     <MiniStat label="Active days" value={totals.activeDays} change={totals.activeDays - before.activeDays} replay={offset} />
+                    <View style={[styles.statRule, { backgroundColor: colors.border }]} />
                     <MiniStat label="Perfect" value={totals.perfectDays} change={totals.perfectDays - before.perfectDays} replay={offset} />
+                    <View style={[styles.statRule, { backgroundColor: colors.border }]} />
                     <MiniStat label="Habits kept" value={totals.rate} suffix="%" change={totals.rate !== null && before.rate !== null ? totals.rate - before.rate : 0} replay={offset} />
+                    <View style={[styles.statRule, { backgroundColor: colors.border }]} />
                     <MiniStat label="Tasks" value={totals.tasks} change={totals.tasks - before.tasks} replay={offset} />
                 </VoidCard>
 
@@ -192,7 +205,7 @@ export default function ProgressScreen() {
 
                 <GestureDetector gesture={swipeMonth}>
                 <Animated.View key={offset} style={[styles.grid, gridMotion]}>
-                    {WEEKDAYS.map((label, index) => (
+                    {(mondayFirst ? MONDAY_FIRST : SUNDAY_FIRST).map((label, index) => (
                         <Text key={index} style={[styles.weekday, { color: colors.textTertiary }]}>{label}</Text>
                     ))}
                     {Array.from({ length: firstWeekday }, (_, index) => <View key={`blank${index}`} style={styles.cell} />)}
@@ -245,7 +258,7 @@ export default function ProgressScreen() {
  */
 const DayCell = React.memo(function DayCell({ day, index, today, accent, colors, onOpen, column, prevPerfect, nextPerfect }: {
     day: DaySummary; index: number; today: string; accent: string; colors: typeof Colors.light;
-    /** 0 (Monday) to 6 (Sunday): the band never wraps onto the next row. */
+    /** 0 (the week's first day) to 6: the band never wraps onto the next row. */
     column: number;
     prevPerfect: boolean;
     nextPerfect: boolean;
@@ -255,7 +268,7 @@ const DayCell = React.memo(function DayCell({ day, index, today, accent, colors,
     const fill = day.future ? 0 : dayFill(day);
     const closed = fill >= 1;
     const isToday = day.date === today;
-    const size = 36;
+    const size = 40;
     const stroke = 3.5;
     const radius = (size - stroke) / 2;
     const circumference = 2 * Math.PI * radius;
