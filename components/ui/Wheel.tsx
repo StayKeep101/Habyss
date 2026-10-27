@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent, type TextStyle } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, View, type ViewStyle, type NativeScrollEvent, type NativeSyntheticEvent, type TextStyle } from 'react-native';
 import Animated, {
     Extrapolation, interpolate, runOnJS, useAnimatedRef, useAnimatedScrollHandler, useAnimatedStyle,
     useSharedValue, type SharedValue,
@@ -10,7 +10,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { MatteSurface } from './MatteSurface';
 
-export const WHEEL_ROW = 40;
+/** 44 pt: a row is tappable, so it gets a full touch target. */
+export const WHEEL_ROW = 44;
 
 export interface WheelOption<T> {
     id: T;
@@ -28,9 +29,13 @@ export interface WheelOption<T> {
  * page scrolled the wheel back to it, and the two fought.
  *
  * Tappable as well as turnable, which is what a UIPickerView does and the only
- * way a screen reader can reach a row.
+ * way a screen reader can reach a row. Touching it puts the keyboard away, so
+ * a wheel under a text field is never half hidden while you turn it.
+ *
+ * Wheels side by side (a date, a time) share one band across them, as on
+ * iOS: the group draws `WheelBand` once and each wheel passes `band={false}`.
  */
-export function Wheel<T extends string | number>({ options, value, onChange, visible = 3, style, testID, rowHeight = WHEEL_ROW }: {
+export function Wheel<T extends string | number>({ options, value, onChange, visible = 3, style, testID, rowHeight = WHEEL_ROW, band = true }: {
     options: WheelOption<T>[];
     value: T;
     onChange: (id: T) => void;
@@ -40,6 +45,8 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
     testID?: string;
     /** Row height; smaller where a panel is tight. */
     rowHeight?: number;
+    /** Its own selection band; off when a group draws one across all its wheels. */
+    band?: boolean;
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme] ?? Colors.abyss;
@@ -107,6 +114,7 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
     }, [options, onChange, ref]);
 
     const onBegin = useCallback(() => {
+        Keyboard.dismiss();
         touching.current = true;
         if (settleTimer.current) { clearTimeout(settleTimer.current); settleTimer.current = null; }
     }, []);
@@ -118,6 +126,7 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
 
     /** A tap on a row turns it to the middle and chooses it, as on iOS. */
     const choose = useCallback((position: number) => {
+        Keyboard.dismiss();
         if (settleTimer.current) { clearTimeout(settleTimer.current); settleTimer.current = null; }
         touching.current = false;
         lastY.current = position * rowHeight;
@@ -130,8 +139,7 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
     return (
         <View style={[styles.frame, { height }]} testID={testID}>
             {/* The window, behind the rows: the matte surface, no outline. */}
-            <MatteSurface pointerEvents="none" radius={Radius.small} level="control" elevation="none"
-                style={[styles.window, { top: pad, height: rowHeight }]} />
+            {band ? <WheelBand rowHeight={rowHeight} visible={visible} /> : null}
 
             <Animated.ScrollView
                 ref={ref}
@@ -147,6 +155,7 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
                 onScrollEndDrag={onEnd}
                 onMomentumScrollEnd={onEnd}
                 nestedScrollEnabled
+                keyboardDismissMode="on-drag"
             >
                 {options.map((option, position) => (
                     <Row
@@ -164,6 +173,17 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
                 ))}
             </Animated.ScrollView>
         </View>
+    );
+}
+
+/**
+ * The band the chosen row sits in: the matte surface, no outline. Behind one
+ * wheel, or stretched behind a row of them (pass `style` to set its sides).
+ */
+export function WheelBand({ rowHeight = WHEEL_ROW, visible = 3, style }: { rowHeight?: number; visible?: 3 | 5; style?: ViewStyle }) {
+    return (
+        <MatteSurface pointerEvents="none" radius={Radius.small} level="control" elevation="none"
+            style={[styles.window, { top: (rowHeight * visible - rowHeight) / 2, height: rowHeight }, style]} />
     );
 }
 

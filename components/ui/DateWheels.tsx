@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Wheel } from './Wheel';
+import { Wheel, WheelBand } from './Wheel';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -30,9 +30,11 @@ export function DateWheels({ value, onChange, minYear = 1900, maxDate = new Date
     };
     return (
         <View style={styles.row}>
-            <Wheel options={days} value={day} onChange={next => set(year, month, next)} style={styles.text} />
-            <Wheel options={months} value={month} onChange={next => set(year, next, day)} style={styles.text} />
-            <Wheel options={years} value={year} onChange={next => set(next, month, day)} style={styles.text} />
+            {/* One band across the three, like the iPhone's date picker. */}
+            <WheelBand />
+            <Wheel band={false} options={days} value={day} onChange={next => set(year, month, next)} style={styles.text} />
+            <Wheel band={false} options={months} value={month} onChange={next => set(year, next, day)} style={styles.text} />
+            <Wheel band={false} options={years} value={year} onChange={next => set(next, month, day)} style={styles.text} />
         </View>
     );
 }

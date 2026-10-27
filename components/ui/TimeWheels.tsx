@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Wheel } from './Wheel';
+import { Wheel, WheelBand } from './Wheel';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -32,9 +32,10 @@ export function TimeWheels({ value, onChange, step = 5, testID }: {
     const m = Number.isFinite(minute) ? minute : 0;
     return (
         <View style={styles.row} testID={testID}>
-            <Wheel options={HOURS} value={h} onChange={next => onChange(`${pad(next)}:${pad(m)}`)} style={styles.digit} />
+            <WheelBand />
+            <Wheel band={false} options={HOURS} value={h} onChange={next => onChange(`${pad(next)}:${pad(m)}`)} style={styles.digit} />
             <Text style={[styles.colon, { color: colors.textTertiary }]}>:</Text>
-            <Wheel options={minutesFor(step, m)} value={m} onChange={next => onChange(`${pad(h)}:${pad(next)}`)} style={styles.digit} />
+            <Wheel band={false} options={minutesFor(step, m)} value={m} onChange={next => onChange(`${pad(h)}:${pad(next)}`)} style={styles.digit} />
         </View>
     );
 }

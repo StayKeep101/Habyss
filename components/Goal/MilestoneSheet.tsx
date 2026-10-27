@@ -18,6 +18,8 @@ const dateOf = (key: string) => new Date(`${key}T12:00:00`);
  * should be reached by. A new one starts dated a week out, or at the goal's
  * end if that is sooner. Typing or saying the date in the name ("Finish book
  * 1 by October 31") sets the wheels to it, and the name is saved without it.
+ * The keyboard waits for a tap on the name, so the sheet opens with the date
+ * wheels in full view; turning them puts the keyboard away again.
  */
 export function MilestoneSheet({ visible, goalId, goalEnd, milestone, onClose }: {
     visible: boolean;
@@ -89,7 +91,7 @@ export function MilestoneSheet({ visible, goalId, goalEnd, milestone, onClose }:
             }>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 <DictateField text={title} onText={setTitle}>
-                    <AppTextField label="Name" value={title} onChangeText={setTitle} placeholder="Finish book 1 by Oct 31" autoFocus={!milestone}
+                    <AppTextField label="Name" value={title} onChangeText={setTitle} placeholder="Finish book 1 by Oct 31"
                         returnKeyType="done" onSubmitEditing={() => void save()} maxLength={200} />
                 </DictateField>
                 {read.dueDate ? (
