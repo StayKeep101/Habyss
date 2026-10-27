@@ -10,6 +10,9 @@ export type AppIconProps = Omit<React.ComponentProps<typeof Ionicons>, 'name'> &
     filled?: boolean;
 };
 
+/** Every glyph name there is: the icon picker's catalogue is built from it. */
+export const ICON_NAMES = Object.keys(Ionicons.glyphMap ?? {}) as IconName[];
+
 /** "book-outline" → "book", when that exists; anything else as it is. */
 export function solidIcon(name: string): string {
     if (!name.endsWith('-outline')) return name;

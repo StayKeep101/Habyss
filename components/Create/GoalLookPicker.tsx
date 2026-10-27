@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { textOn } from '@/theme/tokens';
 import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
-import { AppIcon, isGlyphIcon, isPhotoIcon, type IconName } from '@/components/ui/AppIcon';
+import { AppIcon, ICON_NAMES, isGlyphIcon, isPhotoIcon, type IconName } from '@/components/ui/AppIcon';
 import { GoalColorWheel, WHEEL_MAX } from './GoalColorWheel';
 import { usePanelRoom } from './DetailBar';
 import { useCustomColors } from '@/hooks/useCustomColors';
@@ -135,6 +135,26 @@ const ICONS: { name: IconName; label: string; tags: string }[] = [
     { name: 'ribbon-outline', label: 'Milestone', tags: 'award achievement' },
     { name: 'rocket', label: 'Launch', tags: 'ship business startup' },
 ];
+
+/**
+ * The whole catalogue: the picks above first (with words to find them by),
+ * then every other icon Ionicons draws in outline, A to Z, found by its name.
+ * Brand logos are left out: a goal is not a company's mark.
+ */
+const CATALOGUE: { name: IconName; label: string; tags: string }[] = (() => {
+    const picked = new Set<string>(ICONS.map(item => item.name));
+    const rest = ICON_NAMES
+        .filter(name => name.endsWith('-outline') && !name.startsWith('logo-') && !picked.has(name))
+        .sort()
+        .map(name => {
+            const words = name.slice(0, -'-outline'.length).replace(/-/g, ' ');
+            return { name: name as IconName, label: words.charAt(0).toUpperCase() + words.slice(1), tags: words };
+        });
+    return [...ICONS, ...rest];
+})();
+/** Tiles are at least this wide; the grid fits as many across as it can and shares the rest out. */
+const TILE_MIN = 44;
+const TILE_GAP = 8;
 const SWATCHES = [
     { name: 'Blue', color: '#6B8AF5' }, { name: 'Green', color: '#10B981' },
     { name: 'Amber', color: '#F59E0B' }, { name: 'Red', color: '#EF4444' },
@@ -178,8 +198,17 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
     const typed = query.trim();
     const search = typed.toLowerCase();
     const icons = search
-        ? ICONS.filter(item => `${item.label} ${item.tags}`.toLowerCase().includes(search))
-        : ICONS;
+        ? CATALOGUE.filter(item => `${item.label} ${item.tags}`.toLowerCase().includes(search))
+        : CATALOGUE;
+    // The grid fills the width exactly: as many tiles across as fit, sized to share it.
+    const [gridWidth, setGridWidth] = useState(0);
+    const columns = Math.max(1, Math.floor((gridWidth + TILE_GAP) / (TILE_MIN + TILE_GAP)));
+    const tile = gridWidth ? Math.floor((gridWidth - TILE_GAP * (columns - 1)) / columns) : TILE_MIN;
+    // Searching: the tabs step aside so the results have the room.
+    const [searching, setSearching] = useState(false);
+    // Drawn a few rows at a time as you scroll, so the panel opens at once.
+    const [limit, setLimit] = useState(72);
+    useEffect(() => { setLimit(72); }, [search]);
     // Typing an emoji into the search field offers it as an icon, because that
     // is plainly what someone typing an emoji into an icon search wants.
     const glyph = typed && isGlyphIcon(typed) ? typed : null;
@@ -204,32 +233,37 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
     const custom = !isPreset && !isSaved;
 
     return <Animated.View layout={MORPH} style={styles.content}>
-        <View style={styles.tabs}>
+        {searching && tab === 'icons' ? null : <View style={styles.tabs}>
             {(['icons', 'color'] as const).map(item => <Pressable key={item} accessibilityRole="tab"
                 accessibilityLabel={item === 'icons' ? `${subject} icons` : `${subject} color`} accessibilityState={{ selected: tab === item }}
                 onPress={() => { selectionFeedback(); setTab(item); }}
                 style={[styles.tab, { backgroundColor: tab === item ? color : 'transparent', borderColor: tab === item ? color : colors.border }]}>
                 <Text style={[styles.label, { color: tab === item ? textOn(color) : colors.textSecondary }]}>{item === 'icons' ? 'Icon' : 'Colour'}</Text>
             </Pressable>)}
-        </View>
+        </View>}
 
         {tab === 'icons' ? <>
             <MatteInput accessibilityLabel={`Search ${subject.toLowerCase()} icons`} value={query} onChangeText={setQuery}
-                placeholder="Search icons or emoji" placeholderTextColor={colors.textTertiary}
-                autoCorrect={false} autoCapitalize="none"
+                placeholder={`Search ${CATALOGUE.length} icons, or type an emoji`} placeholderTextColor={colors.textTertiary}
+                autoCorrect={false} autoCapitalize="none" clearButtonMode="while-editing"
+                onFocus={() => setSearching(true)} onBlur={() => setSearching(false)}
                 style={[styles.search, { color: colors.textPrimary, borderColor: colors.border,
                     backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)' }]} />
             {/* Every icon, on screen. The panel has a ceiling so the sentence
                 you are writing never leaves the screen to make room for them. */}
-            <ScrollView style={{ maxHeight: iconHeight }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                <View style={styles.icons}>
+            <ScrollView style={{ maxHeight: iconHeight + (searching ? 54 : 0) }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}
+                scrollEventThrottle={64} onScroll={event => {
+                    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+                    if (limit < icons.length && contentOffset.y + layoutMeasurement.height > contentSize.height - 200) setLimit(value => value + 72);
+                }}>
+                <View style={styles.icons} onLayout={event => setGridWidth(event.nativeEvent.layout.width)}>
                     {/* Your own, first: a picture from the library, or the
                         emoji being typed. Both are ordinary icons once chosen —
                         every card in the app draws them through AppIcon. */}
                     <Pressable accessibilityRole="button" accessibilityLabel={photo ? 'Change your own picture' : 'Use your own picture'}
                         accessibilityState={{ selected: !!photo }}
                         onPress={() => { selectionFeedback(); void pickPhoto(); }}
-                        style={[styles.icon, { backgroundColor: colors.surfaceTertiary, borderColor: photo ? color : 'transparent' }]}>
+                        style={[styles.icon, { width: tile, height: tile, backgroundColor: colors.surfaceTertiary, borderColor: photo ? color : 'transparent' }]}>
                         {photo
                             ? <AppIcon name={photo} size={30} />
                             : <AppIcon name="image-outline" size={22} color={colors.textSecondary} />}
@@ -239,25 +273,25 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                             accessibilityState={{ selected: icon === glyph }}
                             onPress={() => { selectionFeedback(); onChange({ icon: glyph as IconName }); }}
                         >
-                            <MatteSurface radius={12} level="control" style={styles.iconTile}
+                            <MatteSurface radius={12} level="control" style={[styles.iconTile, { width: tile, height: tile }]}
                                 tint={icon === glyph ? color : undefined}>
                                 <AppIcon name={glyph} size={24} />
                             </MatteSurface>
                         </Pressable>
                     ) : null}
-                    {icons.map(item => <Pressable key={item.name} accessibilityRole="radio" accessibilityLabel={`Icon ${item.label}`}
+                    {icons.slice(0, limit).map(item => <Pressable key={item.name} accessibilityRole="radio" accessibilityLabel={`Icon ${item.label}`}
                         accessibilityState={{ selected: icon === item.name }}
                         onPress={() => { selectionFeedback(); onChange({ icon: item.name }); }}
                     >
                         {/* A matte tile; the chosen icon is filled solid in its colour. */}
-                        <MatteSurface radius={12} level="control" style={styles.iconTile}
+                        <MatteSurface radius={12} level="control" style={[styles.iconTile, { width: tile, height: tile }]}
                             tint={icon === item.name ? color : undefined}>
                             <AppIcon filled name={item.name} size={22} color={icon === item.name ? textOn(color) : colors.textSecondary} />
                         </MatteSurface>
                     </Pressable>)}
                 </View>
             </ScrollView>
-            {!icons.length && !glyph ? <Text style={[styles.label, { color: colors.textSecondary }]}>No icons</Text> : null}
+            {!icons.length && !glyph ? <Text style={[styles.label, { color: colors.textSecondary }]}>{`No icon for “${typed}”. Try another word, or type an emoji.`}</Text> : null}
         </> : <>
             {/* With the wheel open the swatches become one row, so the wheel and
                 its slider fit on screen without scrolling. */}
@@ -345,8 +379,8 @@ const styles = StyleSheet.create({
     swatchRow: { flexDirection: 'row', gap: 10, paddingVertical: 2 },
     spectrumWrap: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     label: { fontSize: 13, fontFamily: FontFamily.medium },
-    search: { minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 13, fontFamily: FontFamily.regular },
-    icons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    search: { minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 15, fontFamily: FontFamily.regular },
+    icons: { flexDirection: 'row', flexWrap: 'wrap', gap: TILE_GAP },
     icon: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
     iconTile: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
     swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
