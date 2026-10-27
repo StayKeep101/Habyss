@@ -4,7 +4,7 @@ import { GoalSheet } from '@/components/Create/GoalSheet';
 import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
 import { BottomFade } from '@/components/ui/BottomFade';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Alert, Dimensions, Image, ImageBackground, Platform, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Dimensions, Image, ImageBackground, Platform, StatusBar, StyleSheet } from 'react-native';
 import { MorphMenu, type MorphMenuItem } from '@/components/ui/MorphMenu';
 import { IconButton } from '@/components/ui/IconButton';
 import { CountUp } from '@/components/ui/Motion';
@@ -198,6 +198,18 @@ const GoalDetail = () => {
   const scrollY = useSharedValue(0);
 
   // Header Animation - Defined early to avoid hook errors
+  /**
+   * The picture always reaches past the panel's edge, and pulling the page
+   * down stretches it with the pull (the way iOS headers do), so its bottom
+   * edge is never seen above the panel.
+   */
+  const coverReach = panelTop + BUMP + 40;
+  const heroStretch = useAnimatedStyle(() => ({
+    height: Math.max(heroBox.height, coverReach - heroBox.top) + Math.max(0, -scrollY.value),
+  }), [heroBox, coverReach]);
+  const coverStretch = useAnimatedStyle(() => ({ height: coverReach + Math.max(0, -scrollY.value) }), [coverReach]);
+  const fadeFollow = useAnimatedStyle(() => ({ transform: [{ translateY: Math.max(0, -scrollY.value) }] }));
+
   const headerStyle = useAnimatedStyle(() => {
     return {
       opacity: 1 - Math.min(1, scrollY.value / 200),
@@ -451,24 +463,25 @@ const GoalDetail = () => {
         {/* No photo: a quiet gradient of its own, the same every time this
             goal opens, rather than the app icon blown up behind it. */}
         {bgImage === null ? (
-          <LinearGradient
-            colors={coverGradient(goal.id, theme === 'light')}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, height: HEADER_HEIGHT + 40 }}
-          />
+          <Animated.View style={[{ position: 'absolute', top: 0, left: 0, right: 0 }, coverStretch]}>
+            <LinearGradient
+              colors={coverGradient(goal.id, theme === 'light')}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
         ) : null}
-        {bgImage ? <ImageBackground
-          source={{ uri: bgImage }}
-          style={{ position: 'absolute', top: heroBox.top, left: 0, right: 0, height: heroBox.height }}
-          resizeMode="cover"
-        /> : null}
+        {bgImage ? (
+          <Animated.View style={[{ position: 'absolute', top: heroBox.top, left: 0, right: 0 }, heroStretch]}>
+            <ImageBackground source={{ uri: bgImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          </Animated.View>
+        ) : null}
         {/* The picture settles into the page above the panel's edge, so the two
-            meet softly instead of at a hard line. */}
-        <LinearGradient
-          colors={[`${colors.background}00`, `${colors.background}8C`]}
-          style={{ position: 'absolute', left: 0, right: 0, top: panelTop + BUMP - 150, height: 150 }}
-        />
+            meet softly instead of at a hard line; it follows the edge down a pull. */}
+        <Animated.View style={[{ position: 'absolute', left: 0, right: 0, top: panelTop + BUMP - 150, height: 150 }, fadeFollow]}>
+          <LinearGradient colors={[`${colors.background}00`, `${colors.background}8C`]} style={StyleSheet.absoluteFill} />
+        </Animated.View>
       </View>
 
       {/* Navigation Header */}
