@@ -93,13 +93,19 @@ export const VoidSheet: React.FC<{
     useEffect(() => {
         if (visible) {
             drag.set(0);
+            // Starts from the keyboard as it is now. A sheet closed with the
+            // keyboard up stopped listening before it went away, kept its
+            // height, and opened next time that far up the screen.
+            const open = Keyboard.isVisible() ? Keyboard.metrics()?.height ?? 0 : 0;
+            keyboard.set(open);
+            setKeyboardHeight(open);
             progress.set(withTiming(1, OPEN));
             return;
         }
         progress.set(withTiming(0, CLOSE, finished => {
             if (finished) runOnJS(setMounted)(false);
         }));
-    }, [visible, progress, drag]);
+    }, [visible, progress, drag, keyboard]);
 
     const scrim = useAnimatedStyle(() => ({
         opacity: progress.get() * 0.55 * (1 - Math.min(1, drag.get() / 300)),

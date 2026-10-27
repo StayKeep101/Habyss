@@ -92,6 +92,14 @@ export default function MobileLayout() {
   // The launch animation, once per cold start.
   const [showIntro, setShowIntro] = React.useState(true);
   const endIntro = React.useCallback(() => { setShowIntro(false); (require('@/lib/introGate') as typeof import('@/lib/introGate')).releaseIntro(); }, []);
+  // Opened from a widget, a notification's link or a shared link: straight to
+  // what was tapped. The launch animation played over a page already open.
+  useEffect(() => {
+    const { Linking } = require('react-native') as typeof import('react-native');
+    void Linking.getInitialURL().then(url => {
+      if (url && /^habyss:\/\/[^/?#]/.test(url)) endIntro();
+    }).catch(() => undefined);
+  }, [endIntro]);
 
   useEffect(() => {
     async function prepare() {
