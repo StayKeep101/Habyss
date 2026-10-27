@@ -367,12 +367,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             ),
         }] : []),
         {
-            // "Write, edit and publish": one task, its steps ticked one by one.
-            id: 'steps', icon: 'list-outline', label: 'Steps',
-            value: draft.subtasks?.length ? `${draft.subtasks.filter(step => step.done).length}/${draft.subtasks.length}` : undefined,
-            content: <SubtaskEditor steps={draft.subtasks ?? []} onChange={subtasks => change({ subtasks })} color={accent} />,
-        },
-        {
             id: 'notes', icon: 'document-text-outline', label: 'Notes',
             value: draft.description ? 'Written' : undefined,
             content: (
@@ -456,6 +450,10 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                             Task: <Text style={{ color: colors.textPrimary, fontFamily: FontFamily.medium }}>{draft.title}</Text>
                         </Text>
                     ) : null}
+
+                    {/* "Write, edit and publish": its subtasks, a little list right
+                        here under the task, ticked one by one; a line to add the next. */}
+                    <SubtaskEditor steps={draft.subtasks ?? []} onChange={subtasks => change({ subtasks })} color={accent} />
 
                     {error ? (
                         <View style={[styles.error, { backgroundColor: colors.error + '18', borderColor: colors.error + '44' }]}>

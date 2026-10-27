@@ -10,8 +10,10 @@ import { generateId } from '@/lib/database';
 import type { Subtask } from '@/lib/tasks';
 
 /**
- * A task's steps: tick each as it is done, add one by typing and pressing
- * return, take one away with its ×. The task itself is still ticked on its own.
+ * A task's subtasks, as a little to-do list under it: tick each as it is
+ * done, write the next on the line below and press return (the line stays
+ * open for another), take one away with its ×. The task itself is still
+ * ticked on its own.
  */
 export function SubtaskEditor({ steps, onChange, color }: { steps: Subtask[]; onChange: (steps: Subtask[]) => void; color: string }) {
     const t = useTokens();
@@ -28,25 +30,37 @@ export function SubtaskEditor({ steps, onChange, color }: { steps: Subtask[]; on
         <View style={styles.wrap}>
             {steps.map(step => (
                 <View key={step.id} style={styles.row}>
-                    <Pressable hitSlop={10} accessibilityRole="checkbox" accessibilityState={{ checked: step.done }} accessibilityLabel={step.title}
+                    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: step.done }} accessibilityLabel={step.title}
                         onPress={() => { selectionFeedback(); onChange(steps.map(item => item.id === step.id ? { ...item, done: !item.done } : item)); }}
-                        style={[styles.check, { borderColor: step.done ? color : t.color.textMuted, backgroundColor: step.done ? color : 'transparent' }]}>
-                        {step.done ? <AppIcon name="checkmark" size={13} color={t.color.onAccent} /> : null}
+                        style={styles.checkButton}>
+                        <View style={[styles.check, { borderColor: step.done ? color : t.color.textMuted, backgroundColor: step.done ? color : 'transparent' }]}>
+                            {step.done ? <AppIcon name="checkmark" size={13} color={t.color.onAccent} /> : null}
+                        </View>
                     </Pressable>
                     <Text style={[styles.title, step.done && styles.struck, { color: step.done ? t.color.textMuted : t.color.textPrimary }]}>{step.title}</Text>
-                    <IconButton icon="close" label={`Remove ${step.title}`} size={14} onPress={() => { lightFeedback(); onChange(steps.filter(item => item.id !== step.id)); }} />
+                    <IconButton icon="close" label={`Remove ${step.title}`} size={14} diameter={32} color={t.color.textMuted}
+                        onPress={() => { lightFeedback(); onChange(steps.filter(item => item.id !== step.id)); }} />
                 </View>
             ))}
-            <MatteInput value={draft} onChangeText={setDraft} placeholder={steps.length ? 'Add another step' : 'Add a step'} returnKeyType="done"
-                blurOnSubmit={false} onSubmitEditing={add} accessibilityLabel="New step" />
+            {/* The next one: a plus and a line to write on, no box. */}
+            <View style={styles.row}>
+                <View style={styles.checkButton}>
+                    <AppIcon name="add" size={20} color={t.color.textMuted} />
+                </View>
+                <MatteInput bare value={draft} onChangeText={setDraft} placeholder={steps.length ? 'Add another subtask' : 'Add a subtask'}
+                    returnKeyType="done" submitBehavior="submit" onSubmitEditing={add} accessibilityLabel="New subtask"
+                    style={[styles.title, styles.input, { color: t.color.textPrimary }]} />
+            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    wrap: { gap: Spacing.xs },
-    row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    wrap: { marginTop: Spacing.xs },
+    row: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
+    checkButton: { width: 44, height: 44, marginLeft: -Spacing.sm, alignItems: 'center', justifyContent: 'center' },
     check: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
     title: { flex: 1, fontSize: 15, fontFamily: FontFamily.medium },
+    input: { paddingVertical: Spacing.sm },
     struck: { textDecorationLine: 'line-through' },
 });
