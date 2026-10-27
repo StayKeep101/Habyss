@@ -54,7 +54,7 @@ export function FocusClock({ seconds, progress, style, accent, label, running = 
     if (style === 'minimal') {
         return (
             <View style={styles.center}>
-                <Text style={[styles.thin, { fontSize: digits * 1.05, color: FOCUS_TEXT }]}>{text}</Text>
+                <SteadyTime text={text} size={digits * 1.05} color={FOCUS_TEXT} weight="regular" />
                 {progress !== null ? (
                     <View style={[styles.line, { width: size, backgroundColor: FOCUS_DIM }]}>
                         <View style={[styles.lineFill, { width: `${Math.round((progress ?? 0) * 100)}%`, backgroundColor: accent }]} />
@@ -66,7 +66,7 @@ export function FocusClock({ seconds, progress, style, accent, label, running = 
     }
     return (
         <View style={styles.center}>
-            <Text style={[styles.digits, { fontSize: digits, color: FOCUS_TEXT }]}>{text}</Text>
+            <SteadyTime text={text} size={digits} color={FOCUS_TEXT} />
             {label ? <Text style={[styles.label, { color: FOCUS_LABEL }]}>{label}</Text> : null}
         </View>
     );
@@ -96,11 +96,31 @@ export function FocusRing({ size, progress, accent, running = true }: { size: nu
     );
 }
 
+/**
+ * A time where every digit has a slot of its own, the same width whatever the
+ * digit, so the time never shifts sideways as it counts. The font's own
+ * digits are not all one width.
+ */
+export function SteadyTime({ text, size, color, weight = 'bold' }: { text: string; size: number; color: string; weight?: 'bold' | 'regular' }) {
+    const digit = size * 0.64;
+    const colon = size * 0.3;
+    return (
+        <View style={styles.steady} accessible accessibilityLabel={text}>
+            {[...text].map((char, index) => (
+                <Text key={index} style={[weight === 'bold' ? styles.digits : styles.thin,
+                    { fontSize: size, lineHeight: size * 1.08, color, width: char === ':' ? colon : digit, textAlign: 'center', letterSpacing: 0 }]}>
+                    {char}
+                </Text>
+            ))}
+        </View>
+    );
+}
+
 /** The figures alone, with a quiet line under them. */
 export function FocusDigits({ seconds, size, label, gap = 0 }: { seconds: number; size: number; label?: string; gap?: number }) {
     return (
         <View style={[styles.center, { marginTop: gap }]}>
-            <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.digits, { fontSize: size, lineHeight: size * 1.08, color: FOCUS_TEXT }]}>{clockText(seconds)}</Text>
+            <SteadyTime text={clockText(seconds)} size={size} color={FOCUS_TEXT} />
             {label ? <Text style={[styles.label, { color: FOCUS_LABEL }]}>{label}</Text> : null}
         </View>
     );
@@ -128,6 +148,7 @@ function Mark({ size, running }: { size: number; running: boolean }) {
 
 const styles = StyleSheet.create({
     center: { alignItems: 'center', justifyContent: 'center' },
+    steady: { flexDirection: 'row', alignItems: 'center' },
     side: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 48 },
     digits: { fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'], letterSpacing: -2 },
     thin: { fontFamily: FontFamily.regular, fontVariant: ['tabular-nums'], letterSpacing: -3 },
