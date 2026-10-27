@@ -20,6 +20,7 @@
  *   MorphMenu (a ⋯ button that grows into its own menu), MicButton (talk instead of typing),
  *   FocusPill (the solid "Focus" pill on whatever is on right now)
  *   DemonEdge (the red glow round the screen in Echo's demon mode)
+ *   ChoiceSheet (the app's own sheet of a few choices, or asking for a name, instead of the system's)
  *   DragDropProvider, Draggable, DropTarget (touch and hold to carry something onto a place that takes it)
  *   CoachLayer (the first-run tour across screens: one real control lit up, a line and an arrow)
  *
@@ -92,4 +93,5 @@ export { DateWheels } from './DateWheels';
 export { PopupCard } from './PopupCard';
 export { DemonEdge } from './DemonEdge';
 export { DragDropProvider, Draggable, DropTarget } from './DragDrop';
+export { ChoiceSheet, type Choice } from './ChoiceSheet';
 export { CoachLayer } from './CoachMarks';

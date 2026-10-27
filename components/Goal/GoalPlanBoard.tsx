@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ChoiceSheet } from '@/components/ui/ChoiceSheet';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { AppButton } from '@/components/ui/AppButton';
@@ -168,21 +169,14 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
         else onOpenMilestone(item.milestone);
     };
     const plannable = (day: string) => !readOnly && day >= today && (!planUntil || day <= planUntil);
-    // A day's "Plan a task": one of the to-dos waiting for a day, or a new task.
+    // A day's "Plan a task": one of the to-dos waiting for a day, or a new task,
+    // offered in the app's own sheet.
+    const [planDay, setPlanDay] = useState<string | null>(null);
+    const [shownPlanDay, setShownPlanDay] = useState<string | null>(null);
+    if (planDay && planDay !== shownPlanDay) setShownPlanDay(planDay);
     const addOnDay = (dayKey: string) => {
         if (!todos.length || !onPlanTodo || !plannable(dayKey)) { onOpenTask(undefined, dayKey); return; }
-        const offered = todos.slice(0, 8);
-        const labels = [...offered.map(task => task.title), 'New task'];
-        const pickIndex = (index: number) => {
-            if (index < offered.length) onPlanTodo(offered[index], dayKey);
-            else if (index === offered.length) onOpenTask(undefined, dayKey);
-        };
-        const title = `Plan on ${dateOf(dayKey).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}`;
-        if (Platform.OS === 'ios') {
-            ActionSheetIOS.showActionSheetWithOptions({ title, message: 'From your to-do list', options: [...labels, 'Cancel'], cancelButtonIndex: labels.length }, pickIndex);
-        } else {
-            Alert.alert(title, undefined, [...labels.map((text, index) => ({ text, onPress: () => pickIndex(index) })), { text: 'Cancel', style: 'cancel' as const }]);
-        }
+        setPlanDay(dayKey);
     };
     const dayCard = (day: GoalDay) => (
         <DropTarget key={day.day} id={day.day} accepts={plannable(day.day)} radius={Radius.card}>
@@ -347,6 +341,13 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
                     ) : null}
                 </Animated.View>
             ) : null}
+            <ChoiceSheet visible={!!planDay} onClose={() => setPlanDay(null)}
+                title={shownPlanDay ? `Plan on ${dateOf(shownPlanDay).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}` : ''}
+                caption="From your to-do list"
+                choices={shownPlanDay ? [
+                    ...todos.slice(0, 8).map(task => ({ label: task.title, icon: 'square-outline', onPress: () => onPlanTodo?.(task, shownPlanDay) })),
+                    { label: 'New task', icon: 'add', onPress: () => onOpenTask(undefined, shownPlanDay) },
+                ] : []} />
         </View>
     );
 }

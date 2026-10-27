@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { VoidSheet } from '@/components/ui/VoidSheet';
 import { AppButton } from '@/components/ui/AppButton';
@@ -37,13 +37,23 @@ export function PlanDaySheet({ task, insights, milestones, today, from, to, colo
     const [shown, setShown] = useState<Task | null>(task);
     if (task && task !== shown) setShown(task);
     const inRange = (day: string) => day >= from && day <= to;
+    // Every month up to the deadline, drawn a few at a time so the sheet opens
+    // at once even when the deadline is a year away; it ends at the deadline.
+    const months = monthsBetween(from, to);
+    const [shownMonths, setShownMonths] = useState(3);
+    useEffect(() => {
+        if (!task) { setShownMonths(3); return; }
+        if (shownMonths >= months.length) return;
+        const more = setTimeout(() => setShownMonths(count => count + 3), 200);
+        return () => clearTimeout(more);
+    }, [task, shownMonths, months.length]);
     return (
-        <VoidSheet visible={!!task} onClose={onClose} title="Plan on a day" caption={shown?.title} maxShare={0.85}
+        <VoidSheet visible={!!task} onClose={onClose} title="Plan on a day" caption={shown?.title} maxShare={0.85} scrollable
             footer={shown?.dueDate ? <AppButton label="Take off its day" variant="ghost" onPress={() => shown && onPlan(shown, null)} /> : undefined}>
             <View style={styles.months}>
-                {monthsBetween(from, to).map(month => (
+                {months.slice(0, shownMonths).map(month => (
                     <GoalMonth key={month} month={month} days={byDay} selected={shown?.dueDate ?? null} today={today} color={color}
-                        weekStartsMonday={weekStartsMonday} inRange={inRange} title={monthTitle(month)}
+                        weekStartsMonday={weekStartsMonday} inRange={inRange} title={monthTitle(month)} still compact
                         onSelect={day => shown && onPlan(shown, day)} />
                 ))}
             </View>

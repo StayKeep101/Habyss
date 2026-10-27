@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Keyboard, Modal, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { elevationFor, surfaceFor } from '@/theme/designSystem';
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
 import Animated, {
     Easing, ReduceMotion, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
@@ -49,7 +49,12 @@ export const VoidSheet: React.FC<{
     footer?: React.ReactNode;
     /** The most of the screen it may take (0–1). Two thirds by default. */
     maxShare?: number;
-}> = ({ visible, onClose, title, caption, children, footer, maxShare = 0.68 }) => {
+    /**
+     * Content taller than the sheet: it scrolls, and only the title area
+     * drags the sheet down, so scrolling back up never closes it.
+     */
+    scrollable?: boolean;
+}> = ({ visible, onClose, title, caption, children, footer, maxShare = 0.68, scrollable = false }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const tone = surfaceFor(theme);
@@ -135,7 +140,7 @@ export const VoidSheet: React.FC<{
                     style={[StyleSheet.absoluteFill, scrim, { backgroundColor: '#000' }]}
                 />
 
-                <GestureDetector gesture={pull}>
+                <GestureDetector gesture={scrollable ? Gesture.Native() : pull}>
                     <Animated.View
                         accessibilityViewIsModal
                         onAccessibilityEscape={dismiss}
@@ -160,16 +165,31 @@ export const VoidSheet: React.FC<{
                             <LinearGradient colors={[tone.top, tone.fill, tone.bottom]} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
                         </View>
 
-                        <View style={styles.head}>
-                            <View style={styles.headText}>
-                                <Text numberOfLines={1} style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
-                                {caption ? (
-                                    <Text numberOfLines={1} style={[styles.caption, { color: colors.textTertiary }]}>{caption}</Text>
-                                ) : null}
+                        {scrollable ? (
+                            <GestureDetector gesture={pull}>
+                                <View style={styles.head}>
+                                    <View style={styles.headText}>
+                                        <Text numberOfLines={1} style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+                                        {caption ? <Text numberOfLines={1} style={[styles.caption, { color: colors.textTertiary }]}>{caption}</Text> : null}
+                                    </View>
+                                </View>
+                            </GestureDetector>
+                        ) : (
+                            <View style={styles.head}>
+                                <View style={styles.headText}>
+                                    <Text numberOfLines={1} style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+                                    {caption ? (
+                                        <Text numberOfLines={1} style={[styles.caption, { color: colors.textTertiary }]}>{caption}</Text>
+                                    ) : null}
+                                </View>
                             </View>
-                        </View>
+                        )}
 
-                        {children}
+                        {scrollable ? (
+                            <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                                {children}
+                            </ScrollView>
+                        ) : children}
                         {footer}
                     </Animated.View>
                 </GestureDetector>
@@ -194,5 +214,7 @@ const styles = StyleSheet.create({
     headText: { flex: 1 },
     title: { fontSize: ms(20), fontFamily: FontFamily.bold },
     caption: { fontSize: ms(12), fontFamily: FontFamily.regular, marginTop: vs(1) },
+    scroll: { flexShrink: 1 },
+    scrollContent: { paddingHorizontal: s(18), paddingBottom: vs(12) },
     fillLayer: { borderTopLeftRadius: s(24), borderTopRightRadius: s(24), overflow: 'hidden' },
 });

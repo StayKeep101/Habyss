@@ -47,7 +47,7 @@ export function SubtaskEditor({ steps, onChange, color }: { steps: Subtask[]; on
                 <View style={styles.checkButton}>
                     <AppIcon name="add" size={20} color={t.color.textMuted} />
                 </View>
-                <MatteInput bare value={draft} onChangeText={setDraft} placeholder={steps.length ? 'Add another subtask' : 'Add a subtask'}
+                <MatteInput bare value={draft} onChangeText={setDraft} placeholder={steps.length ? 'Add another subtask' : 'Add a subtask'} textContentType="none" autoComplete="off"
                     returnKeyType="done" submitBehavior="submit" onSubmitEditing={add} accessibilityLabel="New subtask"
                     style={[styles.title, styles.input, { color: t.color.textPrimary }]} />
             </View>

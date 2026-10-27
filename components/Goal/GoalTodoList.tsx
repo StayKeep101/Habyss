@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
-import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ChoiceSheet, type Choice } from '@/components/ui/ChoiceSheet';
+import { SwipeRow } from '@/components/ui/SwipeRow';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { AppButton } from '@/components/ui/AppButton';
@@ -26,39 +28,27 @@ export function useGoalSections(goalId: string): string[] {
 }
 const EMPTY: string[] = [];
 
-/** Asks with the system's own sheet (a menu of choices on iOS, an alert elsewhere). */
-function choose(title: string, options: { label: string; destructive?: boolean; onPress: () => void }[]) {
-    if (Platform.OS === 'ios') {
-        ActionSheetIOS.showActionSheetWithOptions({
-            title, options: [...options.map(option => option.label), 'Cancel'], cancelButtonIndex: options.length,
-            destructiveButtonIndex: options.findIndex(option => option.destructive),
-        }, index => { if (index < options.length) options[index].onPress(); });
-    } else {
-        Alert.alert(title, undefined, [...options.map(option => ({ text: option.label, style: option.destructive ? 'destructive' as const : 'default' as const, onPress: option.onPress })), { text: 'Cancel', style: 'cancel' }]);
-    }
-}
+/** The list on screen, ready to ask for a new heading (from the goal's ⋯ menu). */
+let askForSection: ((goalId: string) => void) | null = null;
 
-/** A name, typed (a prompt on iOS). */
-function askName(title: string, initial: string, onName: (name: string) => void) {
-    if (Platform.OS === 'ios') {
-        Alert.prompt(title, undefined, [{ text: 'Cancel', style: 'cancel' }, { text: 'Save', onPress: (value?: string) => { const name = sectionName(value ?? ''); if (name) onName(name); } }], 'plain-text', initial);
-    } else onName(sectionName(initial || 'New section'));
-}
-
-/** Asks for a heading's name and adds it at the end of the goal's list (also from the goal's ⋯ menu). */
+/** Asks for a heading's name in the list's own sheet and adds it at the end (also from the goal's ⋯ menu). */
 export function startNewSection(goalId: string) {
-    askName('New section', '', name => {
-        void loadSections(goalId).then(sections => saveSections(goalId, [...sections, name]));
-    });
+    askForSection?.(goalId);
 }
+
+type Sheet =
+    | { kind: 'more'; task: Task }
+    | { kind: 'move'; task: Task }
+    | { kind: 'section'; name: string }
+    | { kind: 'name'; from: string | null };
 
 /**
  * A goal's to-do list: everything its plan needs doing, under headings you
  * name. Each heading is a card with its to-dos and a line to add one; a
  * to-do shows the day it is planned on, or a calendar button to plan it.
- * Touch and hold a to-do for more (plan, move to another heading, edit,
- * delete); the ⋯ by a heading renames or removes it (its to-dos stay).
- * Planning happens here or on the plan, by dragging a to-do onto a day.
+ * Swipe a to-do either way to delete it; touch and hold it for more (plan,
+ * move to another heading, edit). The ⋯ by a heading renames or removes it
+ * (its to-dos stay). Every choice is asked in the app's own sheet.
  */
 export function GoalTodoList({ goalId, tasks, today, color, readOnly, onOpenTask, onPlan, onToggle }: {
     goalId: string;
@@ -72,43 +62,66 @@ export function GoalTodoList({ goalId, tasks, today, color, readOnly, onOpenTask
     onToggle: (task: Task) => void;
 }) {
     const t = useTokens();
-    const { lightFeedback } = useHaptics();
+    const { lightFeedback, mediumFeedback } = useHaptics();
     const sections = useGoalSections(goalId);
     const groups = todoGroups(tasks, sections);
+    const [sheet, setSheet] = useState<Sheet | null>(null);
+    const [shownSheet, setShownSheet] = useState<Sheet | null>(null);
+    if (sheet && sheet !== shownSheet) setShownSheet(sheet);
 
-    const newSection = () => { lightFeedback(); startNewSection(goalId); };
+    const newSection = () => { lightFeedback(); setSheet({ kind: 'name', from: null }); };
+    useEffect(() => {
+        askForSection = id => { if (id === goalId) setSheet({ kind: 'name', from: null }); };
+        return () => { askForSection = null; };
+    }, [goalId]);
 
-    const rename = (from: string) => askName('Rename section', from, async name => {
+    const saveName = async (from: string | null, raw: string) => {
+        const name = sectionName(raw);
+        if (!name) return;
+        if (from === null) { await saveSections(goalId, [...sections, name]); return; }
         if (name === from) return;
         await saveSections(goalId, sections.map(section => (section === from ? name : section)));
         await Promise.all(tasks.filter(task => task.section === from).map(task => updateTask(task.id, { section: name }))).catch(() => undefined);
         emit('tasks_changed');
-    });
-    const removeSection = (name: string) => {
-        const count = tasks.filter(task => task.section === name && task.status !== 'cancelled').length;
-        Alert.alert(`Remove “${name}”?`, count ? `Its ${count === 1 ? 'to-do stays' : `${count} to-dos stay`} in the list, under no heading.` : undefined, [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Remove', style: 'destructive', onPress: async () => {
-                await saveSections(goalId, sections.filter(section => section !== name));
-                await Promise.all(tasks.filter(task => task.section === name).map(task => updateTask(task.id, { section: null }))).catch(() => undefined);
-                emit('tasks_changed');
-            } },
-        ]);
     };
-    const more = (task: Task) => {
-        lightFeedback();
-        choose(task.title, [
-            ...(task.status === 'open' ? [{ label: task.dueDate ? 'Move to another day' : 'Plan on a day', onPress: () => onPlan(task) }] : []),
-            ...(sections.length ? [{ label: 'Move to a section', onPress: () => choose('Move to', [
-                ...sections.filter(section => section !== task.section).map(section => ({ label: section, onPress: () => { void updateTask(task.id, { section }).then(() => emit('tasks_changed')); } })),
-                ...(task.section ? [{ label: 'No section', onPress: () => { void updateTask(task.id, { section: null }).then(() => emit('tasks_changed')); } }] : []),
-            ]) }] : []),
-            { label: 'Edit', onPress: () => onOpenTask(task) },
-            { label: 'Delete', destructive: true, onPress: () => Alert.alert('Delete to-do', `Delete “${task.title}”?`, [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => { void deleteTask(task.id).then(() => emit('tasks_changed')).catch(() => Alert.alert('Not deleted', 'Your to-do is still saved. Try again.')); } },
-            ]) },
-        ]);
+    // Removing a heading keeps its to-dos, under no heading: nothing to confirm.
+    const removeSection = async (name: string) => {
+        await saveSections(goalId, sections.filter(section => section !== name));
+        await Promise.all(tasks.filter(task => task.section === name).map(task => updateTask(task.id, { section: null }))).catch(() => undefined);
+        emit('tasks_changed');
+    };
+    const remove = (task: Task) => {
+        mediumFeedback();
+        void deleteTask(task.id).then(() => emit('tasks_changed')).catch(() => undefined);
+    };
+    const moveTo = (task: Task, section: string | null) => { void updateTask(task.id, { section }).then(() => emit('tasks_changed')); };
+
+    const choices = (): Choice[] => {
+        if (!shownSheet) return [];
+        if (shownSheet.kind === 'more') {
+            const task = shownSheet.task;
+            return [
+                ...(task.status === 'open' ? [{ label: task.dueDate ? 'Move to another day' : 'Plan on a day', icon: 'calendar-outline', onPress: () => onPlan(task) }] : []),
+                ...(sections.length ? [{ label: 'Move to a section', icon: 'folder-open-outline', onPress: () => setSheet({ kind: 'move', task }) }] : []),
+                { label: 'Edit', icon: 'create-outline', onPress: () => onOpenTask(task) },
+                { label: 'Delete', icon: 'trash-outline', destructive: true, onPress: () => remove(task) },
+            ];
+        }
+        if (shownSheet.kind === 'move') {
+            const task = shownSheet.task;
+            return [
+                ...sections.filter(section => section !== task.section).map(section => ({ label: section, icon: 'folder-outline', onPress: () => moveTo(task, section) })),
+                ...(task.section ? [{ label: 'No section', icon: 'remove-circle-outline', onPress: () => moveTo(task, null) }] : []),
+            ];
+        }
+        if (shownSheet.kind === 'section') {
+            const name = shownSheet.name;
+            return [
+                { label: 'Rename', icon: 'create-outline', onPress: () => setSheet({ kind: 'name', from: name }) },
+                { label: 'Remove section', icon: 'trash-outline', destructive: true, onPress: () => void removeSection(name) },
+            ];
+        }
+        return [];
     };
 
     const nothing = groups.every(group => group.tasks.length === 0) && sections.length === 0;
@@ -131,34 +144,48 @@ export function GoalTodoList({ goalId, tasks, today, color, readOnly, onOpenTask
                                 ) : null}
                                 {!readOnly ? (
                                     <IconButton icon="ellipsis-horizontal" label={`${group.section} options`} diameter={32} size={16}
-                                        onPress={() => { const name = group.section!; lightFeedback(); choose(name, [
-                                            { label: 'Rename', onPress: () => rename(name) },
-                                            { label: 'Remove section', destructive: true, onPress: () => removeSection(name) },
-                                        ]); }} />
+                                        onPress={() => { lightFeedback(); setSheet({ kind: 'section', name: group.section! }); }} />
                                 ) : null}
                             </View>
                         ) : null}
                         {group.tasks.map(task => (
                             <TodoRow key={task.id} task={task} today={today} color={color} readOnly={readOnly}
-                                onToggle={() => onToggle(task)} onOpen={() => onOpenTask(task)} onPlan={() => onPlan(task)} onMore={() => more(task)} />
+                                onToggle={() => onToggle(task)} onOpen={() => onOpenTask(task)} onPlan={() => onPlan(task)}
+                                onMore={() => { lightFeedback(); setSheet({ kind: 'more', task }); }} onDelete={() => remove(task)} />
                         ))}
                         {!readOnly ? <AddLine goalId={goalId} section={group.section} /> : null}
                     </MatteSurface>
                 </ListItem>
             )))}
             {!readOnly ? <AppButton label="New section" icon="add" variant="ghost" onPress={newSection} /> : null}
+
+            <ChoiceSheet
+                visible={!!sheet}
+                onClose={() => setSheet(null)}
+                title={shownSheet?.kind === 'more' || shownSheet?.kind === 'move' ? (shownSheet.kind === 'move' ? 'Move to' : shownSheet.task.title)
+                    : shownSheet?.kind === 'section' ? shownSheet.name
+                    : shownSheet?.kind === 'name' && shownSheet.from ? 'Rename section' : 'New section'}
+                choices={choices()}
+                ask={shownSheet?.kind === 'name' ? {
+                    placeholder: 'Section name', initial: shownSheet.from ?? '', save: shownSheet.from ? 'Rename' : 'Add section',
+                    onSave: text => { const from = shownSheet.kind === 'name' ? shownSheet.from : null; void saveName(from, text); },
+                } : undefined}
+            />
         </View>
     );
 }
 
-function TodoRow({ task, today, color, readOnly, onToggle, onOpen, onPlan, onMore }: {
-    task: Task; today: string; color: string; readOnly?: boolean; onToggle: () => void; onOpen: () => void; onPlan: () => void; onMore: () => void;
+function TodoRow({ task, today, color, readOnly, onToggle, onOpen, onPlan, onMore, onDelete }: {
+    task: Task; today: string; color: string; readOnly?: boolean; onToggle: () => void; onOpen: () => void; onPlan: () => void; onMore: () => void; onDelete: () => void;
 }) {
     const t = useTokens();
     const done = task.status === 'done';
     const late = !done && !!task.dueDate && task.dueDate < today;
+    // Swiped either way, it is deleted: one move, the way Reminders does it.
+    const del = { icon: 'trash' as const, label: 'Delete', color: '#EF4444', destructive: true, onPress: onDelete };
     return (
-        <View style={styles.row}>
+        <SwipeRow left={readOnly ? undefined : del} right={readOnly ? undefined : [del]} radius={Radius.small}>
+        <View style={[styles.row, { backgroundColor: t.color.surface }]}>
             <Pressable disabled={readOnly} onPress={onToggle} style={styles.markButton}
                 accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={task.title}>
                 <View style={[styles.mark, { borderColor: t.color.warning, backgroundColor: done ? t.color.warning : 'transparent' }]}>
@@ -181,6 +208,7 @@ function TodoRow({ task, today, color, readOnly, onToggle, onOpen, onPlan, onMor
                     diameter={36} size={16} color={task.dueDate ? color : t.color.textMuted} onPress={onPlan} />
             ) : null}
         </View>
+        </SwipeRow>
     );
 }
 
@@ -198,14 +226,15 @@ function AddLine({ goalId, section }: { goalId: string; section: string | null }
         try {
             await createTask({ title, goalId, section: section ?? undefined });
             emit('tasks_changed');
-        } catch { setDraft(title); Alert.alert('Not saved', 'That to-do could not be saved. Try again.'); }
+        // Not saved: the words come back in the line, to try again.
+        } catch { setDraft(title); }
     };
     return (
         <View style={styles.row}>
             <View style={styles.markButton}>
                 <Ionicons name="add" size={20} color={t.color.textMuted} />
             </View>
-            <MatteInput bare value={draft} onChangeText={setDraft} placeholder="Add a to-do" returnKeyType="done" submitBehavior="submit"
+            <MatteInput bare value={draft} onChangeText={setDraft} placeholder="Add a to-do" returnKeyType="done" submitBehavior="submit" textContentType="none" autoComplete="off"
                 onSubmitEditing={() => { void add(); }} accessibilityLabel={section ? `Add a to-do to ${section}` : 'Add a to-do'}
                 style={[styles.title, styles.addInput, { color: t.color.textPrimary }]} />
         </View>

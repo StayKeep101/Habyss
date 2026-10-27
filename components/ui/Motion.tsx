@@ -153,7 +153,9 @@ export function Reveal({ children, style, replay }: { children: React.ReactNode;
 }
 
 /** One of many small pieces (a heatmap cell, a dot) fading in after the one before it. */
-export function PopIn({ index = 0, children, style }: { index?: number; children?: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+export function PopIn({ index = 0, children, style, still }: { index?: number; children?: React.ReactNode; style?: StyleProp<ViewStyle>; still?: boolean }) {
+    // Many drawn at once (a picker of whole months): no animation each, or it is all the phone does.
+    if (still) return <Animated.View style={style}>{children}</Animated.View>;
     return (
         <Animated.View
             entering={FadeIn.delay(Math.min(index, 40) * (MOTION.stagger / 2)).duration(MOTION.duration).reduceMotion(ReduceMotion.System)}

@@ -107,7 +107,7 @@ function GoalItemLine({ item, color, canTick, onToggle, onOpen }: {
  * it started, after its deadline) are not drawn, and a week with none of the
  * goal's days is left out, so the calendar runs from its first day to its last.
  */
-export function GoalMonth({ month, days, selected, today, color, weekStartsMonday, inRange, onSelect, title, droppable }: {
+export function GoalMonth({ month, days, selected, today, color, weekStartsMonday, inRange, onSelect, title, droppable, still, compact }: {
     /** Any day in the month, YYYY-MM-DD. */
     month: string;
     days: Record<string, GoalDay>;
@@ -120,6 +120,10 @@ export function GoalMonth({ month, days, selected, today, color, weekStartsMonda
     title?: string;
     /** Days a carried to-do can be put down on (see DragDrop). */
     droppable?: (day: string) => boolean;
+    /** No pop-in: many months drawn at once (the day picker). */
+    still?: boolean;
+    /** Squarer, shorter days. */
+    compact?: boolean;
 }) {
     const t = useTokens();
     const kindColor = useKindColor(color);
@@ -136,7 +140,7 @@ export function GoalMonth({ month, days, selected, today, color, weekStartsMonda
             {rows.map((row, rowIndex) => (
                 <View key={rowIndex} style={styles.row}>
                     {row.map((key, column) => {
-                        if (!key || !inRange(key)) return <View key={column} style={styles.cell} />;
+                        if (!key || !inRange(key)) return <View key={column} style={[styles.cell, compact && styles.cellCompact]} />;
                         const day = days[key];
                         const items = day?.items ?? [];
                         const isSelected = key === selected;
@@ -145,9 +149,9 @@ export function GoalMonth({ month, days, selected, today, color, weekStartsMonda
                         const label = `${dateOf(key).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}. `
                             + (items.length ? items.map(item => `${item.title}${item.done ? ', done' : ''}`).join('; ') : 'Nothing planned');
                         const cell = (
-                            <Pressable key={key} onPress={() => onSelect(key)} style={styles.cell}
+                            <Pressable key={key} onPress={() => onSelect(key)} style={[styles.cell, compact && styles.cellCompact]}
                                 accessibilityRole="button" accessibilityState={{ selected: isSelected }} accessibilityLabel={label}>
-                                <PopIn index={rowIndex * 7 + column} style={[styles.cellInner,
+                                <PopIn index={still ? 0 : rowIndex * 7 + column} still={still} style={[styles.cellInner,
                                     isSelected ? { backgroundColor: t.color.surfaceRaised, borderColor: color } : { borderColor: 'transparent' }]}>
                                     <Text style={[styles.dayNumber, { color: isToday ? color : t.color.textPrimary, fontFamily: isToday || isSelected ? FontFamily.bold : FontFamily.medium }]}>
                                         {Number(key.slice(8))}
@@ -211,6 +215,7 @@ const styles = StyleSheet.create({
     row: { flexDirection: 'row' },
     letter: { flex: 1, textAlign: 'center', fontSize: 12, fontFamily: FontFamily.semibold, paddingBottom: Spacing.xs },
     cell: { flex: 1, aspectRatio: 0.82, padding: 2 },
+    cellCompact: { aspectRatio: 1 },
     cellInner: { flex: 1, borderRadius: Radius.small, borderWidth: 1.5, alignItems: 'center', paddingTop: Spacing.xs, gap: Spacing.xs },
     dayNumber: { fontSize: 15, fontVariant: ['tabular-nums'] },
     bars: { alignSelf: 'stretch', paddingHorizontal: 6, gap: 3, alignItems: 'center' },

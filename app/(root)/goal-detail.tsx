@@ -307,10 +307,15 @@ const GoalDetail = () => {
   const todos = useMemo(() => unplanned(goalTasks), [goalTasks]);
   const planRange = plannableDays(today, goal?.targetDate && insights ? insights.endDate : null);
   const [planning, setPlanning] = useState<Task | null>(null);
-  const planTodo = (task: Task, day: string | null) => {
+  const planTodo = (task: Task, day: string | null, fromSheet = true) => {
+    lightFeedback();
     setPlanning(null);
-    void updateTask(task.id, { dueDate: day }).then(() => emit('tasks_changed'))
+    // The sheet closes first and the day is saved once it has gone: saving
+    // redraws the plan, and doing that while the sheet was still sliding away
+    // is what froze the app.
+    const save = () => void updateTask(task.id, { dueDate: day }).then(() => emit('tasks_changed'))
       .catch(() => Alert.alert('Not planned', 'That to-do could not be saved. Try again.'));
+    if (fromSheet) setTimeout(save, 260); else save();
   };
   // Carrying a to-do: the page holds still, and scrolls along at its edges.
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
@@ -320,7 +325,7 @@ const GoalDetail = () => {
   }, [scrollRef, scrollY]);
   const dropTodo = React.useCallback((taskId: string, day: string) => {
     const task = goalTasks.find(item => item.id === taskId);
-    if (task) planTodo(task, day);
+    if (task) planTodo(task, day, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goalTasks]);
 
@@ -584,7 +589,7 @@ const GoalDetail = () => {
                 onOpenMilestone={milestone => setMilestoneSheet({ milestone })}
                 onLog={canLog && !isSharedGoal ? () => { lightFeedback(); setLogging(true); } : undefined}
                 todos={todos} planUntil={planRange.to}
-                onPlanTodo={(task, day) => planTodo(task, day)}
+                onPlanTodo={(task, day) => planTodo(task, day, false)}
                 onChooseDay={task => setPlanning(task)}
               />
             ) : null}
