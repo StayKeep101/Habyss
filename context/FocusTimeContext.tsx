@@ -516,47 +516,36 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Timer tick effect
     // ============================================
     useEffect(() => {
-        if (isRunning && !isPaused) {
-            const updateTimer = () => {
-
-                // If flow mode (mode='flow'), we count UP instead of down (or treat duration as suggestion?)
-                // For simplified v1, let's keep countdown logic for all modes except maybe flow.
-                // But context needs to know if it's counting down.
-                // Assuming countdown for now based on endTime.
-
-                if (activeMode === 'flow') {
-                    // Calculate elapsed time instead of remaining
-                    if (!focusStartRef.current) return;
-                    const now = Date.now();
-                    const elapsed = (currentSessionRef.current?.actualDuration || 0) + Math.floor((now - focusStartRef.current) / 1000);
-                    setTimeLeft(elapsed); // Actually represents elapsed time
-                } else {
-                    if (!endTimeRef.current) return;
-                    const now = Date.now();
-                    const remaining = Math.ceil((endTimeRef.current - now) / 1000);
-
-                    if (remaining <= 0) {
-                        // Over time: the timer becomes a stopwatch counting the
-                        // whole time since it began, until it is ticked.
-                        if (intervalRef.current) clearInterval(intervalRef.current);
-                        goOverTime();
-                    } else {
-                        setTimeLeft(remaining);
-                    }
-                }
-            };
-
-            updateTimer();
-            intervalRef.current = setInterval(updateTimer, 1000);
-        } else {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-            }
-        }
-
-        return () => {
-            if (intervalRef.current) clearInterval(intervalRef.current);
+        // Each figure is worked out from the clock, and the next tick is set for
+        // the very moment the figure turns over, not "about a second later":
+        // a plain one-second interval drifts against the clock, so now and then
+        // two figures came a few milliseconds apart and the timer looked fast.
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        const schedule = (msToNext: number) => {
+            timer = setTimeout(updateTimer, Math.max(16, msToNext + 15));
         };
+        const updateTimer = () => {
+            if (activeMode === 'flow') {
+                if (!focusStartRef.current) return;
+                const since = Date.now() - focusStartRef.current;
+                setTimeLeft((currentSessionRef.current?.actualDuration || 0) + Math.floor(since / 1000));
+                schedule(1000 - (since % 1000));
+                return;
+            }
+            if (!endTimeRef.current) return;
+            const until = endTimeRef.current - Date.now();
+            const remaining = Math.ceil(until / 1000);
+            if (remaining <= 0) {
+                // Over time: the timer becomes a stopwatch counting the whole
+                // time since it began, until it is ticked.
+                goOverTime();
+                return;
+            }
+            setTimeLeft(remaining);
+            schedule(until - (remaining - 1) * 1000);
+        };
+        if (isRunning && !isPaused) updateTimer();
+        return () => { if (timer) clearTimeout(timer); };
     }, [isRunning, isPaused, activeMode]);
 
     /** The countdown reached zero: carry on as a stopwatch, nothing saved or ticked yet. */
