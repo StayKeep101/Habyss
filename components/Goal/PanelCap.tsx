@@ -17,34 +17,38 @@ interface Props {
  * The progress arc used to float over the cover photo, so the photo showed
  * through the gap inside it. The panel now rises to meet the arc: one shape,
  * filled with the page's own background, with the arc sitting in the dome.
+ * Every turn in the edge is a curve: the corners, and where the dome rises.
  */
 export const PanelCap: React.FC<Props> = ({ width, bump, corner, color, border }) => {
     const height = bump + corner;
     const centre = width / 2;
     const edge = bump; // y of the flat part of the top edge
 
-    // Left corner, across to the dome, over it, across to the right corner.
-    const top = `M 0 ${height}`
-        + ` L 0 ${edge + corner}`
-        + ` Q 0 ${edge} ${corner} ${edge}`
-        + ` L ${centre - bump} ${edge}`
-        + ` A ${bump} ${bump} 0 0 1 ${centre + bump} ${edge}`
-        + ` L ${width - corner} ${edge}`
-        + ` Q ${width} ${edge} ${width} ${edge + corner}`
-        + ` L ${width} ${height} Z`;
+    // Where the flat edge meets the dome, a small curve turns one into the
+    // other, so there is no corner there: a circle of radius `fillet` resting
+    // on the edge and touching the dome. The dome itself stays a true circle,
+    // so the progress arc inside it stays concentric.
+    const fillet = Math.round(bump * 0.42);
+    const reach = Math.sqrt((bump + fillet) ** 2 - fillet ** 2);
+    const touchX = (reach * bump) / (bump + fillet);
+    const touchY = edge - (fillet * bump) / (bump + fillet);
+    const round = (n: number) => n.toFixed(2);
 
-    // The same edge again as a hairline, for the separation from the photo.
-    const outline = `M 0 ${edge + corner}`
-        + ` Q 0 ${edge} ${corner} ${edge}`
-        + ` L ${centre - bump} ${edge}`
-        + ` A ${bump} ${bump} 0 0 1 ${centre + bump} ${edge}`
+    const edgePath = ` M 0 ${edge + corner}`
+        + ` A ${corner} ${corner} 0 0 1 ${corner} ${edge}`
+        + ` L ${round(centre - reach)} ${edge}`
+        + ` A ${fillet} ${fillet} 0 0 0 ${round(centre - touchX)} ${round(touchY)}`
+        + ` A ${bump} ${bump} 0 0 1 ${round(centre + touchX)} ${round(touchY)}`
+        + ` A ${fillet} ${fillet} 0 0 0 ${round(centre + reach)} ${edge}`
         + ` L ${width - corner} ${edge}`
-        + ` Q ${width} ${edge} ${width} ${edge + corner}`;
+        + ` A ${corner} ${corner} 0 0 1 ${width} ${edge + corner}`;
+    const top = `M 0 ${height}${edgePath.replace(' M 0', ' L 0')} L ${width} ${height} Z`;
 
     return (
         <Svg width={width} height={height} style={styles.cap} pointerEvents="none">
             <Path d={top} fill={color} />
-            <Path d={outline} fill="none" stroke={border} strokeWidth={1} />
+            {/* The edge as a faint hairline: there, but never a hard line against the photo. */}
+            <Path d={edgePath} fill="none" stroke={border} strokeOpacity={0.5} strokeWidth={1} />
         </Svg>
     );
 };

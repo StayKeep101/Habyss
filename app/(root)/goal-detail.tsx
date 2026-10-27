@@ -463,6 +463,12 @@ const GoalDetail = () => {
           style={{ position: 'absolute', top: heroBox.top, left: 0, right: 0, height: heroBox.height }}
           resizeMode="cover"
         /> : null}
+        {/* The picture settles into the page above the panel's edge, so the two
+            meet softly instead of at a hard line. */}
+        <LinearGradient
+          colors={[`${colors.background}00`, `${colors.background}8C`]}
+          style={{ position: 'absolute', left: 0, right: 0, top: panelTop + BUMP - 150, height: 150 }}
+        />
       </View>
 
       {/* Navigation Header */}
