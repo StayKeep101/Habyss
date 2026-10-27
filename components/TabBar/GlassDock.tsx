@@ -16,6 +16,7 @@ import { AppState } from 'react-native';
 import { FriendsService } from '@/lib/friendsService';
 import { getRemoveDrag, setOrbRect, subscribeRemoveDrag, type RemoveDrag } from '@/lib/dragBridge';
 import { VoiceOrb } from './VoiceOrb';
+import { FocusMiniBar } from '@/components/Focus/FocusMiniBar';
 import { useWindowDimensions } from 'react-native';
 
 interface TabIconProps {
@@ -281,6 +282,13 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     }
 
     return (
+        <>
+        {/* A focus session left running sits on top of the dock, on every tab.
+            Beside the dock rather than inside it: iOS gives no touches to a
+            view drawn outside its parent. */}
+        <View pointerEvents="box-none" style={[styles.focusBar, { left: horizontalPadding, right: horizontalPadding, bottom: tabBarBottomOffset + Math.max(tabBarHeight, floatingButtonSize) + Spacing.sm }]}>
+            <FocusMiniBar />
+        </View>
         <View style={[
             styles.container,
             {
@@ -326,10 +334,12 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                     colors={buttonColors} ink="#fff" />
             </View>
         </View>
+        </>
     );
 };
 
 const styles = StyleSheet.create({
+    focusBar: { position: 'absolute' },
     container: {
         position: 'absolute',
         left: 0,

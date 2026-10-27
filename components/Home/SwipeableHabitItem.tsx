@@ -20,7 +20,6 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { Radius } from '@/theme/designSystem';
 import { useHaptics } from '@/hooks/useHaptics';
-import Svg, { Rect, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { runOnJS } from 'react-native-reanimated';
 import { useFocusTimeLeft } from '@/context/FocusTimeContext';
 
@@ -75,10 +74,9 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   const colors = Colors[theme];
   const router = useRouter();
   const { lightFeedback, selectionFeedback, mediumFeedback } = useHaptics();
-  const { colors: accentColors, primary: accentColor } = useAccentGradient();
+  const { primary: accentColor } = useAccentGradient();
 
   // Measure card for SVG Border
-  const [layout, setLayout] = React.useState({ width: 0, height: 0 });
 
 
   // Prefer dedicated prop, fallback to object property
@@ -117,21 +115,6 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   // Timer Progress Logic
   // Hours, minutes and seconds — "3:56:07", never "236:07".
   const formattedTime = React.useMemo(() => (timeLeft ? formatClock(timeLeft) : null), [timeLeft]);
-
-  const progress = React.useMemo(() => {
-    if (!timeLeft || !totalDuration) return 0;
-    const totalSeconds = totalDuration * 60;
-    const elapsed = totalSeconds - timeLeft;
-    return Math.min(elapsed / totalSeconds, 1);
-  }, [timeLeft, totalDuration]);
-
-  // SVG Calculations
-  const strokeWidth = 3;
-  // Habits are round-ended, where a task is squarer: the kind at a glance.
-  const radius = layout.height / 2;
-  // Perimeter of rect with rx/ry: 2*(w+h) - 8r + 2PI*r
-  const perimeter = 2 * (layout.width + layout.height) - 8 * radius + (2 * Math.PI * radius);
-  const strokeDashoffset = perimeter * (1 - progress);
 
   const dragGesture = Gesture.Pan()
     .enabled(!!onDragStart)
@@ -172,47 +155,7 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
             activeOpacity={0.8}
             onPress={() => onPress(habit)}
             style={styles.cardWrapper}
-            onLayout={(e) => setLayout(e.nativeEvent.layout)}
           >
-        {/* Active Gradient Border Wrapper (NOW SVG) */}
-        {isActive && layout.width > 0 && (
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <Svg width={layout.width} height={layout.height} style={StyleSheet.absoluteFill} pointerEvents="none">
-              <Defs>
-                <SvgGradient id="grad" x1="0" y1="0" x2="1" y2="1">
-                  <Stop offset="0" stopColor={accentColors[0]} stopOpacity="1" />
-                  <Stop offset="1" stopColor={accentColors[1]} stopOpacity="1" />
-                </SvgGradient>
-              </Defs>
-              {/* Background Track */}
-              <Rect
-                x={strokeWidth / 2}
-                y={strokeWidth / 2}
-                width={layout.width - strokeWidth}
-                height={layout.height - strokeWidth}
-                rx={radius}
-                stroke={accentColors[0] + '30'}
-                strokeWidth={strokeWidth}
-                fill="none"
-              />
-              {/* Progress Stroke */}
-              <Rect
-                x={strokeWidth / 2}
-                y={strokeWidth / 2}
-                width={layout.width - strokeWidth}
-                height={layout.height - strokeWidth}
-                rx={radius}
-                stroke="url(#grad)" // Use gradient
-                strokeWidth={strokeWidth}
-                fill="none"
-                strokeDasharray={perimeter}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-              />
-            </Svg>
-          </View>
-        )}
-
         <View>
           {/* Main Card Content */}
           <VoidCard
@@ -222,7 +165,6 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
               styles.card,
               (isCompleted || (skipped && !isCompleted)) && { opacity: 0.7 },
               { paddingVertical: paddingV },
-              isActive && { margin: 4 } // Inset to not cover border
             ]}
           >
             {/* Checkbox / Hit Area */}
