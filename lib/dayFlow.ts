@@ -1,5 +1,5 @@
 import type { Habit } from './habitsSQLite';
-import type { Task } from './tasks';
+import type { Subtask, Task } from './tasks';
 import { habitMinutes, toMinutes } from './dayPlan';
 
 /**
@@ -70,6 +70,8 @@ export interface FlowInput {
     deadline?: string;
     /** When it was ticked, in minutes from midnight on the day shown. */
     doneAt?: number;
+    /** A task's subtasks, shown under it on the timeline. */
+    subtasks?: Subtask[];
 }
 
 export interface FlowItem extends FlowInput {
@@ -556,7 +558,7 @@ export function flowInputs(input: {
         const minutes = task.measure === 'time' && task.target ? task.target : Number(task.estimatedMinutes) || 0;
         items.push({ id: task.id, kind: 'task', title: task.title, start: toMinutes(task.dueTime), minutes, done: task.status === 'done', locked: !!task.dueTime && task.flexible === false,
             urgency: urgencyOf(task.priority, task.dueDate, input.today, task.deadline), difficulty: task.difficulty, deadline: task.deadline,
-            doneAt: task.status === 'done' ? minuteOn(task.completedAt) : undefined });
+            doneAt: task.status === 'done' ? minuteOn(task.completedAt) : undefined, subtasks: task.subtasks });
     }
     if (input.kept) for (const item of items) {
         if (item.kind === 'meal' || item.kind === 'event') continue;

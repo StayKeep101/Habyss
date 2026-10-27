@@ -14,6 +14,7 @@ import { useAppSettings } from '@/context/AppSettingsContext';
 import { clockLabel, dueLabel, lengthLabel, rangeLabel, type DayFlow, type FlowInput, type FlowItem } from '@/lib/dayFlow';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { textOn } from '@/theme/tokens';
+import { SubtaskList, SubtaskToggle } from '@/components/Tasks/SubtaskDropdown';
 import { FontFamily } from '@/theme/designSystem';
 import { s, vs } from '@/theme/scale';
 
@@ -206,6 +207,8 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
         shownHeight.set(withTiming(height, { duration: MOTION.duration, easing: MOTION.easing, reduceMotion: ReduceMotion.System }));
     }, [height, shownHeight]);
     const pillStyle = useAnimatedStyle(() => ({ height: shownHeight.get() }));
+    // A task's subtasks, folded away until the chevron opens them.
+    const [stepsOpen, setStepsOpen] = useState(false);
     // Where now falls in this row, if it does: inside its pill while it is on,
     // in the free time after it before the next one, or above the first.
     const gapHeight = nextStart !== undefined ? Math.min(size.max, Math.max(0, nextStart - item.end) * size.per) : 0;
@@ -255,7 +258,11 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
                         {/* Moved since you last opened it. */}
                         {updated && !done ? <View accessibilityLabel="Rescheduled" style={[styles.dot, { backgroundColor: t.color.success }]} /> : null}
                     </View>
-                    <Text numberOfLines={2} style={[t.type[size.titleType], styles.name, { color: done ? t.color.textSubtle : t.color.textPrimary }, done && !meal && styles.struck]}>{item.title}</Text>
+                    <View style={styles.titleRow}>
+                        <Text numberOfLines={2} style={[t.type[size.titleType], styles.name, styles.titleText, { color: done ? t.color.textSubtle : t.color.textPrimary }, done && !meal && styles.struck]}>{item.title}</Text>
+                        {item.subtasks?.length ? <SubtaskToggle steps={item.subtasks} open={stepsOpen} onToggle={() => setStepsOpen(value => !value)} color={color} /> : null}
+                    </View>
+                    {stepsOpen && item.subtasks?.length ? <SubtaskList taskId={item.id} steps={item.subtasks} color={color} /> : null}
                     {moved ? <Text style={[t.type.caption, { color: t.color.textSubtle }]}>{moved}</Text> : null}
                     {live && !meal ? (
                         <View style={[styles.liveRow, { gap: t.space.sm }]}>
@@ -373,6 +380,8 @@ const styles = StyleSheet.create({
     // Beside its pill, even when free time below makes the row taller.
     body: { flex: 1, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
     name: { fontFamily: FontFamily.semibold },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: s(8) },
+    titleText: { flexShrink: 1 },
     text: { flex: 1, gap: vs(2) },
     meta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
     nowTag: { fontFamily: FontFamily.semibold },

@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import { formatDuration } from '@/lib/habitMeasurement';
 import React from 'react';
+import { SubtaskList, SubtaskToggle } from '@/components/Tasks/SubtaskDropdown';
 import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
 import { AnimatedFill } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -149,6 +150,9 @@ const TaskItemComponent: React.FC<Props> = ({
         );
     };
 
+    // Its subtasks, folded away until the chevron opens them.
+    const [stepsOpen, setStepsOpen] = React.useState(false);
+
     const drag = Gesture.Pan()
         .enabled(!!onDragStart)
         .activateAfterLongPress(250)
@@ -242,12 +246,9 @@ const TaskItemComponent: React.FC<Props> = ({
                             {amountLabel ? (
                                 <Text style={[styles.meta, { color: done ? colors.textTertiary : TASK_COLOR, fontVariant: ['tabular-nums'] }]}>{amountLabel}</Text>
                             ) : null}
-                            {/* Its steps: how many are done. */}
+                            {/* Its subtasks: how many are done, and a chevron that opens them. */}
                             {task.subtasks?.length ? (
-                                <Text accessibilityLabel={`${task.subtasks.filter(step => step.done).length} of ${task.subtasks.length} steps done`}
-                                    style={[styles.meta, { color: colors.textTertiary, fontVariant: ['tabular-nums'] }]}>
-                                    {`${task.subtasks.filter(step => step.done).length}/${task.subtasks.length} steps`}
-                                </Text>
+                                <SubtaskToggle steps={task.subtasks} open={stepsOpen} onToggle={() => setStepsOpen(value => !value)} color={TASK_COLOR} />
                             ) : null}
                             {shared ? (
                                 <SharedFaces people={shared.people} tint={TASK_COLOR} size={isSmall ? 20 : 24} />
@@ -273,6 +274,7 @@ const TaskItemComponent: React.FC<Props> = ({
                         {canFocusNow && !done && actions === 'all' ? null : <Text style={[styles.when, { color: whenColor, fontSize: isSmall ? 9 : 11 }]}>{when}</Text>}
                     </View>
                 </VoidCard>
+                {stepsOpen && task.subtasks?.length ? <SubtaskList taskId={task.id} steps={task.subtasks} color={TASK_COLOR} indent={46} /> : null}
             </TouchableOpacity>
         </SwipeRow>
         </View>

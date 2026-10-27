@@ -1,0 +1,61 @@
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { Easing, FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
+import { AppIcon } from '@/components/ui/AppIcon';
+import { useTokens } from '@/hooks/useTokens';
+import { useHaptics } from '@/hooks/useHaptics';
+import { FontFamily, Spacing } from '@/theme/designSystem';
+import { emit } from '@/lib/appEvents';
+import { updateTask, type Subtask } from '@/lib/tasks';
+
+/**
+ * A task's subtasks, folded away under it: a small "1/3" with a chevron that
+ * opens the list, each subtask ticked right there. The same in the lists and
+ * on the timeline.
+ */
+export function SubtaskToggle({ steps, open, onToggle, color }: { steps: Subtask[]; open: boolean; onToggle: () => void; color: string }) {
+    const t = useTokens();
+    const { selectionFeedback } = useHaptics();
+    const done = steps.filter(step => step.done).length;
+    return (
+        <Pressable onPress={() => { selectionFeedback(); onToggle(); }} hitSlop={12} style={styles.toggle}
+            accessibilityRole="button" accessibilityState={{ expanded: open }}
+            accessibilityLabel={`${done} of ${steps.length} subtasks done. ${open ? 'Hide' : 'Show'} them`}>
+            <Text style={[styles.count, { color: done === steps.length ? color : t.color.textMuted }]}>{`${done}/${steps.length}`}</Text>
+            <AppIcon name={open ? 'chevron-up' : 'chevron-down'} size={12} color={t.color.textMuted} />
+        </Pressable>
+    );
+}
+
+export function SubtaskList({ taskId, steps, color, indent = 0 }: { taskId: string; steps: Subtask[]; color: string; indent?: number }) {
+    const t = useTokens();
+    const { selectionFeedback } = useHaptics();
+    const tick = (id: string) => {
+        selectionFeedback();
+        void updateTask(taskId, { subtasks: steps.map(step => (step.id === id ? { ...step, done: !step.done } : step)) })
+            .then(() => emit('tasks_changed')).catch(() => undefined);
+    };
+    return (
+        <Animated.View entering={FadeIn.duration(180).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.System)}
+            exiting={FadeOut.duration(120).reduceMotion(ReduceMotion.System)} style={[styles.list, { paddingLeft: indent }]}>
+            {steps.map(step => (
+                <Pressable key={step.id} onPress={() => tick(step.id)} style={styles.row}
+                    accessibilityRole="checkbox" accessibilityState={{ checked: step.done }} accessibilityLabel={step.title}>
+                    <View style={[styles.box, { borderColor: step.done ? color : t.color.textMuted, backgroundColor: step.done ? color : 'transparent' }]}>
+                        {step.done ? <AppIcon name="checkmark" size={11} color={t.color.onAccent} /> : null}
+                    </View>
+                    <Text numberOfLines={2} style={[styles.title, { color: step.done ? t.color.textMuted : t.color.textPrimary, textDecorationLine: step.done ? 'line-through' : 'none' }]}>{step.title}</Text>
+                </Pressable>
+            ))}
+        </Animated.View>
+    );
+}
+
+const styles = StyleSheet.create({
+    toggle: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+    count: { fontSize: 12, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
+    list: { gap: 2, paddingTop: Spacing.xs },
+    row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 36 },
+    box: { width: 18, height: 18, borderRadius: 5, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+    title: { flex: 1, fontSize: 14, fontFamily: FontFamily.medium },
+});
