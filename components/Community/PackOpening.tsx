@@ -27,9 +27,15 @@ const FLIP_MS = 520;
  * (or tap it) for the next. The best day comes last, and a perfect day is the
  * rare card, with its foil edge. A cheer is one tap under each card.
  */
-export function PackOpening({ visible, posts, startAt = 0, onClose, onCheer }: {
+export function PackOpening({ visible, posts, startAt = 0, onClose, onCheer, title = "Today's pack", sealed = true, remember = true }: {
     visible: boolean;
     posts: FeedPost[];
+    /** On the sealed pack. */
+    title?: string;
+    /** False: straight to the cards, no pack to open (your own cards). */
+    sealed?: boolean;
+    /** Keep how far you got (today's pack only). */
+    remember?: boolean;
     /** Cards already turned over today: reopening goes on from there. */
     startAt?: number;
     onClose: () => void;
@@ -50,12 +56,12 @@ export function PackOpening({ visible, posts, startAt = 0, onClose, onCheer }: {
         if (!visible) return;
         const resume = Math.min(startAt, posts.length);
         setIndex(resume);
-        setPhase(resume >= posts.length && posts.length ? 'done' : resume > 0 ? 'cards' : 'sealed');
+        setPhase(resume >= posts.length && posts.length ? 'done' : resume > 0 || !sealed ? 'cards' : 'sealed');
         setCheered(new Set(posts.filter(post => post.ackedByMe).map(post => post.userId)));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visible]);
     const today = posts[0]?.day;
-    useEffect(() => { if (visible && today && phase !== 'sealed') void markOpened(today, index + (phase === 'done' ? 0 : 1)); }, [visible, today, index, phase]);
+    useEffect(() => { if (remember && visible && today && phase !== 'sealed') void markOpened(today, index + (phase === 'done' ? 0 : 1)); }, [remember, visible, today, index, phase]);
 
     // ------------------------------------------------------------ the pack
     const float = useSharedValue(0);
@@ -150,9 +156,9 @@ export function PackOpening({ visible, posts, startAt = 0, onClose, onCheer }: {
                     <View style={styles.stage}>
                         {phase === 'sealed' ? (
                             <GestureDetector gesture={Gesture.Exclusive(swipeOpen, tapOpen)}>
-                                <View style={styles.center} accessible accessibilityRole="button" accessibilityLabel={`Today's pack, ${posts.length} ${posts.length === 1 ? 'card' : 'cards'}. Open`}>
+                                <View style={styles.center} accessible accessibilityRole="button" accessibilityLabel={`${title}, ${posts.length} ${posts.length === 1 ? 'card' : 'cards'}. Open`}>
                                     <Animated.View style={packStyle}>
-                                        <Pack width={cardWidth * 0.82} height={cardHeight * 0.95} colors={accent} faces={posts.slice(0, 3)} count={posts.length} />
+                                        <Pack width={cardWidth * 0.82} height={cardHeight * 0.95} colors={accent} faces={posts.slice(0, 3)} count={posts.length} title={title} />
                                     </Animated.View>
                                     <Animated.View pointerEvents="none" style={[styles.strip, { width: cardWidth * 0.82, top: undefined }, stripStyle]}>
                                         <LinearGradient colors={[accent[0], accent[1]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.stripFill} />
@@ -184,16 +190,17 @@ export function PackOpening({ visible, posts, startAt = 0, onClose, onCheer }: {
                                     </Animated.View>
                                 </GestureDetector>
                                 <View style={styles.actions}>
+                                    {current.mine ? <Text style={[styles.mineDay, { color: t.color.textPrimary }]}>{new Date(`${current.day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</Text> : (
                                     <AppButton label={cheered.has(current.userId) ? 'Cheered' : `Cheer ${current.name.split(' ')[0]}`} icon={cheered.has(current.userId) ? 'heart' : 'heart-outline'}
-                                        variant={cheered.has(current.userId) ? 'ghost' : 'default'} fullWidth={false} onPress={() => cheer(current)} />
+                                        variant={cheered.has(current.userId) ? 'ghost' : 'default'} fullWidth={false} onPress={() => cheer(current)} />)}
                                     <Text style={[styles.hint, { color: t.color.textMuted }]}>Swipe for the next card</Text>
                                 </View>
                             </View>
                         ) : (
                             <View style={[styles.center, styles.doneWrap]}>
-                                <Text style={[styles.doneTitle, { color: t.color.textPrimary }]}>{posts.length ? "That's everyone today" : 'No cards yet today'}</Text>
+                                <Text style={[styles.doneTitle, { color: t.color.textPrimary }]}>{!posts.length ? 'No cards yet' : posts.every(post => post.mine) ? "That's all your cards" : remember ? "That's everyone today" : "That's everyone"}</Text>
                                 <Text style={[styles.doneBody, { color: t.color.textMuted }]}>
-                                    {posts.length ? 'A new pack comes tomorrow, with how their next day went.' : "Your friends' cards arrive at the times they choose."}
+                                    {!posts.length ? "Cards arrive at the times your friends choose." : remember ? 'A new pack comes tomorrow, with how their next day went.' : 'Every day brings a new pack.'}
                                 </Text>
                                 <AppButton label="Done" fullWidth={false} onPress={onClose} />
                             </View>
@@ -206,14 +213,14 @@ export function PackOpening({ visible, posts, startAt = 0, onClose, onCheer }: {
 }
 
 /** The sealed pack: foil in the accent, a tear line near the top, the faces inside. */
-export function Pack({ width, height, colors, faces, count }: { width: number; height: number; colors: readonly [string, string]; faces: FeedPost[]; count: number }) {
+export function Pack({ width, height, colors, faces, count, title = "Today's pack" }: { width: number; height: number; colors: readonly [string, string]; faces: FeedPost[]; count: number; title?: string }) {
     return (
         <View style={[styles.pack, { width, height }]}>
             <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
             <LinearGradient colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0)', 'rgba(255,255,255,0.12)', 'rgba(0,0,0,0.25)']} locations={[0, 0.35, 0.6, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
             <View style={styles.tearLine} />
             <View style={styles.packBody}>
-                <Text style={styles.packKicker}>Today's pack</Text>
+                <Text style={styles.packKicker}>{title}</Text>
                 <View style={styles.packFaces}>
                     {faces.map((post, index) => (
                         <View key={post.userId} style={[styles.packFace, { marginLeft: index ? -12 : 0 }]}>
@@ -239,6 +246,7 @@ const styles = StyleSheet.create({
     shine: { position: 'absolute', top: '-30%', left: '25%', width: 90 },
     actions: { alignItems: 'center', gap: 10 },
     hint: { fontSize: 13, fontFamily: FontFamily.medium },
+    mineDay: { fontSize: 17, fontFamily: FontFamily.semibold },
     doneWrap: { paddingHorizontal: 40 },
     doneTitle: { fontSize: 24, fontFamily: FontFamily.bold, textAlign: 'center' },
     doneBody: { fontSize: 15, lineHeight: 21, fontFamily: FontFamily.regular, textAlign: 'center' },

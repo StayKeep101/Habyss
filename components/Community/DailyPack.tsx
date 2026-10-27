@@ -14,7 +14,13 @@ import type { FeedPost } from '@/lib/feedService';
  * cards that breathes while it is still sealed, who is in it, and how many
  * you have turned over. Tomorrow it is a new pack.
  */
-export function DailyPack({ posts, opened, onOpen }: { posts: FeedPost[]; opened: number; onOpen: () => void }) {
+export function DailyPack({ posts, opened, onOpen, mineCount = 0, yesterdayCount = 0, onMine, onYesterday }: {
+    posts: FeedPost[]; opened: number; onOpen: () => void;
+    /** Your own cards (your recent days), to look back on in the same style. */
+    mineCount?: number; onMine?: () => void;
+    /** Yesterday's pack, still there to open. */
+    yesterdayCount?: number; onYesterday?: () => void;
+}) {
     const t = useTokens();
     const { colors } = useAccentGradient();
     const sealed = opened === 0 && posts.length > 0;
@@ -32,6 +38,7 @@ export function DailyPack({ posts, opened, onOpen }: { posts: FeedPost[]; opened
         : opened > 0 ? `${opened} of ${posts.length} seen · ${who}`
         : `${posts.length === 1 ? '1 card' : `${posts.length} cards`} · ${who}`;
     return (
+        <View style={styles.wrap}>
         <Pressable onPress={onOpen} disabled={!posts.length} accessibilityRole="button"
             accessibilityLabel={`Today's pack. ${line}`} accessibilityHint={posts.length ? 'Opens the cards one by one' : undefined}>
             <MatteSurface radius={Radius.card} style={styles.card}>
@@ -52,10 +59,35 @@ export function DailyPack({ posts, opened, onOpen }: { posts: FeedPost[]; opened
                 {posts.length ? <AppIcon name="chevron-forward" size={18} color={t.color.textMuted} /> : null}
             </MatteSurface>
         </Pressable>
+        {mineCount || yesterdayCount ? (
+            <View style={styles.links}>
+                {mineCount && onMine ? (
+                    <Pressable onPress={onMine} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Your cards, ${mineCount}`}>
+                        <MatteSurface radius={Radius.pill} level="control" style={styles.link}>
+                            <AppIcon name="person-circle-outline" size={15} color={t.color.textMuted} />
+                            <Text style={[styles.linkText, { color: t.color.textPrimary }]}>Your cards</Text>
+                        </MatteSurface>
+                    </Pressable>
+                ) : null}
+                {yesterdayCount && onYesterday ? (
+                    <Pressable onPress={onYesterday} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Yesterday's pack, ${yesterdayCount} cards`}>
+                        <MatteSurface radius={Radius.pill} level="control" style={styles.link}>
+                            <AppIcon name="albums-outline" size={15} color={t.color.textMuted} />
+                            <Text style={[styles.linkText, { color: t.color.textPrimary }]}>Yesterday's pack</Text>
+                        </MatteSurface>
+                    </Pressable>
+                ) : null}
+            </View>
+        ) : null}
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
+    wrap: { gap: Spacing.sm },
+    links: { flexDirection: 'row', gap: Spacing.sm },
+    link: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.md, minHeight: 36 },
+    linkText: { fontSize: 13, fontFamily: FontFamily.semibold },
     card: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg },
     stack: { width: 46, height: 60, alignItems: 'center', justifyContent: 'center' },
     mini: { position: 'absolute', width: 40, height: 56, borderRadius: 8, overflow: 'hidden' },

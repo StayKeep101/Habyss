@@ -65,6 +65,11 @@ export default function CommunityScreen() {
     // Today's pack: friends' cards from today, opened one by one; gone tomorrow.
     const today = localDateKey(new Date());
     const pack = useMemo(() => packFor(posts, today), [posts, today]);
+    // Yesterday's pack, and your own cards, opened the same way.
+    const yesterday = useMemo(() => { const date = new Date(); date.setDate(date.getDate() - 1); return localDateKey(date); }, [today]);
+    const yesterdayPack = useMemo(() => packFor(posts, yesterday), [posts, yesterday]);
+    const mine = useMemo(() => posts.filter(post => post.mine).slice(0, 14), [posts]);
+    const [otherPack, setOtherPack] = useState<'mine' | 'yesterday' | null>(null);
     const [packOpen, setPackOpen] = useState(false);
     const [packSeen, setPackSeen] = useState(0);
     useEffect(() => { void openedCount(today).then(setPackSeen); }, [today, packOpen]);
@@ -266,7 +271,9 @@ export default function CommunityScreen() {
 
             {gate === null ? (
                 <View style={styles.block}>
-                    <DailyPack posts={pack} opened={packSeen} onOpen={() => { mediumFeedback(); setPackOpen(true); }} />
+                    <DailyPack posts={pack} opened={packSeen} onOpen={() => { mediumFeedback(); setPackOpen(true); }}
+                        mineCount={mine.length} onMine={() => { mediumFeedback(); setOtherPack('mine'); }}
+                        yesterdayCount={yesterdayPack.length} onYesterday={() => { mediumFeedback(); setOtherPack('yesterday'); }} />
                 </View>
             ) : null}
 
@@ -343,6 +350,9 @@ export default function CommunityScreen() {
             <AddFriendModal visible={showAddFriend} onClose={() => setShowAddFriend(false)} userCode={userCode} onFriendAdded={() => { void load(); }} />
             <PackOpening visible={packOpen} posts={pack} startAt={packSeen} onClose={() => setPackOpen(false)}
                 onCheer={post => { if (!post.ackedByMe) void acknowledge(post); }} />
+            <PackOpening visible={otherPack !== null} posts={otherPack === 'mine' ? mine : yesterdayPack} remember={false}
+                sealed={otherPack !== 'mine'} title={otherPack === 'mine' ? 'Your cards' : "Yesterday's pack"}
+                onClose={() => setOtherPack(null)} onCheer={post => { if (!post.ackedByMe) void acknowledge(post); }} />
         </VoidShell>
     );
 }
