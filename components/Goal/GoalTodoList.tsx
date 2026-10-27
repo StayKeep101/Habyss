@@ -184,8 +184,12 @@ function TodoRow({ task, today, color, readOnly, onToggle, onOpen, onPlan, onMor
     );
 }
 
-/** A line to write a to-do straight into a heading; it stays open for the next one. */
+/**
+ * A line to write a to-do straight into a heading, the way a subtask is added:
+ * a plus and a line to write on, no box. It stays open for the next one.
+ */
 function AddLine({ goalId, section }: { goalId: string; section: string | null }) {
+    const t = useTokens();
     const [draft, setDraft] = useState('');
     const add = async () => {
         const title = draft.trim();
@@ -197,8 +201,14 @@ function AddLine({ goalId, section }: { goalId: string; section: string | null }
         } catch { setDraft(title); Alert.alert('Not saved', 'That to-do could not be saved. Try again.'); }
     };
     return (
-        <MatteInput value={draft} onChangeText={setDraft} placeholder="Add a to-do" returnKeyType="done" submitBehavior="submit"
-            onSubmitEditing={() => { void add(); }} accessibilityLabel={section ? `Add a to-do to ${section}` : 'Add a to-do'} boxStyle={styles.add} />
+        <View style={styles.row}>
+            <View style={styles.markButton}>
+                <Ionicons name="add" size={20} color={t.color.textMuted} />
+            </View>
+            <MatteInput bare value={draft} onChangeText={setDraft} placeholder="Add a to-do" returnKeyType="done" submitBehavior="submit"
+                onSubmitEditing={() => { void add(); }} accessibilityLabel={section ? `Add a to-do to ${section}` : 'Add a to-do'}
+                style={[styles.title, styles.addInput, { color: t.color.textPrimary }]} />
+        </View>
     );
 }
 
@@ -218,5 +228,5 @@ const styles = StyleSheet.create({
     title: { fontSize: 15, fontFamily: FontFamily.medium },
     when: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
     whenText: { fontSize: 12, fontFamily: FontFamily.medium },
-    add: { marginTop: Spacing.xs },
+    addInput: { flex: 1, paddingVertical: Spacing.sm },
 });

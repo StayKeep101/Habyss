@@ -238,7 +238,10 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
                     gap={nextStart !== undefined ? Math.min(size.max, Math.max(0, nextStart - item.end) * size.per) : 0} /> : null}
             </View>
 
-            <Pressable onPress={() => onOpen(item)} style={[styles.body, { minHeight: height, paddingLeft: size.gap, paddingBottom: size.pad }]} accessibilityRole="button"
+            <View style={[styles.bodyColumn, { paddingLeft: size.gap, paddingBottom: size.pad }]}>
+            {/* The row itself keeps its place beside the pill; the subtasks open
+                under it, so opening them never moves the task. */}
+            <Pressable onPress={() => onOpen(item)} style={[styles.body, { minHeight: height }]} accessibilityRole="button"
                 accessibilityLabel={`${item.title}, ${rangeLabel(item.start, item.end)}${live ? ', now' : ''}`}>
                 <View style={styles.text}>
                     <View style={[styles.meta, { gap: t.space.xs }]}>
@@ -262,7 +265,6 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
                         <Text numberOfLines={2} style={[t.type[size.titleType], styles.name, styles.titleText, { color: done ? t.color.textSubtle : t.color.textPrimary }, done && !meal && styles.struck]}>{item.title}</Text>
                         {item.subtasks?.length ? <SubtaskToggle steps={item.subtasks} open={stepsOpen} onToggle={() => setStepsOpen(value => !value)} color={color} /> : null}
                     </View>
-                    {stepsOpen && item.subtasks?.length ? <SubtaskList taskId={item.id} steps={item.subtasks} color={color} /> : null}
                     {moved ? <Text style={[t.type.caption, { color: t.color.textSubtle }]}>{moved}</Text> : null}
                     {live && !meal ? (
                         <View style={[styles.liveRow, { gap: t.space.sm }]}>
@@ -273,6 +275,8 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
                 </View>
                 {meal ? null : <Check size={size} done={done} color={color} onPress={() => onToggle(item)} label={item.title} />}
             </Pressable>
+            {stepsOpen && item.subtasks?.length ? <SubtaskList taskId={item.id} steps={item.subtasks} color={color} /> : null}
+            </View>
         </View>
     );
 }
@@ -378,7 +382,8 @@ const styles = StyleSheet.create({
     link: { width: s(4), flex: 1, minHeight: vs(10), marginTop: -s(10), marginBottom: -s(10), zIndex: -1, overflow: 'hidden' },
     linkFill: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
     // Beside its pill, even when free time below makes the row taller.
-    body: { flex: 1, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
+    bodyColumn: { flex: 1, alignSelf: 'flex-start' },
+    body: { flexDirection: 'row', alignItems: 'center' },
     name: { fontFamily: FontFamily.semibold },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: s(8) },
     titleText: { flexShrink: 1 },

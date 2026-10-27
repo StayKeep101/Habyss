@@ -194,7 +194,8 @@ const TaskItemComponent: React.FC<Props> = ({
                 onPress={() => onPress(task)}
             >
                 {/* Squarer corners than a habit's round ends: a task is a thing to finish, not a rhythm. */}
-                <VoidCard radius={Radius.small} intensity={40} style={[styles.card, { paddingVertical: paddingV }, done && { opacity: 0.7 }]}>
+                <VoidCard radius={Radius.small} intensity={40} style={[styles.cardColumn, { paddingVertical: paddingV }, done && { opacity: 0.7 }]}>
+                    <View style={styles.card}>
                     {/* Square, where a habit is round: the difference at a glance.
                         On the plan it is a mark rather than a control: ticking
                         things off belongs to the day, not to the map of it. */}
@@ -273,8 +274,10 @@ const TaskItemComponent: React.FC<Props> = ({
                         ) : null}
                         {canFocusNow && !done && actions === 'all' ? null : <Text style={[styles.when, { color: whenColor, fontSize: isSmall ? 9 : 11 }]}>{when}</Text>}
                     </View>
+                    </View>
+                    {/* Its subtasks, inside its own card, lined up under the title. */}
+                    {stepsOpen && task.subtasks?.length ? <SubtaskList taskId={task.id} steps={task.subtasks} color={TASK_COLOR} indent={boxSize + iconBoxSize + 20} /> : null}
                 </VoidCard>
-                {stepsOpen && task.subtasks?.length ? <SubtaskList taskId={task.id} steps={task.subtasks} color={TASK_COLOR} indent={46} /> : null}
             </TouchableOpacity>
         </SwipeRow>
         </View>
@@ -286,7 +289,8 @@ export const TaskItem = React.memo(TaskItemComponent);
 
 const styles = StyleSheet.create({
     dragging: { opacity: 0.25 },
-    card: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, borderRadius: 8 },
+    cardColumn: { paddingHorizontal: 12, borderRadius: 8 },
+    card: { flexDirection: 'row', alignItems: 'center' },
     box: { borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
     iconBox: { borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
     title: { fontFamily: FontFamily.medium },
