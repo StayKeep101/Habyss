@@ -153,21 +153,15 @@ export function monthTotals(days: DaySummary[]): MonthTotals {
     };
 }
 
-/** How full a day's ring is drawn, 0 to 1. */
 /**
- * How much of the day's ring to close, 0 to 1.
- *
- * With `taskTarget` (the day's 3 or 5), everything the day asked for counts:
- * its scheduled habits and its tasks, so finishing half of all of it closes
- * half the ring, and only doing everything closes it — the way Activity's
- * rings work. Without it, habits alone, as before.
+ * How much of the day's ring to close, 0 to 1: the share of its scheduled
+ * habits done. The same rule as a perfect day (`complete`), the Perfect
+ * count and Habits kept, so a perfect day is always a closed ring. It used to
+ * add the day's task target (Today's 3) as well, and one habit done on a day
+ * with no tasks read as Perfect beside a quarter ring.
  */
-export function dayFill(day: DaySummary, taskTarget?: number): number {
-    if (taskTarget && taskTarget > 0) {
-        const asked = day.scheduled + taskTarget;
-        const did = day.done.length + Math.min(day.tasks.length, taskTarget);
-        return asked ? Math.min(1, did / asked) : 0;
-    }
+export function dayFill(day: DaySummary): number {
+    if (day.complete) return 1;
     if (day.scheduled === 0) return day.tasks.length > 0 ? 1 : 0;
     return day.done.length / day.scheduled;
 }

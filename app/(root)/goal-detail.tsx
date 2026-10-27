@@ -267,16 +267,16 @@ const GoalDetail = () => {
    * iOS answers by freezing the app; the goal and habit sheets are mounted
    * here for the same reason.
    */
-  const [taskForm, setTaskForm] = useState<{ task: Task | null; key: number } | null>(null);
+  const [taskForm, setTaskForm] = useState<{ task: Task | null; key: number; dueDate?: string } | null>(null);
   // Progress written straight onto the goal: how it counts follows what it is.
   const [logging, setLogging] = useState(false);
   const logSpec = (() => { try { return goal?.goalSpec ? JSON.parse(goal.goalSpec) : null; } catch { return null; } })();
   const logMode: LogMode = logSpec?.aggregation === 'max' ? 'best' : logSpec?.aggregation === 'latest' ? 'latest' : 'sum';
   const canLog = !!logSpec && (logSpec.target > 0 || logSpec.delta_from_baseline !== null && logSpec.delta_from_baseline !== undefined) && logSpec.kind !== 'complete';
   const logUnit = String(logSpec?.metric_unit ?? '').replace(/^minutes$/, 'min');
-  const openTask = (task?: Task) => {
+  const openTask = (task?: Task, dueDate?: string) => {
     lightFeedback();
-    setTaskForm({ task: task ?? null, key: Date.now() });
+    setTaskForm({ task: task ?? null, key: Date.now(), dueDate });
   };
 
   /**
@@ -545,7 +545,7 @@ const GoalDetail = () => {
         <LogProgressSheet visible={logging} goalId={goal.id} goalName={goal.name} unit={logUnit} mode={logMode} onClose={() => setLogging(false)} />
       ) : null}
       {taskForm && goal ? (
-        <TaskFormModal key={taskForm.key} visible task={taskForm.task} goalId={goal.id}
+        <TaskFormModal key={taskForm.key} visible task={taskForm.task} goalId={goal.id} dueDate={taskForm.dueDate}
           onClose={() => setTaskForm(null)} onSaved={() => emit('tasks_changed')} />
       ) : null}
       {goal ? (

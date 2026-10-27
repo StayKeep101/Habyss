@@ -201,13 +201,12 @@ export default function ProgressScreen() {
                             key={day.date}
                             index={index}
                             column={(firstWeekday + index) % 7}
-                            prevPerfect={index > 0 && !days[index - 1].future && dayFill(days[index - 1], dailyTarget) >= 1}
-                            nextPerfect={index < days.length - 1 && !days[index + 1].future && dayFill(days[index + 1], dailyTarget) >= 1}
+                            prevPerfect={index > 0 && !days[index - 1].future && dayFill(days[index - 1]) >= 1}
+                            nextPerfect={index < days.length - 1 && !days[index + 1].future && dayFill(days[index + 1]) >= 1}
                             day={day}
                             today={today}
                             accent={accent}
                             colors={colors}
-                            taskTarget={dailyTarget}
                             onOpen={openDay}
                         />
                     ))}
@@ -244,17 +243,16 @@ export default function ProgressScreen() {
  * perfect days in a row are joined by a band behind them, along the week, so
  * a run reads at a glance as one unbroken stretch.
  */
-const DayCell = React.memo(function DayCell({ day, index, today, accent, colors, onOpen, taskTarget, column, prevPerfect, nextPerfect }: {
+const DayCell = React.memo(function DayCell({ day, index, today, accent, colors, onOpen, column, prevPerfect, nextPerfect }: {
     day: DaySummary; index: number; today: string; accent: string; colors: typeof Colors.light;
     /** 0 (Monday) to 6 (Sunday): the band never wraps onto the next row. */
     column: number;
     prevPerfect: boolean;
     nextPerfect: boolean;
     onOpen: (day: DaySummary, frame: LayoutRectangle) => void;
-    taskTarget: number;
 }) {
     const ref = React.useRef<View>(null);
-    const fill = day.future ? 0 : dayFill(day, taskTarget);
+    const fill = day.future ? 0 : dayFill(day);
     const closed = fill >= 1;
     const isToday = day.date === today;
     const size = 36;

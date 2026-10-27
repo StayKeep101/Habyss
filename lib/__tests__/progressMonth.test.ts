@@ -112,4 +112,10 @@ describe('a month of progress', () => {
         expect(dayFill(days[0])).toBe(0.5);
         expect(dayFill(days[1])).toBe(0);
     });
+
+    it('closes the ring on every perfect day, whatever the task target', () => {
+        const days = monthDays({ ...base, history: { '2026-09-01': ['a', 'b'] } });
+        expect(days[0].complete).toBe(true);
+        expect(dayFill(days[0])).toBe(1);
+    });
 });

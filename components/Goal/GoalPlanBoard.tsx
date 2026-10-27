@@ -8,13 +8,15 @@ import { ListItem } from '@/components/ui/Motion';
 import { GoalHabitRow, SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
 import { GoalMilestones } from '@/components/Goal/GoalMilestones';
 import { GoalPlanView } from '@/components/Goal/GoalPlanView';
+import { GoalDayCard, GoalMonth, GoalMonthKey } from '@/components/Goal/GoalDays';
 import { TaskItem } from '@/components/Roadmap/TaskItem';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useWeekStart } from '@/hooks/useWeekStart';
+import { useData } from '@/hooks/useData';
 import { addDays, type GoalInsights } from '@/lib/goalInsights';
-import { periodOf } from '@/lib/goalPlanPeriod';
+import { goalDays, monthsBetween, periodOf, type GoalDay, type GoalDayItem } from '@/lib/goalPlanPeriod';
 import { isHabitScheduledForDate } from '@/lib/habitSchedule';
 import type { Habit } from '@/lib/habitsSQLite';
 import type { Milestone } from '@/lib/goalMilestones';
@@ -42,11 +44,12 @@ function periodLabel(range: Exclude<Range, 'all'>, offset: number, from: string,
 /**
  * A goal's plan, one page: a day, a week, a month, or all of it.
  *
- * Day shows what that day asks (habits due, tasks due, milestones due), the
- * week and the month list it day by day, and the arrows step to the next or
- * previous one. All is the whole roadmap, with milestones, tasks and habits
- * and their Add buttons. Ticking works on today; other days are to look ahead
- * or back.
+ * Day shows what that day asks (habits due, tasks due, milestones due).
+ * Week is a column of its seven days, each a card with everything it asks,
+ * so a week can be planned day by day. Month is a calendar of the month, each
+ * day with a bar per thing it asks; tap one to see that day under the grid.
+ * All is the same calendar from the day the goal began to its deadline, then
+ * the whole roadmap with its Add buttons. The arrows step weeks and months.
  */
 export function GoalPlanBoard({ goalId, insights, milestones, today, color, readOnly, pace, onToggleTask, onOpenTask, onRemoveTask, onToggleHabit, onOpenHabit, onEditHabit, onToggleMilestone, onOpenMilestone, onLog }: {
     goalId: string;
@@ -58,7 +61,8 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
     /** Shown on today's page: how the goal is pacing. */
     pace?: React.ReactNode;
     onToggleTask: (task: Task) => void;
-    onOpenTask: (task?: Task) => void;
+    /** A task to open, or a new one (on `dueDate`, when a day was picked). */
+    onOpenTask: (task?: Task, dueDate?: string) => void;
     onRemoveTask: (task: Task) => void;
     onToggleHabit: (habit: Habit) => void;
     onOpenHabit: (habit: Habit) => void;
@@ -93,8 +97,56 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
         return { from, to, holdsToday, tasks, overdue, dueMilestones, habits, byDay };
     }, [range, offset, today, weekStartsMonday, insights, milestones]);
 
-    const choose = (next: Range) => { setRange(next); setOffset(0); };
-    const step = (by: number) => { selectionFeedback(); setOffset(value => value + by); };
+    // Every day of the week, month or whole goal, with what it asks. Past days
+    // read the shared history; today follows this page's own ticks at once.
+    const shared = useData();
+    const [picked, setPicked] = useState<string | null>(null);
+    const calendar = useMemo(() => {
+        if (range === 'day') return null;
+        const allTasks = [...insights.tasks.overdue, ...insights.tasks.upcoming, ...insights.tasks.undated, ...insights.tasks.completed];
+        let from: string; let to: string;
+        if (range === 'all') {
+            // From the start to the deadline; with none, as far as anything is
+            // planned, and at least to the end of this month.
+            const planned = [...allTasks.map(task => task.dueDate), ...milestones.map(milestone => milestone.dueDate)].filter((day): day is string => !!day).sort();
+            const monthEnd = periodOf('month', 0, today, weekStartsMonday).to;
+            from = insights.startDate;
+            to = [insights.endDate, monthEnd, planned[planned.length - 1] ?? ''].sort().pop()!;
+            // Two years of calendar at most; further than that is not a plan.
+            const cap = addDays(from, 730);
+            if (to > cap) to = cap;
+        } else ({ from, to } = periodOf(range, offset, today, weekStartsMonday));
+        const doneToday = new Set(insights.habits.filter(summary => summary.doneToday).map(summary => summary.habit.id));
+        const history = { ...shared.history, [today]: [...(shared.history[today] ?? []).filter(id => !insights.habits.some(summary => summary.habit.id === id)), ...doneToday] };
+        const days = goalDays(range === 'month' || range === 'all' ? periodOf('month', 0, from, weekStartsMonday).from : from, range === 'all' ? periodOf('month', 0, to, weekStartsMonday).to : to, {
+            habits: insights.habits.map(summary => summary.habit), tasks: allTasks, milestones, history, skips: shared.skips,
+        });
+        const byDay: Record<string, GoalDay> = {};
+        for (const day of days) byDay[day.day] = day;
+        return { from, to, days: days.filter(day => day.day >= from && day.day <= to), byDay };
+    }, [range, offset, today, weekStartsMonday, insights, milestones, shared.history, shared.skips]);
+    const inGoal = (day: string) => !!calendar && day >= calendar.from && day <= calendar.to;
+    const chosenDay = calendar && picked && inGoal(picked) ? picked
+        : calendar ? (inGoal(today) ? today : calendar.from) : null;
+
+    const toggleItem = (item: GoalDayItem) => {
+        if (item.kind === 'habit') onToggleHabit(item.habit);
+        else if (item.kind === 'task') onToggleTask(item.task);
+        else onToggleMilestone(item.milestone);
+    };
+    const openItem = (item: GoalDayItem) => {
+        if (item.kind === 'habit') onOpenHabit(item.habit);
+        else if (item.kind === 'task') onOpenTask(item.task);
+        else onOpenMilestone(item.milestone);
+    };
+    const dayCard = (day: GoalDay) => (
+        <GoalDayCard key={day.day} day={day} today={today} color={color} readOnly={readOnly}
+            onToggle={toggleItem} onOpen={openItem} onAddTask={readOnly ? undefined : dayKey => onOpenTask(undefined, dayKey)} />
+    );
+    const pick = (day: string) => { selectionFeedback(); setPicked(day); };
+
+    const choose = (next: Range) => { setRange(next); setOffset(0); setPicked(null); };
+    const step = (by: number) => { selectionFeedback(); setOffset(value => value + by); setPicked(null); };
 
     const renderTask = (task: Task) => (
         <ListItem key={task.id}>
@@ -124,9 +176,44 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
             ) : null}
             </View>
 
-            {range === 'all' ? (
+            {range === 'all' && calendar ? (
                 <Animated.View key="all" entering={FadeIn.duration(200)}>
+                    <View style={styles.body}>
+                        {monthsBetween(calendar.from, calendar.to).map(month => (
+                            <View key={month} style={styles.monthBlock}>
+                                <GoalMonth month={month} days={calendar.byDay} selected={chosenDay} today={today} color={color}
+                                    weekStartsMonday={weekStartsMonday} inRange={inGoal} onSelect={pick}
+                                    title={dateOf(month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })} />
+                                {chosenDay && chosenDay.slice(0, 7) === month.slice(0, 7) && calendar.byDay[chosenDay] ? dayCard(calendar.byDay[chosenDay]) : null}
+                            </View>
+                        ))}
+                        <GoalMonthKey color={color} />
+                        <SectionLabel>The whole plan</SectionLabel>
+                    </View>
                     <GoalPlanView goalId={goalId} embedded readOnly={readOnly} onOpenTask={onOpenTask} />
+                </Animated.View>
+            ) : range === 'week' && calendar && plan ? (
+                <Animated.View key={`week:${offset}`} entering={FadeIn.duration(200)} style={styles.body}>
+                    {plan.overdue.length ? (
+                        <View>
+                            <SectionLabel first tone={t.color.danger}>Overdue</SectionLabel>
+                            {plan.overdue.map(renderTask)}
+                        </View>
+                    ) : null}
+                    {calendar.days.map(day => <ListItem key={day.day}>{dayCard(day)}</ListItem>)}
+                </Animated.View>
+            ) : range === 'month' && calendar && plan ? (
+                <Animated.View key={`month:${offset}`} entering={FadeIn.duration(200)} style={styles.body}>
+                    <GoalMonth month={calendar.from} days={calendar.byDay} selected={chosenDay} today={today} color={color}
+                        weekStartsMonday={weekStartsMonday} inRange={inGoal} onSelect={pick} />
+                    <GoalMonthKey color={color} />
+                    {chosenDay && calendar.byDay[chosenDay] ? dayCard(calendar.byDay[chosenDay]) : null}
+                    {plan.overdue.length ? (
+                        <View>
+                            <SectionLabel tone={t.color.danger}>Overdue</SectionLabel>
+                            {plan.overdue.map(renderTask)}
+                        </View>
+                    ) : null}
                 </Animated.View>
             ) : plan ? (
                 <Animated.View key={`${range}:${offset}`} entering={FadeIn.duration(200)} style={styles.body}>
@@ -196,6 +283,7 @@ const styles = StyleSheet.create({
     period: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     periodLabel: { flex: 1, textAlign: 'center', fontSize: 16, fontFamily: FontFamily.semibold },
     body: { gap: Spacing.lg, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.section },
+    monthBlock: { gap: Spacing.md },
     empty: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.section },
     emptyTitle: { fontSize: 16, fontFamily: FontFamily.semibold },
     emptyBody: { fontSize: 13, fontFamily: FontFamily.regular, textAlign: 'center' },

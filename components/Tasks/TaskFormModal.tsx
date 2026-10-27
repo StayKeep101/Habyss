@@ -45,6 +45,8 @@ interface Props {
     goalId?: string;
     /** Mounted on a page: the row to open on, e.g. 'due'. */
     focus?: string;
+    /** Mounted on a page: the day a new task starts on (a day picked on the goal's plan). */
+    dueDate?: string;
 }
 
 const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
@@ -119,7 +121,7 @@ const shortDate = (date?: string) => {
  * The day matters more here than anywhere else in the app: a task shows up on
  * the day it was given and on no other, so giving it the wrong day hides it.
  */
-export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task, listenToGlobalEvents, goalId, focus }) => {
+export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task, listenToGlobalEvents, goalId, focus, dueDate: startDay }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -197,7 +199,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         // in Reminders — but only a brand new one.
         const start: Draft = current
             ? fromTask(current)
-            : { title: '', priority: 2, dueDate: localDateKey(new Date()), goalId: eventGoal, measure: 'done' };
+            : { title: '', priority: 2, dueDate: startDay ?? localDateKey(new Date()), goalId: eventGoal, measure: 'done' };
         const read: Draft = parsed ? {
             ...start,
             title: parsed.title || start.title,
@@ -213,7 +215,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             flexible: rules?.flexible ?? start.flexible,
         } : start;
         return { ...read, ...edits };
-    }, [current, eventGoal, parsed, edits, rules]);
+    }, [current, eventGoal, parsed, edits, rules, startDay]);
 
     const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
