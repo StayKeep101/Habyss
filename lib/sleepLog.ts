@@ -16,6 +16,13 @@ export interface SleepState {
     connected: boolean;
     /** Whether Home shows the sleep card (Settings → Your plan). On by default. */
     showCard?: boolean;
+    /**
+     * The morning sleep began to count here (YYYY-MM-DD): the day Health was
+     * first found connected on this account. Health keeps years of nights,
+     * and they are not this account's: someone who deletes their account and
+     * starts again would otherwise get every old night back, with its Marks.
+     */
+    since?: string;
 }
 
 const KEY = 'habyss_sleep_log';
@@ -61,12 +68,17 @@ export function refreshSleep(): Promise<void> {
             if (state.connected) await save({ ...state, connected: false });
             return;
         }
-        const nights = { ...state.nights };
         const today = new Date();
+        // Set once, on the first read after connecting. A store from before
+        // this rule starts today too: nothing older is this account's.
+        const since = state.since ?? localDateKey(today);
+        const nights: Record<string, number> = {};
+        for (const [key, minutes] of Object.entries(state.nights)) if (key >= since) nights[key] = minutes;
         for (let back = 0; back < DAYS; back++) {
             const date = new Date(today);
             date.setDate(today.getDate() - back);
             const key = localDateKey(date);
+            if (key < since) break;
             if (back > 7 && nights[key] !== undefined) continue;
             const minutes = await HealthKitService.read('sleep', date).catch(() => null);
             if (minutes !== null && minutes > 0) nights[key] = Math.round(minutes);
@@ -75,7 +87,7 @@ export function refreshSleep(): Promise<void> {
         oldest.setDate(today.getDate() - 60);
         const floor = localDateKey(oldest);
         for (const key of Object.keys(nights)) if (key < floor) delete nights[key];
-        await save({ ...state, nights, connected: true });
+        await save({ ...state, nights, connected: true, since });
     })().finally(() => { refreshing = null; });
     return refreshing;
 }
