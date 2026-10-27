@@ -16,8 +16,6 @@ import { ms, s, vs } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 
-/** The colour of a finished goal: gold, the same on every theme. */
-const TROPHY = '#F5B700';
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 
 /** The numbers every profile shows, yours and a friend's alike. */
@@ -196,27 +194,31 @@ export const ProfileView: React.FC<{
                 </View>
             </Animated.View>
 
+            {/* One card: the rank and Marks on top, then the three numbers,
+                all in type, split by hairlines. Nothing to decode. */}
             <View style={styles.statsBlock}>
-                {marks !== undefined ? <LevelCard marks={marks} /> : null}
-                {/* Four numbers, each with its own mark, two by two. */}
-                {numbers ? (
-                    // Things to be proud of, not today's to-do: the run, the best run, the trophies.
-                    <VoidCard style={styles.statsCard}>
-                        {[
-                            { label: 'Streak', value: numbers.streak, icon: 'flame', color: colors.warning },
-                            { label: 'Best streak', value: numbers.bestStreak, icon: 'medal', color: primary },
-                            { label: 'Goals done', value: numbers.goalsCompleted, icon: 'trophy', color: TROPHY },
-                        ].map((stat, index) => (
-                            <PopIn key={stat.label} index={index} style={[styles.stat, index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
-                                <Ionicons name={stat.icon as never} size={s(16)} color={stat.color} />
-                                <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={stat.value} />
-                                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{stat.label}</Text>
-                            </PopIn>
-                        ))}
+                {numbers || marks !== undefined ? (
+                    <VoidCard style={styles.card}>
+                        {marks !== undefined ? <LevelCard marks={marks} /> : null}
+                        {marks !== undefined && numbers ? <View style={[styles.rule, { backgroundColor: colors.border }]} /> : null}
+                        {numbers ? (
+                            // Things to be proud of, not today's to-do: the run, the best run, the goals reached.
+                            <View style={styles.stats}>
+                                {[
+                                    { label: 'Streak', value: numbers.streak },
+                                    { label: 'Best streak', value: numbers.bestStreak },
+                                    { label: 'Goals done', value: numbers.goalsCompleted },
+                                ].map((stat, index) => (
+                                    <PopIn key={stat.label} index={index} style={[styles.stat, index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
+                                        <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={stat.value} />
+                                        <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{stat.label}</Text>
+                                    </PopIn>
+                                ))}
+                            </View>
+                        ) : null}
                     </VoidCard>
-                ) : (
-                    <Text style={[styles.private, { color: colors.textTertiary }]}>{hiddenNote ?? 'Progress is private'}</Text>
-                )}
+                ) : null}
+                {!numbers ? <Text style={[styles.private, { color: colors.textTertiary }]}>{hiddenNote ?? 'Progress is private'}</Text> : null}
             </View>
 
             {children}
@@ -247,9 +249,11 @@ const styles = StyleSheet.create({
     // No box: a bio reads as a sentence about someone, not as a filled field.
     bio: { alignSelf: 'stretch', fontSize: ms(14), lineHeight: ms(20), fontFamily: FontFamily.regular, textAlign: 'center', paddingTop: vs(6) },
     statsBlock: { marginHorizontal: s(20), marginTop: vs(16), gap: vs(12) },
-    statsCard: { flexDirection: 'row', paddingVertical: vs(14) },
-    stat: { flex: 1, alignItems: 'center', gap: vs(4) },
-    statValue: { fontSize: ms(20), lineHeight: ms(26), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
-    statLabel: { fontSize: ms(11), fontFamily: FontFamily.regular },
+    card: { padding: s(20), gap: vs(16) },
+    rule: { height: StyleSheet.hairlineWidth },
+    stats: { flexDirection: 'row' },
+    stat: { flex: 1, alignItems: 'center', gap: vs(2) },
+    statValue: { fontSize: ms(22), lineHeight: ms(28), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
+    statLabel: { fontSize: ms(12), fontFamily: FontFamily.regular },
     private: { fontSize: ms(13), fontFamily: FontFamily.regular, textAlign: 'center', paddingVertical: vs(12) },
 });

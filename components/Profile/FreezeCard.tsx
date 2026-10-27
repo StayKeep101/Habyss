@@ -1,6 +1,5 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { VoidCard } from '@/components/ui/VoidCard';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { CountUp } from '@/components/ui/Motion';
 import { Colors } from '@/theme/colors';
@@ -11,29 +10,24 @@ import { useFreezes } from '@/hooks/useCheckIns';
 const ICE = '#64D2FF';
 
 /**
- * Your streak freezes, on your own profile only: friends never see it. Each
- * one, sent by a friend, covers a day you miss so your streak survives it.
+ * Your streak freezes, on your own profile only (friends never see it), as
+ * one quiet line under the card. Each, sent by a friend, covers a day you miss.
  */
 export function FreezeCard() {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { count } = useFreezes();
     return (
-        <VoidCard style={styles.card}>
-            <AppIcon name="snow" filled size={26} color={ICE} />
-            <View style={styles.text}>
-                <Text style={[styles.title, { color: colors.textPrimary }]}>Streak freezes</Text>
-                <Text style={[styles.sub, { color: colors.textTertiary }]}>Only you see this. One covers a day you miss.</Text>
-            </View>
-            <CountUp style={[styles.count, { color: count ? ICE : colors.textTertiary }]} value={count} />
-        </VoidCard>
+        <View style={styles.row} accessible accessibilityLabel={`${count} streak ${count === 1 ? 'freeze' : 'freezes'}. Each covers a day you miss. Only you see this.`}>
+            <AppIcon name="snow" size={14} color={count ? ICE : colors.textTertiary} />
+            <CountUp style={[styles.count, { color: count ? colors.textPrimary : colors.textTertiary }]} value={count} />
+            <Text style={[styles.text, { color: colors.textTertiary }]}>{count === 1 ? 'streak freeze · covers a missed day' : 'streak freezes · each covers a missed day'}</Text>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    card: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, marginHorizontal: Spacing.xl, marginTop: Spacing.lg },
-    text: { flex: 1, gap: 2 },
-    title: { fontFamily: FontFamily.semibold, fontSize: 15 },
-    sub: { fontFamily: FontFamily.regular, fontSize: 12 },
-    count: { fontFamily: FontFamily.bold, fontSize: 26, fontVariant: ['tabular-nums'] },
+    row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, marginTop: Spacing.lg, marginHorizontal: Spacing.xl },
+    count: { fontFamily: FontFamily.semibold, fontSize: 13, fontVariant: ['tabular-nums'] },
+    text: { fontFamily: FontFamily.regular, fontSize: 13 },
 });

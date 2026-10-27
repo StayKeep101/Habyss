@@ -5,7 +5,7 @@ import { Reveal } from '@/components/ui/Motion';
 
 /**
  * Someone's Marks over the last two months, as the backdrop of a profile with
- * no cover photo: a soft accent curve rising across the top of the page.
+ * no cover photo: a thin, soft accent curve rising across the top of the page.
  * Decorative — the number itself is on the level card below.
  */
 export function MarksBackdrop({ series, width, height, color }: {
@@ -41,12 +41,12 @@ export function MarksBackdrop({ series, width, height, color }: {
                 <Svg width={width} height={height}>
                     <Defs>
                         <SvgGradient id="marks-fill" x1="0" y1="0" x2="0" y2="1">
-                            <Stop offset="0" stopColor={color} stopOpacity={0.6} />
-                            <Stop offset="1" stopColor={color} stopOpacity={0.05} />
+                            <Stop offset="0" stopColor={color} stopOpacity={0.28} />
+                            <Stop offset="1" stopColor={color} stopOpacity={0} />
                         </SvgGradient>
                     </Defs>
                     <Path d={area} fill="url(#marks-fill)" />
-                    <Path d={line} stroke={color} strokeWidth={3.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    <Path d={line} stroke={color} strokeOpacity={0.8} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
             </Reveal>
         </View>
