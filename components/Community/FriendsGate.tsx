@@ -78,10 +78,7 @@ export const FriendsGate: React.FC<Props> = ({ needsUsername, onReady }) => {
                 </>
             ) : (
                 // The same buttons as onboarding, so signing in is one tap here too.
-                <SignInOptions
-                    onSignedIn={onReady}
-                    emailLabel="Sign in with email"
-                />
+                <SignInOptions onSignedIn={onReady} />
             )}
         </VoidCard>
     );

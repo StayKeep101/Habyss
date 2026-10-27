@@ -31,6 +31,7 @@ import {
 import { hoursAwake, saveDayWindow, saveName } from '@/lib/echo';
 import { currentAccount, onAccountChange } from '@/lib/account';
 import { SignInOptions } from '@/components/Auth/SignInOptions';
+import { AccountHero } from '@/components/Auth/AccountHero';
 import { WelcomeMark } from '@/components/Onboarding/WelcomeMark';
 import { AnimatedFill } from '@/components/ui/Motion';
 import { EchoArrival } from '@/components/Onboarding/EchoArrival';
@@ -320,6 +321,10 @@ export default function OnboardingScreen() {
                 the end (Apple: delay sign-in), where the account step offers it. */}
             <Animated.View entering={FadeInUp.delay(1300).duration(600)} style={styles.welcomeActions}>
                 <PrimaryButton label="Start" onPress={() => { lightFeedback(); goTo(STEP.name); }} />
+                {/* Back on a new phone: sign in first and everything comes back, no questions. */}
+                <TouchableOpacity accessibilityRole="button" onPress={() => { lightFeedback(); router.push({ pathname: '/(root)/account', params: { restore: '1' } }); }} style={styles.secondaryBtn}>
+                    <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>I already have an account</Text>
+                </TouchableOpacity>
             </Animated.View>
         </View>
     );
@@ -604,15 +609,8 @@ export default function OnboardingScreen() {
 
     const renderAccount = () => (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <SectionTitle>Keep your plan safe</SectionTitle>
-            <VoidCard style={styles.introCard}>
-                <Ionicons name="cloud-upload-outline" size={22} color={accent} />
-                <Text style={[styles.introText, { color: colors.textPrimary }]}>
-                    Back it up, and a new phone brings everything back. It is also how friends find you.
-                </Text>
-            </VoidCard>
-
-            <View style={{ height: 18 }} />
+            <AccountHero color={accent} title="Keep your plan safe"
+                line="Back up everything, get it back on any phone, and let friends find you." />
             <SignInOptions
                 onSignedIn={() => afterAccount()}
             />

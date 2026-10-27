@@ -3,7 +3,8 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { AppleAuthButton } from './AppleAuthButton';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, Radius } from '@/theme/designSystem';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -13,23 +14,19 @@ import type { SyncReport } from '@/lib/cloudSync';
 interface Props {
     /** Runs after the account is linked and the first sync has finished. */
     onSignedIn: (report: SyncReport) => void;
-    /** Shown under the two buttons when the caller can handle email sign-in. */
-    onEmail?: () => void;
-    emailLabel?: string;
 }
 
 /**
  * The same two buttons everywhere Habyss offers an account: onboarding, the
- * Account screen and the Friends tab. Apple opens its own sheet, which is one
+ * Account screen and the Friends tab. Apple or Google only; no email. Apple opens its own sheet, which is one
  * tap and Face ID; Google opens Google's page in a secure in-app browser.
  *
  * Buttons only appear when this build and this phone can actually use them, so
  * a button is never shown that would fail when tapped.
  */
-export const SignInOptions: React.FC<Props> = ({ onSignedIn, onEmail, emailLabel = 'Continue with email' }) => {
+export const SignInOptions: React.FC<Props> = ({ onSignedIn }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
     const { primary: accent } = useAccentGradient();
     const { lightFeedback, successFeedback } = useHaptics();
 
@@ -71,39 +68,27 @@ export const SignInOptions: React.FC<Props> = ({ onSignedIn, onEmail, emailLabel
             ) : null}
 
             {isGoogleSignInAvailable() ? (
+                // Same size and shape as Apple's, in the app's own matte (Apple's
+                // stays the most prominent, as Apple asks).
                 <TouchableOpacity
                     accessibilityRole="button"
                     accessibilityLabel="Continue with Google"
                     disabled={!!busy}
                     onPress={() => run('google')}
-                    style={[styles.button, styles.outline, {
-                        borderColor: colors.border,
-                        backgroundColor: isLight ? '#FFFFFF' : 'rgba(255,255,255,0.06)',
-                        opacity: busy && busy !== 'google' ? 0.5 : 1,
-                    }]}
+                    style={{ opacity: busy && busy !== 'google' ? 0.5 : 1 }}
                 >
-                    {busy === 'google' ? <ActivityIndicator color={colors.textPrimary} /> : (
-                        <>
-                            <Ionicons name="logo-google" size={17} color={colors.textPrimary} />
-                            <Text style={[styles.label, { color: colors.textPrimary }]}>Continue with Google</Text>
-                        </>
-                    )}
+                    <MatteSurface radius={Radius.pill} level="control" style={styles.button}>
+                        {busy === 'google' ? <ActivityIndicator color={colors.textPrimary} /> : (
+                            <>
+                                <Ionicons name="logo-google" size={18} color={colors.textPrimary} />
+                                <Text style={[styles.label, { color: colors.textPrimary }]}>Continue with Google</Text>
+                            </>
+                        )}
+                    </MatteSurface>
                 </TouchableOpacity>
             ) : null}
 
             {busy === 'apple' ? <ActivityIndicator color={accent} /> : null}
-
-            {onEmail ? (
-                <TouchableOpacity
-                    accessibilityRole="button"
-                    disabled={!!busy}
-                    onPress={() => { lightFeedback(); onEmail(); }}
-                    style={[styles.button, styles.outline, { borderColor: colors.border }]}
-                >
-                    <Ionicons name="mail-outline" size={17} color={colors.textPrimary} />
-                    <Text style={[styles.label, { color: colors.textPrimary }]}>{emailLabel}</Text>
-                </TouchableOpacity>
-            ) : null}
 
             {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
         </View>
@@ -112,8 +97,7 @@ export const SignInOptions: React.FC<Props> = ({ onSignedIn, onEmail, emailLabel
 
 const styles = StyleSheet.create({
     wrap: { alignSelf: 'stretch', gap: 10 },
-    button: { height: 54, width: '100%', alignSelf: 'stretch' },
-    outline: { borderRadius: 999, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-    label: { fontSize: 16, fontFamily: FontFamily.medium },
+    button: { height: 54, width: '100%', alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    label: { fontSize: 17, fontFamily: FontFamily.semibold },
     error: { fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular, textAlign: 'center' },
 });

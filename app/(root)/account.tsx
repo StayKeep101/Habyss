@@ -8,11 +8,11 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { VoidCard } from '@/components/ui/VoidCard';
 import { currentAccount, onAccountChange, signOut, type Account } from '@/lib/account';
 import { lastSyncedAt, syncNow } from '@/lib/cloudSync';
 import { isCloudConfigured } from '@/lib/supabase';
 import { SignInOptions } from '@/components/Auth/SignInOptions';
+import { AccountHero } from '@/components/Auth/AccountHero';
 import type { SyncReport } from '@/lib/cloudSync';
 import { setOnboardingComplete } from '@/lib/localUser';
 import { restartAfterDeletion } from '@/lib/accountDeletion';
@@ -155,12 +155,11 @@ export default function AccountScreen() {
 
     const renderSignedOut = () => (
         <>
-            <VoidCard style={styles.card}>
-                <Ionicons name="cloud-upload-outline" size={24} color={accent} />
-                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                    {restoring ? 'Welcome back' : 'Sign in to back up'}
-                </Text>
-            </VoidCard>
+            <AccountHero color={accent}
+                title={restoring ? 'Welcome back' : 'Keep your habits safe'}
+                line={restoring
+                    ? 'Sign in with the account you used before and everything comes back.'
+                    : 'Back up everything, get it back on any phone, and let friends find you.'} />
 
             {/* Apple or Google, the same as onboarding and the Friends tab. */}
             <SignInOptions onSignedIn={afterSignIn} />
