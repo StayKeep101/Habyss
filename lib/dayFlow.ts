@@ -228,8 +228,10 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
     // Its start never moves: something planned at 4 PM that is still not ticked
     // at 4:42 reads 4:00 onwards, running past its end until it is ticked, not
     // a fresh two hours from now. Where it was placed today (kept), else the
-    // time it was given.
-    const anchor = (item: FlowInput) => (item.kept && item.kept.end > item.kept.start ? item.kept
+    // time it was given. Only the start is kept: its length is always what it
+    // is set to now, so changing 30 minutes to 2 hours shows at once.
+    const anchor = (item: FlowInput) => (item.kept && item.kept.end > item.kept.start
+        ? { start: item.kept.start, end: item.kept.start + (item.minutes > 0 ? item.minutes : item.kept.end - item.kept.start) }
         : item.start !== null && item.minutes > 0 && item.start >= window.wake ? { start: item.start, end: item.start + item.minutes } : null);
     const started = now === null ? [] : items.filter(item => !item.fixed && !item.done && !(item.locked && item.start !== null)
         && !outside.has(item.id) && (anchor(item)?.start ?? Infinity) <= now);

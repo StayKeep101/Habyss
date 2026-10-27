@@ -40,6 +40,14 @@ describe('the day as a flow', () => {
         expect(flow.timeline.find(row => row.id === 'email')!.start).toBeGreaterThanOrEqual(at(12));
     });
 
+    it('the one you are on takes its new length at once: 30 minutes changed to 2 hours', () => {
+        // Placed 9:00–9:30 earlier today; now set to two hours.
+        const items = [{ ...item('bugs', null, 120), kept: { start: at(9), end: at(9, 30) } }, item('email', null, 30)];
+        const flow = flowDay(items, at(9, 33), window);
+        expect(flow.current).toMatchObject({ id: 'bugs', start: at(9), end: at(11) });
+        expect(flow.timeline.find(row => row.id === 'email')!.start).toBeGreaterThanOrEqual(at(11));
+    });
+
     it('keeps a flexible one\'s length, and on another day puts it at its time when free', () => {
         const items = [item('read', at(20), 45), item('walk', null, 30)];
         const other = flowDay(items, null, window);
