@@ -136,8 +136,8 @@ export interface DayWindowMinutes {
 
 export function flowDay(items: FlowInput[], now: number | null, window: DayWindowMinutes = { wake: 7 * 60, sleep: 23 * 60 }): DayFlow {
     // Ticked before its time came (the dishes, planned 4:50, done at 3:51): it
-    // took no time out of the day. It stays in its place in the order, right
-    // after what came before it, starting and ending at the same moment, and
+    // took no time out of the day, and it happened at 3:51, so that is where
+    // it sits, starting and ending at the tick. Its old slot is free, and
     // everything after flows on as if it were not there.
     // A remembered slot that ends before waking was never really the day (it
     // came from a layout built before the day had loaded): it is not trusted.
@@ -161,19 +161,15 @@ export function flowDay(items: FlowInput[], now: number | null, window: DayWindo
     return { ...flow, timeline: placeInstants(flow.timeline, early, slotOf, now as number) };
 }
 
-/** Zero-length done items, each right after whatever came before it in the plan. */
+/** Zero-length done items, each at the moment it was ticked. */
 function placeInstants(timeline: FlowItem[], early: FlowInput[], slotOf: (item: FlowInput) => { start: number; end: number } | null, now: number): FlowItem[] {
-    // Where each item stood in the plan (its memory, else where it is now), to know what came before.
-    const placed: { ref: number; item: FlowItem }[] = timeline.map(item => ({ ref: item.kept?.start ?? item.plannedStart, item }));
-    for (const item of [...early].sort((a, b) => (slotOf(a)?.start ?? now) - (slotOf(b)?.start ?? now))) {
+    const instants = early.map(item => {
         const planned = slotOf(item)?.start ?? now;
-        const before = placed.filter(entry => entry.ref < planned).sort((a, b) => b.ref - a.ref || b.item.end - a.item.end)[0];
-        // Never in the past: right after what came before it, or now, whichever is later.
-        const at = Math.max(before ? before.item.end : planned, now);
-        const instant: FlowItem = { ...item, start: at, end: at, plannedStart: planned, shift: at - planned, state: 'done', auto: true };
-        placed.push({ ref: planned, item: instant });
-    }
-    return placed.map(entry => entry.item).sort((a, b) => a.start - b.start || a.end - b.end);
+        // Tick time not read yet: a remembered zero-length slot is where it was ticked; else now.
+        const at = item.doneAt ?? (item.kept && item.kept.end === item.kept.start ? item.kept.start : now);
+        return { ...item, start: at, end: at, plannedStart: planned, shift: at - planned, state: 'done', auto: true } as FlowItem;
+    });
+    return [...timeline, ...instants].sort((a, b) => a.start - b.start || a.end - b.end);
 }
 
 function flowDayLaid(items: FlowInput[], now: number | null, window: DayWindowMinutes): DayFlow {
@@ -587,6 +583,12 @@ export function clockLabel(minutes: number): string {
 }
 
 /** "8:00–8:30 AM", in the phone's own clock style. */
+/** "5:25 PM–7:25 PM (2 hr)", or "Done 4:23 PM" for one ticked before its time, which took none. */
+export function whenLabel(item: { start: number; end: number; state: string }): string {
+    if (item.state === 'done' && item.end === item.start) return `Done ${clockLabel(item.start)}`;
+    return `${rangeLabel(item.start, item.end)} (${lengthLabel(item.end - item.start)})`;
+}
+
 export function rangeLabel(start: number, end: number): string {
     return `${clockLabel(start)}–${clockLabel(end)}`;
 }

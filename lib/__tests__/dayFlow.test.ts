@@ -1,4 +1,4 @@
-import { flowDay, flowInputs, lengthLabel, upNext, urgencyOf, type FlowInput } from '../dayFlow';
+import { flowDay, flowInputs, lengthLabel, upNext, urgencyOf, whenLabel, type FlowInput } from '../dayFlow';
 
 const at = (h: number, m = 0) => h * 60 + m;
 const item = (id: string, start: number | null, minutes: number, done = false): FlowInput =>
@@ -273,7 +273,7 @@ describe('exact time or flexible', () => {
 describe('where a done thing sits', () => {
     const window = { wake: 420, sleep: 1380 };
     const done = (id: string, minutes: number, extra: Partial<FlowInput> = {}): FlowInput => ({ id, kind: 'task', title: id, start: null, minutes, done: true, ...extra });
-    it('done before its time came, it takes no time: right after what came before it, and the rest moves up', () => {
+    it('done before its time came, it takes no time: it sits when it was ticked, and the rest moves up', () => {
         // Study 15:00–17:00 done at 15:51; Learn AI next; the dishes (planned 16:50) ticked at 15:51;
         // then Learn How to Sell and Improve UI. Now it is 15:55.
         const flow = flowDay([
@@ -285,9 +285,9 @@ describe('where a done thing sits', () => {
         const at = (id: string) => flow.timeline.find(item => item.id === id)!;
         expect(at('study')).toMatchObject({ start: 900, end: 951 });
         expect(at('ai')).toMatchObject({ start: 955, end: 985 });
-        expect(at('dishes')).toMatchObject({ start: 985, end: 985, state: 'done' });
+        expect(at('dishes')).toMatchObject({ start: 951, end: 951, state: 'done' });
         expect(at('sell')).toMatchObject({ start: 985, end: 1015 });
-        expect(flow.timeline.map(item => item.id)).toEqual(['study', 'ai', 'dishes', 'sell']);
+        expect(flow.timeline.map(item => item.id)).toEqual(['study', 'dishes', 'ai', 'sell']);
     });
     it('never moves once ticked: its own time, else where it was planned, early or late', () => {
         // Morning run 8:30–9:00, ticked at 10:42: still 8:30–9:00.
@@ -303,6 +303,10 @@ describe('where a done thing sits', () => {
     it('keeps a cut one at the start it was cut to, ending when it was finished', () => {
         const cut = flowDay([done('read', 60, { kept: { start: 1320, end: 1350 }, doneAt: 1345 })], 1360, window);
         expect(cut.timeline[0]).toMatchObject({ start: 1320, end: 1345 });
+    });
+    it('says when one ticked early was done, not a range of no length', () => {
+        expect(whenLabel({ start: 983, end: 983, state: 'done' })).toBe('Done 4:23 PM');
+        expect(whenLabel({ start: 1045, end: 1165, state: 'later' })).toBe('5:25 PM–7:25 PM (2 hr)');
     });
     it('reads the time a task was finished, on the day it was finished', () => {
         const at = new Date(2026, 9, 22, 17, 55).toISOString();
@@ -392,9 +396,9 @@ describe('finishing partway through', () => {
         expect(flow.timeline.find(item => item.id === 'study')).toMatchObject({ start: 900, end: 930, state: 'done' });
         expect(flow.timeline.find(item => item.id === 'write')).toMatchObject({ start: 930, end: 990 });
     });
-    it('ticked before its time with nothing before it, it sits at its own time, taking none', () => {
+    it('ticked before its time, it sits at the tick, taking none', () => {
         const flow = flowDay([{ id: 'study', kind: 'habit', title: 'Study', start: 900, minutes: 120, done: true, doneAt: 600 } as never], 610, { wake: 480, sleep: 1380 });
-        expect(flow.timeline[0]).toMatchObject({ start: 900, end: 900, state: 'done' });
+        expect(flow.timeline[0]).toMatchObject({ start: 600, end: 600, state: 'done' });
     });
 });
 

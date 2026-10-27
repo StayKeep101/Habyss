@@ -11,7 +11,7 @@ import { ListItem, useProgress } from '@/components/ui/Motion';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { useTokens } from '@/hooks/useTokens';
 import { useAppSettings } from '@/context/AppSettingsContext';
-import { clockLabel, dueLabel, lengthLabel, rangeLabel, type DayFlow, type FlowInput, type FlowItem } from '@/lib/dayFlow';
+import { clockLabel, dueLabel, lengthLabel, whenLabel, type DayFlow, type FlowInput, type FlowItem } from '@/lib/dayFlow';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { textOn } from '@/theme/tokens';
 import { SubtaskList, SubtaskToggle } from '@/components/Tasks/SubtaskDropdown';
@@ -242,7 +242,7 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
             {/* The row itself keeps its place beside the pill; the subtasks open
                 under it, so opening them never moves the task. */}
             <Pressable onPress={() => onOpen(item)} style={[styles.body, { minHeight: height }]} accessibilityRole="button"
-                accessibilityLabel={`${item.title}, ${rangeLabel(item.start, item.end)}${live ? ', now' : ''}`}>
+                accessibilityLabel={`${item.title}, ${whenLabel(item)}${live ? ', now' : ''}`}>
                 <View style={styles.text}>
                     <View style={[styles.meta, { gap: t.space.xs }]}>
                         {meal || item.locked ? <AppIcon name="lock-closed" size={s(11)} color={t.color.textSubtle} /> : null}
@@ -251,7 +251,7 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
                             <Text style={[t.type.caption, styles.nowTag, { color: t.color.textMuted }]}>Up next</Text>
                         ) : null}
                         <Text style={[t.type.caption, { color: t.color.textSubtle }]}>
-                            {rangeLabel(item.start, item.end)} ({lengthLabel(item.end - item.start)})
+                            {whenLabel(item)}
                         </Text>
                         {item.repeats ? <AppIcon name="repeat" size={s(12)} color={t.color.textSubtle} /> : null}
                         {eta ? <Text style={[t.type.caption, styles.nowTag, { color: soon || live ? t.color.accentText : t.color.textMuted }]}>{eta}</Text> : null}
