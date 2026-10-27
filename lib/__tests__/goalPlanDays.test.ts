@@ -45,3 +45,15 @@ describe('the month grid', () => {
         expect(monthsBetween('2026-10-20', '2027-01-05')).toEqual(['2026-10-01', '2026-11-01', '2026-12-01', '2027-01-01']);
     });
 });
+
+describe('stepping a goal from its start to its deadline', () => {
+    const { offsetBounds } = require('../goalPlanPeriod') as typeof import('../goalPlanPeriod');
+    it('begun yesterday and due today: two days, one week', () => {
+        expect(offsetBounds('day', '2026-10-27', true, '2026-10-26', '2026-10-27')).toEqual({ min: -1, max: 0 });
+        expect(offsetBounds('week', '2026-10-27', true, '2026-10-26', '2026-10-27')).toEqual({ min: 0, max: 0 });
+        expect(offsetBounds('month', '2026-10-27', true, '2026-10-26', '2026-10-27')).toEqual({ min: 0, max: 0 });
+    });
+    it('due in a year: a year of months ahead', () => {
+        expect(offsetBounds('month', '2026-10-27', true, '2026-10-26', '2027-10-27')).toEqual({ min: 0, max: 12 });
+    });
+});

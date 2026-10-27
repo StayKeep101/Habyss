@@ -83,3 +83,22 @@ export function monthsBetween(from: string, to: string): string[] {
     }
     return out;
 }
+
+/**
+ * How far the arrows can step for a goal: from the period holding the day it
+ * began to the one holding its deadline (with no deadline, a year ahead).
+ * A goal begun yesterday and due today has a Day view of two days and a
+ * Week view of one week; due in a year, a year of days, weeks and months.
+ */
+export function offsetBounds(range: 'day' | 'week' | 'month', today: string, weekStartsMonday: boolean, start: string, end: string | null): { min: number; max: number } {
+    const limit = range === 'day' ? 800 : range === 'week' ? 120 : 30;
+    let min = 0;
+    while (min > -limit && periodOf(range, min - 1, today, weekStartsMonday).to >= start) min -= 1;
+    let max = 0;
+    const last = end ?? periodOf('day', 365, today, weekStartsMonday).from;
+    while (max < limit && periodOf(range, max + 1, today, weekStartsMonday).from <= last) max += 1;
+    // A goal wholly before or after today still opens on one of its own periods.
+    if (periodOf(range, 0, today, weekStartsMonday).to < start) { while (min < limit && periodOf(range, min, today, weekStartsMonday).to < start) min += 1; max = Math.max(min, max); }
+    if (periodOf(range, 0, today, weekStartsMonday).from > last) { while (max > -limit && periodOf(range, max, today, weekStartsMonday).from > last) max -= 1; min = Math.min(min, max); }
+    return { min, max };
+}

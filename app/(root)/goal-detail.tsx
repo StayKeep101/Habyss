@@ -581,8 +581,9 @@ const GoalDetail = () => {
       <View pointerEvents="box-none" style={[styles.floatingRow, { bottom: insets.bottom + 16 }]}>
         <ViewSwitcher
           options={[
-            { id: 'plan', label: 'Plan', icon: 'map-outline' },
+            // In the order a goal is worked: write down what it needs, plan it on days, see how far it has come.
             { id: 'todo', label: 'To-do', icon: 'list-outline' },
+            { id: 'plan', label: 'Plan', icon: 'map-outline' },
             { id: 'stats', label: 'Stats', icon: 'stats-chart-outline' },
           ]}
           value={view}

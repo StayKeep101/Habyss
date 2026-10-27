@@ -18,7 +18,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useWeekStart } from '@/hooks/useWeekStart';
 import { useData } from '@/hooks/useData';
 import { addDays, type GoalInsights } from '@/lib/goalInsights';
-import { goalDays, monthsBetween, periodOf, type GoalDay, type GoalDayItem } from '@/lib/goalPlanPeriod';
+import { goalDays, monthsBetween, offsetBounds, periodOf, type GoalDay, type GoalDayItem } from '@/lib/goalPlanPeriod';
 import { isHabitScheduledForDate } from '@/lib/habitSchedule';
 import type { Habit } from '@/lib/habitsSQLite';
 import type { Milestone } from '@/lib/goalMilestones';
@@ -91,10 +91,17 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
     const weekStartsMonday = useWeekStart() === 'monday';
     const [range, setRange] = useState<Range>('day');
     const [offset, setOffset] = useState(0);
+    // The goal's own span: the arrows step only from the day it began to its
+    // deadline, and a week or month shows only those of its days.
+    const goalEnd = insights.daysLeft !== null ? insights.endDate : null;
+    const bounds = useMemo(() => (range === 'all' ? { min: 0, max: 0 } : offsetBounds(range, today, weekStartsMonday, insights.startDate, goalEnd)),
+        [range, today, weekStartsMonday, insights.startDate, goalEnd]);
+    const clampOffset = (value: number) => Math.max(bounds.min, Math.min(bounds.max, value));
+    const shownOffset = clampOffset(offset);
 
     const plan = useMemo(() => {
         if (range === 'all') return null;
-        const { from, to } = periodOf(range, offset, today, weekStartsMonday);
+        const { from, to } = periodOf(range, shownOffset, today, weekStartsMonday);
         const holdsToday = from <= today && today <= to;
         const inside = (key?: string) => !!key && key >= from && key <= to;
         const allTasks = [...insights.tasks.overdue, ...insights.tasks.upcoming, ...insights.tasks.completed];
@@ -109,7 +116,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
         const habits = insights.habits.filter(summary => days.some(day => isHabitScheduledForDate(summary.habit, dateOf(day))));
         const byDay = days.map(day => ({ day, tasks: tasks.filter(task => task.dueDate === day) })).filter(group => group.tasks.length);
         return { from, to, holdsToday, tasks, overdue, dueMilestones, habits, byDay };
-    }, [range, offset, today, weekStartsMonday, insights, milestones]);
+    }, [range, shownOffset, today, weekStartsMonday, insights, milestones]);
 
     // Every day of the week, month or whole goal, with what it asks. Past days
     // read the shared history; today follows this page's own ticks at once.
@@ -131,7 +138,12 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
             // Two years of calendar at most; further than that is not a plan.
             const cap = addDays(from, 730);
             if (to > cap) to = cap;
-        } else ({ from, to } = periodOf(range, offset, today, weekStartsMonday));
+        } else {
+            ({ from, to } = periodOf(range, shownOffset, today, weekStartsMonday));
+            if (from < insights.startDate) from = insights.startDate;
+            if (goalEnd && to > goalEnd) to = goalEnd;
+            if (to < from) to = from;
+        }
         const doneToday = new Set(insights.habits.filter(summary => summary.doneToday).map(summary => summary.habit.id));
         const history = { ...shared.history, [today]: [...(shared.history[today] ?? []).filter(id => !insights.habits.some(summary => summary.habit.id === id)), ...doneToday] };
         const days = goalDays(range === 'month' || range === 'all' ? periodOf('month', 0, from, weekStartsMonday).from : from, range === 'all' ? periodOf('month', 0, to, weekStartsMonday).to : to, {
@@ -140,7 +152,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
         const byDay: Record<string, GoalDay> = {};
         for (const day of days) byDay[day.day] = day;
         return { from, to, days: days.filter(day => day.day >= from && day.day <= to), byDay };
-    }, [range, offset, today, weekStartsMonday, insights, milestones, shared.history, shared.skips]);
+    }, [range, shownOffset, today, weekStartsMonday, insights, milestones, shared.history, shared.skips, goalEnd]);
     const inGoal = (day: string) => !!calendar && day >= calendar.from && day <= calendar.to;
     const chosenDay = calendar && picked && inGoal(picked) ? picked
         : calendar ? (inGoal(today) ? today : calendar.from) : null;
@@ -203,7 +215,11 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
     const pick = (day: string) => { selectionFeedback(); setPicked(day); };
 
     const choose = (next: Range) => { setRange(next); setOffset(0); setPicked(null); };
-    const step = (by: number) => { selectionFeedback(); setOffset(value => value + by); setPicked(null); };
+    const step = (by: number) => {
+        const next = clampOffset(shownOffset + by);
+        if (next === shownOffset) return;
+        selectionFeedback(); setOffset(next); setPicked(null);
+    };
 
     const renderTask = (task: Task) => (
         <ListItem key={task.id}>
@@ -223,12 +239,12 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
 
             {plan ? (
                 <View style={styles.period}>
-                    <IconButton icon="chevron-back" label={`Previous ${range}`} onPress={() => step(-1)} />
+                    <IconButton icon="chevron-back" label={`Previous ${range}`} disabled={shownOffset <= bounds.min} onPress={() => step(-1)} />
                     <Text numberOfLines={1} style={[styles.periodLabel, { color: t.color.textPrimary }]} accessibilityRole="header"
-                        onPress={offset !== 0 ? () => { selectionFeedback(); setOffset(0); } : undefined}>
-                        {periodLabel(range as Exclude<Range, 'all'>, offset, plan.from, plan.to)}
+                        onPress={shownOffset !== clampOffset(0) ? () => { selectionFeedback(); setOffset(0); } : undefined}>
+                        {periodLabel(range as Exclude<Range, 'all'>, shownOffset, plan.from, plan.to)}
                     </Text>
-                    <IconButton icon="chevron-forward" label={`Next ${range}`} onPress={() => step(1)} />
+                    <IconButton icon="chevron-forward" label={`Next ${range}`} disabled={shownOffset >= bounds.max} onPress={() => step(1)} />
                 </View>
             ) : null}
             </View>
@@ -249,7 +265,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
                     </View>
                 </Animated.View>
             ) : range === 'week' && calendar && plan ? (
-                <Animated.View key={`week:${offset}`} entering={FadeIn.duration(200)} style={styles.body}>
+                <Animated.View key={`week:${shownOffset}`} entering={FadeIn.duration(200)} style={styles.body}>
                     {tray}
                     {plan.overdue.length ? (
                         <View>
@@ -260,7 +276,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
                     {calendar.days.map(day => <ListItem key={day.day}>{dayCard(day)}</ListItem>)}
                 </Animated.View>
             ) : range === 'month' && calendar && plan ? (
-                <Animated.View key={`month:${offset}`} entering={FadeIn.duration(200)} style={styles.body}>
+                <Animated.View key={`month:${shownOffset}`} entering={FadeIn.duration(200)} style={styles.body}>
                     {tray}
                     <GoalMonth month={calendar.from} days={calendar.byDay} selected={chosenDay} today={today} color={color}
                         weekStartsMonday={weekStartsMonday} inRange={inGoal} onSelect={pick} droppable={plannable} />
@@ -274,9 +290,9 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
                     ) : null}
                 </Animated.View>
             ) : plan ? (
-                <Animated.View key={`${range}:${offset}`} entering={FadeIn.duration(200)} style={styles.body}>
-                    {range === 'day' && offset === 0 && pace ? pace : null}
-                    {range === 'day' && offset === 0 && onLog ? <AppButton label="Log progress" icon="create-outline" variant="ghost" onPress={onLog} /> : null}
+                <Animated.View key={`${range}:${shownOffset}`} entering={FadeIn.duration(200)} style={styles.body}>
+                    {range === 'day' && shownOffset === 0 && pace ? pace : null}
+                    {range === 'day' && shownOffset === 0 && onLog ? <AppButton label="Log progress" icon="create-outline" variant="ghost" onPress={onLog} /> : null}
 
                     {plan.dueMilestones.length ? (
                         <View>
@@ -325,7 +341,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
 
                     {!plan.tasks.length && !plan.habits.length && !plan.dueMilestones.length && !plan.overdue.length ? (
                         <View style={styles.empty}>
-                            <Text style={[styles.emptyTitle, { color: t.color.textPrimary }]}>{`Nothing planned ${range === 'day' ? (offset === 0 ? 'today' : 'that day') : `this ${range}`}`}</Text>
+                            <Text style={[styles.emptyTitle, { color: t.color.textPrimary }]}>{`Nothing planned ${range === 'day' ? (shownOffset === 0 ? 'today' : 'that day') : `this ${range}`}`}</Text>
                             <Text style={[styles.emptyBody, { color: t.color.textMuted }]}>Add milestones, tasks and habits from the ⋯ menu.</Text>
                         </View>
                     ) : null}
