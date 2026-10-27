@@ -27,7 +27,9 @@ describe('access: a free week, then one payment', () => {
 
     it('is half price when invited, or once three invited friends have joined', () => {
         expect(friendPrice(null)).toBe(false);
-        expect(friendPrice({ invitedBy: null, joined: 2 })).toBe(false);
+        expect(friendPrice({ invitedBy: null, joined: 0 })).toBe(false);
+        // One friend joining is enough: whoever invites pays half too.
+        expect(friendPrice({ invitedBy: null, joined: 1 })).toBe(true);
         expect(friendPrice({ invitedBy: null, joined: 3 })).toBe(true);
         expect(friendPrice({ invitedBy: 'milo', joined: 0 })).toBe(true);
     });

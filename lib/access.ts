@@ -1,7 +1,8 @@
 /**
- * Whether Habyss is open to you: a 7-day free trial, then one payment of $20
- * to keep it for good. Somebody who came through a friend's invite pays half,
- * and so does whoever invites three people who join.
+ * Whether Habyss is open to you: a 7-day free trial, then one payment of $10
+ * to keep it for good, no subscription. Invites make it half price for
+ * everybody in them: each friend who joins with your invite pays $5, and so do
+ * you once one has joined. Invite three and all four of you pay half.
  *
  * The trial is Apple's way for an app with no subscription: a free
  * "7-day Trial" purchase (App Store Review Guideline 3.1.1), so the day it
@@ -15,11 +16,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PAYWALL_ENABLED } from '@/constants/features';
 
 export const TRIAL_DAYS = 7;
-export const FRIENDS_NEEDED = 3;
+/** Friends who must join with your invite before your own price halves. */
+export const FRIENDS_NEEDED = 1;
 export const PRODUCTS = {
-    /** $19.99, non-consumable. */
+    /** $9.99, non-consumable. */
     full: 'habyss_lifetime',
-    /** $9.99, non-consumable: the friend price. */
+    /** $4.99, non-consumable: the friend price, half. */
     friend: 'habyss_lifetime_friend',
     /** $0, non-consumable, named "7-day Trial". */
     trial: 'habyss_trial_7day',
@@ -46,7 +48,7 @@ export function accessFrom({ billing, owned, trialStart, now }: { billing: boole
     return { kind: 'trial', daysLeft: Math.max(1, Math.ceil((endsAt - now) / DAY)), endsAt };
 }
 
-/** Half price: you were invited, or three people you invited have joined. */
+/** Half price: you were invited, or someone you invited has joined. */
 export const friendPrice = (referral: Referral | null) => !!referral && (!!referral.invitedBy || referral.joined >= FRIENDS_NEEDED);
 
 /** You can use the app: it is yours or the trial is running. */

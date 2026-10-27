@@ -24,8 +24,8 @@ type Prices = { full: string; friend: string };
  *   you built is kept and comes back the moment you do.
  * - open: from Settings, closable.
  *
- * Friends who join with your invite pay half, and when three have joined so
- * do you; the invite is shared from here.
+ * Everyone in an invite pays half: each friend who joins with it, and you
+ * once one has; the invite is shared from here.
  */
 export function Paywall({ mode, onClose }: { mode: Mode; onClose?: () => void }) {
     const t = useTokens();
@@ -33,7 +33,7 @@ export function Paywall({ mode, onClose }: { mode: Mode; onClose?: () => void })
     const { successFeedback, lightFeedback } = useHaptics();
     const { access, referral } = useAccess();
     const half = friendPrice(referral);
-    const [prices, setPrices] = useState<Prices>({ full: '$19.99', friend: '$9.99' });
+    const [prices, setPrices] = useState<Prices>({ full: '$9.99', friend: '$4.99' });
     const [busy, setBusy] = useState<'trial' | 'buy' | 'restore' | null>(null);
     const [note, setNote] = useState<string | null>(null);
 
@@ -115,7 +115,7 @@ export function Paywall({ mode, onClose }: { mode: Mode; onClose?: () => void })
     );
 }
 
-/** Half price with friends: share your invite, and see how many have joined. */
+/** Half price with friends: everyone in an invite pays half, the one who sent it too. */
 function InviteCard({ referral }: { referral: { invitedBy: string | null; joined: number } | null }) {
     const t = useTokens();
     const { lightFeedback, successFeedback } = useHaptics();
@@ -146,15 +146,17 @@ function InviteCard({ referral }: { referral: { invitedBy: string | null; joined
             <Text style={[styles.inviteTitle, { color: t.color.textPrimary }]}>Half price with friends</Text>
             <Text style={[styles.body, styles.left, { color: t.color.textMuted }]}>
                 {referral?.invitedBy
-                    ? `@${referral.invitedBy} invited you, so yours is half price. Invite ${FRIENDS_NEEDED} friends and they get it half price too.`
-                    : `Friends who join with your invite pay half. When ${FRIENDS_NEEDED} have joined, so do you.`}
+                    ? `@${referral.invitedBy} invited you, so yours is half price. Every friend you invite gets it half price too.`
+                    : joined >= FRIENDS_NEEDED
+                    ? 'A friend joined with your invite, so yours is half price. Every friend you invite pays half too.'
+                    : 'Invite a friend and you both pay half. Invite three and all four of you do.'}
             </Text>
-            <View style={styles.dots} accessible accessibilityLabel={`${joined} of ${FRIENDS_NEEDED} friends joined`}>
-                {Array.from({ length: FRIENDS_NEEDED }, (_, index) => (
-                    <View key={index} style={[styles.dot, { backgroundColor: index < joined ? t.color.accent : t.color.border }]} />
-                ))}
-                <Text style={[styles.dotsText, { color: t.color.textMuted }]}>{`${joined} of ${FRIENDS_NEEDED} joined`}</Text>
-            </View>
+            {(referral?.joined ?? 0) > 0 ? (
+                <View style={styles.dots}>
+                    <View style={[styles.dot, { backgroundColor: t.color.accent }]} />
+                    <Text style={[styles.dotsText, { color: t.color.textMuted }]}>{referral!.joined === 1 ? '1 friend joined' : `${referral!.joined} friends joined`}</Text>
+                </View>
+            ) : null}
             {username ? (
                 <AppButton label="Invite friends" icon="share-outline" variant="ghost" onPress={() => { void invite(); }} />
             ) : username === null ? (

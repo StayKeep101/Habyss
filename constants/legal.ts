@@ -3,7 +3,7 @@
  * kept word for word with the website's copies. Written from what the app
  * actually does; change it whenever that changes.
  */
-export const LEGAL_UPDATED = 'October 24, 2026';
+export const LEGAL_UPDATED = 'October 27, 2026';
 
 export type LegalDoc = 'privacy' | 'terms';
 export interface LegalSection { title: string; body: string }
@@ -29,13 +29,13 @@ export const LEGAL: Record<LegalDoc, { title: string; intro: string; sections: L
     },
     terms: {
         title: 'Terms',
-        intro: 'By using Habyss you agree to these terms. They are short on purpose. Updated 26 October 2026.',
+        intro: 'By using Habyss you agree to these terms. They are short on purpose. Updated 27 October 2026.',
         sections: [
             { title: 'The app', body: 'Habyss helps you build habits, finish tasks and reach goals. It is provided as is, and features may change or be removed as the app improves.' },
             { title: 'Your account', body: 'Keep your sign-in details to yourself; you are responsible for what is done with your account. Your @username must be yours to use and not impersonate anyone.' },
             { title: 'Be decent', body: 'Do not use Habyss to harass, threaten or spam anyone, or to post anything illegal, hateful or sexual. We may remove content or accounts that break this, and you can report or block anyone.' },
             { title: 'Marks and leaderboards', body: 'Marks and ranks are for motivation and have no money value. We may correct Marks that were earned by cheating or by mistake.' },
-            { title: 'Free week and purchase', body: 'Habyss is free for 7 days. After that it is one payment (shown in the app before you buy, in your currency), not a subscription, and nothing renews. If you do not buy it, the app locks after the free week and your data stays on your device and in your backup until you do. Someone who joins through a friend’s invite pays half, and so does the person who invited three people who joined; an invite counts once, for a new account. Purchases are processed by Apple under Apple’s terms; for refunds, contact Apple. A coffee is a one-off tip and unlocks nothing.' },
+            { title: 'Free week and purchase', body: 'Habyss is free for 7 days. After that it is one payment (shown in the app before you buy, in your currency), not a subscription, and nothing renews. If you do not buy it, the app locks after the free week and your data stays on your device and in your backup until you do. Someone who joins through a friend’s invite pays half, and so does the person who invited them once one friend has joined; an invite counts once, for a new account. Purchases are processed by Apple under Apple’s terms; for refunds, contact Apple. A coffee is a one-off tip and unlocks nothing.' },
             { title: 'Health', body: 'Habyss is not medical advice. Sleep figures come from Apple Health and are only as accurate as the device that recorded them. Talk to a professional about your health.' },
             { title: 'Liability', body: 'To the extent the law allows, Habyss and its developer are not liable for indirect or consequential losses, or for data lost from your device. Keep a backup by signing in.' },
             { title: 'Ending', body: 'You can stop using Habyss and delete your account at any time. We may suspend accounts that break these terms.' },
