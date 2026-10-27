@@ -17,6 +17,7 @@ import { ageFrom, initials, saveProfile, type Profile } from '@/lib/profile';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { FreezeCard } from '@/components/Profile/FreezeCard';
+import { GoalsDoneSheet } from '@/components/Profile/GoalsDoneSheet';
 import { seriesForProfile } from '@/lib/marksSync';
 import { UsernameCard, UsernameInline, UsernamePill } from '@/components/Profile/UsernameCard';
 import { FeedService } from '@/lib/feedService';
@@ -77,11 +78,9 @@ export default function ProfileScreen() {
     // The same Marks Home shows and friends see, as your level.
     const goalsData = useGoalsInsights();
     const marks = useMarks(goalsData);
-    // Goals finished: the trophies, counted as Marks counts them.
-    const goalsCompleted = React.useMemo(
-        () => Object.values(goalsData.insightsById).filter(insights => insights.series.some(point => point.actual >= 100)).length,
-        [goalsData.insightsById],
-    );
+    // Goals finished: the trophies.
+    const goalsCompleted = goalsData.finished.length;
+    const [goalsOpen, setGoalsOpen] = useState(false);
 
 
     /** One picker for both images; the crop is what tells them apart. */
@@ -148,6 +147,7 @@ export default function ProfileScreen() {
                     marks={marks.total}
                     marksSeries={seriesForProfile(marks.series)}
                     numbers={{ streak, bestStreak, goalsCompleted }}
+                    onGoalsDone={() => { selectionFeedback(); setGoalsOpen(true); }}
                     edit={{
                         onName: name => setDraft(current => ({ ...current, name })),
                         onNameDone: () => change({ name: profile.name.trim() }),
@@ -165,6 +165,8 @@ export default function ProfileScreen() {
                 </ProfileView>
 
             </ScrollView>
+            <GoalsDoneSheet visible={goalsOpen} finished={goalsData.finished} onClose={() => setGoalsOpen(false)}
+                onOpen={goalId => { setGoalsOpen(false); router.push({ pathname: '/goal-detail', params: { goalId } }); }} />
             {/* Floats over the backdrop, below the status bar: this is a
                 full-screen page, not a sheet, so it clears the clock itself. */}
             <View style={[styles.back, { top: insets.top + 8 }]}>

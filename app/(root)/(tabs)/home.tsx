@@ -172,7 +172,6 @@ const Home = () => {
   }, [showEchoLine, reloadHistory, aiPersonality]);
 
   // Derived data
-  const goals = useMemo(() => allHabits.filter(h => h.isGoal), [allHabits]);
   const habits = useMemo(() => allHabits.filter(h => !h.isGoal), [allHabits]);
 
   // Load initial data & Sync on Focus
@@ -335,11 +334,8 @@ const Home = () => {
     const run = streakFrom(habits, allTasks, history, sharedData.skips, today, undefined, dailyTarget);
     return { streak: run.streak, bestStreak: bestStreakFrom(run.completedDates) };
   }, [habits, allTasks, sharedData.history, sharedData.skips, completions, dailyTarget]);
-  // Goals finished: the trophies on your profile, counted as Marks counts them.
-  const goalsCompleted = useMemo(
-    () => Object.values(goalsData.insightsById).filter(insights => insights.series.some(point => point.actual >= 100)).length,
-    [goalsData.insightsById],
-  );
+  // Goals finished: the trophies on your profile.
+  const goalsCompleted = goalsData.finished.length;
 
   // Friends see your total; sent a moment after it settles, and only when it moved.
   useEffect(() => {
@@ -369,10 +365,10 @@ const Home = () => {
       weekConsistency: week.weekConsistency,
       bestHabit: week.bestHabit,
       nextHabit: scheduledToday.find(h => !completions[h.id])?.name,
-      goalsCount: goals.filter(g => !g.isArchived).length,
+      goalsCount: goalsData.goals.length,
       overallProgress: avgGoalProgress,
     };
-  }, [habits, historyData, completions, goals, avgGoalProgress, streak]);
+  }, [habits, historyData, completions, goalsData.goals, avgGoalProgress, streak]);
 
   useEffect(() => { echoStatsRef.current = echoStats; }, [echoStats]);
 
@@ -488,7 +484,7 @@ const Home = () => {
             <View ref={goalsRef} collapsable={false}>
             <GoalsProgressBar
               progress={avgGoalProgress}
-              goalsCount={goals.length}
+              goalsCount={goalsData.goals.length}
               series={goalsData.overallSeries}
               onPress={() => router.push('/goals-overview')}
             />

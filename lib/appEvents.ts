@@ -53,7 +53,8 @@ export interface AppEvents {
     /** The day's promise — three things, or five — has been kept. */
     daily_target_reached: { done: number; target: number };
     /** A goal reached a hundred per cent for the first time. */
-    goal_complete: { goalId: string; name: string };
+    /** `count`: goals done now, this one included. */
+    goal_complete: { goalId: string; name: string; count?: number };
     daily_focus_target_changed: DailyTarget;
 
     /* ------------------------------------------------------------- the account */

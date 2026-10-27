@@ -67,9 +67,11 @@ export const ProfileView: React.FC<{
     };
     /** Room to leave at the top for the status bar, on a full-screen page. */
     topInset?: number;
+    /** Tapping "Goals done" opens the goals reached; without it the number is plain. */
+    onGoalsDone?: () => void;
     /** Anything the page wants under the numbers. */
     children?: React.ReactNode;
-}> = ({ name, bio, meta, avatar, initials, status, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, children }) => {
+}> = ({ name, bio, meta, avatar, initials, status, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, onGoalsDone, children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary, secondary } = useAccentGradient();
@@ -207,11 +209,18 @@ export const ProfileView: React.FC<{
                                 {[
                                     { label: 'Streak', value: numbers.streak },
                                     { label: 'Best streak', value: numbers.bestStreak },
-                                    { label: 'Goals done', value: numbers.goalsCompleted },
+                                    { label: 'Goals done', value: numbers.goalsCompleted, onPress: onGoalsDone },
                                 ].map((stat, index) => (
                                     <PopIn key={stat.label} index={index} style={[styles.stat, index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
-                                        <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={stat.value} />
-                                        <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{stat.label}</Text>
+                                        <Pressable disabled={!stat.onPress} onPress={stat.onPress} hitSlop={8} style={styles.statPress}
+                                            accessibilityRole={stat.onPress ? 'button' : undefined}
+                                            accessibilityLabel={stat.onPress ? `${stat.value} ${stat.label.toLowerCase()}. Show them` : undefined}>
+                                            <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={stat.value} />
+                                            <View style={styles.statLabelRow}>
+                                                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{stat.label}</Text>
+                                                {stat.onPress ? <Ionicons name="chevron-forward" size={s(11)} color={colors.textTertiary} /> : null}
+                                            </View>
+                                        </Pressable>
                                     </PopIn>
                                 ))}
                             </View>
@@ -255,5 +264,7 @@ const styles = StyleSheet.create({
     stat: { flex: 1, alignItems: 'center', gap: vs(2) },
     statValue: { fontSize: ms(22), lineHeight: ms(28), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
     statLabel: { fontSize: ms(12), fontFamily: FontFamily.regular },
+    statPress: { alignItems: 'center', gap: vs(2), minHeight: 44, justifyContent: 'center' },
+    statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: s(2) },
     private: { fontSize: ms(13), fontFamily: FontFamily.regular, textAlign: 'center', paddingVertical: vs(12) },
 });

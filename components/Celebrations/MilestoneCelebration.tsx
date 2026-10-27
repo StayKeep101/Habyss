@@ -14,12 +14,15 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { on } from '@/lib/appEvents';
+import { Confetti } from '@/components/ui/Confetti';
+import { useTokens } from '@/hooks/useTokens';
+import { TrophyCount } from '@/components/Celebrations/TrophyCount';
 
 const MOTION = { duration: 520, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
 const RAYS = 12;
 
 type Milestone =
-    | { kind: 'goal'; title: string; line: string }
+    | { kind: 'goal'; title: string; line: string; count?: number }
     | { kind: 'daily'; title: string; line: string };
 
 /**
@@ -42,6 +45,7 @@ export const MilestoneCelebration: React.FC = () => {
     const isLight = theme === 'light';
     const { primary } = useAccentGradient();
     const { successFeedback, lightFeedback } = useHaptics();
+    const t = useTokens();
 
     const [shown, setShown] = useState<Milestone | null>(null);
     const burst = useSharedValue(0);
@@ -55,6 +59,7 @@ export const MilestoneCelebration: React.FC = () => {
                 kind: 'goal',
                 title: payload?.name ?? 'Goal complete',
                 line: 'You set out to do this, and you did it.',
+                count: payload?.count,
             })),
         ];
         return () => subs.forEach(sub => sub.remove());
@@ -95,6 +100,8 @@ export const MilestoneCelebration: React.FC = () => {
                     style={[styles.backdrop, { backgroundColor: isLight ? 'rgba(255,255,255,0.86)' : 'rgba(0,0,0,0.76)' }]}
                 />
 
+                {big ? <Confetti colors={[primary, t.color.success, t.color.warning, t.color.danger, t.color.textPrimary]} /> : null}
+
                 <View pointerEvents="none" style={styles.centre}>
                     {/* Rays, only for the larger moment. */}
                     {big ? (
@@ -130,6 +137,7 @@ export const MilestoneCelebration: React.FC = () => {
                         {shown.title}
                     </Text>
                     <Text style={[styles.line, { color: colors.textSecondary }]}>{shown.line}</Text>
+                    {shown.kind === 'goal' && shown.count ? <TrophyCount count={shown.count} color={primary} /> : null}
 
                     <AppButton label={big ? 'Take it in' : 'Good'} onPress={close} />
                 </Animated.View>

@@ -350,7 +350,7 @@ const CalendarScreen = () => {
 
     // Each goal's progress: the same number the goal shows on its own page,
     // Home and the goals overview, from the one shared calculation.
-    const { insightsById } = useGoalsInsights();
+    const { insightsById, goals: activeGoals } = useGoalsInsights();
     const goalProgress = useMemo(() => {
         const map: Record<string, number> = {};
         for (const id of Object.keys(insightsById)) map[id] = insightsById[id].progress;
@@ -771,7 +771,8 @@ const CalendarScreen = () => {
     };
 
     // --- Grouping Logic ---
-    const goals = useMemo(() => habitsStore.filter(h => h.isGoal), [habitsStore]);
+    // Goals still under way: a goal reached (or archived) has no card.
+    const goals = activeGoals;
     // Goals are shared through their own table, so they get their own question.
     const goalIds = useMemo(() => goals.map(goal => goal.id), [goals]);
     const noGoalTicks = useMemo(() => ({}), []);

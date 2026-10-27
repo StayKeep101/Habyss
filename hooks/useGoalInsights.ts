@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { subscribeToHabits, type Habit } from '@/lib/habitsSQLite';
 import { localDateKey } from '@/lib/habitSchedule';
-import { buildGoalInsights, combineSeries, type GoalInsights, type GoalPoint } from '@/lib/goalInsights';
+import { buildGoalInsights, combineSeries, goalDoneOn, type GoalInsights, type GoalPoint } from '@/lib/goalInsights';
 import { useData } from '@/hooks/useData';
 import { useGoalLogs } from '@/hooks/useGoalLogs';
 import type { Task } from '@/lib/tasks';
 
+/** A goal that reached its target, and the day it did. */
+export interface FinishedGoal { goal: Habit; insights: GoalInsights; on: string }
+
 export interface GoalsData {
-    /** Active goals, in the order the user has them. */
+    /** Active goals (not archived, not yet reached), in the order the user has them. */
     goals: Habit[];
+    /** Every goal reached, archived ones too, the latest first: the trophies. */
+    finished: FinishedGoal[];
     habits: Habit[];
     tasks: Task[];
     insightsById: Record<string, GoalInsights>;
@@ -43,8 +48,6 @@ export function useGoalsInsights(): GoalsData {
     const data = useData();
     const tasks = data.tasks;
     const today = localDateKey(new Date());
-
-    const goals = useMemo(() => habits.filter(habit => habit.isGoal && !habit.isArchived), [habits]);
 
     useEffect(() => {
         let alive = true;
@@ -84,6 +87,17 @@ export function useGoalsInsights(): GoalsData {
         return map;
     }, [habits, tasks, merged, mergedSkips, logs, today]);
 
+    const finished = useMemo(() => habits
+        .filter(habit => habit.isGoal)
+        .map(goal => ({ goal, insights: insightsById[goal.id], on: goalDoneOn(insightsById[goal.id]) }))
+        .filter((item): item is FinishedGoal => !!item.on && !!item.insights)
+        .sort((a, b) => b.on.localeCompare(a.on)), [habits, insightsById]);
+    // A goal reached leaves the active lists: its card is done.
+    const goals = useMemo(() => {
+        const done = new Set(finished.map(item => item.goal.id));
+        return habits.filter(habit => habit.isGoal && !habit.isArchived && !done.has(habit.id));
+    }, [habits, finished]);
+
     const overall = goals.length
         ? Math.round(goals.reduce((sum, goal) => sum + (insightsById[goal.id]?.progress ?? 0), 0) / goals.length)
         : 0;
@@ -93,7 +107,7 @@ export function useGoalsInsights(): GoalsData {
     );
 
     return {
-        goals, habits, tasks, insightsById, overall, overallSeries, completions, skippedToday, setCompletion, today,
+        goals, finished, habits, tasks, insightsById, overall, overallSeries, completions, skippedToday, setCompletion, today,
         loaded: loaded && data.historyLoaded && data.tasksLoaded,
         history: merged, skips: mergedSkips,
     };

@@ -95,10 +95,10 @@ export async function announceDailyTarget(done: number, target: number): Promise
     emit('daily_target_reached', { done, target });
 }
 
-/** Announces a goal being finished, the first time it is. */
-export async function announceGoalComplete(goalId: string, name: string): Promise<void> {
+/** Announces a goal being finished, the first time it is; `count` is how many goals are done now, this one included. */
+export async function announceGoalComplete(goalId: string, name: string, count?: number): Promise<void> {
     if (!(await claimGoal(goalId))) return;
-    emit('goal_complete', { goalId, name });
+    emit('goal_complete', { goalId, name, ...(count ? { count } : null) });
 }
 
 /**
@@ -114,7 +114,8 @@ export async function checkMilestones(): Promise<void> {
             require('./habitsSQLite') as typeof import('./habitsSQLite');
         const { loadedData } = require('./dataStore') as typeof import('./dataStore');
         const { getDailyTarget, dailyFocus } = require('./dailyFocus') as typeof import('./dailyFocus');
-        const { goalProgress } = require('./goalInsights') as typeof import('./goalInsights');
+        const { buildGoalInsights, goalDoneOn } = require('./goalInsights') as typeof import('./goalInsights');
+        const { currentGoalLogs } = require('./goalLogs') as typeof import('./goalLogs');
         const { tallyDay, isDayComplete } = require('./dayComplete') as typeof import('./dayComplete');
 
         const today = localDateKey(new Date());
@@ -147,9 +148,14 @@ export async function checkMilestones(): Promise<void> {
         history[today] = Object.keys(completions).filter(id => completions[id]);
         skips[today] = Object.keys(skipped).filter(id => skipped[id]);
 
+        // Read the way every goal screen reads it (logs included), so the
+        // count here is the count on the profile.
+        const logs = currentGoalLogs();
+        const doneIds = habits.filter(habit => habit.isGoal)
+            .filter(goal => goalDoneOn(buildGoalInsights({ goal, habits, tasks, history, skips, logs: logs[goal.id], today })))
+            .map(goal => goal.id);
         for (const goal of goals) {
-            const progress = goalProgress({ goal, habits, tasks, history, skips, today });
-            if (progress >= 100) await announceGoalComplete(goal.id, goal.name);
+            if (doneIds.includes(goal.id)) await announceGoalComplete(goal.id, goal.name, doneIds.length);
         }
     } catch {
         // A missed celebration is not worth an error.

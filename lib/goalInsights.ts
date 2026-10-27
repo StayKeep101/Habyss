@@ -411,6 +411,14 @@ const wasSkipped = (skips: Record<string, string[]> | undefined, day: string, ha
     !!skips?.[day]?.includes(habitId);
 
 /** Progress today only; the cheap path for lists of goals. */
+/**
+ * The day a goal first reached its target, or null if it has not. A goal is
+ * done from that day on: off the active lists, a trophy on the profile.
+ */
+export function goalDoneOn(insights: GoalInsights | undefined): string | null {
+    return insights?.series.find(point => point.actual >= 100)?.date ?? null;
+}
+
 export function goalProgress(input: GoalInsightInput, rounded = true): number {
     const { done, total } = goalMeasure(input);
     const progress = total > 0 ? Math.min(100, (done / total) * 100) : 0;

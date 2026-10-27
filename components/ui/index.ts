@@ -26,7 +26,8 @@
  *
  * Content
  *   Avatar (a face: photo or initial, optional ring and badge), IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
- *   StatTile, ChartCard, HabitRow, ProgressRing, HalfCircleProgress, CheckPop
+ *   StatTile, ChartCard, HabitRow, ProgressRing, HalfCircleProgress, CheckPop,
+ *   Confetti (falls once from the top, for the biggest moments; none with Reduce Motion)
  *
  * Motion (how charts, bars and numbers move — use these, never a still bar)
  *   AnimatedFill   a bar's fill that grows in and slides to new values
@@ -95,3 +96,4 @@ export { DemonEdge } from './DemonEdge';
 export { DragDropProvider, Draggable, DropTarget } from './DragDrop';
 export { ChoiceSheet, type Choice } from './ChoiceSheet';
 export { CoachLayer } from './CoachMarks';
+export { Confetti } from './Confetti';
