@@ -3,11 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /** How the focus clock looks (Settings → Focus clock). */
 export type ClockStyle = 'digital' | 'ring' | 'minimal';
 export const CLOCK_STYLES: { id: ClockStyle; label: string }[] = [
-    { id: 'digital', label: 'Digital' }, { id: 'ring', label: 'Ring' }, { id: 'minimal', label: 'Minimal' },
+    { id: 'ring', label: 'Ring' }, { id: 'digital', label: 'Digital' }, { id: 'minimal', label: 'Minimal' },
 ];
 
 const KEY = 'habyss_focus_clock';
-let style: ClockStyle = 'digital';
+// The ring, with Habyss's mark in it, unless you choose otherwise.
+let style: ClockStyle = 'ring';
 let loaded = false;
 const listeners = new Set<() => void>();
 export const currentClockStyle = (): ClockStyle => style;

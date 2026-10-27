@@ -3,9 +3,10 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { IconButton } from '@/components/ui/IconButton';
+import { AppIcon } from '@/components/ui/AppIcon';
 import { MorphMenu, type MorphMenuHandle } from '@/components/ui/MorphMenu';
-import { AppButton } from '@/components/ui/AppButton';
 import { FocusClock } from '@/components/Focus/FocusClock';
 import { useFocusTime } from '@/context/FocusTimeContext';
 import { useFocusPlan } from '@/hooks/useFocusPlan';
@@ -181,9 +182,17 @@ function FocusScreen() {
     const stopwatch = focus.activeMode === 'flow';
     const progress = stopwatch || !focus.totalDuration ? null : 1 - focus.timeLeft / focus.totalDuration;
 
+    const overTime = stopwatch && focus.totalDuration < 3600 * 12;
+    const eyebrow = focus.isPaused ? 'Paused' : overTime ? 'Over time' : stopwatch ? 'Flow' : 'Focus';
+    const endsAt = !stopwatch && !focus.isPaused && focus.timeLeft > 0
+        ? new Date(Date.now() + focus.timeLeft * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : null;
+
     return (
         <Pressable style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom }]}
             onPress={toggle} onLongPress={active ? askEnd : undefined} delayLongPress={600} accessible={false}>
+            {/* A glow of your colour at the top, settling into black: the
+                screen stays mostly black, which an OLED screen spends nothing on. */}
+            <LinearGradient pointerEvents="none" colors={[`${primary}38`, `${primary}0F`, '#00000000']} locations={[0, 0.35, 0.7]} style={styles.glow} />
             <Animated.View style={[styles.top, chromeStyle]}>
                 {active ? (
                     <MorphMenu menuRef={endMenu} icon="close" iconColor="#FFFFFF" label="End focus" title="End focus?" titleIcon="timer" items={[
@@ -193,17 +202,27 @@ function FocusScreen() {
                 ) : (
                     <IconButton icon="close" label="Close" onPress={close} size={18} color="#FFFFFF" />
                 )}
-                <Text numberOfLines={1} style={styles.title}>{name}</Text>
                 <View style={styles.topSpacer} />
             </Animated.View>
 
             {active ? (
                 <View style={styles.center}>
-                    <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary}
-                        label={focus.isPaused ? 'Paused · tap to carry on' : stopwatch && focus.totalDuration < 3600 * 12 ? 'Over time' : undefined} />
-                    {/* Done with it: count it and go to the next thing in the day. */}
-                    <View style={styles.next}>
-                        <AppButton label="Done · Next" icon="arrow-forward" onPress={nextNow} />
+                    <View style={styles.heading}>
+                        <Text style={[styles.eyebrow, { color: primary }]}>{eyebrow}</Text>
+                        <Text numberOfLines={2} style={styles.name} accessibilityRole="header">{name}</Text>
+                    </View>
+                    <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused}
+                        label={focus.isPaused ? 'Tap anywhere to carry on' : endsAt ? `Ends at ${endsAt}` : undefined} />
+                    <View style={styles.controls}>
+                        <Pressable onPress={toggle} style={styles.play} accessibilityRole="button"
+                            accessibilityLabel={focus.isPaused ? 'Carry on' : 'Pause'}>
+                            <AppIcon name={focus.isPaused ? 'play' : 'pause'} filled size={30} color="#000000" />
+                        </Pressable>
+                        {/* Done with it: count it and go to the next thing in the day. */}
+                        <Pressable onPress={nextNow} style={styles.nextLink} accessibilityRole="button" accessibilityLabel="Done, go to the next thing">
+                            <Text style={styles.nextText}>Done · Next</Text>
+                            <AppIcon name="arrow-forward" size={16} color="rgba(255,255,255,0.75)" />
+                        </Pressable>
                     </View>
                 </View>
             ) : null}
