@@ -103,7 +103,8 @@ function GoalItemLine({ item, color, canTick, onToggle, onOpen }: {
  * small bar for each thing it asks (solid once done, faint until then), in
  * the colour of its kind. Tapping a day picks it; the day's card shows under
  * the grid, the way Calendar's month view works. Days outside the goal (before
- * it started, after its deadline) are faint and cannot be picked.
+ * it started, after its deadline) are not drawn, and a week with none of the
+ * goal's days is left out, so the calendar runs from its first day to its last.
  */
 export function GoalMonth({ month, days, selected, today, color, weekStartsMonday, inRange, onSelect, title }: {
     /** Any day in the month, YYYY-MM-DD. */
@@ -120,7 +121,7 @@ export function GoalMonth({ month, days, selected, today, color, weekStartsMonda
     const t = useTokens();
     const kindColor = useKindColor(color);
     const letters = weekStartsMonday ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-    const rows = monthGrid(month, weekStartsMonday);
+    const rows = monthGrid(month, weekStartsMonday).filter(row => row.some(key => !!key && inRange(key)));
     return (
         <View style={styles.month}>
             {title ? <Text style={[styles.monthTitle, { color: t.color.textPrimary }]} accessibilityRole="header">{title}</Text> : null}
@@ -132,19 +133,18 @@ export function GoalMonth({ month, days, selected, today, color, weekStartsMonda
             {rows.map((row, rowIndex) => (
                 <View key={rowIndex} style={styles.row}>
                     {row.map((key, column) => {
-                        if (!key) return <View key={column} style={styles.cell} />;
+                        if (!key || !inRange(key)) return <View key={column} style={styles.cell} />;
                         const day = days[key];
                         const items = day?.items ?? [];
-                        const open = inRange(key);
                         const isSelected = key === selected;
                         const isToday = key === today;
                         const shown = items.slice(0, 4);
                         const label = `${dateOf(key).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}. `
                             + (items.length ? items.map(item => `${item.title}${item.done ? ', done' : ''}`).join('; ') : 'Nothing planned');
                         return (
-                            <Pressable key={key} disabled={!open} onPress={() => onSelect(key)} style={styles.cell}
-                                accessibilityRole="button" accessibilityState={{ selected: isSelected, disabled: !open }} accessibilityLabel={label}>
-                                <PopIn index={rowIndex * 7 + column} style={[styles.cellInner, { opacity: open ? 1 : 0.3 },
+                            <Pressable key={key} onPress={() => onSelect(key)} style={styles.cell}
+                                accessibilityRole="button" accessibilityState={{ selected: isSelected }} accessibilityLabel={label}>
+                                <PopIn index={rowIndex * 7 + column} style={[styles.cellInner,
                                     isSelected ? { backgroundColor: t.color.surfaceRaised, borderColor: color } : { borderColor: 'transparent' }]}>
                                     <Text style={[styles.dayNumber, { color: isToday ? color : t.color.textPrimary, fontFamily: isToday || isSelected ? FontFamily.bold : FontFamily.medium }]}>
                                         {Number(key.slice(8))}

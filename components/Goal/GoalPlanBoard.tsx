@@ -105,12 +105,14 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
         const allTasks = [...insights.tasks.overdue, ...insights.tasks.upcoming, ...insights.tasks.undated, ...insights.tasks.completed];
         let from: string; let to: string;
         if (range === 'all') {
-            // From the start to the deadline; with none, as far as anything is
-            // planned, and at least to the end of this month.
+            // From the day it began to its deadline, and nothing either side;
+            // with no deadline, as far as anything is planned, and at least
+            // to the end of this month.
             const planned = [...allTasks.map(task => task.dueDate), ...milestones.map(milestone => milestone.dueDate)].filter((day): day is string => !!day).sort();
             const monthEnd = periodOf('month', 0, today, weekStartsMonday).to;
             from = insights.startDate;
-            to = [insights.endDate, monthEnd, planned[planned.length - 1] ?? ''].sort().pop()!;
+            to = insights.daysLeft !== null ? insights.endDate : [insights.endDate, monthEnd, planned[planned.length - 1] ?? ''].sort().pop()!;
+            if (to < from) to = from;
             // Two years of calendar at most; further than that is not a plan.
             const cap = addDays(from, 730);
             if (to > cap) to = cap;

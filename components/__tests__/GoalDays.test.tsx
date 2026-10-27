@@ -41,14 +41,16 @@ describe('a day of a goal', () => {
 });
 
 describe('a month of a goal', () => {
-    it('picks a day inside the goal and not one outside it', async () => {
+    it('picks a day inside the goal and draws none outside it', async () => {
         const onSelect = jest.fn();
         const screen = render(<GoalMonth month="2026-10-01" days={{ '2026-10-28': day('2026-10-28') }} selected={null} today="2026-10-26" color="#7aa2ff"
             weekStartsMonday inRange={key => key >= '2026-10-20'} onSelect={onSelect} />);
         fireEvent.press(screen.getByLabelText(/October 28.*Run; Buy shoes/));
         expect(onSelect).toHaveBeenCalledWith('2026-10-28');
-        fireEvent.press(screen.getByLabelText(/October 5\. Nothing planned/));
-        expect(onSelect).toHaveBeenCalledTimes(1);
+        // Days before the goal began are not drawn at all, nor weeks made only of them.
+        expect(screen.queryByLabelText(/October 19\./)).toBeNull();
+        expect(screen.queryByLabelText(/October 5\./)).toBeNull();
+        expect(screen.getByLabelText(/October 20\. Nothing planned/)).toBeTruthy();
         await act(async () => {});
     });
 });
