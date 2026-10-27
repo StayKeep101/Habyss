@@ -25,6 +25,7 @@
         "NSHealthShareUsageDescription": "Habyss reads your sleep from Apple Health — from Apple Watch, Garmin, Oura, Whoop or any sleep tracker — to fill in your sleep habits. Nothing else is read.",
         "NSHealthUpdateUsageDescription": "Habyss does not write to Apple Health.",
         "UIBackgroundModes": [
+          "audio",
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false,
