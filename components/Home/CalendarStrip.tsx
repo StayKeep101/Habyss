@@ -1,11 +1,8 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Dimensions, ListRenderItemInfo, Pressable } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Dimensions, ListRenderItemInfo } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
-import Animated, { ReduceMotion, interpolate, runOnJS, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { MONTH_HEAD, MONTH_ROW, MonthGrid, monthWeeks } from '@/components/Home/MonthGrid';
-import { useHaptics } from '@/hooks/useHaptics';
+import { useAnimatedProps } from 'react-native-reanimated';
 import { textOn } from '@/theme/tokens';
 import { AnimatedCircle, useProgress } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -154,9 +151,11 @@ const DateButtonComponent = ({
         </View>
 
         {/* At a glance: a yellow dot for a task's deadline, a white one for a
-            milestone, between the day and its name. Always the same height,
-            so every day's name stays on one line. */}
-        <View style={{ height: DOT, marginTop: 9, marginBottom: 3, flexDirection: 'row', gap: 3 }}>
+            milestone, between the day and its name; beside a goal's badge
+            when the day has one. Always the same small height, so every
+            day's name stays on one line, close under its ring. */}
+        <View style={{ height: DOT, marginTop: 4, marginBottom: 2, flexDirection: 'row', gap: 3,
+          ...(isDeadline ? { position: 'relative', left: deadlineSpan(deadlines.length) / 2 + 3 + DOT, top: -2 } : null) }}>
           {item.marks?.deadline ? <View style={{ width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: colors.warning }} /> : null}
           {item.marks?.milestone ? <View style={{ width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: colors.textPrimary }} /> : null}
         </View>
@@ -192,11 +191,14 @@ const FLAG_STEP = 13;
  * than a second selected day. Several goals due together sit side by side,
  * overlapping like a hand of cards; past three, the last says how many more.
  */
+/** How wide the badges of this many goals are together. */
+const deadlineSpan = (goals: number) => FLAG + (Math.min(goals, 3) - 1) * FLAG_STEP;
+
 const DeadlineFlags = ({ goals, cutout, muted }: { goals: DeadlineGoal[]; cutout: string; muted: string }) => {
   const shown = goals.length > 3 ? goals.slice(0, 2) : goals;
   const more = goals.length - shown.length;
   const count = shown.length + (more ? 1 : 0);
-  const span = FLAG + (count - 1) * FLAG_STEP;
+  const span = deadlineSpan(count);
   return (
     <View pointerEvents="none" style={{ position: 'absolute', bottom: -7, width: span, height: FLAG }}>
       {shown.map((goal, index) => (
@@ -356,43 +358,6 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
   const headerTitle = isTodaySelected ? 'Today' : selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
   const headerDate = selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-  // Pull the strip down and the whole month opens under it; push it back up,
-  // or pick a day, and it closes. The month starts at the selected day's.
-  const { selectionFeedback } = useHaptics();
-  const [month, setMonth] = useState(() => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 12));
-  const [monthOpen, setMonthOpen] = useState(false);
-  const [followed, setFollowed] = useState(selectedDate);
-  if (!monthOpen && followed !== selectedDate) {
-    setFollowed(selectedDate);
-    setMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 12));
-  }
-  const monthHeight = MONTH_HEAD + monthWeeks(month, startsMonday).length * MONTH_ROW;
-  const open = useSharedValue(0);
-  const grid = useSharedValue(monthHeight);
-  useEffect(() => { grid.set(monthHeight); }, [grid, monthHeight]);
-  const from = useSharedValue(0);
-  const SPRING = { damping: 22, stiffness: 220, reduceMotion: ReduceMotion.System };
-  const settle = useCallback((to: 0 | 1) => {
-    open.set(withSpring(to, SPRING));
-    setMonthOpen(to === 1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-  const announce = useCallback((opened: boolean) => { setMonthOpen(opened); selectionFeedback(); }, [selectionFeedback]);
-  const pull = useMemo(() => Gesture.Pan()
-    // Up and down only: a sideways swipe still changes the week.
-    .activeOffsetY([-12, 12]).failOffsetX([-16, 16])
-    .onBegin(() => { from.set(open.get()); })
-    .onUpdate(event => { open.set(Math.min(1, Math.max(0, from.get() + event.translationY / grid.get()))); })
-    .onEnd(event => {
-      const to = event.velocityY > 500 ? 1 : event.velocityY < -500 ? 0 : open.get() > 0.5 ? 1 : 0;
-      open.set(withSpring(to, SPRING));
-      runOnJS(announce)(to === 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }), [open, from, grid, announce]);
-  const sheet = useAnimatedStyle(() => ({ height: open.get() * grid.get(), opacity: interpolate(open.get(), [0, 0.3], [0, 1], 'clamp') }));
-  const grabber = useAnimatedStyle(() => ({ transform: [{ rotate: `${open.get() * 180}deg` }] }));
-  const goalDays = useMemo(() => Object.fromEntries(Object.entries(goalDeadlines).map(([day, goals]) => [day, goals[0]?.color ?? accentColor])), [goalDeadlines, accentColor]);
-
   const handlePrevWeek = () => {
     onSelectDate(addDays(selectedDate, -7));
   };
@@ -402,7 +367,6 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
   };
 
   return (
-    <GestureDetector gesture={pull}>
     <View style={{ paddingTop: 8, paddingBottom: 4, backgroundColor: 'transparent' }}
       onLayout={event => { const next = Math.round(event.nativeEvent.layout.width); if (next && next !== Math.round(pageWidth)) setPageWidth(next); }}>
       <View style={{ paddingHorizontal: 24, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -443,22 +407,6 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
         removeClippedSubviews
       />
 
-      <Animated.View style={[{ overflow: 'hidden' }, sheet]} pointerEvents={monthOpen ? 'auto' : 'none'}>
-        <MonthGrid month={month} selected={selectedDate} today={today} startsMonday={startsMonday}
-          marks={dayMarks} goalDays={goalDays} colors={colors} accent={accentColor}
-          onMonth={delta => { selectionFeedback(); setMonth(current => new Date(current.getFullYear(), current.getMonth() + delta, 1, 12)); }}
-          onSelect={date => { selectionFeedback(); onSelectDate(date); settle(0); }} />
-      </Animated.View>
-
-      {/* The handle: pull it (or the strip) down for the month, or tap it. */}
-      <Pressable onPress={() => { selectionFeedback(); settle(monthOpen ? 0 : 1); }} hitSlop={12}
-        accessibilityRole="button" accessibilityLabel={monthOpen ? 'Hide the month' : 'Show the month'}
-        style={{ alignSelf: 'center', height: 20, width: 64, alignItems: 'center', justifyContent: 'center' }}>
-        <Animated.View style={grabber}>
-          <Ionicons name="chevron-down" size={16} color={colors.textTertiary} />
-        </Animated.View>
-      </Pressable>
     </View>
-    </GestureDetector>
   );
 };
