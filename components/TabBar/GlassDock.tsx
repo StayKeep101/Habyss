@@ -283,12 +283,6 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
 
     return (
         <>
-        {/* A focus session left running sits on top of the dock, on every tab.
-            Beside the dock rather than inside it: iOS gives no touches to a
-            view drawn outside its parent. */}
-        <View pointerEvents="box-none" style={[styles.focusBar, { left: horizontalPadding, right: horizontalPadding, bottom: tabBarBottomOffset + Math.max(tabBarHeight, floatingButtonSize) + Spacing.sm }]}>
-            <FocusMiniBar />
-        </View>
         <View style={[
             styles.container,
             {
@@ -333,6 +327,13 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 <VoiceOrb size={floatingButtonSize} maxWidth={Math.max(floatingButtonSize, screenWidth - horizontalPadding * 2)}
                     colors={buttonColors} ink="#fff" />
             </View>
+        </View>
+        {/* A focus session left running sits on top of the dock, on every tab.
+            Beside the dock rather than inside it: iOS gives no touches to a
+            view drawn outside its parent. After it, so the dock's fade never
+            shades it. */}
+        <View pointerEvents="box-none" style={[styles.focusBar, { left: horizontalPadding, right: horizontalPadding, bottom: tabBarBottomOffset + Math.max(tabBarHeight, floatingButtonSize) + Spacing.sm }]}>
+            <FocusMiniBar />
         </View>
         </>
     );

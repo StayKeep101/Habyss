@@ -172,3 +172,20 @@ export function focusDuration(seconds: number): string {
 
 /** "9 am", "2 pm". */
 export const hourLabel = (hour: number) => `${hour % 12 || 12} ${hour < 12 ? 'am' : 'pm'}`;
+
+/**
+ * This week so far, from the day the week starts (Settings) to today, against
+ * the same days of last week: Monday to Wednesday against last Monday to
+ * Wednesday, so a week half gone is never measured against a whole one.
+ */
+export function weekSoFar(all: FocusRecord[], today: string, weekStart: string): { week: number; lastWeek: number; change: number } {
+    const lastStart = shift(weekStart, -7);
+    const lastToday = shift(today, -7);
+    let week = 0;
+    let lastWeek = 0;
+    for (const row of all) {
+        if (row.date >= weekStart && row.date <= today) week += row.seconds;
+        else if (row.date >= lastStart && row.date <= lastToday) lastWeek += row.seconds;
+    }
+    return { week, lastWeek, change: week - lastWeek };
+}

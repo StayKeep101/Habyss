@@ -33,6 +33,11 @@ interface Props {
      * line. Marks are drawn this way.
      */
     unbounded?: boolean;
+    /**
+     * The dashed line of where a steady plan would be. On by default, for the
+     * goal's own page; an overview leaves it off and shows just your line.
+     */
+    pace?: boolean;
     /** What the line is, for VoiceOver. */
     label?: string;
     /**
@@ -53,7 +58,7 @@ interface Props {
  * were still dragging. A pan gesture that gives vertical movement to the page
  * and keeps horizontal movement for itself does not have to fight anybody.
  */
-export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact, unbounded, label, sticky = true, ranges: offered, initialRange = 'ALL' }) => {
+export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact, unbounded, pace: showPace = true, label, sticky = true, ranges: offered, initialRange = 'ALL' }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
@@ -73,7 +78,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
 
     const geometry = useMemo(() => {
         if (width === 0 || visible.length === 0) return null;
-        const values = unbounded ? visible.map(point => point.actual) : visible.flatMap(point => [point.actual, point.pace]);
+        const values = unbounded || !showPace ? visible.map(point => point.actual) : visible.flatMap(point => [point.actual, point.pace]);
         let min = Math.min(...values);
         let max = Math.max(...values);
         // Leave room so a flat line is not glued to an edge.
@@ -96,7 +101,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
         // React where the curve is on every frame.
         const ys = visible.map(point => y(point.actual));
         return { x, y, actual, area, pace: line('pace'), ys };
-    }, [visible, width, height, unbounded]);
+    }, [visible, width, height, unbounded, showPace]);
 
     const last = visible.length - 1;
     const dotY = useSharedValue(0);
@@ -129,7 +134,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
             accessibilityLabel={unbounded && visible.length
                 ? `${label ?? 'Chart'}. ${visible[last].actual} now. Drag across it to read any day.`
                 : visible.length
-                ? `Progress chart. ${visible[last].actual}% done, pace ${visible[last].pace}%. Drag across it to read any day.`
+                ? `Progress chart. ${visible[last].actual}% done${showPace ? `, pace ${visible[last].pace}%` : ''}. Drag across it to read any day.`
                 : 'Progress chart, no data yet.'}
         >
             {geometry ? (
@@ -143,7 +148,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
                             </LinearGradient>
                         </Defs>
                         <Path d={geometry.area} fill={`url(#${gradientId})`} />
-                        {unbounded ? null : <Path d={geometry.pace} stroke={colors.textTertiary} strokeWidth={1.5} strokeDasharray="4 5" fill="none" />}
+                        {unbounded || !showPace ? null : <Path d={geometry.pace} stroke={colors.textTertiary} strokeWidth={1.5} strokeDasharray="4 5" fill="none" />}
                         <Path d={geometry.actual} stroke={color} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
                     </Svg>
                     </Reveal>

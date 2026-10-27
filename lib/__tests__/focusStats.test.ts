@@ -72,3 +72,17 @@ describe('labels', () => {
         expect(hourLabel(14)).toBe('2 pm');
     });
 });
+
+describe('weekSoFar', () => {
+    const { weekSoFar } = require('../focusStats') as typeof import('../focusStats');
+    const row = (date: string, seconds: number) => ({ itemId: 'a', startedAt: `${date}T09:00:00`, date, seconds, completed: true, mode: 'flow' });
+    it('compares the week so far with the same days of last week', () => {
+        // Wednesday Oct 28, weeks from Monday.
+        const all = [row('2026-10-26', 600), row('2026-10-28', 300), row('2026-10-19', 200), row('2026-10-22', 900), row('2026-10-25', 50)];
+        expect(weekSoFar(all, '2026-10-28', '2026-10-26')).toEqual({ week: 900, lastWeek: 200, change: 700 });
+    });
+    it('starts on Sunday when the week does', () => {
+        const all = [row('2026-10-25', 50), row('2026-10-26', 600)];
+        expect(weekSoFar(all, '2026-10-26', '2026-10-25').week).toBe(650);
+    });
+});

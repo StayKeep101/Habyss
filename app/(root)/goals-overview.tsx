@@ -83,13 +83,8 @@ export default function GoalsOverview() {
 
                         {overallSeries.length > 1 ? (
                             <View style={styles.chart}>
-                                <GoalProgressChart series={overallSeries} color={accent} onScrub={setScrub} />
-                                <View style={styles.legend}>
-                                    <View style={[styles.legendLine, { backgroundColor: accent }]} />
-                                    <Text style={[styles.legendText, { color: colors.textSecondary }]}>You</Text>
-                                    <View style={[styles.legendLine, styles.legendDashed, { borderColor: colors.textTertiary }]} />
-                                    <Text style={[styles.legendText, { color: colors.textSecondary }]}>Where you should be</Text>
-                                </View>
+                                {/* Just your line here; where you should be is on each goal's own page. */}
+                                <GoalProgressChart series={overallSeries} color={accent} onScrub={setScrub} pace={false} height={140} />
                             </View>
                         ) : null}
 
@@ -98,8 +93,10 @@ export default function GoalsOverview() {
                             {list.map(({ goal, insights }) => {
                                 const color = goal.color || accent;
                                 const state = verdict(insights, colors);
-                                const next = paceLine(insights.measure)
-                                    ?? (insights.daysLeft !== null ? `${insights.daysLeft} days left` : null);
+                                // What it asks next, only for a goal with a number to reach;
+                                // otherwise how long is left.
+                                const next = (insights.measure.total > 0 ? paceLine(insights.measure) : null)
+                                    ?? (insights.daysLeft !== null ? (insights.daysLeft === 1 ? '1 day left' : `${insights.daysLeft} days left`) : null);
                                 return (
                                     <ListItem key={goal.id}><Pressable
                                         key={goal.id}
@@ -114,19 +111,20 @@ export default function GoalsOverview() {
                                         {/* The goal's own line, in its own colour; a bar until it has two days. */}
                                         {insights.series.length > 1 ? (
                                             <View pointerEvents="none" style={styles.miniChart}>
-                                                <GoalProgressChart series={insights.series} color={color} compact height={64} label={`${goal.name} progress`} />
+                                                <GoalProgressChart series={insights.series} color={color} compact pace={false} height={48} label={`${goal.name} progress`} />
                                             </View>
                                         ) : (
                                             <View style={[styles.bar, { backgroundColor: track }]}>
                                                 <AnimatedFill progress={Math.min(100, insights.progress) / 100} style={[styles.fill, { backgroundColor: color }]} />
                                             </View>
                                         )}
+                                        {/* One quiet line: a dot of the state's colour, its word, then what is next. */}
                                         <View style={styles.rowBottom}>
-                                            <View style={[styles.pill, { backgroundColor: state.color + '1F' }]}>
-                                                <View style={[styles.dot, { backgroundColor: state.color }]} />
-                                                <Text style={[styles.pillText, { color: state.color }]}>{state.label}</Text>
-                                            </View>
-                                            {next ? <Text numberOfLines={1} style={[styles.next, { color: colors.textSecondary }]}>{next}</Text> : null}
+                                            <View style={[styles.dot, { backgroundColor: state.color }]} />
+                                            <Text numberOfLines={1} style={styles.status}>
+                                                <Text style={{ color: colors.textPrimary }}>{state.label}</Text>
+                                                {next ? <Text style={{ color: colors.textTertiary }}>{`  ·  ${next}`}</Text> : null}
+                                            </Text>
                                         </View>
                                     </VoidCard></Pressable></ListItem>
                                 );

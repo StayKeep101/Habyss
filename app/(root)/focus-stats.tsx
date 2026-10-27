@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { AnimatedFill, CountUp, ListItem, useProgress } from '@/components/ui/Motion';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { ChoiceRow } from '@/components/ui/ChoiceRow';
+import { IconButton } from '@/components/ui/IconButton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { SectionTitle } from '@/components/ui/SectionTitle';
@@ -16,20 +17,28 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useFocusRecords } from '@/hooks/useFocusRecords';
-import { focusDuration, focusSummary, hourLabel, shiftDay } from '@/lib/focusStats';
+import { useWeekStart } from '@/hooks/useWeekStart';
+import { useHaptics } from '@/hooks/useHaptics';
+import { focusDuration, focusSummary, hourLabel, shiftDay, weekSoFar } from '@/lib/focusStats';
+import { localDateKey } from '@/lib/habitSchedule';
+import { startOfWeek } from '@/lib/weekStart';
 import { getHabits, type Habit } from '@/lib/habitsSQLite';
 import { todayKey } from '@/lib/tasks';
 import { styles } from '@/styles/screens/focus-stats.styles';
 
 type Range = 7 | 30;
 const dayLetter = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'narrow' });
+const longDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 const shortDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
 /**
  * Where your focus time goes.
  *
- * The big number is this week's focus, and beside it whether that is more or
- * less than last week. Underneath, a bar per day (7 or 30), then plain
+ * The big number is this week's focus so far (the week starting on the day
+ * set in Settings), and beside it the change against the same days of last
+ * week. Underneath, a bar per day: the week, Monday (or Sunday) to its end, or
+ * the last 30 days. Drag a finger along the bars and the big number follows
+ * it, day by day, like a stock chart; the arrows go back in time. Then plain
  * numbers — days in a row, longest session, how often you finish, your best
  * hour — and which habits and tasks took the time.
  */
@@ -46,16 +55,40 @@ export default function FocusStatsScreen() {
     const [range, setRange] = useState<Range>(7);
     const today = todayKey();
     const summary = useMemo(() => focusSummary(records, today, range), [records, today, range]);
-    // The chart pages back through time: swipe right for the week (or month)
-    // before, left to come back. A tapped bar shows that one day.
+    const weekStart = useWeekStart();
+    const weekFrom = useMemo(() => localDateKey(startOfWeek(new Date(`${today}T12:00:00`), weekStart)), [today, weekStart]);
+    const soFar = useMemo(() => weekSoFar(records, today, weekFrom), [records, today, weekFrom]);
+    // The arrows page back through time, a week (or 30 days) at a time.
     const [page, setPage] = useState(0);
     const [picked, setPicked] = useState<string | null>(null);
     useEffect(() => { setPage(0); setPicked(null); }, [range]);
-    const end = shiftDay(today, -page * range);
+    // A week is the calendar week, its first day from Settings; 30 days end today.
+    const end = range === 7 ? shiftDay(weekFrom, 6 - page * 7) : shiftDay(today, -page * range);
     const shown = useMemo(() => focusSummary(records, end, range), [records, end, range]);
-    const turn = (by: number) => { setPage(current => Math.max(0, current + by)); setPicked(null); };
-    const swipe = Gesture.Pan().runOnJS(true).activeOffsetX([-24, 24]).failOffsetY([-14, 14])
-        .onEnd(event => { if (event.translationX > 50) turn(1); else if (event.translationX < -50) turn(-1); });
+    const turn = (by: number) => { selectionFeedback(); setPage(current => Math.max(0, current + by)); setPicked(null); };
+    // Touch or drag along the bars: the day under the finger is picked, and
+    // stays picked when the finger lifts. Tapping it again lets it go.
+    const { selectionFeedback } = useHaptics();
+    const chartWidth = useRef(1);
+    const dayAt = (x: number) => {
+        const index = Math.max(0, Math.min(shown.days.length - 1, Math.floor((x / chartWidth.current) * shown.days.length)));
+        const day = shown.days[index].date;
+        return day > today ? null : day;
+    };
+    const follow = (x: number) => {
+        const day = dayAt(x);
+        if (!day) return;
+        setPicked(current => { if (current !== day) selectionFeedback(); return day; });
+    };
+    const scrub = Gesture.Pan().runOnJS(true).activeOffsetX([-6, 6]).failOffsetY([-12, 12])
+        .onStart(event => follow(event.x)).onUpdate(event => follow(event.x));
+    const tap = Gesture.Tap().runOnJS(true).onEnd(event => {
+        const day = dayAt(event.x);
+        if (!day) return;
+        selectionFeedback();
+        setPicked(current => (current === day ? null : day));
+    });
+    const touch = Gesture.Race(scrub, tap);
     const pickedDay = picked ? shown.days.find(day => day.date === picked) : undefined;
     const dayItems = useMemo(() => {
         if (!picked) return null;
@@ -64,11 +97,13 @@ export default function FocusStatsScreen() {
         return [...totals.entries()].map(([itemId, seconds]) => ({ itemId, seconds, sessions: 0 })).sort((a, b) => b.seconds - a.seconds);
     }, [records, picked]);
     const listed = dayItems ?? shown.items;
-    const replay = `${range}-${page}-${picked ?? ''}`;
+    // Picking a day only lights its bar; the bars replay when the days change.
+    const replay = `${range}-${page}`;
+    const listReplay = `${replay}-${picked ?? ''}`;
     const nameOf = (id: string) => habits.find(habit => habit.id === id)?.name ?? tasks.find(task => task.id === id)?.title ?? 'Removed';
 
-    const up = summary.change > 0;
-    const down = summary.change < 0;
+    const up = soFar.change > 0;
+    const down = soFar.change < 0;
     const trendColor = up ? colors.success : down ? colors.error : colors.textTertiary;
     const ceiling = Math.max(1, ...shown.days.map(day => day.seconds));
     const topItem = listed[0]?.seconds ?? 1;
@@ -77,15 +112,23 @@ export default function FocusStatsScreen() {
         <SheetScreen title="Focus" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <View style={styles.hero}>
-                    <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={focusDuration(summary.week)} />
+                    {/* The week, or the day under your finger. */}
+                    {pickedDay ? (
+                        <Text style={[styles.heroValue, { color: colors.textPrimary }]}>{focusDuration(pickedDay.seconds)}</Text>
+                    ) : (
+                        <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={focusDuration(soFar.week)} />
+                    )}
                     <View style={styles.trendRow}>
-                        <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>this week</Text>
-                        <View style={[styles.trend, { borderColor: trendColor }]}>
-                            <AppIcon name={up ? 'arrow-up' : down ? 'arrow-down' : 'remove'} size={12} color={trendColor} />
-                            <Text style={[styles.trendText, { color: trendColor }]}>
-                                {summary.change === 0 ? 'Same as last week' : `${focusDuration(Math.abs(summary.change))} vs last week`}
-                            </Text>
-                        </View>
+                        <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{pickedDay ? longDay(pickedDay.date) : 'this week'}</Text>
+                        {pickedDay ? null : (
+                            <View style={styles.trend} accessible accessibilityLabel={soFar.change === 0 ? 'Same as last week' : `${up ? 'Up' : 'Down'} ${focusDuration(Math.abs(soFar.change))} on last week`}>
+                                <AppIcon name={up ? 'caret-up' : down ? 'caret-down' : 'remove'} size={11} color={trendColor} />
+                                <Text style={[styles.trendValue, { color: trendColor }]}>
+                                    {soFar.change === 0 ? '0m' : `${up ? '+' : '−'}${focusDuration(Math.abs(soFar.change))}`}
+                                </Text>
+                                <Text style={[styles.trendText, { color: colors.textTertiary }]}>vs last week</Text>
+                            </View>
+                        )}
                     </View>
                 </View>
 
@@ -95,21 +138,25 @@ export default function FocusStatsScreen() {
                     <>
                         <ChoiceRow accessibilityLabel="Days shown" value={range} onChange={setRange}
                             options={[{ id: 7 as Range, label: '7 days' }, { id: 30 as Range, label: '30 days' }]} />
-                        <Text style={[styles.windowLabel, { color: colors.textSecondary }]}>
-                            {pickedDay ? `${shortDay(pickedDay.date)} · ${focusDuration(pickedDay.seconds)}`
-                                : page === 0 ? (range === 7 ? 'Last 7 days' : 'Last 30 days')
-                                : `${shortDay(shown.days[0].date)} – ${shortDay(shown.days[shown.days.length - 1].date)}`}
-                        </Text>
-                        <GestureDetector gesture={swipe}>
-                            <View style={styles.chart} accessible accessibilityRole="adjustable"
-                                accessibilityLabel={`Focus per day: ${shown.days.map(day => focusDuration(day.seconds)).join(', ')}`}
-                                accessibilityHint="Swipe right for earlier days"
+                        <View style={styles.window}>
+                            <IconButton icon="chevron-back" label={range === 7 ? 'Previous week' : 'Previous 30 days'} diameter={32} size={16} onPress={() => turn(1)} />
+                            <Text style={[styles.windowLabel, { color: colors.textSecondary }]}>
+                                {page === 0 ? (range === 7 ? 'This week' : 'Last 30 days')
+                                    : `${shortDay(shown.days[0].date)} – ${shortDay(shown.days[shown.days.length - 1].date)}`}
+                            </Text>
+                            <IconButton icon="chevron-forward" label={range === 7 ? 'Next week' : 'Next 30 days'} diameter={32} size={16} disabled={page === 0} onPress={() => turn(-1)} />
+                        </View>
+                        <GestureDetector gesture={touch}>
+                            <View style={styles.chart} onLayout={event => { chartWidth.current = Math.max(1, event.nativeEvent.layout.width); }}
+                                accessible accessibilityRole="adjustable"
+                                accessibilityLabel={`Focus per day: ${shown.days.map(day => `${longDay(day.date)} ${focusDuration(day.seconds)}`).join(', ')}`}
+                                accessibilityHint="Touch and drag along the bars to read each day"
                                 accessibilityActions={[{ name: 'increment', label: 'Later' }, { name: 'decrement', label: 'Earlier' }]}
                                 onAccessibilityAction={event => turn(event.nativeEvent.actionName === 'decrement' ? 1 : -1)}>
                                 {shown.days.map((day, index) => (
-                                    <DayBar key={`${replay}-${day.date}`} share={day.seconds / ceiling} index={index} replay={replay}
+                                    <DayBar key={`${replay}-${day.date}`} share={day.date > today ? 0 : day.seconds / ceiling} index={index} replay={replay}
                                         tint={day.seconds ? primary : colors.border} lit={picked ? day.date === picked : day.date === today}
-                                        onPress={() => setPicked(current => (current === day.date ? null : day.date))} />
+                                        dim={!!picked && day.date !== picked} />
                                 ))}
                             </View>
                         </GestureDetector>
@@ -146,10 +193,10 @@ export default function FocusStatsScreen() {
                                             <View style={styles.item}>
                                                 <View style={styles.itemTop}>
                                                     <Text numberOfLines={1} style={[styles.itemName, { color: colors.textPrimary }]}>{nameOf(item.itemId)}</Text>
-                                                    <CountUp style={[styles.itemValue, { color: colors.textSecondary }]} value={focusDuration(item.seconds)} replay={replay} />
+                                                    <CountUp style={[styles.itemValue, { color: colors.textSecondary }]} value={focusDuration(item.seconds)} replay={listReplay} />
                                                 </View>
                                                 <View style={[styles.track, { backgroundColor: colors.border }]}>
-                                                    <AnimatedFill progress={item.seconds / topItem} delay={index * 60} replay={replay}
+                                                    <AnimatedFill progress={item.seconds / topItem} delay={index * 60} replay={listReplay}
                                                         style={[styles.fill, { backgroundColor: primary }]} />
                                                 </View>
                                             </View>
@@ -176,12 +223,13 @@ const NumberRow = ({ label, value }: { label: string; value: string }) => {
     );
 };
 
-const DayBar = ({ share, index, replay, tint, lit, onPress }: { share: number; index: number; replay: unknown; tint: string; lit: boolean; onPress: () => void }) => {
+/** One day's bar. The picked day stays bright and the rest step back. */
+const DayBar = ({ share, index, replay, tint, lit, dim }: { share: number; index: number; replay: unknown; tint: string; lit: boolean; dim: boolean }) => {
     const grown = useProgress(Math.max(share, 0.03), index * 25, replay);
     const height = useAnimatedStyle(() => ({ height: `${grown.get() * 100}%` }));
     return (
-        <Pressable style={styles.barTrack} onPress={onPress} hitSlop={4}>
-            <Animated.View style={[styles.bar, height, { backgroundColor: tint, opacity: lit ? 1 : 0.6 }]} />
-        </Pressable>
+        <View style={styles.barTrack} pointerEvents="none">
+            <Animated.View style={[styles.bar, height, { backgroundColor: tint, opacity: lit ? 1 : dim ? 0.3 : 0.6 }]} />
+        </View>
     );
 };

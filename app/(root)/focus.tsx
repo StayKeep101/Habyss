@@ -132,7 +132,11 @@ function FocusScreen() {
     };
     const started = useRef(false);
     useEffect(() => {
-        if (started.current || active || !id) return;
+        // Opened on a session already running (from the bar over the tab bar,
+        // say): that is the one this page shows, so ending it must not start
+        // a fresh one here as the page closes.
+        if (active) started.current = true;
+        if (started.current || leaving.current || !id) return;
         if (!timesRead) return; // wait for the item and today's timeline
         started.current = true;
         start();
