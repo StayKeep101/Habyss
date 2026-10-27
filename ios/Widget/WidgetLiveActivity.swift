@@ -12,99 +12,84 @@ import SwiftUI
 struct HabyssLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: WidgetAttributes.self) { context in
-            // Lock Screen: what it is, how long is left, and a thin bar. Nothing else.
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .center, spacing: 12) {
-                    HabyssMark(size: 26)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(context.state.title)
-                            .font(.system(size: 17, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        StatusLine(state: context.state, stale: context.isStale)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Habyss.dim)
-                            .lineLimit(1)
-                    }
-                    Spacer(minLength: 8)
+            // Lock Screen: the focus page, smaller. The ring with the Habyss
+            // mark filling as the time goes, a quiet word in your colour over
+            // the name, and the digits, big. Nothing else.
+            let accent = Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo
+            HStack(alignment: .center, spacing: 16) {
+                FocusRing(state: context.state, total: context.attributes.totalDurationSeconds, accent: accent, size: 64, mark: 26)
+                VStack(alignment: .leading, spacing: 0) {
+                    StatusLine(state: context.state, stale: context.isStale)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(accent)
+                        .lineLimit(1)
+                    Text(context.state.title)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .lineLimit(1)
                     TimeLeft(state: context.state, stale: context.isStale)
-                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(.white)
-                        .multilineTextAlignment(.trailing)
-                        .frame(maxWidth: 120, alignment: .trailing)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
-                ActivityProgress(state: context.state)
-                    .tint(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
-            // The app's matte card: lit at the top, falling off below.
-            .background(LinearGradient(colors: [Habyss.matteTop, Habyss.matteMid, Habyss.matteBottom], startPoint: .top, endPoint: .bottom))
-            .activityBackgroundTint(Habyss.matteMid)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 18)
+            // The focus page's night: a little of the sky at the top, black below.
+            .background(LinearGradient(colors: [Habyss.night, .black], startPoint: .top, endPoint: .bottom))
+            .activityBackgroundTint(.black)
             .activitySystemActionForegroundColor(.white)
             .widgetURL(URL(string: context.state.url ?? "habyss://home"))
 
         } dynamicIsland: { context in
-            DynamicIsland {
+            let accent = Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo
+            return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    HStack(spacing: 8) {
-                        HabyssMark(size: 22)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(context.state.title).font(.system(size: 15, weight: .semibold, design: .rounded)).lineLimit(1)
-                            StatusLine(state: context.state, stale: context.isStale)
-                                .font(.system(size: 12, weight: .medium)).foregroundStyle(Habyss.dim).lineLimit(1)
-                        }
-                    }
-                    .padding(.leading, 4)
+                    FocusRing(state: context.state, total: context.attributes.totalDurationSeconds, accent: accent, size: 52, mark: 20)
+                        .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    TimeLeft(state: context.state, stale: context.isStale)
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                        .multilineTextAlignment(.trailing)
-                        .frame(maxWidth: 90, alignment: .trailing)
-                        .padding(.trailing, 4)
+                    VStack(alignment: .trailing, spacing: 0) {
+                        StatusLine(state: context.state, stale: context.isStale)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(accent)
+                            .lineLimit(1)
+                        TimeLeft(state: context.state, stale: context.isStale)
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .multilineTextAlignment(.trailing)
+                            .frame(maxWidth: 120, alignment: .trailing)
+                    }
+                    .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    ActivityProgress(state: context.state)
-                        .tint(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
-                        .padding(.horizontal, 4)
+                    Text(context.state.title)
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Habyss.dim)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 6)
                 }
             } compactLeading: {
-                if let imagePath = context.state.profileImagePath,
-                   let image = getSharedImage(named: imagePath) {
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 20, height: 20)
-                        .clipShape(Circle())
-                } else {
-                    HabyssMark()
-                }
+                HabyssMark(size: 18)
             } compactTrailing: {
                 TimeLeft(state: context.state, stale: context.isStale)
                     .monospacedDigit()
-                    .foregroundStyle(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(accent)
                     .frame(maxWidth: 56)
                     .minimumScaleFactor(0.8)
             } minimal: {
-                if let imagePath = context.state.profileImagePath,
-                   let image = getSharedImage(named: imagePath) {
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 20, height: 20)
-                        .clipShape(Circle())
-                } else {
-                    HabyssMark()
-                }
+                FocusRing(state: context.state, total: context.attributes.totalDurationSeconds, accent: accent, size: 22, mark: 10)
             }
             .widgetURL(URL(string: context.state.url ?? "habyss://home"))
-            .keylineTint(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
+            .keylineTint(accent)
         }
     }
-    
+
     func getSharedImage(named filename: String) -> Image? {
         guard let containerUrl = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.habyss.data") else {
             return nil
@@ -128,7 +113,43 @@ private struct HabyssMark: View {
     }
 }
 
-/// When it is: "Now · until 6:07 PM", "Next · 6:30 PM", "Focusing", or "Check in" once its time is over.
+/// The focus page's ring: the Habyss mark in the middle, the arc filling in your colour as the time goes.
+private struct FocusRing: View {
+    let state: WidgetAttributes.ContentState
+    let total: Double?
+    let accent: Color
+    let size: CGFloat
+    let mark: CGFloat
+    var body: some View {
+        ZStack {
+            Group {
+                if let span = interval {
+                    ProgressView(timerInterval: span, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
+                } else {
+                    ProgressView(value: min(1, max(0, state.progress)))
+                }
+            }
+            .progressViewStyle(.circular)
+            .tint(accent)
+            HabyssMark(size: mark)
+        }
+        .frame(width: size, height: size)
+    }
+
+    /// From its start to its end: a focus timer runs back from its end by its length.
+    private var interval: ClosedRange<Date>? {
+        if let end = state.timerEndDateInMilliseconds, let total, total > 0 {
+            let ends = Date(timeIntervalSince1970: end / 1000)
+            return ends.addingTimeInterval(-total)...ends
+        }
+        if let start = state.scheduledStartDateInMilliseconds, let end = state.scheduledEndDateInMilliseconds, end > start {
+            return Date(timeIntervalSince1970: start / 1000)...Date(timeIntervalSince1970: end / 1000)
+        }
+        return nil
+    }
+}
+
+/// When it is: "Now · until 6:07 PM", "Next · 6:30 PM", "Focus", or "Check in" once its time is over.
 private struct StatusLine: View {
     let state: WidgetAttributes.ContentState
     let stale: Bool
@@ -145,7 +166,7 @@ private struct StatusLine: View {
                 Text("Now")
             }
         } else if state.timerEndDateInMilliseconds != nil {
-            Text("Focusing")
+            Text("Focus")
         } else {
             Text("\(Int(state.progress * 100))% done")
         }
@@ -175,22 +196,6 @@ private struct TimeLeft: View {
             }
         } else {
             Text("\(Int(state.progress * 100))%")
-        }
-    }
-}
-
-private struct ActivityProgress: View {
-    let state: WidgetAttributes.ContentState
-    var body: some View {
-        if let start = state.scheduledStartDateInMilliseconds,
-           let end = state.scheduledEndDateInMilliseconds, end > start {
-            ProgressView(timerInterval: Date(timeIntervalSince1970: start / 1000)...Date(timeIntervalSince1970: end / 1000), countsDown: false) {
-                EmptyView()
-            } currentValueLabel: {
-                EmptyView()
-            }
-        } else {
-            ProgressView(value: min(1, max(0, state.progress)))
         }
     }
 }

@@ -35,6 +35,8 @@ enum Habyss {
     static let void = Color(.sRGB, red: 0.043, green: 0.047, blue: 0.055)
     static let line = Color.white.opacity(0.10)
     static let dim = Color.white.opacity(0.55)
+    /// The focus page's sky at the top of the screen, fading to black.
+    static let night = Color(.sRGB, red: 0.067, green: 0.086, blue: 0.161)
     static let faint = Color.white.opacity(0.32)
     static let done = Color(.sRGB, red: 0.06, green: 0.72, blue: 0.51)
     /// Falls back to the default gradient when the app has not written one yet.
