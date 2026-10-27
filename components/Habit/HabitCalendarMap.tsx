@@ -7,6 +7,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { localDateKey } from '@/lib/habitSchedule';
 import { useWeekStart } from '@/hooks/useWeekStart';
 import { textOn } from '@/theme/tokens';
+import { habitRecord } from '@/lib/habitRecord';
 
 interface Day { date: string; completed: boolean; skipped: boolean; scheduled: boolean }
 
@@ -18,6 +19,8 @@ interface Props {
     today: string;
     /** Page padding on each side, so the grid fills exactly the space it has. */
     inset: number;
+    /** Its four numbers on top; off where the page shows them itself. */
+    showStats?: boolean;
 }
 
 const MONDAY_FIRST = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -42,7 +45,7 @@ const addDays = (date: Date, days: number) => new Date(date.getFullYear(), date.
  * sits where the month begins. A day done is a solid square in the habit's
  * colour; a day it was due and not done is just an outline.
  */
-export function HabitCalendarMap({ history, color, startDate, today, inset }: Props) {
+export function HabitCalendarMap({ history, color, startDate, today, inset, showStats = true }: Props) {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { width } = useWindowDimensions();
@@ -51,20 +54,9 @@ export function HabitCalendarMap({ history, color, startDate, today, inset }: Pr
     const cell = Math.floor((width - inset * 2 - GAP * 6) / 7);
     const byDate = useMemo(() => new Map(history.map(day => [day.date, day])), [history]);
 
-    const stats = useMemo(() => {
-        const sorted = [...history].filter(day => (!startDate || day.date >= startDate) && day.date <= today)
-            .sort((a, b) => a.date.localeCompare(b.date));
-        let best = 0; let run = 0; let due = 0; let kept = 0;
-        for (const day of sorted) {
-            if (day.completed) kept++;
-            if (!day.scheduled || day.skipped) continue;
-            if (day.date === today && !day.completed) continue;
-            due++;
-            run = day.completed ? run + 1 : 0;
-            best = Math.max(best, run);
-        }
-        return { streak: run, best, kept, rate: due ? Math.round((sorted.filter(day => day.completed && day.scheduled).length / due) * 100) : null };
-    }, [history, startDate, today]);
+    // The same record the habit page reads (lib/habitRecord.ts).
+    const record = useMemo(() => habitRecord(history, today, startDate, startsMonday), [history, today, startDate, startsMonday]);
+    const stats = { streak: record.streak, best: record.best, kept: record.done, rate: record.rate };
 
     // Weeks from the one it began in to this one, oldest first, with a month's
     // name before the week its first day falls in; then turned over, so the
@@ -95,12 +87,12 @@ export function HabitCalendarMap({ history, color, startDate, today, inset }: Pr
 
     return (
         <View style={styles.wrap}>
-            <View style={styles.stats}>
+            {showStats ? <View style={styles.stats}>
                 <Stat value={String(stats.streak)} label="Streak" color={color} />
                 <Stat value={String(stats.best)} label="Best" />
                 <Stat value={stats.rate === null ? '—' : `${stats.rate}%`} label="Kept" />
                 <Stat value={String(stats.kept)} label="Days done" />
-            </View>
+            </View> : null}
 
             <View style={[styles.row, { gap: GAP }]}>
                 {weekdays.map((letter, index) => (

@@ -8,7 +8,8 @@ export const styles = StyleSheet.create({
     /** The focus button, in the bottom-right corner. */
     focusCorner: { position: 'absolute', right: 20, bottom: 28 },
     headerActions: { flexDirection: 'row', gap: 4 },
-    content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 112, gap: 14 },
+    content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 64, gap: 24 },
+    danger: { marginTop: 16 },
     empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
     retry: { minHeight: 44, padding: 12, alignItems: 'center', justifyContent: 'center' },
     rhythm: { paddingVertical: 12, paddingHorizontal: 10 },
