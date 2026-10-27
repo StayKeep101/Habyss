@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
@@ -41,11 +41,7 @@ export default function TimelineSettingsScreen() {
     return (
         <SheetScreen title="Timeline" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <Text style={[t.type.bodySmall, { color: t.color.textMuted }]}>
-                    Habits and tasks are fitted into your day, most urgent first, between waking and bedtime, and moved along when something is not done in time. Waking and bedtime never move; calendar events never move; meals only move if you let them.
-                </Text>
-
-                <SectionTitle>Your day</SectionTitle>
+                <SectionTitle first>Your day</SectionTitle>
                 <View>
                     <TimeRow icon="sunny-outline" label="Wake up" value={day.wake} accent={t.color.accent} onChange={time => saveDay({ ...day, wake: time })} />
                     <TimeRow icon="moon-outline" label="Bedtime" value={day.sleep} accent={t.color.accent} onChange={time => saveDay({ ...day, sleep: time })} />
@@ -55,9 +51,6 @@ export default function TimelineSettingsScreen() {
                     <SettingsRow icon="calendar" color={t.color.danger} label="Use my calendar"
                         toggle={calendar} onToggle={value => void toggleCalendar(value)} />
                 </SettingsGroup>
-                <Text style={[t.type.caption, { color: t.color.textSubtle }]}>
-                    Events from Apple Calendar, and any Google or Outlook account on this iPhone, show in your timeline. All-day and “free” events do not block time. Read on this phone only.
-                </Text>
 
                 {/* Meals: one tidy line each; tap one to set its time and length. */}
                 <SettingsGroup title="Meals">
@@ -69,11 +62,6 @@ export default function TimelineSettingsScreen() {
                             toggle={flexible} onToggle={value => void setMealsFlexible(value)} />
                     ) : null}
                 </SettingsGroup>
-                {anyMeal ? (
-                    <Text style={[t.type.caption, { color: t.color.textSubtle }]}>
-                        Flexible: on a full day a meal can wait up to two hours so more fits in. You still get every meal.
-                    </Text>
-                ) : null}
             </ScrollView>
         </SheetScreen>
     );

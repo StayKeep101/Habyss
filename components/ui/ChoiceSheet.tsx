@@ -32,12 +32,15 @@ export function ChoiceSheet({ visible, title, caption, choices = [], ask, onClos
     const pick = (choice: Choice) => { selectionFeedback(); onClose(); setTimeout(choice.onPress, 220); };
     const save = () => { const value = text.trim(); if (!value || !ask) return; selectionFeedback(); onClose(); ask.onSave(value); };
     return (
-        <VoidSheet visible={visible} onClose={onClose} title={title} caption={caption}
-            footer={ask ? <View style={styles.footer}><AppButton label={ask.save} disabled={!text.trim()} onPress={save} /></View> : undefined}>
+        // Asking: the field and its button sit in a list that lets a tap through
+        // while the keyboard is up, so one tap on the button saves (it took two:
+        // the first only put the keyboard away).
+        <VoidSheet visible={visible} onClose={onClose} title={title} caption={caption} scrollable={!!ask}>
             {ask ? (
                 <View style={styles.ask}>
                     <MatteInput value={text} onChangeText={setText} placeholder={ask.placeholder} autoFocus returnKeyType="done"
                         onSubmitEditing={save} textContentType="none" autoComplete="off" accessibilityLabel={ask.placeholder} />
+                    <AppButton label={ask.save} disabled={!text.trim()} onPress={save} />
                 </View>
             ) : (
                 <View style={styles.list}>
@@ -57,6 +60,5 @@ const styles = StyleSheet.create({
     list: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm },
     row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: 52, paddingHorizontal: Spacing.xs },
     label: { fontSize: 17, fontFamily: FontFamily.medium },
-    ask: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm },
-    footer: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },
+    ask: { gap: Spacing.md, paddingBottom: Spacing.sm },
 });

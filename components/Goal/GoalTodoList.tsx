@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChoiceSheet, type Choice } from '@/components/ui/ChoiceSheet';
-import { SwipeRow } from '@/components/ui/SwipeRow';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { AppButton } from '@/components/ui/AppButton';
@@ -46,8 +45,8 @@ type Sheet =
  * A goal's to-do list: everything its plan needs doing, under headings you
  * name. Each heading is a card with its to-dos and a line to add one; a
  * to-do shows the day it is planned on, or a calendar button to plan it.
- * Swipe a to-do either way to delete it; touch and hold it for more (plan,
- * move to another heading, edit). The ⋯ by a heading renames or removes it
+ * Touch and hold a to-do for more (plan, move to another heading, edit,
+ * delete). The ⋯ by a heading renames or removes it
  * (its to-dos stay). Every choice is asked in the app's own sheet.
  */
 export function GoalTodoList({ goalId, tasks, today, color, readOnly, onOpenTask, onPlan, onToggle }: {
@@ -151,7 +150,7 @@ export function GoalTodoList({ goalId, tasks, today, color, readOnly, onOpenTask
                         {group.tasks.map(task => (
                             <TodoRow key={task.id} task={task} today={today} color={color} readOnly={readOnly}
                                 onToggle={() => onToggle(task)} onOpen={() => onOpenTask(task)} onPlan={() => onPlan(task)}
-                                onMore={() => { lightFeedback(); setSheet({ kind: 'more', task }); }} onDelete={() => remove(task)} />
+                                onMore={() => { lightFeedback(); setSheet({ kind: 'more', task }); }} />
                         ))}
                         {!readOnly ? <AddLine goalId={goalId} section={group.section} /> : null}
                     </MatteSurface>
@@ -175,17 +174,14 @@ export function GoalTodoList({ goalId, tasks, today, color, readOnly, onOpenTask
     );
 }
 
-function TodoRow({ task, today, color, readOnly, onToggle, onOpen, onPlan, onMore, onDelete }: {
-    task: Task; today: string; color: string; readOnly?: boolean; onToggle: () => void; onOpen: () => void; onPlan: () => void; onMore: () => void; onDelete: () => void;
+function TodoRow({ task, today, color, readOnly, onToggle, onOpen, onPlan, onMore }: {
+    task: Task; today: string; color: string; readOnly?: boolean; onToggle: () => void; onOpen: () => void; onPlan: () => void; onMore: () => void;
 }) {
     const t = useTokens();
     const done = task.status === 'done';
     const late = !done && !!task.dueDate && task.dueDate < today;
-    // Swiped either way, it is deleted: one move, the way Reminders does it.
-    const del = { icon: 'trash' as const, label: 'Delete', color: '#EF4444', destructive: true, onPress: onDelete };
     return (
-        <SwipeRow left={readOnly ? undefined : del} right={readOnly ? undefined : [del]} radius={Radius.small}>
-        <View style={[styles.row, { backgroundColor: t.color.surface }]}>
+        <View style={styles.row}>
             <Pressable disabled={readOnly} onPress={onToggle} style={styles.markButton}
                 accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={task.title}>
                 <View style={[styles.mark, { borderColor: t.color.warning, backgroundColor: done ? t.color.warning : 'transparent' }]}>
@@ -208,7 +204,6 @@ function TodoRow({ task, today, color, readOnly, onToggle, onOpen, onPlan, onMor
                     diameter={36} size={16} color={task.dueDate ? color : t.color.textMuted} onPress={onPlan} />
             ) : null}
         </View>
-        </SwipeRow>
     );
 }
 

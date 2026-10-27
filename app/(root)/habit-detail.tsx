@@ -1,18 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { markSeen } from '@/lib/dayMemory';
-import { ActivityIndicator, Alert, AppState, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Pressable, Text, View } from 'react-native';
+import Animated, { Extrapolation, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { IconButton } from '@/components/ui/IconButton';
 import { ShareButton } from '@/components/Common/ShareButton';
 import { BottomFade } from '@/components/ui/BottomFade';
 import { SheetScreen } from '@/components/ui/SheetScreen';
-import { HabitCalendarMap } from '@/components/Habit/HabitCalendarMap';
-import { HabitHero, HabitInsight, HabitStats, HabitToday, HabitWeek } from '@/components/Habit/HabitDetailParts';
+import { HabitHero, HabitStats, HabitToday } from '@/components/Habit/HabitDetailParts';
+import { HabitHeatmap } from '@/components/Habit/HabitHeatmap';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
-import { AppButton } from '@/components/ui/AppButton';
 import { useWeekStart } from '@/hooks/useWeekStart';
-import { useRemoveHabit } from '@/hooks/useRemoveHabit';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { habitRecord } from '@/lib/habitRecord';
 import { describeSchedule } from '@/lib/goalInsights';
@@ -135,7 +134,6 @@ export default function HabitDetailScreen() {
     const weekDue = record.week.filter(day => day.state !== 'off' && day.state !== 'future');
     const weekShare = weekDue.length ? weekDue.filter(day => day.state === 'done').length / weekDue.length : 0;
     const { playComplete } = useSoundEffects();
-    const askRemove = useRemoveHabit();
     // Ticked here, it shows at once; the store catches up behind it.
     const patchToday = (patch: Partial<HistoryDay>) => setHistory(days => {
         const found = days.some(day => day.date === today);
@@ -155,6 +153,18 @@ export default function HabitDetailScreen() {
         patchToday({ skipped: !skippedToday });
         setSkipped(habit.id, !skippedToday, today).catch(() => patchToday({ skipped: skippedToday }));
     };
+    // As the page scrolls, its big name and icon shrink and fade, and the
+    // header's title fades in to take their place.
+    const scrollY = useSharedValue(0);
+    const onScroll = useAnimatedScrollHandler(event => { scrollY.value = event.contentOffset.y; });
+    const headerTitle = useAnimatedStyle(() => ({
+        opacity: interpolate(scrollY.value, [110, 170], [0, 1], Extrapolation.CLAMP),
+        transform: [{ translateY: interpolate(scrollY.value, [110, 170], [8, 0], Extrapolation.CLAMP) }],
+    }));
+    const heroFade = useAnimatedStyle(() => ({
+        opacity: interpolate(scrollY.value, [0, 150], [1, 0], Extrapolation.CLAMP),
+        transform: [{ scale: interpolate(scrollY.value, [-80, 0, 150], [1.06, 1, 0.88], Extrapolation.CLAMP) }],
+    }));
     const focus = () => { if (habit) router.push({ pathname: '/(root)/focus', params: { kind: 'habit', id: habit.id, title: habit.name } }); };
 
     const accent = habit?.color || accentSolid;
@@ -167,6 +177,7 @@ export default function HabitDetailScreen() {
         <SheetScreen
             title={habit?.name || 'Habit'}
             subtitle={schedule}
+            titleStyle={habit ? headerTitle : undefined}
             onBack={() => router.back()}
             rightSlot={habit ? <View style={styles.headerActions}>
                 {owner && !owner.mine ? null : <ShareButton variant="friend" onPress={() => setShowShare(true)} />}
@@ -184,26 +195,18 @@ export default function HabitDetailScreen() {
             {!habit ? <View style={styles.empty}>
                 {loading ? <ActivityIndicator color={accent} /> : <><Text style={[Typography.body, { color: colors.textSecondary }]}>{error || 'This habit is unavailable.'}</Text><Pressable onPress={error ? load : () => router.back()} style={styles.retry} accessibilityRole="button"><Text style={[Typography.button, { color: ink }]}>{error ? 'Retry' : 'Go back'}</Text></Pressable></>}
             </View> : (
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <Animated.ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
+                    <Animated.View style={heroFade}>
                     <HabitHero icon={habit.icon} name={habit.name} schedule={describeSchedule(habit)} color={accent} weekShare={weekShare}
                         goalName={goals.find(goal => goal.id === habit.goalId)?.name}
                         onGoal={habit.goalId ? () => router.push({ pathname: '/goal-detail', params: { goalId: habit.goalId! } }) : undefined} />
+                    </Animated.View>
                     <HabitToday done={doneToday} skipped={skippedToday} scheduled={scheduledToday} color={accent} onDone={markDone} onSkip={skip} onFocus={focus} />
                     <HabitStats record={record} color={accent} />
 
                     <View>
-                        <SectionTitle first>This week</SectionTitle>
-                        <HabitWeek week={record.week} color={accent} />
-                    </View>
-
-                    <View>
-                        <SectionTitle first>What it says</SectionTitle>
-                        <HabitInsight record={record} />
-                    </View>
-
-                    <View>
                         <SectionTitle first>Every day</SectionTitle>
-                        <HabitCalendarMap history={history} color={accent} startDate={habit.startDate?.slice(0, 10)} today={today} inset={20} showStats={false} />
+                        <HabitHeatmap history={history} color={accent} startDate={habit.startDate?.slice(0, 10)} today={today} />
                     </View>
 
                     {owner && !owner.mine ? null : (
@@ -215,12 +218,9 @@ export default function HabitDetailScreen() {
                                 <SettingsRow icon="notifications" color="#FF453A" label="Reminders" value={habit.reminders?.length ? habit.reminders.join(', ') : 'None'} onPress={() => { selectionFeedback(); setShowEditor(true); }} />
                                 {habit.startDate ? <SettingsRow icon="calendar" color="#30D158" label="Started" value={new Date(`${habit.startDate.slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} /> : null}
                             </SettingsGroup>
-                            <View style={styles.danger}>
-                                <AppButton label="Stop or delete" icon="trash-outline" variant="danger" onPress={() => askRemove(habit)} />
-                            </View>
                         </View>
                     )}
-                </ScrollView>
+                </Animated.ScrollView>
             )}
 
             {habit ? <BottomFade height={64} /> : null}
