@@ -1,13 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Alert, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import Svg from 'react-native-svg';
+import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { IconButton } from '@/components/ui/IconButton';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { MorphMenu, type MorphMenuHandle } from '@/components/ui/MorphMenu';
-import { FocusClock } from '@/components/Focus/FocusClock';
+import { FocusClock, FocusDigits, FocusRing } from '@/components/Focus/FocusClock';
+import { FocusSettingsSheet, FocusSoundSheet, useFocusSoundChoice } from '@/components/Focus/FocusSheets';
+import { playFocusSound, stopFocusSound } from '@/lib/focusSounds';
+import { AnimatedCircle } from '@/components/ui/Motion';
 import { useFocusTime } from '@/context/FocusTimeContext';
 import { useFocusPlan } from '@/hooks/useFocusPlan';
 import { useFocusDay } from '@/hooks/useFocusDay';
@@ -19,6 +23,12 @@ import { useClockStyle } from '@/hooks/useClockStyle';
 import { useTasks } from '@/hooks/useTasks';
 import { getHabits, type Habit } from '@/lib/habitsSQLite';
 import { styles } from '@/styles/screens/focus.styles';
+
+/** Holding the × this long ends a session, its ring filling as you hold. */
+const HOLD_MS = 700;
+const HOLD_SIZE = 44;
+const HOLD_R = 20;
+const HOLD_C = 2 * Math.PI * HOLD_R;
 
 /**
  * Focus mode, for any habit or task. It starts the moment it opens, nothing
@@ -69,6 +79,7 @@ function FocusScreen() {
     const { primary } = useAccentGradient();
     const { selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
     const clock = useClockStyle();
+    const screen = useWindowDimensions();
     const focus = useFocusTime();
     const tasks = useTasks();
     const [habit, setHabit] = useState<Habit | null>(null);
@@ -90,9 +101,11 @@ function FocusScreen() {
     const active = mine && (focus.isRunning || focus.isPaused);
     // Ended somewhere else (the Live Activity, the watch): nothing left to show here.
     const leaving = useRef(false);
+    // Starting over ends this run and begins it again: the page must not close in between.
+    const restarting = useRef(false);
     const wasActive = useRef(false);
     useEffect(() => {
-        if (wasActive.current && !active && !focus.isRunning && !focus.isPaused && !leaving.current) router.back();
+        if (wasActive.current && !active && !focus.isRunning && !focus.isPaused && !leaving.current && !restarting.current) router.back();
         wasActive.current = active;
     }, [active, focus.isRunning, focus.isPaused]);
     // Awake while it runs.
@@ -143,7 +156,7 @@ function FocusScreen() {
         start();
     });
     const close = () => router.back();
-    // Tap: pause or carry on.
+    // Only the pause button pauses; a tap anywhere else just brings the controls back.
     const toggle = () => {
         wake();
         if (!active) return;
@@ -151,14 +164,42 @@ function FocusScreen() {
         if (focus.isPaused) focus.resumeTimer();
         else focus.pauseTimer();
     };
-    // Long press or ×: the × grows into the app's own small window — Finished
-    // keeps the session and counts the habit or task done; Exit throws it away.
+    // Ending takes a hold on the ×, so a stray touch never ends a session: the
+    // ring round it fills, then the × grows into the app's own small window —
+    // Finished keeps the session and counts it done; Exit throws it away.
     const endMenu = useRef<MorphMenuHandle>(null);
     const askEnd = () => {
         if (!active) { close(); return; }
         mediumFeedback();
         endMenu.current?.open();
     };
+    const [holdHint, setHoldHint] = useState(false);
+    const hold = useSharedValue(0);
+    const holdRing = useAnimatedProps(() => ({ strokeDashoffset: HOLD_C * (1 - hold.get()) }));
+    const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const tappedEnd = () => {
+        wake();
+        selectionFeedback();
+        setHoldHint(true);
+        if (hintTimer.current) clearTimeout(hintTimer.current);
+        hintTimer.current = setTimeout(() => setHoldHint(false), 1800);
+    };
+    // Sounds to focus to, and the page's own settings, from the top corner.
+    const sound = useFocusSoundChoice();
+    const [sheet, setSheet] = useState<'settings' | 'sound' | null>(null);
+    useEffect(() => { void playFocusSound(sound, active && focus.isRunning && !focus.isPaused); }, [sound, active, focus.isRunning, focus.isPaused]);
+    useEffect(() => () => stopFocusSound(), []);
+    // Start over: the same thing, its clock from the top, this run not saved.
+    const restart = () => {
+        if (!active) return;
+        mediumFeedback();
+        restarting.current = true;
+        focus.discardTimer();
+    };
+    useEffect(() => {
+        if (restarting.current && !active && !focus.isRunning && !focus.isPaused) { restarting.current = false; start(); }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [active, focus.isRunning, focus.isPaused]);
     // Finished: saved, counted done, and the page closes. The timeline shows what is next.
     const finishNow = () => { leaving.current = true; successFeedback(); focus.finishTimer(); close(); };
     // Done · Next: counted done, and the next thing in the day takes over right here.
@@ -187,45 +228,94 @@ function FocusScreen() {
     const endsAt = !stopwatch && !focus.isPaused && focus.timeLeft > 0
         ? new Date(Date.now() + focus.timeLeft * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : null;
 
+    // Sized from the screen, so everything fits on any phone, upright or on its side.
+    const landscape = screen.width > screen.height;
+    const usable = screen.height - insets.top - insets.bottom;
+    const ringSize = landscape ? Math.min(usable * 0.62, screen.width * 0.34) : Math.min(screen.width * 0.6, usable * 0.32);
+    const digitSize = landscape ? Math.min(usable * 0.2, screen.width * 0.11) : Math.min(screen.width * 0.18, usable * 0.095);
+    const label = focus.isPaused ? undefined : endsAt ? `Ends at ${endsAt}` : undefined;
+    const controls = (
+        <View style={styles.controls}>
+            <Pressable onPress={restart} style={styles.side} accessibilityRole="button" accessibilityLabel="Start over" hitSlop={6}>
+                <AppIcon name="refresh" size={22} color="#FFFFFF" />
+            </Pressable>
+            <Pressable onPress={toggle} style={styles.play} accessibilityRole="button" accessibilityLabel={focus.isPaused ? 'Carry on' : 'Pause'}>
+                <AppIcon name={focus.isPaused ? 'play' : 'pause'} filled size={28} color="#000000" />
+            </Pressable>
+            {/* Done with it: count it and go to the next thing in the day. */}
+            <Pressable onPress={nextNow} style={styles.side} accessibilityRole="button" accessibilityLabel="Done, go to the next thing" hitSlop={6}>
+                <AppIcon name="play-skip-forward" filled size={22} color="#FFFFFF" />
+            </Pressable>
+        </View>
+    );
+    const heading = (
+        <View style={styles.heading}>
+            <Text style={[styles.eyebrow, { color: primary }]}>{eyebrow}</Text>
+            <Text numberOfLines={landscape ? 1 : 2} adjustsFontSizeToFit minimumFontScale={0.75}
+                style={[styles.name, landscape && styles.nameSide]} accessibilityRole="header">{name}</Text>
+        </View>
+    );
+
     return (
-        <Pressable style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom }]}
-            onPress={toggle} onLongPress={active ? askEnd : undefined} delayLongPress={600} accessible={false}>
+        <Pressable style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }]} onPress={wake} accessible={false}>
             {/* A glow of your colour at the top, settling into black: the
                 screen stays mostly black, which an OLED screen spends nothing on. */}
             <LinearGradient pointerEvents="none" colors={[`${primary}38`, `${primary}0F`, '#00000000']} locations={[0, 0.35, 0.7]} style={styles.glow} />
             <Animated.View style={[styles.top, chromeStyle]}>
                 {active ? (
-                    <MorphMenu menuRef={endMenu} icon="close" iconColor="#FFFFFF" label="End focus" title="End focus?" titleIcon="timer" items={[
-                        { label: 'Finished', icon: 'checkmark-circle', onPress: finishNow },
-                        { label: 'Exit without saving', icon: 'close-circle', destructive: true, onPress: exitNow },
-                    ]} />
+                    <View>
+                        <MorphMenu menuRef={endMenu} icon="close" iconColor="#FFFFFF" label="End focus" title="End focus?" titleIcon="timer" items={[
+                            { label: 'Finished', icon: 'checkmark-circle', onPress: finishNow },
+                            { label: 'Exit without saving', icon: 'close-circle', destructive: true, onPress: exitNow },
+                        ]} />
+                        {/* Over the ×: a tap says to hold; holding fills the ring, then opens the menu. */}
+                        <Pressable style={styles.holdLayer} onPress={tappedEnd} delayLongPress={HOLD_MS} onLongPress={() => { hold.set(0); askEnd(); }}
+                            onPressIn={() => { hold.set(withTiming(1, { duration: HOLD_MS, easing: Easing.linear })); }}
+                            onPressOut={() => { hold.set(withTiming(0, { duration: 150 })); }}
+                            accessibilityRole="button" accessibilityLabel="End focus" accessibilityHint="Touch and hold to finish or exit"
+                            onAccessibilityTap={askEnd}>
+                            <Svg width={HOLD_SIZE} height={HOLD_SIZE} pointerEvents="none">
+                                <AnimatedCircle cx={HOLD_SIZE / 2} cy={HOLD_SIZE / 2} r={HOLD_R} stroke="#FFFFFF" strokeWidth={2.5} fill="none" strokeLinecap="round"
+                                    strokeDasharray={`${HOLD_C} ${HOLD_C}`} animatedProps={holdRing} rotation={-90} origin={`${HOLD_SIZE / 2}, ${HOLD_SIZE / 2}`} />
+                            </Svg>
+                        </Pressable>
+                        {holdHint ? <Text style={styles.holdHint}>Hold to end</Text> : null}
+                    </View>
                 ) : (
                     <IconButton icon="close" label="Close" onPress={close} size={18} color="#FFFFFF" />
                 )}
-                <View style={styles.topSpacer} />
+                <View style={styles.topRight}>
+                    <IconButton icon={sound === 'off' ? 'musical-notes-outline' : 'musical-notes'} label="Focus sound" onPress={() => { wake(); setSheet('sound'); }} size={18} color="#FFFFFF" />
+                    <IconButton icon="settings-outline" label="Focus settings" onPress={() => { wake(); setSheet('settings'); }} size={18} color="#FFFFFF" />
+                </View>
             </Animated.View>
 
             {active ? (
-                <View style={styles.center}>
-                    <View style={styles.heading}>
-                        <Text style={[styles.eyebrow, { color: primary }]}>{eyebrow}</Text>
-                        <Text numberOfLines={2} style={styles.name} accessibilityRole="header">{name}</Text>
+                landscape ? (
+                    <View style={styles.sideways}>
+                        {clock === 'ring' ? <FocusRing size={ringSize} progress={progress} accent={primary} running={!focus.isPaused} /> : null}
+                        <View style={styles.sideColumn}>
+                            {heading}
+                            {clock === 'ring' ? <FocusDigits seconds={focus.timeLeft} size={digitSize} label={label} />
+                                : <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused} label={label} />}
+                            {controls}
+                        </View>
                     </View>
-                    <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused}
-                        label={focus.isPaused ? 'Tap anywhere to carry on' : endsAt ? `Ends at ${endsAt}` : undefined} />
-                    <View style={styles.controls}>
-                        <Pressable onPress={toggle} style={styles.play} accessibilityRole="button"
-                            accessibilityLabel={focus.isPaused ? 'Carry on' : 'Pause'}>
-                            <AppIcon name={focus.isPaused ? 'play' : 'pause'} filled size={30} color="#000000" />
-                        </Pressable>
-                        {/* Done with it: count it and go to the next thing in the day. */}
-                        <Pressable onPress={nextNow} style={styles.nextLink} accessibilityRole="button" accessibilityLabel="Done, go to the next thing">
-                            <Text style={styles.nextText}>Done · Next</Text>
-                            <AppIcon name="arrow-forward" size={16} color="rgba(255,255,255,0.75)" />
-                        </Pressable>
+                ) : (
+                    <View style={styles.center}>
+                        {heading}
+                        {clock === 'ring' ? (
+                            <View style={styles.clockStack}>
+                                <FocusRing size={ringSize} progress={progress} accent={primary} running={!focus.isPaused} />
+                                <FocusDigits seconds={focus.timeLeft} size={digitSize} label={label} />
+                            </View>
+                        ) : <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused} label={label} />}
+                        {controls}
                     </View>
-                </View>
+                )
             ) : null}
+            <FocusSettingsSheet visible={sheet === 'settings'} onClose={() => setSheet(null)} />
+            <FocusSoundSheet visible={sheet === 'sound'} onClose={() => setSheet(null)} />
         </Pressable>
     );
 }

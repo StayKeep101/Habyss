@@ -12,15 +12,24 @@ export const styles = StyleSheet.create({
     topSpacer: { width: Control.hitTarget },
     title: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 16, textAlign: 'center', color: '#FFFFFF' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'space-evenly', paddingHorizontal: Spacing.xl },
+    clockStack: { alignItems: 'center', gap: Spacing.lg },
+    /** On its side: the ring on the left, everything else in a column on the right. */
+    sideways: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.section, paddingHorizontal: Spacing.xl },
+    sideColumn: { flex: 1, maxWidth: 420, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
+    topRight: { flexDirection: 'row', gap: Spacing.sm },
+    holdLayer: { position: 'absolute', top: 0, left: 0, width: Control.hitTarget, height: Control.hitTarget, alignItems: 'center', justifyContent: 'center' },
+    holdHint: { position: 'absolute', top: Control.hitTarget + 6, left: 0, width: 120, fontFamily: FontFamily.medium, fontSize: 13, color: 'rgba(255,255,255,0.75)' },
     /** Your colour, glowing at the top and gone by two thirds down. */
     glow: { position: 'absolute', top: 0, left: 0, right: 0, height: '70%' },
     heading: { alignItems: 'center', gap: Spacing.xs },
     /** "Focus", "Paused", "Over time": a quiet word in your colour over the name. */
     eyebrow: { fontFamily: FontFamily.semibold, fontSize: 15 },
-    name: { fontFamily: FontFamily.bold, fontSize: 32, lineHeight: 38, letterSpacing: -0.6, color: '#FFFFFF', textAlign: 'center' },
-    controls: { alignItems: 'center', gap: Spacing.md },
-    /** The one control while it runs: white, round, unmissable. */
-    play: { width: 76, height: 76, borderRadius: 38, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+    name: { fontFamily: FontFamily.bold, fontSize: 28, lineHeight: 34, letterSpacing: -0.5, color: '#FFFFFF', textAlign: 'center' },
+    nameSide: { fontSize: 22, lineHeight: 28 },
+    /** Start over, pause, next: a player's three buttons, the middle one the biggest. */
+    controls: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xl },
+    play: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+    side: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
     nextLink: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, minHeight: Control.hitTarget, paddingHorizontal: Spacing.md },
     nextText: { fontFamily: FontFamily.semibold, fontSize: 16, color: 'rgba(255,255,255,0.75)' },
     doneTitle: { fontFamily: FontFamily.bold, fontSize: 30, color: '#FFFFFF', textAlign: 'center' },

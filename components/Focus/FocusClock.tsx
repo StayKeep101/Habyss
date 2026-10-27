@@ -44,26 +44,10 @@ export function FocusClock({ seconds, progress, style, accent, label, running = 
 
     if (style === 'ring') {
         const ring = Math.min(width, height) * (landscape ? 0.6 : 0.66);
-        const stroke = Math.round(ring * 0.055);
-        const r = (ring - stroke) / 2;
-        const c = 2 * Math.PI * r;
-        const disc = r - stroke * 1.6;
         return (
             <View style={landscape ? styles.side : styles.center}>
-                <View style={[styles.center, { width: ring, height: ring }]}>
-                    <Svg width={ring} height={ring} style={StyleSheet.absoluteFill}>
-                        <Circle cx={ring / 2} cy={ring / 2} r={r} stroke={RING_TRACK} strokeWidth={stroke} fill="none" />
-                        <Circle cx={ring / 2} cy={ring / 2} r={disc} fill={RING_DISC} />
-                        {/* A stopwatch has no end, so its ring is whole. */}
-                        <Circle cx={ring / 2} cy={ring / 2} r={r} stroke={accent} strokeWidth={stroke} fill="none" strokeLinecap="round"
-                            strokeDasharray={`${c} ${c}`} strokeDashoffset={c * (1 - (progress ?? 1))} rotation={-90} origin={`${ring / 2}, ${ring / 2}`} />
-                    </Svg>
-                    <Mark size={disc * 0.78} running={running} />
-                </View>
-                <View style={styles.center}>
-                    <Text style={[styles.digits, { fontSize: digits * 0.92, color: FOCUS_TEXT, marginTop: landscape ? 0 : ring * 0.08 }]}>{text}</Text>
-                    {label ? <Text style={[styles.label, { color: FOCUS_LABEL }]}>{label}</Text> : null}
-                </View>
+                <FocusRing size={ring} progress={progress} accent={accent} running={running} />
+                <FocusDigits seconds={seconds} size={digits * 0.92} label={label} gap={landscape ? 0 : ring * 0.08} />
             </View>
         );
     }
@@ -83,6 +67,40 @@ export function FocusClock({ seconds, progress, style, accent, label, running = 
     return (
         <View style={styles.center}>
             <Text style={[styles.digits, { fontSize: digits, color: FOCUS_TEXT }]}>{text}</Text>
+            {label ? <Text style={[styles.label, { color: FOCUS_LABEL }]}>{label}</Text> : null}
+        </View>
+    );
+}
+
+/**
+ * The ring alone: how far the session has got, around a quiet disc holding
+ * Habyss's mark. Sized by the page, so it can sit above the figures or beside
+ * them.
+ */
+export function FocusRing({ size, progress, accent, running = true }: { size: number; progress: number | null; accent: string; running?: boolean }) {
+    const stroke = Math.round(size * 0.055);
+    const r = (size - stroke) / 2;
+    const c = 2 * Math.PI * r;
+    const disc = r - stroke * 1.6;
+    return (
+        <View style={[styles.center, { width: size, height: size }]}>
+            <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+                <Circle cx={size / 2} cy={size / 2} r={r} stroke={RING_TRACK} strokeWidth={stroke} fill="none" />
+                <Circle cx={size / 2} cy={size / 2} r={disc} fill={RING_DISC} />
+                {/* A stopwatch has no end, so its ring is whole. */}
+                <Circle cx={size / 2} cy={size / 2} r={r} stroke={accent} strokeWidth={stroke} fill="none" strokeLinecap="round"
+                    strokeDasharray={`${c} ${c}`} strokeDashoffset={c * (1 - (progress ?? 1))} rotation={-90} origin={`${size / 2}, ${size / 2}`} />
+            </Svg>
+            <Mark size={disc * 0.78} running={running} />
+        </View>
+    );
+}
+
+/** The figures alone, with a quiet line under them. */
+export function FocusDigits({ seconds, size, label, gap = 0 }: { seconds: number; size: number; label?: string; gap?: number }) {
+    return (
+        <View style={[styles.center, { marginTop: gap }]}>
+            <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.digits, { fontSize: size, lineHeight: size * 1.08, color: FOCUS_TEXT }]}>{clockText(seconds)}</Text>
             {label ? <Text style={[styles.label, { color: FOCUS_LABEL }]}>{label}</Text> : null}
         </View>
     );
