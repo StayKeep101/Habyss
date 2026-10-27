@@ -1,4 +1,6 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0'
+// The app's own repeat rule (no imports of its own), so a habit is due here exactly when it is due in the app.
+import { matches, parseRecurrence } from '../../../lib/recurrence.ts'
 
 /**
  * Habyss for AI assistants: a Model Context Protocol server (Streamable HTTP,
@@ -98,9 +100,12 @@ async function whoIs(admin: SupabaseClient, req: Request): Promise<Person | null
     return { userId: data.user_id, timeZone: data.time_zone || 'UTC' }
 }
 
-const scheduledOn = (habit: { task_days?: unknown; start_date?: string | null; end_date?: string | null }, day: string) => {
+const scheduledOn = (habit: { task_days?: unknown; start_date?: string | null; end_date?: string | null; recurrence?: string | null }, day: string) => {
     if (habit.start_date && habit.start_date > day) return false
     if (habit.end_date && habit.end_date < day) return false
+    // Every 2 weeks, the 1st of the month, 3 times a week: the rule the app repeats on.
+    const rule = parseRecurrence(habit.recurrence)
+    if (rule) return matches(rule, new Date(`${day}T12:00:00`), new Date(`${habit.start_date ?? day}T12:00:00`))
     const days = Array.isArray(habit.task_days) ? (habit.task_days as unknown[]).map(d => String(d).toLowerCase().slice(0, 3)) : []
     return days.length === 0 || days.includes(weekday(day))
 }
@@ -109,7 +114,7 @@ const PRIORITY_NAME = ['', 'high', 'normal', 'low']
 
 async function activeHabits(admin: SupabaseClient, person: Person) {
     const { data, error } = await admin.from('habits')
-        .select('id, name, task_days, start_date, end_date, start_time, end_time, goal_value, unit, is_goal, is_archived')
+        .select('id, name, task_days, recurrence, start_date, end_date, start_time, end_time, goal_value, unit, is_goal, is_archived')
         .eq('user_id', person.userId).is('deleted_at', null).eq('is_goal', false).eq('is_archived', false)
     if (error) throw new Error(error.message)
     return data ?? []

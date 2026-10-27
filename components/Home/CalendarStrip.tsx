@@ -16,8 +16,11 @@ interface CalendarStripProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   completionData?: Record<string, { completed: number; total: number }>;
-  goalDeadlines?: Record<string, { count: number; color: string; icon?: string }>;
+  /** The goals due on each day, by date key. */
+  goalDeadlines?: Record<string, DeadlineGoal[]>;
 }
+
+interface DeadlineGoal { color: string; icon?: string; name: string }
 
 interface DateItem {
   dayName: string;
@@ -27,10 +30,8 @@ interface DateItem {
   progress: number;
   /** The month's short name on its first day, where a week runs into a new month. */
   monthMark?: string;
-  isGoalDeadline?: boolean;
-  goalColor?: string;
-  /** The goal's own icon, on the badge of the day it is due. */
-  goalIcon?: string;
+  /** The goals due that day: each one's own icon, in its colour, on the ring. */
+  deadlines?: DeadlineGoal[];
 }
 
 const TOTAL_WEEKS = 10000;
@@ -89,8 +90,9 @@ const DateButtonComponent = ({
     ? (selected ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.08)')
     : (selected ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)');
 
-  const isDeadline = item.isGoalDeadline;
-  const deadlineColor = item.goalColor || accentColor;
+  const deadlines = item.deadlines ?? [];
+  const isDeadline = deadlines.length > 0;
+  const deadlineColor = deadlines[0]?.color || accentColor;
 
   return (
     <View style={{ width, alignItems: 'center', justifyContent: 'center' }}>
@@ -98,7 +100,7 @@ const DateButtonComponent = ({
         onPress={() => onSelect(item.fullDate)}
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        accessibilityLabel={`${item.fullDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${isDeadline ? ', goal deadline' : ''}`}
+        accessibilityLabel={`${item.fullDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${isDeadline ? `, ${deadlines.length === 1 ? 'deadline for' : `${deadlines.length} goal deadlines:`} ${deadlines.map(goal => goal.name).join(', ')}` : ''}`}
         style={{ width, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' }}
       >
         <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
@@ -140,7 +142,7 @@ const DateButtonComponent = ({
               {item.dayNumber}
             </Text>
           </View>
-          {isDeadline ? <DeadlineFlag color={deadlineColor} cutout={colors.background} icon={item.goalIcon} /> : null}
+          {isDeadline ? <DeadlineFlags goals={deadlines} cutout={colors.background} muted={colors.textSecondary} /> : null}
         </View>
 
         <Text
@@ -162,20 +164,46 @@ const DateButtonComponent = ({
 
 DateButtonComponent.displayName = 'DateButton';
 
+const FLAG = 20;
+/** How far each badge sits from the one before it: they overlap by a third. */
+const FLAG_STEP = 13;
+
 /**
  * A goal's finish day: the day keeps its own ring and number, and a small
- * badge with the goal's own icon, in the goal's colour, sits on the bottom of the ring, cut out from the
- * page so it reads as a mark on the day rather than a second selected day.
+ * badge with the goal's own icon, in the goal's colour, sits on the bottom of
+ * the ring, cut out from the page so it reads as a mark on the day rather
+ * than a second selected day. Several goals due together sit side by side,
+ * overlapping like a hand of cards; past three, the last says how many more.
  */
-const DeadlineFlag = ({ color, cutout, icon }: { color: string; cutout: string; icon?: string }) => (
-  <View pointerEvents="none" style={{
-    position: 'absolute', bottom: -7, width: 20, height: 20, borderRadius: 10, borderWidth: 2.5, borderColor: cutout,
-    backgroundColor: color, alignItems: 'center', justifyContent: 'center',
-  }}>
-    {/* The goal's own icon (a photo or a typed glyph falls back to the flag). */}
-    <Ionicons name={icon && !icon.includes('/') && !icon.startsWith('file:') ? icon : 'flag'} filled size={9} color={textOn(color)} />
-  </View>
-);
+const DeadlineFlags = ({ goals, cutout, muted }: { goals: DeadlineGoal[]; cutout: string; muted: string }) => {
+  const shown = goals.length > 3 ? goals.slice(0, 2) : goals;
+  const more = goals.length - shown.length;
+  const count = shown.length + (more ? 1 : 0);
+  const span = FLAG + (count - 1) * FLAG_STEP;
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', bottom: -7, width: span, height: FLAG }}>
+      {shown.map((goal, index) => (
+        <View key={`${goal.name}-${index}`} style={{
+          position: 'absolute', left: index * FLAG_STEP, zIndex: count - index,
+          width: FLAG, height: FLAG, borderRadius: FLAG / 2, borderWidth: 2.5, borderColor: cutout,
+          backgroundColor: goal.color, alignItems: 'center', justifyContent: 'center',
+        }}>
+          {/* The goal's own icon (a photo or a typed glyph falls back to the flag). */}
+          <Ionicons name={goal.icon && !goal.icon.includes('/') && !goal.icon.startsWith('file:') ? goal.icon : 'flag'} filled size={9} color={textOn(goal.color)} />
+        </View>
+      ))}
+      {more ? (
+        <View style={{
+          position: 'absolute', left: shown.length * FLAG_STEP, zIndex: 0,
+          width: FLAG, height: FLAG, borderRadius: FLAG / 2, borderWidth: 2.5, borderColor: cutout,
+          backgroundColor: muted, alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Text style={{ color: cutout, fontSize: 11, lineHeight: 13, fontFamily: FontFamily.bold }}>{`+${more}`}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+};
 
 const DateButton = React.memo(DateButtonComponent);
 
@@ -242,9 +270,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
         id: dateKey,
         progress: dayData && dayData.total > 0 ? dayData.completed / dayData.total : 0,
         monthMark: date.getDate() === 1 ? date.toLocaleDateString(undefined, { month: 'short' }) : undefined,
-        isGoalDeadline: !!deadlineInfo,
-        goalColor: deadlineInfo?.color,
-        goalIcon: deadlineInfo?.icon,
+        deadlines: deadlineInfo,
       };
     });
   }, [completionData, getWeekStartForIndex, goalDeadlines]);

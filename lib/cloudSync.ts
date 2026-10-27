@@ -102,6 +102,7 @@ async function runSync(): Promise<SyncReport> {
     if (!db) return { ...report, error: 'Local storage is unavailable.' };
 
     try {
+        await requeue(db, sb, userId);
         for (const spec of TABLES) {
             const pushed = await upload(db, sb, spec, userId);
             report.uploaded += pushed.uploaded;
@@ -164,6 +165,56 @@ export function missingColumnFrom(error: any): string | null {
     return match ? match[1] : null;
 }
 
+/**
+ * Every detail goes up, even one the server could not take at the time.
+ *
+ * A row uploaded while the server lacked a column (flexible, deadline,
+ * subtasks, section…) was still marked uploaded, so that detail never reached
+ * the server: a reinstall brought the habit or task back without it (a fixed
+ * time came back flexible). So a table that had a column dropped is
+ * remembered across launches and sent again whole on the next sync, and once,
+ * after this update, everything is sent again with every field.
+ */
+const DROPPED_KEY = 'cloud_dropped_tables';
+const FULL_PUSH_KEY = (userId: string) => `cloud_full_push_${userId}`;
+/** Bump when the server gains columns rows already uploaded never carried. */
+const FULL_PUSH_VERSION = '1';
+const RESENT: Table[] = ['habits', 'tasks', 'milestones'];
+
+async function rememberDropped(table: Table): Promise<void> {
+    try {
+        const raw = await AsyncStorage.getItem(DROPPED_KEY);
+        const tables: string[] = raw ? JSON.parse(raw) : [];
+        if (!tables.includes(table)) await AsyncStorage.setItem(DROPPED_KEY, JSON.stringify([...tables, table]));
+    } catch {
+        // The worst case is one detail sent on a later edit instead.
+    }
+}
+
+async function requeue(db: any, sb: any, userId: string): Promise<void> {
+    let tables: Table[] = [];
+    let fullPush = false;
+    try {
+        const raw = await AsyncStorage.getItem(DROPPED_KEY);
+        tables = (raw ? JSON.parse(raw) : []).filter((table: string): table is Table => RESENT.includes(table as Table));
+        fullPush = (await AsyncStorage.getItem(FULL_PUSH_KEY(userId))) !== FULL_PUSH_VERSION;
+    } catch {
+        return;
+    }
+    if (fullPush) {
+        // Take in what another phone changed first, so sending everything
+        // again never puts an older copy over a newer one.
+        await download(db, sb, userId);
+        tables = RESENT;
+    }
+    if (!tables.length) return;
+    for (const table of tables) {
+        await db.runAsync(`UPDATE ${table} SET synced = 0 WHERE user_id = ? AND synced = 1`, userId);
+    }
+    await AsyncStorage.removeItem(DROPPED_KEY);
+    if (fullPush) await AsyncStorage.setItem(FULL_PUSH_KEY(userId), FULL_PUSH_VERSION);
+}
+
 /** Columns this server turned out not to have; not retried again this session. */
 const absentColumns = new Set<string>();
 /** Tables this server turned out not to have; reported, and not retried. */
@@ -179,7 +230,10 @@ const withoutColumn = (rows: any[], column: string): any[] =>
  */
 async function upsertTolerant(sb: any, spec: TableSpec, rows: any[]): Promise<{ error: any }> {
     let payload = rows;
-    for (const column of absentColumns) payload = withoutColumn(payload, column);
+    for (const column of absentColumns) {
+        if (column in (payload[0] ?? {})) await rememberDropped(spec.local);
+        payload = withoutColumn(payload, column);
+    }
 
     for (let attempt = 0; attempt < 8; attempt++) {
         const result = await sb.from(spec.remote).upsert(payload, { onConflict: spec.onConflict });
@@ -190,6 +244,7 @@ async function upsertTolerant(sb: any, spec: TableSpec, rows: any[]): Promise<{ 
 
         console.warn(`[Backup] ${spec.remote}.${column} is missing on the server; backing up without it.`);
         absentColumns.add(column);
+        await rememberDropped(spec.local);
         payload = withoutColumn(payload, column);
     }
     return { error: new Error('Too many missing columns') };

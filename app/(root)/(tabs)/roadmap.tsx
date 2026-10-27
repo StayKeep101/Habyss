@@ -1079,20 +1079,12 @@ const CalendarScreen = () => {
                             onSelectDate={handleDateSelect}
                             completionData={weeklyCompletions}
                             goalDeadlines={useMemo(() => {
-                                const map: Record<string, { count: number, color: string, icon?: string }> = {};
-                                goals.forEach(g => {
-                                    if (g.targetDate) {
-                                        // targetDate is likely YYYY-MM-DD string already? 
-                                        // StoreHabit definition has targetDate?: string
-                                        // Let's assume it matches the dateStr format or normalize it if needed.
-                                        // Ideally targetDate is "YYYY-MM-DD".
-                                        if (!map[g.targetDate]) {
-                                            map[g.targetDate] = { count: 1, color: g.color || accentColor, icon: g.icon };
-                                        } else {
-                                            map[g.targetDate].count++;
-                                        }
-                                    }
-                                });
+                                // Every goal due on a day, so two finishing together both show.
+                                const map: Record<string, { color: string; icon?: string; name: string }[]> = {};
+                                for (const g of goals) {
+                                    if (!g.targetDate) continue;
+                                    (map[g.targetDate] ??= []).push({ color: g.color || accentColor, icon: g.icon, name: g.name });
+                                }
                                 return map;
                             }, [goals, accentColor])}
                         />

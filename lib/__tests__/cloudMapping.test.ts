@@ -270,6 +270,12 @@ describe('what the timeline plans with is backed up', () => {
         expect(remote).toMatchObject({ priority: 1, difficulty: 3, flexible: false });
     });
 
+    it('keeps a goal to-do\'s section both ways, and never blanks it when the server sends none', () => {
+        expect(taskToRemote({ id: 't', title: 'Read', section: '  Research ' }, 'u').section).toBe('Research');
+        expect(taskToRemote({ id: 't', title: 'Read', section: '' }, 'u').section).toBeNull();
+        expect(taskToLocal({ id: 't', title: 'Read', section: 'Research' }).section).toBe('Research');
+        expect('section' in taskToLocal({ id: 't', title: 'Read' })).toBe(false);
+    });
     it('sends a task\'s deadline, difficulty and flexibility', () => {
         const remote = taskToRemote({ id: 't', title: 'Essay', deadline: '2026-10-30', difficulty: 2, flexible: 1 }, 'u');
         expect(remote).toMatchObject({ deadline: '2026-10-30', difficulty: 2, flexible: true });
