@@ -136,9 +136,9 @@ export interface DayWindowMinutes {
 
 export function flowDay(items: FlowInput[], now: number | null, window: DayWindowMinutes = { wake: 7 * 60, sleep: 23 * 60 }): DayFlow {
     // Ticked before its time came (the dishes, planned 4:50, done at 3:51): it
-    // took no time out of the day, and it happened at 3:51, so that is where
-    // it sits, starting and ending at the tick. Its old slot is free, and
-    // everything after flows on as if it were not there.
+    // stays exactly where it was scheduled when it was ticked (4:50), taking
+    // no time out of the day, so everything after flows on as if it were not
+    // there. It never jumps up to when it was ticked.
     // A remembered slot that ends before waking was never really the day (it
     // came from a layout built before the day had loaded): it is not trusted.
     const trusted = (slot?: { start: number; end: number }) => (slot && slot.end > window.wake ? slot : undefined);
@@ -161,12 +161,12 @@ export function flowDay(items: FlowInput[], now: number | null, window: DayWindo
     return { ...flow, timeline: placeInstants(flow.timeline, early, slotOf, now as number) };
 }
 
-/** Zero-length done items, each at the moment it was ticked. */
+/** Zero-length done items, each where it was scheduled when it was ticked. */
 function placeInstants(timeline: FlowItem[], early: FlowInput[], slotOf: (item: FlowInput) => { start: number; end: number } | null, now: number): FlowItem[] {
     const instants = early.map(item => {
-        const planned = slotOf(item)?.start ?? now;
-        // Tick time not read yet: a remembered zero-length slot is where it was ticked; else now.
-        const at = item.doneAt ?? (item.kept && item.kept.end === item.kept.start ? item.kept.start : now);
+        // Where it sat the moment before the tick (lib/dayMemory.ts), else its own time or plan.
+        const planned = item.planned?.start ?? slotOf(item)?.start ?? item.doneAt ?? now;
+        const at = planned;
         return { ...item, start: at, end: at, plannedStart: planned, shift: at - planned, state: 'done', auto: true } as FlowItem;
     });
     return [...timeline, ...instants].sort((a, b) => a.start - b.start || a.end - b.end);
@@ -583,9 +583,9 @@ export function clockLabel(minutes: number): string {
 }
 
 /** "8:00–8:30 AM", in the phone's own clock style. */
-/** "5:25 PM–7:25 PM (2 hr)", or "Done 4:23 PM" for one ticked before its time, which took none. */
+/** "5:25 PM–7:25 PM (2 hr)"; one ticked before its time took none, so just "7:30 PM–7:30 PM". */
 export function whenLabel(item: { start: number; end: number; state: string }): string {
-    if (item.state === 'done' && item.end === item.start) return `Done ${clockLabel(item.start)}`;
+    if (item.state === 'done' && item.end === item.start) return rangeLabel(item.start, item.end);
     return `${rangeLabel(item.start, item.end)} (${lengthLabel(item.end - item.start)})`;
 }
 

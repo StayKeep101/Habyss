@@ -21,6 +21,7 @@ import { Radius } from '@/theme/designSystem';
 import type { RoadMapCardSize } from '@/context/AppSettingsContext';
 import { isLate, setTaskAmount, taskAmountLabel, taskShare, type Task } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
+import { dueLabel } from '@/lib/dayFlow';
 
 /** Tasks are amber throughout, so they read as a different kind of thing. */
 export const TASK_COLOR = '#F59E0B';
@@ -100,13 +101,15 @@ const TaskItemComponent: React.FC<Props> = ({
     // Late only past its deadline; a day passed before the deadline is today's work.
     const overdue = !done && isLate(task, today);
     const dueToday = !done && !overdue && !!task.dueDate && task.dueDate <= today;
-    const deadline = task.deadline && task.deadline !== task.dueDate ? `Due ${task.deadline === today ? 'today' : shortDate(task.deadline)}` : null;
+    // The deadline, worded and coloured as the timeline shows it (one rule: dueLabel).
+    const deadline = task.deadline && task.deadline !== task.dueDate ? dueLabel(task.deadline, today) : null;
+    const deadlineUrgent = deadline === 'Due today' || deadline === 'Overdue';
 
     // Right-hand column, where a habit shows its time.
     const when = done
         ? 'Done'
         : overdue ? 'Overdue'
-            : dueToday ? (task.dueTime ?? deadline ?? 'Today')
+            : dueToday ? (task.dueTime ?? 'Today')
                 : task.dueDate ? shortDate(task.dueDate) : '—';
     const whenColor = overdue ? colors.error : dueToday ? TASK_COLOR : colors.textTertiary;
 
@@ -247,6 +250,9 @@ const TaskItemComponent: React.FC<Props> = ({
                             {amountLabel ? (
                                 <Text style={[styles.meta, { color: done ? colors.textTertiary : TASK_COLOR, fontVariant: ['tabular-nums'] }]}>{amountLabel}</Text>
                             ) : null}
+                            {deadline && !done ? (
+                                <Text numberOfLines={1} style={[styles.meta, styles.deadline, { color: deadlineUrgent ? colors.warning : colors.textTertiary }]}>{deadline}</Text>
+                            ) : null}
                             {/* Its subtasks: how many are done, and a chevron that opens them. */}
                             {task.subtasks?.length ? (
                                 <SubtaskToggle steps={task.subtasks} open={stepsOpen} onToggle={() => setStepsOpen(value => !value)} color={TASK_COLOR} />
@@ -295,6 +301,7 @@ const styles = StyleSheet.create({
     iconBox: { borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
     title: { fontFamily: FontFamily.medium },
     meta: { fontSize: 11, fontFamily: FontFamily.regular, flexShrink: 1 },
+    deadline: { fontFamily: FontFamily.semibold },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
     track: { height: 3, borderRadius: 2, marginTop: 5, overflow: 'hidden' },
     fill: { height: 3, borderRadius: 2 },
