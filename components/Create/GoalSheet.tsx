@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useCoachTarget } from '@/hooks/useCoachTarget';
 import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ChoicePill } from '@/components/ui/ChoicePill';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { DictateField } from '@/components/Create/DictateField';
@@ -11,11 +10,9 @@ import { ComposerModal } from '@/components/Create/ComposerModal';
 import { ShareParticipantsSheet } from '@/components/Social/ShareParticipantsSheet';
 import { useShareDraft } from '@/hooks/useShareDraft';
 import { ModalHeader } from '@/components/ui/ModalHeader';
-import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
 import { GoalCalendar } from '@/components/Create/GoalCalendar';
 import { MeasureField } from '@/components/Create/MeasureField';
-import { DurationWheels, formatDuration } from '@/components/Create/DurationWheels';
 import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
 import { LookButton } from '@/components/Create/LookButton';
 import { readableAccent } from '@/lib/colorContrast';
@@ -40,6 +37,13 @@ const GOAL_EXAMPLES = ['Run 50km this month', 'Read 12 books this year', 'Launch
 
 type Row = 'target' | 'window' | 'baseline' | 'steps' | 'tracks' | 'look' | 'notes' | null;
 
+type Counting = 'sum' | 'max' | 'latest';
+const COUNTINGS: { id: Counting; label: string }[] = [
+    { id: 'sum', label: 'Add up' }, { id: 'max', label: 'Best effort' }, { id: 'latest', label: 'Latest' },
+];
+const countingOf = (aggregation?: string | null): Counting | undefined =>
+    aggregation === 'sum' || aggregation === 'max' || aggregation === 'latest' ? aggregation : undefined;
+
 interface Draft {
     /** Unset until chosen; read from the sentence until then. */
     kind?: GoalKind;
@@ -53,10 +57,11 @@ interface Draft {
     baseline?: number;
     deltaFromBaseline?: number;
     /**
-     * A number goal: added up over time (2000 calls), or reached by logging
-     * that number or more (a 7 GPA, a weight). Unset: read from the sentence.
+     * How a number counts: added up (12 books), the best once (a 10 km run),
+     * or the latest, held at the deadline (a 7 CGPA). Read from the words;
+     * set only when somebody corrects it.
      */
-    counting?: 'add' | 'reach';
+    counting?: Counting;
     linked: string[];
     suggested?: { name: string; unit: string } | null;
     icon: IconName;
@@ -65,12 +70,6 @@ interface Draft {
 }
 
 const blank = (): Draft => ({ title: '', direction: 'at_least', linked: [], icon: 'flag-outline', color: '#6B8AF5' });
-
-const KINDS: { id: GoalKind; label: string; icon: IconName; hint: string }[] = [
-    { id: 'number', label: 'Number', icon: 'stats-chart-outline', hint: '2000 calls by Dec 1' },
-    { id: 'complete', label: 'Complete', icon: 'flag-outline', hint: 'Launch the app by Jan 1' },
-    { id: 'time', label: 'Time', icon: 'time-outline', hint: '100 hours of piano' },
-];
 
 const TIME_UNITS = ['minutes', 'hours'];
 
@@ -98,7 +97,7 @@ const fromGoal = (from: Habit): Draft => {
         deadline: window?.kind === 'fixed' ? window.end : undefined,
         baseline: spec.baseline ?? undefined,
         deltaFromBaseline: spec.delta_from_baseline ?? undefined,
-        counting: spec.aggregation === 'latest' ? 'reach' : spec.aggregation ? 'add' : undefined,
+        counting: countingOf(spec.aggregation),
         linked: spec.linked_habits ?? [],
         suggested: spec.suggested_habit ?? null,
         icon: (from.icon as IconName) || 'flag-outline',
@@ -215,7 +214,7 @@ export const GoalSheet: React.FC<{
             deadline: spec.window?.kind === 'fixed' ? spec.window.end : start.deadline,
             baseline: spec.baseline ?? start.baseline,
             deltaFromBaseline: spec.delta_from_baseline ?? start.deltaFromBaseline,
-            counting: spec.aggregation === 'latest' ? 'reach' : start.counting,
+            counting: countingOf(spec.aggregation) ?? start.counting,
             linked: spec.linked_habits.length ? spec.linked_habits : start.linked,
             suggested: spec.suggested_habit ?? start.suggested,
         } : start;
@@ -233,14 +232,13 @@ export const GoalSheet: React.FC<{
     // the chosen chips, the bar's open chip, the calendar — not the app accent.
     const accent = draft.color || appAccent;
     const accentText = readableAccent(accent, colors.background);
-    const kind = draft.kind ?? 'number';
-    /** A time goal's target in minutes, whichever unit it was written in. */
-    const targetMinutes = draft.target === undefined ? 0 : draft.unit === 'minutes' ? draft.target : draft.target * 60;
-    // The chosen kind's own example first, then the rest.
-    const goalExamples = useMemo(() => {
-        const hint = KINDS.find(option => option.id === kind)?.hint;
-        return hint ? [hint, ...GOAL_EXAMPLES.filter(example => example !== hint)] : GOAL_EXAMPLES;
-    }, [kind]);
+    // Nothing to choose: what kind of goal it is follows from what it says.
+    // A number to reach or add up, time to put in, or simply done when done;
+    // how the number counts (added up, the latest, the best) is read from the
+    // words by the rules and Echo's model (lib/goalParser.ts), out of sight.
+    const kind: GoalKind = draft.target === undefined && draft.deltaFromBaseline === undefined ? 'complete'
+        : TIME_UNITS.includes(draft.unit ?? '') ? 'time' : 'number';
+    const goalExamples = GOAL_EXAMPLES;
 
     // Deciding to do this with somebody happens while writing it, not after —
     // so the choice is held here and sent the moment the goal has an id.
@@ -253,7 +251,6 @@ export const GoalSheet: React.FC<{
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
     // What the first-run tour points at while it shows how to make a goal.
     const textTarget = useCoachTarget<View>('goal-text');
-    const kindTarget = useCoachTarget<View>('goal-kind');
     const detailsTarget = useCoachTarget<View>('goal-details');
     const saveTarget = useCoachTarget<View>('goal-save');
 
@@ -298,10 +295,12 @@ export const GoalSheet: React.FC<{
                 title,
                 type: result?.goal.type ?? (draft.window?.kind === 'recurring' ? 'frequency' : 'volume'),
                 metric_unit: unit,
-                // Reach: the latest number logged counts, never a sum (lib/goalInsights.ts).
-                aggregation: kind === 'number' && draft.counting === 'reach' ? 'latest'
-                    : kind === 'number' && draft.counting === 'add' && (result?.goal.aggregation ?? previous.aggregation) === 'latest' ? 'sum'
-                    : result?.goal.aggregation ?? (previous.aggregation as GoalSpec['aggregation'] | undefined) ?? (unit === 'percent' ? 'completion_rate' : 'sum'),
+                // How the number counts (added up, the latest, the best): read from
+                // the words, unless corrected under Target.
+                aggregation: (kind === 'number' ? draft.counting : undefined) ?? result?.goal.aggregation
+                    ?? (previous.aggregation as GoalSpec['aggregation'] | undefined) ?? (unit === 'percent' ? 'completion_rate' : 'sum'),
+                // Corrected by hand: never read again from the words (lib/goalFinish.ts).
+                ...(edits.counting !== undefined || previous.counting_chosen ? { counting_chosen: true } : {}),
                 direction: draft.direction,
                 target: amount,
                 baseline: draft.baseline ?? null,
@@ -372,15 +371,9 @@ export const GoalSheet: React.FC<{
     const toggleRow = (id: string | null) => { setOpenRow(id as Row); };
 
     const items: DetailItem[] = [
-        ...(kind === 'time' ? [{
-            id: 'target', icon: 'time-outline' as const, label: 'Time',
-            value: draft.target === undefined ? undefined : formatDuration(targetMinutes * 60),
-            content: (
-                <DurationWheels seconds={targetMinutes * 60}
-                    onChange={seconds => change({ unit: 'minutes', target: seconds > 0 ? seconds / 60 : undefined })} />
-            ),
-        }] : []),
-        ...(kind === 'number' ? [{
+        {
+            // One target for every goal: a number and what it counts (hours
+            // and minutes make it a time goal); none at all, done when done.
             id: 'target', icon: 'flag-outline' as const, label: 'Target',
             value: draft.target === undefined && draft.deltaFromBaseline === undefined ? undefined : describeTarget(draft),
             content: (
@@ -401,12 +394,14 @@ export const GoalSheet: React.FC<{
                         }}
                         accent={accentText}
                     />
-                    {/* Added up over time, or reached by logging that number or more. */}
-                    <Choices options={[{ id: 'add' as const, label: 'Add up' }, { id: 'reach' as const, label: 'Reach' }]}
-                        value={draft.counting ?? 'add'} accent={accent} onChange={counting => change({ counting })} />
+                    {/* How it counts, already worked out from the words; tap another only if it is wrong. */}
+                    {kind === 'number' ? (
+                        <Choices options={COUNTINGS} value={draft.counting ?? 'sum'} accent={accent} oneLine
+                            onChange={counting => { lightFeedback(); change({ counting }); }} />
+                    ) : null}
                 </>
             ),
-        }] : []),
+        },
         {
             id: 'window', icon: 'calendar-outline', label: 'By when',
             value: draft.window ? describeWindow(draft) : undefined,
@@ -542,25 +537,7 @@ export const GoalSheet: React.FC<{
                     </DictateField>
                     </View>
 
-                    <View ref={kindTarget} collapsable={false} style={styles.kinds} accessibilityRole="radiogroup">
-                        {KINDS.map(option => {
-                            const on = kind === option.id;
-                            return (
-                                <ChoicePill key={option.id} label={option.label} icon={option.icon} on={on} color={accent}
-                                    accessibilityHint={option.hint} pressStyle={styles.kindPress} style={styles.kind} textStyle={styles.kindText}
-                                    onPress={() => { lightFeedback(); setTargetText(null); change({ kind: option.id, ...(option.id === 'time' && !TIME_UNITS.includes(draft.unit ?? '') ? { unit: 'hours' } : {}) }); }} />
-                            );
-                        })}
-                    </View>
-
-                    {/* No "Goal: name" line: the field already says it. Only while
-                        the smart read is working, or if it could not, a quiet badge. */}
-                    {smart.thinking || smart.failed ? (
-                        <View style={styles.readRow}>
-                            <View style={styles.flexSpacer} />
-                            <AIBadge thinking={smart.thinking} used={!!smart.result} color={accent} onRequest={smart.request} failed={smart.failed} />
-                        </View>
-                    ) : null}
+                    {/* How it counts is read from the words (rules, then Echo's model), out of sight: no badge. */}
 
 
 
@@ -619,10 +596,6 @@ const styles = StyleSheet.create({
     unitButton: { minWidth: 118, minHeight: 46, borderWidth: 1, borderRadius: 11, paddingHorizontal: 14, flexDirection: 'row', gap: 14, alignItems: 'center', justifyContent: 'space-between' },
     unitLabel: { fontSize: 13, fontFamily: FontFamily.regular },
     help: { fontSize: 12, lineHeight: 18, fontFamily: FontFamily.regular },
-    kinds: { flexDirection: 'row', gap: 8 },
-    kindPress: { flex: 1 },
-    kind: { paddingVertical: 10 },
-    kindText: { fontSize: 13, fontFamily: FontFamily.semibold },
     stepRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
     stepIndex: { width: 18, textAlign: 'center', fontSize: 13, fontFamily: FontFamily.bold },
     stepInput: { flex: 1, fontSize: 15, paddingVertical: 6, fontFamily: FontFamily.regular },

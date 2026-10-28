@@ -428,7 +428,18 @@ const wasSkipped = (skips: Record<string, string[]> | undefined, day: string, ha
  * so moving its habits elsewhere later never undoes it.
  */
 export function goalDoneOn(insights: GoalInsights | undefined, goal?: Habit): string | null {
-    return (goal ? goalCompletedOn(goal) : null) ?? insights?.series.find(point => point.actual >= 100)?.date ?? null;
+    const saved = goal ? goalCompletedOn(goal) : null;
+    if (saved) return saved;
+    if (!insights) return null;
+    // A level with a deadline (a 7 CGPA by December): judged on the deadline,
+    // by the latest number logged by then. Reaching 7 in November and falling
+    // to 6 is not reaching it. A best effort or a total is reached once reached.
+    if (goal && readSpec(goal).aggregation === 'latest' && goal.targetDate) {
+        const end = insights.endDate;
+        const last = insights.series.filter(point => point.date <= end).pop();
+        return last && last.date === end && last.actual >= 100 ? end : null;
+    }
+    return insights.series.find(point => point.actual >= 100)?.date ?? null;
 }
 
 /** The day this goal was reached, as saved on it; null while it is still open. */

@@ -40,19 +40,16 @@ describe('the goal sheet', () => {
         expect(JSON.parse(saved().goalSpec)).toMatchObject({ target: 50, metric_unit: 'km', direction: 'at_least' });
     });
 
-    it('asks for what is missing on the sheet instead of refusing to save', async () => {
+    it('works out the kind from what it says: a number given later makes it a time goal', async () => {
         const screen = render(<GoalSheet visible />);
         write(screen, 'Get better at the guitar');
 
         // No number in it, so it reads as a project, and a date is optional:
-        // it can be saved as it is, as an ongoing goal.
+        // it can be saved as it is, as an ongoing goal. Nothing to choose.
         expect(screen.getByText('Create goal')).toBeTruthy();
-        // As a number goal, the button says what it still needs.
-        fireEvent.press(screen.getByRole('radio', { name: 'Number' }));
-        const button = screen.getByText('Add a number to hit');
-        await act(async () => { fireEvent.press(button); });
-        expect(addHabit).not.toHaveBeenCalled();
+        expect(screen.queryByRole('radio', { name: 'Number' })).toBeNull();
 
+        fireEvent.press(screen.getByText('Target'));
         fireEvent.changeText(screen.getByLabelText('Target number'), '30');
         fireEvent.press(screen.getByLabelText('Time units'));
         fireEvent.press(screen.getByLabelText('Unit Minutes'));

@@ -26,9 +26,25 @@ describe('a goal you reach (a 7 CGPA)', () => {
         const insights = buildGoalInsights({ goal: cgpa(), habits, tasks: [], history: allStudied, logs: [], today: TODAY });
         expect(insights.progress).toBe(0);
     });
-    it('is reached by logging the target or more', () => {
-        const insights = buildGoalInsights({ goal: cgpa(), habits, tasks: [], history: {}, logs: [{ date: TODAY, amount: 7.1 }], today: TODAY });
-        expect(goalDoneOn(insights)).toBe(TODAY);
+    it('shows the latest number, never a sum: 5.6, then 5.9 is 5.9 of 7', () => {
+        const logs = [{ date: '2026-10-26', amount: 5.6 }, { date: TODAY, amount: 5.9 }];
+        const insights = buildGoalInsights({ goal: cgpa({}), habits, tasks: [], history: {}, logs, today: TODAY });
+        expect(insights.progress).toBe(84);
+    });
+    it('with no deadline, is reached by logging the target or more', () => {
+        const open = { ...cgpa(), targetDate: undefined } as Habit;
+        const insights = buildGoalInsights({ goal: open, habits, tasks: [], history: {}, logs: [{ date: TODAY, amount: 7.1 }], today: TODAY });
+        expect(goalDoneOn(insights, open)).toBe(TODAY);
+    });
+    it('with a deadline, is judged on the deadline: still 7 or more then', () => {
+        const goal = cgpa();
+        const reachedEarly = [{ date: '2026-11-10', amount: 7.1 }];
+        const before = buildGoalInsights({ goal, habits, tasks: [], history: {}, logs: reachedEarly, today: '2026-11-15' });
+        expect(goalDoneOn(before, goal)).toBeNull();
+        const held = buildGoalInsights({ goal, habits, tasks: [], history: {}, logs: reachedEarly, today: '2026-12-21' });
+        expect(goalDoneOn(held, goal)).toBe('2026-12-20');
+        const dropped = buildGoalInsights({ goal, habits, tasks: [], history: {}, logs: [...reachedEarly, { date: '2026-12-01', amount: 6 }], today: '2026-12-21' });
+        expect(goalDoneOn(dropped, goal)).toBeNull();
     });
 });
 

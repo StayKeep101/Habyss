@@ -4,7 +4,7 @@ describe('first-run tour', () => {
     it('goes in the order asked: Home, a first goal, Roadmap, friends', () => {
         expect(FIRST_RUN.map(step => step.target)).toEqual([
             'today-focus', 'streak', 'focus-today', 'missed', 'goals',
-            'plus', 'create-goal', 'goal-text', 'goal-kind', 'goal-details', 'goal-save',
+            'plus', 'create-goal', 'goal-text', 'goal-details', 'goal-save',
             'tab-roadmap', 'roadmap-goal', 'tab-community', 'add-friend',
         ]);
     });
@@ -16,7 +16,7 @@ describe('first-run tour', () => {
 
     it('goes back to + when the goal sheet is gone, and on past anything else missing', () => {
         const at = (target: string) => FIRST_RUN.findIndex(step => step.target === target);
-        expect(stepAfterMissing(FIRST_RUN, at('goal-kind'))).toBe(at('plus'));
+        expect(stepAfterMissing(FIRST_RUN, at('goal-details'))).toBe(at('plus'));
         expect(stepAfterMissing(FIRST_RUN, at('create-goal'))).toBe(at('plus'));
         expect(stepAfterMissing(FIRST_RUN, at('missed'))).toBe(at('goals'));
     });

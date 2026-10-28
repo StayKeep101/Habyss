@@ -95,6 +95,14 @@ export async function announceDailyTarget(done: number, target: number): Promise
     emit('daily_target_reached', { done, target });
 }
 
+/** A goal no longer reached (read again, see lib/goalFinish.ts): reaching it later is celebrated afresh. */
+export async function releaseGoal(goalId: string): Promise<void> {
+    try {
+        const already = await celebratedGoals();
+        if (already.includes(goalId)) await AsyncStorage.setItem(GOAL_KEY, JSON.stringify(already.filter(id => id !== goalId)));
+    } catch { /* a celebration missed or repeated is not worth an error */ }
+}
+
 /** Announces a goal being finished, the first time it is; `count` is how many goals are done now, this one included. */
 export async function announceGoalComplete(goalId: string, name: string, count?: number): Promise<void> {
     if (!(await claimGoal(goalId))) return;
@@ -114,15 +122,29 @@ export async function checkMilestones(): Promise<void> {
             require('./habitsSQLite') as typeof import('./habitsSQLite');
         const { loadedData } = require('./dataStore') as typeof import('./dataStore');
         const { getDailyTarget, dailyFocus } = require('./dailyFocus') as typeof import('./dailyFocus');
-        const { buildGoalInsights, goalCompletedOn, goalDoneOn, withCompletedOn } = require('./goalInsights') as typeof import('./goalInsights');
+        const { buildGoalInsights, goalCompletedOn, goalDoneOn } = require('./goalInsights') as typeof import('./goalInsights');
+        const { finishGoal, rereadSpec } = require('./goalFinish') as typeof import('./goalFinish');
         const { currentGoalLogs } = require('./goalLogs') as typeof import('./goalLogs');
         const { tallyDay, isDayComplete } = require('./dayComplete') as typeof import('./dayComplete');
 
         const today = localDateKey(new Date());
-        const [habits, completions, skipped, data, target] = await Promise.all([
+        const [stored, completions, skipped, data, target] = await Promise.all([
             getHabits(), getCompletions(today), getSkipped(today), loadedData(), getDailyTarget(),
         ]);
         const tasks = data.tasks;
+
+        // Goals written before "reach it" and "add it up" were told apart (a
+        // 7 CGPA, a 10 km run) are read again from their words, once: the
+        // latest or best number counts, and whether it is reached is asked again.
+        const { updateHabit } = require('./habitsSQLite') as typeof import('./habitsSQLite');
+        const habits = await Promise.all(stored.map(async habit => {
+            if (!habit.isGoal || habit.isArchived) return habit;
+            const goalSpec = rereadSpec(habit);
+            if (!goalSpec) return habit;
+            await updateHabit({ id: habit.id, goalSpec }).catch(() => undefined);
+            await releaseGoal(habit.id);
+            return { ...habit, goalSpec };
+        }));
 
         // The day's promise: three things, or five.
         //
@@ -160,10 +182,10 @@ export async function checkMilestones(): Promise<void> {
         for (const goal of goals) {
             const on = doneOn.get(goal.id);
             if (!on) continue;
-            // Reached: written onto the goal, so it stays done whatever its habits do next.
-            if (!goalCompletedOn(goal)) {
-                const { updateHabit } = require('./habitsSQLite') as typeof import('./habitsSQLite');
-                await updateHabit({ id: goal.id, goalSpec: withCompletedOn(goal, on) }).catch(() => undefined);
+            // Reached: written onto the goal, so it stays done whatever happens
+            // next, and its habits and open tasks are let go for other goals.
+            if (!goalCompletedOn(goal) || habits.some(habit => habit.goalId === goal.id && !habit.isGoal)) {
+                await finishGoal(goal, goalCompletedOn(goal) ?? on, habits, tasks).catch(() => undefined);
             }
             await announceGoalComplete(goal.id, goal.name, doneIds.length);
         }
