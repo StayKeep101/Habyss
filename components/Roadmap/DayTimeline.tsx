@@ -43,9 +43,23 @@ const LINK_MS = 160;
  */
 const POUR = Easing.linear;
 
-/** How much of its time has gone: full once over (or done), a part while on, empty ahead. */
-const elapsedOf = (item: FlowItem, now: number | null) => item.state === 'done' || item.done || (now !== null && now >= item.end) ? 1
-    : now !== null && now > item.start ? (now - item.start) / Math.max(1, item.end - item.start) : 0;
+/**
+ * Up to when the day shown has been lived, in its own minutes: now for today,
+ * all of it for a day gone, none of it for a day ahead. Every fill on the line
+ * (the pills and the links between them) reads this one value, so a day ahead
+ * is quiet track all through, as the rest of today is, and fills in only as
+ * its time passes.
+ */
+const livedUntil = (now: number | null, day: string | undefined): number => {
+    if (now !== null) return now;
+    const date = new Date();
+    const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return day !== undefined && day < today ? Infinity : -Infinity;
+};
+const share = (lived: number, from: number, to: number) => Math.max(0, Math.min(1, (lived - from) / Math.max(1, to - from)));
+
+/** How much of its time has gone: full once done or over, a part while on, empty ahead. */
+const elapsedOf = (item: FlowItem, lived: number) => (item.state === 'done' || item.done ? 1 : share(lived, item.start, item.end));
 
 /** Taller for longer things, within reason, so the day reads at a glance. */
 /** Height by length on one scale; very short ones keep room for their icon. */
@@ -94,18 +108,17 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, now
     // One pour, top to bottom: a pill fills, then the line below it, then the
     // next pill, each starting the moment the one above finishes, at one even
     // speed, so the line never trails behind the pills.
+    const lived = livedUntil(now, day);
     const turns = React.useMemo(() => {
         let at = 0;
         return flow.timeline.map((item, index) => {
-            const share = elapsedOf(item, now);
-            const pill = { delay: at, duration: Math.max(1, Math.round(FILL_MS * share)) };
+            const pill = { delay: at, duration: Math.max(1, Math.round(FILL_MS * elapsedOf(item, lived))) };
             at += pill.duration;
-            const linkShare = linkProgress(item, flow.timeline[index + 1]?.start, now);
-            const link = { delay: at, duration: Math.max(1, Math.round(LINK_MS * linkShare)) };
+            const link = { delay: at, duration: Math.max(1, Math.round(LINK_MS * linkProgress(item, flow.timeline[index + 1]?.start, lived))) };
             at += link.duration;
             return { pill, link };
         });
-    }, [flow.timeline, now]);
+    }, [flow.timeline, lived]);
     const colorOf = (item: FlowInput) => item.color || (item.kind === 'meal' ? t.color.textMuted : item.kind === 'task' ? t.color.warning : t.color.accent);
     const edges = !scrubbing;
     return (
@@ -121,7 +134,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, now
                     <ListItem key={`${item.kind}-${item.id}${item.part ? `-${item.part.index}` : ''}`} index={index} rise>
                         <Row size={size} item={item} turn={turns[index].pill} linkTurn={turns[index].link} color={colorOf(item)} last={index === flow.timeline.length - 1} first={index === 0}
                             nextColor={next ? colorOf(next) : undefined} nextStart={next?.start} day={day}
-                            now={now} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus}
+                            now={now} lived={lived} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus}
                             faces={company?.id === item.id ? company.faces : undefined} onReschedule={onReschedule} />
                     </ListItem>
                 );
@@ -181,7 +194,9 @@ function Chips({ title, icon, tint, items, onOpen }: { title: string; icon: stri
     );
 }
 
-function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, first, now, updated, onToggle, onOpen, onFocus, day, faces, onReschedule }: {
+function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, first, now, lived, updated, onToggle, onOpen, onFocus, day, faces, onReschedule }: {
+    /** Up to when this day has been lived (livedUntil): what every fill reads. */
+    lived: number;
     faces?: Face[];
     onReschedule?: (item: FlowInput) => void;
     size: Size; item: FlowItem; turn: { delay: number; duration: number }; linkTurn: { delay: number; duration: number }; color: string; nextColor?: string; nextStart?: number; last: boolean; first?: boolean; now: number | null; updated: boolean; day?: string;
@@ -207,7 +222,7 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
         : item.shift < 0 && !item.auto ? `${-item.shift} min earlier: the one before finished early`
         : null;
     // How much of its time has gone: full once over (or done), a part while on, empty ahead.
-    const elapsed = elapsedOf(item, now);
+    const elapsed = elapsedOf(item, lived);
     // A habit's pill is round; a task's has squarer corners.
     const corner = item.kind === 'task' ? t.radius.sm : size.pill / 2;
     // A change of length grows or shrinks the pill with the same timing the
@@ -244,7 +259,7 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
                     the time between them passes. */}
                 {/* Free time before the next one shows as line, on the same
                     scale as the pills: an hour free is a long stretch, back to back is short. */}
-                {!last ? <Link color={color} progress={linkProgress(item, nextStart, now)} turn={linkTurn}
+                {!last ? <Link color={color} progress={linkProgress(item, nextStart, lived)} turn={linkTurn}
                     gap={nextStart !== undefined ? Math.min(size.max, Math.max(0, nextStart - item.end) * size.per) : 0} /> : null}
             </View>
 
@@ -332,12 +347,11 @@ function Check({ size, done, color, onPress, label }: { size: Size; done: boolea
  * next one's start, gone so far. Back-to-back items fill the moment the next
  * begins; a day that is not today is drawn full.
  */
-function linkProgress(item: FlowItem, nextStart: number | undefined, now: number | null): number {
-    if (now === null || item.state === 'done' && nextStart !== undefined && now >= nextStart) return 1;
+/** How much of the stretch to the next one has gone, by the same lived time as the pills. */
+function linkProgress(item: FlowItem, nextStart: number | undefined, lived: number): number {
     if (nextStart === undefined) return 0;
     const from = Math.min(item.end, nextStart);
-    if (nextStart <= from) return now >= nextStart ? 1 : 0;
-    return Math.max(0, Math.min(1, (now - from) / (nextStart - from)));
+    return nextStart <= from ? (lived >= nextStart ? 1 : 0) : share(lived, from, nextStart);
 }
 
 /**
