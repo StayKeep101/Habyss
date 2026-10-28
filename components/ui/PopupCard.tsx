@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from './AppIcon';
@@ -8,9 +8,9 @@ import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing, elevationFor, surfaceFor } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { sheetBottom } from './sheetBottom';
+import { OVERLAY } from '@/theme/motion';
 import { useHaptics } from '@/hooks/useHaptics';
 
-const CLOSE = { duration: 200, easing: Easing.in(Easing.cubic) };
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /**
@@ -37,8 +37,9 @@ export function PopupCard({ visible, onClose, icon, iconColor, title, body, chil
     if (visible && !mounted) setMounted(true);
 
     useEffect(() => {
-        if (visible) { progress.value = withSpring(1, { damping: 18, stiffness: 180, mass: 0.7 }); return; }
-        progress.value = withTiming(0, CLOSE, finished => { if (finished) runOnJS(setMounted)(false); });
+        // The same way in and out as every overlay (theme/motion.ts): no spring, no bounce.
+        if (visible) { progress.value = withTiming(1, OVERLAY.in); return; }
+        progress.value = withTiming(0, OVERLAY.out, finished => { if (finished) runOnJS(setMounted)(false); });
     }, [visible, progress]);
 
     const scrim = useAnimatedStyle(() => ({ opacity: progress.value * 0.5 }));

@@ -6,12 +6,13 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { textOn } from '@/theme/tokens';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import Animated, {
-    Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming,
+    interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import type { Habit } from '@/lib/habitsSQLite';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
+import { OVERLAY } from '@/theme/motion';
 import { useHaptics } from '@/hooks/useHaptics';
 
 type Kind = 'goals' | 'habits' | 'tasks';
@@ -37,8 +38,9 @@ interface Props {
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const OPEN = { duration: 220, easing: Easing.out(Easing.cubic) };
-const CLOSE = { duration: 150, easing: Easing.in(Easing.cubic) };
+// Every overlay opens and closes the same way (theme/motion.ts), Reduce Motion included.
+const OPEN = OVERLAY.in;
+const CLOSE = OVERLAY.out;
 
 /**
  * The roadmap's filters, as a small menu rather than a page.

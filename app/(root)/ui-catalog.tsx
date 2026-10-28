@@ -15,6 +15,7 @@ import type { GoalPoint } from '@/lib/goalInsights';
 import { styles } from '@/styles/screens/ui-catalog.styles';
 import { GoalMilestones } from '@/components/Goal/GoalMilestones';
 import { startTour } from '@/lib/coachMarks';
+import { GoalCompleteSequence } from '@/components/Celebrations/GoalCompleteSequence';
 import type { Milestone } from '@/lib/goalMilestones';
 
 const CATALOG_TODAY = '2026-11-05';
@@ -58,6 +59,8 @@ export default function UICatalog() {
     const [catalogMilestones, setCatalogMilestones] = useState<Milestone[]>(SAMPLE_MILESTONES);
     // Motion demos: replay remounts them, change moves their value.
     const [replay, setReplay] = useState(0);
+    // The goal-reached ceremony, played here for show (no goal, no Marks).
+    const [ceremony, setCeremony] = useState(0);
     const [level, setLevel] = useState(0.62);
 
     const colors = [
@@ -340,6 +343,15 @@ export default function UICatalog() {
                     <Specimen number={39} name="First-run tour" file="components/ui/CoachMarks.tsx" note="In order across screens: Home's cards, making a first goal yourself, Roadmap, friends.">
                         <AppButton label="Start the tour" onPress={() => { router.navigate('/(root)/(tabs)/home'); setTimeout(startTour, 450); }} />
                     </Specimen>
+                    <Specimen number={40} name="Opening a sheet or a window" file="theme/motion.ts" note="OVERLAY: every sheet, menu, filter and popup opens and closes the same way (260 ms in, 190 ms out, no bounce)">
+                        <View style={styles.row}>
+                            <View style={{ flex: 1 }}><AppButton label="Sheet" icon="arrow-up" onPress={() => setSheet(true)} /></View>
+                            <View style={{ flex: 1 }}><AppButton label="Window" icon="albums" onPress={() => setModal(true)} /></View>
+                        </View>
+                    </Specimen>
+                    <Specimen number={41} name="Goal reached" file="components/Celebrations/GoalCompleteSequence.tsx" note="The ceremony: settle, gather, the beat, reveal, count, rest, return. Tap anywhere to skip. docs/motion-system.md §4.1">
+                        <AppButton label="Play it" icon="trophy" onPress={() => setCeremony(value => value + 1)} />
+                    </Specimen>
                     <Specimen number={37} name="Cells fading in" file="components/ui/Motion.tsx" note="PopIn">
                         <View style={styles.wrap}>
                             {Array.from({ length: 21 }, (_, index) => (
@@ -350,6 +362,7 @@ export default function UICatalog() {
                 </View>
             </ScrollView>
 
+            {ceremony ? <GoalCompleteSequence key={ceremony} goal={{ name: 'Read 24 books', color: t.color.accent, icon: 'book', count: 3 }} onDone={() => setCeremony(0)} /> : null}
             <VoidModal visible={modal} onClose={() => setModal(false)}>
                 <View style={{ gap: t.space.md }}>
                     <Text variant="title">Centred window</Text>

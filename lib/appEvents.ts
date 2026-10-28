@@ -53,7 +53,7 @@ export interface AppEvents {
     daily_target_reached: { done: number; target: number };
     /** A goal reached a hundred per cent for the first time. */
     /** `count`: goals done now, this one included. */
-    goal_complete: { goalId: string; name: string; count?: number };
+    goal_complete: { goalId: string; name: string; count?: number; color?: string; icon?: string };
     daily_focus_target_changed: DailyTarget;
 
     /* ------------------------------------------------------------- the account */

@@ -11,7 +11,7 @@ import { useSounds } from '@/hooks/useSounds';
  * goal page), where the sound lands with the animation.
  */
 export function useAppSounds() {
-    const { playComplete, playCelebrate, playLevelUp, playStreak } = useSounds();
+    const { playComplete, playCelebrate, playStreak } = useSounds();
 
     useEffect(() => {
         const subscriptions = [
@@ -19,8 +19,8 @@ export function useAppSounds() {
             on('task_completed', () => playComplete()),
             on('daily_target_reached', () => playStreak()),
             on('day_complete', () => playCelebrate()),
-            on('goal_complete', () => playLevelUp()),
+            // A reached goal's sound plays on its ceremony's beat (GoalCompleteSequence), not here.
         ];
         return () => subscriptions.forEach(subscription => subscription.remove());
-    }, [playComplete, playCelebrate, playLevelUp, playStreak]);
+    }, [playComplete, playCelebrate, playStreak]);
 }

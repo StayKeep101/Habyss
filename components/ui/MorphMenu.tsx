@@ -1,13 +1,14 @@
 import React, { useImperativeHandle, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { Easing, interpolate, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { AppIcon, type IconName } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { Control, FontFamily, Radius, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
+import { OVERLAY } from '@/theme/motion';
 import { useHaptics } from '@/hooks/useHaptics';
 
 export interface MorphMenuItem {
@@ -23,8 +24,9 @@ const HEAD = 52;
 /** Room kept between the menu and the edges of the screen. */
 const MARGIN = 12;
 // Timed, not sprung: a spring overshoots, which read as the button jumping before it opened.
-const OPEN = { duration: 240, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
-const CLOSE = { duration: 170, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
+// Every overlay opens and closes the same way (theme/motion.ts).
+const OPEN = OVERLAY.in;
+const CLOSE = OVERLAY.out;
 
 /**
  * A "⋯" button that grows into its own menu.

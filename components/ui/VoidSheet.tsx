@@ -13,11 +13,13 @@ import { ms, s, vs } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
 import { sheetBottom } from './sheetBottom';
 import { InSheet } from './inSheet';
+import { OVERLAY } from '@/theme/motion';
 import { useHaptics } from '@/hooks/useHaptics';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const OPEN = { duration: 260, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
-const CLOSE = { duration: 190, easing: Easing.in(Easing.cubic), reduceMotion: ReduceMotion.System };
+// Every overlay opens and closes the same way (theme/motion.ts).
+const OPEN = OVERLAY.in;
+const CLOSE = OVERLAY.out;
 
 /**
  * A sheet that rises from the bottom and is only as tall as what is in it.

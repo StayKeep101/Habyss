@@ -24,6 +24,7 @@ docs/             notes, the UI audit, old SQL
 - Surfaces: every card, button disc, field, chip and the tab bar is drawn with `MatteSurface` (Phantom-style matte: soft top-light gradient, faint edge, shadow). Text inputs are `MatteInput` or `AppTextField`, never a bare `TextInput` with its own box. A chosen chip is a solid accent fill.
 - Screen styles: `styles/screens/` — each page's StyleSheet, moved out of `app/` unchanged (see `styles/README.md`). A page's look is edited there, not in the page file. Never put a style file inside `app/` (Expo Router would treat it as a route).
 - Audit of where the app started: `docs/ui-audit.md`.
+- Motion: every duration, easing and beat comes from `theme/motion.ts`; the reasoning, the tiers by frequency and the storyboards are in `docs/motion-system.md`. Nothing defines its own timing, nothing in the interface bounces, and every sequence has a Reduce Motion path and can be skipped.
 
 ## Rules
 

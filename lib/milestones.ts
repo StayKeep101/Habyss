@@ -104,9 +104,9 @@ export async function releaseGoal(goalId: string): Promise<void> {
 }
 
 /** Announces a goal being finished, the first time it is; `count` is how many goals are done now, this one included. */
-export async function announceGoalComplete(goalId: string, name: string, count?: number): Promise<void> {
+export async function announceGoalComplete(goalId: string, name: string, count?: number, look?: { color?: string; icon?: string }): Promise<void> {
     if (!(await claimGoal(goalId))) return;
-    emit('goal_complete', { goalId, name, ...(count ? { count } : null) });
+    emit('goal_complete', { goalId, name, ...(count ? { count } : null), ...(look?.color ? { color: look.color } : null), ...(look?.icon ? { icon: look.icon } : null) });
 }
 
 /**
@@ -187,7 +187,7 @@ export async function checkMilestones(): Promise<void> {
             if (!goalCompletedOn(goal) || habits.some(habit => habit.goalId === goal.id && !habit.isGoal)) {
                 await finishGoal(goal, goalCompletedOn(goal) ?? on, habits, tasks).catch(() => undefined);
             }
-            await announceGoalComplete(goal.id, goal.name, doneIds.length);
+            await announceGoalComplete(goal.id, goal.name, doneIds.length, { color: goal.color, icon: goal.icon });
         }
     } catch {
         // A missed celebration is not worth an error.

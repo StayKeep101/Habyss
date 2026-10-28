@@ -2,9 +2,10 @@ import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Text, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
 import { isIntroDone, subscribeIntro } from '@/lib/introGate';
 import Animated, {
-    Easing, FadeIn, FadeInDown, FadeOut, LinearTransition, ReduceMotion, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue,
+    FadeIn, FadeInDown, FadeOut, LinearTransition, ReduceMotion, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue,
     withDelay, withTiming, type SharedValue,
 } from 'react-native-reanimated';
+import { DURATION, EASE, STAGGER } from '@/theme/motion';
 import { Circle, Path, Rect } from 'react-native-svg';
 
 /**
@@ -18,12 +19,12 @@ import { Circle, Path, Rect } from 'react-native-svg';
  */
 export const MOTION = {
     /** A value changing while you look at it. */
-    duration: 420,
+    duration: DURATION.emphasis,
     /** A chart arriving when its page opens. */
-    intro: 700,
+    intro: DURATION.reward,
     /** The gap between neighbouring bars or cells growing in. */
-    stagger: 35,
-    easing: Easing.out(Easing.cubic),
+    stagger: STAGGER.row,
+    easing: EASE.enter,
 } as const;
 
 export const AnimatedRect = Animated.createAnimatedComponent(Rect);
