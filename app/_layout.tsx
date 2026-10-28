@@ -181,6 +181,10 @@ export default function MobileLayout() {
         if (typeof url === 'string' && url.startsWith('/')) {
           setTimeout(() => { require('expo-router').router.push(url); }, 500);
         }
+        // Your day dropped, or a friend reacted to it: the tap opens Community.
+        if ((data?.type === 'day_drop' || data?.type === 'reaction') && response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
+          setTimeout(() => { require('expo-router').router.push('/(root)/(tabs)/community'); }, 500);
+        }
         // "Alex is locking in. Join?": the tap joins them (lib/focusTogether.ts).
         if (data?.type === 'focus_invite' && typeof data.from === 'string' && response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
           const { togetherId } = require('@/lib/focusTogether') as typeof import('@/lib/focusTogether');

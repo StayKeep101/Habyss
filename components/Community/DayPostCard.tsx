@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { MatteSurface } from '@/components/ui/MatteSurface';
@@ -16,6 +16,7 @@ import { cardShare, type DayCardData, type DayCardLine } from '@/lib/dayCard';
 import { maskObjectionable } from '@/lib/contentFilter';
 import type { FriendStatus } from '@/lib/presence';
 import { StatusBadge } from './StatusBadge';
+import { REACTIONS, reactionSummary, type Reaction } from '@/lib/reactions';
 
 const LIMIT = 5;
 
@@ -33,10 +34,11 @@ const postedLabel = (postedAt: string) => {
  * One person's day, posted to the feed at the time they chose.
  *
  * A face, a ring for how much of the day got done, then what they did — and
- * what they did not — habits and tasks, by name. Friends acknowledge it with
- * one tap; the people who did are shown.
+ * what they did not — habits and tasks, by name. Friends react with one tap
+ * (Proud of you, On fire, The comeback, Again tomorrow?); tapping another
+ * changes it, tapping it again takes it back. Who reacted, and how, is shown.
  */
-export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, ackCount, acked, ackFaces, onAcknowledge, onOpenAuthor, onReport }: {
+export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, myReaction, reactions, ackFaces, onReact, onOpenAuthor, onReport }: {
     name: string;
     avatarUrl?: string;
     /** The author's status now, as a mark on their photo. */
@@ -44,10 +46,13 @@ export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, ack
     postedAt: string;
     card: DayCardData;
     mine: boolean;
-    ackCount: number;
-    acked: boolean;
+    /** Your reaction, or null. */
+    myReaction: Reaction | null;
+    /** How many of each it got. */
+    reactions: Partial<Record<Reaction, number>>;
     ackFaces: { name: string; avatarUrl?: string }[];
-    onAcknowledge: () => void;
+    /** A reaction chosen, or null to take yours back. */
+    onReact: (reaction: Reaction | null) => void;
     onOpenAuthor: () => void;
     /** Someone else's card: a long press reports it. */
     onReport?: () => void;
@@ -60,12 +65,15 @@ export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, ack
     const total = card.habitsTotal + card.tasksTotal;
     const allDone = total > 0 && done === total;
 
-    // The acknowledge button springs when it is pressed.
+    // The chosen reaction swells a little and settles: no bounce.
     const pop = useSharedValue(1);
     useEffect(() => {
-        if (acked) pop.value = withSequence(withSpring(1.12, { damping: 9, stiffness: 300, reduceMotion: ReduceMotion.System }), withTiming(1, { duration: 140 }));
-    }, [acked, pop]);
+        if (myReaction) pop.value = withSequence(
+            withTiming(1.08, { duration: 120, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System }),
+            withTiming(1, { duration: 160, easing: Easing.inOut(Easing.cubic), reduceMotion: ReduceMotion.System }));
+    }, [myReaction, pop]);
     const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
+    const summary = reactionSummary(reactions);
 
     const line = (item: DayCardLine, index: number) => (
         <View key={`${item.name}-${index}`} style={styles.line}>
@@ -131,35 +139,44 @@ export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, ack
                 {section('Tasks', card.tasks, card.tasksDone, card.tasksTotal)}
 
                 <View style={[styles.foot, { borderTopColor: colors.border }]}>
-                    {ackFaces.length ? (
-                        <View style={styles.faces}>
-                            {ackFaces.slice(0, 4).map((face, index) => (
-                                <Avatar key={`${face.name}-${index}`} name={face.name} uri={face.avatarUrl} size={22}
-                                    style={{ marginLeft: index ? -7 : 0 }} />
-                            ))}
-                        </View>
-                    ) : null}
-                    <Text style={[styles.ackText, { color: colors.textTertiary }]}>
-                        {ackCount === 0 ? (mine ? 'No one yet' : '') : ackCount === 1 ? '1 acknowledged' : `${ackCount} acknowledged`}
-                    </Text>
+                    <View style={styles.footRow}>
+                        {ackFaces.length ? (
+                            <View style={styles.faces}>
+                                {ackFaces.slice(0, 4).map((face, index) => (
+                                    <Avatar key={`${face.name}-${index}`} name={face.name} uri={face.avatarUrl} size={22}
+                                        style={{ marginLeft: index ? -7 : 0 }} />
+                                ))}
+                            </View>
+                        ) : null}
+                        <Text numberOfLines={2} style={[styles.ackText, { color: colors.textTertiary }]}>
+                            {summary || (mine ? 'No reactions yet' : '')}
+                        </Text>
+                    </View>
                     {!mine ? (
-                        <Animated.View style={popStyle}>
-                            <Pressable onPress={onAcknowledge} accessibilityRole="button" accessibilityState={{ selected: acked }}
-                                accessibilityLabel={acked ? 'Acknowledged. Tap to undo' : 'Acknowledge'}>
-                                {acked ? (
-                                    <View style={styles.ackButton}>
+                        <View style={styles.reactions}>
+                            {REACTIONS.map(option => {
+                                const on = myReaction === option.id;
+                                const pill = on ? (
+                                    <View style={styles.reaction}>
                                         <LinearGradient colors={buttonColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                                        <AppIcon name="checkmark-done" size={15} color={colors.background} />
-                                        <Text style={[styles.ackLabel, { color: colors.background }]}>Acknowledged</Text>
+                                        <AppIcon name={option.icon} filled size={14} color={colors.background} />
+                                        <Text style={[styles.reactionLabel, { color: colors.background }]}>{option.label}</Text>
                                     </View>
                                 ) : (
-                                    <MatteSurface radius={Radius.pill} level="control" style={styles.ackButton}>
-                                        <AppIcon name="checkmark-done" size={15} color={primary} />
-                                        <Text style={[styles.ackLabel, { color: colors.textPrimary }]}>Acknowledge</Text>
+                                    <MatteSurface radius={Radius.pill} level="control" style={styles.reaction}>
+                                        <AppIcon name={option.icon} size={14} color={primary} />
+                                        <Text style={[styles.reactionLabel, { color: colors.textPrimary }]}>{option.label}</Text>
                                     </MatteSurface>
-                                )}
-                            </Pressable>
-                        </Animated.View>
+                                );
+                                return (
+                                    <Pressable key={option.id} onPress={() => onReact(on ? null : option.id)} hitSlop={4}
+                                        accessibilityRole="button" accessibilityState={{ selected: on }}
+                                        accessibilityLabel={on ? `${option.label}. Tap to take it back` : `React: ${option.label}`}>
+                                        {on ? <Animated.View style={popStyle}>{pill}</Animated.View> : pill}
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
                     ) : null}
                 </View>
             </Pressable>
@@ -188,9 +205,11 @@ const styles = StyleSheet.create({
     skipBar: { width: 8, height: 1.5, borderRadius: 1 },
     lineText: { flex: 1, fontFamily: FontFamily.medium, fontSize: 14 },
     more: { fontFamily: FontFamily.regular, fontSize: 12, marginLeft: 30 },
-    foot: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing.md },
+    foot: { gap: Spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing.md },
+    footRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    reactions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+    reaction: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs + 2, paddingHorizontal: Spacing.md, minHeight: 36, borderRadius: Radius.pill, overflow: 'hidden' },
+    reactionLabel: { fontFamily: FontFamily.semibold, fontSize: 13 },
     faces: { flexDirection: 'row' },
     ackText: { flex: 1, fontFamily: FontFamily.regular, fontSize: 12 },
-    ackButton: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs + 2, paddingHorizontal: Spacing.md + 2, paddingVertical: Spacing.sm, borderRadius: Radius.pill, overflow: 'hidden' },
-    ackLabel: { fontFamily: FontFamily.semibold, fontSize: 13 },
 });

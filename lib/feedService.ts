@@ -1,6 +1,7 @@
 import { getSupabase } from './supabase';
 import type { DayCardData } from './dayCard';
 import type { PresenceFacts } from './presence';
+import { asReaction, type Reaction } from './reactions';
 
 /**
  * The Community feed, friends' status and the leaderboard, on the server.
@@ -32,6 +33,10 @@ export interface FeedPost {
     ackCount: number;
     ackedByMe: boolean;
     ackUsers: string[];
+    /** Your reaction to it (lib/reactions.ts), or null. */
+    myReaction: Reaction | null;
+    /** How many of each reaction it got. */
+    reactions: Partial<Record<Reaction, number>>;
     mine: boolean;
 }
 
@@ -85,17 +90,24 @@ export class FeedService {
             ackCount: row.ack_count ?? 0,
             ackedByMe: !!row.acked_by_me,
             ackUsers: row.ack_users ?? [],
+            // A server without reactions yet: an acknowledgement is the plain one.
+            myReaction: row.my_reaction ? asReaction(row.my_reaction) : row.acked_by_me ? 'proud' : null,
+            reactions: row.reactions && typeof row.reactions === 'object' ? row.reactions : (row.ack_count ? { proud: row.ack_count } : {}),
             mine: row.user_id === ctx.me,
         }));
     }
 
-    static async acknowledge(post: Pick<FeedPost, 'userId' | 'day'>): Promise<boolean> {
+    /** Reacts to a friend's day, or changes your reaction to it. */
+    static async acknowledge(post: Pick<FeedPost, 'userId' | 'day'>, reaction: Reaction = 'proud'): Promise<boolean> {
         const ctx = await signedIn();
         if (!ctx) return false;
+        const row = { post_user: post.userId, post_day: post.day, from_user: ctx.me };
         const { error } = await ctx.sb.from('post_acknowledgements')
-            .insert({ post_user: post.userId, post_day: post.day, from_user: ctx.me });
-        // Already acknowledged is not a failure.
-        return !error || error.code === '23505';
+            .upsert({ ...row, reaction }, { onConflict: 'post_user,post_day,from_user' });
+        if (!error) return true;
+        // A server without reactions yet: the plain acknowledgement.
+        const plain = await ctx.sb.from('post_acknowledgements').insert(row);
+        return !plain.error || plain.error.code === '23505';
     }
 
     static async unacknowledge(post: Pick<FeedPost, 'userId' | 'day'>): Promise<boolean> {

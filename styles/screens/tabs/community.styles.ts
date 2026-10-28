@@ -9,6 +9,8 @@ export const styles = StyleSheet.create({
     rank: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs + 2, height: 40, paddingHorizontal: Spacing.md },
     rankText: { fontFamily: FontFamily.bold, fontSize: 14, fontVariant: ['tabular-nums'] },
     block: { marginBottom: Spacing.xxl },
+    /** Confetti over the feed when a perfect day is cheered. */
+    cheer: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
     requests: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xs },
     requestRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.sm + 2 },
     requestName: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 15 },

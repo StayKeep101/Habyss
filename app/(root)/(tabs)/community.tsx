@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { FadeIn, FlipInEasyY, ReduceMotion } from 'react-native-reanimated';
 import { IconTile } from '@/components/ui/IconTile';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { VoidShell } from '@/components/ui/VoidShell';
@@ -26,6 +26,14 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { FriendsService, getMyUsername, type FriendRequest } from '@/lib/friendsService';
 import { FeedService, type FeedPost, type FriendStatusRow } from '@/lib/feedService';
+import { withMyReaction, type Reaction } from '@/lib/reactions';
+import { Confetti } from '@/components/ui/Confetti';
+import { Overlay } from '@/components/ui/Overlay';
+import { SealedDayCard } from '@/components/Community/SealedDayCard';
+import { hasDropped, isSealed, minuteOf } from '@/lib/theDrop';
+import { clockLabel } from '@/lib/dayFlow';
+import { localDateKey } from '@/lib/habitSchedule';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { statusOf } from '@/lib/presence';
 import { listenToFriends, announceChange } from '@/lib/livePulse';
 import { onAccountChange } from '@/lib/account';
@@ -36,13 +44,15 @@ import { useMyProfile } from '@/hooks/useMyProfile';
 import { styles } from '@/styles/screens/tabs/community.styles';
 
 const PAGE = 15;
+/** The day the drop's cards last flipped open on this phone. */
+const DROP_SEEN = 'habyss_drop_seen';
 
 /**
  * Community: what your friends are doing right now, and how their days went.
  *
  * Along the top, every friend's face and status — locked in, live, asleep.
  * Below, the feed: each person's day, posted at the time they chose, which
- * friends acknowledge. The leaderboard is one tap away in the header.
+ * friends react to. The leaderboard is one tap away in the header.
  */
 export default function CommunityScreen() {
     const { theme } = useTheme();
@@ -75,6 +85,20 @@ export default function CommunityScreen() {
     // Status depends on the clock (bedtime, a focus session ending), so it is
     // recomputed every minute without fetching anything.
     const [clock, setClock] = useState(() => new Date());
+    // The drop (lib/theDrop.ts): friends' cards from today stay sealed until
+    // your day goes up at your time, then flip open one by one, once a day.
+    const today = localDateKey(clock);
+    const nowMinutes = clock.getHours() * 60 + clock.getMinutes();
+    const dropped = hasDropped(shareTime, nowMinutes);
+    const opensAt = clockLabel(minuteOf(shareTime) ?? 0);
+    const [dropSeen, setDropSeen] = useState<string | null | undefined>(undefined);
+    useEffect(() => { AsyncStorage.getItem(DROP_SEEN).then(value => setDropSeen(value ?? null)).catch(() => setDropSeen(null)); }, []);
+    const flipping = dropped && dropSeen !== undefined && dropSeen !== today && posts.some(post => !post.mine && post.day === today);
+    useEffect(() => {
+        if (!flipping) return;
+        const timer = setTimeout(() => { setDropSeen(today); void AsyncStorage.setItem(DROP_SEEN, today).catch(() => undefined); }, 4000);
+        return () => clearTimeout(timer);
+    }, [flipping, today]);
     const loading = useRef(false);
     // Community is the one place that needs the internet; without it, a joke
     // rather than an empty page, and a fresh one each time you pull.
@@ -163,21 +187,33 @@ export default function CommunityScreen() {
     /** Each friend's status now, for the mark on their photo in the feed. */
     const statusById = useMemo(() => new Map(rail.map(friend => [friend.userId, friend.status])), [rail]);
 
-    const acknowledge = async (post: FeedPost) => {
-        selectionFeedback();
-        const next = !post.ackedByMe;
+    // A perfect day reacted to: confetti over the feed, once.
+    const [cheer, setCheer] = useState(0);
+    useEffect(() => {
+        if (!cheer) return;
+        const timer = setTimeout(() => setCheer(0), 2600);
+        return () => clearTimeout(timer);
+    }, [cheer]);
+    /** Reacts to a friend's day, changes the reaction, or takes it back (null). */
+    const react = async (post: FeedPost, reaction: Reaction | null) => {
+        if (reaction) mediumFeedback(); else selectionFeedback();
+        const before = post.myReaction;
         // Shown at once; put back if the server says no.
-        const flip = (acked: boolean) => setPosts(prev => prev.map(item => item.userId === post.userId && item.day === post.day
+        const show = (from: Reaction | null, to: Reaction | null) => setPosts(prev => prev.map(item => item.userId === post.userId && item.day === post.day
             ? {
                 ...item,
-                ackedByMe: acked,
-                ackCount: item.ackCount + (acked ? 1 : -1),
-                ackUsers: acked ? [...item.ackUsers, me?.id ?? ''] : item.ackUsers.filter(id => id !== me?.id),
+                myReaction: to,
+                ackedByMe: !!to,
+                reactions: withMyReaction(item.reactions, from, to),
+                ackCount: item.ackCount + (to ? 1 : 0) - (from ? 1 : 0),
+                ackUsers: to ? [...item.ackUsers.filter(id => id !== me?.id), me?.id ?? ''] : item.ackUsers.filter(id => id !== me?.id),
             }
             : item));
-        flip(next);
-        const ok = next ? await FeedService.acknowledge(post) : await FeedService.unacknowledge(post);
-        if (!ok) flip(!next);
+        show(before, reaction);
+        const total = post.card.habitsTotal + post.card.tasksTotal;
+        if (reaction && !before && total > 0 && post.card.habitsDone + post.card.tasksDone >= total) setCheer(Date.now());
+        const ok = reaction ? await FeedService.acknowledge(post, reaction) : await FeedService.unacknowledge(post);
+        if (!ok) show(reaction, before);
         else announceChange();
     };
 
@@ -311,6 +347,10 @@ export default function CommunityScreen() {
                 onEndReachedThreshold={0.6}
                 renderItem={({ item, index }) => (
                     <ListItem index={index}>
+                        {isSealed(item, today, shareTime, nowMinutes) ? (
+                            <SealedDayCard key="sealed" name={item.name} avatarUrl={item.avatarUrl} opensAt={opensAt} />
+                        ) : (
+                        <Animated.View key="open" entering={flipping && !item.mine && item.day === today ? FlipInEasyY.duration(520).delay(index * 140).reduceMotion(ReduceMotion.System) : undefined}>
                         <DayPostCard
                             name={item.mine ? (myProfile.name || item.name) : item.name}
                             avatarUrl={item.mine ? myProfile.avatar ?? undefined : item.avatarUrl}
@@ -318,13 +358,15 @@ export default function CommunityScreen() {
                             postedAt={item.postedAt}
                             card={item.card}
                             mine={item.mine}
-                            ackCount={item.ackCount}
-                            acked={item.ackedByMe}
+                            myReaction={item.myReaction}
+                            reactions={item.reactions}
                             ackFaces={item.ackUsers.flatMap(id => { const face = people.get(id); return face ? [face] : []; })}
-                            onAcknowledge={() => void acknowledge(item)}
+                            onReact={reaction => void react(item, reaction)}
                             onOpenAuthor={() => (item.mine ? router.push('/(root)/profile') : openFriend(item.userId))}
                             onReport={item.mine ? undefined : () => reportPost(item)}
                         />
+                        </Animated.View>
+                        )}
                     </ListItem>
                 )}
                 ListEmptyComponent={gate === null ? (
@@ -340,6 +382,11 @@ export default function CommunityScreen() {
                 ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.more} color={colors.textTertiary} /> : null}
             />
 
+            {cheer ? (
+                <Overlay>
+                    <View pointerEvents="none" style={styles.cheer}><Confetti key={cheer} colors={[primary, colors.success, colors.warning, colors.textPrimary]} /></View>
+                </Overlay>
+            ) : null}
             <AddFriendModal visible={showAddFriend} onClose={() => setShowAddFriend(false)} userCode={userCode} onFriendAdded={() => { void load(); }} />
         </VoidShell>
     );
