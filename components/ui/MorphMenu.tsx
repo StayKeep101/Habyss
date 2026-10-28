@@ -1,5 +1,5 @@
 import React, { useImperativeHandle, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { Easing, interpolate, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { MatteSurface } from '@/components/ui/MatteSurface';
@@ -99,9 +99,19 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
             if (finished) runOnJS(finish)(then);
         });
     };
+    // What was chosen runs once the menu's window is really gone: a sheet asked
+    // for while it was still closing was refused by iOS, so nothing opened.
+    const pending = useRef<(() => void) | null>(null);
     const finish = (then?: () => void) => {
+        pending.current = then ?? null;
         setAnchor(null);
         setLayer(null);
+        // iOS says when the window is gone (onDismiss); elsewhere, a moment later.
+        if (Platform.OS !== 'ios') setTimeout(runPending, 60);
+    };
+    const runPending = () => {
+        const then = pending.current;
+        pending.current = null;
         then?.();
     };
 
@@ -161,7 +171,7 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
                 </MatteSurface>
             </Pressable>
 
-            <Modal visible={!!anchor} transparent animationType="none" statusBarTranslucent onRequestClose={() => close()}>
+            <Modal visible={!!anchor} transparent animationType="none" statusBarTranslucent onRequestClose={() => close()} onDismiss={runPending}>
                 <View ref={layerRef} style={StyleSheet.absoluteFill} onLayout={measureLayer} pointerEvents="box-none">
                     <Pressable style={StyleSheet.absoluteFill} onPress={() => close()} accessibilityLabel="Close menu">
                         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }, scrimStyle]} />

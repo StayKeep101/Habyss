@@ -170,18 +170,16 @@ export async function checkDayComplete(): Promise<void> {
         const tally = tallyDay(habits, completions, skipped, tasks, today, target);
         // The first thing finished keeps the streak, so that is the moment
         // worth marking, not the last. Cheap check first, before any history.
-        const doneSomething = habits.some(habit => !habit.isGoal && completions[habit.id] && !skipped[habit.id])
-            || tasks.some(task => doneOnDay(task, today));
-        if (!doneSomething) return;
-        if (!(await claimCelebration(today))) return;
-
-        // The card shows the run this day just extended.
+        // Today counts the way the streak counts it (a shared habit once
+        // everybody on it has done it), so the card never says 0: it shows when
+        // today has really joined the run, with the run it made.
         const history: Record<string, string[]> = { ...data.history };
         const skips: Record<string, string[]> = { ...data.skips };
         history[today] = Object.keys(completions).filter(id => completions[id]);
         skips[today] = Object.keys(skipped).filter(id => skipped[id]);
-
         const run = streakFrom(habits, tasks, history, skips, today, undefined, target);
+        if (!run.completedDates.includes(today) || run.streak < 1) return;
+        if (!(await claimCelebration(today))) return;
         emit('day_complete', { tally, ...run });
     } catch {
         // Nothing to celebrate is not an error.

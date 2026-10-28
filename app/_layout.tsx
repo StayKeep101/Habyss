@@ -177,19 +177,21 @@ export default function MobileLayout() {
         await NotificationService.handleEchoResponse(response);
         await Notifications.clearLastNotificationResponseAsync();
         const data = response.notification.request.content.data;
+        // Every tap goes to its place (navigate): a tab is switched to, a page
+        // opened, never a second copy of the app pushed over the first.
         const url = data?.url;
         if (typeof url === 'string' && url.startsWith('/')) {
-          setTimeout(() => { require('expo-router').router.push(url); }, 500);
+          setTimeout(() => { require('expo-router').router.navigate(url); }, 500);
         }
         // Your day dropped, or a friend reacted to it: the tap opens Community.
         if ((data?.type === 'day_drop' || data?.type === 'reaction') && response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
-          setTimeout(() => { require('expo-router').router.push('/(root)/(tabs)/community'); }, 500);
+          setTimeout(() => { require('expo-router').router.navigate('/(root)/(tabs)/community'); }, 500);
         }
         // "Alex is locking in. Join?": the tap joins them (lib/focusTogether.ts).
         if (data?.type === 'focus_invite' && typeof data.from === 'string' && response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
           const { togetherId } = require('@/lib/focusTogether') as typeof import('@/lib/focusTogether');
           const params = { id: togetherId(data.from), kind: 'together' };
-          setTimeout(() => { require('expo-router').router.push({ pathname: '/(root)/focus', params }); }, 500);
+          setTimeout(() => { require('expo-router').router.navigate({ pathname: '/(root)/focus', params }); }, 500);
         }
       } catch (error) {
         console.warn('Could not apply notification action', error);

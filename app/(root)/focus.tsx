@@ -332,7 +332,11 @@ function FocusScreen() {
 
     // Sized from the screen, so everything fits on any phone, upright or on its side.
     const landscape = screen.width > screen.height;
-    const usable = screen.height - insets.top - insets.bottom;
+    // The room the clock has: the screen, less the top buttons and whatever
+    // else is showing (the friend focusing too, who is with you), so nothing
+    // ever spills over the buttons, upright or on its side.
+    const extras = (suggestion ? 76 : 0) + (crew.length || note ? 40 : 0);
+    const usable = screen.height - insets.top - insets.bottom - extras - (landscape ? 56 : 0);
     const ringSize = landscape ? Math.min(usable * 0.62, screen.width * 0.34) : Math.min(screen.width * 0.6, usable * 0.32);
     const digitSize = landscape ? Math.min(usable * 0.2, screen.width * 0.11) : Math.min(screen.width * 0.18, usable * 0.095);
     const label = focus.isPaused ? undefined : endsAt ? `Ends at ${endsAt}` : undefined;

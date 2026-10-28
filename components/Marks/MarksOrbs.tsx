@@ -13,6 +13,7 @@ import { localDateKey } from '@/lib/habitSchedule';
 import {
     burstMarks, goalDone, milestoneDone, habitDone, marksRange, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskEarned, type Burst, type Point,
 } from '@/lib/marksOrbs';
+import { Overlay } from '@/components/ui/Overlay';
 import { s, vs } from '@/theme/scale';
 
 const ORB = s(10);
@@ -76,11 +77,14 @@ export function MarksOrbs() {
     const finish = useCallback((id: number) => setFlights(current => current.filter(flight => flight.id !== id)), []);
     const pill = flights.find(flight => flight.pill);
 
+    if (!flights.length) return null;
+    // Over every page, a sheet or a modal one included (a goal's page, Missed):
+    // drawn under them, the orbs were felt but never seen.
     return (
-        <>
+        <Overlay>
             {flights.map(flight => <Swarm key={flight.id} flight={flight} onDone={finish} />)}
             {pill ? <CatchPill key={pill.id} marks={pill.marks} count={pill.count} range={pill.range} top={insets.top + vs(6)} /> : null}
-        </>
+        </Overlay>
     );
 }
 

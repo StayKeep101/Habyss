@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
-import Animated, { FadeIn, FadeOut, LinearTransition, ReduceMotion } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { FaceStack } from '@/components/ui/FaceStack';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { namesLine } from '@/lib/focusTogether';
@@ -29,8 +29,10 @@ export function FocusCrew({ crew, accent, note, mine }: {
         ? `while ${only.name.split(' ')[0] || only.name} · ${theirs}`
         : crew.length > 0 ? `With ${namesLine(crew.map(friend => friend.name))}` : note;
     return (
+        // Fades in and out, but never slides on its own: turning the phone moves
+        // it with the rest of the heading, at once, not after it.
         <Animated.View entering={FadeIn.duration(300).reduceMotion(ReduceMotion.System)} exiting={FadeOut.duration(250).reduceMotion(ReduceMotion.System)}
-            layout={LinearTransition.reduceMotion(ReduceMotion.System)} style={styles.row}
+            style={styles.row}
             accessible accessibilityLabel={line ?? undefined} accessibilityLiveRegion="polite">
             <FaceStack faces={crew} size={FACE} ring={accent} />
             <Text numberOfLines={1} style={styles.text}>{line}</Text>
