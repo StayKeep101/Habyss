@@ -7,6 +7,7 @@ import { AppIcon } from './AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing, elevationFor, surfaceFor } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
+import { sheetBottom } from './sheetBottom';
 import { useHaptics } from '@/hooks/useHaptics';
 
 const CLOSE = { duration: 200, easing: Easing.in(Easing.cubic) };
@@ -54,7 +55,7 @@ export function PopupCard({ visible, onClose, icon, iconColor, title, body, chil
         <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={close}>
             <View style={styles.root}>
                 <AnimatedPressable accessibilityLabel="Close" onPress={close} style={[StyleSheet.absoluteFill, scrim, { backgroundColor: colors.background }]} />
-                <Animated.View style={[styles.card, card, elevationFor(theme, 'floating'), { paddingBottom: Math.max(insets.bottom, 14) + 6, backgroundColor: tone.fill }]}>
+                <Animated.View style={[styles.card, card, elevationFor(theme, 'floating'), { paddingBottom: sheetBottom(insets.bottom), backgroundColor: tone.fill }]}>
                     <View pointerEvents="none" style={styles.material}>
                         <LinearGradient colors={[tone.top, tone.fill, tone.bottom]} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
                     </View>

@@ -11,6 +11,7 @@ import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
+import { sheetBottom } from './sheetBottom';
 import { useHaptics } from '@/hooks/useHaptics';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -158,7 +159,7 @@ export const VoidSheet: React.FC<{
                                 // that it is a screen, and should be a page sheet.
                                 // With the keyboard up, whatever is left above it.
                                 maxHeight: keyboardHeight ? Math.min(height * maxShare, height - keyboardHeight - insets.top - vs(12)) : height * maxShare,
-                                paddingBottom: (keyboardHeight ? 0 : insets.bottom) + vs(8),
+                                paddingBottom: keyboardHeight ? vs(8) : sheetBottom(insets.bottom),
                                 borderColor: tone.lip,
                                 backgroundColor: tone.fill,
                             },
