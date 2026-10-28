@@ -24,10 +24,10 @@ interface DragContext {
 const Context = createContext<DragContext | null>(null);
 /** How close to the top or bottom edge the finger must be for the page to scroll along. */
 const EDGE = 110;
-/** Touch and hold this long, still, before something lifts (iOS lifts at about half a second). */
-const HOLD_MS = 450;
+/** Touch and hold this long, still, before something lifts (iOS lifts at about half a second). Every drag in the app uses it. */
+export const HOLD_MS = 450;
 /** Moving more than this while holding is a scroll, never a drag. */
-const STILL = 8;
+export const STILL = 8;
 /** A drop only counts once it was carried at least this far: lifting and letting go in place puts it back. */
 const CARRY = 24;
 const measureView = (view: View | null) => new Promise<Rect | null>(resolve => {

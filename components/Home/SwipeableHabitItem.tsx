@@ -21,6 +21,7 @@ import { FocusPill } from '@/components/ui/FocusPill';
 import { Radius } from '@/theme/designSystem';
 import { useHaptics } from '@/hooks/useHaptics';
 import { runOnJS } from 'react-native-reanimated';
+import { HOLD_MS, STILL } from '@/components/ui/DragDrop';
 import { useFocusTimeLeft } from '@/context/FocusTimeContext';
 
 // Extended habit type with runtime properties
@@ -116,9 +117,12 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   // Hours, minutes and seconds — "3:56:07", never "236:07".
   const formattedTime = React.useMemo(() => (timeLeft ? formatClock(timeLeft) : null), [timeLeft]);
 
+  // A still hold lifts it; moving first is a scroll. Only a drag that really
+  // began ends in a drop (onEnd): a tap, a scroll or the tick never does.
   const dragGesture = Gesture.Pan()
     .enabled(!!onDragStart)
-    .activateAfterLongPress(250)
+    .activateAfterLongPress(HOLD_MS)
+    .failOffsetX([-STILL, STILL]).failOffsetY([-STILL, STILL])
     .onStart((event) => {
       if (onDragStart) {
         runOnJS(onDragStart)(habit, event.absoluteX, event.absoluteY);
@@ -129,7 +133,7 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
         runOnJS(onDragMove)(habit, event.absoluteX, event.absoluteY);
       }
     })
-    .onFinalize((event) => {
+    .onEnd((event) => {
       if (onDragEnd) {
         runOnJS(onDragEnd)(habit, event.absoluteX, event.absoluteY);
       }

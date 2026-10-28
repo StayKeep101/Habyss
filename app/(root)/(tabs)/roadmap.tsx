@@ -582,6 +582,8 @@ const CalendarScreen = () => {
     const finger = useRef<{ x: number; y: number } | null>(null);
     const autoFrame = useRef<number | null>(null);
     const measuredAt = useRef(0);
+    /** The row being dragged right now ("habit:<id>", "task:<id>"); a drop for anything else is ignored. */
+    const dragOwner = useRef<string | null>(null);
     const EDGE = 96;
     const MAX_STEP = 9;
     const autoScrollStep = useCallback(() => {
@@ -626,6 +628,7 @@ const CalendarScreen = () => {
     useEffect(() => stopFollowing, [stopFollowing]);
 
     const handleHabitDragStart = useCallback(async (habit: Habit, x: number, y: number) => {
+        dragOwner.current = `habit:${habit.id}`;
         selectionFeedback();
         setDraggingHabit(habit);
         setRemoveDrag({ active: !!habit.goalId });
@@ -662,8 +665,13 @@ const CalendarScreen = () => {
     }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY, isOverRemove, trackRemove, followFinger]);
 
     const handleHabitDragEnd = useCallback(async (habit: Habit, x: number, y: number) => {
+        // Only the drag that is under way ends in a drop; anything else is ignored.
+        if (dragOwner.current !== `habit:${habit.id}`) return;
+        dragOwner.current = null;
         stopFollowing();
         const removing = isOverRemove(x, y, !!habit.goalId);
+        // Where the goals are now, not where they were when the drag began.
+        if (!removing) await measureGoalDropTargets(habitsStore.filter(item => item.isGoal) as Habit[]);
         const targetGoalId = removing ? null : getHoveredGoalAtPoint(x, y);
 
         // The card settles back into the list instead of vanishing mid-air.
@@ -699,7 +707,7 @@ const CalendarScreen = () => {
             setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: habit.goalId } : item));
             Alert.alert('Could not move habit', 'Your habit is still in its original goal. Please try again.');
         }
-    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove, stopFollowing]);
+    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove, stopFollowing, measureGoalDropTargets, habitsStore]);
 
     /**
      * Tasks move between goals exactly like habits: hold one, drag it onto a
@@ -707,6 +715,7 @@ const CalendarScreen = () => {
      * both kinds of row behave the same.
      */
     const handleTaskDragStart = useCallback(async (task: Task, x: number, y: number) => {
+        dragOwner.current = `task:${task.id}`;
         selectionFeedback();
         setDraggingTask(task);
         setRemoveDrag({ active: !!task.goalId });
@@ -736,8 +745,11 @@ const CalendarScreen = () => {
     }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY, isOverRemove, trackRemove, followFinger]);
 
     const handleTaskDragEnd = useCallback(async (task: Task, x: number, y: number) => {
+        if (dragOwner.current !== `task:${task.id}`) return;
+        dragOwner.current = null;
         stopFollowing();
         const removing = isOverRemove(x, y, !!task.goalId);
+        if (!removing) await measureGoalDropTargets(habitsStore.filter(item => item.isGoal) as Habit[]);
         const targetGoalId = removing ? null : getHoveredGoalAtPoint(x, y);
         dragLift.set(withTiming(0, { duration: 170 }));
         setDraggingTask(null);
@@ -770,7 +782,7 @@ const CalendarScreen = () => {
             setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: task.goalId } : item));
             Alert.alert('Could not move task', 'Your task is still in its original goal. Please try again.');
         }
-    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove, stopFollowing]);
+    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove, stopFollowing, measureGoalDropTargets, habitsStore]);
 
     const toggleGoalExpansion = (goalId: string) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);

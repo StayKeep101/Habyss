@@ -7,6 +7,7 @@ import { AnimatedFill } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Gesture, GestureDetector, TouchableOpacity } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
+import { HOLD_MS, STILL } from '@/components/ui/DragDrop';
 import { SwipeRow } from '@/components/ui/SwipeRow';
 import { BadgeRow, PriorityFlag, ReminderBadge } from '@/components/Common/CardBadges';
 import { SharedFaces } from '@/components/Common/SharedFaces';
@@ -156,12 +157,15 @@ const TaskItemComponent: React.FC<Props> = ({
     // Its subtasks, folded away until the chevron opens them.
     const [stepsOpen, setStepsOpen] = React.useState(false);
 
+    // A still hold lifts it; moving first is a scroll. Only a drag that really
+    // began ends in a drop (onEnd): a tap, a scroll or the tick never does.
     const drag = Gesture.Pan()
         .enabled(!!onDragStart)
-        .activateAfterLongPress(250)
+        .activateAfterLongPress(HOLD_MS)
+        .failOffsetX([-STILL, STILL]).failOffsetY([-STILL, STILL])
         .onStart(event => { if (onDragStart) runOnJS(onDragStart)(task, event.absoluteX, event.absoluteY); })
         .onUpdate(event => { if (onDragMove) runOnJS(onDragMove)(task, event.absoluteX, event.absoluteY); })
-        .onFinalize(event => { if (onDragEnd) runOnJS(onDragEnd)(task, event.absoluteX, event.absoluteY); });
+        .onEnd(event => { if (onDragEnd) runOnJS(onDragEnd)(task, event.absoluteX, event.absoluteY); });
 
     return (
         <GestureDetector gesture={drag}>
