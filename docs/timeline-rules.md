@@ -21,7 +21,7 @@ Rules 5 and 6 happen in the order of their moments, so a reschedule at 10:00 and
 
 ## How the line is drawn
 
-These are not rules about order. They only say how the two rules are put on the page.
+These are not rules about order. They only say how the rules are put on the page.
 
 - The line starts when you wake.
 - Each thing starts the minute the one before it ends.
