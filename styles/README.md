@@ -12,7 +12,7 @@ To bring a page in line with the design system, open its file here and swap its 
 | `app/(root)/ai-settings.tsx` | `styles/screens/ai-settings.styles.ts` |
 | `app/(root)/all-habits.tsx` | `styles/screens/all-habits.styles.ts` |
 | `app/(root)/appearance.tsx` | `styles/screens/appearance.styles.ts` |
-| `app/(auth)/onboarding.tsx` | `styles/screens/auth/onboarding.styles.ts` |
+| `app/(auth)/onboarding.tsx` | none: The Ascent draws itself (`components/Ascent/`) |
 | `app/(root)/blocked.tsx` | `styles/screens/blocked.styles.ts` |
 | `app/(root)/goal-detail.tsx` | `styles/screens/goal-detail.styles.ts` |
 | `app/(root)/goal-roadmap.tsx` | `styles/screens/goal-roadmap.styles.ts` |

@@ -79,3 +79,14 @@ export const useTheme = () => {
   if (!context) throw new Error("useTheme must be used within a ThemeProvider");
   return context;
 };
+
+/**
+ * A part of the app drawn in one theme whatever the user chose (the Ascent is
+ * always night): every piece inside reads this theme, so cards, fields and
+ * text keep their contrast without a colour of their own.
+ */
+export const FixedTheme: React.FC<{ theme: VisualTheme; children: React.ReactNode }> = ({ theme, children }) => {
+  const parent = useTheme();
+  const value = React.useMemo(() => ({ ...parent, theme, isDarkMode: theme !== 'light' }), [parent, theme]);
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+};

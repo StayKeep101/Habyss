@@ -8,6 +8,7 @@ import { answer as answerCheckIn, leadInFor, loadCheckIns, markAsked, pickQuesti
 import { coverYesterdayIfMissed, loadFreezes } from '@/lib/streakFreeze';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ClimbMomentOverlay } from '@/components/Home/ClimbMomentOverlay';
+import { AscentArrival } from '@/components/Ascent/AscentArrival';
 import { SleepCard } from '@/components/Home/SleepCard';
 import { loadClimbState, nextMoment, saveClimbState, type ClimbMoment } from '@/lib/climbMoments';
 import { afterPaint } from '@/lib/afterPaint';
@@ -547,6 +548,8 @@ const Home = () => {
         />
         <MarksModal visible={showMarks} onClose={() => setShowMarks(false)} marks={marks} />
         <ClimbMomentOverlay moment={climbMoment} onDone={() => setClimbMoment(null)} />
+        {/* The end of the Ascent: rising out of its light, then the first step. */}
+        <AscentArrival />
         <CelebrationAnimation visible={showCelebration} onComplete={() => setShowCelebration(false)} />
       </SafeAreaView>
     </VoidShell>
