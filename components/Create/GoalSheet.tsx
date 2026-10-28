@@ -52,6 +52,11 @@ interface Draft {
     deadline?: string;
     baseline?: number;
     deltaFromBaseline?: number;
+    /**
+     * A number goal: added up over time (2000 calls), or reached by logging
+     * that number or more (a 7 GPA, a weight). Unset: read from the sentence.
+     */
+    counting?: 'add' | 'reach';
     linked: string[];
     suggested?: { name: string; unit: string } | null;
     icon: IconName;
@@ -93,6 +98,7 @@ const fromGoal = (from: Habit): Draft => {
         deadline: window?.kind === 'fixed' ? window.end : undefined,
         baseline: spec.baseline ?? undefined,
         deltaFromBaseline: spec.delta_from_baseline ?? undefined,
+        counting: spec.aggregation === 'latest' ? 'reach' : spec.aggregation ? 'add' : undefined,
         linked: spec.linked_habits ?? [],
         suggested: spec.suggested_habit ?? null,
         icon: (from.icon as IconName) || 'flag-outline',
@@ -209,6 +215,7 @@ export const GoalSheet: React.FC<{
             deadline: spec.window?.kind === 'fixed' ? spec.window.end : start.deadline,
             baseline: spec.baseline ?? start.baseline,
             deltaFromBaseline: spec.delta_from_baseline ?? start.deltaFromBaseline,
+            counting: spec.aggregation === 'latest' ? 'reach' : start.counting,
             linked: spec.linked_habits.length ? spec.linked_habits : start.linked,
             suggested: spec.suggested_habit ?? start.suggested,
         } : start;
@@ -291,7 +298,10 @@ export const GoalSheet: React.FC<{
                 title,
                 type: result?.goal.type ?? (draft.window?.kind === 'recurring' ? 'frequency' : 'volume'),
                 metric_unit: unit,
-                aggregation: result?.goal.aggregation ?? (unit === 'percent' ? 'completion_rate' : 'sum'),
+                // Reach: the latest number logged counts, never a sum (lib/goalInsights.ts).
+                aggregation: kind === 'number' && draft.counting === 'reach' ? 'latest'
+                    : kind === 'number' && draft.counting === 'add' && (result?.goal.aggregation ?? previous.aggregation) === 'latest' ? 'sum'
+                    : result?.goal.aggregation ?? (previous.aggregation as GoalSpec['aggregation'] | undefined) ?? (unit === 'percent' ? 'completion_rate' : 'sum'),
                 direction: draft.direction,
                 target: amount,
                 baseline: draft.baseline ?? null,
@@ -391,7 +401,9 @@ export const GoalSheet: React.FC<{
                         }}
                         accent={accentText}
                     />
-
+                    {/* Added up over time, or reached by logging that number or more. */}
+                    <Choices options={[{ id: 'add' as const, label: 'Add up' }, { id: 'reach' as const, label: 'Reach' }]}
+                        value={draft.counting ?? 'add'} accent={accent} onChange={counting => change({ counting })} />
                 </>
             ),
         }] : []),

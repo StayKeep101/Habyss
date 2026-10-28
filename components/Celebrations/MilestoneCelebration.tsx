@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FullWindowOverlay } from 'react-native-screens';
 import { textOn } from '@/theme/tokens';
 import { AppButton } from '@/components/ui/AppButton';
 import Animated, {
@@ -88,10 +89,21 @@ export const MilestoneCelebration: React.FC = () => {
         transform: [{ translateY: interpolate(burst.value, [0, 1], [18, 0]) }],
     }));
 
+    // Android's back button closes it, as a modal's would.
+    useEffect(() => {
+        if (!shown || Platform.OS !== 'android') return;
+        const sub = BackHandler.addEventListener('hardwareBackPress', () => { close(); return true; });
+        return () => sub.remove();
+    }, [shown, close]);
+
     if (!shown) return null;
 
+    // Over every page, a modal one included (a finished goal is often seen
+    // from its own page), without presenting a second modal: iOS freezes the
+    // app when one modal is presented over another.
+    const Layer = Platform.OS === 'ios' ? FullWindowOverlay : View;
     return (
-        <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={close}>
+        <Layer style={Platform.OS === 'ios' ? undefined : StyleSheet.absoluteFill}>
             <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(160)} style={styles.fill}>
                 <Pressable
                     accessibilityRole="button"
@@ -142,7 +154,7 @@ export const MilestoneCelebration: React.FC = () => {
                     <AppButton label={big ? 'Take it in' : 'Good'} onPress={close} />
                 </Animated.View>
             </Animated.View>
-        </Modal>
+        </Layer>
     );
 };
 

@@ -437,7 +437,7 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
         }
     }
     // A level you check rather than add up: a GPA, a score, a net worth, a weight.
-    const level = /\b(gpa|grade|score|net worth|heart rate|resting|weight|rating|rank|level|salary|balance)\b/i.test(text) && target !== null;
+    const level = /\b(c?gpa|grade point|average|grade|score|net worth|heart rate|resting|weight|rating|rank|level|salary|balance)\b/i.test(text) && target !== null;
 
     /* ------------------------------------------------------------------ type */
     const isConsistency = !!percentMatch && /\bdays?\b/i.test(text);

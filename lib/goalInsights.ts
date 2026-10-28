@@ -278,13 +278,23 @@ function measureByDay(input: GoalInsightInput): {
     const { targetOn } = require('./peakPlan') as typeof import('./peakPlan');
     const logs = (input.logs ?? []).filter(log => log.date <= today);
 
-    // A level you check (a weight, a GPA, a net worth): the latest value
-    // written, as the distance gone from where it started toward the target.
+    // A level you reach (a GPA, a weight, a net worth): only the latest value
+    // logged counts, never a sum, and habits do not add to it. Going up with no
+    // starting point given, it counts from zero (5.6 of a 7 GPA is 80%); going
+    // down, from the first value logged. Done once a log reaches the target.
     const spec = readSpec(goal);
-    if (spec.aggregation === 'latest' && logs.length) {
+    if (spec.aggregation === 'latest') {
         const delta = Number(spec.delta_from_baseline);
-        const baseline = Number.isFinite(Number(spec.baseline)) && spec.baseline !== null ? Number(spec.baseline) : logs[0].amount;
+        const given = Number.isFinite(Number(spec.baseline)) && spec.baseline !== null && spec.baseline !== undefined ? Number(spec.baseline) : null;
+        const first = logs[0]?.amount;
+        // Down only when the goal says so: "lose 5 kg", a start above the
+        // target, at most, or a body weight logged above it. Otherwise up from zero.
+        const weight = /^(kg|kgs|lb|lbs|pounds?|kilos?)$/.test(String(spec.metric_unit ?? target?.unit ?? '').trim().toLowerCase());
+        const downward = Number.isFinite(delta) || (given !== null && target !== null && given > target.amount)
+            || spec.direction === 'at_most' || (weight && target !== null && first !== undefined && first > target.amount);
+        const baseline = given ?? (downward ? first ?? 0 : 0);
         const goalValue = target?.amount ?? (Number.isFinite(delta) ? baseline - delta : null);
+        if (!logs.length) return { kind: 'number', unit: target?.unit || String(spec.metric_unit ?? ''), total: goalValue === null ? 1 : Math.abs(goalValue - baseline) || 1, byDay, latest: true };
         if (goalValue !== null && goalValue !== baseline) {
             const towards = Math.sign(goalValue - baseline);
             const total = Math.abs(goalValue - baseline);
@@ -414,9 +424,22 @@ const wasSkipped = (skips: Record<string, string[]> | undefined, day: string, ha
 /**
  * The day a goal first reached its target, or null if it has not. A goal is
  * done from that day on: off the active lists, a trophy on the profile.
+ * Once reached it is written onto the goal (completed_on, see goalCompletedOn),
+ * so moving its habits elsewhere later never undoes it.
  */
-export function goalDoneOn(insights: GoalInsights | undefined): string | null {
-    return insights?.series.find(point => point.actual >= 100)?.date ?? null;
+export function goalDoneOn(insights: GoalInsights | undefined, goal?: Habit): string | null {
+    return (goal ? goalCompletedOn(goal) : null) ?? insights?.series.find(point => point.actual >= 100)?.date ?? null;
+}
+
+/** The day this goal was reached, as saved on it; null while it is still open. */
+export function goalCompletedOn(goal: Habit): string | null {
+    const on = readSpec(goal).completed_on;
+    return typeof on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(on) ? on : null;
+}
+
+/** The goal's spec with the day it was reached written in, to save onto it. */
+export function withCompletedOn(goal: Habit, day: string): string {
+    return JSON.stringify({ ...readSpec(goal), completed_on: day });
 }
 
 export function goalProgress(input: GoalInsightInput, rounded = true): number {

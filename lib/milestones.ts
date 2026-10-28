@@ -114,7 +114,7 @@ export async function checkMilestones(): Promise<void> {
             require('./habitsSQLite') as typeof import('./habitsSQLite');
         const { loadedData } = require('./dataStore') as typeof import('./dataStore');
         const { getDailyTarget, dailyFocus } = require('./dailyFocus') as typeof import('./dailyFocus');
-        const { buildGoalInsights, goalDoneOn } = require('./goalInsights') as typeof import('./goalInsights');
+        const { buildGoalInsights, goalCompletedOn, goalDoneOn, withCompletedOn } = require('./goalInsights') as typeof import('./goalInsights');
         const { currentGoalLogs } = require('./goalLogs') as typeof import('./goalLogs');
         const { tallyDay, isDayComplete } = require('./dayComplete') as typeof import('./dayComplete');
 
@@ -151,11 +151,21 @@ export async function checkMilestones(): Promise<void> {
         // Read the way every goal screen reads it (logs included), so the
         // count here is the count on the profile.
         const logs = currentGoalLogs();
-        const doneIds = habits.filter(habit => habit.isGoal)
-            .filter(goal => goalDoneOn(buildGoalInsights({ goal, habits, tasks, history, skips, logs: logs[goal.id], today })))
-            .map(goal => goal.id);
+        const doneOn = new Map<string, string>();
+        for (const goal of habits.filter(habit => habit.isGoal)) {
+            const on = goalDoneOn(buildGoalInsights({ goal, habits, tasks, history, skips, logs: logs[goal.id], today }), goal);
+            if (on) doneOn.set(goal.id, on);
+        }
+        const doneIds = [...doneOn.keys()];
         for (const goal of goals) {
-            if (doneIds.includes(goal.id)) await announceGoalComplete(goal.id, goal.name, doneIds.length);
+            const on = doneOn.get(goal.id);
+            if (!on) continue;
+            // Reached: written onto the goal, so it stays done whatever its habits do next.
+            if (!goalCompletedOn(goal)) {
+                const { updateHabit } = require('./habitsSQLite') as typeof import('./habitsSQLite');
+                await updateHabit({ id: goal.id, goalSpec: withCompletedOn(goal, on) }).catch(() => undefined);
+            }
+            await announceGoalComplete(goal.id, goal.name, doneIds.length);
         }
     } catch {
         // A missed celebration is not worth an error.

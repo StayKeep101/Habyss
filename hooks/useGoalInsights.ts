@@ -89,7 +89,7 @@ export function useGoalsInsights(): GoalsData {
 
     const finished = useMemo(() => habits
         .filter(habit => habit.isGoal)
-        .map(goal => ({ goal, insights: insightsById[goal.id], on: goalDoneOn(insightsById[goal.id]) }))
+        .map(goal => ({ goal, insights: insightsById[goal.id], on: goalDoneOn(insightsById[goal.id], goal) }))
         .filter((item): item is FinishedGoal => !!item.on && !!item.insights)
         .sort((a, b) => b.on.localeCompare(a.on)), [habits, insightsById]);
     // A goal reached leaves the active lists: its card is done.
