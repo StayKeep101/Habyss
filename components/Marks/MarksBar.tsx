@@ -17,16 +17,15 @@ import { noteMarksTotal, onOrbLanded, registerMarksTarget } from '@/lib/marksOrb
 /**
  * Your Marks and rank, beside your picture, said plainly.
  *
- * Top: the word "Marks", the number, how it moved today, and a miniature of
- * the all-time chart. Then the bar to the next rank, and one sentence saying
- * what that bar is — "Rank Lost · 99 marks to Beginner" — so nobody has to
- * guess what "LOST" next to a number means. Tap for the full chart.
+ * Kept clean: the word "Marks", the number with today's change small at its
+ * foot, a miniature of the all-time chart, and the bar to the next rank. The
+ * rank and what is left to it are on the Marks page a tap opens.
  */
 export const MarksBar: React.FC<{ marks: Marks; onPress: () => void }> = ({ marks, onPress }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
-    const { primary, foreground } = useAccentGradient();
+    const { primary } = useAccentGradient();
     const { lightFeedback } = useHaptics();
     const change = marks.todayChange;
 
@@ -67,9 +66,11 @@ export const MarksBar: React.FC<{ marks: Marks; onPress: () => void }> = ({ mark
                         <Animated.View ref={totalRef} collapsable={false} style={bumpStyle}>
                             <CountUp style={[styles.total, { color: colors.textPrimary }]} value={marks.total.toLocaleString()} />
                         </Animated.View>
+                        {/* Today's change, small at the number's foot. */}
                         {change !== 0 ? (
-                            <Text style={[styles.change, { color: change > 0 ? colors.success : colors.error }]}>
-                                {change > 0 ? '+' : '−'}{Math.abs(change)} today
+                            <Text style={[styles.change, { color: change > 0 ? colors.success : colors.error }]}
+                                accessibilityLabel={`${change > 0 ? 'Up' : 'Down'} ${Math.abs(change)} today`}>
+                                {change > 0 ? '+' : '−'}{Math.abs(change)}
                             </Text>
                         ) : null}
                     </View>
@@ -83,10 +84,7 @@ export const MarksBar: React.FC<{ marks: Marks; onPress: () => void }> = ({ mark
             <View style={[styles.track, { backgroundColor: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.08)' }]}>
                 <AnimatedFill progress={Math.max(0.02, marks.progress)} style={[styles.fill, { backgroundColor: primary }]} />
             </View>
-            <Text numberOfLines={1} style={[styles.caption, { color: colors.textTertiary }]}>
-                Rank <Text style={[styles.rank, { color: foreground }]}>{marks.rank.name}</Text>
-                {marks.next ? ` · ${marks.toNext.toLocaleString()} marks to ${marks.next.name}` : ' · the highest rank'}
-            </Text>
+            {/* The rank and what is left to the next one live on the Marks page this opens (and in the label above). */}
         </Pressable>
     );
 };
@@ -94,9 +92,9 @@ export const MarksBar: React.FC<{ marks: Marks; onPress: () => void }> = ({ mark
 const styles = StyleSheet.create({
     wrap: { flex: 1, alignSelf: 'stretch', justifyContent: 'center', gap: vs(6) },
     top: { flexDirection: 'row', alignItems: 'flex-end', gap: s(10) },
-    totalRow: { flexDirection: 'row', alignItems: 'baseline', gap: s(8) },
+    totalRow: { flexDirection: 'row', alignItems: 'flex-end', gap: s(4) },
     total: { fontSize: ms(24), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'], letterSpacing: -0.5 },
-    change: { fontSize: ms(12), fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
+    change: { fontSize: ms(11), fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'], marginBottom: vs(3) },
     spark: { flex: 1, height: 38 },
     caption: { fontSize: ms(12), fontFamily: FontFamily.regular },
     rank: { fontFamily: FontFamily.medium },

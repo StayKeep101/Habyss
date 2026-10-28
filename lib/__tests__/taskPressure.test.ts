@@ -14,7 +14,8 @@ describe('how far behind on tasks', () => {
 
     it('gets more worried as deadlines pass and the day runs out', () => {
         const late = task('Essay', { dueDate: '2026-10-19', deadline: '2026-10-21' });
-        expect(taskPressure([late], TODAY, 480, day).level).toBe(1);
+        // One late task alone: no "concerned" step any more, Echo stays calm.
+        expect(taskPressure([late], TODAY, 480, day).level).toBe(0);
         const two = [late, task('Report', { deadline: '2026-10-20' })];
         expect(taskPressure(two, TODAY, 480, day).level).toBe(2);
         // Evening, today's three still open and no time left for them.

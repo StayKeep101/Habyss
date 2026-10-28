@@ -13,12 +13,12 @@ struct HabyssLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: WidgetAttributes.self) { context in
             // Lock Screen: the focus page, smaller. The ring with the Habyss
-            // mark filling as the time goes, a quiet word in your colour over
-            // the name, and the digits, big. Nothing else.
+            // mark filling as the time goes, then the name and the digits,
+            // centred in the room beside it. No "Focus" word: the ring says it.
             let accent = Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo
             HStack(alignment: .center, spacing: 16) {
                 FocusRing(state: context.state, total: context.attributes.totalDurationSeconds, accent: accent, size: 64, mark: 26)
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .center, spacing: 0) {
                     StatusLine(state: context.state, stale: context.isStale)
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(accent)
@@ -30,11 +30,12 @@ struct HabyssLiveActivity: Widget {
                     TimeLeft(state: context.state, stale: context.isStale)
                         .font(.system(size: 36, weight: .bold, design: .rounded))
                         .monospacedDigit()
+                        .multilineTextAlignment(.center)
                         .foregroundStyle(.white)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
-                Spacer(minLength: 0)
+                .frame(maxWidth: .infinity)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 18)
@@ -149,7 +150,7 @@ private struct FocusRing: View {
     }
 }
 
-/// When it is: "Now · until 6:07 PM", "Next · 6:30 PM", "Focus", or "Check in" once its time is over.
+/// When it is: "Now · until 6:07 PM", "Next · 6:30 PM", nothing for a focus session, or "Check in" once its time is over.
 private struct StatusLine: View {
     let state: WidgetAttributes.ContentState
     let stale: Bool
@@ -166,7 +167,8 @@ private struct StatusLine: View {
                 Text("Now")
             }
         } else if state.timerEndDateInMilliseconds != nil {
-            Text("Focus")
+            // A focus session: the ring already says so, no word needed.
+            EmptyView()
         } else {
             Text("\(Int(state.progress * 100))% done")
         }

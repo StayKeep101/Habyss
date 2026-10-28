@@ -397,7 +397,10 @@ function FocusScreen() {
                 )}
                 <View style={styles.topRight}>
                     {active && canInvite ? (
-                        <IconButton icon="person-add" label="Invite friends to focus with you" onPress={() => { void invite(); }} size={18} color="#FFFFFF" />
+                        // Says what it does before it does it: everyone awake gets "Join?".
+                        <MorphMenu icon="person-add" iconColor="#FFFFFF" label="Focus with friends" title="Focus with friends" titleIcon="people" items={[
+                            { label: 'Invite friends who are awake', icon: 'paper-plane', onPress: () => { void invite(); } },
+                        ]} />
                     ) : null}
                     <IconButton icon={sound === 'off' ? 'musical-notes-outline' : 'musical-notes'} label="Focus sound" onPress={() => { wake(); setSheet('sound'); }} size={18} color="#FFFFFF" />
                     <IconButton icon="settings-outline" label="Focus settings" onPress={() => { wake(); setSheet('settings'); }} size={18} color="#FFFFFF" />

@@ -246,7 +246,7 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
         <View>
         {/* Rule 5: pull the whole card, its icon with it, to the right to
             reschedule it from now (not a meal, an exact time or something done). */}
-        <SwipeRow leftLook="band" left={onReschedule && !meal && !done && !item.locked ? {
+        <SwipeRow leftLook="band" bandShape={{ width: size.pill, height, radius: corner }} left={onReschedule && !meal && !done && !item.locked ? {
             icon: 'refresh', label: 'Reschedule', color: t.color.accent, destructive: true, onPress: () => onReschedule(item),
         } : undefined}>
         <View style={styles.row}>

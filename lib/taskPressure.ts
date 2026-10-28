@@ -57,7 +57,9 @@ export function taskPressure(tasks: Task[], today: string, now: number, day: { w
     // A deadline missed by days weighs more than one missed yesterday.
     const lateWeight = late.reduce((sum, task) => sum + 2 + (daysBetween(task.deadline!, today) >= 3 ? 1 : 0), 0);
     const score = lateWeight + overdue.length + pace + (outOfTime ? 2 : 0);
-    const level: PressureLevel = score >= 8 ? 4 : score >= 5 ? 3 : score >= 3 ? 2 : score >= 1 ? 1 : 0;
+    // No "concerned" step: a little slipping is not worth a change of tone.
+    // Echo stays calm until it is worried.
+    const level: PressureLevel = score >= 8 ? 4 : score >= 5 ? 3 : score >= 3 ? 2 : 0;
     return {
         level, score, late: late.length, overdue: overdue.length, openToday: openToday.length, totalToday: todays.length, outOfTime,
         worst: late[0]?.title ?? overdue[0]?.title ?? openToday[0]?.title ?? null,
@@ -123,5 +125,5 @@ export function pressureLine(p: TaskPressure, personality: PersonalityModeId, ra
     return pool[Math.floor(random() * pool.length)](p);
 }
 
-/** How often the pressure takes Echo's line over: always when worried or worse, half the time when concerned. */
-export const pressureSpeaks = (p: TaskPressure, random: () => number = Math.random) => p.level >= 2 || (p.level === 1 && random() < 0.5);
+/** The pressure takes Echo's line over once it is worried or worse. */
+export const pressureSpeaks = (p: TaskPressure, _random: () => number = Math.random) => p.level >= 2;

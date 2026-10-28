@@ -37,6 +37,12 @@ interface Props {
      * circle floats in empty space).
      */
     leftLook?: 'drop' | 'band';
+    /**
+     * A band in a given shape instead of the full row: the timeline gives its
+     * own pill's size and corner, so pulling a card turns its pill into the
+     * action, in the same place, icon only.
+     */
+    bandShape?: { width: number; height: number; radius: number };
 }
 
 const MAX_SIZE = 44;
@@ -83,7 +89,7 @@ const sizeFor = (rowHeight: number) =>
 /** How wide the band is: room for its icon and a one-word name. */
 const BAND = 118;
 
-export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8, leftLook = 'drop' }) => {
+export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8, leftLook = 'drop', bandShape }) => {
     const { lightFeedback, mediumFeedback } = useHaptics();
     const row = useRef<SwipeableMethods>(null);
     // The circles are sized from the row itself, so they fit whichever card
@@ -126,7 +132,7 @@ export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8, l
 
     const renderLeft = (progress: SharedValue<number>) =>
         left && leftLook === 'band' ? (
-            <Band action={left} progress={progress} onPress={() => run(left)} />
+            <Band action={left} progress={progress} shape={bandShape} onPress={() => run(left)} />
         ) : left ? (
             <View style={[styles.side, { paddingLeft: GAP }]}>
                 <Drop action={left} progress={progress} index={0} count={1} from="left" radius={radius} size={size} slot={slot} onPress={() => run(left)} />
@@ -154,7 +160,7 @@ export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8, l
             ref={row}
             friction={1.6}
             overshootFriction={8}
-            leftThreshold={(leftLook === 'band' ? BAND : slot) * 0.5}
+            leftThreshold={(leftLook === 'band' ? (bandShape ? bandShape.width + GAP : BAND) : slot) * 0.5}
             rightThreshold={slot * 0.5}
             overshootLeft={false}
             overshootRight={false}
@@ -244,16 +250,19 @@ const RightActions: React.FC<{
  * the drag before springing back to round, and the neck joining it to the row
  * thins and fades as it pulls free.
  */
-/** The left action as a full-height band: fades in with the pull, icon over its name. */
-const Band: React.FC<{ action: SwipeAction; progress: SharedValue<number>; onPress: () => void }> = ({ action, progress, onPress }) => {
+/**
+ * The left action as a band: fades in with the pull. Full height with its icon
+ * over its name, or, given a shape, that exact shape with its icon alone.
+ */
+const Band: React.FC<{ action: SwipeAction; progress: SharedValue<number>; shape?: { width: number; height: number; radius: number }; onPress: () => void }> = ({ action, progress, shape, onPress }) => {
     const style = useAnimatedStyle(() => ({ opacity: interpolate(progress.value, [0, 0.35, 1], [0, 0.6, 1], 'clamp') }));
     const ink = textOn(action.color);
     return (
-        <View style={[styles.band, { width: BAND }]}>
-            <Animated.View style={[styles.bandFill, { backgroundColor: action.color }, style]}>
+        <View style={shape ? { width: shape.width + GAP } : [styles.band, { width: BAND }]}>
+            <Animated.View style={[shape ? { width: shape.width, height: shape.height, borderRadius: shape.radius, overflow: 'hidden' } : styles.bandFill, { backgroundColor: action.color }, style]}>
                 <Pressable accessibilityRole="button" accessibilityLabel={action.label} onPress={onPress} style={styles.bandPress}>
                     <Ionicons name={action.icon} size={20} color={ink} />
-                    <Text style={[styles.bandLabel, { color: ink }]}>{action.label}</Text>
+                    {shape ? null : <Text style={[styles.bandLabel, { color: ink }]}>{action.label}</Text>}
                 </Pressable>
             </Animated.View>
         </View>

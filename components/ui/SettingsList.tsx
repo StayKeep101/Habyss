@@ -10,6 +10,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { IconTile } from './IconTile';
 import { VoidCard } from './VoidCard';
 import { AppSwitch } from './AppSwitch';
+import { useInSheet } from './inSheet';
 import { MatteSurface } from './MatteSurface';
 
 /**
@@ -21,17 +22,20 @@ export function SettingsGroup({ title, children }: { title?: string; children: R
     const { theme } = useTheme();
     const colors = Colors[theme] ?? Colors.abyss;
     const rows = React.Children.toArray(children).filter(Boolean);
+    // In a sheet the sheet is the surface: the rows sit on it, no card of their own.
+    const inSheet = useInSheet();
+    const Surface = inSheet ? View : VoidCard;
     return (
         <View style={styles.group}>
             {title ? <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{title}</Text> : null}
-            <VoidCard style={styles.card}>
+            <Surface style={inSheet ? styles.flat : styles.card}>
                 {rows.map((row, index) => (
                     <View key={index}>
                         {index > 0 ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
                         {row}
                     </View>
                 ))}
-            </VoidCard>
+            </Surface>
         </View>
     );
 }
@@ -120,6 +124,8 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
 const styles = StyleSheet.create({
     group: { gap: 12 },
     title: { ...UIStyles.sectionTitle, marginBottom: 0 },
+    /** Rows straight on a sheet, lined up with its title. */
+    flat: { paddingHorizontal: 18 },
     card: { paddingHorizontal: 14 },
     divider: { height: StyleSheet.hairlineWidth, marginLeft: 42 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 54, paddingVertical: 8 },

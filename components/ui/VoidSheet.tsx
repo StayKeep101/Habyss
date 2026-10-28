@@ -12,6 +12,7 @@ import { FontFamily } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
 import { sheetBottom } from './sheetBottom';
+import { InSheet } from './inSheet';
 import { useHaptics } from '@/hooks/useHaptics';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -192,11 +193,14 @@ export const VoidSheet: React.FC<{
                             </View>
                         )}
 
+                        {/* Inside a sheet, a settings group draws no card of its own (InSheet). */}
+                        <InSheet.Provider value>
                         {scrollable ? (
                             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                                 {children}
                             </ScrollView>
                         ) : children}
+                        </InSheet.Provider>
                         {footer}
                     </Animated.View>
                 </GestureDetector>
