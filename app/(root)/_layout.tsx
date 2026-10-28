@@ -1,8 +1,17 @@
 import { useEffect } from 'react';
 import { AccessGate } from '@/components/Paywall/AccessGate';
 import { Stack } from 'expo-router';
+import { Dimensions } from 'react-native';
 import { DemonEdge } from '@/components/ui/DemonEdge';
 import { useTaskPressure } from '@/hooks/useTaskPressure';
+
+/**
+ * How tall the habit sheet opens: room for the same things on every phone
+ * (the close and edit buttons, the icon and a two-line name, Mark done and
+ * the row of stats, clear of the fade under them), about 410 pt. Half of a
+ * big phone; more of a small one, so the stats never sit under the fade.
+ */
+const HABIT_SHEET_OPEN = Math.min(0.8, Math.max(0.45, 410 / Dimensions.get('window').height));
 
 // A direct account/email link still needs a screen beneath its modal.
 export const unstable_settings = { anchor: '(tabs)' };
@@ -63,10 +72,10 @@ export default function RootLayout() {
           name="habit-detail"
           options={{
             headerShown: false,
-            // Opens at half: the icon, the name and the tick. Pull it up (or
-            // scroll) for the rest: this week, the numbers, the heat map.
+            // Opens at half (HABIT_SHEET_OPEN): the icon, the name, the tick and
+            // the stats. Pull it up (or scroll) for the rest: the heat map, settings.
             presentation: 'formSheet',
-            sheetAllowedDetents: [0.5, 1],
+            sheetAllowedDetents: [HABIT_SHEET_OPEN, 1],
             sheetInitialDetentIndex: 0,
             sheetGrabberVisible: true,
             sheetExpandsWhenScrolledToEdge: true,
