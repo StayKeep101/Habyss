@@ -63,7 +63,13 @@ export default function RootLayout() {
           name="habit-detail"
           options={{
             headerShown: false,
-            presentation: 'modal'
+            // Opens at half: the icon, the name and the tick. Pull it up (or
+            // scroll) for the rest: this week, the numbers, the heat map.
+            presentation: 'formSheet',
+            sheetAllowedDetents: [0.5, 1],
+            sheetInitialDetentIndex: 0,
+            sheetGrabberVisible: true,
+            sheetExpandsWhenScrolledToEdge: true,
           }}
         />
         {/* statistics removed */}

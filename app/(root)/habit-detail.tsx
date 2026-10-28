@@ -179,6 +179,7 @@ export default function HabitDetailScreen() {
             subtitle={schedule}
             titleStyle={habit ? headerTitle : undefined}
             onBack={() => router.back()}
+            backIcon="close"
             rightSlot={habit ? <View style={styles.headerActions}>
                 {owner && !owner.mine ? null : <ShareButton variant="friend" onPress={() => setShowShare(true)} />}
                 {owner && !owner.mine ? (
