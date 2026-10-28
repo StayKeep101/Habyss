@@ -2,6 +2,7 @@ import { getSupabase } from './supabase';
 import type { DayCardData } from './dayCard';
 import type { PresenceFacts } from './presence';
 import { asReaction, type Reaction } from './reactions';
+import type { CrewMember } from './crewQuest';
 
 /**
  * The Community feed, friends' status and the leaderboard, on the server.
@@ -149,6 +150,22 @@ export class FeedService {
             avatarUrl: row.avatar_url ?? undefined,
             marks: row.marks ?? 0,
             isMe: !!row.is_me,
+        }));
+    }
+
+    /** You and your friends this week, for the crew quest (lib/crewQuest.ts). */
+    static async crewQuest(from: string, to: string): Promise<CrewMember[]> {
+        const ctx = await signedIn();
+        if (!ctx) return [];
+        const { data, error } = await ctx.sb.rpc('crew_quest', { p_from: from, p_to: to });
+        if (error) return [];
+        return ((data as any[]) ?? []).map(row => ({
+            userId: row.user_id,
+            name: nameOf(row),
+            avatarUrl: row.avatar_url ?? undefined,
+            showUps: Number(row.show_ups) || 0,
+            active: !!row.active,
+            mine: row.user_id === ctx.me,
         }));
     }
 

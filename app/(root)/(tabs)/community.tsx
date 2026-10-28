@@ -30,6 +30,9 @@ import { withMyReaction, type Reaction } from '@/lib/reactions';
 import { Confetti } from '@/components/ui/Confetti';
 import { Overlay } from '@/components/ui/Overlay';
 import { SealedDayCard } from '@/components/Community/SealedDayCard';
+import { CrewQuest } from '@/components/Community/CrewQuest';
+import { questStanding, questWeek, type CrewMember } from '@/lib/crewQuest';
+import { useWeekStart } from '@/hooks/useWeekStart';
 import { hasDropped, isSealed, minuteOf } from '@/lib/theDrop';
 import { clockLabel } from '@/lib/dayFlow';
 import { localDateKey } from '@/lib/habitSchedule';
@@ -46,6 +49,8 @@ import { styles } from '@/styles/screens/tabs/community.styles';
 const PAGE = 15;
 /** The day the drop's cards last flipped open on this phone. */
 const DROP_SEEN = 'habyss_drop_seen';
+/** The week whose crew quest was last celebrated on this phone. */
+const QUEST_CHEERED = 'habyss_crew_quest_cheered';
 
 /**
  * Community: what your friends are doing right now, and how their days went.
@@ -58,7 +63,7 @@ export default function CommunityScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
-    const { thud, lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
+    const { thud, lightFeedback, mediumFeedback, selectionFeedback, successFeedback } = useHaptics();
     const router = useRouter();
     const { horizontalPadding, topSpacing, tabBarClearance } = useResponsiveLayout();
 
@@ -85,6 +90,11 @@ export default function CommunityScreen() {
     // Status depends on the clock (bedtime, a focus session ending), so it is
     // recomputed every minute without fetching anything.
     const [clock, setClock] = useState(() => new Date());
+    // This week's crew quest (lib/crewQuest.ts), and the week it is for.
+    const [crew, setCrew] = useState<CrewMember[]>([]);
+    const [questFrom, setQuestFrom] = useState('');
+    const mondayFirst = useRef(true);
+    mondayFirst.current = useWeekStart() === 'monday';
     // The drop (lib/theDrop.ts): friends' cards from today stay sealed until
     // your day goes up at your time, then flip open one by one, once a day.
     const today = localDateKey(clock);
@@ -118,7 +128,8 @@ export default function CommunityScreen() {
             if (!username) return;
             await FriendsService.repairFriendshipsFromAcceptedRequests().catch(() => undefined);
             void FriendsService.refreshSharedIds().catch(() => undefined);
-            const [current, requestList, statusList, feed, board, settings, unreadCount] = await Promise.all([
+            const week = questWeek(localDateKey(new Date()), mondayFirst.current);
+            const [current, requestList, statusList, feed, board, settings, unreadCount, quest] = await Promise.all([
                 FriendsService.getCurrentUser(),
                 FriendsService.getFriendRequests(),
                 FeedService.friendStatuses(),
@@ -126,7 +137,10 @@ export default function CommunityScreen() {
                 FeedService.leaderboard('friends'),
                 FeedService.shareSettings(),
                 FriendsService.unreadCount(),
+                FeedService.crewQuest(week.from, week.to),
             ]);
+            setCrew(quest);
+            setQuestFrom(week.from);
             if (current) setMe({ id: current.id, name: current.displayName || current.username });
             setRequests(requestList);
             setStatuses(statusList);
@@ -194,6 +208,17 @@ export default function CommunityScreen() {
         const timer = setTimeout(() => setCheer(0), 2600);
         return () => clearTimeout(timer);
     }, [cheer]);
+    // The crew quest reached: confetti once that week, on this phone.
+    const questReached = questStanding(crew).reached && crew.length >= 2;
+    useEffect(() => {
+        if (!questReached || !questFrom) return;
+        void AsyncStorage.getItem(QUEST_CHEERED).then(week => {
+            if (week === questFrom) return;
+            setCheer(Date.now());
+            successFeedback();
+            void AsyncStorage.setItem(QUEST_CHEERED, questFrom).catch(() => undefined);
+        }).catch(() => undefined);
+    }, [questReached, questFrom, successFeedback]);
     /** Reacts to a friend's day, changes the reaction, or takes it back (null). */
     const react = async (post: FeedPost, reaction: Reaction | null) => {
         if (reaction) mediumFeedback(); else selectionFeedback();
@@ -305,6 +330,9 @@ export default function CommunityScreen() {
                         router.push({ pathname: '/(root)/focus', params: { id: togetherId(host), kind: 'together' } });
                     }} />
             ) : null}
+
+            {/* This week's crew quest: everyone's show-ups toward one number. */}
+            {gate === null ? <CrewQuest style={styles.block} members={crew} /> : null}
 
             {gate === null ? <SectionTitle first>Feed</SectionTitle> : null}
         </View>
