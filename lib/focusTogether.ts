@@ -14,6 +14,15 @@ const PREFIX = 'together:';
 
 export const togetherId = (hostId: string): string => `${PREFIX}${hostId}`;
 
+/**
+ * Focusing at the same time by chance: you each keep your own thing and your
+ * own clock, and only say you are in it together, so your faces show on each
+ * other's focus page ("while Maya · Study bio"). Held for this session only.
+ */
+let linked: string | null = null;
+export const linkedHost = (): string | null => linked;
+export const linkTo = (hostId: string | null): void => { linked = hostId; };
+
 /** Whose session a focus id joined, or null for your own. */
 export const hostOf = (focusId: string | null | undefined): string | null =>
     focusId?.startsWith(PREFIX) ? focusId.slice(PREFIX.length) || null : null;
@@ -88,9 +97,13 @@ export async function inviteFriendsToFocus(): Promise<InviteResult> {
 export function focusRooms<T extends FocusFacts>(friends: T[], now = Date.now()): { host: T; with: T[] }[] {
     const running = friends.filter(friend => secondsLeft(friend.focusUntil, now) >= MIN_JOIN_SECONDS);
     const ids = new Set(running.map(friend => friend.userId));
-    const hosts = running.filter(friend => !friend.focusWith || !ids.has(friend.focusWith));
+    const byId = new Map(running.map(friend => [friend.userId, friend]));
+    // Two who linked to each other at the same moment: the first by id hosts.
+    const mutual = (friend: T) => !!friend.focusWith && byId.get(friend.focusWith)?.focusWith === friend.userId;
+    const hosts = running.filter(friend => !friend.focusWith || !ids.has(friend.focusWith)
+        || (mutual(friend) && friend.userId < (friend.focusWith as string)));
     return hosts
-        .map(host => ({ host, with: running.filter(friend => friend.focusWith === host.userId) }))
+        .map(host => ({ host, with: running.filter(friend => friend.focusWith === host.userId && !hosts.includes(friend)) }))
         .sort((a, b) => secondsLeft(b.host.focusUntil, now) - secondsLeft(a.host.focusUntil, now));
 }
 

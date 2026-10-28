@@ -63,4 +63,14 @@ describe('focus together', () => {
         expect(leftLabel(65 * 60)).toBe('1 hr 5 min left');
         expect(leftLabel(120 * 60)).toBe('2 hr left');
     });
+
+    it('makes one session of two who linked to each other at once', () => {
+        const friends = [
+            { userId: 'b', focusUntil: inMin(20), focusWith: 'a' },
+            { userId: 'a', focusUntil: inMin(30), focusWith: 'b' },
+        ];
+        const rooms = focusRooms(friends, NOW);
+        expect(rooms.map(room => room.host.userId)).toEqual(['a']);
+        expect(rooms[0].with.map(f => f.userId)).toEqual(['b']);
+    });
 });

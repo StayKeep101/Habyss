@@ -11,17 +11,25 @@ const SHOWN = 4;
 
 /**
  * Who is focusing with you, under the name on the focus page: their faces,
- * overlapping, and "With Alex and Sam". A face arrives the moment a friend
- * joins and leaves when they finish. Nothing at all when you are alone, or
- * a short `note` instead (after an invite: "Invited 4 friends").
+ * overlapping, and "With Alex and Sam". One friend on something else of
+ * their own reads "while Maya · Study bio" (you on Read business book). A
+ * face arrives the moment a friend joins and leaves when they finish.
+ * Nothing at all when you are alone, or a short `note` instead (after an
+ * invite: "Invited 4 friends").
  */
-export function FocusCrew({ crew, accent, note }: {
-    crew: { userId: string; name: string; avatarUrl?: string }[];
+export function FocusCrew({ crew, accent, note, mine }: {
+    crew: { userId: string; name: string; avatarUrl?: string; focusLabel?: string | null }[];
     accent: string;
     note?: string | null;
+    /** What you are focusing on, to tell a friend on something else. */
+    mine?: string;
 }) {
     if (crew.length === 0 && !note) return null;
-    const line = crew.length > 0 ? `With ${namesLine(crew.map(friend => friend.name))}` : note;
+    const only = crew.length === 1 ? crew[0] : null;
+    const theirs = only?.focusLabel?.trim();
+    const line = only && theirs && theirs.toLowerCase() !== mine?.trim().toLowerCase()
+        ? `while ${only.name.split(' ')[0] || only.name} · ${theirs}`
+        : crew.length > 0 ? `With ${namesLine(crew.map(friend => friend.name))}` : note;
     return (
         <Animated.View entering={FadeIn.duration(300).reduceMotion(ReduceMotion.System)} exiting={FadeOut.duration(250).reduceMotion(ReduceMotion.System)}
             layout={LinearTransition.reduceMotion(ReduceMotion.System)} style={styles.row}

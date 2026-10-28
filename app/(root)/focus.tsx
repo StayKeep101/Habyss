@@ -18,9 +18,11 @@ import { useFocusDay } from '@/hooks/useFocusDay';
 import { on } from '@/lib/appEvents';
 import { FocusBlock, FocusDayDone } from '@/components/Focus/FocusBlock';
 import { FocusCrew } from '@/components/Focus/FocusCrew';
+import { FocusNearby } from '@/components/Focus/FocusNearby';
+import { announceChange } from '@/lib/livePulse';
 import { useFocusCrew } from '@/hooks/useFocusCrew';
 import { FeedService } from '@/lib/feedService';
-import { MIN_JOIN_SECONDS, hostOf, inviteFriendsToFocus, secondsLeft, togetherId } from '@/lib/focusTogether';
+import { MIN_JOIN_SECONDS, hostOf, inviteFriendsToFocus, linkTo, linkedHost, secondsLeft, setFocusWith, togetherId } from '@/lib/focusTogether';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useClockStyle } from '@/hooks/useClockStyle';
@@ -273,7 +275,18 @@ function FocusScreen() {
     const exitNow = () => { leaving.current = true; focus.discardTimer(); close(); };
 
     // Who is in it with you, and "Join me?" to every friend who is awake.
-    const crew = useFocusCrew(host, active);
+    // Focusing at the same time by chance: Together links the two sessions,
+    // each keeping its own thing and clock (lib/focusTogether.ts).
+    const [linked, setLinked] = useState<string | null>(() => (active ? linkedHost() : null));
+    const { crew, nearby } = useFocusCrew(host ?? linked, active);
+    const [passed, setPassed] = useState<string[]>([]);
+    const suggestion = active && !host && !linked ? nearby.find(friend => !passed.includes(friend.userId)) : undefined;
+    const together = (friendId: string) => {
+        successFeedback();
+        linkTo(friendId);
+        setLinked(friendId);
+        void setFocusWith(friendId).then(() => announceChange()).catch(() => undefined);
+    };
     // Keeping time with the host: whenever their end moves (they paused and
     // carried on, say), this clock moves with it.
     useEffect(() => {
@@ -340,7 +353,7 @@ function FocusScreen() {
             <Text style={[styles.eyebrow, { color: primary }]}>{eyebrow}</Text>
             <Text numberOfLines={landscape ? 1 : 2} adjustsFontSizeToFit minimumFontScale={0.75}
                 style={[styles.name, landscape && styles.nameSide]} accessibilityRole="header">{name}</Text>
-            <FocusCrew crew={crew} accent={primary} note={note} />
+            <FocusCrew crew={crew} accent={primary} note={note} mine={name} />
         </Animated.View>
     );
 
@@ -392,6 +405,11 @@ function FocusScreen() {
                                     : <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused} label={label} />}
                             </Animated.View>
                             {controls}
+                            {suggestion ? (
+                            <FocusNearby key={suggestion.userId} friend={suggestion} accent={primary}
+                                onTogether={() => together(suggestion.userId)}
+                                onDismiss={() => { selectionFeedback(); setPassed(list => [...list, suggestion.userId]); }} />
+                        ) : null}
                         </View>
                     </View>
                 ) : (
@@ -410,6 +428,11 @@ function FocusScreen() {
                             </Animated.View>
                         )}
                         {controls}
+                        {suggestion ? (
+                            <FocusNearby key={suggestion.userId} friend={suggestion} accent={primary}
+                                onTogether={() => together(suggestion.userId)}
+                                onDismiss={() => { selectionFeedback(); setPassed(list => [...list, suggestion.userId]); }} />
+                        ) : null}
                     </View>
                 )
             ) : null}

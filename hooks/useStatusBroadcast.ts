@@ -4,7 +4,7 @@ import { FeedService } from '@/lib/feedService';
 import { HEARTBEAT_MS } from '@/lib/presence';
 import { getDayWindow } from '@/lib/echo';
 import { announceChange } from '@/lib/livePulse';
-import { hostOf, setFocusWith } from '@/lib/focusTogether';
+import { hostOf, linkTo, linkedHost, setFocusWith } from '@/lib/focusTogether';
 import { peekFocusEnd, peekFocusTimeLeft, useFocusSession } from '@/context/FocusTimeContext';
 
 /**
@@ -53,6 +53,9 @@ export function useFocusStatus() {
     // The session only: this runs in the tab layout, which must not redraw every second.
     const focus = useFocusSession();
     const running = focus.isRunning && !focus.isPaused;
+    // A session over (not paused): any "together" it had ends with it.
+    const over = !focus.isRunning && !focus.isPaused;
+    useEffect(() => { if (over) linkTo(null); }, [over, focus.activeHabitId]);
     useEffect(() => {
         const seconds = focus.activeMode === 'flow' ? 2 * 3600 : peekFocusTimeLeft() || focus.totalDuration;
         // The countdown's own end, to the millisecond, so a friend who joins
@@ -61,7 +64,8 @@ export function useFocusStatus() {
         const until = running ? new Date(exact ?? Date.now() + Math.max(60, seconds) * 1000).toISOString() : null;
         void FeedService.setStatus({ focusUntil: until, focusLabel: running ? focus.activeHabitName ?? null : null })
             // Whose session this is, when you joined a friend's (lib/focusTogether.ts).
-            .then(() => setFocusWith(running ? hostOf(focus.activeHabitId) : null).catch(() => undefined))
+            // or whose you said you are in with, focusing at the same time by chance.
+            .then(() => setFocusWith(running ? hostOf(focus.activeHabitId) ?? linkedHost() : null).catch(() => undefined))
             .then(() => announceChange())
             .catch(() => undefined);
         // Only on start, pause, resume and stop — not on every tick of timeLeft.
