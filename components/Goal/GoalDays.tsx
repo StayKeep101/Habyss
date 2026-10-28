@@ -99,6 +99,9 @@ function GoalItemLine({ item, color, canTick, onToggle, onOpen }: {
     );
 }
 
+/** As many bars as a day's cell holds, one per thing. */
+const BARS = 6;
+
 /**
  * A month of a goal as a calendar: every day a cell with its date and one
  * small bar for each thing it asks (solid once done, faint until then), in
@@ -145,7 +148,8 @@ export function GoalMonth({ month, days, selected, today, color, weekStartsMonda
                         const items = day?.items ?? [];
                         const isSelected = key === selected;
                         const isToday = key === today;
-                        const shown = items.slice(0, 4);
+                        // One bar per thing, exactly: up to six fit; more than that, five and "+N".
+                        const shown = items.length <= BARS ? items : items.slice(0, BARS - 1);
                         const label = `${dateOf(key).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}. `
                             + (items.length ? items.map(item => `${item.title}${item.done ? ', done' : ''}`).join('; ') : 'Nothing planned');
                         const cell = (
@@ -218,8 +222,8 @@ const styles = StyleSheet.create({
     cellCompact: { aspectRatio: 1 },
     cellInner: { flex: 1, borderRadius: Radius.small, borderWidth: 1.5, alignItems: 'center', paddingTop: Spacing.xs, gap: Spacing.xs },
     dayNumber: { fontSize: 15, fontVariant: ['tabular-nums'] },
-    bars: { alignSelf: 'stretch', paddingHorizontal: 6, gap: 3, alignItems: 'center' },
-    bar: { alignSelf: 'stretch', height: 4, borderRadius: 2 },
+    bars: { alignSelf: 'stretch', paddingHorizontal: 6, gap: 2, alignItems: 'center' },
+    bar: { alignSelf: 'stretch', height: 3, borderRadius: 1.5 },
     more: { fontSize: 11, fontFamily: FontFamily.semibold, lineHeight: 12 },
     key: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.md, marginTop: Spacing.xs },
     keyItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
