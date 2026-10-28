@@ -66,12 +66,13 @@ export async function todayTimes(now = new Date()): Promise<TodayTimes> {
  */
 export interface DayStep { item: import('./dayFlow').FlowItem; wait: boolean }
 export function nextStep(flow: DayFlow | null, now: number, skip?: string): DayStep | null {
+    // The next open thing on the line (lib/dayFlow.ts), in its order: a habit
+    // or task still open whatever its slot says, a meal or event only until it is over.
     const item = (flow?.timeline ?? [])
-        .filter(entry => entry.id !== skip && !entry.done && entry.state !== 'done' && entry.end > now)
+        .filter(entry => entry.id !== skip && !entry.done && entry.state !== 'done' && (!entry.fixed || entry.end > now))
         .sort((a, b) => a.start - b.start)[0];
     if (!item) return null;
-    // A habit or task that floats can start straight away; one at an exact
-    // time, a meal or an event, waits for its time.
-    const waits = !!(item.locked || item.fixed) && item.start > now;
+    // A habit or task can start straight away; a meal or an event waits for its time.
+    const waits = !!item.fixed && item.start > now;
     return { item, wait: waits };
 }

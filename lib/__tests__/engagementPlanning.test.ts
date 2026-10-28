@@ -90,6 +90,7 @@ describe('Live Activity planning', () => {
         ], 600, { wake: 420, sleep: 1380 });
         const made = slotsFromFlow(flow, '2026-09-26');
         expect(made.map(slot => slot.key)).toEqual(['habit:read:2026-09-26', 'meal:meal:lunch:2026-09-26']);
-        expect(made[0].start).toBe(new Date(2026, 8, 26, 10, 0).getTime());
+        // From waking, by the line's rules (lib/dayFlow.ts): 7:00.
+        expect(made[0].start).toBe(new Date(2026, 8, 26, 7, 0).getTime());
     });
 });

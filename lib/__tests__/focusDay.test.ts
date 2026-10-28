@@ -10,17 +10,16 @@ const lunch: FlowInput = { id: 'meal:lunch', kind: 'meal', title: 'Lunch', start
 describe('focusing all day', () => {
     it('goes to the next habit or task, skipping the one just finished', () => {
         const flow = flowDay([job('essay', 30), job('email', 20)], 600, window);
-        expect(nextStep(flow, 600)?.item.id).toBe('essay');
-        expect(nextStep(flow, 600, 'essay')).toMatchObject({ item: { id: 'email' }, wait: false });
+        // Tied on every rule: by name, email first.
+        expect(nextStep(flow, 600)?.item.id).toBe('email');
+        expect(nextStep(flow, 600, 'email')).toMatchObject({ item: { id: 'essay' }, wait: false });
     });
     it('makes a meal a step of its own, waiting for it when it has not started', () => {
         const flow = flowDay([lunch, job('essay', 30, { done: true, doneAt: 700 })], 705, window);
         expect(nextStep(flow, 705)).toMatchObject({ item: { id: 'meal:lunch' }, wait: true });
         expect(nextStep(flowDay([lunch], 730, window), 730)).toMatchObject({ item: { id: 'meal:lunch' }, wait: false });
     });
-    it('waits for something at an exact time, and ends when nothing is left', () => {
-        const call = job('call', 30, { start: 900, locked: true });
-        expect(nextStep(flowDay([call], 800, window), 800)).toMatchObject({ item: { id: 'call' }, wait: true });
+    it('ends when nothing is left', () => {
         expect(nextStep(flowDay([job('a', 30, { done: true })], 800, window), 800)).toBeNull();
     });
 });
