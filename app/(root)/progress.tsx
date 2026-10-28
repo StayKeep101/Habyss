@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type LayoutRectangle } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
 import { AnimatedCircle, CountUp, MOTION, useProgress } from '@/components/ui/Motion';
 import { router } from 'expo-router';
@@ -168,15 +168,22 @@ export default function ProgressScreen() {
     // Weeks start on the day set in Settings; the first row is padded to that.
     const firstWeekday = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + (mondayFirst ? 6 : 0)) % 7;
     const screen = Dimensions.get('window');
+    // One measure from the screen's height, so the streak, its four numbers
+    // and the whole month fit without scrolling on a small phone as on a big one.
+    const { height } = useWindowDimensions();
+    const fit = Math.max(0.72, Math.min(1, (height - 120) / 760));
+    const heroSize = Math.round(76 * fit);
+    const ring = Math.max(30, Math.round(40 * fit));
+    const gap = Math.round(5 * fit);
 
     return (
         <SheetScreen title="Streak" onBack={() => router.back()} backIcon="close">
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!selected}>
                 {/* The answer first, centred and large, with a small flame over it
                     and your best run under it; then the month in four numbers. */}
-                <View style={styles.hero} accessible accessibilityLabel={`${streak} ${streak === 1 ? 'day' : 'days'} in a row. Best ${best}.`}>
+                <View style={[styles.hero, { marginTop: Math.round(12 * fit), marginBottom: Math.round(20 * fit) }]} accessible accessibilityLabel={`${streak} ${streak === 1 ? 'day' : 'days'} in a row. Best ${best}.`}>
                     <Ionicons name="flame" filled size={22} color={colors.warning} />
-                    <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={streak} />
+                    <CountUp style={[styles.heroValue, { fontSize: heroSize, lineHeight: Math.round(heroSize * 1.08), letterSpacing: -heroSize / 24, color: colors.textPrimary }]} value={streak} />
                     <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{streak === 1 ? 'day in a row' : 'days in a row'}</Text>
                     {best > streak ? (
                         <Text style={[styles.heroBest, { color: colors.textTertiary }]}>{`Best ${best} ${best === 1 ? 'day' : 'days'}`}</Text>
@@ -195,7 +202,7 @@ export default function ProgressScreen() {
                 </VoidCard>
 
                 {/* Swipe the calendar for another month. */}
-                <View style={styles.monthRow} accessible accessibilityLabel={month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                <View style={[styles.monthRow, { marginTop: Math.round(16 * fit) }]} accessible accessibilityLabel={month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                     accessibilityActions={[{ name: 'increment', label: 'Next month' }, { name: 'decrement', label: 'Previous month' }]}
                     onAccessibilityAction={event => goMonth(event.nativeEvent.actionName === 'increment' ? 1 : -1)}>
                     <Text style={[styles.month, { color: colors.textPrimary }]}>
@@ -208,7 +215,7 @@ export default function ProgressScreen() {
                     {(mondayFirst ? MONDAY_FIRST : SUNDAY_FIRST).map((label, index) => (
                         <Text key={index} style={[styles.weekday, { color: colors.textTertiary }]}>{label}</Text>
                     ))}
-                    {Array.from({ length: firstWeekday }, (_, index) => <View key={`blank${index}`} style={styles.cell} />)}
+                    {Array.from({ length: firstWeekday }, (_, index) => <View key={`blank${index}`} style={[styles.cell, { paddingVertical: gap }]} />)}
                     {days.map((day, index) => (
                         <DayCell
                             key={day.date}
@@ -221,6 +228,8 @@ export default function ProgressScreen() {
                             accent={accent}
                             colors={colors}
                             onOpen={openDay}
+                            size={ring}
+                            gap={gap}
                         />
                     ))}
                 </Animated.View>
@@ -256,19 +265,21 @@ export default function ProgressScreen() {
  * perfect days in a row are joined by a band behind them, along the week, so
  * a run reads at a glance as one unbroken stretch.
  */
-const DayCell = React.memo(function DayCell({ day, index, today, accent, colors, onOpen, column, prevPerfect, nextPerfect }: {
+const DayCell = React.memo(function DayCell({ day, index, today, accent, colors, onOpen, column, prevPerfect, nextPerfect, size, gap }: {
     day: DaySummary; index: number; today: string; accent: string; colors: typeof Colors.light;
     /** 0 (the week's first day) to 6: the band never wraps onto the next row. */
     column: number;
     prevPerfect: boolean;
     nextPerfect: boolean;
     onOpen: (day: DaySummary, frame: LayoutRectangle) => void;
+    /** The ring's size and the room around it, from the screen's height. */
+    size: number;
+    gap: number;
 }) {
     const ref = React.useRef<View>(null);
     const fill = day.future ? 0 : dayFill(day);
     const closed = fill >= 1;
     const isToday = day.date === today;
-    const size = 40;
     const stroke = 3.5;
     const radius = (size - stroke) / 2;
     const circumference = 2 * Math.PI * radius;
@@ -280,10 +291,10 @@ const DayCell = React.memo(function DayCell({ day, index, today, accent, colors,
     const bandRight = closed && nextPerfect && column < 6;
 
     return (
-        <View style={styles.cell}>
+        <View style={[styles.cell, { paddingVertical: gap }]}>
             {/* The run's band, from this day's centre to its neighbours'. */}
-            {bandLeft ? <View pointerEvents="none" style={[styles.band, styles.bandLeft, { height: size, backgroundColor: accent }]} /> : null}
-            {bandRight ? <View pointerEvents="none" style={[styles.band, styles.bandRight, { height: size, backgroundColor: accent }]} /> : null}
+            {bandLeft ? <View pointerEvents="none" style={[styles.band, styles.bandLeft, { top: gap, height: size, backgroundColor: accent }]} /> : null}
+            {bandRight ? <View pointerEvents="none" style={[styles.band, styles.bandRight, { top: gap, height: size, backgroundColor: accent }]} /> : null}
             <Pressable
                 ref={ref}
                 accessibilityRole="button"
