@@ -1,18 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeOut, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
-import { Overlay } from '@/components/ui/Overlay';
-import { MatteSurface } from '@/components/ui/MatteSurface';
-import { useTokens } from '@/hooks/useTokens';
+import Animated, { FadeInDown, FadeOut, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Echo, MatteSurface, Overlay, Text } from '@/components/ui';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useAccentGradient } from '@/context/AccentContext';
 import { on } from '@/lib/appEvents';
 import { track } from '@/lib/analytics';
-import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
+import { Control, Radius, Spacing } from '@/theme/designSystem';
+import { colorRoles } from '@/theme/tokens';
 import { DURATION, EASE, timingFor } from '@/theme/motion';
-import { ABYSS } from './AbyssWorld';
 
 /** What the Ascent leaves for Home: the first step it made, and whether Home has pointed at it yet. */
 export const FIRST_STEP_KEY = 'habyss_first_step';
@@ -93,30 +90,21 @@ export function AscentArrival() {
     return (
         <Overlay>
             <View style={StyleSheet.absoluteFill} pointerEvents="none">
-                {flooding ? <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: ABYSS.light }, floodStyle]} /> : null}
+                {flooding ? <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colorRoles.abyss.textPrimary }, floodStyle]} /> : null}
                 {say ? <EchoSays key={say.text} text={say.text} done={say.done} bottom={insets.bottom + Spacing.xxl * 3} /> : null}
             </View>
         </Overlay>
     );
 }
 
-/** Echo, small, saying one thing; a ring goes out when it is good news. */
+/** Echo, small, saying one thing; it celebrates when it is good news. */
 function EchoSays({ text, done, bottom }: { text: string; done: boolean; bottom: number }) {
-    const tokens = useTokens();
-    const { primary: color } = useAccentGradient();
-    const ring = useSharedValue(0);
-    useEffect(() => { if (done) ring.value = withTiming(1, timingFor(1200, EASE.enter)); }, [done, ring]);
-    const ringStyle = useAnimatedStyle(() => ({ opacity: interpolate(ring.value, [0, 0.1, 1], [0, 0.7, 0]), transform: [{ scale: 1 + ring.value * 4 }] }));
     return (
         <Animated.View entering={FadeInDown.duration(DURATION.reward).easing(EASE.enter)} exiting={FadeOut.duration(DURATION.exit)}
             style={[styles.wrap, { bottom }]} accessible accessibilityLiveRegion="polite" accessibilityLabel={`Echo: ${text}`}>
             <MatteSurface radius={Radius.pill} level="control" style={styles.chip}>
-                <View style={styles.light}>
-                    <Animated.View style={[styles.dot, styles.ring, { borderColor: color }, ringStyle]} />
-                    <View style={[styles.glow, { backgroundColor: color }]} />
-                    <View style={[styles.dot, { backgroundColor: color }]} />
-                </View>
-                <Text style={[styles.text, { color: tokens.color.textPrimary }]}>{text}</Text>
+                <View style={styles.light}><Echo size="small" mood={done ? 'celebrate' : 'speak'} /></View>
+                <Text variant="heading">{text}</Text>
             </MatteSurface>
         </Animated.View>
     );
@@ -124,10 +112,7 @@ function EchoSays({ text, done, bottom }: { text: string; done: boolean; bottom:
 
 const styles = StyleSheet.create({
     wrap: { position: 'absolute', alignSelf: 'center', left: Spacing.xl, right: Spacing.xl, alignItems: 'center' },
-    chip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.md, paddingRight: Spacing.lg, minHeight: 48 },
-    light: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
-    dot: { position: 'absolute', width: 12, height: 12, borderRadius: 6 },
-    glow: { position: 'absolute', width: 20, height: 20, borderRadius: 10, opacity: 0.3 },
-    ring: { backgroundColor: 'transparent', borderWidth: 1.5 },
-    text: { fontFamily: FontFamily.semibold, fontSize: 16 },
+    chip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.md, paddingRight: Spacing.lg, minHeight: Control.hitTarget },
+    // Echo's small field is wider than the chip is tall; it is centred here and spills, as light does.
+    light: { width: Spacing.xl, height: Spacing.xl, alignItems: 'center', justifyContent: 'center' },
 });

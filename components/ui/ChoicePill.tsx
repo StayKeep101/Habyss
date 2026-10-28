@@ -12,7 +12,7 @@ import { MatteSurface } from './MatteSurface';
  * or habit's own colour, or the accent) once chosen, with a filled icon. Every
  * chip row in the app uses this, so a choice looks the same everywhere.
  */
-export function ChoicePill({ label, icon, on, color, onPress, radius = 999, style, pressStyle, textStyle, disabled, role = 'radio', accessibilityLabel, accessibilityHint }: {
+export function ChoicePill({ label, icon, on, color, onPress, radius = 999, style, pressStyle, textStyle, disabled, role = 'radio', accessibilityLabel, accessibilityHint, lines = 1 }: {
     label: string;
     icon?: string;
     on: boolean;
@@ -28,6 +28,8 @@ export function ChoicePill({ label, icon, on, color, onPress, radius = 999, styl
     role?: AccessibilityRole;
     accessibilityLabel?: string;
     accessibilityHint?: string;
+    /** How many lines the label may take: one for a chip, more for an answer that is a sentence. */
+    lines?: number;
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme] ?? Colors.abyss;
@@ -38,7 +40,7 @@ export function ChoicePill({ label, icon, on, color, onPress, radius = 999, styl
             disabled={disabled} onPress={onPress} style={pressStyle}>
             <MatteSurface radius={radius} level="control" elevation="none" tint={on ? color : undefined} style={[styles.pill, style]}>
                 {icon ? <AppIcon filled={on} name={icon} size={14} color={ink} /> : null}
-                <Text numberOfLines={1} style={[styles.text, { color: ink }, textStyle]}>{label}</Text>
+                <Text numberOfLines={lines} style={[styles.text, { color: ink }, textStyle]}>{label}</Text>
             </MatteSurface>
         </Pressable>
     );

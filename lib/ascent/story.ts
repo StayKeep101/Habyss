@@ -11,7 +11,9 @@
  * never "you failed". The urgency is only that a first step can be today.
  */
 
-export type Mood = 'appear' | 'idle' | 'listen' | 'speak' | 'curious' | 'think' | 'empathetic' | 'excited' | 'encourage' | 'celebrate';
+import type { EchoMood } from '../echo';
+
+export type Mood = EchoMood;
 
 /** What the world does on a beat (components/Ascent/AbyssWorld.tsx reads these). */
 export type Cue =

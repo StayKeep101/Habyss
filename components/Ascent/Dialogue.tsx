@@ -2,7 +2,8 @@ import React, { useEffect, useImperativeHandle, useLayoutEffect, useRef, useStat
 import { AccessibilityInfo, StyleSheet, Text } from 'react-native';
 import Animated, { FadeIn, FadeOut, useReducedMotion } from 'react-native-reanimated';
 import { DURATION, EASE } from '@/theme/motion';
-import { FontFamily } from '@/theme/designSystem';
+import { Typography } from '@/theme/designSystem';
+import { useTokens } from '@/hooks/useTokens';
 
 const PER_CHAR = 26;
 const PAUSE_LONG = 280;
@@ -19,7 +20,8 @@ export interface DialogueHandle {
  * the screen's next tap moves on. VoiceOver hears the whole line, at once.
  * With Reduce Motion it simply appears.
  */
-export function Dialogue({ text, color, onTyped, handle }: { text: string; color: string; onTyped?: () => void; handle: React.Ref<DialogueHandle> }) {
+export function Dialogue({ text, onTyped, handle }: { text: string; onTyped?: () => void; handle: React.Ref<DialogueHandle> }) {
+    const t = useTokens();
     const reduced = useReducedMotion();
     const [shown, setShown] = useState(reduced ? text.length : 0);
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -57,7 +59,7 @@ export function Dialogue({ text, color, onTyped, handle }: { text: string; color
     return (
         <Animated.View key={text} entering={FadeIn.duration(DURATION.quick).easing(EASE.enter)} exiting={FadeOut.duration(DURATION.tap)}
             accessible accessibilityLabel={text} accessibilityLiveRegion="polite">
-            <Text style={[styles.line, { color }]}>
+            <Text style={[styles.line, { color: t.color.textPrimary }]}>
                 {text.slice(0, shown)}
                 {/* The rest is laid out but unseen, so the line never reflows as it types. */}
                 <Text style={styles.unseen}>{text.slice(shown)}</Text>
@@ -67,6 +69,7 @@ export function Dialogue({ text, color, onTyped, handle }: { text: string; color
 }
 
 const styles = StyleSheet.create({
-    line: { fontFamily: FontFamily.semibold, fontSize: 24, lineHeight: 32, letterSpacing: -0.2 },
+    // Echo's line is what the page is about: it is set as a page title.
+    line: Typography.screenTitle,
     unseen: { opacity: 0 },
 });

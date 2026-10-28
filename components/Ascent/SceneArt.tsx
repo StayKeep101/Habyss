@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
     FadeIn, FadeOut, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withTiming,
 } from 'react-native-reanimated';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
 import { DURATION, EASE, timingFor } from '@/theme/motion';
-import { FontFamily, Spacing } from '@/theme/designSystem';
+import { Spacing } from '@/theme/designSystem';
+import { IconTile, Text } from '@/components/ui';
+import { useTokens } from '@/hooks/useTokens';
 import { GOALS, type Answers, type Cue } from '@/lib/ascent/story';
 
-const LIGHT = '#F4F1E8';
 const fade = FadeIn.duration(DURATION.reward).easing(EASE.enter);
 const out = FadeOut.duration(DURATION.exit);
 
@@ -54,7 +55,8 @@ function Fragment({ icon, x, y, tilt, index }: { icon: string; x: number; y: num
         opacity: interpolate(rise.value, [0, 0.15, 0.85, 1], [0, 0.32, 0.32, 0]) + (reduced ? 0.3 : 0),
         transform: [{ translateX: x }, { translateY: y - rise.value * 220 }, { rotate: `${tilt + rise.value * 20}deg` }],
     }));
-    return <Animated.View pointerEvents="none" style={[styles.fragment, style]}><AppIcon name={icon} size={28} color={LIGHT} /></Animated.View>;
+    const t = useTokens();
+    return <Animated.View pointerEvents="none" style={[styles.fragment, style]}><AppIcon name={icon} size={28} color={t.color.textMuted} /></Animated.View>;
 }
 
 /** The obstacle, as a picture: each of the four has its own. */
@@ -68,6 +70,7 @@ function Obstacle({ kind, color }: { kind: NonNullable<Answers['obstacle']>; col
 }
 function ObstaclePiece({ kind, index, count, color }: { kind: NonNullable<Answers['obstacle']>; index: number; count: number; color: string }) {
     const reduced = useReducedMotion();
+    const tokens = useTokens();
     const t = useSharedValue(reduced ? 1 : 0);
     useEffect(() => { if (!reduced) t.value = withDelay(index * (kind === 'distraction' ? 30 : 90), withTiming(1, timingFor(1800, EASE.enter))); }, [t, index, kind, reduced]);
     const angle = (index / count) * Math.PI * 2;
@@ -92,12 +95,13 @@ function ObstaclePiece({ kind, index, count, color }: { kind: NonNullable<Answer
         return { opacity: 0.25 + t.value * 0.5, transform: [{ translateX: Math.cos(angle) * reach }, { translateY: Math.sin(angle) * reach * 0.8 }, { scale: 0.7 + t.value * 0.5 }] };
     });
     const shape = kind === 'consistency' ? styles.step : kind === 'distraction' ? styles.spark : kind === 'starting' ? styles.card : styles.block;
-    return <Animated.View style={[shape, { backgroundColor: kind === 'distraction' ? color : 'rgba(244,241,232,0.16)', borderColor: color }, style]} />;
+    return <Animated.View style={[shape, { backgroundColor: kind === 'distraction' ? color : tokens.color.surfaceRaised, borderColor: color }, style]} />;
 }
 
 /** A flame that flares and fades, and beside it stones that keep lighting, one by one. */
 function Spark({ cues, color }: { cues: Set<Cue>; color: string }) {
     const reduced = useReducedMotion();
+    const t = useTokens();
     const flame = useSharedValue(0);
     const flicker = useSharedValue(0);
     const lit = cues.has('FLAME_IGNITE');
@@ -115,8 +119,9 @@ function Spark({ cues, color }: { cues: Set<Cue>; color: string }) {
     return (
         <View style={styles.stage} pointerEvents="none">
             <View style={styles.flameWrap}>
-                <Animated.View style={[styles.flame, { backgroundColor: '#FF9F43' }, outer]} />
-                <Animated.View style={[styles.flame, styles.flameInner, { backgroundColor: '#FFE3A3' }, inner]} />
+                {/* The flame is the streak flame's colour, as everywhere in the app. */}
+                <Animated.View style={[styles.flame, { backgroundColor: t.color.warning }, outer]} />
+                <Animated.View style={[styles.flame, styles.flameInner, { backgroundColor: t.color.textPrimary }, inner]} />
             </View>
             {cues.has('SYSTEM_REVEAL') ? <Stones color={color} /> : null}
         </View>
@@ -165,6 +170,7 @@ function Dominoes({ color, armed, onDone }: { color: string; armed: boolean; onD
     );
 }
 function Domino({ index, size, color, falling, reduced }: { index: number; size: number; color: string; falling: boolean; reduced: boolean }) {
+    const t = useTokens();
     const tilt = useSharedValue(0);
     useEffect(() => {
         if (falling) tilt.value = withDelay(reduced ? 0 : 160 + index * 210, withTiming(1, timingFor(reduced ? 0 : 320, EASE.exit)));
@@ -174,7 +180,7 @@ function Domino({ index, size, color, falling, reduced }: { index: number; size:
         // Tips forward about its foot.
         transform: [{ translateY: size / 2 }, { rotate: `${tilt.value * 72}deg` }, { translateY: -size / 2 }],
     }));
-    return <Animated.View style={[styles.domino, { width: size * 0.42, height: size, borderColor: color, backgroundColor: index === 0 ? color : 'rgba(244,241,232,0.12)' }, style]} />;
+    return <Animated.View style={[styles.domino, { width: size * 0.42, height: size, borderColor: color, backgroundColor: index === 0 ? color : t.color.surfaceRaised }, style]} />;
 }
 
 /** The goal, far above: a light with its mark, appearing where the opening is. */
@@ -182,7 +188,8 @@ function Landmark({ icon, color }: { icon: string; color: string }) {
     return (
         <Animated.View entering={FadeIn.duration(1200).easing(EASE.enter)} style={styles.landmark} pointerEvents="none">
             <View style={[styles.landmarkGlow, { backgroundColor: color }]} />
-            <View style={[styles.landmarkDisc, { borderColor: color }]}><AppIcon name={icon} filled size={22} color={LIGHT} /></View>
+            {/* The goal's own tile, as it looks on every goal card. */}
+            <IconTile icon={icon} color={color} size={52} />
         </Animated.View>
     );
 }
@@ -195,7 +202,7 @@ function Stone({ color, title }: { color: string; title?: string }) {
     return (
         <Animated.View style={[styles.firstStone, style]} pointerEvents="none">
             <View style={[styles.firstStoneFace, { backgroundColor: color }]} />
-            {title ? <Text numberOfLines={1} style={styles.stoneTitle}>{title}</Text> : null}
+            {title ? <View style={styles.stoneTitle}><Text variant="caption" tone="muted" numberOfLines={1}>{title}</Text></View> : null}
         </Animated.View>
     );
 }
@@ -252,10 +259,9 @@ const styles = StyleSheet.create({
     dominoTouch: { position: 'absolute', left: 0, bottom: 0, width: 80, height: 90 },
     landmark: { position: 'absolute', top: '12%', alignSelf: 'center', alignItems: 'center', justifyContent: 'center' },
     landmarkGlow: { position: 'absolute', width: 120, height: 120, borderRadius: 60, opacity: 0.18 },
-    landmarkDisc: { width: 52, height: 52, borderRadius: 26, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(3,5,12,0.6)' },
     firstStone: { position: 'absolute', top: '46%', alignSelf: 'center', alignItems: 'center', gap: Spacing.xs },
     firstStoneFace: { width: 120, height: 14, borderRadius: 8, opacity: 0.9 },
-    stoneTitle: { maxWidth: 240, fontFamily: FontFamily.medium, fontSize: 13, color: 'rgba(244,241,232,0.75)' },
+    stoneTitle: { maxWidth: 240 },
     ally: { position: 'absolute', width: 10, height: 10, borderRadius: 5 },
     thread: { position: 'absolute', height: 1 },
     path: { position: 'absolute', top: '14%', bottom: '58%', alignSelf: 'center', width: 2, borderRadius: 1 },

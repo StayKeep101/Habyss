@@ -15,6 +15,9 @@ export const ECHO_NAME = 'Echo';
 const SETTINGS_KEY = 'app_settings';
 const DAY_KEY = 'habyss_day_window';
 
+/** How Echo carries itself (components/ui/Echo.tsx): what it is doing, never what it says. */
+export type EchoMood = 'appear' | 'idle' | 'listen' | 'speak' | 'curious' | 'think' | 'empathetic' | 'excited' | 'encourage' | 'celebrate';
+
 export interface DayWindow {
     /** "HH:MM", local time. */
     wake: string;

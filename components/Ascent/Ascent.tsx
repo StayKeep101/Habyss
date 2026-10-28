@@ -1,17 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
     FadeIn, FadeInDown, FadeOut, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming,
 } from 'react-native-reanimated';
-import { MatteSurface } from '@/components/ui/MatteSurface';
-import { AppIcon } from '@/components/ui/AppIcon';
+import { AppButton, Echo, IconButton, Text, VoidCard, VoidShell } from '@/components/ui';
+import { AnimatedFill } from '@/components/ui/Motion';
+import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccentGradient } from '@/context/AccentContext';
 import { APP_SLOGAN } from '@/constants/brand';
-import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
+import { Control, Radius, Spacing } from '@/theme/designSystem';
 import { DURATION, EASE, timingFor } from '@/theme/motion';
-import { textOn } from '@/theme/tokens';
 import { track } from '@/lib/analytics';
 import { saveName } from '@/lib/echo';
 import { DISCOVERIES, SCENES, suggestions, type Answers } from '@/lib/ascent/story';
@@ -20,13 +20,10 @@ import {
     type AscentAction, type AscentState,
 } from '@/lib/ascent/machine';
 import { commitPlan, stepOf } from '@/lib/ascent/plan';
-import { ABYSS, AbyssWorld } from './AbyssWorld';
-import { EchoLight } from './EchoLight';
+import { AbyssWorld } from './AbyssWorld';
 import { Dialogue, type DialogueHandle } from './Dialogue';
 import { ActionPicker, BeginButton, ChoiceList, TextAnswer } from './Answers';
 import { SceneArt } from './SceneArt';
-
-const MUTED = 'rgba(244,241,232,0.62)';
 
 /** Where the camera is in each scene: how deep, and how far it looks up. */
 const CAMERA: Record<string, { depth: number; lift: number; ms: number }> = {
@@ -44,8 +41,6 @@ const CAMERA: Record<string, { depth: number; lift: number; ms: number }> = {
 const RISE_MS = 1800;
 /** The save holds at least this long, so the moment reads as something made. */
 const SAVE_BEAT_MS = 900;
-/** The progress line gliding to its new length (made here: worklets only read it). */
-const GLIDE = timingFor(DURATION.emphasis, EASE.move);
 
 export interface AscentEnd { state: AscentState; how: 'finished' | 'skipped' }
 
@@ -60,8 +55,9 @@ export interface AscentEnd { state: AscentState; how: 'finished' | 'skipped' }
  */
 export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd: (end: AscentEnd) => void; onAccount?: () => void }) {
     const reduced = useReducedMotion();
+    const t = useTokens();
     const { primary: color } = useAccentGradient();
-    const { selectionFeedback, successFeedback, lightFeedback } = useHaptics();
+    const { selectionFeedback, successFeedback } = useHaptics();
     const [state, setState] = useState<AscentState | null>(() => (preview ? initialAscent() : null));
     const dispatch = useCallback((action: AscentAction) => setState(current => (current ? ascentReducer(current, action) : current)), []);
     const dialogue = useRef<DialogueHandle>(null);
@@ -166,7 +162,6 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
 
     const skip = () => {
         if (!state || leaving) return;
-        lightFeedback();
         setLeaving(true);
         track('onboarding_skipped', { scene: scene?.id });
         onEnd({ state, how: 'skipped' });
@@ -174,12 +169,10 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
 
     // Rising through: the opening floods the whole screen with light, and Home comes out of it.
     const flood = useAnimatedStyle(() => ({ opacity: interpolate(lift.value, [1.2, 1.65], [0, 1], 'clamp') }));
-    // Worked out here, not in the worklet: a plain function called there crashes natively.
-    const fraction = state ? progressOf(state) : 0;
-    const progress = useAnimatedStyle(() => ({ transform: [{ scaleX: withTiming(fraction, GLIDE) }] }), [fraction]);
 
-    if (!state || !scene) return <View style={[StyleSheet.absoluteFill, { backgroundColor: ABYSS.deep }]} />;
+    if (!state || !scene) return <VoidShell>{null}</VoidShell>;
 
+    const fraction = progressOf(state);
     const beats = beatsOf(state);
     const commitAt = beats.findIndex(item => item.kind === 'commit');
     const science = (scene.id === 'domino' && cues.has('CHAIN_REACTION')) || (scene.id === 'foothold' && commitAt >= 0 && state.beat > commitAt)
@@ -187,49 +180,48 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
     const mood = leaving ? 'celebrate' : beat?.kind === 'commit' ? 'think' : beat?.kind === 'begin' ? 'celebrate' : beat?.mood ?? 'idle';
 
     return (
-        <View style={styles.root}>
+        <VoidShell>
             <AbyssWorld depth={depth} lift={lift} />
             <Pressable style={StyleSheet.absoluteFill} onPress={tapScreen} accessible={false}>
                 <SceneArt scene={scene.id} cues={cues} answers={state.answers} color={color}
                     stepTitle={state.created ? stepOf(state.answers).title : undefined}
                     onDominoesDone={() => dispatch({ type: 'touched' })} />
                 <SafeAreaView style={styles.layer} pointerEvents="box-none">
-                    <View style={styles.top}>
-                        <View style={styles.track} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(fraction * 100) }}>
-                            <Animated.View style={[styles.fill, { backgroundColor: color }, progress]} />
+                    {/* The onboarding header: how far through, and a way out. */}
+                    <View style={styles.header}>
+                        <View style={[styles.track, { backgroundColor: t.color.surfaceRaised }]} accessibilityRole="progressbar"
+                            accessibilityValue={{ min: 0, max: 100, now: Math.round(fraction * 100) }}>
+                            <AnimatedFill progress={fraction} style={[styles.fill, { backgroundColor: color }]} />
                         </View>
-                        <Pressable onPress={skip} hitSlop={8} style={styles.skip} accessibilityRole="button" accessibilityLabel={preview ? 'Close preview' : 'Skip'}>
-                            <Text style={styles.quiet}>{preview ? 'Close' : 'Skip'}</Text>
-                        </Pressable>
+                        <AppButton label={preview ? 'Close' : 'Skip'} accessibilityLabel={preview ? 'Close preview' : 'Skip'}
+                            variant="ghost" fullWidth={false} onPress={skip} />
                     </View>
 
                     <View style={styles.echo} pointerEvents="none" accessible accessibilityRole="image" accessibilityLabel={scene.label}>
-                        <EchoLight mood={mood} color={color} speaking={line !== null && !ready} />
+                        <Echo mood={mood} color={color} speaking={line !== null && !ready} />
                     </View>
 
                     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.bottom} pointerEvents="box-none">
                         {line !== null ? (
-                            <Dialogue key={line} text={line} color={ABYSS.light} handle={dialogue} onTyped={() => setTyped(line)} />
+                            <Dialogue key={line} text={line} handle={dialogue} onTyped={() => setTyped(line)} />
                         ) : (
                             <Animated.View entering={FadeIn.duration(DURATION.base)} accessibilityLiveRegion="polite">
-                                <Text style={styles.saving}>{saveFailed ? 'That didn’t save.' : 'Setting it in stone…'}</Text>
+                                <Text variant="title" tone="muted">{saveFailed ? 'That didn’t save.' : 'Setting it in stone…'}</Text>
                             </Animated.View>
                         )}
 
                         {!leaving && ready ? (
                             <View style={styles.controls} pointerEvents="box-none">
                                 {beat?.kind === 'line' ? (
-                                    <Animated.View entering={FadeIn.delay(DURATION.base).duration(DURATION.base)} exiting={FadeOut.duration(DURATION.tap)}>
-                                        <Pressable onPress={tapScreen} style={styles.next} accessibilityRole="button" accessibilityLabel="Continue">
-                                            <AppIcon name="chevron-down" size={18} color={MUTED} />
-                                        </Pressable>
+                                    <Animated.View entering={FadeIn.delay(DURATION.base).duration(DURATION.base)} exiting={FadeOut.duration(DURATION.tap)} style={styles.centre}>
+                                        <IconButton icon="chevron-down" label="Continue" onPress={tapScreen} />
                                     </Animated.View>
                                 ) : null}
                                 {beat?.kind === 'choice' ? (
                                     <ChoiceList key={beatKey} options={beat.options} color={color} onChoose={id => choose(beat.field, id)} />
                                 ) : null}
                                 {beat?.kind === 'input' ? (
-                                    <TextAnswer key={beatKey} placeholder={beat.placeholder} optional={beat.optional} color={color}
+                                    <TextAnswer key={beatKey} label={beat.field === 'name' ? 'Your name' : 'Your goal'} placeholder={beat.placeholder} optional={beat.optional}
                                         autoCapitalize={beat.field === 'name' ? 'words' : 'sentences'}
                                         onAnswer={value => {
                                             if (beat.field === 'name' && value && !preview) saveName(value).catch(() => undefined);
@@ -241,25 +233,17 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
                                         onPick={(label, own) => answer('action', label, { actionKind: own ? undefined : suggestions(state.answers).find(item => item.label === label)?.kind })} />
                                 ) : null}
                                 {beat?.kind === 'touch' ? (
-                                    <Text style={styles.hint} accessibilityLiveRegion="polite">{beat.label}</Text>
+                                    <Text variant="body" tone="muted" align="center" accessibilityLiveRegion="polite">{beat.label}</Text>
                                 ) : null}
                                 {beat?.kind === 'commit' && saveFailed ? (
-                                    <Pressable onPress={() => { setSaveFailed(false); setAttempt(count => count + 1); }} accessibilityRole="button">
-                                        <MatteSurface radius={Radius.pill} level="control" tint={color} style={styles.retry}>
-                                            <Text style={[styles.retryText, { color: textOn(color) }]}>Try again</Text>
-                                        </MatteSurface>
-                                    </Pressable>
+                                    <AppButton label="Try again" icon="refresh" onPress={() => { setSaveFailed(false); setAttempt(count => count + 1); }} />
                                 ) : null}
-                                {beat?.kind === 'begin' ? <BeginButton color={color} onPress={begin} /> : null}
+                                {beat?.kind === 'begin' ? <BeginButton onPress={begin} /> : null}
                                 {science && beat?.kind === 'line' ? (
-                                    <Pressable onPress={() => setDiscovery(scene.id)} style={styles.next} accessibilityRole="button">
-                                        <Text style={styles.quiet}>Why this works</Text>
-                                    </Pressable>
+                                    <AppButton label="Why this works" variant="ghost" onPress={() => setDiscovery(scene.id)} />
                                 ) : null}
                                 {state.scene === 0 && onAccount && !preview ? (
-                                    <Pressable onPress={onAccount} style={styles.next} accessibilityRole="button">
-                                        <Text style={styles.quiet}>I already have an account</Text>
-                                    </Pressable>
+                                    <AppButton label="I already have an account" variant="ghost" onPress={onAccount} />
                                 ) : null}
                             </View>
                         ) : null}
@@ -269,19 +253,17 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
 
             {discovery && DISCOVERIES[discovery] ? (
                 <Animated.View entering={FadeInDown.duration(DURATION.base).easing(EASE.enter)} exiting={FadeOut.duration(DURATION.exit)} style={styles.discovery}>
-                    <MatteSurface radius={Radius.card} level="card" style={styles.card}>
-                        <Text style={styles.cardTitle}>{DISCOVERIES[discovery].title}</Text>
-                        <Text style={styles.cardBody}>{DISCOVERIES[discovery].body}</Text>
-                        <Text style={styles.cardSource}>{DISCOVERIES[discovery].source}</Text>
-                        <Pressable onPress={() => setDiscovery(null)} style={styles.next} accessibilityRole="button">
-                            <Text style={[styles.quiet, { color }]}>Got it</Text>
-                        </Pressable>
-                    </MatteSurface>
+                    <VoidCard style={styles.card}>
+                        <Text variant="title">{DISCOVERIES[discovery].title}</Text>
+                        <Text variant="body" tone="muted">{DISCOVERIES[discovery].body}</Text>
+                        <Text variant="caption" tone="muted">{DISCOVERIES[discovery].source}</Text>
+                        <AppButton label="Got it" onPress={() => setDiscovery(null)} />
+                    </VoidCard>
                 </Animated.View>
             ) : null}
 
-            <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: ABYSS.light }, flood]} />
-        </View>
+            <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: t.color.textPrimary }, flood]} />
+        </VoidShell>
     );
 }
 
@@ -289,24 +271,15 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
 export const forgetAscent = clearAscent;
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: ABYSS.deep },
     layer: { flex: 1 },
-    top: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.lg, paddingTop: Spacing.xs },
-    track: { flex: 1, height: 3, borderRadius: 2, overflow: 'hidden', backgroundColor: 'rgba(244,241,232,0.12)' },
-    fill: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, transformOrigin: 'left' },
-    skip: { minHeight: 44, minWidth: 44, alignItems: 'flex-end', justifyContent: 'center' },
-    quiet: { fontFamily: FontFamily.semibold, fontSize: 15, color: MUTED },
+    // As the onboarding header always was: a thin progress line and Skip beside it.
+    header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.xl, paddingRight: Spacing.sm, minHeight: Control.hitTarget },
+    track: { flex: 1, height: Spacing.xs, borderRadius: Radius.pill, overflow: 'hidden' },
+    fill: { height: '100%', borderRadius: Radius.pill },
     echo: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     bottom: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg, gap: Spacing.lg, minHeight: '34%' },
     controls: { gap: Spacing.sm },
-    next: { minHeight: 44, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.md },
-    hint: { alignSelf: 'center', fontFamily: FontFamily.medium, fontSize: 15, color: MUTED },
-    saving: { fontFamily: FontFamily.semibold, fontSize: 20, lineHeight: 28, color: MUTED },
-    retry: { minHeight: 52, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.xl },
-    retryText: { fontFamily: FontFamily.bold, fontSize: 16 },
+    centre: { alignSelf: 'center' },
     discovery: { position: 'absolute', left: Spacing.lg, right: Spacing.lg, bottom: '12%' },
     card: { padding: Spacing.xl, gap: Spacing.sm },
-    cardTitle: { fontFamily: FontFamily.bold, fontSize: 19, lineHeight: 25, color: ABYSS.light },
-    cardBody: { fontFamily: FontFamily.regular, fontSize: 16, lineHeight: 23, color: 'rgba(244,241,232,0.86)' },
-    cardSource: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 18, color: MUTED },
 });

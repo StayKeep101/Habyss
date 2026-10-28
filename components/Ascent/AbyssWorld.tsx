@@ -1,24 +1,19 @@
 import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
     cancelAnimation, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming, type SharedValue,
 } from 'react-native-reanimated';
+import { useTokens } from '@/hooks/useTokens';
+import { Radius } from '@/theme/designSystem';
 import { EASE } from '@/theme/motion';
-
-/** The abyss's own palette: always night, whatever the app's theme. */
-export const ABYSS = {
-    deep: '#03050C',
-    navy: '#0A1230',
-    haze: '#1A2A5C',
-    light: '#F4F1E8',
-} as const;
 
 const PARTICLES = 28;
 
 /**
  * The world of the Ascent: an enormous dark shaft, a far opening of light
- * above, fog, and motes drifting at three depths. Driven by two values the
+ * above, fog, and motes drifting at three depths. Drawn over the app's own
+ * background (VoidShell) in the theme's colours and the user's accent, so it
+ * is the same night as the rest of Habyss, only deeper. Driven by two values the
  * story moves: `depth` (0 at the top, 1 deep down: the camera sinking) and
  * `lift` (0 looking down, 1 looking up at the opening, past 1 rising through
  * it). Only transform and opacity move; with Reduce Motion it holds still and
@@ -27,6 +22,7 @@ const PARTICLES = 28;
 export function AbyssWorld({ depth, lift, children }: { depth: SharedValue<number>; lift: SharedValue<number>; children?: React.ReactNode }) {
     const { width, height } = useWindowDimensions();
     const reduced = useReducedMotion();
+    const t = useTokens();
     const drift = useSharedValue(0);
     useEffect(() => {
         if (reduced) return;
@@ -58,23 +54,22 @@ export function AbyssWorld({ depth, lift, children }: { depth: SharedValue<numbe
 
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-            <LinearGradient colors={[ABYSS.navy, ABYSS.deep]} locations={[0, 0.75]} style={StyleSheet.absoluteFill} pointerEvents="none" />
             <Animated.View pointerEvents="none" style={[styles.openingWrap, opening]}>
-                <View style={[styles.halo, { backgroundColor: ABYSS.haze }]} />
-                <View style={[styles.opening, { backgroundColor: ABYSS.light }]} />
+                <View style={[styles.halo, { backgroundColor: t.tint('soft') }]} />
+                <View style={[styles.opening, { backgroundColor: t.color.textPrimary }]} />
             </Animated.View>
-            <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: ABYSS.deep }, deepLayer]} />
-            <Animated.View pointerEvents="none" style={[styles.fog, { top: height * 0.55, left: -width * 0.3, width: width * 1.2, height: height * 0.45 }, fogA]} />
-            <Animated.View pointerEvents="none" style={[styles.fog, { top: height * 0.2, left: width * 0.1, width: width * 1.1, height: height * 0.35 }, fogB]} />
-            {motes.map((mote, index) => <Mote key={index} {...mote} depth={depth} lift={lift} drift={drift} height={height} />)}
+            <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: t.color.background }, deepLayer]} />
+            <Animated.View pointerEvents="none" style={[styles.fog, { backgroundColor: t.tint('subtle'), top: height * 0.55, left: -width * 0.3, width: width * 1.2, height: height * 0.45 }, fogA]} />
+            <Animated.View pointerEvents="none" style={[styles.fog, { backgroundColor: t.tint('subtle'), top: height * 0.2, left: width * 0.1, width: width * 1.1, height: height * 0.35 }, fogB]} />
+            {motes.map((mote, index) => <Mote key={index} {...mote} color={t.color.textPrimary} depth={depth} lift={lift} drift={drift} height={height} />)}
             {children}
         </View>
     );
 }
 
 /** One mote: nearer layers move further as the camera sinks or rises (parallax). */
-function Mote({ x, y, size, layer, alpha, depth, lift, drift, height }: {
-    x: number; y: number; size: number; layer: number; alpha: number; height: number;
+function Mote({ x, y, size, layer, alpha, depth, lift, drift, height, color }: {
+    x: number; y: number; size: number; layer: number; alpha: number; height: number; color: string;
     depth: SharedValue<number>; lift: SharedValue<number>; drift: SharedValue<number>;
 }) {
     const reach = (layer + 1) * 90;
@@ -91,13 +86,14 @@ function Mote({ x, y, size, layer, alpha, depth, lift, drift, height }: {
             ],
         };
     });
-    return <Animated.View pointerEvents="none" style={[styles.mote, { width: size, height: size, borderRadius: size / 2 }, style]} />;
+    return <Animated.View pointerEvents="none" style={[styles.mote, { width: size, height: size, borderRadius: size / 2, backgroundColor: color }, style]} />;
 }
 
 const styles = StyleSheet.create({
     openingWrap: { position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, alignItems: 'center', justifyContent: 'center' },
     halo: { position: 'absolute', width: 260, height: 260, borderRadius: 130, opacity: 0.35 },
     opening: { position: 'absolute', width: 90, height: 90, borderRadius: 45, opacity: 0.9 },
-    fog: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(80,110,200,0.06)' },
-    mote: { position: 'absolute', top: 0, left: 0, backgroundColor: 'rgba(220,230,255,0.9)' },
+    // The accent's faintest tint, faded further: fog, not a shape.
+    fog: { position: 'absolute', borderRadius: Radius.pill, opacity: 0.4 },
+    mote: { position: 'absolute', top: 0, left: 0 },
 });
