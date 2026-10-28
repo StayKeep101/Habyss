@@ -64,7 +64,11 @@ export class FeedService {
         return (await signedIn())?.me ?? null;
     }
 
-    /** A page of the feed, newest first. Pass the last post's time for the next page, or a user for their posts only. */
+    /**
+     * A page of the feed, newest first: each person's latest posted day only,
+     * a new card taking the place of the one before (20261028000300). Pass the
+     * last post's time for the next page, or a user for all their days.
+     */
     static async feed(before?: string, limit = 20, userId?: string): Promise<FeedPost[]> {
         const ctx = await signedIn();
         if (!ctx) return [];
