@@ -12,7 +12,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { getHabits, getGoals, type Habit } from '@/lib/habitsSQLite';
-import { describeRecurrence } from '@/lib/onboarding';
+import { describeSchedule } from '@/lib/goalInsights';
 import { on } from '@/lib/appEvents';
 import { styles } from '@/styles/screens/all-habits.styles';
 
@@ -24,13 +24,8 @@ const FILTERS: { id: Filter; label: string }[] = [
     { id: 'all', label: 'All' },
 ];
 
-/** Recurrence in the habit's own terms, from the fields the scheduler uses. */
-const scheduleOf = (habit: Habit): string =>
-    describeRecurrence({
-        step: 0,
-        recurrence: habit.taskDays?.length ? 'custom' : 'daily',
-        taskDays: habit.taskDays,
-    });
+/** How it repeats, in the one set of words every screen uses (from its rule, else its days). */
+const scheduleOf = (habit: Habit): string => describeSchedule(habit).split(' · ')[0];
 
 const targetOf = (habit: Habit): string =>
     habit.trackingMethod === 'numeric'

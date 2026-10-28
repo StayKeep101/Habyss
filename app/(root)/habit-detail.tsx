@@ -169,9 +169,8 @@ export default function HabitDetailScreen() {
 
     const accent = habit?.color || accentSolid;
     const ink = readableAccent(accent, colors.surfaceSecondary);
-    const schedule = habit
-        ? `${habit.frequency === 'daily' || !habit.frequency ? 'Daily' : habit.frequency.charAt(0).toUpperCase() + habit.frequency.slice(1)}${habit.startTime ? ` · ${habit.startTime}` : ' · Anytime'}`
-        : undefined;
+    // The same words as everywhere else (describeSchedule), so the header never disagrees with the card.
+    const schedule = habit ? describeSchedule(habit) : undefined;
 
     return (
         <SheetScreen

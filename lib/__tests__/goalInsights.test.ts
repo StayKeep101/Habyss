@@ -341,3 +341,14 @@ describe('goal kinds', () => {
         expect(insights.measure).toMatchObject({ kind: 'time', done: 105, total: 600, unit: 'minutes' });
     });
 });
+
+describe('how a habit repeats, in words', () => {
+    const { describeSchedule } = require('../goalInsights') as typeof import('../goalInsights');
+    it('reads its rule when it has one, as its schedule does: weekdays for an hour is Weekdays', () => {
+        const weekdays = { id: 'h', name: 'Study', startTime: '09:00', taskDays: [], recurrence: JSON.stringify({ kind: 'weekly', every: 1, weekdays: ['mon', 'tue', 'wed', 'thu', 'fri'] }) } as unknown as Habit;
+        expect(describeSchedule(weekdays)).toBe('Weekdays · 09:00');
+    });
+    it('reads the saved days otherwise', () => {
+        expect(describeSchedule({ id: 'h', name: 'Run', taskDays: ['sat', 'sun'] } as unknown as Habit)).toBe('Weekends');
+    });
+});

@@ -629,8 +629,17 @@ export function summarizeHabit(
     };
 }
 
+/**
+ * How a habit repeats, in words, read from the same place its schedule is
+ * (createHabitSchedule in lib/habitSchedule.ts): its rule when it has one
+ * ("Weekdays", "3 times a week"), else the days and interval it was saved
+ * with. The one description every card, sheet and list uses.
+ */
 export function describeSchedule(habit: Habit): string {
     const time = habit.startTime ? ` · ${habit.startTime}` : '';
+    const { describe, parseRecurrence } = require('./recurrence') as typeof import('./recurrence');
+    const rule = parseRecurrence(habit.recurrence);
+    if (rule) return describe(rule) + time;
     const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
     if (habit.frequency === 'monthly') {
         return `Monthly${start ? ` on the ${ordinal(start.getDate())}` : ''}${time}`;
