@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Text, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { IconButton } from '@/components/ui/IconButton';
-import { FocusClock } from '@/components/Focus/FocusClock';
+import { FocusClock, FocusDigits } from '@/components/Focus/FocusClock';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useClockStyle } from '@/hooks/useClockStyle';
 import { showFocusStep, useFocusDay } from '@/hooks/useFocusDay';
@@ -27,6 +27,7 @@ export function FocusBlock({ kind, id, title, from, until, nextKind }: { kind: s
     const insets = useSafeAreaInsets();
     const { primary } = useAccentGradient();
     const clock = useClockStyle();
+    const screen = useWindowDimensions();
     const proceed = useFocusDay();
     const { mediumFeedback } = useHaptics();
     const [now, setNow] = useState(minuteNow);
@@ -60,17 +61,26 @@ export function FocusBlock({ kind, id, title, from, until, nextKind }: { kind: s
         else void proceed(id);
     };
     nextRef.current = next;
-    const line = waitingFor ? `Free until ${clockLabel(Math.round(until))}, then ${title}`
+    const line = waitingFor ? `Until ${clockLabel(Math.round(until))}, then ${title}`
         : before ? `${title} at ${clockLabel(Math.round(from))}` : `${title} until ${clockLabel(Math.round(until))}`;
     return (
         <View style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom }]}>
             <View style={styles.top}>
                 <IconButton icon="close" label="Stop focusing the day" onPress={() => { pushFocusToWatch(null); router.back(); }} diameter={40} size={18} color="#FFFFFF" />
-                <Text numberOfLines={1} style={styles.title}>{waitingFor ? 'Free time' : title}</Text>
+                {/* Free time says so in big in the middle; nothing to repeat up here. */}
+                <Text numberOfLines={1} style={styles.title}>{waitingFor ? '' : title}</Text>
                 <View style={{ width: 40 }} />
             </View>
             <View style={styles.center}>
-                <FocusClock seconds={left} progress={before ? null : 1 - left / span} style={clock} accent={primary} label={line} />
+                {waitingFor ? (
+                    // Free time: just the words and how long it lasts. No ring, no mark.
+                    <>
+                        <Text style={styles.freeTitle} accessibilityRole="header" adjustsFontSizeToFit numberOfLines={1}>Free time</Text>
+                        <FocusDigits seconds={left} size={Math.min(screen.width * 0.16, screen.height * 0.08)} label={line} />
+                    </>
+                ) : (
+                    <FocusClock seconds={left} progress={before ? null : 1 - left / span} style={clock} accent={primary} label={line} />
+                )}
             </View>
             <View style={[styles.next, { paddingHorizontal: Spacing.xxl, paddingBottom: Spacing.xxl }]}>
                 <AppButton label={waitingFor ? `Start ${title} now` : kind === 'event' ? 'Back early: next' : 'Done: next'} icon="arrow-forward" onPress={next} />

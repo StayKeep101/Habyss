@@ -34,6 +34,8 @@ export const styles = StyleSheet.create({
     side: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
     nextLink: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, minHeight: Control.hitTarget, paddingHorizontal: Spacing.md },
     nextText: { fontFamily: FontFamily.semibold, fontSize: 16, color: 'rgba(255,255,255,0.75)' },
+    /** Free time between things: the words themselves, big, over its timer. */
+    freeTitle: { fontFamily: FontFamily.bold, fontSize: 52, lineHeight: 60, letterSpacing: -1, color: '#FFFFFF', textAlign: 'center' },
     doneTitle: { fontFamily: FontFamily.bold, fontSize: 30, color: '#FFFFFF', textAlign: 'center' },
     doneSub: { fontFamily: FontFamily.medium, fontSize: 16, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: Spacing.sm },
     next: { alignSelf: 'stretch', gap: Spacing.md, marginTop: Spacing.section },
