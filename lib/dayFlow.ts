@@ -277,8 +277,8 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
         if (item.locked && item.start !== null) { timed.push(item); continue; }
         // Flexible (everything not at an exact time): it does not have to start
         // at its time. It is fitted in by priority, its length kept unless the
-        // day is too short; a time it was given only orders it among equals
-        // (and places it on a day that is not today, when that time is free).
+        // day is too short; a time it was given only orders it among equals,
+        // today and on every other day alike.
         const floating: FlowInput = { ...item, start: null, auto: true, preferred: item.start ?? undefined };
         if (now === null || outside.has(item.id)) { untimed.push(floating); continue; }
         // Under way: it holds its slot, running on past its end until it is done,
@@ -350,12 +350,13 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
         // important only takes a gap it could not use (before a meeting, say).
         for (const item of [...list].sort(order)) {
             let minutes = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
-            const strict = now !== null && !item.done;
-            // Another day: hard ones into your best hours, and a flexible one at
-            // the time it was given, if free.
-            const inPeak = !strict && item.difficulty === 3 && peak && peak.end > from ? slotFor(Math.max(from, peak.start), minutes) : null;
-            const atPreferred = now === null && item.preferred !== undefined && item.preferred >= from ? slotFor(item.preferred, minutes) : null;
-            let found = atPreferred ?? (inPeak !== null && peak && inPeak < peak.end ? inPeak : slotFor(from, minutes));
+            // The same rules on every day, so tomorrow looks now the way it
+            // will look when it comes: a hard one goes into your best hours
+            // while they last; everything else takes the first place it fits.
+            // A flexible thing's own time never holds it there (that only
+            // orders it among equals, in priorityOrder).
+            const inPeak = !item.done && item.difficulty === 3 && peak && peak.end > from ? slotFor(Math.max(from, peak.start), minutes) : null;
+            let found = inPeak !== null && peak && inPeak < peak.end ? inPeak : slotFor(from, minutes);
             let cutFrom: number | undefined;
             if (found === null && !item.done) {
                 // Bedtime never gives, so the last thing of the day gets whatever time is left.

@@ -48,10 +48,11 @@ describe('the day as a flow', () => {
         expect(flow.timeline.find(row => row.id === 'email')!.start).toBeGreaterThanOrEqual(at(11));
     });
 
-    it('keeps a flexible one\'s length, and on another day puts it at its time when free', () => {
+    it('keeps a flexible one\'s length, and fits it in on another day exactly as it would today', () => {
         const items = [item('read', at(20), 45), item('walk', null, 30)];
         const other = flowDay(items, null, window);
-        expect(other.timeline.find(row => row.id === 'read')).toMatchObject({ start: at(20), end: at(20, 45) });
+        // Its 8 PM only orders it: it is fitted in first thing, the same as today.
+        expect(other.timeline.find(row => row.id === 'read')).toMatchObject({ start: window.wake, end: window.wake + 45 });
         // Its time passed today and it is not ticked: it keeps its start and runs on until it is.
         const late = flowDay([item('read', at(9), 45)], at(11), window);
         expect(late.timeline[0]).toMatchObject({ start: at(9), end: at(11) });
@@ -435,3 +436,22 @@ describe('ticked the moment it began', () => {
         expect(at('next')).toMatchObject({ start: 962, end: 992 });
     });
 });
+
+describe('a flexible habit fills the gap before lunch', () => {
+    // Breakfast 8–9, a 30 min task, Apply to 20 jobs (2 hr), lunch at 12:30,
+    // and Fix 50 bugs (1 hr, flexible, given 1 PM): it goes 11:30–12:30, right
+    // after the jobs, never after lunch while the hour before it stands empty.
+    const meal = (id: string, start: number): FlowInput => ({ id, kind: 'meal', title: id, start, minutes: id === 'lunch' ? 30 : 60, done: false, fixed: true } as FlowInput);
+    const items: FlowInput[] = [
+        meal('breakfast', 480), meal('lunch', 750),
+        { id: 'mom', kind: 'task', title: 'Answer mom', start: null, minutes: 30, done: false },
+        { id: 'jobs', kind: 'habit', title: 'Apply to 20 jobs', start: 570, minutes: 120, done: false },
+        { id: 'bugs', kind: 'habit', title: 'Fix 50 bugs', start: 780, minutes: 60, done: false },
+    ];
+    const window = { wake: 480, sleep: 1380 };
+    it.each([['tomorrow', null], ['this morning', 480]] as const)('the same %s', (_when, now) => {
+        const flow = flowDay(items, now, window);
+        expect(flow.timeline.find(row => row.id === 'bugs')).toMatchObject({ start: 690, end: 750 });
+    });
+});
+
