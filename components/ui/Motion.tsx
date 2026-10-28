@@ -183,8 +183,10 @@ export const LIST_LAYOUT = LinearTransition.duration(MOTION.duration).easing(MOT
  * fades out when it is removed or finished away, and when its neighbours come
  * and go it slides to its new place instead of jumping there.
  */
-export function ListItem({ children, style, index = 0, rise = false }: {
+export function ListItem({ children, style, index = 0, rise = false, still = false }: {
     children: React.ReactNode; style?: StyleProp<ViewStyle>; index?: number;
+    /** Rows that come and go as fast as a finger moves (scrubbing the day): they switch, with no fade or slide. */
+    still?: boolean;
     /**
      * Rows arrive one after another, each rising a little into place, at an
      * even beat — for a list read top to bottom in order, like the timeline.
@@ -194,11 +196,11 @@ export function ListItem({ children, style, index = 0, rise = false }: {
     const delay = Math.min(index, 14) * (rise ? MOTION.stagger * 2 : MOTION.stagger);
     return (
         <Animated.View
-            entering={rise
+            entering={still ? undefined : rise
                 ? FadeInDown.delay(delay).duration(MOTION.duration).easing(MOTION.easing).reduceMotion(ReduceMotion.System)
                 : FadeIn.delay(delay).duration(MOTION.duration).reduceMotion(ReduceMotion.System)}
-            exiting={FadeOut.duration(MOTION.duration / 2).reduceMotion(ReduceMotion.System)}
-            layout={LIST_LAYOUT}
+            exiting={still ? undefined : FadeOut.duration(MOTION.duration / 2).reduceMotion(ReduceMotion.System)}
+            layout={still ? undefined : LIST_LAYOUT}
             style={style}
         >
             {children}

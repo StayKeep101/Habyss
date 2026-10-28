@@ -36,3 +36,19 @@ describe("a habit's record", () => {
         expect(habitRecord(days, '2026-10-25').bestWeekday).toBe(2);
     });
 });
+
+describe('week by week', () => {
+    const { habitRecord } = require('../habitRecord') as typeof import('../habitRecord');
+    it('counts each of the last twelve weeks by the same rule, oldest first', () => {
+        // Mon 26 Oct to Wed 28 Oct: two due days kept, one missed; today (28th) done.
+        const history = [
+            { date: '2026-10-26', completed: true, skipped: false, scheduled: true },
+            { date: '2026-10-27', completed: false, skipped: false, scheduled: true },
+            { date: '2026-10-28', completed: true, skipped: false, scheduled: true },
+        ];
+        const { weeks } = habitRecord(history, '2026-10-28', '2026-10-26', true);
+        expect(weeks).toHaveLength(12);
+        expect(weeks[11]).toMatchObject({ from: '2026-10-26', done: 2, due: 3 });
+        expect(weeks[10].share).toBeNull();
+    });
+});

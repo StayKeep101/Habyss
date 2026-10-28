@@ -131,7 +131,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, now
             {flow.timeline.length ? flow.timeline.map((item, index) => {
                 const next = flow.timeline[index + 1];
                 return (
-                    <ListItem key={`${item.kind}-${item.id}${item.part ? `-${item.part.index}` : ''}`} index={index} rise>
+                    <ListItem key={`${item.kind}-${item.id}${item.part ? `-${item.part.index}` : ''}`} index={index} rise still={scrubbing}>
                         <Row size={size} item={item} turn={turns[index].pill} linkTurn={turns[index].link} color={colorOf(item)} last={index === flow.timeline.length - 1} first={index === 0}
                             nextColor={next ? colorOf(next) : undefined} nextStart={next?.start} day={day}
                             now={now} lived={lived} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus}
@@ -243,13 +243,13 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
         : first && now < item.start ? 0
         : null;
     return (
-        // Rule 5: pull the whole card, its icon with it, to the right to
-        // reschedule it from now (not a meal, an exact time or something done).
-        <SwipeRow left={onReschedule && !meal && !done && !item.locked ? {
+        <View>
+        {/* Rule 5: pull the whole card, its icon with it, to the right to
+            reschedule it from now (not a meal, an exact time or something done). */}
+        <SwipeRow leftLook="band" left={onReschedule && !meal && !done && !item.locked ? {
             icon: 'refresh', label: 'Reschedule', color: t.color.accent, destructive: true, onPress: () => onReschedule(item),
         } : undefined}>
         <View style={styles.row}>
-            {nowAt !== null ? <NowLine top={nowAt} rail={size.pill} color={color} /> : null}
             <View style={[styles.rail, { width: size.pill }]}>
                 <Pressable onPress={() => onOpen(item)} accessibilityRole="button" accessibilityLabel={`Open ${item.title}`}>
                     <Animated.View style={[styles.pill, { width: size.pill, borderRadius: corner, backgroundColor: t.color.surfaceRaised }, pillStyle]}>
@@ -324,6 +324,9 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
             </View>
         </View>
         </SwipeRow>
+        {/* The time now, over the line: outside the swipe, so the card's edge never cuts it off. */}
+        {nowAt !== null ? <NowLine top={nowAt} rail={size.pill} color={color} /> : null}
+        </View>
     );
 }
 

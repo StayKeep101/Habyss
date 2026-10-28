@@ -24,6 +24,8 @@ export interface HabitRecord {
     week: { date: string; state: DayState }[];
     /** 0 Sunday … 6 Saturday, once there are enough days to say. */
     bestWeekday: number | null;
+    /** The last twelve weeks, oldest first: due days kept, by the same count as everything above. */
+    weeks: { from: string; done: number; due: number; share: number | null }[];
 }
 
 const shift = (day: string, by: number) => {
@@ -32,6 +34,8 @@ const shift = (day: string, by: number) => {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 const pct = (done: number, due: number) => (due ? Math.round((done / due) * 100) : null);
+/** How many weeks the habit's graph looks back. */
+const WEEKS = 12;
 
 export function habitRecord(history: RecordDay[], today: string, startDate?: string, weekStartsMonday = true): HabitRecord {
     const byDate = new Map(history.map(day => [day.date, day]));
@@ -82,5 +86,19 @@ export function habitRecord(history: RecordDay[], today: string, startDate?: str
         const share = weekday.kept[wd] / weekday.due[wd];
         if (share > bestShare) { bestShare = share; bestWeekday = wd; }
     }
-    return { streak: run, best, done, rate: pct(doneDue, due), rate30: window(0, 30), ratePrev30: window(30, 60), week, bestWeekday: bestShare > 0 ? bestWeekday : null };
+    // Week by week, counted as above: a due day not skipped, today only once done.
+    const weeks = Array.from({ length: WEEKS }, (_, index) => {
+        const from = shift(today, -back - (WEEKS - 1 - index) * 7);
+        let weekDue = 0; let weekDone = 0;
+        for (let offset = 0; offset < 7; offset++) {
+            const date = shift(from, offset);
+            const day = byDate.get(date);
+            if (!day || date > today || (startDate && date < startDate) || !day.scheduled || day.skipped) continue;
+            if (date === today && !day.completed) continue;
+            weekDue++;
+            if (day.completed) weekDone++;
+        }
+        return { from, done: weekDone, due: weekDue, share: weekDue ? weekDone / weekDue : null };
+    });
+    return { streak: run, best, done, rate: pct(doneDue, due), rate30: window(0, 30), ratePrev30: window(30, 60), week, bestWeekday: bestShare > 0 ? bestWeekday : null, weeks };
 }

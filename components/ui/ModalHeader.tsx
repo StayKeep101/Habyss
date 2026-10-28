@@ -45,7 +45,8 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
 
     if (leading) {
         return (
-            <View style={styles.header}>
+            // Room under a sheet's grabber, so the title never sits jammed against the top.
+            <View style={[styles.header, styles.headerSheet]}>
                 <Animated.View style={[styles.lead, titleStyle]}>
                     {leading}
                     <View style={styles.leadCopy}>
@@ -78,6 +79,7 @@ const styles = StyleSheet.create({
     rightSlot: { minWidth: Control.hitTarget, minHeight: Control.hitTarget, alignItems: 'flex-end', justifyContent: 'center' },
     centered: { textAlign: 'center' },
     subtitle: { marginTop: Spacing.xs, textAlign: 'center' },
+    headerSheet: { paddingTop: Spacing.lg },
     lead: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + Spacing.xs, minHeight: Control.hitTarget, paddingLeft: Spacing.xs },
     leadCopy: { flex: 1 },
     leadSubtitle: { marginTop: 2 },

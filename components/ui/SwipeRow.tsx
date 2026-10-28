@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Swipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Animated, {
     interpolate, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue,
@@ -8,6 +8,8 @@ import Animated, {
 import { Pressable } from 'react-native-gesture-handler';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
+import { FontFamily } from '@/theme/designSystem';
+import { textOn } from '@/theme/tokens';
 
 export interface SwipeAction {
     icon: IconName;
@@ -28,6 +30,13 @@ interface Props {
     /** Revealed by pulling the row to the left, first one nearest the row. */
     right?: SwipeAction[];
     radius?: number;
+    /**
+     * How the left action is drawn: a circle (lists of short rows), or a band
+     * the full height of the row, rounded, with its icon and its name, filling
+     * the room the row leaves (a tall row, like a timeline card, where a small
+     * circle floats in empty space).
+     */
+    leftLook?: 'drop' | 'band';
 }
 
 const MAX_SIZE = 44;
@@ -71,7 +80,10 @@ const sizeFor = (rowHeight: number) =>
  * One implementation for habits and tasks, so both feel the same. Pulling
  * one row closes whichever other row was left open.
  */
-export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8 }) => {
+/** How wide the band is: room for its icon and a one-word name. */
+const BAND = 118;
+
+export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8, leftLook = 'drop' }) => {
     const { lightFeedback, mediumFeedback } = useHaptics();
     const row = useRef<SwipeableMethods>(null);
     // The circles are sized from the row itself, so they fit whichever card
@@ -113,7 +125,9 @@ export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8 })
     };
 
     const renderLeft = (progress: SharedValue<number>) =>
-        left ? (
+        left && leftLook === 'band' ? (
+            <Band action={left} progress={progress} onPress={() => run(left)} />
+        ) : left ? (
             <View style={[styles.side, { paddingLeft: GAP }]}>
                 <Drop action={left} progress={progress} index={0} count={1} from="left" radius={radius} size={size} slot={slot} onPress={() => run(left)} />
             </View>
@@ -140,7 +154,7 @@ export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8 })
             ref={row}
             friction={1.6}
             overshootFriction={8}
-            leftThreshold={slot * 0.5}
+            leftThreshold={(leftLook === 'band' ? BAND : slot) * 0.5}
             rightThreshold={slot * 0.5}
             overshootLeft={false}
             overshootRight={false}
@@ -230,6 +244,22 @@ const RightActions: React.FC<{
  * the drag before springing back to round, and the neck joining it to the row
  * thins and fades as it pulls free.
  */
+/** The left action as a full-height band: fades in with the pull, icon over its name. */
+const Band: React.FC<{ action: SwipeAction; progress: SharedValue<number>; onPress: () => void }> = ({ action, progress, onPress }) => {
+    const style = useAnimatedStyle(() => ({ opacity: interpolate(progress.value, [0, 0.35, 1], [0, 0.6, 1], 'clamp') }));
+    const ink = textOn(action.color);
+    return (
+        <View style={[styles.band, { width: BAND }]}>
+            <Animated.View style={[styles.bandFill, { backgroundColor: action.color }, style]}>
+                <Pressable accessibilityRole="button" accessibilityLabel={action.label} onPress={onPress} style={styles.bandPress}>
+                    <Ionicons name={action.icon} size={20} color={ink} />
+                    <Text style={[styles.bandLabel, { color: ink }]}>{action.label}</Text>
+                </Pressable>
+            </Animated.View>
+        </View>
+    );
+};
+
 const Drop: React.FC<{
     action: SwipeAction;
     progress: SharedValue<number>;
@@ -285,6 +315,10 @@ const styles = StyleSheet.create({
     // Clipped: a dragged row must never slide out past its own card bounds.
     container: { overflow: 'hidden', marginBottom: 4 },
     side: { flexDirection: 'row', alignItems: 'center' },
+    band: { paddingVertical: 4, paddingRight: GAP },
+    bandFill: { flex: 1, borderRadius: 18, overflow: 'hidden' },
+    bandPress: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
+    bandLabel: { fontSize: 13, fontFamily: FontFamily.semibold },
     slot: { alignItems: 'center', justifyContent: 'center' },
     drop: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
     press: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },

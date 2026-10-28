@@ -9,13 +9,13 @@ import { BottomFade } from '@/components/ui/BottomFade';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { HabitHero, HabitMark, HabitStats, HabitToday } from '@/components/Habit/HabitDetailParts';
 import { HabitHeatmap } from '@/components/Habit/HabitHeatmap';
+import { HabitTrend } from '@/components/Habit/HabitTrend';
+import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
 import { SectionTitle } from '@/components/ui/SectionTitle';
-import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { useWeekStart } from '@/hooks/useWeekStart';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { habitRecord } from '@/lib/habitRecord';
 import { describeSchedule } from '@/lib/goalInsights';
-import { formatDuration } from '@/lib/habitMeasurement';
 import { setSkipped, toggleCompletion } from '@/lib/habitsSQLite';
 import { ShareHabitModal } from '@/components/Social/ShareHabitModal';
 import { HabitSheet } from '@/components/Create/HabitSheet';
@@ -134,6 +134,7 @@ export default function HabitDetailScreen() {
     const weekDue = record.week.filter(day => day.state !== 'off' && day.state !== 'future');
     const weekShare = weekDue.length ? weekDue.filter(day => day.state === 'done').length / weekDue.length : 0;
     const { playComplete } = useSoundEffects();
+    const [progressView, setProgressView] = useState<'map' | 'graph'>('map');
     // Ticked here, it shows at once; the store catches up behind it.
     const patchToday = (patch: Partial<HistoryDay>) => setHistory(days => {
         const found = days.some(day => day.date === today);
@@ -207,22 +208,16 @@ export default function HabitDetailScreen() {
                     <HabitToday done={doneToday} skipped={skippedToday} scheduled={scheduledToday} color={accent} onDone={markDone} onSkip={skip} onFocus={focus} />
                     <HabitStats record={record} color={accent} />
 
+                    {/* How it has gone: the heat map, or the weeks as a graph, one tap apart. */}
                     <View>
-                        <SectionTitle first>Every day</SectionTitle>
-                        <HabitHeatmap history={history} color={accent} startDate={habit.startDate?.slice(0, 10)} today={today} />
+                        <SectionTitle first right={
+                            <ViewSwitcher accent={accent} value={progressView} onChange={value => { selectionFeedback(); setProgressView(value); }}
+                                options={[{ id: 'map', label: 'Days', icon: 'calendar' }, { id: 'graph', label: 'Weeks', icon: 'stats-chart' }]} />
+                        }>Progress</SectionTitle>
+                        {progressView === 'map'
+                            ? <HabitHeatmap history={history} color={accent} startDate={habit.startDate?.slice(0, 10)} today={today} />
+                            : <HabitTrend record={record} color={accent} />}
                     </View>
-
-                    {owner && !owner.mine ? null : (
-                        <View>
-                            <SectionTitle first>Settings</SectionTitle>
-                            <SettingsGroup>
-                                <SettingsRow icon="repeat" color={accent} label="Repeats" value={describeSchedule(habit).split(' · ')[0]} onPress={() => { selectionFeedback(); setShowEditor(true); }} />
-                                <SettingsRow icon="time" color="#FF9F0A" label="Time" value={habit.startTime ? `${habit.startTime}${habit.durationMinutes ? ` · ${formatDuration(habit.durationMinutes * 60, true)}` : ''}` : 'Any time'} onPress={() => { selectionFeedback(); setShowEditor(true); }} />
-                                <SettingsRow icon="notifications" color="#FF453A" label="Reminders" value={habit.reminders?.length ? habit.reminders.join(', ') : 'None'} onPress={() => { selectionFeedback(); setShowEditor(true); }} />
-                                {habit.startDate ? <SettingsRow icon="calendar" color="#30D158" label="Started" value={new Date(`${habit.startDate.slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} /> : null}
-                            </SettingsGroup>
-                        </View>
-                    )}
                 </Animated.ScrollView>
             )}
 
