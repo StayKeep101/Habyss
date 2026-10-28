@@ -11,6 +11,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { IconButton } from '@/components/ui/IconButton';
 import { ThoughtRow } from '@/components/BrainDump/ThoughtRow';
 import { ThoughtActions, type ThoughtAction } from '@/components/BrainDump/ThoughtActions';
+import { ThoughtDock, type DockTarget, type ThoughtDockHandle } from '@/components/BrainDump/ThoughtDock';
 import { MorphMenu } from '@/components/ui/MorphMenu';
 import { Colors } from '@/theme/colors';
 import { textOn } from '@/theme/tokens';
@@ -51,7 +52,7 @@ export default function BrainDumpScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
-    const { lightFeedback } = useHaptics();
+    const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
     const [thoughts, setThoughts] = useState<Thought[]>([]);
     const [draft, setDraft] = useState('');
     const [undo, setUndo] = useState<{ thought: Thought; index: number; said: string } | null>(null);
@@ -307,6 +308,10 @@ export default function BrainDumpScreen() {
         }
         return to;
     };
+    // A thought carried: the Habit · Task · Goal dock, and which one is under the finger.
+    const [carrying, setCarrying] = useState<string | null>(null);
+    const [hovered, setHovered] = useState<DockTarget | null>(null);
+    const dock = useRef<ThoughtDockHandle>(null);
     const drop = (from: number, dy: number) => {
         const to = dropAt(from, dy);
         if (to === from) return;
@@ -350,9 +355,17 @@ export default function BrainDumpScreen() {
                                 onEdit={text => void edit(thought, text)}
                                 onEditingChange={editing => setEditingId(current => editing ? thought.id : current === thought.id ? null : current)}
                                 onLayout={measure(thought.id)}
-                                onDragStart={() => undefined}
-                                onDragMove={() => undefined}
-                                onDragEnd={dy => drop(index, dy)}
+                                onDragStart={() => { if (!selecting) setCarrying(thought.id); }}
+                                onDragMove={(_dy, x, y) => {
+                                    const target = dock.current?.targetAt(x, y) ?? null;
+                                    if (target !== hovered) { if (target) selectionFeedback(); setHovered(target); }
+                                }}
+                                onDragEnd={(dy, x, y) => {
+                                    const target = carrying ? dock.current?.targetAt(x, y) ?? null : null;
+                                    setCarrying(null); setHovered(null);
+                                    // Let go on Habit, Task or Goal: it becomes that. Anywhere else: it moves.
+                                    if (target) { successFeedback(); act([thought], target); } else drop(index, dy);
+                                }}
                             />
                         </View>
                     ))}
@@ -406,6 +419,7 @@ export default function BrainDumpScreen() {
                 </View>
                 ) : null}
                 <SortThoughtSheet text={sorting?.text ?? null} onClose={() => setSorting(null)} onCreate={pieces => void createSorted(pieces)} />
+                {carrying ? <ThoughtDock hovered={hovered} dockRef={dock} /> : null}
                 <ThoughtActions visible={!!acting} count={acting?.list.length ?? 0}
                     caption={acting?.list.length === 1 ? acting.list[0].text : undefined}
                     goals={goals} startWithGoals={acting?.goals}

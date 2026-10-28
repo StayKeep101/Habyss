@@ -50,8 +50,9 @@ export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onD
     onEditingChange?: (editing: boolean) => void;
     onLayout: (event: LayoutChangeEvent) => void;
     onDragStart: () => void;
-    onDragMove: (dy: number) => void;
-    onDragEnd: (dy: number) => void;
+    /** How far it moved, and where the finger is on screen (for the Habit · Task · Goal dock). */
+    onDragMove: (dy: number, x: number, y: number) => void;
+    onDragEnd: (dy: number, x: number, y: number) => void;
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -68,8 +69,8 @@ export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onD
     const drag = Gesture.Pan()
         .activateAfterLongPress(HOLD_MS)
         .onStart(() => { moved.value = true; lift.value = withSpring(1); runOnJS(onDragStart)(); })
-        .onUpdate(event => { dragY.value = event.translationY; runOnJS(onDragMove)(event.translationY); })
-        .onEnd(event => { runOnJS(onDragEnd)(event.translationY); })
+        .onUpdate(event => { dragY.value = event.translationY; runOnJS(onDragMove)(event.translationY, event.absoluteX, event.absoluteY); })
+        .onEnd(event => { runOnJS(onDragEnd)(event.translationY, event.absoluteX, event.absoluteY); })
         .onFinalize(() => { dragY.value = 0; lift.value = withSpring(0); });
     const hold = Gesture.LongPress()
         .minDuration(HOLD_MS)
