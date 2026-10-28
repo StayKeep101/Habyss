@@ -50,6 +50,8 @@ export interface FriendStatusRow extends PresenceFacts {
     name: string;
     username: string;
     avatarUrl?: string;
+    /** Whose focus session they joined (lib/focusTogether.ts), while it runs. */
+    focusWith: string | null;
 }
 
 const nameOf = (row: { display_name?: string | null; username?: string | null }) =>
@@ -149,6 +151,7 @@ export class FeedService {
             timezone: row.timezone ?? null,
             wakeTime: row.wake_time ?? null,
             sleepTime: row.sleep_time ?? null,
+            focusWith: row.focus_with ?? null,
         }));
     }
 

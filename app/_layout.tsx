@@ -176,9 +176,16 @@ export default function MobileLayout() {
       try {
         await NotificationService.handleEchoResponse(response);
         await Notifications.clearLastNotificationResponseAsync();
-        const url = response.notification.request.content.data?.url;
+        const data = response.notification.request.content.data;
+        const url = data?.url;
         if (typeof url === 'string' && url.startsWith('/')) {
           setTimeout(() => { require('expo-router').router.push(url); }, 500);
+        }
+        // "Alex is locking in. Join?": the tap joins them (lib/focusTogether.ts).
+        if (data?.type === 'focus_invite' && typeof data.from === 'string' && response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
+          const { togetherId } = require('@/lib/focusTogether') as typeof import('@/lib/focusTogether');
+          const params = { id: togetherId(data.from), kind: 'together' };
+          setTimeout(() => { require('expo-router').router.push({ pathname: '/(root)/focus', params }); }, 500);
         }
       } catch (error) {
         console.warn('Could not apply notification action', error);

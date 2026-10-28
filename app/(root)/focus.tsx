@@ -17,6 +17,10 @@ import { useFocusPlan } from '@/hooks/useFocusPlan';
 import { useFocusDay } from '@/hooks/useFocusDay';
 import { on } from '@/lib/appEvents';
 import { FocusBlock, FocusDayDone } from '@/components/Focus/FocusBlock';
+import { FocusCrew } from '@/components/Focus/FocusCrew';
+import { useFocusCrew } from '@/hooks/useFocusCrew';
+import { FeedService } from '@/lib/feedService';
+import { MIN_JOIN_SECONDS, hostOf, inviteFriendsToFocus, secondsLeft } from '@/lib/focusTogether';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useClockStyle } from '@/hooks/useClockStyle';
@@ -85,9 +89,21 @@ function FocusScreen() {
     const [habit, setHabit] = useState<Habit | null>(null);
     const isTask = kind === 'task';
     const task = useMemo(() => (isTask ? tasks.find(item => item.id === id) : undefined), [isTask, tasks, id]);
+    // Joining a friend (lib/focusTogether.ts): the clock is theirs, to the
+    // second they finish, and the name is what they are working on.
+    const host = kind === 'together' ? hostOf(id) : null;
+    const [joinPlan, setJoinPlan] = useState<{ seconds: number; label: string; first: string } | null>(null);
+    useEffect(() => {
+        if (!host) return;
+        void FeedService.friendStatuses().catch(() => []).then(friends => {
+            const friend = friends.find(item => item.userId === host);
+            const first = friend?.name.split(' ')[0] || 'your friend';
+            setJoinPlan({ seconds: secondsLeft(friend?.focusUntil ?? null), label: friend?.focusLabel?.trim() || `Focus with ${first}`, first });
+        });
+    }, [host]);
 
     useEffect(() => {
-        if (isTask || !id) return;
+        if (isTask || !id || host) return;
         void getHabits().then(list => setHabit(list.find(item => item.id === id) ?? null));
     }, [isTask, id]);
 
@@ -95,7 +111,7 @@ function FocusScreen() {
     // timed habit or a task measured in time runs exactly its length (its cut
     // length if today's timeline cut it short), less what is already done.
     const plan = useFocusPlan(id, { habit, task }, Number(bankedParam) || 0);
-    const timesRead = plan.ready && (isTask ? !!task : !!habit);
+    const timesRead = host ? !!joinPlan : plan.ready && (isTask ? !!task : !!habit);
 
     const mine = focus.activeHabitId === id;
     const active = mine && (focus.isRunning || focus.isPaused);
@@ -154,6 +170,17 @@ function FocusScreen() {
         if ((focus.isRunning || focus.isPaused) && !mine) {
             Alert.alert('Another focus is running', `Finish “${focus.activeHabitName ?? 'it'}” first.`);
             close();
+            return;
+        }
+        if (host && joinPlan) {
+            if (joinPlan.seconds < MIN_JOIN_SECONDS) {
+                leaving.current = true;
+                Alert.alert(`${joinPlan.first} just finished`, 'Their session ended before you got there. Start one of your own and invite them.');
+                close();
+                return;
+            }
+            mediumFeedback();
+            focus.startTimer(id, title ?? joinPlan.label, joinPlan.seconds, 'deep_focus');
             return;
         }
         mediumFeedback();
@@ -236,7 +263,28 @@ function FocusScreen() {
     }, [id]);
     const exitNow = () => { leaving.current = true; focus.discardTimer(); close(); };
 
-    const name = title ?? habit?.name ?? task?.title ?? 'Focus';
+    // Who is in it with you, and "Join me?" to every friend who is awake.
+    const crew = useFocusCrew(host, active);
+    const [canInvite, setCanInvite] = useState(false);
+    useEffect(() => { void FeedService.me().then(me => setCanInvite(!!me)).catch(() => undefined); }, []);
+    const [note, setNote] = useState<string | null>(null);
+    const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => () => { if (noteTimer.current) clearTimeout(noteTimer.current); }, []);
+    const invite = async () => {
+        wake();
+        selectionFeedback();
+        const result = await inviteFriendsToFocus();
+        if ('sent' in result) successFeedback();
+        setNote('sent' in result ? `Invited ${result.sent} ${result.sent === 1 ? 'friend' : 'friends'}`
+            : result.error === 'too_soon' ? 'Already invited. Try again in a bit'
+            : result.error === 'nobody' ? 'No friends around right now'
+            : result.error === 'not_focusing' ? 'Carry on first, then invite'
+            : 'Could not invite. Check your connection');
+        if (noteTimer.current) clearTimeout(noteTimer.current);
+        noteTimer.current = setTimeout(() => setNote(null), 4000);
+    };
+
+    const name = title ?? joinPlan?.label ?? habit?.name ?? task?.title ?? 'Focus';
     const stopwatch = focus.activeMode === 'flow';
     const progress = stopwatch || !focus.totalDuration ? null : 1 - focus.timeLeft / focus.totalDuration;
 
@@ -253,9 +301,12 @@ function FocusScreen() {
     const label = focus.isPaused ? undefined : endsAt ? `Ends at ${endsAt}` : undefined;
     const controls = calm ? null : (
         <Animated.View entering={FadeIn.duration(220).reduceMotion(ReduceMotion.System)} exiting={FadeOut.duration(400).reduceMotion(ReduceMotion.System)} style={styles.controls}>
-            <Pressable onPress={restart} style={styles.side} accessibilityRole="button" accessibilityLabel="Start over" hitSlop={6}>
-                <AppIcon name="refresh" size={22} color="#FFFFFF" />
-            </Pressable>
+            {/* A joined session keeps your friend's clock: no starting over. */}
+            {host ? <View style={styles.side} /> : (
+                <Pressable onPress={restart} style={styles.side} accessibilityRole="button" accessibilityLabel="Start over" hitSlop={6}>
+                    <AppIcon name="refresh" size={22} color="#FFFFFF" />
+                </Pressable>
+            )}
             <Pressable onPress={toggle} style={styles.play} accessibilityRole="button" accessibilityLabel={focus.isPaused ? 'Carry on' : 'Pause'}>
                 <AppIcon name={focus.isPaused ? 'play' : 'pause'} filled size={28} color="#000000" />
             </Pressable>
@@ -271,6 +322,7 @@ function FocusScreen() {
             <Text style={[styles.eyebrow, { color: primary }]}>{eyebrow}</Text>
             <Text numberOfLines={landscape ? 1 : 2} adjustsFontSizeToFit minimumFontScale={0.75}
                 style={[styles.name, landscape && styles.nameSide]} accessibilityRole="header">{name}</Text>
+            <FocusCrew crew={crew} accent={primary} note={note} />
         </Animated.View>
     );
 
@@ -303,6 +355,9 @@ function FocusScreen() {
                     <IconButton icon="close" label="Close" onPress={close} size={18} color="#FFFFFF" />
                 )}
                 <View style={styles.topRight}>
+                    {active && canInvite && !host ? (
+                        <IconButton icon="person-add" label="Invite friends to focus with you" onPress={() => { void invite(); }} size={18} color="#FFFFFF" />
+                    ) : null}
                     <IconButton icon={sound === 'off' ? 'musical-notes-outline' : 'musical-notes'} label="Focus sound" onPress={() => { wake(); setSheet('sound'); }} size={18} color="#FFFFFF" />
                     <IconButton icon="settings-outline" label="Focus settings" onPress={() => { wake(); setSheet('settings'); }} size={18} color="#FFFFFF" />
                 </View>

@@ -4,6 +4,7 @@ import { FeedService } from '@/lib/feedService';
 import { HEARTBEAT_MS } from '@/lib/presence';
 import { getDayWindow } from '@/lib/echo';
 import { announceChange } from '@/lib/livePulse';
+import { hostOf, setFocusWith } from '@/lib/focusTogether';
 import { peekFocusTimeLeft, useFocusSession } from '@/context/FocusTimeContext';
 
 /**
@@ -44,8 +45,9 @@ export function useStatusBroadcast() {
 
 /**
  * "Locked in" while a focus session runs: written when it starts, pauses or
- * ends, never every second. A flow session has no end, so it is given two
- * hours and renewed when it is resumed.
+ * ends, never every second. A session joined from a friend also says whose
+ * it is, so they see you beside them. A flow session has no end, so it is
+ * given two hours and renewed when it is resumed.
  */
 export function useFocusStatus() {
     // The session only: this runs in the tab layout, which must not redraw every second.
@@ -55,6 +57,8 @@ export function useFocusStatus() {
         const seconds = focus.activeMode === 'flow' ? 2 * 3600 : peekFocusTimeLeft() || focus.totalDuration;
         const until = running ? new Date(Date.now() + Math.max(60, seconds) * 1000).toISOString() : null;
         void FeedService.setStatus({ focusUntil: until, focusLabel: running ? focus.activeHabitName ?? null : null })
+            // Whose session this is, when you joined a friend's (lib/focusTogether.ts).
+            .then(() => setFocusWith(running ? hostOf(focus.activeHabitId) : null).catch(() => undefined))
             .then(() => announceChange())
             .catch(() => undefined);
         // Only on start, pause, resume and stop — not on every tick of timeLeft.

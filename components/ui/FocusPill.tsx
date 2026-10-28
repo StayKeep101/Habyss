@@ -14,15 +14,20 @@ import { s, vs } from '@/theme/scale';
 /**
  * "Focus", as a small solid pill in the thing's own colour: on the card of
  * whatever you should be doing right now, and on the timeline's live row.
+ * The same pill says "Join" on a friend's focus session (`word`, `icon`,
+ * `accessibilityLabel`).
  */
-export function FocusPill({ color, onPress, label, compact }: { color: string; onPress: () => void; label: string; compact?: boolean }) {
+export function FocusPill({ color, onPress, label, compact, word = 'Focus', icon = 'timer', accessibilityLabel }: {
+    color: string; onPress: () => void; label: string; compact?: boolean;
+    word?: string; icon?: string; accessibilityLabel?: string;
+}) {
     const t = useTokens();
     const ink = textOn(color);
     return (
-        <Pressable onPress={onPress} hitSlop={t.space.sm} accessibilityRole="button" accessibilityLabel={`Focus on ${label}`}>
+        <Pressable onPress={onPress} hitSlop={t.space.sm} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? `Focus on ${label}`}>
             <MatteSurface radius={t.radius.full} level="control" tint={color} style={[styles.pill, compact && styles.compact]}>
-                <AppIcon name="timer" filled size={compact ? s(12) : s(14)} color={ink} />
-                <Text style={[t.type.caption, styles.text, { color: ink }]}>Focus</Text>
+                <AppIcon name={icon} filled size={compact ? s(12) : s(14)} color={ink} />
+                <Text style={[t.type.caption, styles.text, { color: ink }]}>{word}</Text>
             </MatteSurface>
         </Pressable>
     );

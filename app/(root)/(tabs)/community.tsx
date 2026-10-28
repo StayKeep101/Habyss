@@ -15,6 +15,9 @@ import { FriendsGate } from '@/components/Community/FriendsGate';
 import { AddFriendModal } from '@/components/Community/AddFriendModal';
 import { FriendsRail, type RailFriend } from '@/components/Community/FriendsRail';
 import { DayPostCard } from '@/components/Community/DayPostCard';
+import { FocusingNow } from '@/components/Community/FocusingNow';
+import { useFocusSession } from '@/context/FocusTimeContext';
+import { hostOf, togetherId } from '@/lib/focusTogether';
 import { Colors } from '@/theme/colors';
 import { Radius } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -58,6 +61,9 @@ export default function CommunityScreen() {
     const [requests, setRequests] = useState<FriendRequest[]>([]);
     const [statuses, setStatuses] = useState<FriendStatusRow[]>([]);
     const [posts, setPosts] = useState<FeedPost[]>([]);
+    // Whose focus session you are in, if you joined one (lib/focusTogether.ts).
+    const focusSession = useFocusSession();
+    const joinedHost = focusSession.isRunning || focusSession.isPaused ? hostOf(focusSession.activeHabitId) : null;
     const [rank, setRank] = useState<number | null>(null);
     const [shareTime, setShareTime] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
@@ -252,6 +258,16 @@ export default function CommunityScreen() {
                 <View style={styles.block}>
                     <FriendsRail friends={rail} onOpen={friend => openFriend(friend.userId)} />
                 </View>
+            ) : null}
+
+            {/* Friends locked in right now: one tap to focus beside them. */}
+            {gate === null ? (
+                <FocusingNow style={styles.block} friends={statuses} now={clock.getTime()} joinedHost={joinedHost}
+                    onOpen={openFriend}
+                    onJoin={host => {
+                        mediumFeedback();
+                        router.push({ pathname: '/(root)/focus', params: { id: togetherId(host), kind: 'together' } });
+                    }} />
             ) : null}
 
             {gate === null ? <SectionTitle first>Feed</SectionTitle> : null}
