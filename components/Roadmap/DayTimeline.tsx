@@ -243,6 +243,11 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
         : first && now < item.start ? 0
         : null;
     return (
+        // Rule 5: pull the whole card, its icon with it, to the right to
+        // reschedule it from now (not a meal, an exact time or something done).
+        <SwipeRow left={onReschedule && !meal && !done && !item.locked ? {
+            icon: 'refresh', label: 'Reschedule', color: t.color.accent, destructive: true, onPress: () => onReschedule(item),
+        } : undefined}>
         <View style={styles.row}>
             {nowAt !== null ? <NowLine top={nowAt} rail={size.pill} color={color} /> : null}
             <View style={[styles.rail, { width: size.pill }]}>
@@ -266,10 +271,6 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
             <View style={[styles.bodyColumn, { paddingLeft: size.gap, paddingBottom: size.pad }]}>
             {/* The row itself keeps its place beside the pill; the subtasks open
                 under it, so opening them never moves the task. */}
-            {/* Rule 5: pull it to the right to reschedule it from now (not a meal, an exact time or something done). */}
-            <SwipeRow left={onReschedule && !meal && !done && !item.locked ? {
-                icon: 'refresh', label: 'Reschedule', color: t.color.accent, destructive: true, onPress: () => onReschedule(item),
-            } : undefined}>
             <Pressable onPress={() => onOpen(item)} style={[styles.body, { minHeight: height }]} accessibilityRole="button"
                 accessibilityLabel={`${item.title}, ${whenLabel(item)}${item.part ? `, part ${item.part.index} of ${item.part.of}` : ''}${live ? ', now' : ''}`}
                 accessibilityActions={onReschedule && !meal && !done && !item.locked ? [{ name: 'reschedule', label: 'Reschedule' }] : undefined}
@@ -319,10 +320,10 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
                 </View>
                 {meal ? null : <Check size={size} done={done} color={color} onPress={() => onToggle(item)} label={item.title} />}
             </Pressable>
-            </SwipeRow>
             {stepsOpen && item.subtasks?.length ? <SubtaskList taskId={item.id} steps={item.subtasks} color={color} /> : null}
             </View>
         </View>
+        </SwipeRow>
     );
 }
 
