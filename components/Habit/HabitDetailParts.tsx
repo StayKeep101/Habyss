@@ -8,6 +8,7 @@ import { AnimatedCircle, CountUp, PopIn, useProgress } from '@/components/ui/Mot
 import { useTokens } from '@/hooks/useTokens';
 import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
 import { textOn } from '@/theme/tokens';
+import { IconTile } from '@/components/ui/IconTile';
 import type { DayState, HabitRecord } from '@/lib/habitRecord';
 
 const WEEKDAY = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
@@ -18,6 +19,14 @@ const WEEKDAY = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'F
  * and the goal it serves, with the whole width for the words. The ring is the
  * only thing in its colour.
  */
+/** The habit's mark at header size: its photo, or its icon on a tile of its colour. */
+export function HabitMark({ icon, color, size = 36 }: { icon?: string; color: string; size?: number }) {
+    const photo = !!icon && (icon.includes('/') || icon.startsWith('file:'));
+    return photo
+        ? <Image source={{ uri: icon }} style={{ width: size, height: size, borderRadius: size / 2 }} accessibilityIgnoresInvertColors />
+        : <IconTile icon={icon || 'repeat'} color={color} size={size} />;
+}
+
 export function HabitHero({ icon, name, schedule, color, weekShare, goalName, onGoal }: {
     icon?: string; name: string; schedule: string; color: string; weekShare: number;
     goalName?: string; onGoal?: () => void;

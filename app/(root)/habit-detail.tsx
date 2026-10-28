@@ -7,7 +7,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { ShareButton } from '@/components/Common/ShareButton';
 import { BottomFade } from '@/components/ui/BottomFade';
 import { SheetScreen } from '@/components/ui/SheetScreen';
-import { HabitHero, HabitStats, HabitToday } from '@/components/Habit/HabitDetailParts';
+import { HabitHero, HabitMark, HabitStats, HabitToday } from '@/components/Habit/HabitDetailParts';
 import { HabitHeatmap } from '@/components/Habit/HabitHeatmap';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
@@ -178,7 +178,10 @@ export default function HabitDetailScreen() {
             title={habit?.name || 'Habit'}
             subtitle={schedule}
             titleStyle={habit ? headerTitle : undefined}
-            onBack={() => router.back()}
+            // No close button: the sheet swipes down. Scrolled, its icon and name
+            // sit at the top from the left, where the big ones were.
+            leading={habit ? <HabitMark icon={habit.icon} color={habit.color || accentSolid} /> : undefined}
+            onBack={habit ? undefined : () => router.back()}
             backIcon="close"
             rightSlot={habit ? <View style={styles.headerActions}>
                 {owner && !owner.mine ? null : <ShareButton variant="friend" onPress={() => setShowShare(true)} />}

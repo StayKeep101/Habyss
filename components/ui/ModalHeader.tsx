@@ -23,12 +23,18 @@ interface ModalHeaderProps {
      * hands it to the header, fading it in as it goes.
      */
     titleStyle?: React.ComponentProps<typeof Animated.View>['style'];
+    /**
+     * A mark before the title (a habit's icon): the header then reads from the
+     * left, mark, title and the line under it, with no back button (a sheet
+     * closes by swiping down), and the mark fades in with the title.
+     */
+    leading?: React.ReactNode;
 }
 
 /** Equal side columns keep the heading centered, including with multiple actions. */
 export const ModalHeader: React.FC<ModalHeaderProps> = ({
     title, subtitle, onBack, onAction, actionIcon = 'share-outline', actionLabel,
-    shareSummary, backIcon = 'chevron-back', rightSlot, titleStyle,
+    shareSummary, backIcon = 'chevron-back', rightSlot, titleStyle, leading,
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -36,6 +42,21 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
     const right = rightSlot ?? (onAction
         ? <IconButton icon={actionIcon} label={actionLabel ?? (actionIcon === 'person-add-outline' ? 'Add friend' : 'Share')} onPress={onAction} />
         : shareSummary ? <ShareButton summary={shareSummary} /> : null);
+
+    if (leading) {
+        return (
+            <View style={styles.header}>
+                <Animated.View style={[styles.lead, titleStyle]}>
+                    {leading}
+                    <View style={styles.leadCopy}>
+                        <Text accessibilityRole="header" numberOfLines={1} style={[Typography.title, { color: colors.textPrimary }]}>{title}</Text>
+                        {subtitle ? <Text numberOfLines={1} style={[Typography.caption, styles.leadSubtitle, { color: colors.textTertiary }]}>{subtitle}</Text> : null}
+                    </View>
+                </Animated.View>
+                <View style={styles.rightSlot}>{right}</View>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.header}>
@@ -57,4 +78,7 @@ const styles = StyleSheet.create({
     rightSlot: { minWidth: Control.hitTarget, minHeight: Control.hitTarget, alignItems: 'flex-end', justifyContent: 'center' },
     centered: { textAlign: 'center' },
     subtitle: { marginTop: Spacing.xs, textAlign: 'center' },
+    lead: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + Spacing.xs, minHeight: Control.hitTarget, paddingLeft: Spacing.xs },
+    leadCopy: { flex: 1 },
+    leadSubtitle: { marginTop: 2 },
 });
