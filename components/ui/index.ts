@@ -25,7 +25,7 @@
  *   CoachLayer (the first-run tour across screens: one real control lit up, a line and an arrow)
  *
  * Content
- *   Avatar (a face: photo or initial, optional ring and badge), IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
+ *   Avatar (a face: photo or initial, optional ring and badge), FaceStack (a few friends' faces, overlapping), IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
  *   StatTile, ChartCard, HabitRow, ProgressRing, HalfCircleProgress, CheckPop,
  *   Confetti (falls once from the top, for the biggest moments; none with Reduce Motion)
  *
@@ -53,6 +53,7 @@ export { ModalHeader } from './ModalHeader';
 export { VoidCard } from './VoidCard';
 export { IconTile } from './IconTile';
 export { Avatar } from './Avatar';
+export { FaceStack, type Face } from './FaceStack';
 export { ChoicePill } from './ChoicePill';
 export { SettingsGroup, SettingsRow } from './SettingsList';
 export { MatteSurface } from './MatteSurface';

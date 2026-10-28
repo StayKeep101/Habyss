@@ -62,6 +62,8 @@ import { peakWindow } from '@/lib/echoPatterns';
 import { energyCurve } from '@/lib/energyCurve';
 import { useCheckIns } from '@/hooks/useCheckIns';
 import { useFocusRecords } from '@/hooks/useFocusRecords';
+import { useFocusCrew } from '@/hooks/useFocusCrew';
+import { hostOf, linkedHost } from '@/lib/focusTogether';
 import { mealSlots } from '@/lib/meals';
 import { DEFAULT_ROADMAP_FILTER, cachedRoadmapFilter, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type RoadmapView, type ShownKind } from '@/lib/roadmapFilter';
 import { tallyDay } from '@/lib/dayComplete';
@@ -107,6 +109,12 @@ const CalendarScreen = () => {
     const { lightFeedback, selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
     const { cardSize } = useAppSettings();
     const { activeHabitId, activeHabitName, isRunning: isFocusRunning, isPaused: isFocusPaused, totalDuration } = useFocusSession();
+    // Friends focusing with you show on the card of what you are focusing on.
+    const focusingNow = isFocusRunning || isFocusPaused;
+    const { crew: focusCrew } = useFocusCrew(hostOf(activeHabitId) ?? linkedHost(), focusingNow);
+    const focusCompany = useMemo(() => (focusingNow && activeHabitId && focusCrew.length
+        ? { id: activeHabitId, faces: focusCrew.map(friend => ({ userId: friend.userId, name: friend.name, avatarUrl: friend.avatarUrl })) } : undefined),
+        [focusingNow, activeHabitId, focusCrew]);
     // Check-ins and skips come from the one shared copy (lib/dataStore.ts), the
     // same one the habit's page and every stat read. This screen used to keep
     // its own, loaded once and patched by events, and it could drift from it.
@@ -1191,7 +1199,8 @@ const CalendarScreen = () => {
                                 <CalendarPrompt />
                                 <DayTimeline flow={shownFlow} day={localDateKey(selectedDate)} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
                                     wake={flowWindow.wake} sleep={flowWindow.sleep} dueToday={dueToday}
-                                    onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem} />
+                                    onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem}
+                                    company={focusCompany} />
                                 </>
                             ) : (<>
                             {/* GOALS SECTION */}

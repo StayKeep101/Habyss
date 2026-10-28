@@ -1,13 +1,11 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition, ReduceMotion } from 'react-native-reanimated';
-import { Avatar } from '@/components/ui/Avatar';
+import { FaceStack } from '@/components/ui/FaceStack';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { namesLine } from '@/lib/focusTogether';
 
 const FACE = 28;
-const OVERLAP = 8;
-const SHOWN = 4;
 
 /**
  * Who is focusing with you, under the name on the focus page: their faces,
@@ -34,16 +32,7 @@ export function FocusCrew({ crew, accent, note, mine }: {
         <Animated.View entering={FadeIn.duration(300).reduceMotion(ReduceMotion.System)} exiting={FadeOut.duration(250).reduceMotion(ReduceMotion.System)}
             layout={LinearTransition.reduceMotion(ReduceMotion.System)} style={styles.row}
             accessible accessibilityLabel={line ?? undefined} accessibilityLiveRegion="polite">
-            {crew.length > 0 ? (
-                <View style={[styles.faces, { width: FACE + (Math.min(crew.length, SHOWN) - 1) * (FACE - OVERLAP) }]}>
-                    {crew.slice(0, SHOWN).map((friend, index) => (
-                        <Animated.View key={friend.userId} entering={FadeIn.duration(300).reduceMotion(ReduceMotion.System)}
-                            style={[styles.face, { left: index * (FACE - OVERLAP), zIndex: SHOWN - index }]}>
-                            <Avatar name={friend.name} uri={friend.avatarUrl} size={FACE} ring={accent} />
-                        </Animated.View>
-                    ))}
-                </View>
-            ) : null}
+            <FaceStack faces={crew} size={FACE} ring={accent} />
             <Text numberOfLines={1} style={styles.text}>{line}</Text>
         </Animated.View>
     );
@@ -51,8 +40,6 @@ export function FocusCrew({ crew, accent, note, mine }: {
 
 const styles = StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: FACE + 4 },
-    faces: { height: FACE + 4 },
-    face: { position: 'absolute', top: 0 },
     // Over the focus page's black, like its other quiet lines.
     text: { fontFamily: FontFamily.semibold, fontSize: 15, color: 'rgba(255,255,255,0.75)', flexShrink: 1 },
 });

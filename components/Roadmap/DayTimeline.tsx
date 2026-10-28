@@ -9,6 +9,8 @@ import { AppIcon } from '@/components/ui/AppIcon';
 import { CheckPop } from '@/components/ui/CheckPop';
 import { ListItem, useProgress } from '@/components/ui/Motion';
 import { FocusPill } from '@/components/ui/FocusPill';
+import { FaceStack, type Face } from '@/components/ui/FaceStack';
+import { namesLine } from '@/lib/focusTogether';
 import { useTokens } from '@/hooks/useTokens';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { clockLabel, dueLabel, lengthLabel, whenLabel, type DayFlow, type FlowInput, type FlowItem } from '@/lib/dayFlow';
@@ -57,7 +59,9 @@ const pillHeight = (size: Size, minutes: number) => Math.max(size.min, Math.min(
  * marks one that moved since you last opened it. Meals and calendar events
  * sit as fixed blocks with a lock. A habit's pill is round, a task's squarer.
  */
-export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrubbing, day, wake, sleep, dueToday }: {
+export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrubbing, day, wake, sleep, dueToday, company }: {
+    /** Friends focusing with you, on the card of what you are focusing on (lib/focusTogether.ts). */
+    company?: { id: string; faces: Face[] };
     flow: DayFlow;
     /** Waking and bedtime, in minutes from midnight: the day's first and last card. */
     wake?: number;
@@ -114,7 +118,8 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
                     <ListItem key={`${item.kind}-${item.id}`} index={index} rise>
                         <Row size={size} item={item} turn={turns[index].pill} linkTurn={turns[index].link} color={colorOf(item)} last={index === flow.timeline.length - 1} first={index === 0}
                             nextColor={next ? colorOf(next) : undefined} nextStart={next?.start} day={day}
-                            now={now} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus} />
+                            now={now} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus}
+                            faces={company?.id === item.id ? company.faces : undefined} />
                     </ListItem>
                 );
             }) : (
@@ -173,7 +178,8 @@ function Chips({ title, icon, tint, items, onOpen }: { title: string; icon: stri
     );
 }
 
-function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, first, now, updated, onToggle, onOpen, onFocus, day }: {
+function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, first, now, updated, onToggle, onOpen, onFocus, day, faces }: {
+    faces?: Face[];
     size: Size; item: FlowItem; turn: { delay: number; duration: number }; linkTurn: { delay: number; duration: number }; color: string; nextColor?: string; nextStart?: number; last: boolean; first?: boolean; now: number | null; updated: boolean; day?: string;
     onToggle: (item: FlowInput) => void; onOpen: (item: FlowInput) => void; onFocus: (item: FlowInput) => void;
 }) {
@@ -270,6 +276,17 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
                         <View style={[styles.liveRow, { gap: t.space.sm }]}>
                             <FocusPill color={color} label={item.title} onPress={() => onFocus(item)} />
                             {left !== null ? <Text style={[t.type.caption, { color: t.color.textMuted }]}>{left ? `${lengthLabel(left)} left` : 'Over time'}</Text> : null}
+                            {faces?.length ? (
+                                <View accessible accessibilityLabel={`Focusing with ${namesLine(faces.map(face => face.name))}`}>
+                                    <FaceStack faces={faces} size={s(24)} ring={color} shown={3} />
+                                </View>
+                            ) : null}
+                        </View>
+                    ) : faces?.length ? (
+                        // Focusing on it with friends, before its slot says it is on.
+                        <View style={[styles.liveRow, { gap: t.space.sm }]} accessible accessibilityLabel={`Focusing with ${namesLine(faces.map(face => face.name))}`}>
+                            <FaceStack faces={faces} size={s(24)} ring={color} shown={3} />
+                            <Text style={[t.type.caption, { color: t.color.textMuted }]}>{`With ${namesLine(faces.map(face => face.name))}`}</Text>
                         </View>
                     ) : null}
                 </View>
