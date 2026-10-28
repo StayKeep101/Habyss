@@ -20,10 +20,13 @@ export async function todayFlow(now = new Date()): Promise<DayFlow> {
         getCompletionTimes(today).catch(() => ({})),
     ]);
     const travel = await loadTravel().catch(() => ({}));
+    const { loadReschedules, reschedulesFor } = require('./reschedule') as typeof import('./reschedule');
+    const rescheduled = reschedulesFor(await loadReschedules().catch(() => ({ day: '', at: {} })), today);
     const items = flowInputs({
         habits: habits.filter(habit => !habit.isGoal && !habit.isArchived && isHabitScheduledForDate(habit, now)),
         tasks: tasksForDay(tasks, today, today), done, doneTimes, day: today, meals: mealSlots(meals), events, travel, today, flexibleMeals: flexible,
         kept: memory.day === today ? memory.slots : undefined, planned: memory.day === today ? memory.planned : undefined,
+        rescheduled,
     });
     return flowDay(items, now.getHours() * 60 + now.getMinutes(), { wake: minutesOf(day.wake), sleep: minutesOf(day.sleep) });
 }
@@ -52,9 +55,14 @@ export async function todayTimes(now = new Date()): Promise<TodayTimes> {
     const day = localDateKey(now);
     const flow = latest?.day === day ? latest.flow : await todayFlow(now).catch(() => null);
     if (!flow) return {};
-    return Object.fromEntries(flow.timeline
-        .filter(item => !item.fixed && !item.done && (item.kind === 'habit' || item.kind === 'task'))
-        .map(item => [item.id, { start: item.start, end: item.end, ...(item.cutFrom ? { cutFrom: item.cutFrom } : null) }]));
+    // A split one (rule 4) runs from its first part's start to its last part's end.
+    const times: TodayTimes = {};
+    for (const item of flow.timeline) {
+        if (item.fixed || item.done || (item.kind !== 'habit' && item.kind !== 'task')) continue;
+        const was = times[item.id];
+        times[item.id] = was ? { start: Math.min(was.start, item.start), end: Math.max(was.end, item.end) } : { start: item.start, end: item.end };
+    }
+    return times;
 }
 
 /**

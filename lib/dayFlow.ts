@@ -3,7 +3,8 @@ import type { Subtask, Task } from './tasks';
 import { habitMinutes, toMinutes } from './dayPlan';
 
 /**
- * The day as one line, built from two rules and nothing else:
+ * The day as one line, built from these rules and nothing else
+ * (docs/timeline-rules.md):
  *
  *   1. Meals and calendar events do not move.
  *   2. Everything else goes in this order, one after another:
@@ -11,11 +12,19 @@ import { habitMinutes, toMinutes } from './dayPlan';
  *        tasks by deadline (soonest first), then urgency, then difficulty;
  *        habits by urgency, then difficulty.
  *      (Urgency: urgent first. Difficulty: hard first. Still tied: by name.)
+ *   3. A habit or task at an exact time stays at that time, with a lock,
+ *      like a meal, but it can still be ticked.
+ *   4. Something too long for the time left before a meal, an event or an
+ *      exact-time thing takes that time, and the rest of it goes after.
+ *   5. Swiping a habit or task to reschedule it lays it, and everything
+ *      still open after that moment, out again from then, in the order of
+ *      rule 2. What comes before that moment stays where it is.
+ *   6. A habit or task ticked before its end ends there, and what is still
+ *      open after it starts from that moment, in the order of rule 2.
  *
- * How it is drawn, so the two rules have a page to sit on:
+ * How it is drawn, so the rules have a page to sit on:
  *   - The line starts when you wake.
- *   - Each thing starts the minute the one before it ends; one that would
- *     run into a meal or an event starts when that ends instead.
+ *   - Each thing starts the minute the one before it ends.
  *   - Something with no length takes 30 minutes.
  *   - Ticking something does not move anything: done things keep their place
  *     in the order. The clock only says which one is on now and which is next.
@@ -47,8 +56,11 @@ export interface FlowInput {
     doneAt?: number;
     /** A task's subtasks, shown under it on the timeline. */
     subtasks?: Subtask[];
-    /** Kept for older callers; the line no longer uses these. */
+    /** Rule 3: at its exact time, it stays there (with a lock). */
     locked?: boolean;
+    /** Rule 5: rescheduled at this minute, by a swipe. */
+    rescheduledAt?: number;
+    /** Kept for older callers; the line no longer uses these. */
     flex?: boolean;
     auto?: boolean;
     moved?: boolean;
@@ -67,6 +79,8 @@ export interface FlowItem extends FlowInput {
     state: 'done' | 'now' | 'next' | 'later';
     /** Kept for older callers: nothing is cut short. */
     cutFrom?: number;
+    /** Rule 4: one part of something split around a meal, an event or an exact-time thing. */
+    part?: { index: number; of: number };
 }
 
 export interface DayFlow {
@@ -108,35 +122,101 @@ export function lineOrder(a: FlowInput, b: FlowInput): number {
         || a.id.localeCompare(b.id);
 }
 
+type Span = { start: number; end: number };
+
 /**
- * Lays the day out by the two rules. `now` is minutes from midnight on the
- * day shown, or null for another day; it only decides what is on now and
- * next, never where anything goes.
+ * Rule 4: from `from`, the free stretches `minutes` takes, stepping over
+ * every block in its way: as much as fits before one, the rest after it.
+ */
+function spans(from: number, minutes: number, blocks: Span[]): Span[] {
+    const out: Span[] = [];
+    let at = from;
+    let left = minutes;
+    while (left > 0) {
+        const inside = blocks.find(block => at >= block.start && at < block.end);
+        if (inside) { at = inside.end; continue; }
+        const wall = blocks.filter(block => block.start > at).reduce((first, block) => Math.min(first, block.start), Infinity);
+        const take = Math.min(left, wall - at);
+        out.push({ start: at, end: at + take });
+        left -= take;
+        at += take;
+    }
+    return out;
+}
+
+/** Lays `items` out in rule 2's order from `from`, around `blocks`; each one's parts become blocks for the next. */
+function pack(items: FlowInput[], from: number, blocks: Span[]): FlowItem[] {
+    const taken = [...blocks];
+    const out: FlowItem[] = [];
+    let at = from;
+    for (const item of [...items].sort(lineOrder)) {
+        const parts = spans(at, item.minutes > 0 ? item.minutes : DEFAULT_MINUTES, taken);
+        parts.forEach((span, index) => {
+            out.push({ ...item, start: span.start, end: span.end, plannedStart: span.start, shift: 0, state: 'later', auto: true,
+                ...(parts.length > 1 ? { part: { index: index + 1, of: parts.length } } : null) });
+            taken.push(span);
+        });
+        at = parts[parts.length - 1].end;
+    }
+    return out;
+}
+
+/**
+ * Lays the day out by the rules. `now` is minutes from midnight on the day
+ * shown, or null for another day; it only decides what is on now and next,
+ * never where anything goes.
  */
 export function flowDay(items: FlowInput[], now: number | null, window: DayWindowMinutes = { wake: 7 * 60, sleep: 23 * 60 }): DayFlow {
-    // Rule 1: meals and events, where they are.
-    const blocks = items
-        .filter(item => item.fixed && item.start !== null)
-        .map(item => ({ item, start: item.start as number, end: (item.start as number) + Math.max(1, item.minutes) }))
-        .sort((a, b) => a.start - b.start);
-    const timeline: FlowItem[] = blocks.map(block => ({ ...block.item, start: block.start, end: block.end, plannedStart: block.start, shift: 0, state: 'later' }));
+    const at = (item: FlowInput): FlowItem => ({ ...item, start: item.start as number, end: (item.start as number) + Math.max(1, item.minutes > 0 ? item.minutes : DEFAULT_MINUTES), plannedStart: item.start as number, shift: 0, state: 'later' });
+    // Rule 6: ticked before its end, it ends at the tick (never before it began).
+    const finishedAt = (row: FlowItem): number | null =>
+        row.done && !row.fixed && row.doneAt !== undefined && row.doneAt < row.end ? Math.max(row.start, row.doneAt) : null;
+    // Rules 1 and 3: meals, events and exact-time things, where they are.
+    const held = items.filter(item => (item.fixed || item.locked) && item.start !== null).map(at)
+        .map(row => { const end = finishedAt(row); return end === null ? row : { ...row, end }; });
+    const blocks: Span[] = held.map(item => ({ start: item.start, end: item.end }));
+    const moving = items.filter(item => !((item.fixed || item.locked) && item.start !== null));
 
-    // Rule 2: everything else, one after another from waking, in order.
-    let at = window.wake;
-    for (const item of items.filter(entry => !entry.fixed).sort(lineOrder)) {
-        const minutes = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
-        let start = at;
-        // Running into a meal or an event: start when it ends.
-        for (let bumped = true; bumped;) {
-            bumped = false;
-            for (const block of blocks) {
-                if (start < block.end && start + minutes > block.start) { start = block.end; bumped = true; }
-            }
-        }
-        timeline.push({ ...item, start, end: start + minutes, plannedStart: start, shift: 0, state: 'later', auto: true });
-        at = start + minutes;
+    // Rule 2: everything else, from waking, in order (rule 4 splitting around
+    // blocks). Rescheduled things too, so what comes before a reschedule keeps
+    // exactly the place it had.
+    let placed = pack(moving, window.wake, blocks);
+
+    // Rules 5 and 6, in the order they happened: a reschedule, or something
+    // finished early, lays out again from its moment what is still open from
+    // then on (with what was rescheduled then).
+    // Each habit or task finished early, and when: over all its parts (rule 4).
+    const finish = new Map<string, number>();
+    for (const row of placed) {
+        if (!row.done || row.doneAt === undefined || finish.has(row.id)) continue;
+        const parts = placed.filter(part => part.id === row.id);
+        const from = Math.min(...parts.map(part => part.start));
+        const to = Math.max(...parts.map(part => part.end));
+        if (row.doneAt < to) finish.set(row.id, Math.max(from, row.doneAt));
     }
-    timeline.sort((a, b) => a.start - b.start || a.end - b.end);
+    const finishes = [...held.map(finishedAt).filter((minute): minute is number => minute !== null), ...finish.values()];
+    const reschedules = moving.map(item => item.rescheduledAt).filter((minute): minute is number => minute !== undefined);
+    const moments = [...new Set([...finishes, ...reschedules])].sort((a, b) => a - b);
+    for (const moment of moments) {
+        // Finished early at this moment: it ends here, and any later parts go.
+        // Ticked before it began, it takes no time, where it was.
+        for (const [id, at] of finish) {
+            if (at !== moment) continue;
+            const parts = placed.filter(row => row.id === id);
+            const kept = parts.filter(row => row.start < moment).map(row => ({ ...row, end: Math.min(row.end, moment) }));
+            const first = parts.reduce((a, b) => (b.start < a.start ? b : a));
+            const shrunk = kept.length ? kept : [{ ...first, end: first.start }];
+            placed = [...placed.filter(row => row.id !== id), ...shrunk.map(row => (shrunk.length > 1 ? row : { ...row, part: undefined }))];
+        }
+        const again = new Set(moving.filter(item => item.rescheduledAt === moment).map(item => item.id));
+        for (const row of placed) if (!row.done && row.start >= moment && (row.part?.index ?? 1) === 1) again.add(row.id);
+        // Taken off the line where it was (that time is past or given up), laid again from the moment.
+        const stays = placed.filter(row => !again.has(row.id));
+        const redo = moving.filter(item => again.has(item.id));
+        placed = [...stays, ...pack(redo, moment, [...blocks, ...stays.map(row => ({ start: row.start, end: row.end }))])];
+    }
+
+    const timeline = [...held, ...placed].sort((a, b) => a.start - b.start || a.end - b.end);
 
     // The clock: what is on now and what is next. Nothing moves for it.
     let current: FlowItem | null = null;
@@ -147,7 +227,7 @@ export function flowDay(items: FlowInput[], now: number | null, window: DayWindo
         if (item.done) state = 'done';
         else if (now !== null && item.fixed) state = now >= item.end ? 'done' : now >= item.start ? 'now' : 'later';
         else if (now !== null && now >= item.start && now < item.end && !current) state = 'now';
-        else if (now !== null && !nextGiven && item.start >= now) { state = 'next'; nextGiven = true; }
+        else if (now !== null && !nextGiven && item.start >= now && item.id !== current?.id) { state = 'next'; nextGiven = true; }
         timeline[i] = { ...item, state };
         if (state === 'now' && !item.fixed && !current) current = timeline[i];
     }
@@ -166,6 +246,8 @@ export function flowInputs(input: {
     /** Travel to and from events, by event name (lib/eventTravel.ts). */
     travel?: Record<string, { before: number; after: number }>;
     today?: string;
+    /** Rule 5: when each habit or task was rescheduled today, in minutes from midnight (lib/reschedule.ts). */
+    rescheduled?: Record<string, number>;
     /** Kept for older callers; not used. */
     flexibleMeals?: boolean;
     kept?: Record<string, { start: number; end: number }>;
@@ -194,7 +276,8 @@ export function flowInputs(input: {
     }
     for (const habit of input.habits) {
         items.push({
-            id: habit.id, kind: 'habit', title: habit.name, start: toMinutes(habit.startTime),
+            id: habit.id, kind: 'habit', title: habit.name, start: toMinutes(habit.startTime), locked: !!habit.startTime && habit.flexible === false,
+            rescheduledAt: input.rescheduled?.[habit.id],
             minutes: habitMinutes(habit), done: !!input.done[habit.id], icon: habit.icon, color: habit.color, repeats: true,
             priority: level(habit.priority), difficulty: habit.difficulty,
             doneAt: input.done[habit.id] ? minuteOn(input.doneTimes?.[habit.id]) : undefined,
@@ -204,6 +287,7 @@ export function flowInputs(input: {
         if (task.status === 'cancelled') continue;
         const minutes = task.measure === 'time' && task.target ? task.target : Number(task.estimatedMinutes) || 0;
         items.push({ id: task.id, kind: 'task', title: task.title, start: toMinutes(task.dueTime), minutes, done: task.status === 'done',
+            locked: !!task.dueTime && task.flexible === false, rescheduledAt: input.rescheduled?.[task.id],
             priority: level(task.priority), difficulty: task.difficulty, due: task.deadline ?? task.dueDate, deadline: task.deadline,
             doneAt: task.status === 'done' ? minuteOn(task.completedAt) : undefined, subtasks: task.subtasks });
     }

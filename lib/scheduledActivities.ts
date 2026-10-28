@@ -36,7 +36,7 @@ export function slotsFromFlow(flow: DayFlow, day: string): FlowSlot[] {
     return flow.timeline
         .filter(item => !item.done && item.state !== 'done' && (item.kind === 'habit' || item.kind === 'task' || item.kind === 'meal' || item.kind === 'event'))
         .map(item => ({
-            key: `${item.kind}:${item.id}:${day}`, kind: item.kind as FlowSlot['kind'], id: item.id, title: item.title,
+            key: `${item.kind}:${item.id}${item.part ? `#${item.part.index}` : ''}:${day}`, kind: item.kind as FlowSlot['kind'], id: item.id, title: item.title,
             start: midnight + item.start * 60000, end: midnight + item.end * 60000, color: item.color,
         }));
 }

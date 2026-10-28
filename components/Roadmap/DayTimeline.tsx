@@ -10,6 +10,7 @@ import { CheckPop } from '@/components/ui/CheckPop';
 import { ListItem, useProgress } from '@/components/ui/Motion';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { FaceStack, type Face } from '@/components/ui/FaceStack';
+import { SwipeRow } from '@/components/ui/SwipeRow';
 import { namesLine } from '@/lib/focusTogether';
 import { useTokens } from '@/hooks/useTokens';
 import { useAppSettings } from '@/context/AppSettingsContext';
@@ -59,7 +60,9 @@ const pillHeight = (size: Size, minutes: number) => Math.max(size.min, Math.min(
  * marks one that moved since you last opened it. Meals and calendar events
  * sit as fixed blocks with a lock. A habit's pill is round, a task's squarer.
  */
-export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrubbing, day, wake, sleep, dueToday, company }: {
+export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, now, moved, scrubbing, day, wake, sleep, dueToday, company }: {
+    /** Rule 5: swiped left to right, a habit or task is laid out again from now, by priority. Today only. */
+    onReschedule?: (item: FlowInput) => void;
     /** Friends focusing with you, on the card of what you are focusing on (lib/focusTogether.ts). */
     company?: { id: string; faces: Face[] };
     flow: DayFlow;
@@ -115,11 +118,11 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
             {flow.timeline.length ? flow.timeline.map((item, index) => {
                 const next = flow.timeline[index + 1];
                 return (
-                    <ListItem key={`${item.kind}-${item.id}`} index={index} rise>
+                    <ListItem key={`${item.kind}-${item.id}${item.part ? `-${item.part.index}` : ''}`} index={index} rise>
                         <Row size={size} item={item} turn={turns[index].pill} linkTurn={turns[index].link} color={colorOf(item)} last={index === flow.timeline.length - 1} first={index === 0}
                             nextColor={next ? colorOf(next) : undefined} nextStart={next?.start} day={day}
                             now={now} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus}
-                            faces={company?.id === item.id ? company.faces : undefined} />
+                            faces={company?.id === item.id ? company.faces : undefined} onReschedule={onReschedule} />
                     </ListItem>
                 );
             }) : (
@@ -178,8 +181,9 @@ function Chips({ title, icon, tint, items, onOpen }: { title: string; icon: stri
     );
 }
 
-function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, first, now, updated, onToggle, onOpen, onFocus, day, faces }: {
+function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, first, now, updated, onToggle, onOpen, onFocus, day, faces, onReschedule }: {
     faces?: Face[];
+    onReschedule?: (item: FlowInput) => void;
     size: Size; item: FlowItem; turn: { delay: number; duration: number }; linkTurn: { delay: number; duration: number }; color: string; nextColor?: string; nextStart?: number; last: boolean; first?: boolean; now: number | null; updated: boolean; day?: string;
     onToggle: (item: FlowInput) => void; onOpen: (item: FlowInput) => void; onFocus: (item: FlowInput) => void;
 }) {
@@ -247,8 +251,14 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
             <View style={[styles.bodyColumn, { paddingLeft: size.gap, paddingBottom: size.pad }]}>
             {/* The row itself keeps its place beside the pill; the subtasks open
                 under it, so opening them never moves the task. */}
+            {/* Rule 5: pull it to the right to reschedule it from now (not a meal, an exact time or something done). */}
+            <SwipeRow left={onReschedule && !meal && !done && !item.locked ? {
+                icon: 'refresh', label: 'Reschedule', color: t.color.accent, destructive: true, onPress: () => onReschedule(item),
+            } : undefined}>
             <Pressable onPress={() => onOpen(item)} style={[styles.body, { minHeight: height }]} accessibilityRole="button"
-                accessibilityLabel={`${item.title}, ${whenLabel(item)}${live ? ', now' : ''}`}>
+                accessibilityLabel={`${item.title}, ${whenLabel(item)}${item.part ? `, part ${item.part.index} of ${item.part.of}` : ''}${live ? ', now' : ''}`}
+                accessibilityActions={onReschedule && !meal && !done && !item.locked ? [{ name: 'reschedule', label: 'Reschedule' }] : undefined}
+                onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'reschedule') onReschedule?.(item); }}>
                 <View style={styles.text}>
                     <View style={[styles.meta, { gap: t.space.xs }]}>
                         {meal || item.locked ? <AppIcon name="lock-closed" size={s(11)} color={t.color.textSubtle} /> : null}
@@ -259,6 +269,8 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
                         <Text style={[t.type.caption, { color: t.color.textSubtle }]}>
                             {whenLabel(item)}
                         </Text>
+                        {/* Rule 4: split around a meal, an event or an exact-time thing. */}
+                        {item.part ? <Text style={[t.type.caption, { color: t.color.textSubtle }]}>{`${item.part.index} of ${item.part.of}`}</Text> : null}
                         {item.repeats ? <AppIcon name="repeat" size={s(12)} color={t.color.textSubtle} /> : null}
                         {eta ? <Text style={[t.type.caption, styles.nowTag, { color: soon || live ? t.color.accentText : t.color.textMuted }]}>{eta}</Text> : null}
                         {due && !done ? (
@@ -292,6 +304,7 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
                 </View>
                 {meal ? null : <Check size={size} done={done} color={color} onPress={() => onToggle(item)} label={item.title} />}
             </Pressable>
+            </SwipeRow>
             {stepsOpen && item.subtasks?.length ? <SubtaskList taskId={item.id} steps={item.subtasks} color={color} /> : null}
             </View>
         </View>

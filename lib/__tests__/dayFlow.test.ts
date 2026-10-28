@@ -16,11 +16,12 @@ describe('rule 1: meals and events do not move', () => {
         expect(slot(items, 'breakfast')).toEqual([480, 540]);
         expect(slot(items, 'lunch')).toEqual([750, 780]);
     });
-    it('starts something that would run into one when it ends', () => {
-        // Breakfast 8–9, a 2 hr task, lunch 12:30: a 4 hr habit cannot fit 11–12:30, so it starts at 1.
+    it('never has anything placed on top of one', () => {
         const items = [meal('breakfast', 480, 60), meal('lunch', 750, 30), task('jobs', { minutes: 120 }), habit('long', { minutes: 240 })];
         expect(slot(items, 'jobs')).toEqual([540, 660]);
-        expect(slot(items, 'long')).toEqual([780, 1020]);
+        const flow = flowDay(items, null, day);
+        const lunch = flow.timeline.find(row => row.id === 'lunch')!;
+        expect(flow.timeline.filter(row => !row.fixed).every(row => row.end <= lunch.start || row.start >= lunch.end)).toBe(true);
     });
 });
 
@@ -120,5 +121,79 @@ describe('what comes next after a focus', () => {
         expect(upNext(flowDay(items, 490, day), 'report')?.id).toBe('call');
         expect(upNext(flowDay(items.map(item => item.id === 'call' ? { ...item, done: true } : item), 490, day), 'report')?.id).toBe('workout');
         expect(upNext(flowDay([items[0]], 490, day), 'report')).toBeNull();
+    });
+});
+
+describe('rule 3: exact time stays at its time', () => {
+    it('keeps it there with everything else flowing around it, and it can still be done', () => {
+        const items = [task('mom'), habit('call', { start: 510, minutes: 30, locked: true }), habit('bugs', { minutes: 60 })];
+        // mom 8:00–8:30, the call holds 8:30–9:00, bugs after it.
+        expect(slot(items, 'call')).toEqual([510, 540]);
+        expect(slot(items, 'bugs')).toEqual([540, 600]);
+        const flow = flowDay(items.map(item => item.id === 'call' ? { ...item, done: true } : item), 515, day);
+        expect(flow.timeline.find(row => row.id === 'call')).toMatchObject({ start: 510, state: 'done', locked: true });
+    });
+});
+
+describe('rule 4: too long for the time before a meal, it splits around it', () => {
+    it('takes the time left before, and the rest after', () => {
+        // Breakfast 8–9, lunch 12:30–1: a 4 hr habit fills 9–12:30 and finishes 1–1:30.
+        const items = [meal('breakfast', 480, 60), meal('lunch', 750, 30), habit('long', { minutes: 240 })];
+        const parts = flowDay(items, null, day).timeline.filter(row => row.id === 'long');
+        expect(parts.map(row => [row.start, row.end, row.part])).toEqual([
+            [540, 750, { index: 1, of: 2 }],
+            [780, 810, { index: 2, of: 2 }],
+        ]);
+    });
+    it('splits around an exact-time thing too, and the next one follows the last part', () => {
+        const items = [habit('call', { start: 540, minutes: 30, locked: true }), task('essay', { minutes: 90 }), habit('walk', { minutes: 30 })];
+        const flow = flowDay(items, null, day).timeline.filter(row => !row.locked);
+        expect(flow.map(row => [row.id, row.start, row.end])).toEqual([['essay', 480, 540], ['essay', 570, 600], ['walk', 600, 630]]);
+    });
+});
+
+describe('rule 5: a swipe reschedules from that moment, by priority', () => {
+    // 8:00 mom (task), 8:30 bugs (hard habit), 9:30 jobs (habit).
+    const items = [task('mom'), habit('bugs', { difficulty: 3 }), habit('jobs', { minutes: 120 })];
+    it('puts a missed habit back after the moment, in order with what is still to come', () => {
+        // At 9:40 bugs (8:30–9:30) was missed; jobs is on 9:30–11:30. Swiping bugs at 9:40:
+        // jobs started before 9:40 and stays; bugs goes after it.
+        const flow = flowDay(items.map(item => item.id === 'bugs' ? { ...item, rescheduledAt: 580 } : item), 580, day);
+        expect(flow.timeline.find(row => row.id === 'jobs')).toMatchObject({ start: 570, end: 690 });
+        expect(flow.timeline.find(row => row.id === 'bugs')).toMatchObject({ start: 690, end: 750 });
+        expect(flow.timeline.find(row => row.id === 'mom')!.start).toBe(480);
+    });
+    it('lets a more important one go first: everything open after the moment is ordered again', () => {
+        // Swiping mom (a task) at 8:30: it goes first from 8:30, bugs and jobs after it.
+        const flow = flowDay(items.map(item => item.id === 'mom' ? { ...item, rescheduledAt: 510 } : item), 515, day);
+        expect(['mom', 'bugs', 'jobs'].map(id => flow.timeline.find(row => row.id === id)!.start)).toEqual([510, 540, 600]);
+    });
+    it('never moves what is done', () => {
+        const done = items.map(item => item.id === 'jobs' ? { ...item, done: true } : item.id === 'bugs' ? { ...item, rescheduledAt: 480 } : item);
+        const flow = flowDay(done, 485, day);
+        expect(flow.timeline.find(row => row.id === 'jobs')).toMatchObject({ start: 570, end: 690 });
+    });
+});
+
+describe('rule 6: ticked before its end, the next one starts', () => {
+    // 8:00 mom (task, 30 min), 8:30 bugs (habit, 60 min), 9:30 jobs (habit, 2 hr).
+    const items = [task('mom'), habit('bugs', { difficulty: 3 }), habit('jobs', { minutes: 120 })];
+    it('ends it at the tick, and what is open after it starts then', () => {
+        const flow = flowDay(items.map(item => item.id === 'mom' ? { ...item, done: true, doneAt: 495 } : item), 496, day);
+        expect(flow.timeline.find(row => row.id === 'mom')).toMatchObject({ start: 480, end: 495, state: 'done' });
+        expect(flow.timeline.find(row => row.id === 'bugs')).toMatchObject({ start: 495, end: 555, state: 'now' });
+        expect(flow.timeline.find(row => row.id === 'jobs')).toMatchObject({ start: 555, end: 675 });
+    });
+    it('takes no time when ticked before it began, and the next one starts then', () => {
+        // bugs (8:30) ticked at 8:10, while mom is still on: bugs takes no time; jobs starts at 8:30.
+        const flow = flowDay(items.map(item => item.id === 'bugs' ? { ...item, done: true, doneAt: 490 } : item), 491, day);
+        expect(flow.timeline.find(row => row.id === 'bugs')).toMatchObject({ start: 510, end: 510 });
+        expect(flow.timeline.find(row => row.id === 'jobs')).toMatchObject({ start: 510, end: 630 });
+        expect(flow.timeline.find(row => row.id === 'mom')).toMatchObject({ start: 480, end: 510 });
+    });
+    it('does nothing when it was ticked at or after its end', () => {
+        const flow = flowDay(items.map(item => item.id === 'mom' ? { ...item, done: true, doneAt: 520 } : item), 521, day);
+        expect(flow.timeline.find(row => row.id === 'mom')).toMatchObject({ start: 480, end: 510 });
+        expect(flow.timeline.find(row => row.id === 'bugs')).toMatchObject({ start: 510, end: 570 });
     });
 });

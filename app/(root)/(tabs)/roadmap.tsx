@@ -63,6 +63,8 @@ import { energyCurve } from '@/lib/energyCurve';
 import { useCheckIns } from '@/hooks/useCheckIns';
 import { useFocusRecords } from '@/hooks/useFocusRecords';
 import { useFocusCrew } from '@/hooks/useFocusCrew';
+import { useReschedules } from '@/hooks/useReschedules';
+import { reschedule } from '@/lib/reschedule';
 import { hostOf, linkedHost } from '@/lib/focusTogether';
 import { mealSlots } from '@/lib/meals';
 import { DEFAULT_ROADMAP_FILTER, cachedRoadmapFilter, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type RoadmapView, type ShownKind } from '@/lib/roadmapFilter';
@@ -935,6 +937,8 @@ const CalendarScreen = () => {
     const flowWindow = useMemo(() => ({ wake: minutesOf(dayWindow.wake), sleep: minutesOf(dayWindow.sleep), peak, active: activeHabitId }), [dayWindow, peak, activeHabitId]);
     // When each habit was ticked on the day shown, so a done one sits where it was really done.
     const { times: doneTimes, ready: doneTimesReady } = useDoneTimes(localDateKey(selectedDate), completions);
+    // Swiped to reschedule today (rule 5, lib/dayFlow.ts).
+    const rescheduled = useReschedules(localDateKey(selectedDate));
     const flowItems = useMemo(() => {
         const day = localDateKey(selectedDate);
         const habits = habitsStore.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, selectedDate)) as StoreHabit[];
@@ -943,8 +947,9 @@ const CalendarScreen = () => {
         return flowInputs({
             habits, tasks: tasksForDay(tasks, day, todayKey(clock)), done: completions, doneTimes, day, meals: mealSlots(meals), events: calendarEvents, travel: eventTravel,
             today: todayKey(clock), flexibleMeals, kept: memory.day === day ? memory.slots : undefined, planned: memory.day === day ? memory.planned : undefined,
+            rescheduled,
         });
-    }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, eventTravel, flexibleMeals, memory, doneTimes]);
+    }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, eventTravel, flexibleMeals, memory, doneTimes, rescheduled]);
     const flow = useMemo(() => flowDay(flowItems, flowNow, flowWindow), [flowItems, flowNow, flowWindow]);
     // Whether this flow was built from everything it needs: the stored layout,
     // the tick times and the waking day. Saving one built before they arrived
@@ -976,14 +981,14 @@ const CalendarScreen = () => {
     const stripPlan = useMemo(() => ({
         ...dayPlan.plan,
         blocks: flow.timeline.filter(item => item.kind === 'habit' || item.kind === 'task').map(item => ({
-            id: item.id, kind: item.kind as 'habit' | 'task', title: item.title, start: item.start, end: item.end, done: item.done, color: item.color,
+            id: item.part ? `${item.id}#${item.part.index}` : item.id, kind: item.kind as 'habit' | 'task', title: item.title, start: item.start, end: item.end, done: item.done, color: item.color,
         })),
     }), [dayPlan.plan, flow]);
     // What you should be on right now: its own card carries the Focus button.
     const nowId = flowNow !== null && flow.current && !flow.current.fixed && !flow.current.done ? flow.current.id : null;
     // Dragging along the strip in the timeline: only what is on then.
     const shownFlow = useMemo(() => scrubIds === null ? flow
-        : { ...flow, timeline: flow.timeline.filter(item => scrubIds.has(`${item.kind}:${item.id}`)) }, [flow, scrubIds]);
+        : { ...flow, timeline: flow.timeline.filter(item => scrubIds.has(`${item.kind}:${item.part ? `${item.id}#${item.part.index}` : item.id}`)) }, [flow, scrubIds]);
     const toggleFlowItem = useCallback((item: FlowInput) => {
         if (item.kind === 'habit') { const habit = habitsStore.find(h => h.id === item.id); if (habit) void handleHabitPress(habit as Habit); }
         else { const task = tasks.find(t => t.id === item.id); if (task) void handleTaskToggle(task); }
@@ -1003,6 +1008,12 @@ const CalendarScreen = () => {
         else if (item.kind === 'habit') router.push({ pathname: '/habit-detail', params: { habitId: item.id } });
         else { const task = tasks.find(t => t.id === item.id); if (task) openTask(task); }
     }, [tasks, openTask, lightFeedback, router, selectedDate, calendarEvents]);
+    // Rule 5: swiped left to right, it is laid out again from now, by priority.
+    const rescheduleFlowItem = useCallback((item: FlowInput) => {
+        if (flowNow === null) return;
+        mediumFeedback();
+        void reschedule(localDateKey(selectedDate), item.id, flowNow);
+    }, [flowNow, selectedDate, mediumFeedback]);
     const focusFlowItem = useCallback((item: FlowInput) => {
         mediumFeedback();
         router.push({ pathname: '/(root)/focus', params: { kind: item.kind, id: item.id, title: item.title } });
@@ -1200,6 +1211,7 @@ const CalendarScreen = () => {
                                 <DayTimeline flow={shownFlow} day={localDateKey(selectedDate)} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
                                     wake={flowWindow.wake} sleep={flowWindow.sleep} dueToday={dueToday}
                                     onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem}
+                                    onReschedule={flowNow !== null ? rescheduleFlowItem : undefined}
                                     company={focusCompany} />
                                 </>
                             ) : (<>
