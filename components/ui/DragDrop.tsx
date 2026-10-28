@@ -13,9 +13,9 @@ type Target = { measure: () => Promise<Rect | null>; accepts: boolean };
 interface DragContext {
     x: SharedValue<number>;
     y: SharedValue<number>;
-    begin: (payload: string, label: string) => void;
+    begin: (payload: string, label: string, x: number, y: number) => void;
     move: (x: number, y: number) => void;
-    end: () => void;
+    end: (x: number, y: number) => void;
     register: (id: string, target: Target) => () => void;
     hovered: string | null;
     dragging: boolean;
@@ -24,6 +24,12 @@ interface DragContext {
 const Context = createContext<DragContext | null>(null);
 /** How close to the top or bottom edge the finger must be for the page to scroll along. */
 const EDGE = 110;
+/** Touch and hold this long, still, before something lifts (iOS lifts at about half a second). */
+const HOLD_MS = 450;
+/** Moving more than this while holding is a scroll, never a drag. */
+const STILL = 8;
+/** A drop only counts once it was carried at least this far: lifting and letting go in place puts it back. */
+const CARRY = 24;
 const measureView = (view: View | null) => new Promise<Rect | null>(resolve => {
     if (!view) { resolve(null); return; }
     view.measureInWindow((x, y, width, height) => resolve(width > 0 ? { x, y, width, height } : null));
@@ -58,6 +64,8 @@ export function DragDropProvider({ children, onDrop, onDragging, scrollBy, style
     const targets = useRef(new Map<string, Target>());
     const rects = useRef(new Map<string, Rect>());
     const carried = useRef<string | null>(null);
+    const from = useRef<{ x: number; y: number } | null>(null);
+    const travelled = useRef(false);
     const hoverRef = useRef<string | null>(null);
     const edge = useRef(0);
     const box = useRef<Rect | null>(null);
@@ -82,8 +90,10 @@ export function DragDropProvider({ children, onDrop, onDragging, scrollBy, style
         }
     }, []);
 
-    const begin = useCallback((payload: string, name: string) => {
+    const begin = useCallback((payload: string, name: string, px: number, py: number) => {
         carried.current = payload;
+        from.current = { x: px, y: py };
+        travelled.current = false;
         setLabel(name);
         feel.current.mediumFeedback();
         onDragging?.(true);
@@ -93,23 +103,35 @@ export function DragDropProvider({ children, onDrop, onDragging, scrollBy, style
 
     const move = useCallback((px: number, py: number) => {
         if (!carried.current) return;
+        if (from.current && Math.hypot(px - from.current.x, py - from.current.y) >= CARRY) travelled.current = true;
         hitTest(px, py);
         const area = box.current;
         edge.current = !area || !scrollBy ? 0 : py < area.y + EDGE ? -1 : py > area.y + area.height - EDGE ? 1 : 0;
     }, [hitTest, scrollBy]);
 
-    const end = useCallback(() => {
+    const end = useCallback((px: number, py: number) => {
         const payload = carried.current;
         if (!payload) return;
-        const target = hoverRef.current;
+        const moved = travelled.current;
         carried.current = null;
+        from.current = null;
+        travelled.current = false;
         hoverRef.current = null;
         edge.current = 0;
         setHovered(null);
         setLabel(null);
         onDragging?.(false);
-        if (target) { feel.current.successFeedback(); onDrop(payload, target); }
-    }, [onDrop, onDragging]);
+        if (!moved) return;
+        // Where the targets are now, not where they were before the page moved:
+        // the drop goes to the one under the finger as it lets go, or nowhere.
+        void remeasure().then(() => {
+            let target: string | null = null;
+            for (const [id, rect] of rects.current) {
+                if (px >= rect.x && px <= rect.x + rect.width && py >= rect.y && py <= rect.y + rect.height) { target = id; break; }
+            }
+            if (target) { feel.current.successFeedback(); onDrop(payload, target); }
+        });
+    }, [onDrop, onDragging, remeasure]);
 
     // While carrying: the page scrolls at an edge, and where things sit is read again as it does.
     useEffect(() => {
@@ -144,19 +166,21 @@ export function DragDropProvider({ children, onDrop, onDragging, scrollBy, style
 }
 
 /**
- * Something that can be carried: touch and hold, then move. A plain tap still
- * reaches whatever is inside (a button, a row).
+ * Something that can be carried: touch and hold, still, then move. A plain
+ * tap still reaches whatever is inside (a button, a row), and a finger that
+ * moves before the hold is up is scrolling the page, so it never lifts.
  */
 export function Draggable({ payload, label, disabled, children }: { payload: string; label: string; disabled?: boolean; children: React.ReactNode }) {
     const drag = useContext(Context);
     const gesture = useMemo(() => {
-        const pan = Gesture.Pan().enabled(!!drag && !disabled).activateAfterLongPress(280);
+        const pan = Gesture.Pan().enabled(!!drag && !disabled).activateAfterLongPress(HOLD_MS)
+            .failOffsetX([-STILL, STILL]).failOffsetY([-STILL, STILL]);
         if (!drag) return pan;
         const { x, y, begin, move, end } = drag;
         return pan
-            .onStart(event => { x.value = event.absoluteX; y.value = event.absoluteY; runOnJS(begin)(payload, label); })
+            .onStart(event => { x.value = event.absoluteX; y.value = event.absoluteY; runOnJS(begin)(payload, label, event.absoluteX, event.absoluteY); })
             .onUpdate(event => { x.value = event.absoluteX; y.value = event.absoluteY; runOnJS(move)(event.absoluteX, event.absoluteY); })
-            .onFinalize(() => { runOnJS(end)(); });
+            .onFinalize(() => { runOnJS(end)(x.value, y.value); });
     }, [drag, disabled, payload, label]);
     return (
         <GestureDetector gesture={gesture}>
