@@ -3,7 +3,7 @@ import {View, TouchableOpacity, StyleSheet} from 'react-native';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import Animated, { useAnimatedStyle, withSpring, withTiming, useSharedValue, interpolate } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, withSpring, withTiming, useSharedValue, interpolate } from 'react-native-reanimated';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -121,7 +121,8 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
         setRemoveDragState(next);
         if (next.active) measureOrb();
         morph.value = withTiming(next.active ? 1 : 0, { duration: 220 });
-        hover.value = withSpring(next.over ? 1 : 0, { damping: 14, stiffness: 260 });
+        // Grows and turns red as something is carried over it, smoothly: no spring, no bounce.
+        hover.value = withTiming(next.over ? 1 : 0, { duration: 180, easing: Easing.out(Easing.cubic) });
     }), [measureOrb, morph, hover]);
     const orbScale = useAnimatedStyle(() => ({ transform: [{ scale: 1 + hover.value * 0.14 }] }));
     const plusLayer = useAnimatedStyle(() => ({ opacity: 1 - morph.value, transform: [{ rotate: `${morph.value * 90}deg` }] }));

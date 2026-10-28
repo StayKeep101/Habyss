@@ -13,6 +13,7 @@
  *   VoidModal      a centred modal window
  *   VoidSheet      a bottom sheet with a grabber
  *   PopupCard      the streak-popup card: rises from the bottom, big icon on its top edge
+ *   Overlay        a layer over the whole app (menus, celebrations) without a second window
  *
  * Controls
  *   AppButton, IconButton, AppTextField, ChoiceRow, ChipPicker, Toggle,
@@ -54,6 +55,7 @@ export { VoidCard } from './VoidCard';
 export { IconTile } from './IconTile';
 export { Avatar } from './Avatar';
 export { FaceStack, type Face } from './FaceStack';
+export { Overlay } from './Overlay';
 export { ChoicePill } from './ChoicePill';
 export { SettingsGroup, SettingsRow } from './SettingsList';
 export { MatteSurface } from './MatteSurface';

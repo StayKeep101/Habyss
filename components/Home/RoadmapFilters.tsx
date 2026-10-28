@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Overlay } from '@/components/ui/Overlay';
 import { useAccentGradient } from '@/context/AccentContext';
 import { textOn } from '@/theme/tokens';
 import { MatteSurface } from '@/components/ui/MatteSurface';
@@ -95,7 +96,9 @@ export const RoadmapFilters = (props: Props) => {
     if (!mounted) return null;
 
     return (
-        <Modal visible transparent animationType="none" onRequestClose={close} statusBarTranslucent>
+        // Drawn over the page, not a second window: opening one as the list
+        // came back from a pull blanked the whole page for a moment.
+        <Overlay onRequestClose={close}>
             <AnimatedPressable
                 testID="filter-scrim"
                 accessibilityRole="button"
@@ -167,7 +170,7 @@ export const RoadmapFilters = (props: Props) => {
                     </>) : null}
                 </MatteSurface>
             </Animated.View>
-        </Modal>
+        </Overlay>
     );
 };
 
