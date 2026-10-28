@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChoiceSheet, type Choice } from '@/components/ui/ChoiceSheet';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { MatteInput } from '@/components/ui/MatteInput';
-import { AppButton } from '@/components/ui/AppButton';
 import { IconButton } from '@/components/ui/IconButton';
 import { ListItem } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -68,7 +67,6 @@ export function GoalTodoList({ goalId, tasks, today, color, readOnly, onOpenTask
     const [shownSheet, setShownSheet] = useState<Sheet | null>(null);
     if (sheet && sheet !== shownSheet) setShownSheet(sheet);
 
-    const newSection = () => { lightFeedback(); setSheet({ kind: 'name', from: null }); };
     useEffect(() => {
         askForSection = id => { if (id === goalId) setSheet({ kind: 'name', from: null }); };
         return () => { askForSection = null; };
@@ -156,7 +154,7 @@ export function GoalTodoList({ goalId, tasks, today, color, readOnly, onOpenTask
                     </MatteSurface>
                 </ListItem>
             )))}
-            {!readOnly ? <AppButton label="New section" icon="add" variant="ghost" onPress={newSection} /> : null}
+            {/* A new section comes from the goal's ⋯ menu (startNewSection), not a button here. */}
 
             <ChoiceSheet
                 visible={!!sheet}
