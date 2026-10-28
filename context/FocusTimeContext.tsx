@@ -73,6 +73,8 @@ interface FocusTimeContextType {
     discardTimer: () => void;
     /** Ends the session, saves it and marks the habit or task done (focus mode's Finished). */
     finishTimer: () => void;
+    /** Moves the end of the running countdown to a moment (ms): a joined session keeping time with its host. */
+    alignEnd: (endsAt: number) => void;
     addFocusTime: (seconds: number) => void;
     refreshStats: () => Promise<void>;
 
@@ -100,6 +102,9 @@ const FocusTickContext = createContext<number>(0);
 /** The clock's latest value, for code that needs it once rather than every second. */
 let latestTimeLeft = 0;
 export const peekFocusTimeLeft = () => latestTimeLeft;
+let latestEnd: number | null = null;
+/** When the running countdown ends (ms), to the millisecond; null when paused, stopped or a stopwatch. */
+export const peekFocusEnd = () => latestEnd;
 
 // AsyncStorage keys for local cache
 const STORAGE_KEY_FOCUS_TODAY = 'focus_time_today';
@@ -809,6 +814,27 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         stopTimer();
     }, [stopTimer]);
 
+    // A joined session's end follows its host's (lib/focusTogether.ts): the
+    // next tick counts to the new end, so both phones show the same second.
+    const alignEnd = useCallback((endsAt: number) => {
+        if (!isRunning || isPaused || activeMode === 'flow' || !endTimeRef.current) return;
+        if (Math.abs(endTimeRef.current - endsAt) < 500) return;
+        endTimeRef.current = endsAt;
+        latestEnd = endsAt;
+        const left = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+        setTimeLeft(left);
+        const session = currentSessionRef.current;
+        if (session && activeHabitId) {
+            persistActive({
+                habitId: activeHabitId, habitName: activeHabitName || session.habitName, mode: activeMode,
+                totalDuration, paused: false, endTime: endsAt, focusStart: focusStartRef.current ?? Date.now(),
+                timeLeft: left, startedAt: session.startedAt.toISOString(), actualDuration: session.actualDuration,
+            });
+        }
+        const { LiveActivityService } = require('@/lib/liveActivityService');
+        LiveActivityService.updateProgress({ completed: 0, total: 0, activeHabitName: activeHabitName || 'Focus', targetDate: endsAt });
+    }, [isRunning, isPaused, activeMode, activeHabitId, activeHabitName, totalDuration, persistActive]);
+
     // ============================================
     // Manual focus time add
     // ============================================
@@ -827,6 +853,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }, []);
 
     latestTimeLeft = timeLeft;
+    latestEnd = isRunning && !isPaused && activeMode !== 'flow' ? endTimeRef.current : null;
     const session = useMemo<FocusSessionState>(() => ({
         activeHabitId,
         activeHabitName,
@@ -853,6 +880,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         stopTimer,
         discardTimer,
         finishTimer,
+        alignEnd,
         addFocusTime,
         refreshStats,
         currentPhase,
@@ -889,6 +917,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         stopTimer,
         discardTimer,
         finishTimer,
+        alignEnd,
         addFocusTime,
         refreshStats,
         currentPhase,

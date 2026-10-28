@@ -5,7 +5,7 @@ import { HEARTBEAT_MS } from '@/lib/presence';
 import { getDayWindow } from '@/lib/echo';
 import { announceChange } from '@/lib/livePulse';
 import { hostOf, setFocusWith } from '@/lib/focusTogether';
-import { peekFocusTimeLeft, useFocusSession } from '@/context/FocusTimeContext';
+import { peekFocusEnd, peekFocusTimeLeft, useFocusSession } from '@/context/FocusTimeContext';
 
 /**
  * Tells friends whether you are here: "live" while the app is open (refreshed
@@ -55,7 +55,10 @@ export function useFocusStatus() {
     const running = focus.isRunning && !focus.isPaused;
     useEffect(() => {
         const seconds = focus.activeMode === 'flow' ? 2 * 3600 : peekFocusTimeLeft() || focus.totalDuration;
-        const until = running ? new Date(Date.now() + Math.max(60, seconds) * 1000).toISOString() : null;
+        // The countdown's own end, to the millisecond, so a friend who joins
+        // ends on the same second; a stopwatch has none, so two hours from now.
+        const exact = focus.activeMode === 'flow' ? null : peekFocusEnd();
+        const until = running ? new Date(exact ?? Date.now() + Math.max(60, seconds) * 1000).toISOString() : null;
         void FeedService.setStatus({ focusUntil: until, focusLabel: running ? focus.activeHabitName ?? null : null })
             // Whose session this is, when you joined a friend's (lib/focusTogether.ts).
             .then(() => setFocusWith(running ? hostOf(focus.activeHabitId) : null).catch(() => undefined))
