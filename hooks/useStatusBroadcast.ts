@@ -65,10 +65,11 @@ export function useFocusStatus() {
         void FeedService.setStatus({ focusUntil: until, focusLabel: running ? focus.activeHabitName ?? null : null })
             // Whose session this is, when you joined a friend's (lib/focusTogether.ts).
             // or whose you said you are in with, focusing at the same time by chance.
-            .then(() => setFocusWith(running ? hostOf(focus.activeHabitId) ?? linkedHost() : null).catch(() => undefined))
+            .then(() => setFocusWith(running ? hostOf(focus.activeHabitId) ?? linkedHost() : null, running && focus.activeMode === 'flow').catch(() => undefined))
             .then(() => announceChange())
             .catch(() => undefined);
-        // Only on start, pause, resume and stop — not on every tick of timeLeft.
+        // Only on start, pause, resume, stop and running past its time (a timer
+        // turning into a stopwatch has a new end to say) — not on every tick.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [running, focus.activeHabitId]);
+    }, [running, focus.activeHabitId, focus.activeMode]);
 }

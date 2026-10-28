@@ -75,7 +75,7 @@ export function FocusBlock({ kind, id, title, from, until, nextKind }: { kind: s
                 {waitingFor ? (
                     // Free time: just the words and how long it lasts. No ring, no mark.
                     <>
-                        <Text style={styles.freeTitle} accessibilityRole="header" adjustsFontSizeToFit numberOfLines={1}>Free time</Text>
+                        <Text style={styles.freeTitle} accessibilityRole="header" adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1}>Free time</Text>
                         <FocusDigits seconds={left} size={Math.min(screen.width * 0.16, screen.height * 0.08)} label={line} />
                     </>
                 ) : (

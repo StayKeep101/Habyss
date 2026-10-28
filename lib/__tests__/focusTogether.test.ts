@@ -62,6 +62,7 @@ describe('focus together', () => {
         expect(leftLabel(20)).toBe('1 min left');
         expect(leftLabel(65 * 60)).toBe('1 hr 5 min left');
         expect(leftLabel(120 * 60)).toBe('2 hr left');
+        expect(leftLabel(120 * 60, true)).toBe('Open-ended');
     });
 
     it('makes one session of two who linked to each other at once', () => {

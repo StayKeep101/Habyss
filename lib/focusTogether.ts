@@ -38,6 +38,7 @@ export interface FocusFacts {
     userId: string;
     focusUntil: string | null;
     focusWith?: string | null;
+    focusOpen?: boolean;
 }
 
 /**
@@ -62,16 +63,20 @@ export function namesLine(names: string[]): string {
 }
 
 /**
- * Writes whose session you are in. Kept apart from the rest of your status
- * so a server without the column yet never stops "Locked in" being written.
+ * Writes whose session you are in, and whether yours has no end (a
+ * stopwatch). Each on its own and apart from the rest of your status, so a
+ * server without one of the columns yet never stops the others being written.
  */
-export async function setFocusWith(hostId: string | null): Promise<void> {
+export async function setFocusWith(hostId: string | null, open?: boolean): Promise<void> {
     const sb = getSupabase();
     if (!sb) return;
     const { data } = await sb.auth.getSession();
     const me = data.session?.user?.id;
     if (!me) return;
-    await sb.from('profiles').update({ focus_with: hostId }).eq('id', me);
+    await Promise.all([
+        sb.from('profiles').update({ focus_with: hostId }).eq('id', me),
+        open === undefined ? null : sb.from('profiles').update({ focus_open: open }).eq('id', me),
+    ]);
 }
 
 export type InviteResult = { sent: number } | { error: 'too_soon' | 'nobody' | 'not_focusing' | 'failed' };
@@ -107,8 +112,9 @@ export function focusRooms<T extends FocusFacts>(friends: T[], now = Date.now())
         .sort((a, b) => secondsLeft(b.host.focusUntil, now) - secondsLeft(a.host.focusUntil, now));
 }
 
-/** "18 min left", "1 hr 5 min left". */
-export function leftLabel(seconds: number): string {
+/** "18 min left", "1 hr 5 min left"; "Open-ended" for a session with no end. */
+export function leftLabel(seconds: number, open = false): string {
+    if (open) return 'Open-ended';
     const minutes = Math.max(1, Math.ceil(seconds / 60));
     if (minutes < 60) return `${minutes} min left`;
     const hours = Math.floor(minutes / 60);

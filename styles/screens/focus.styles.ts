@@ -26,7 +26,8 @@ export const styles = StyleSheet.create({
     heading: { alignItems: 'center', gap: Spacing.xs },
     /** "Focus", "Paused", "Over time": a quiet word in your colour over the name. */
     eyebrow: { fontFamily: FontFamily.semibold, fontSize: 15 },
-    name: { fontFamily: FontFamily.bold, fontSize: 28, lineHeight: 34, letterSpacing: -0.5, color: '#FFFFFF', textAlign: 'center' },
+    /** The full width to fit into, so shrinking to fit never measures against nothing (the name came out tiny on some phones). */
+    name: { alignSelf: 'stretch', fontFamily: FontFamily.bold, fontSize: 28, lineHeight: 34, letterSpacing: -0.5, color: '#FFFFFF', textAlign: 'center' },
     nameSide: { fontSize: 22, lineHeight: 28 },
     /** Start over, pause, next: a player's three buttons, the middle one the biggest. */
     controls: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xl },
@@ -35,7 +36,7 @@ export const styles = StyleSheet.create({
     nextLink: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, minHeight: Control.hitTarget, paddingHorizontal: Spacing.md },
     nextText: { fontFamily: FontFamily.semibold, fontSize: 16, color: 'rgba(255,255,255,0.75)' },
     /** Free time between things: the words themselves, big, over its timer. */
-    freeTitle: { fontFamily: FontFamily.bold, fontSize: 52, lineHeight: 60, letterSpacing: -1, color: '#FFFFFF', textAlign: 'center' },
+    freeTitle: { alignSelf: 'stretch', fontFamily: FontFamily.bold, fontSize: 52, lineHeight: 60, letterSpacing: -1, color: '#FFFFFF', textAlign: 'center' },
     doneTitle: { fontFamily: FontFamily.bold, fontSize: 30, color: '#FFFFFF', textAlign: 'center' },
     doneSub: { fontFamily: FontFamily.medium, fontSize: 16, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: Spacing.sm },
     next: { alignSelf: 'stretch', gap: Spacing.md, marginTop: Spacing.section },

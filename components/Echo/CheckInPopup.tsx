@@ -32,7 +32,7 @@ export function CheckInPopup({ kind, onAnswer, onClose }: {
                         onPress={() => { selectionFeedback(); onAnswer(shownKind, (index + 1) as CheckIn['value']); }}>
                         <MatteSurface radius={Radius.small} level="control" style={styles.option}>
                             <View style={[styles.level, { backgroundColor: primary, opacity: 0.25 + index * 0.18 }]} />
-                            <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>
+                            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>
                         </MatteSurface>
                     </Pressable>
                 ))}

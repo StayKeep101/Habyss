@@ -96,7 +96,7 @@ function FocusScreen() {
     const host = kind === 'together' ? hostOf(id) : null;
     // Their end as a moment, not a number of seconds read earlier: the clock
     // is started from it, so it is right however long the page took to open.
-    const [joinPlan, setJoinPlan] = useState<{ endsAt: number; label: string; first: string } | null>(null);
+    const [joinPlan, setJoinPlan] = useState<{ endsAt: number; open: boolean; label: string; first: string } | null>(null);
     useEffect(() => {
         if (!host) return;
         void FeedService.friendStatuses().catch(() => []).then(friends => {
@@ -106,7 +106,7 @@ function FocusScreen() {
             if (theirHost) { router.setParams({ id: togetherId(theirHost.userId) }); return; }
             const first = friend?.name.split(' ')[0] || 'your friend';
             const endsAt = friend?.focusUntil ? new Date(friend.focusUntil).getTime() : 0;
-            setJoinPlan({ endsAt: Number.isFinite(endsAt) ? endsAt : 0, label: friend?.focusLabel?.trim() || `Focus with ${first}`, first });
+            setJoinPlan({ endsAt: Number.isFinite(endsAt) ? endsAt : 0, open: !!friend?.focusOpen && secondsLeft(friend.focusUntil) > 0, label: friend?.focusLabel?.trim() || `Focus with ${first}`, first });
         });
     }, [host]);
 
@@ -178,6 +178,12 @@ function FocusScreen() {
         if ((focus.isRunning || focus.isPaused) && !mine) {
             Alert.alert('Another focus is running', `Finish “${focus.activeHabitName ?? 'it'}” first.`);
             close();
+            return;
+        }
+        if (host && joinPlan?.open) {
+            // Their clock counts up with no end: yours counts up beside it, from now.
+            mediumFeedback();
+            focus.startTimer(id, title ?? joinPlan.label, 3600 * 12, 'flow');
             return;
         }
         if (host && joinPlan) {
@@ -293,7 +299,7 @@ function FocusScreen() {
         if (!host || !active) return;
         const row = crew.find(friend => friend.userId === host);
         const endsAt = row?.focusUntil ? new Date(row.focusUntil).getTime() : NaN;
-        if (Number.isFinite(endsAt) && endsAt > Date.now()) focus.alignEnd(endsAt);
+        if (row && !row.focusOpen && Number.isFinite(endsAt) && endsAt > Date.now()) focus.alignEnd(endsAt);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [crew, host, active]);
     const [canInvite, setCanInvite] = useState(false);

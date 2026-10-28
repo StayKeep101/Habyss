@@ -165,7 +165,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                                         <QRCode value={inviteLink(userCode)} size={160} color={QR_INK} backgroundColor={QR_PAPER} />
                                     </View>
                                     <View style={styles.nameRow}>
-                                        <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.username, { color: colors.textPrimary }]}>@{userCode}</Text>
+                                        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={[styles.username, { color: colors.textPrimary }]}>@{userCode}</Text>
                                         <IconButton icon="share" label="Share invite" diameter={40} size={18} onPress={() => void share()} />
                                     </View>
                                 </VoidCard>

@@ -37,7 +37,7 @@ export function FocusingNow({ friends, now, joinedHost, onJoin, onOpen, style }:
                 {rooms.map(({ host, with: others }, index) => {
                     const first = host.name.split(' ')[0] || host.name;
                     const what = host.focusLabel?.trim();
-                    const left = leftLabel(secondsLeft(host.focusUntil, now));
+                    const left = leftLabel(secondsLeft(host.focusUntil, now), host.focusOpen);
                     const joined = joinedHost === host.userId;
                     const company = others.length > 0 ? ` · with ${namesLine(others.map(friend => friend.name))}` : '';
                     return (

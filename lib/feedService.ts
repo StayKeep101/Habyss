@@ -52,6 +52,8 @@ export interface FriendStatusRow extends PresenceFacts {
     avatarUrl?: string;
     /** Whose focus session they joined (lib/focusTogether.ts), while it runs. */
     focusWith: string | null;
+    /** Their session has no end (a stopwatch); focusUntil is only a placeholder then. */
+    focusOpen: boolean;
 }
 
 const nameOf = (row: { display_name?: string | null; username?: string | null }) =>
@@ -152,6 +154,7 @@ export class FeedService {
             wakeTime: row.wake_time ?? null,
             sleepTime: row.sleep_time ?? null,
             focusWith: row.focus_with ?? null,
+            focusOpen: !!row.focus_open,
         }));
     }
 
