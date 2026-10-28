@@ -2,30 +2,25 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeOut, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeOut, useReducedMotion } from 'react-native-reanimated';
 import { Echo, MatteSurface, Overlay, Text } from '@/components/ui';
 import { useHaptics } from '@/hooks/useHaptics';
 import { on } from '@/lib/appEvents';
 import { track } from '@/lib/analytics';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
-import { colorRoles } from '@/theme/tokens';
-import { DURATION, EASE, timingFor } from '@/theme/motion';
+import { DURATION, EASE } from '@/theme/motion';
 
 /** What the Ascent leaves for Home: the first step it made, and whether Home has pointed at it yet. */
 export const FIRST_STEP_KEY = 'habyss_first_step';
 interface FirstStep { goalId: string; stepId: string; stepKind: 'task' | 'habit'; title: string; arrived: boolean }
 
-const FLOOD_MS = 1200;
-
-/** Set by the Ascent as it hands over, so Home's first frame is already the light (no flash of Home before it). */
-let arriving = false;
-export function expectArrival() { arriving = true; }
 const SAY_MS = 4200;
+/** A beat after Home appears, so the first thing seen is Home, then Echo. */
+const SETTLE_MS = 800;
 
 /**
- * Home, the first time after the Ascent: the light of the opening fading off
- * the screen (the climb ends here, not in a cut), then Echo, small, pointing
- * at the first step. When that step is done, wherever it is ticked, Echo says
+ * Home, the first time after the Ascent: Echo, small, pointing at the first
+ * step. When that step is done, wherever it is ticked, Echo says
  * "One step closer." with a soft ring and a success tap, once, and the
  * Ascent is over. Nothing shows for anyone who never went through it.
  */
@@ -34,9 +29,7 @@ export function AscentArrival() {
     const insets = useSafeAreaInsets();
     const { successFeedback } = useHaptics();
     const [step, setStep] = useState<FirstStep | null>(null);
-    const [flooding, setFlooding] = useState(arriving);
     const [say, setSay] = useState<{ text: string; done: boolean } | null>(null);
-    const flood = useSharedValue(1);
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const speak = (text: string, done: boolean) => {
@@ -45,24 +38,16 @@ export function AscentArrival() {
         timer.current = setTimeout(() => setSay(null), SAY_MS);
     };
 
-    const fadeIn = () => {
-        setFlooding(true);
-        flood.value = withTiming(0, timingFor(reduced ? 0 : FLOOD_MS, EASE.enter));
-        setTimeout(() => setFlooding(false), reduced ? DURATION.base : FLOOD_MS);
-    };
-
     useEffect(() => {
         let alive = true;
         AsyncStorage.getItem(FIRST_STEP_KEY).then(raw => {
             const saved = (() => { try { return JSON.parse(raw ?? 'null') as FirstStep | null; } catch { return null; } })();
             if (!alive) return;
-            if (!saved?.stepId) { if (arriving) fadeIn(); arriving = false; return; }
+            if (!saved?.stepId) return;
             setStep(saved);
             if (saved.arrived) return;
             AsyncStorage.setItem(FIRST_STEP_KEY, JSON.stringify({ ...saved, arrived: true })).catch(() => undefined);
-            if (arriving) fadeIn();
-            arriving = false;
-            setTimeout(() => speak('Your first step is waiting.', false), reduced ? 0 : FLOOD_MS * 0.7);
+            setTimeout(() => speak('Your first step is waiting.', false), reduced ? 0 : SETTLE_MS);
         });
         return () => { alive = false; if (timer.current) clearTimeout(timer.current); };
         // Once, as Home first opens.
@@ -85,12 +70,10 @@ export function AscentArrival() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step]);
 
-    const floodStyle = useAnimatedStyle(() => ({ opacity: flood.value }));
-    if (!flooding && !say) return null;
+    if (!say) return null;
     return (
         <Overlay>
             <View style={StyleSheet.absoluteFill} pointerEvents="none">
-                {flooding ? <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colorRoles.abyss.textPrimary }, floodStyle]} /> : null}
                 {say ? <EchoSays key={say.text} text={say.text} done={say.done} bottom={insets.bottom + Spacing.xxl * 3} /> : null}
             </View>
         </Overlay>

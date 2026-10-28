@@ -8,8 +8,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * passed here.
  */
 export type ProductEvent =
-    | 'onboarding_started' | 'eco_introduction_completed' | 'obstacle_selected' | 'lesson_completed'
-    | 'goal_selected' | 'first_action_created' | 'friend_invite_selected' | 'onboarding_completed'
+    | 'onboarding_started' | 'eco_introduction_completed' | 'obstacle_selected' | 'source_selected'
+    | 'goal_selected' | 'first_action_created' | 'friend_invite_selected' | 'echo_built' | 'onboarding_completed'
     | 'onboarding_skipped' | 'first_action_completed';
 
 type Props = Record<string, string | number | boolean | null | undefined>;

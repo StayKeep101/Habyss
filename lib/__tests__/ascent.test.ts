@@ -1,135 +1,142 @@
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined), removeItem: jest.fn(async () => undefined) }));
 
-import { ascentReducer, beatsOf, cuesOf, currentBeat, initialAscent, lineOf, progressOf, type AscentState } from '../ascent/machine';
+import { ascentReducer, currentBeat, initialAscent, lineOf, progressOf, type AscentState } from '../ascent/machine';
 import { SCENES, goalTitle, suggestions, type Answers } from '../ascent/story';
+import { buildEcho } from '../ascent/echoBuild';
 import { stepOf, whenOf } from '../ascent/plan';
 
-const answer = (state: AscentState, field: keyof Answers, value: string) => ascentReducer(state, { type: 'answer', field, value });
+const answer = (state: AscentState, patch: Partial<Answers>) => ascentReducer(state, { type: 'answer', patch });
 const tap = (state: AscentState) => ascentReducer(state, { type: 'next' });
-const sceneId = (state: AscentState) => SCENES[state.scene].id;
+const at = (scene: string): AscentState => ({ ...initialAscent(), scene: SCENES.findIndex(item => item.id === scene) });
 /** Taps through lines until the story waits for something. */
 const toWait = (state: AscentState) => {
     let next = state;
-    for (let guard = 0; guard < 40; guard++) {
-        const beat = currentBeat(next);
-        if (!beat || beat.kind !== 'line') return next;
-        next = tap(next);
-    }
+    for (let guard = 0; guard < 40 && currentBeat(next)?.kind === 'line'; guard++) next = tap(next);
     return next;
 };
 
+/** Plays the whole story with these answers, as a person would, to the last button. */
+function play(given: Answers): AscentState {
+    let state = initialAscent();
+    for (let guard = 0; guard < 200; guard++) {
+        const beat = currentBeat(state);
+        if (!beat || beat.kind === 'begin') return state;
+        if (beat.kind === 'line') state = tap(state);
+        else if (beat.kind === 'choice' || beat.kind === 'multi') state = answer(state, { [beat.field]: given[beat.field] });
+        else if (beat.kind === 'input') state = answer(state, { [beat.field]: given[beat.field] ?? '' });
+        else if (beat.kind === 'day') state = answer(state, { wake: given.wake, sleep: given.sleep });
+        else if (beat.kind === 'action') state = answer(state, { action: given.action, actionKind: given.actionKind });
+        else if (beat.kind === 'commit') state = ascentReducer(state, { type: 'created', created: { goalId: 'g', stepId: 's', stepKind: 'task' } });
+        else if (beat.kind === 'build') state = ascentReducer(state, { type: 'built' });
+    }
+    throw new Error('The story never reached its end.');
+}
+
+const everyone: Answers = {
+    name: 'sam', history: 'sometimes', juggling: ['job', 'school'], chronotype: 'early_bird', wake: '06:30', sleep: '22:30',
+    sleepAmount: 'seven_eight', obstacle: 'consistency', timing: 'planned', goal: 'health', action: 'A ten-minute walk', actionKind: 'habit',
+    when: 'now', invite: 'later', source: 'friend',
+};
+
 describe('the Ascent story', () => {
-    it('opens in the dark with Echo and asks a name, which can be skipped', () => {
-        let state = toWait(initialAscent());
+    it('meets Echo and asks a name, which can be skipped', () => {
+        const state = toWait(initialAscent());
         expect(currentBeat(state)).toMatchObject({ kind: 'input', field: 'name', optional: true });
-        state = answer(state, 'name', 'erwan peter');
-        expect(currentBeat(state)).toMatchObject({ kind: 'line', text: 'Nice to meet you, Erwan.' });
-        const skipped = answer(toWait(initialAscent()), 'name', '');
-        expect(currentBeat(skipped)).toMatchObject({ text: 'Mysterious. I like it.' });
+        expect(currentBeat(answer(state, { name: 'sam peter' }))).toMatchObject({ text: 'Nice to meet you, Sam.' });
+        expect(currentBeat(answer(state, { name: '' }))).toMatchObject({ text: 'Mysterious. I like it.' });
     });
 
     it('answers each way of having ended up here differently, and never says you failed', () => {
-        const replies = (['always', 'sometimes', 'rarely'] as const).map(id => {
-            let state: AscentState = { ...initialAscent(), scene: SCENES.findIndex(scene => scene.id === 'descent') };
-            state = answer(toWait(state), 'history', id);
-            return (currentBeat(state) as { text: string }).text;
-        });
+        const replies = (['always', 'sometimes', 'rarely'] as const).map(history => (currentBeat(answer(toWait(at('history')), { history })) as { text: string }).text);
         expect(new Set(replies).size).toBe(3);
-        expect(replies.join(' ')).not.toMatch(/fail/i);
+        replies.forEach(text => expect(text.toLowerCase()).not.toMatch(/fail/));
+    });
+
+    it('asks what they juggle, their rhythm, their hours and their sleep', () => {
+        const life = toWait(at('life'));
+        expect(currentBeat(life)).toMatchObject({ kind: 'multi', field: 'juggling' });
+        expect(currentBeat(answer(life, { juggling: ['job', 'school', 'family'] }))).toMatchObject({ text: 'That’s a lot to carry. We’ll make it lighter.' });
+
+        let rhythm = toWait(at('rhythm'));
+        expect(currentBeat(rhythm)).toMatchObject({ kind: 'choice', field: 'chronotype' });
+        rhythm = toWait(answer(rhythm, { chronotype: 'night_owl' }));
+        expect(currentBeat(rhythm)?.kind).toBe('day');
+        rhythm = toWait(answer(rhythm, { wake: '09:00', sleep: '01:00' }));
+        expect(currentBeat(rhythm)).toMatchObject({ kind: 'choice', field: 'sleepAmount' });
+        expect(currentBeat(answer(rhythm, { sleepAmount: 'under_six' }))).toMatchObject({ text: 'Running on empty, then. I’ll go easy on your mornings.' });
     });
 
     it('gives each obstacle its own line and its own first step', () => {
-        const obstacles = ['starting', 'consistency', 'distraction', 'overwhelm'] as const;
-        const lines = obstacles.map(id => {
-            let state: AscentState = { ...initialAscent(), scene: SCENES.findIndex(scene => scene.id === 'mirror') };
-            state = answer(toWait(state), 'obstacle', id);
-            return currentBeat(state);
-        });
-        expect(new Set(lines.map(beat => (beat as { text: string }).text)).size).toBe(4);
-        expect(lines.every(beat => beat && 'cue' in beat && beat.cue === 'OBSTACLE_REVEAL')).toBe(true);
-        expect(obstacles.map(id => suggestions({ obstacle: id, goal: 'health' })[0].kind)).toEqual(['task', 'habit', 'focus', 'dump']);
+        const lines = (['starting', 'consistency', 'distraction', 'overwhelm'] as const).map(obstacle => (currentBeat(answer(toWait(at('mirror')), { obstacle })) as { text: string }).text);
+        expect(new Set(lines).size).toBe(4);
+        expect(suggestions({ obstacle: 'distraction' })[0].kind).toBe('focus');
+        expect(suggestions({ obstacle: 'consistency', goal: 'health' })[0]).toMatchObject({ kind: 'habit', label: 'A ten-minute walk' });
     });
 
     it('asks for the goal in their words only for something important or their own', () => {
-        const scene = SCENES.findIndex(item => item.id === 'turning-point');
-        const chosen = answer(toWait({ ...initialAscent(), scene }), 'goal', 'health');
-        expect(currentBeat(chosen)).toMatchObject({ kind: 'line', cue: 'GOAL_MATERIALIZE' });
-        const own = answer(toWait({ ...initialAscent(), scene }), 'goal', 'own');
-        expect(currentBeat(own)).toMatchObject({ kind: 'input', field: 'goalText' });
-        expect(goalTitle({ goal: 'own', goalText: 'run a marathon' })).toBe('Run a marathon');
-        expect(goalTitle({ goal: 'organized' })).toBe('Get my life organized');
+        const goal = toWait(at('goal'));
+        expect(currentBeat(answer(goal, { goal: 'health' }))).toMatchObject({ kind: 'line', text: 'Improve my health. That’s worth working toward.' });
+        expect(currentBeat(answer(goal, { goal: 'own' }))).toMatchObject({ kind: 'input', field: 'goalText' });
+        expect(goalTitle({ goal: 'achieve', goalText: 'finish my degree' })).toBe('Finish my degree');
     });
 
-    it('cannot be tapped past a choice, the first step or the save', () => {
-        const scene = SCENES.findIndex(item => item.id === 'foothold');
-        const waiting = toWait({ ...initialAscent(), scene });
-        expect(currentBeat(waiting)?.kind).toBe('action');
-        expect(tap(waiting)).toBe(waiting);
-        const atCommit = answer(toWait(answer(waiting, 'action', 'A ten-minute walk')), 'when', 'now');
-        expect(currentBeat(atCommit)?.kind).toBe('commit');
-        const saved = ascentReducer(atCommit, { type: 'created', created: { goalId: 'g', stepId: 's', stepKind: 'habit' } });
-        expect(currentBeat(saved)).toMatchObject({ cue: 'FIRST_STEP_CREATED' });
+    it('cannot be tapped past an answer, the save or the build', () => {
+        const name = toWait(initialAscent());
+        expect(tap(name)).toBe(name);
+        let foothold = toWait(at('foothold'));
+        expect(tap(foothold)).toBe(foothold);
+        foothold = toWait(answer(foothold, { action: 'A ten-minute walk', actionKind: 'habit' }));
+        foothold = answer(foothold, { when: 'now' });
+        expect(currentBeat(foothold)?.kind).toBe('commit');
+        expect(lineOf(foothold)).toBeNull();
+        expect(tap(foothold)).toBe(foothold);
+        expect(answer(foothold, { when: 'later' })).toBe(foothold);
+        expect(ascentReducer(foothold, { type: 'built' })).toBe(foothold);
+        const made = ascentReducer(foothold, { type: 'created', created: { goalId: 'g', stepId: 's', stepKind: 'habit' } });
+        expect(currentBeat(made)).toMatchObject({ text: 'There. Your first step.' });
     });
 
-    it('ends with the ascent and is finished after it', () => {
-        let state: AscentState = { ...initialAscent(), scene: SCENES.length - 1 };
-        state = toWait(state);
-        expect(currentBeat(state)?.kind).toBe('begin');
-        state = ascentReducer(state, { type: 'finish' });
-        expect(state.finished).toBe(true);
-        expect(progressOf(state)).toBe(1);
-        expect(beatsOf(initialAscent()).length).toBeGreaterThan(0);
+    it('plays start to finish, ending on Echo built for them and the last button', () => {
+        const end = play(everyone);
+        expect(SCENES[end.scene].id).toBe('your-echo');
+        expect(currentBeat(end)?.kind).toBe('begin');
+        expect(end.answers).toMatchObject({ source: 'friend', juggling: ['job', 'school'], wake: '06:30' });
+        expect(end.created).toEqual({ goalId: 'g', stepId: 's', stepKind: 'task' });
+        expect(progressOf(ascentReducer(end, { type: 'finish' }))).toBe(1);
+    });
+});
+
+describe('their Echo', () => {
+    it('is gentle with someone overwhelmed or running on empty, firm with someone who leaves it to the deadline', () => {
+        expect(buildEcho({ obstacle: 'overwhelm', timing: 'last_minute' }).voice).toBe('friendly');
+        expect(buildEcho({ obstacle: 'starting', sleepAmount: 'under_six' }).voice).toBe('friendly');
+        expect(buildEcho({ obstacle: 'starting', timing: 'last_minute' }).voice).toBe('dad_mode');
+        expect(buildEcho({ obstacle: 'distraction', timing: 'straight_away' }).voice).toBe('normal');
+    });
+
+    it('turns on the nudges that answer what they said, and keeps demon mode away from the gentle', () => {
+        expect(buildEcho({ obstacle: 'consistency', timing: 'planned' }).config).toMatchObject({ morning: true, evening: true, alive: false });
+        expect(buildEcho({ obstacle: 'distraction', timing: 'planned' }).config).toMatchObject({ evening: false, alive: true });
+        expect(buildEcho({ obstacle: 'overwhelm' }).config.demonMode).toBe(false);
+        expect(buildEcho({ obstacle: 'starting', timing: 'last_minute' }).config.demonMode).toBe(true);
+    });
+
+    it('keeps their hours, or the ones their rhythm suggests', () => {
+        expect(buildEcho({ wake: '06:30', sleep: '22:30' }).day).toEqual({ wake: '06:30', sleep: '22:30' });
+        expect(buildEcho({ chronotype: 'night_owl' }).day).toEqual({ wake: '09:00', sleep: '01:00' });
+        expect(buildEcho(everyone).parts).toHaveLength(3);
     });
 });
 
 describe('the first step', () => {
     it('is dated for when they chose', () => {
-        const at = new Date('2026-10-28T10:02:00');
-        expect(whenOf('now', at)).toEqual({ date: '2026-10-28', time: '10:05' });
-        expect(whenOf('later', at)).toEqual({ date: '2026-10-28', time: '18:00' });
-        expect(whenOf('tomorrow', at)).toEqual({ date: '2026-10-29', time: '09:00' });
+        const now = new Date('2026-10-28T10:02:00');
+        expect(whenOf('now', now)).toEqual({ date: '2026-10-28', time: '10:05' });
+        expect(whenOf('later', now)).toEqual({ date: '2026-10-28', time: '18:00' });
+        expect(whenOf('tomorrow', now)).toEqual({ date: '2026-10-29', time: '09:00' });
     });
     it('keeps what they chose, or their own words', () => {
         expect(stepOf({ obstacle: 'distraction', goal: 'health', action: 'A ten-minute focus session' })).toMatchObject({ kind: 'focus', minutes: 10 });
         expect(stepOf({ action: 'Call my mum', actionKind: 'task' })).toMatchObject({ title: 'Call my mum', kind: 'task' });
-    });
-});
-
-describe('waiting, and what the world shows', () => {
-    const at = (scene: string): AscentState => ({ ...initialAscent(), scene: SCENES.findIndex(item => item.id === scene) });
-
-    it('never taps past words, a choice or the domino', () => {
-        const name = toWait(initialAscent());
-        expect(tap(name)).toBe(name);
-        const domino = toWait(at('domino'));
-        expect(currentBeat(domino)?.kind).toBe('touch');
-        expect(tap(domino)).toBe(domino);
-        const fallen = ascentReducer(domino, { type: 'touched' });
-        expect(currentBeat(fallen)).toMatchObject({ kind: 'line', text: 'Not a very big move, was it?' });
-        // A touch only counts on the beat that waits for it.
-        expect(ascentReducer(fallen, { type: 'touched' })).toBe(fallen);
-    });
-
-    it('plays each cue from its line on, and the chain only after the touch', () => {
-        const domino = toWait(at('domino'));
-        expect(cuesOf(domino).has('DOMINO_READY')).toBe(true);
-        expect(cuesOf(domino).has('CHAIN_REACTION')).toBe(false);
-        expect(cuesOf(ascentReducer(domino, { type: 'touched' })).has('CHAIN_REACTION')).toBe(true);
-        expect(cuesOf(at('descent')).has('CAMERA_DESCEND')).toBe(true);
-    });
-
-    it('keeps the question on screen above its answers, and none while saving', () => {
-        const name = toWait(initialAscent());
-        expect(lineOf(name)).toBe('What should I call you?');
-        let foothold = toWait(at('foothold'));
-        foothold = ascentReducer(foothold, { type: 'answer', field: 'action', value: 'A ten-minute walk', also: { actionKind: 'habit' } });
-        expect(foothold.answers.actionKind).toBe('habit');
-        foothold = answer(toWait(foothold), 'when', 'now');
-        expect(currentBeat(foothold)?.kind).toBe('commit');
-        expect(lineOf(foothold)).toBeNull();
-        expect(tap(foothold)).toBe(foothold);
-        const made = ascentReducer(foothold, { type: 'created', created: { goalId: 'g', stepId: 's', stepKind: 'habit' } });
-        expect(currentBeat(made)).toMatchObject({ text: 'There. Your first step.' });
-        expect(cuesOf(made).has('FIRST_STEP_CREATED')).toBe(true);
     });
 });
