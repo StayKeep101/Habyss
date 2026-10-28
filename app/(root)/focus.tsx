@@ -18,6 +18,8 @@ import { useFocusDay } from '@/hooks/useFocusDay';
 import { on } from '@/lib/appEvents';
 import { FocusBlock, FocusDayDone } from '@/components/Focus/FocusBlock';
 import { FocusCrew } from '@/components/Focus/FocusCrew';
+import { FocusSummary } from '@/components/Focus/FocusSummary';
+import { MARKS } from '@/lib/marks';
 import { FocusNearby } from '@/components/Focus/FocusNearby';
 import { announceChange } from '@/lib/livePulse';
 import { useFocusCrew } from '@/hooks/useFocusCrew';
@@ -261,16 +263,20 @@ function FocusScreen() {
         if (restarting.current && !active && !focus.isRunning && !focus.isPaused) { restarting.current = false; start(); }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [active, focus.isRunning, focus.isPaused]);
-    // Finished: saved, counted done, and the page closes. The timeline shows what is next.
-    const finishNow = () => { leaving.current = true; successFeedback(); focus.finishTimer(); close(); };
-    // Done · Next: counted done, and the next thing in the day takes over right here.
-    const nextNow = () => {
+    // Finishing (Finished, or Done · Next) shows what was done before anything
+    // else: how long the focus held and the Marks it earned, the orbs flying
+    // while it is up. Then Next takes the day on, or the page closes.
+    const [summary, setSummary] = useState<{ title: string; seconds: number; marks: number; next: boolean } | null>(null);
+    const finishWith = (next: boolean) => {
         if (!active) return;
         leaving.current = true;
         successFeedback();
+        const seconds = focus.activeMode === 'flow' ? focus.timeLeft : Math.max(0, focus.totalDuration - focus.timeLeft);
+        setSummary({ title: name, seconds, marks: host ? 0 : isTask ? MARKS.complete.task : MARKS.complete.habit, next });
         focus.finishTimer();
-        void proceed(id);
     };
+    const finishNow = () => finishWith(false);
+    const nextNow = () => finishWith(true);
     // Next from the wrist does the same.
     const nextRef = useRef(nextNow);
     nextRef.current = nextNow;
@@ -448,6 +454,11 @@ function FocusScreen() {
                         ) : null}
                     </View>
                 )
+            ) : null}
+            {summary ? (
+                <FocusSummary title={summary.title} seconds={summary.seconds} marks={summary.marks} accent={primary}
+                    onNext={summary.next ? () => { setSummary(null); void proceed(id); } : undefined}
+                    onClose={() => { setSummary(null); close(); }} />
             ) : null}
             <FocusSettingsSheet visible={sheet === 'settings'} onClose={() => setSheet(null)} />
             <FocusSoundSheet visible={sheet === 'sound'} onClose={() => setSheet(null)} />

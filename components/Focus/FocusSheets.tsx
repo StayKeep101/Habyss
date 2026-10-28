@@ -1,4 +1,5 @@
 import React, { useEffect, useSyncExternalStore } from 'react';
+import { Linking } from 'react-native';
 import { VoidSheet } from '@/components/ui/VoidSheet';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -46,6 +47,25 @@ export function FocusSoundSheet({ visible, onClose }: { visible: boolean; onClos
                         onPress={() => { selectionFeedback(); void setFocusSound(sound.id); }} />
                 ))}
             </SettingsGroup>
+            {/* Your own music: opens the app to your library, the focus clock running on.
+                Habyss's sound goes quiet so the two never play over each other. */}
+            <SettingsGroup title="Your music">
+                {MUSIC_APPS.map(app => (
+                    <SettingsRow key={app.id} icon="musical-notes" color={app.color} label={app.label}
+                        onPress={() => {
+                            selectionFeedback();
+                            void setFocusSound('off');
+                            onClose();
+                            void Linking.openURL(app.url).catch(() => Linking.openURL(app.store).catch(() => undefined));
+                        }} />
+                ))}
+            </SettingsGroup>
         </VoidSheet>
     );
 }
+
+/** The music apps a focus can be played from: their app if installed, else their App Store page. */
+const MUSIC_APPS = [
+    { id: 'spotify', label: 'Spotify', color: '#1DB954', url: 'spotify:', store: 'https://apps.apple.com/app/id324684580' },
+    { id: 'apple', label: 'Apple Music', color: '#FA2D48', url: 'music://', store: 'https://apps.apple.com/app/id1108187390' },
+];
