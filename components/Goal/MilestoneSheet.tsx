@@ -21,13 +21,15 @@ const dateOf = (key: string) => new Date(`${key}T12:00:00`);
  * The keyboard waits for a tap on the name, so the sheet opens with the date
  * wheels in full view; turning them puts the keyboard away again.
  */
-export function MilestoneSheet({ visible, goalId, goalEnd, milestone, onClose }: {
+export function MilestoneSheet({ visible, goalId, goalEnd, milestone, split, onClose }: {
     visible: boolean;
     goalId: string;
     /** YYYY-MM-DD the goal ends, if it does. */
     goalEnd?: string;
     /** Set when changing one; absent when adding. */
     milestone?: Milestone | null;
+    /** A goal that splits evenly (24 books): all its milestones at once, offered when adding the first. */
+    split?: { count: number; detail: string; onSplit: () => Promise<void> };
     onClose: () => void;
 }) {
     const [title, setTitle] = useState('');
@@ -90,6 +92,13 @@ export function MilestoneSheet({ visible, goalId, goalEnd, milestone, onClose }:
                 </View>
             }>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                {!milestone && split ? (
+                    <View style={styles.split}>
+                        <AppButton label={`Split into ${split.count} milestones`} icon="git-commit-outline" variant="ghost"
+                            onPress={() => { void split.onSplit().then(onClose).catch(() => Alert.alert('Milestones not saved', 'Something went wrong saving them on this phone. Try again.')); }} />
+                        <Text style={[styles.read, { color: t.color.textMuted }]}>{split.detail}</Text>
+                    </View>
+                ) : null}
                 <DictateField text={title} onText={setTitle}>
                     <AppTextField label="Name" value={title} onChangeText={setTitle} placeholder="Finish book 1 by Oct 31"
                         returnKeyType="done" onSubmitEditing={() => void save()} maxLength={200} />
@@ -108,6 +117,7 @@ export function MilestoneSheet({ visible, goalId, goalEnd, milestone, onClose }:
 }
 
 const styles = StyleSheet.create({
+    split: { gap: Spacing.xs },
     scroll: { flexGrow: 0 },
     read: { fontSize: 13, fontFamily: FontFamily.medium, marginTop: -Spacing.sm },
     body: { gap: Spacing.lg, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg },

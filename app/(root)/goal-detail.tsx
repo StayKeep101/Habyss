@@ -177,14 +177,12 @@ const GoalDetail = () => {
     const verb = goal.name.trim().split(/\s+/)[0];
     return splitIntoMilestones({ target, unit, verb: /^\d/.test(verb) ? undefined : verb, start: today, end: goalEnd });
   }, [goal, goalEnd, insights, today]);
-  const splitIntoSteps = () => {
-    if (!goal || !splitPlan.length) return;
-    lightFeedback();
-    Alert.alert(`Add ${splitPlan.length} milestones?`, `${splitPlan[0].title} by ${dateAt(splitPlan[0].dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, then evenly up to the goal's end.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Add', onPress: () => { void addMilestones(goal.id, splitPlan).catch(() => Alert.alert('Milestones not saved', 'Something went wrong saving them on this phone. Try again.')); } },
-    ]);
-  };
+  // Offered inside New milestone (not the ⋯ menu): the whole plan in one tap, while there are none yet.
+  const split = goal && splitPlan.length > 1 && milestones.length === 0 ? {
+    count: splitPlan.length,
+    detail: `${splitPlan[0].title} by ${dateAt(splitPlan[0].dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, then evenly to the end`,
+    onSplit: () => addMilestones(goal.id, splitPlan),
+  } : undefined;
   const toggleMilestone = (milestone: Milestone) => {
     void updateMilestone(milestone, { done: !milestone.doneAt }).catch(() => Alert.alert('Not saved', 'That milestone could not be updated. Try again.'));
   };
@@ -346,8 +344,6 @@ const GoalDetail = () => {
       { label: 'Add task', icon: 'checkbox-outline' as const, onPress: () => openTask() },
       { label: 'Add milestone', icon: 'flag-outline' as const, onPress: () => { lightFeedback(); setMilestoneSheet({ milestone: null }); } },
       ...(canLog ? [{ label: 'Log progress', icon: 'create-outline' as const, onPress: () => { lightFeedback(); setLogging(true); } }] : []),
-      ...(splitPlan.length > 1 && milestones.length === 0
-        ? [{ label: 'Split into milestones', icon: 'git-commit-outline' as const, onPress: splitIntoSteps }] : []),
     ] : []),
     { label: 'Change cover photo', icon: 'image-outline', onPress: () => handleChangeBackground() },
     ...(!isSharedGoal ? [
@@ -629,7 +625,7 @@ const GoalDetail = () => {
           color={goal.color || accentColor} onPlan={planTodo} onClose={() => setPlanning(null)} />
       ) : null}
       {goal ? (
-        <MilestoneSheet visible={!!milestoneSheet} goalId={goal.id} goalEnd={goalEnd} milestone={shownMilestoneSheet?.milestone ?? null} onClose={() => setMilestoneSheet(null)} />
+        <MilestoneSheet visible={!!milestoneSheet} goalId={goal.id} goalEnd={goalEnd} milestone={shownMilestoneSheet?.milestone ?? null} split={split} onClose={() => setMilestoneSheet(null)} />
       ) : null}
       {editingHabit && <HabitSheet visible habit={editingHabit} goalId={editingHabit.goalId} onClose={() => setEditingHabit(null)} />}
       {addingHabit && <HabitSheet visible goalId={goal.id} onClose={() => setAddingHabit(false)} onSaved={() => setAddingHabit(false)} />}
