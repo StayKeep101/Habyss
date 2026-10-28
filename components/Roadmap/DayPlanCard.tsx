@@ -32,15 +32,19 @@ export const DayPlanCard: React.FC<{
     const colors = Colors[theme];
     const light = theme === 'light';
     const [width, setWidth] = useState(0);
-    const span = Math.max(1, plan.sleep - plan.wake);
-    const x = (minutes: number) => ((Math.min(plan.sleep, Math.max(plan.wake, minutes)) - plan.wake) / span) * width;
+    // Waking to bedtime, stretched to take in anything placed before or after
+    // them, so every habit and task has its own stretch to see and to scrub.
+    const from = Math.min(plan.wake, ...plan.blocks.map(block => block.start));
+    const to = Math.max(plan.sleep, ...plan.blocks.map(block => block.end));
+    const span = Math.max(1, to - from);
+    const x = (minutes: number) => ((Math.min(to, Math.max(from, minutes)) - from) / span) * width;
     const track = light ? 'rgba(15,23,42,0.07)' : 'rgba(255,255,255,0.08)';
     const { selectionFeedback } = useHaptics();
 
     // The minute under the finger, while reading the day.
     const [scrub, setScrub] = useState<number | null>(null);
     const lastHour = useRef<number | null>(null);
-    const minuteAt = (pageX: number) => Math.round(plan.wake + (Math.max(0, Math.min(width, pageX)) / Math.max(1, width)) * span);
+    const minuteAt = (pageX: number) => Math.round(from + (Math.max(0, Math.min(width, pageX)) / Math.max(1, width)) * span);
     const read = (localX: number) => {
         const minute = minuteAt(localX);
         // A light tick each hour passed, so the finger feels the clock.
@@ -86,8 +90,8 @@ export const DayPlanCard: React.FC<{
 
     // An hour mark every three hours, labelled like a calendar's gutter.
     const ticks: number[] = [];
-    for (let minutes = Math.ceil(plan.wake / 180) * 180; minutes < plan.sleep; minutes += 180) {
-        if (minutes > plan.wake) ticks.push(minutes);
+    for (let minutes = Math.ceil(from / 180) * 180; minutes < to; minutes += 180) {
+        if (minutes > from) ticks.push(minutes);
     }
 
     const summary = isToday
@@ -128,7 +132,8 @@ export const DayPlanCard: React.FC<{
                 {width > 0 ? plan.blocks.map(block => (
                     <View key={`${block.kind}:${block.id}`} style={[styles.block, {
                         left: x(block.start), width: Math.max(3, x(block.end) - x(block.start)),
-                        backgroundColor: block.kind === 'task' ? TASK_COLOR : (block.color || accent),
+                        // Its own colour, the same as its card on the timeline.
+                        backgroundColor: block.color || (block.kind === 'task' ? TASK_COLOR : accent),
                         opacity: block.done ? 0.35 : 0.85,
                     }]} />
                 )) : null}
