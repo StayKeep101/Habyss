@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedStyle } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useHaptics } from '@/hooks/useHaptics';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { IconTile } from '@/components/ui/IconTile';
 import { AppIcon } from '@/components/ui/AppIcon';
@@ -33,6 +35,10 @@ export function SleepCard() {
     const { primary } = useAccentGradient();
     const sleep = useSleep();
     const weekStart = useWeekStart();
+    const { selectionFeedback } = useHaptics();
+    // A finger on the week: the night under it, until it lets go (then last night again).
+    const [picked, setPicked] = useState<number | null>(null);
+    const barsWidth = useRef(0);
 
     if (sleep.showCard === false) return null;
     // No sleep data yet (Health not connected, or nothing that records sleep):
@@ -66,8 +72,27 @@ export function SleepCard() {
         const key = localDateKey(date);
         return { key, label: date.toLocaleDateString(undefined, { weekday: 'narrow' }), isToday: key === todayKey, ahead: key > todayKey };
     });
-    const last = sleep.nights[todayKey];
+    // The night shown: last night, or the one under the finger. A night is
+    // named by the evening it began ("Tuesday night"), the morning before it.
+    const shownDay = picked !== null && !mornings[picked].ahead ? mornings[picked] : mornings.find(day => day.isToday) ?? mornings[0];
+    const last = sleep.nights[shownDay.key];
     const met = last !== undefined && last >= sleep.target;
+    const evening = new Date(`${shownDay.key}T12:00:00`); evening.setDate(evening.getDate() - 1);
+    const nightName = shownDay.isToday ? 'Last night' : `${evening.toLocaleDateString(undefined, { weekday: 'long' })} night`;
+    const pick = (x: number) => {
+        const index = Math.max(0, Math.min(6, Math.floor((x / Math.max(1, barsWidth.current)) * 7)));
+        if (mornings[index].ahead) return;
+        setPicked(previous => {
+            if (previous !== index) selectionFeedback();
+            return index;
+        });
+    };
+    const scrub = Gesture.Pan()
+        .activeOffsetX([-4, 4])
+        .failOffsetY([-12, 12])
+        .onBegin(event => { runOnJS(pick)(event.x); })
+        .onUpdate(event => { runOnJS(pick)(event.x); })
+        .onFinalize(() => { runOnJS(setPicked)(null); });
     const ceiling = Math.max(sleep.target * 1.25, ...mornings.map(day => sleep.nights[day.key] ?? 0));
 
     return (
@@ -89,16 +114,17 @@ export function SleepCard() {
             <View style={styles.body}>
                 <View style={styles.flex}>
                     <CountUp style={[styles.value, { color: colors.textPrimary }]} value={last !== undefined ? formatSleep(last) : '—'} />
-                    <Text style={[styles.sub, { color: colors.textTertiary }]}>{last !== undefined ? 'Last night' : 'No sleep recorded last night'}</Text>
+                    <Text style={[styles.sub, { color: colors.textTertiary }]} accessibilityLiveRegion="polite">{last !== undefined ? nightName : `No sleep recorded ${nightName.toLowerCase()}`}</Text>
                     {/* The goal is set in Settings. */}
                     <Text style={[styles.goalText, { color: colors.textSecondary }]}>Goal {formatSleep(sleep.target)}</Text>
                 </View>
-                <View style={styles.bars} accessible
+                <GestureDetector gesture={scrub}>
+                <View style={styles.bars} accessible onLayout={event => { barsWidth.current = event.nativeEvent.layout.width; }}
                     accessibilityLabel={`This week: ${mornings.filter(day => !day.ahead).map(day => sleep.nights[day.key] ? formatSleep(sleep.nights[day.key]) : 'no data').join(', ')}`}>
                     {mornings.map((day, index) => {
                         const minutes = sleep.nights[day.key];
                         return (
-                            <View key={day.key} style={styles.barCol}>
+                            <View key={day.key} style={[styles.barCol, picked !== null && picked !== index && styles.barDim]}>
                                 {day.ahead ? <View style={styles.barTrack} /> : (
                                     <Bar share={minutes ? minutes / ceiling : 0} index={index} replay={weekStart}
                                         color={minutes === undefined ? colors.surfaceTertiary : minutes >= sleep.target ? colors.success : primary} />
@@ -108,6 +134,7 @@ export function SleepCard() {
                         );
                     })}
                 </View>
+                </GestureDetector>
             </View>
         </VoidCard>
     );
@@ -135,6 +162,8 @@ const styles = StyleSheet.create({
     body: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.lg },
     value: { fontFamily: FontFamily.bold, fontSize: 30, lineHeight: 36, letterSpacing: -0.6, fontVariant: ['tabular-nums'] },
     goalText: { fontFamily: FontFamily.medium, fontSize: 13, fontVariant: ['tabular-nums'], marginTop: Spacing.sm },
+    /** The other nights, while a finger rests on one. */
+    barDim: { opacity: 0.4 },
     bars: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.xs + 2 },
     barCol: { alignItems: 'center', gap: Spacing.xs },
     barTrack: { width: 10, height: BAR_HEIGHT, justifyContent: 'flex-end' },

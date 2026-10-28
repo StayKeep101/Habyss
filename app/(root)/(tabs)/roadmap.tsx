@@ -1224,7 +1224,8 @@ const CalendarScreen = () => {
                                     wake={flowWindow.wake} sleep={flowWindow.sleep} dueToday={dueToday}
                                     onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem}
                                     onReschedule={flowNow !== null ? rescheduleFlowItem : undefined}
-                                    company={focusCompany} />
+                                    company={focusCompany}
+                                    sharedFor={item => (item.kind === 'habit' ? sharedFor(item.id) : item.kind === 'task' ? sharedTaskFor(item.id) : null)} />
                                 </>
                             ) : (<>
                             {/* GOALS SECTION */}

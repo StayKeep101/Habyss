@@ -11,6 +11,8 @@ import { ListItem, useProgress } from '@/components/ui/Motion';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { FaceStack, type Face } from '@/components/ui/FaceStack';
 import { SwipeRow } from '@/components/ui/SwipeRow';
+import { SharedFaces } from '@/components/Common/SharedFaces';
+import type { SharedState } from '@/lib/shared';
 import { namesLine } from '@/lib/focusTogether';
 import { useTokens } from '@/hooks/useTokens';
 import { useAppSettings } from '@/context/AppSettingsContext';
@@ -74,7 +76,9 @@ const pillHeight = (size: Size, minutes: number) => Math.max(size.min, Math.min(
  * marks one that moved since you last opened it. Meals and calendar events
  * sit as fixed blocks with a lock. A habit's pill is round, a task's squarer.
  */
-export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, now, moved, scrubbing, day, wake, sleep, dueToday, company }: {
+export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, sharedFor, now, moved, scrubbing, day, wake, sleep, dueToday, company }: {
+    /** Who else is on a habit or task (lib/shared.ts): their faces beside its name, as on its list card. */
+    sharedFor?: (item: FlowInput) => SharedState | null;
     /** Rule 5: swiped left to right, a habit or task is laid out again from now, by priority. Today only. */
     onReschedule?: (item: FlowInput) => void;
     /** Friends focusing with you, on the card of what you are focusing on (lib/focusTogether.ts). */
@@ -135,7 +139,8 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, now
                         <Row size={size} item={item} turn={turns[index].pill} linkTurn={turns[index].link} color={colorOf(item)} last={index === flow.timeline.length - 1} first={index === 0}
                             nextColor={next ? colorOf(next) : undefined} nextStart={next?.start} day={day}
                             now={now} lived={lived} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus}
-                            faces={company?.id === item.id ? company.faces : undefined} onReschedule={onReschedule} />
+                            faces={company?.id === item.id ? company.faces : undefined} onReschedule={onReschedule}
+                            shared={sharedFor?.(item) ?? null} />
                     </ListItem>
                 );
             }) : (
@@ -194,7 +199,8 @@ function Chips({ title, icon, tint, items, onOpen }: { title: string; icon: stri
     );
 }
 
-function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, first, now, lived, updated, onToggle, onOpen, onFocus, day, faces, onReschedule }: {
+function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, first, now, lived, updated, onToggle, onOpen, onFocus, day, faces, onReschedule, shared }: {
+    shared: SharedState | null;
     /** Up to when this day has been lived (livedUntil): what every fill reads. */
     lived: number;
     faces?: Face[];
@@ -297,6 +303,7 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
                     </View>
                     <View style={styles.titleRow}>
                         <Text numberOfLines={2} style={[t.type[size.titleType], styles.name, styles.titleText, { color: done ? t.color.textSubtle : t.color.textPrimary }, done && !meal && styles.struck]}>{item.title}</Text>
+                        {shared ? <SharedFaces people={shared.people} tint={color} size={s(20)} /> : null}
                         {item.subtasks?.length ? <SubtaskToggle steps={item.subtasks} open={stepsOpen} onToggle={() => setStepsOpen(value => !value)} color={color} /> : null}
                     </View>
                     {moved ? <Text style={[t.type.caption, { color: t.color.textSubtle }]}>{moved}</Text> : null}
