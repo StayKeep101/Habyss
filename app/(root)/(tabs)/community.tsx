@@ -23,10 +23,6 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { FriendsService, getMyUsername, type FriendRequest } from '@/lib/friendsService';
 import { FeedService, type FeedPost, type FriendStatusRow } from '@/lib/feedService';
-import { DailyPack } from '@/components/Community/DailyPack';
-import { PackOpening } from '@/components/Community/PackOpening';
-import { openedCount, packFor } from '@/lib/dailyPack';
-import { localDateKey } from '@/lib/habitSchedule';
 import { statusOf } from '@/lib/presence';
 import { listenToFriends, announceChange } from '@/lib/livePulse';
 import { onAccountChange } from '@/lib/account';
@@ -62,17 +58,6 @@ export default function CommunityScreen() {
     const [requests, setRequests] = useState<FriendRequest[]>([]);
     const [statuses, setStatuses] = useState<FriendStatusRow[]>([]);
     const [posts, setPosts] = useState<FeedPost[]>([]);
-    // Today's pack: friends' cards from today, opened one by one; gone tomorrow.
-    const today = localDateKey(new Date());
-    const pack = useMemo(() => packFor(posts, today), [posts, today]);
-    // Yesterday's pack, and your own cards, opened the same way.
-    const yesterday = useMemo(() => { const date = new Date(); date.setDate(date.getDate() - 1); return localDateKey(date); }, [today]);
-    const yesterdayPack = useMemo(() => packFor(posts, yesterday), [posts, yesterday]);
-    const mine = useMemo(() => posts.filter(post => post.mine).slice(0, 14), [posts]);
-    const [otherPack, setOtherPack] = useState<'mine' | 'yesterday' | null>(null);
-    const [packOpen, setPackOpen] = useState(false);
-    const [packSeen, setPackSeen] = useState(0);
-    useEffect(() => { void openedCount(today).then(setPackSeen); }, [today, packOpen]);
     const [rank, setRank] = useState<number | null>(null);
     const [shareTime, setShareTime] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
@@ -269,14 +254,6 @@ export default function CommunityScreen() {
                 </View>
             ) : null}
 
-            {gate === null ? (
-                <View style={styles.block}>
-                    <DailyPack posts={pack} opened={packSeen} onOpen={() => { mediumFeedback(); setPackOpen(true); }}
-                        mineCount={mine.length} onMine={() => { mediumFeedback(); setOtherPack('mine'); }}
-                        yesterdayCount={yesterdayPack.length} onYesterday={() => { mediumFeedback(); setOtherPack('yesterday'); }} />
-                </View>
-            ) : null}
-
             {gate === null ? <SectionTitle first>Feed</SectionTitle> : null}
         </View>
     );
@@ -348,11 +325,6 @@ export default function CommunityScreen() {
             />
 
             <AddFriendModal visible={showAddFriend} onClose={() => setShowAddFriend(false)} userCode={userCode} onFriendAdded={() => { void load(); }} />
-            <PackOpening visible={packOpen} posts={pack} startAt={packSeen} onClose={() => setPackOpen(false)}
-                onCheer={post => { if (!post.ackedByMe) void acknowledge(post); }} />
-            <PackOpening visible={otherPack !== null} posts={otherPack === 'mine' ? mine : yesterdayPack} remember={false}
-                sealed={otherPack !== 'mine'} title={otherPack === 'mine' ? 'Your cards' : "Yesterday's pack"}
-                onClose={() => setOtherPack(null)} onCheer={post => { if (!post.ackedByMe) void acknowledge(post); }} />
         </VoidShell>
     );
 }
