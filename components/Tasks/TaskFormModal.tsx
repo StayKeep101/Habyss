@@ -302,9 +302,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             value: draft.deadline && draft.dueDate && draft.deadline > draft.dueDate ? shortDate(draft.deadline) : undefined,
             content: (
                 <>
-                    <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                        Not done on its day? It stays on your list until this date, and only counts as late after it.
-                    </Text>
                     <Choices
                         options={[
                             { id: '', label: 'Same day' },
@@ -343,6 +340,12 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                     </Text>
                 </>
             ),
+        },
+        {
+            // Steps only when wanted: a chip like the rest, not a list always under the title.
+            id: 'subtasks', icon: 'list-outline', label: 'Subtasks',
+            value: draft.subtasks?.length ? `${draft.subtasks.length}` : undefined,
+            content: <SubtaskEditor steps={draft.subtasks ?? []} onChange={subtasks => change({ subtasks })} color={accent} />,
         },
         {
             id: 'priority', icon: 'flag-outline', label: 'Urgency',
@@ -450,10 +453,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                             Task: <Text style={{ color: colors.textPrimary, fontFamily: FontFamily.medium }}>{draft.title}</Text>
                         </Text>
                     ) : null}
-
-                    {/* "Write, edit and publish": its subtasks, a little list right
-                        here under the task, ticked one by one; a line to add the next. */}
-                    <SubtaskEditor steps={draft.subtasks ?? []} onChange={subtasks => change({ subtasks })} color={accent} />
 
                     {error ? (
                         <View style={[styles.error, { backgroundColor: colors.error + '18', borderColor: colors.error + '44' }]}>
