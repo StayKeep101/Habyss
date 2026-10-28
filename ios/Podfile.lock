@@ -218,6 +218,8 @@ PODS:
     - ExpoModulesCore
   - ExpoCameraBarcodeScanning (57.0.6):
     - ExpoCamera
+    - ZXingObjC/OneD
+    - ZXingObjC/PDF417
   - ExpoClipboard (57.0.2):
     - ExpoModulesCore
   - ExpoCrypto (57.0.4):
@@ -2726,6 +2728,11 @@ PODS:
   - Sentry/HybridSDK (8.58.0)
   - UMAppLoader (57.0.2)
   - Yoga (0.0.0)
+  - ZXingObjC/Core (3.6.9)
+  - ZXingObjC/OneD (3.6.9):
+    - ZXingObjC/Core
+  - ZXingObjC/PDF417 (3.6.9):
+    - ZXingObjC/Core
 
 DEPENDENCIES:
   - "AppleLLM (from `../node_modules/@react-native-ai/apple`)"
@@ -2745,7 +2752,7 @@ DEPENDENCIES:
   - ExpoBlur (from `../node_modules/expo-blur/ios`)
   - ExpoCalendar (from `../node_modules/expo-calendar/ios`)
   - ExpoCamera (from `../node_modules/expo-camera/ios`)
-  - ExpoCameraBarcodeScanning (from `../node_modules/expo-camera/ios/ExpoCameraBarcodeScanning.podspec`)
+  - ExpoCameraBarcodeScanning (from `../node_modules/expo-camera/ios`)
   - ExpoClipboard (from `../node_modules/expo-clipboard/ios`)
   - ExpoCrypto (from `../node_modules/expo-crypto/ios`)
   - ExpoDevice (from `../node_modules/expo-device/ios`)
@@ -2886,6 +2893,7 @@ SPEC REPOS:
     - RevenueCat
     - RevenueCatUI
     - Sentry
+    - ZXingObjC
 
 EXTERNAL SOURCES:
   AppleLLM:
@@ -2923,7 +2931,7 @@ EXTERNAL SOURCES:
   ExpoCamera:
     :path: "../node_modules/expo-camera/ios"
   ExpoCameraBarcodeScanning:
-    :podspec: "../node_modules/expo-camera/ios/ExpoCameraBarcodeScanning.podspec"
+    :path: "../node_modules/expo-camera/ios"
   ExpoClipboard:
     :path: "../node_modules/expo-clipboard/ios"
   ExpoCrypto:
@@ -3341,6 +3349,7 @@ SPEC CHECKSUMS:
   Sentry: d587a8fe91ca13503ecd69a1905f3e8a0fcf61be
   UMAppLoader: d69910810f31d2e2cfd49706e89ad372161b0561
   Yoga: 18b74b3ade30bebc1904004dfaceae1dd02a330a
+  ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: b30a81bed7a7103c307c02fda3082d53d86b541a
 
