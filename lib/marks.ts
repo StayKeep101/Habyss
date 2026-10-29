@@ -157,6 +157,13 @@ export interface MarksResult {
     series: { date: string; value: number }[];
     /** Newest first, at most `recent` of them. */
     events: MarkEvent[];
+    /**
+     * What completing things earned each day (multiplier included), counting
+     * only things that existed before that day: what Shards are made from
+     * (lib/shards.ts). Adding and missing never count, and neither does
+     * something made and ticked the same day, so Shards cannot be farmed.
+     */
+    completedByDay: Record<string, number>;
 }
 
 /** How far back misses are counted. Enough for any real history, bounded for speed. */
@@ -175,15 +182,17 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     const { today } = input;
     const floor = addDays(today, -HORIZON_DAYS);
     const byDay = new Map<string, number>();
+    const completedByDay: Record<string, number> = {};
     const events: MarkEvent[] = [];
     // The multiplier each day carried, from the perfect days before it.
     const runs = input.dailyTarget ? perfectRuns(input, input.dailyTarget) : new Map<string, number>();
     const multiplierOn = (date: string) => multiplierFor(runs.get(addDays(date, -1)) ?? 0);
-    const record = (date: string | null, points: number, kind: MarkKind, item: MarkItem, title: string) => {
+    const record = (date: string | null, points: number, kind: MarkKind, item: MarkItem, title: string, since?: string | null) => {
         if (!date || date > today) return;
         const times = kind === 'complete' && points > 0 ? multiplierOn(date) : 1;
         const earned = points * times;
         byDay.set(date, (byDay.get(date) ?? 0) + earned);
+        if (kind === 'complete' && earned > 0 && !(since && since >= date)) completedByDay[date] = (completedByDay[date] ?? 0) + earned;
         events.push({ date, points: earned, kind, item, title: times > 1 ? `${title} · ×${times}` : title });
     };
 
@@ -198,7 +207,7 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
         if (date > today) continue;
         for (const id of new Set(ids)) {
             const habit = habitIds.get(id);
-            if (habit) record(date, MARKS.complete.habit, 'complete', 'habit', habit.name);
+            if (habit) record(date, MARKS.complete.habit, 'complete', 'habit', habit.name, dayOf(habit.createdAt));
         }
     }
 
@@ -227,7 +236,7 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     for (const task of input.tasks) {
         record(dayOf(task.createdAt), MARKS.add.task, 'add', 'task', task.title);
         if (task.status === 'cancelled') continue;
-        if (task.status === 'done') record(dayOf(task.completedAt ?? task.updatedAt), MARKS.complete.task, 'complete', 'task', task.title);
+        if (task.status === 'done') record(dayOf(task.completedAt ?? task.updatedAt), MARKS.complete.task, 'complete', 'task', task.title, dayOf(task.createdAt));
         // Missed once, the day after it was due — and that stands even if it is
         // finished later. Late still counts for finishing; it was still late.
         const finished = task.status === 'done' ? dayOf(task.completedAt ?? task.updatedAt) : null;
@@ -242,7 +251,7 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     for (const goal of goals) {
         record(dayOf(goal.createdAt), MARKS.add.goal, 'add', 'goal', goal.name);
         const reached = input.goalsCompletedOn?.[goal.id] ?? null;
-        if (reached) record(reached, MARKS.complete.goal, 'complete', 'goal', goal.name);
+        if (reached) record(reached, MARKS.complete.goal, 'complete', 'goal', goal.name, dayOf(goal.createdAt));
         const deadline = dayOf(goal.targetDate);
         if (deadline && deadline < today && (!reached || reached > deadline)) {
             record(addDays(deadline, 1), MARKS.miss.goal, 'miss', 'goal', goal.name);
@@ -291,6 +300,7 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
         todayChange: total - (series.length > 1 ? yesterday : 0),
         series,
         events: events.slice(0, recent),
+        completedByDay,
     };
 }
 

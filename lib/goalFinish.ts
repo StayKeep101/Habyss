@@ -50,4 +50,7 @@ export async function finishGoal(goal: Habit, day: string, habits: Habit[], task
     for (const task of tasks) {
         if (task.goalId === goal.id && task.status !== 'done') await updateTask(task.id, { goalId: null }).catch(() => undefined);
     }
+    // Open to bets: it was made, so the bets on it are paid out (lib/market.ts). Never throws.
+    const { settleMarketFor } = require('./market') as typeof import('./market');
+    await settleMarketFor(goal.id, true);
 }

@@ -62,3 +62,24 @@ export async function publishMarks(
         // Friends see a slightly older total; nothing on this phone is affected.
     }
 }
+
+/**
+ * The Shards this phone has earned by doing (lib/shards.ts), for the server to
+ * check bets against. Private: friends never read it, and the server caps it
+ * by the account's age. Sent only when it changes.
+ */
+const SHARDS_KEY = 'shards_published';
+export async function publishShards(earned: number): Promise<void> {
+    try {
+        const sb = getSupabase();
+        if (!sb) return;
+        const { data } = await sb.auth.getSession();
+        const me = data.session?.user?.id;
+        if (!me) return;
+        const value = Math.max(0, Math.round(earned));
+        const stamp = `${me}:${value}`;
+        if ((await AsyncStorage.getItem(SHARDS_KEY)) === stamp) return;
+        const { error } = await sb.from('profiles').update({ shards_earned: value }).eq('id', me);
+        if (!error) await AsyncStorage.setItem(SHARDS_KEY, stamp);
+    } catch { /* bets read a slightly older number; nothing here is affected */ }
+}

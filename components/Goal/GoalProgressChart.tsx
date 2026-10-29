@@ -13,7 +13,7 @@ import { MOTION, PopIn, Reveal } from '@/components/ui/Motion';
 import { useScrub } from '@/hooks/useScrub';
 import type { GoalPoint } from '@/lib/goalInsights';
 
-type Range = '1W' | '1M' | '3M' | 'ALL';
+export type Range = '1W' | '1M' | '3M' | 'ALL';
 const RANGE_DAYS: Record<Range, number> = { '1W': 7, '1M': 30, '3M': 90, ALL: Infinity };
 
 interface Props {
@@ -22,6 +22,8 @@ interface Props {
     ranges?: Range[];
     /** The range shown first. */
     initialRange?: Range;
+    /** Told when another range is picked, so a page can say what changed over it (a wallet's "past month"). */
+    onRange?: (range: Range, days: number) => void;
     color: string;
     height?: number;
     /** Called with the point under the finger while scrubbing, then null. */
@@ -58,7 +60,7 @@ interface Props {
  * were still dragging. A pan gesture that gives vertical movement to the page
  * and keeps horizontal movement for itself does not have to fight anybody.
  */
-export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact, unbounded, pace: showPace = true, label, sticky = true, ranges: offered, initialRange = 'ALL' }) => {
+export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact, unbounded, pace: showPace = true, label, sticky = true, ranges: offered, initialRange = 'ALL', onRange }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
@@ -206,7 +208,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
                                 key={option}
                                 accessibilityRole="button"
                                 accessibilityState={{ selected }}
-                                onPress={() => { selectionFeedback(); setRange(option); }}
+                                onPress={() => { selectionFeedback(); setRange(option); onRange?.(option, RANGE_DAYS[option]); }}
                                 // Chosen: a solid light pill, like Phantom's "ALL".
                                 style={[styles.range, selected && { backgroundColor: color }]}
                             >

@@ -31,6 +31,8 @@ import { Confetti } from '@/components/ui/Confetti';
 import { Overlay } from '@/components/ui/Overlay';
 import { SealedDayCard } from '@/components/Community/SealedDayCard';
 import { CrewQuest } from '@/components/Community/CrewQuest';
+import { MarketSection } from '@/components/Market/MarketSection';
+import { MARKET_ENABLED } from '@/constants/features';
 import { questStanding, questWeek, type CrewMember } from '@/lib/crewQuest';
 import { useWeekStart } from '@/hooks/useWeekStart';
 import { hasDropped, isSealed, minuteOf } from '@/lib/theDrop';
@@ -333,6 +335,9 @@ export default function CommunityScreen() {
 
             {/* This week's crew quest: everyone's show-ups toward one number. */}
             {gate === null ? <CrewQuest style={styles.block} members={crew} /> : null}
+
+            {/* Friends' goals open to bets: Shards on whether they make it. */}
+            {gate === null && MARKET_ENABLED ? <MarketSection style={styles.block} /> : null}
 
             {gate === null ? <SectionTitle first>Feed</SectionTitle> : null}
         </View>

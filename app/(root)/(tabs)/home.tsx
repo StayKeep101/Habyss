@@ -44,6 +44,9 @@ import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { MarksBar } from '@/components/Marks/MarksBar';
 import { MarksModal } from '@/components/Marks/MarksModal';
+import { ShardsCard } from '@/components/Shards/ShardsCard';
+import { ShardsWallet } from '@/components/Shards/ShardsWallet';
+import { useWallet } from '@/hooks/useWallet';
 import { useMarks } from '@/hooks/useMarks';
 import { tallyDay } from '@/lib/dayComplete';
 import { useDailyFocus, useDailyTarget } from '@/hooks/useDailyFocus';
@@ -259,6 +262,8 @@ const Home = () => {
   const { overall: avgGoalProgress, tasks: allTasks, skippedToday, today: todayKeyString } = goalsData;
   // Marks, from the same habits, tasks and history already loaded here.
   const marks = useMarks(goalsData);
+  // Shards, the currency, from the same Marks (lib/shards.ts) plus what bets moved.
+  const wallet = useWallet(marks);
 
   // One-go goals ("run 21 km"): their training habit steps up each week (lib/peakPlan.ts).
   useEffect(() => {
@@ -317,6 +322,7 @@ const Home = () => {
     return () => { sub.remove(); ask.remove(); };
   }, [playLevelUp, aiPersonality]);
   const [showMarks, setShowMarks] = useState(false);
+  const [showWallet, setShowWallet] = useState(false);
 
 
   /**
@@ -477,6 +483,11 @@ const Home = () => {
           {motivationalQuote ? <EchoLine text={motivationalQuote} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)} style={{ marginTop: sectionGap }}
             onDone={() => { const kind = pendingQuestion.current; if (kind) { pendingQuestion.current = null; setTimeout(() => setQuestion(kind), 400); } }} /> : null}
 
+          {/* Your Shards: the currency, with its own wallet. Marks above are XP. */}
+          <View style={{ marginTop: sectionGap }}>
+            <ShardsCard wallet={wallet} onPress={() => setShowWallet(true)} />
+          </View>
+
           {/* Spacer after header */}
           <View style={{ height: sectionGap }} />
 
@@ -547,6 +558,7 @@ const Home = () => {
           habits={habits}
         />
         <MarksModal visible={showMarks} onClose={() => setShowMarks(false)} marks={marks} />
+        <ShardsWallet visible={showWallet} onClose={() => setShowWallet(false)} wallet={wallet} />
         <ClimbMomentOverlay moment={climbMoment} onDone={() => setClimbMoment(null)} />
         {/* The end of the Ascent: rising out of its light, then the first step. */}
         <AscentArrival />

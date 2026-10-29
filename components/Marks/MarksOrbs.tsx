@@ -11,8 +11,9 @@ import { on } from '@/lib/appEvents';
 import { counts } from '@/lib/sharedGate';
 import { localDateKey } from '@/lib/habitSchedule';
 import {
-    burstMarks, goalDone, milestoneDone, habitDone, marksRange, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskEarned, type Burst, type Point,
+    burstMarks, goalDone, milestoneDone, habitDone, marksRange, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskEarned, type Burst, type OrbKind, type Point,
 } from '@/lib/marksOrbs';
+import { AppIcon } from '@/components/ui/AppIcon';
 import { Overlay } from '@/components/ui/Overlay';
 import { s, vs } from '@/theme/scale';
 
@@ -62,20 +63,23 @@ export function MarksOrbs() {
     }, []);
 
     useEffect(() => onMarksBurst(burst => {
-        measureMarksTarget(found => {
+        // Shards leave a beat after the Marks they came with, so the two swarms read apart.
+        const delay = burst.kind === 'shards' ? 350 : 0;
+        setTimeout(() => measureMarksTarget(found => {
             // The counter is on this screen: always to it. Scrolled out of
             // sight, they fly up past the top edge where it is.
             const to = found ? { x: found.x, y: Math.min(height, Math.max(found.y, insets.top - ORB)) } : null;
             const pill = !to;
             setFlights(current => [...current, {
                 ...burst, pill, to: to ?? { x: width / 2, y: insets.top + PILL_HEIGHT / 2 + vs(6) },
-                range: pill ? marksRange(burst.marks) : null,
+                range: pill && burst.kind === 'marks' ? marksRange(burst.marks) : null,
             }]);
-        });
+        }, burst.kind), delay);
     }), [width, height, insets.top]);
 
     const finish = useCallback((id: number) => setFlights(current => current.filter(flight => flight.id !== id)), []);
-    const pill = flights.find(flight => flight.pill);
+    const pill = flights.find(flight => flight.pill && flight.kind === 'marks');
+    const shardPill = flights.find(flight => flight.pill && flight.kind === 'shards');
 
     if (!flights.length) return null;
     // Over every page, a sheet or a modal one included (a goal's page, Missed):
@@ -84,6 +88,7 @@ export function MarksOrbs() {
         <Overlay>
             {flights.map(flight => <Swarm key={flight.id} flight={flight} onDone={finish} />)}
             {pill ? <CatchPill key={pill.id} marks={pill.marks} count={pill.count} range={pill.range} top={insets.top + vs(6)} /> : null}
+            {shardPill ? <CatchPill key={shardPill.id} kind="shards" marks={shardPill.marks} count={shardPill.count} range={null} top={insets.top + vs(6) + (pill ? PILL_HEIGHT + vs(6) : 0)} /> : null}
         </Overlay>
     );
 }
@@ -98,7 +103,7 @@ function Swarm({ flight, onDone }: { flight: Flight; onDone: (id: number) => voi
     return (
         <>
             {Array.from({ length: flight.count }, (_, index) => (
-                <Orb key={index} index={index} count={flight.count} from={flight.from} to={flight.to} />
+                <Orb key={index} kind={flight.kind} index={index} count={flight.count} from={flight.from} to={flight.to} />
             ))}
         </>
     );
@@ -108,11 +113,13 @@ function Swarm({ flight, onDone }: { flight: Flight; onDone: (id: number) => voi
  * One orb: out of the tap in its own direction, a beat, then a curve into
  * the counter, shrinking a little as it arrives.
  */
-function Orb({ index, count, from, to }: { index: number; count: number; from: Point; to: Point }) {
+function Orb({ kind, index, count, from, to }: { kind: OrbKind; index: number; count: number; from: Point; to: Point }) {
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
     const flight = useSharedValue(0);
     const pop = useSharedValue(0);
+    // A Shard is a little gem (a turned square), a Mark a round light.
+    const gem = kind === 'shards';
     // Each orb leaves at its own angle and distance, the same every time for the same index.
     const angle = (index / count) * Math.PI * 2 + (index % 3) * 0.4;
     const reach = s(26) + (index % 4) * s(9);
@@ -126,8 +133,8 @@ function Orb({ index, count, from, to }: { index: number; count: number; from: P
         flight.value = withDelay(180 + index * STAGGER, withTiming(1, { duration: FLIGHT, easing: Easing.inOut(Easing.cubic), reduceMotion: ReduceMotion.System }, finished => {
             if (finished) runOnJS(landed)();
         }));
-        function landed() { orbLanded(); if (index % 2 === 0) selectionFeedback(); }
-    }, [flight, pop, index, selectionFeedback]);
+        function landed() { orbLanded(kind); if (index % 2 === 0) selectionFeedback(); }
+    }, [flight, pop, index, selectionFeedback, kind]);
 
     const style = useAnimatedStyle(() => {
         const p = flight.value;
@@ -140,11 +147,11 @@ function Orb({ index, count, from, to }: { index: number; count: number; from: P
         const y = q * q * sy + 2 * q * p * bend.y + p * p * to.y;
         return {
             opacity: p >= 1 ? 0 : 1,
-            transform: [{ translateX: x - ORB / 2 }, { translateY: y - ORB / 2 }, { scale: (0.4 + out * 0.8) * (1 - p * 0.45) }],
+            transform: [{ translateX: x - ORB / 2 }, { translateY: y - ORB / 2 }, { scale: (0.4 + out * 0.8) * (1 - p * 0.45) }, { rotate: gem ? '45deg' : '0deg' }],
         };
     });
     return (
-        <Animated.View pointerEvents="none" style={[styles.orb, { backgroundColor: t.color.accent, shadowColor: t.color.accent }, style]}>
+        <Animated.View pointerEvents="none" style={[styles.orb, gem && styles.gem, { backgroundColor: t.color.accent, shadowColor: t.color.accent }, style]}>
             <Animated.View style={[styles.core, { backgroundColor: t.color.onAccent }]} />
         </Animated.View>
     );
@@ -154,7 +161,7 @@ function Orb({ index, count, from, to }: { index: number; count: number; from: P
  * Where no Marks counter is on screen: a pill drops in with your total,
  * counts it up by what was just earned as the orbs land, and leaves.
  */
-function CatchPill({ marks, count, range, top }: { marks: number; count: number; range: { from: number; to: number } | null; top: number }) {
+function CatchPill({ marks, count, range, top, kind = 'marks' }: { marks: number; count: number; range: { from: number; to: number } | null; top: number; kind?: OrbKind }) {
     const t = useTokens();
     const [caught, setCaught] = useState(0);
     const bump = useSharedValue(1);
@@ -162,8 +169,8 @@ function CatchPill({ marks, count, range, top }: { marks: number; count: number;
         return onOrbLanded(() => {
             setCaught(current => Math.min(count, current + 1));
             bump.value = withSequence(withTiming(1.12, { duration: 70 }), withTiming(1, { duration: 140 }));
-        });
-    }, [count, bump]);
+        }, kind);
+    }, [count, bump, kind]);
     const style = useAnimatedStyle(() => ({ transform: [{ scale: bump.value }] }));
     // The orbs are capped; the number reached is the Marks actually earned.
     const added = caught >= count ? marks : Math.round((caught / count) * marks);
@@ -175,6 +182,11 @@ function CatchPill({ marks, count, range, top }: { marks: number; count: number;
                         <>
                             <Text style={[t.type.heading, styles.figure, { color: t.color.textPrimary }]}>{(range.from + added).toLocaleString()}</Text>
                             <Text style={[t.type.caption, { color: t.color.textMuted }]}>Marks</Text>
+                        </>
+                    ) : kind === 'shards' ? (
+                        <>
+                            <AppIcon name="diamond" filled size={s(14)} color={t.color.accent} />
+                            <Text style={[t.type.heading, styles.figure, { color: t.color.textPrimary }]}>+{added} Shards</Text>
                         </>
                     ) : (
                         <Text style={[t.type.heading, styles.figure, { color: t.color.textPrimary }]}>+{added} Marks</Text>
@@ -192,6 +204,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.9, shadowRadius: ORB, shadowOffset: { width: 0, height: 0 },
     },
     core: { width: ORB / 3, height: ORB / 3, borderRadius: ORB / 6, opacity: 0.8 },
+    gem: { borderRadius: ORB / 5 },
     pillWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
     pill: { flexDirection: 'row', alignItems: 'center', gap: s(6), height: PILL_HEIGHT, paddingHorizontal: s(14) },
     figure: { fontVariant: ['tabular-nums'] },

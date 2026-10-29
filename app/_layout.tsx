@@ -183,8 +183,8 @@ export default function MobileLayout() {
         if (typeof url === 'string' && url.startsWith('/')) {
           setTimeout(() => { require('expo-router').router.navigate(url); }, 500);
         }
-        // Your day dropped, or a friend reacted to it: the tap opens Community.
-        if ((data?.type === 'day_drop' || data?.type === 'reaction') && response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
+        // Your day dropped, a friend reacted to it, or a bet opened or settled: the tap opens Community.
+        if ((data?.type === 'day_drop' || data?.type === 'reaction' || data?.type === 'market') && response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
           setTimeout(() => { require('expo-router').router.navigate('/(root)/(tabs)/community'); }, 500);
         }
         // "Alex is locking in. Join?": the tap joins them (lib/focusTogether.ts).

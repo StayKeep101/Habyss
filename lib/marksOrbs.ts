@@ -14,29 +14,34 @@ import { MARKS } from './marks';
  */
 
 export interface Point { x: number; y: number }
-export interface Burst { id: number; count: number; marks: number; from: Point }
+/** Marks fly as round lights; Shards, the currency, as small gems to your wallet. */
+export type OrbKind = 'marks' | 'shards';
+export interface Burst { id: number; kind: OrbKind; count: number; marks: number; from: Point }
 type Measure = (done: (target: Point | null) => void) => void;
 
 /** The most orbs drawn for one burst; a goal's fifty would be a blizzard. */
 export const MAX_ORBS = 24;
 
 let lastTouch: Point | null = null;
-let target: { owner: string; measure: Measure } | null = null;
+const targets: Record<OrbKind, { owner: string; measure: Measure } | null> = { marks: null, shards: null };
 let nextId = 1;
 const listeners = new Set<(burst: Burst) => void>();
-const landers = new Set<() => void>();
+const landers: Record<OrbKind, Set<() => void>> = { marks: new Set(), shards: new Set() };
 
 export const noteTouch = (x: number, y: number) => { lastTouch = { x, y }; };
 export const lastTouchPoint = (): Point | null => lastTouch;
 
 /** A screen showing your Marks says where they are while it is in front. */
-export function registerMarksTarget(owner: string, measure: Measure): () => void {
-    target = { owner, measure };
-    return () => { if (target?.owner === owner) target = null; };
+export function registerMarksTarget(owner: string, measure: Measure, kind: OrbKind = 'marks'): () => void {
+    targets[kind] = { owner, measure };
+    return () => { if (targets[kind]?.owner === owner) targets[kind] = null; };
 }
-export function measureMarksTarget(done: (point: Point | null) => void) {
-    if (!target) { done(null); return; }
-    target.measure(done);
+/** Where your Shards balance is on screen (Home's wallet card), while it is in front. */
+export const registerShardsTarget = (owner: string, measure: Measure) => registerMarksTarget(owner, measure, 'shards');
+export function measureMarksTarget(done: (point: Point | null) => void, kind: OrbKind = 'marks') {
+    const found = targets[kind];
+    if (!found) { done(null); return; }
+    found.measure(done);
 }
 
 export function onMarksBurst(listener: (burst: Burst) => void): () => void {
@@ -44,16 +49,24 @@ export function onMarksBurst(listener: (burst: Burst) => void): () => void {
     return () => { listeners.delete(listener); };
 }
 /** Each orb that lands, so the counter can give a little bump. */
-export function onOrbLanded(listener: () => void): () => void {
-    landers.add(listener);
-    return () => { landers.delete(listener); };
+export function onOrbLanded(listener: () => void, kind: OrbKind = 'marks'): () => void {
+    landers[kind].add(listener);
+    return () => { landers[kind].delete(listener); };
 }
-export const orbLanded = () => landers.forEach(listener => listener());
+export const orbLanded = (kind: OrbKind = 'marks') => landers[kind].forEach(listener => listener());
 
 /** Sends `marks` Marks' worth of orbs from the last touch (or `from`). */
 export function burstMarks(marks: number, from?: Point | null): Burst | null {
     if (marks <= 0) return null;
-    const burst: Burst = { id: nextId++, count: orbCount(marks), marks, from: from ?? lastTouch ?? { x: 0, y: 0 } };
+    const burst: Burst = { id: nextId++, kind: 'marks', count: orbCount(marks), marks, from: from ?? lastTouch ?? { x: 0, y: 0 } };
+    listeners.forEach(listener => listener(burst));
+    return burst;
+}
+
+/** Sends `shards` Shards' worth of gems from the last touch, a beat after the Marks leave. */
+export function burstShards(shards: number, from?: Point | null): Burst | null {
+    if (shards <= 0) return null;
+    const burst: Burst = { id: nextId++, kind: 'shards', count: orbCount(shards), marks: shards, from: from ?? lastTouch ?? { x: 0, y: 0 } };
     listeners.forEach(listener => listener(burst));
     return burst;
 }
@@ -125,6 +138,6 @@ export function marksRange(marks: number, at = Date.now()): { from: number; to: 
 
 /** For tests. */
 export const resetMarksOrbs = () => {
-    burst.clear(); tasksBurst.clear(); lastTouch = null; target = null;
+    burst.clear(); tasksBurst.clear(); lastTouch = null; targets.marks = null; targets.shards = null;
     total = null; before = null; changedAt = 0; claimed = true;
 };

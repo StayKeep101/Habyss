@@ -6,6 +6,8 @@ import { BottomFade } from '@/components/ui/BottomFade';
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Alert, Dimensions, Image, ImageBackground, Platform, StatusBar, StyleSheet } from 'react-native';
 import { MorphMenu, type MorphMenuItem } from '@/components/ui/MorphMenu';
+import { MARKET_ENABLED } from '@/constants/features';
+import { openMarket } from '@/lib/market';
 import { IconButton } from '@/components/ui/IconButton';
 import { CountUp } from '@/components/ui/Motion';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -31,7 +33,7 @@ import { useMilestones } from '@/hooks/useMilestones';
 import { addMilestones, splitIntoMilestones, updateMilestone, type Milestone } from '@/lib/goalMilestones';
 import { GoalStatsView } from '@/components/Goal/GoalStatsView';
 import { GoalPace } from '@/components/Goal/GoalPace';
-import { dateAt } from '@/lib/goalInsights';
+import { addDays, dateAt } from '@/lib/goalInsights';
 import { setTaskStatus, deleteTask, updateTask, type Task } from '@/lib/tasks';
 import { useTasks } from '@/hooks/useTasks';
 import { DragDropProvider } from '@/components/ui/DragDrop';
@@ -189,7 +191,7 @@ const GoalDetail = () => {
   // Shared goals are not available yet; kept so the owner-only actions stay gated.
   const [isSharedGoal] = useState(false);
 
-  const { selectionFeedback, lightFeedback } = useHaptics();
+  const { selectionFeedback, lightFeedback, successFeedback } = useHaptics();
   const { playComplete } = useSoundEffects();
   const insets = useSafeAreaInsets();
 
@@ -331,6 +333,33 @@ const GoalDetail = () => {
    * One menu instead of four buttons competing with the goal's own name.
    * A shared goal is someone else's, so it only offers what it can do.
    */
+  /**
+   * Friends put Shards on whether you make this goal by its deadline
+   * (lib/market.ts). It needs a deadline at least three days away, so a bet
+   * is never on something already decided.
+   */
+  const openToBets = () => {
+    if (!goal) return;
+    const deadline = goal.targetDate?.slice(0, 10);
+    if (!deadline || deadline < addDays(today, 3)) {
+      Alert.alert('Give it a deadline first', 'Bets need a deadline at least three days away, so there’s something to bet on.', [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Edit goal', onPress: () => handleEditGoal() },
+      ]);
+      return;
+    }
+    Alert.alert('Open to bets?', `Friends can put Shards on whether you make “${goal.name}” by ${new Date(`${deadline}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}. You can back yourself too.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Open to bets', onPress: () => {
+          openMarket({ id: goal.id, name: goal.name, icon: goal.icon, color: goal.color, targetDate: deadline })
+            .then(() => { successFeedback(); Alert.alert('It’s on', 'Your friends can bet on it from Community.'); })
+            .catch((failed: unknown) => Alert.alert('Couldn’t open it', failed instanceof Error ? failed.message : 'Try again in a moment.'));
+        },
+      },
+    ]);
+  };
+
   /** The goal's options, in the menu the ⋯ button grows into: first what fits the page you are on. */
   const goalMenu: MorphMenuItem[] = [
     // On the to-do list: a new heading, and a to-do with a day already.
@@ -346,6 +375,9 @@ const GoalDetail = () => {
       ...(canLog ? [{ label: 'Log progress', icon: 'create-outline' as const, onPress: () => { lightFeedback(); setLogging(true); } }] : []),
     ] : []),
     { label: 'Change cover photo', icon: 'image-outline', onPress: () => handleChangeBackground() },
+    ...(!isSharedGoal && MARKET_ENABLED ? [
+      { label: 'Open to bets', icon: 'diamond-outline' as const, onPress: () => openToBets() },
+    ] : []),
     ...(!isSharedGoal ? [
       { label: 'Share with a friend', icon: 'person-add-outline' as const, onPress: () => setShowShareModal(true) },
       { label: 'Edit goal', icon: 'create-outline' as const, onPress: () => handleEditGoal() },

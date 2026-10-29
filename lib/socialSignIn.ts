@@ -6,7 +6,7 @@ import type * as SecureStoreModule from 'expo-secure-store';
 import { getSupabase } from './supabase';
 import { finishSignIn, friendly, type Result } from './account';
 import { getName, saveName } from './echo';
-import { hasExpoModule } from './nativeModules';
+import { hasExpoModule, hasTurboModule } from './nativeModules';
 import type { SyncReport } from './cloudSync';
 import { AUTH_REDIRECT, isAuthCallbackURL } from './authRedirect';
 
@@ -17,8 +17,11 @@ import { AUTH_REDIRECT, isAuthCallbackURL } from './authRedirect';
  * emailed code, so backup, restore and friends do not care which was used.
  *
  * Apple is native: the system sheet returns an identity token that Supabase
- * verifies. Google goes through Supabase's OAuth page in a secure in-app
- * browser and comes back to habyss://auth-callback with a one-time code.
+ * verifies. Google is native too where the build has Google's sign-in and an
+ * iOS client ID (EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID): Google's own sheet, which
+ * names google.com, then the same identity-token handoff. Otherwise it goes
+ * through Supabase's OAuth page in a secure in-app browser (which names the
+ * Supabase address) and comes back to habyss://auth-callback with a code.
  *
  * The native modules load on first use, not at import. A build made before
  * one of them was installed then only loses that button; importing them at the
@@ -34,6 +37,12 @@ const apple = () => load<typeof AppleAuthenticationModule>('ExpoAppleAuthenticat
 const crypto = () => load<typeof CryptoModule>('ExpoCrypto', () => require('expo-crypto'));
 const browser = () => load<typeof WebBrowserModule>('ExpoWebBrowser', () => require('expo-web-browser'));
 const secureStore = () => load<typeof SecureStoreModule>('ExpoSecureStore', () => require('expo-secure-store'));
+/** Google's own sign-in, when this build has it and an iOS client ID is set. */
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+const nativeGoogle = () => {
+    if (Platform.OS !== 'ios' || !GOOGLE_IOS_CLIENT_ID || !hasTurboModule('RNGoogleSignin')) return null;
+    try { return require('@react-native-google-signin/google-signin') as typeof import('@react-native-google-signin/google-signin'); } catch { return null; }
+};
 const APPLE_PROFILE_KEY = 'habyss_apple_pending_profile';
 
 type AppleProfile = { full_name: string; given_name?: string; middle_name?: string; family_name?: string };
@@ -181,6 +190,20 @@ export function signInWithGoogle(): Promise<SocialResult> {
 async function performGoogleSignIn(): Promise<SocialResult> {
     const sb = getSupabase();
     if (!sb) return { ok: false, error: 'Accounts are not set up in this build.' };
+
+    const google = nativeGoogle();
+    if (google) {
+        const { GoogleSignin, isSuccessResponse } = google;
+        GoogleSignin.configure({ iosClientId: GOOGLE_IOS_CLIENT_ID });
+        const response = await GoogleSignin.signIn();
+        if (!isSuccessResponse(response)) return CANCELLED;
+        const token = response.data.idToken;
+        if (!token) return { ok: false, error: 'Google didn’t send back who you are. Try again.' };
+        const signed = await sb.auth.signInWithIdToken({ provider: 'google', token });
+        if (signed.error || !signed.data.user) return { ok: false, error: friendly(signed.error?.message ?? 'Sign in with Google did not work.') };
+        return finishSignIn(signed.data.user.id);
+    }
+
     const { data, error } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: {

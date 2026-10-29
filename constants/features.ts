@@ -6,3 +6,10 @@
  * RevenueCat key on the build, everyone has everything, as when this is false.
  */
 export const PAYWALL_ENABLED = true;
+
+/**
+ * MARKET_ENABLED: betting Marks on friends' goals (lib/market.ts). Marks are
+ * never bought or cashed out, but Apple's age rating counts this as simulated
+ * gambling; false hides every way in, and nothing else changes.
+ */
+export const MARKET_ENABLED = true;
