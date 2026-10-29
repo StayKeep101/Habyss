@@ -390,11 +390,15 @@ function InnerLayout() {
             emit('habit_completion_updated', {});
             emit('tasks_changed');
           }
+          if (!leavingApp) {
+            // The moments first (a goal reached, the day won): they answer the tick just made,
+            // so they never wait behind the widgets and Live Activities below.
+            await require('@/lib/dayComplete').checkDayComplete();
+            await require('@/lib/milestones').checkMilestones();
+          }
           await syncWidgets();
           if (leavingApp) continue;
           await require('@/lib/scheduledActivities').refreshScheduledActivities();
-          await require('@/lib/dayComplete').checkDayComplete();
-          await require('@/lib/milestones').checkMilestones();
         } while (again && alive);
       } catch (error) { console.warn('Could not refresh widgets or scheduled activities', error); }
       finally { running = false; }

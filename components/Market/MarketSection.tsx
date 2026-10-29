@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import {
-    AppButton, AppIcon, Avatar, ChoicePill, EmptyState, IconTile, ListItem, SectionTitle, SettingsGroup, SettingsRow, SheetSection, Text, VoidCard, VoidSheet,
+    AppButton, AppIcon, AppTextField, Avatar, ChoicePill, EmptyState, IconTile, ListItem, SectionTitle, SettingsGroup, SettingsRow, SheetSection, Text, VoidCard, VoidSheet,
 } from '@/components/ui';
 import { AnimatedFill } from '@/components/ui/Motion';
 import { useTokens } from '@/hooks/useTokens';
@@ -132,10 +132,16 @@ function StakeSheet({ market, side, spendable, onClose }: { market: Market; side
     const already = market.myStake?.amount ?? 0;
     const room = MAX_STAKE - already;
     const [amount, setAmount] = useState<number>(Math.min(STAKES[0], room));
+    // Your own amount, typed: any whole number of Shards up to what is left of the 100 for this goal.
+    const [typing, setTyping] = useState(false);
+    const [typed, setTyped] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const back = payoutFor(amount, side, market.pool, already);
+    const typedAmount = Math.floor(Number(typed));
+    const stake = typing ? (Number.isFinite(typedAmount) ? typedAmount : 0) : amount;
+    const tooMuch = stake > room || (spendable !== null && stake > spendable);
+    const back = payoutFor(Math.max(0, stake), side, market.pool, already);
     const who = market.mine ? 'you' : market.name;
     const verb = side === 'make' ? (market.mine ? 'make it' : 'makes it') : (market.mine ? 'miss it' : 'misses it');
     const otherSide = market.pool[side === 'make' ? 'miss' : 'make'];
@@ -143,7 +149,7 @@ function StakeSheet({ market, side, spendable, onClose }: { market: Market; side
         setBusy(true);
         setError(null);
         try {
-            await placeStake(market.id, side, amount);
+            await placeStake(market.id, side, stake);
             successFeedback();
             onClose();
         } catch (failed) {
@@ -157,21 +163,31 @@ function StakeSheet({ market, side, spendable, onClose }: { market: Market; side
         <VoidSheet visible onClose={onClose} title={side === 'make' ? 'Makes it' : 'Misses it'} caption={market.title}
             footer={
                 <View style={styles.footer}>
-                    <AppButton label={`Bet ${amount} Shards`} icon="diamond" loading={busy} disabled={amount <= 0 || (spendable !== null && spendable < amount)} onPress={place} />
+                    <AppButton label={stake > 0 ? `Bet ${stake} Shards` : 'Bet'} icon="diamond" loading={busy} disabled={stake <= 0 || tooMuch} onPress={place} />
                 </View>
             }>
             <View style={styles.body}>
                 <SheetSection first title="How much" description={spendable === null ? `Up to ${MAX_STAKE} Shards per goal.` : `You have ${spendable.toLocaleString()} Shards. Up to ${MAX_STAKE} per goal.`}>
                     <View style={styles.amounts}>
                         {STAKES.filter(value => value <= room).map(value => (
-                            <ChoicePill key={value} label={String(value)} icon="diamond" on={amount === value} color={t.color.accent}
+                            <ChoicePill key={value} label={String(value)} icon="diamond" on={!typing && amount === value} color={t.color.accent}
                                 disabled={spendable !== null && spendable < value} accessibilityLabel={`${value} Shards`}
-                                onPress={() => { selectionFeedback(); setAmount(value); }} />
+                                onPress={() => { selectionFeedback(); setTyping(false); setAmount(value); }} />
                         ))}
+                        <ChoicePill label="Other" icon="create" on={typing} color={t.color.accent} accessibilityLabel="Another amount"
+                            onPress={() => { selectionFeedback(); setTyping(true); }} />
                     </View>
+                    {typing ? (
+                        <View style={styles.typed}>
+                            <AppTextField label="Shards" value={typed} onChangeText={text => setTyped(text.replace(/[^0-9]/g, ''))}
+                                placeholder={`1 to ${spendable === null ? room : Math.min(room, spendable)}`} keyboardType="number-pad" autoFocus maxLength={3}
+                                error={tooMuch ? (stake > room ? `Up to ${room} more on this goal.` : 'You don’t have that many Shards.') : undefined} />
+                        </View>
+                    ) : null}
                 </SheetSection>
                 <SettingsGroup title="If it goes your way">
-                    <SettingsRow icon="trophy" color={t.color.success} label={`If ${who} ${verb}`} value={`${back} back`} />
+                    {/* Your stake back plus your share of the other side's: said as both. */}
+                    <SettingsRow icon="trophy" color={t.color.success} label={`If ${who} ${verb}`} value={`${back} back · +${Math.max(0, back - already - Math.max(0, stake))}`} />
                     <SettingsRow icon="people" color={t.color.accent} label="On the other side" value={otherSide ? `${otherSide} Shards` : 'Nobody yet'} />
                 </SettingsGroup>
                 {/* With nobody on the other side, the bet is only ever refunded: said once, plainly. */}
@@ -230,6 +246,7 @@ const styles = StyleSheet.create({
     sides: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -Spacing.xs },
     buttons: { flexDirection: 'row', gap: Spacing.sm },
     amounts: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
+    typed: { marginTop: Spacing.md },
     // A sheet that does not scroll pads its own content and footer, as every sheet in the app does.
     body: { gap: Spacing.lg, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg },
     footer: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm },

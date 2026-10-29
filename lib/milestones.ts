@@ -131,7 +131,11 @@ export async function checkMilestones(): Promise<void> {
         const [stored, completions, skipped, data, target] = await Promise.all([
             getHabits(), getCompletions(today), getSkipped(today), loadedData(), getDailyTarget(),
         ]);
-        const tasks = data.tasks;
+        // Read from storage, not the in-memory copy: that one reloads after a change,
+        // and reading it first left a goal reached by the task just ticked
+        // unannounced until the next tick.
+        const { getTasks } = require('./tasks') as typeof import('./tasks');
+        const tasks = await getTasks({ includeDone: true }).catch(() => data.tasks);
 
         // Goals written before "reach it" and "add it up" were told apart (a
         // 7 CGPA, a 10 km run) are read again from their words, once: the

@@ -166,7 +166,10 @@ export async function checkDayComplete(): Promise<void> {
         const [habits, completions, skipped, data, target] = await Promise.all([
             getHabits(), getCompletions(today), getSkipped(today), loadedData(), getDailyTarget(),
         ]);
-        const tasks = data.tasks;
+        // From storage, not the in-memory copy, which reloads after a change: the
+        // task just ticked counts on this pass, not the next.
+        const { getTasks } = require('./tasks') as typeof import('./tasks');
+        const tasks = await getTasks({ includeDone: true }).catch(() => data.tasks);
         const tally = tallyDay(habits, completions, skipped, tasks, today, target);
         // The first thing finished keeps the streak, so that is the moment
         // worth marking, not the last. Cheap check first, before any history.
