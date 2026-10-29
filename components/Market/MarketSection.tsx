@@ -95,19 +95,19 @@ function MarketCard({ market, onBet }: { market: Market; onBet: (side: Side) => 
 
             {/* Both sides, as one bar: backing on the left, doubting on the right. */}
             <View style={[styles.track, { backgroundColor: t.tint('subtle', t.color.danger) }]}
-                accessible accessibilityLabel={`${market.pool.make} Shards say they make it, ${market.pool.miss} say they miss it`}>
+                accessible accessibilityLabel={`${market.pool.make} Shards on makes it, ${market.pool.miss} on misses it`}>
                 <AnimatedFill progress={share} style={[styles.fill, { backgroundColor: t.color.success }]} />
             </View>
             <View style={styles.sides}>
-                <Text variant="caption" tone="success" numeric>{`◆ ${market.pool.make} makes it · ${market.people.make}`}</Text>
-                <Text variant="caption" tone="danger" numeric>{`${market.people.miss} · misses it ◆ ${market.pool.miss}`}</Text>
+                <Text variant="caption" tone="success" numeric>{`${market.pool.make} on makes it`}</Text>
+                <Text variant="caption" tone="danger" numeric>{`${market.pool.miss} on misses it`}</Text>
             </View>
 
             {stake ? (
                 <Text variant="bodySmall" tone={result === null ? 'muted' : result > 0 ? 'success' : result < 0 ? 'danger' : 'muted'}>
                     {result === null
-                        ? `You: ◆ ${stake.amount} on ${stake.side === 'make' ? 'makes it' : 'misses it'}`
-                        : result > 0 ? `You won ◆ ${result}` : result < 0 ? `You lost ◆ ${-result}` : 'Your Shards are back'}
+                        ? `You put ${stake.amount} Shards on ${stake.side === 'make' ? 'makes it' : 'misses it'}`
+                        : result > 0 ? `You won ${result} Shards` : result < 0 ? `You lost ${-result} Shards` : 'Your Shards are back'}
                 </Text>
             ) : null}
 
@@ -155,21 +155,29 @@ function StakeSheet({ market, side, spendable, onClose }: { market: Market; side
 
     return (
         <VoidSheet visible onClose={onClose} title={side === 'make' ? 'Makes it' : 'Misses it'} caption={market.title}
-            footer={<AppButton label={`Bet ◆ ${amount}`} icon="diamond" loading={busy} disabled={amount <= 0 || (spendable !== null && spendable < amount)} onPress={place} />}>
-            <SheetSection first title="How much" description={spendable === null ? `Up to ◆ ${MAX_STAKE} per goal.` : `You have ◆ ${spendable.toLocaleString()} to spend. Up to ◆ ${MAX_STAKE} per goal.`}>
-                <View style={styles.amounts}>
-                    {STAKES.filter(value => value <= room).map(value => (
-                        <ChoicePill key={value} label={`◆ ${value}`} on={amount === value} color={t.color.accent}
-                            disabled={spendable !== null && spendable < value}
-                            onPress={() => { selectionFeedback(); setAmount(value); }} />
-                    ))}
+            footer={
+                <View style={styles.footer}>
+                    <AppButton label={`Bet ${amount} Shards`} icon="diamond" loading={busy} disabled={amount <= 0 || (spendable !== null && spendable < amount)} onPress={place} />
                 </View>
-            </SheetSection>
-            <SettingsGroup title="If it goes your way">
-                <SettingsRow icon="trophy" color={t.color.success} label={`If ${who} ${verb}`} value={`◆ ${back} back`} />
-                <SettingsRow icon="people" color={t.color.accent} label="On the other side" value={otherSide ? `◆ ${otherSide}` : 'Nobody yet: you’d get yours back'} />
-            </SettingsGroup>
-            {error ? <Text variant="bodySmall" tone="danger">{error}</Text> : null}
+            }>
+            <View style={styles.body}>
+                <SheetSection first title="How much" description={spendable === null ? `Up to ${MAX_STAKE} Shards per goal.` : `You have ${spendable.toLocaleString()} Shards. Up to ${MAX_STAKE} per goal.`}>
+                    <View style={styles.amounts}>
+                        {STAKES.filter(value => value <= room).map(value => (
+                            <ChoicePill key={value} label={String(value)} icon="diamond" on={amount === value} color={t.color.accent}
+                                disabled={spendable !== null && spendable < value} accessibilityLabel={`${value} Shards`}
+                                onPress={() => { selectionFeedback(); setAmount(value); }} />
+                        ))}
+                    </View>
+                </SheetSection>
+                <SettingsGroup title="If it goes your way">
+                    <SettingsRow icon="trophy" color={t.color.success} label={`If ${who} ${verb}`} value={`${back} back`} />
+                    <SettingsRow icon="people" color={t.color.accent} label="On the other side" value={otherSide ? `${otherSide} Shards` : 'Nobody yet'} />
+                </SettingsGroup>
+                {/* With nobody on the other side, the bet is only ever refunded: said once, plainly. */}
+                {otherSide ? null : <Text variant="caption" tone="muted">If nobody bets the other way, you get your Shards back.</Text>}
+                {error ? <Text variant="bodySmall" tone="danger">{error}</Text> : null}
+            </View>
         </VoidSheet>
     );
 }
@@ -222,4 +230,7 @@ const styles = StyleSheet.create({
     sides: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -Spacing.xs },
     buttons: { flexDirection: 'row', gap: Spacing.sm },
     amounts: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
+    // A sheet that does not scroll pads its own content and footer, as every sheet in the app does.
+    body: { gap: Spacing.lg, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg },
+    footer: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm },
 });

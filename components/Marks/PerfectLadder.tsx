@@ -1,9 +1,10 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { AnimatedFill, PopIn } from '@/components/ui/Motion';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
-import { FontFamily, Spacing } from '@/theme/designSystem';
+import { Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { MAX_MULTIPLIER } from '@/lib/marks';
@@ -27,8 +28,8 @@ export function PerfectLadder({ multiplier, run }: { multiplier: number; run: nu
         <View style={styles.wrap} accessible accessibilityLabel={`Perfect days: ${run} in a row, ×${multiplier}. ${top ? 'Top multiplier.' : `${DAYS_PER_STEP - intoStep} more for ×${multiplier + 1}.`} Missing a day resets it to ×1.`}>
             <View style={styles.head}>
                 <AppIcon name="flame" size={16} color={run > 0 ? colors.warning : colors.textTertiary} />
-                <Text style={[styles.run, { color: colors.textPrimary }]}>{run}</Text>
-                <Text style={[styles.times, { color: primary }]}>×{multiplier}</Text>
+                <Text variant="title" numeric>{String(run)}</Text>
+                <View style={styles.times}><Text variant="title" tone="accent" numeric>{`×${multiplier}`}</Text></View>
             </View>
 
             <View style={styles.steps}>
@@ -42,7 +43,7 @@ export function PerfectLadder({ multiplier, run }: { multiplier: number; run: nu
                                 borderColor: reached ? primary : colors.border,
                                 transform: [{ scale: current ? 1.25 : 1 }],
                             }]} />
-                            <Text style={[styles.stepLabel, { color: current ? colors.textPrimary : colors.textTertiary }]}>×{step}</Text>
+                            <Text variant="caption" numeric tone={current ? 'primary' : 'muted'}>{`×${step}`}</Text>
                         </PopIn>
                     );
                 })}
@@ -53,7 +54,7 @@ export function PerfectLadder({ multiplier, run }: { multiplier: number; run: nu
                     <View style={[styles.track, { backgroundColor: colors.border }]}>
                         <AnimatedFill progress={intoStep / DAYS_PER_STEP} style={[styles.fill, { backgroundColor: primary }]} replay={run} />
                     </View>
-                    <Text style={[styles.nextLabel, { color: colors.textSecondary }]}>{intoStep}/{DAYS_PER_STEP} → ×{multiplier + 1}</Text>
+                    <Text variant="caption" tone="muted" numeric>{`${intoStep}/${DAYS_PER_STEP} → ×${multiplier + 1}`}</Text>
                 </View>
             )}
         </View>
@@ -63,14 +64,11 @@ export function PerfectLadder({ multiplier, run }: { multiplier: number; run: nu
 const styles = StyleSheet.create({
     wrap: { gap: Spacing.md },
     head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-    run: { fontFamily: FontFamily.bold, fontSize: 20, fontVariant: ['tabular-nums'] },
-    times: { fontFamily: FontFamily.bold, fontSize: 20, marginLeft: 'auto' },
+    times: { marginLeft: 'auto' },
     steps: { flexDirection: 'row', justifyContent: 'space-between' },
     step: { alignItems: 'center', gap: 4 },
     dot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1.5 },
-    stepLabel: { fontFamily: FontFamily.medium, fontSize: 11, fontVariant: ['tabular-nums'] },
     next: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     track: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
     fill: { height: '100%', borderRadius: 3 },
-    nextLabel: { fontFamily: FontFamily.medium, fontSize: 12, fontVariant: ['tabular-nums'] },
 });

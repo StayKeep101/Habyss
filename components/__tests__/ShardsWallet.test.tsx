@@ -15,6 +15,7 @@ const wallet: Wallet = {
         { t: Date.now() - 60e3, date: '2026-10-28', amount: 10, kind: 'complete', item: 'task', title: 'Send proposal' },
         { t: Date.now() - 3600e3, date: '2026-10-27', amount: -25, kind: 'stake', title: 'Run a 5k' },
         { t: Date.now() - 7200e3, date: '2026-10-27', amount: -2, kind: 'miss', item: 'habit', title: 'Read' },
+        { t: Date.now() - 9000e3, date: '2026-10-27', amount: 0, kind: 'add', item: 'task', title: 'Plan the week', held: 'limit' },
     ],
 };
 
@@ -32,6 +33,8 @@ it('reads like a brokerage account: balance, the period’s change, what is on b
     expect(screen.getByText(/^Missed habit · /)).toBeTruthy();
     expect(screen.getByText('−25')).toBeTruthy();
     expect(screen.getByText('−2')).toBeTruthy();
+    // Held back by a fair-play rule: listed at 0, saying why.
+    expect(screen.getByText('Added task · Daily limit reached')).toBeTruthy();
 });
 
 it('says plainly, in its info card, that Shards are a game currency and not money', () => {
@@ -41,5 +44,5 @@ it('says plainly, in its info card, that Shards are a game currency and not mone
     expect(screen.getByText('Game currency only')).toBeTruthy();
     expect(screen.getByText(/aren’t real money and have no cash value/)).toBeTruthy();
     expect(screen.getByText('Fair play')).toBeTruthy();
-    expect(screen.getByText('Made and finished the same day')).toBeTruthy();
+    expect(screen.getByText(/No farming/)).toBeTruthy();
 });

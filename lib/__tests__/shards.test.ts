@@ -17,6 +17,7 @@ const task = (over: Partial<Task> = {}): Task => ({
 });
 const at = (day: string, h: number, m = 0) => new Date(`${day}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`).getTime();
 const balance = (moves: ReturnType<typeof shardMoves>, now = at(TODAY, 23)) => { const points = walletPoints(moves, now); return points[points.length - 1].value; };
+const paying = (moves: ReturnType<typeof shardMoves>) => moves.filter(move => move.amount !== 0);
 const event = (over: Partial<MarkEvent>): MarkEvent => ({ date: '2026-10-03', points: 10, kind: 'complete', item: 'task', title: 'x', ...over });
 
 describe('Shards follow the record: earned by doing, lost by missing', () => {
@@ -48,23 +49,28 @@ describe('Shards cannot be farmed', () => {
         const tasks = Array.from({ length: 30 }, (_, index) => task({ id: `t${index}`, status: 'done', createdAt: '2026-10-04T09:00:00', completedAt: '2026-10-04T09:01:00' }));
         const marks = computeMarks({ habits: [], tasks, history: {}, today: TODAY });
         const moves = shardMoves(marks.ledger, {});
-        expect(moves.filter(move => move.kind === 'complete')).toHaveLength(0);
+        expect(paying(moves).filter(move => move.kind === 'complete')).toHaveLength(0);
+        // Still listed, saying why, so nobody wonders.
+        expect(moves.filter(move => move.kind === 'complete').every(move => move.held === 'same day')).toBe(true);
+        expect(moves.some(move => move.kind === 'add' && move.held === 'limit')).toBe(true);
         // Adding them all pays at most the daily cap for adding.
         expect(moves.filter(move => move.kind === 'add').reduce((sum, move) => sum + move.amount, 0)).toBe(SHARDS.addCap);
     });
 
     it('pay nothing for a habit ticked days after the day it counts for', () => {
         const late = shardMoves([event({ item: 'habit', id: 'h', points: 5 })], { 'h:2026-10-03': at('2026-10-06', 9) });
-        expect(late).toHaveLength(0);
+        expect(paying(late)).toHaveLength(0);
+        expect(late[0].held).toBe('late');
         // The next morning is fine: logging yesterday.
-        expect(shardMoves([event({ item: 'habit', id: 'h', points: 5 })], { 'h:2026-10-03': at('2026-10-04', 8) })).toHaveLength(1);
+        expect(paying(shardMoves([event({ item: 'habit', id: 'h', points: 5 })], { 'h:2026-10-03': at('2026-10-04', 8) }))).toHaveLength(1);
     });
 
     it('pay a goal only once it has lived a few days, and two milestones a day at most', () => {
-        expect(shardMoves([event({ item: 'goal', points: 50, madeOn: '2026-10-02' })], {})).toHaveLength(0);
-        expect(shardMoves([event({ item: 'goal', points: 50, madeOn: '2026-09-28' })], {})).toHaveLength(1);
+        expect(paying(shardMoves([event({ item: 'goal', points: 50, madeOn: '2026-10-02' })], {}))).toHaveLength(0);
+        expect(shardMoves([event({ item: 'goal', points: 50, madeOn: '2026-10-02' })], {})[0].held).toBe('new goal');
+        expect(paying(shardMoves([event({ item: 'goal', points: 50, madeOn: '2026-09-28' })], {}))).toHaveLength(1);
         const milestones = Array.from({ length: 5 }, (_, index) => event({ item: 'milestone', points: 30, title: `m${index}` }));
-        expect(shardMoves(milestones, {})).toHaveLength(SHARDS.milestonesPerDay);
+        expect(paying(shardMoves(milestones, {}))).toHaveLength(SHARDS.milestonesPerDay);
     });
 
     it('stop at the daily cap, however much is done', () => {
