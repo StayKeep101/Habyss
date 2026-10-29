@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '@/components/ui/Avatar';
+import { Crown } from '@/components/ui/Crown';
 import { ListItem } from '@/components/ui/Motion';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing } from '@/theme/designSystem';
@@ -9,7 +10,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { STATUS_LABEL, type FriendStatus } from '@/lib/presence';
 import { StatusBadge } from './StatusBadge';
 
-export interface RailFriend { userId: string; name: string; avatarUrl?: string; status: FriendStatus }
+export interface RailFriend { userId: string; name: string; avatarUrl?: string; status: FriendStatus; /** Holds King of the Week's crown. */ crowned?: boolean }
 
 const FACE = 60;
 /** Who is doing something comes first: locked in, then live, then the rest. */
@@ -35,11 +36,15 @@ export function FriendsRail({ friends, onOpen }: { friends: RailFriend[]; onOpen
             {sorted.map((friend, index) => (
                 <ListItem key={friend.userId} index={index}>
                     <Pressable onPress={() => onOpen(friend)} style={styles.cell}
-                        accessibilityRole="button" accessibilityLabel={`${friend.name}, ${STATUS_LABEL[friend.status]}`}>
-                        <Avatar name={friend.name} uri={friend.avatarUrl} size={FACE}
-                            ring={friend.status === 'focus' ? primary : undefined}
-                            dim={friend.status === 'asleep'}
-                            badge={badgeFor(friend.status)} />
+                        accessibilityRole="button" accessibilityLabel={`${friend.name}, ${STATUS_LABEL[friend.status]}${friend.crowned ? ', holds the crown' : ''}`}>
+                        <View>
+                            <Avatar name={friend.name} uri={friend.avatarUrl} size={FACE}
+                                ring={friend.status === 'focus' ? primary : undefined}
+                                dim={friend.status === 'asleep'}
+                                badge={badgeFor(friend.status)} />
+                            {/* The crown, sitting on top of the face. */}
+                            {friend.crowned ? <View style={styles.crown} pointerEvents="none"><Crown size={22} /></View> : null}
+                        </View>
                         <Text numberOfLines={1} style={[styles.label, {
                             color: friend.status === 'focus' ? primary : friend.status === 'live' ? colors.success : colors.textTertiary,
                         }]}>
@@ -53,6 +58,7 @@ export function FriendsRail({ friends, onOpen }: { friends: RailFriend[]; onOpen
 }
 
 const styles = StyleSheet.create({
+    crown: { position: 'absolute', top: -12, alignSelf: 'center' },
     row: { gap: Spacing.lg, paddingVertical: Spacing.xs, paddingRight: Spacing.xl },
     cell: { width: FACE + Spacing.sm, alignItems: 'center', gap: Spacing.xs + 2 },
     label: { fontSize: 11, fontFamily: FontFamily.medium, maxWidth: FACE + Spacing.md },

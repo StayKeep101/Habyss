@@ -6,6 +6,7 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { AppIcon } from '@/components/ui/AppIcon';
+import { Crown } from '@/components/ui/Crown';
 import { Avatar } from '@/components/ui/Avatar';
 import { CountUp } from '@/components/ui/Motion';
 import { Colors } from '@/theme/colors';
@@ -38,8 +39,10 @@ const postedLabel = (postedAt: string) => {
  * (Proud of you, On fire, The comeback, Again tomorrow?); tapping another
  * changes it, tapping it again takes it back. Who reacted, and how, is shown.
  */
-export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, myReaction, reactions, ackFaces, onReact, onOpenAuthor, onReport }: {
+export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, myReaction, reactions, ackFaces, onReact, onOpenAuthor, onReport, crowned }: {
     name: string;
+    /** Holds King of the Week's crown: shown beside the name. */
+    crowned?: boolean;
     avatarUrl?: string;
     /** The author's status now, as a mark on their photo. */
     status?: FriendStatus;
@@ -118,7 +121,10 @@ export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, myR
                         <Avatar name={name} uri={avatarUrl} size={42} badge={status ? <StatusBadge status={status} size={16} /> : undefined} />
                     </Pressable>
                     <View style={styles.headText}>
-                        <Text numberOfLines={1} style={[styles.name, { color: colors.textPrimary }]}>{mine ? 'You' : name}</Text>
+                        <View style={styles.nameRow}>
+                            <Text numberOfLines={1} style={[styles.name, { color: colors.textPrimary }]}>{mine ? 'You' : name}</Text>
+                            {crowned ? <Crown size={16} /> : null}
+                        </View>
                         <Text style={[styles.meta, { color: colors.textTertiary }]}>{postedLabel(postedAt)}</Text>
                     </View>
                     <ProgressRing progress={share} size="sm" tone={allDone ? 'success' : 'accent'} accessibilityLabel={`${done} of ${total} done`} />
@@ -185,6 +191,7 @@ export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, myR
 }
 
 const styles = StyleSheet.create({
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     card: { marginBottom: Spacing.md },
     body: { padding: Spacing.lg, gap: Spacing.md },
     head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },

@@ -11,6 +11,8 @@ export interface SwitcherOption<T extends string> {
     id: T;
     label: string;
     icon: IconName;
+    /** Something new there: a small dot on its icon (and said to VoiceOver). */
+    dot?: boolean;
 }
 
 
@@ -47,11 +49,14 @@ export function ViewSwitcher<T extends string>({ options, value, onChange, accen
                         key={option.id}
                         accessibilityRole="tab"
                         accessibilityState={{ selected }}
-                        accessibilityLabel={option.label}
+                        accessibilityLabel={option.dot ? `${option.label}, new` : option.label}
                         onPress={() => { if (!selected) selectionFeedback(); onChange(option.id); }}
                         style={styles.segment}
                     >
-                        <AppIcon filled={selected} name={option.icon} size={18} color={selected ? accent : colors.textTertiary} />
+                        <View>
+                            <AppIcon filled={selected} name={option.icon} size={18} color={selected ? accent : colors.textTertiary} />
+                            {option.dot && !selected ? <View style={[styles.dot, { backgroundColor: accent, borderColor: colors.background }]} /> : null}
+                        </View>
                         <Text numberOfLines={1} style={[styles.label, { color: selected ? colors.textPrimary : colors.textTertiary }]}>
                             {option.label}
                         </Text>
@@ -73,4 +78,5 @@ const styles = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: '100%',
     },
     label: { fontSize: 13, fontFamily: FontFamily.medium },
+    dot: { position: 'absolute', top: -2, right: -4, width: 9, height: 9, borderRadius: 5, borderWidth: 1.5 },
 });

@@ -82,7 +82,8 @@ export function shardMoves(
         return undefined;
     };
     const timed = ledger
-        .filter(event => event.points !== 0)
+        // Missions earn Marks (XP), not Shards.
+        .filter(event => event.points !== 0 && event.item !== 'mission')
         .map(event => {
             const from = startOf(event.date);
             const tick = event.item === 'habit' && event.id ? ticks[`${event.id}:${event.date}`] : undefined;

@@ -32,6 +32,11 @@ import { Overlay } from '@/components/ui/Overlay';
 import { SealedDayCard } from '@/components/Community/SealedDayCard';
 import { CrewQuest } from '@/components/Community/CrewQuest';
 import { MarketSection } from '@/components/Market/MarketSection';
+import { WeekView } from '@/components/Community/WeekView';
+import { CrownMoment } from '@/components/Community/CrownMoment';
+import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
+import { useCrewWeek } from '@/hooks/useCrewWeek';
+import { marketFeed } from '@/lib/market';
 import { MARKET_ENABLED } from '@/constants/features';
 import { questStanding, questWeek, type CrewMember } from '@/lib/crewQuest';
 import { useWeekStart } from '@/hooks/useWeekStart';
@@ -57,9 +62,12 @@ const QUEST_CHEERED = 'habyss_crew_quest_cheered';
 /**
  * Community: what your friends are doing right now, and how their days went.
  *
- * Along the top, every friend's face and status — locked in, live, asleep.
- * Below, the feed: each person's day, posted at the time they chose, which
- * friends react to. The leaderboard is one tap away in the header.
+ * In three views, each with a dot when something there is new. Today: every
+ * friend's face and status (the crown on whoever holds it), who is focusing,
+ * and the feed of everyone's day. This week: King of the Week and the race
+ * for the next crown, the king's challenge, your secret mission and last
+ * week's secrets, the crew quest. Bets: friends' goals open to Shards. The
+ * leaderboard is one tap away in the header.
  */
 export default function CommunityScreen() {
     const { theme } = useTheme();
@@ -70,6 +78,11 @@ export default function CommunityScreen() {
     const { horizontalPadding, topSpacing, tabBarClearance } = useResponsiveLayout();
 
     const [gate, setGate] = useState<'signed_out' | 'needs_username' | null | undefined>(undefined);
+    // Community in three: today (who's around, their days), this week (the crown,
+    // your mission, the crew quest), and bets. Each says when something there is new.
+    const [view, setView] = useState<'today' | 'week' | 'bets'>('today');
+    const week = useCrewWeek(gate === null);
+    const [betsNew, setBetsNew] = useState(false);
     const [me, setMe] = useState<{ id: string; name: string } | null>(null);
     // Your own name and photo come from the one profile store, not the server's copy.
     const myProfile = useMyProfile();
@@ -176,7 +189,7 @@ export default function CommunityScreen() {
     const onRefresh = async () => {
         thud();
         setRefreshing(true);
-        if (online) await load();
+        if (online) { week.reload(); await load(); }
         setRefreshing(false);
         if (!online) setTimeout(() => setJoke(value => value + 1), 350);
     };
@@ -190,9 +203,21 @@ export default function CommunityScreen() {
         setLoadingMore(false);
     };
 
+    const kingId = week.king?.userId ?? null;
     const rail = useMemo<RailFriend[]>(() => statuses.map(row => ({
-        userId: row.userId, name: row.name, avatarUrl: row.avatarUrl, status: statusOf(row, clock),
-    })), [statuses, clock]);
+        userId: row.userId, name: row.name, avatarUrl: row.avatarUrl, status: statusOf(row, clock), crowned: row.userId === kingId,
+    })), [statuses, clock, kingId]);
+
+    // Bets: new when a friend's goal is open and you have nothing on it yet.
+    useFocusEffect(useCallback(() => {
+        if (!MARKET_ENABLED || gate !== null) return;
+        marketFeed().then(markets => setBetsNew(markets.some(market => market.status === 'open' && !market.mine && !market.myStake))).catch(() => undefined);
+    }, [gate]));
+    const choose = (next: 'today' | 'week' | 'bets') => {
+        setView(next);
+        if (next === 'week') week.markSeen();
+        if (next === 'bets') setBetsNew(false);
+    };
 
     /** Names and faces for the people who acknowledged a post. */
     const people = useMemo(() => {
@@ -298,7 +323,17 @@ export default function CommunityScreen() {
 
             {gate ? <FriendsGate needsUsername={gate === 'needs_username'} onReady={() => { void load(); }} /> : null}
 
-            {gate === null && requests.length > 0 ? (
+            {gate === null ? (
+                <View style={styles.block}>
+                    <ViewSwitcher accent={primary} value={view} onChange={choose} options={[
+                        { id: 'today', label: 'Today', icon: 'sunny' },
+                        { id: 'week', label: 'This week', icon: 'calendar', dot: week.fresh },
+                        ...(MARKET_ENABLED ? [{ id: 'bets' as const, label: 'Bets', icon: 'trending-up' as const, dot: betsNew }] : []),
+                    ]} />
+                </View>
+            ) : null}
+
+            {gate === null && view === 'today' && requests.length > 0 ? (
                 <View style={styles.block}>
                     <SectionTitle first>Requests</SectionTitle>
                     <VoidCard style={styles.requests}>
@@ -317,14 +352,14 @@ export default function CommunityScreen() {
                 </View>
             ) : null}
 
-            {gate === null && rail.length > 0 ? (
+            {gate === null && view === 'today' && rail.length > 0 ? (
                 <View style={styles.block}>
                     <FriendsRail friends={rail} onOpen={friend => openFriend(friend.userId)} />
                 </View>
             ) : null}
 
             {/* Friends locked in right now: one tap to focus beside them. */}
-            {gate === null ? (
+            {gate === null && view === 'today' ? (
                 <FocusingNow style={styles.block} friends={statuses} now={clock.getTime()} joinedHost={joinedHost}
                     onOpen={openFriend}
                     onJoin={host => {
@@ -333,13 +368,15 @@ export default function CommunityScreen() {
                     }} />
             ) : null}
 
-            {/* This week's crew quest: everyone's show-ups toward one number. */}
-            {gate === null ? <CrewQuest style={styles.block} members={crew} /> : null}
+            {/* This week: the crown and its race, the king's challenge, your secret mission, the crew quest. */}
+            {gate === null && view === 'week' ? (
+                <WeekView style={styles.block} week={week} meId={me?.id ?? null} quest={<CrewQuest members={crew} />} />
+            ) : null}
 
             {/* Friends' goals open to bets: Shards on whether they make it. */}
-            {gate === null && MARKET_ENABLED ? <MarketSection style={styles.block} /> : null}
+            {gate === null && view === 'bets' && MARKET_ENABLED ? <MarketSection style={styles.block} /> : null}
 
-            {gate === null ? <SectionTitle first>Feed</SectionTitle> : null}
+            {gate === null && view === 'today' ? <SectionTitle first>Feed</SectionTitle> : null}
         </View>
     );
 
@@ -370,7 +407,7 @@ export default function CommunityScreen() {
     return (
         <VoidShell>
             <FlatList
-                data={gate === null ? posts : []}
+                data={gate === null && view === 'today' ? posts : []}
                 keyExtractor={post => `${post.userId}:${post.day}`}
                 ListHeaderComponent={header}
                 contentContainerStyle={{ paddingTop: topSpacing + 36, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance }}
@@ -397,12 +434,13 @@ export default function CommunityScreen() {
                             onReact={reaction => void react(item, reaction)}
                             onOpenAuthor={() => (item.mine ? router.push('/(root)/profile') : openFriend(item.userId))}
                             onReport={item.mine ? undefined : () => reportPost(item)}
+                            crowned={item.userId === kingId}
                         />
                         </Animated.View>
                         )}
                     </ListItem>
                 )}
-                ListEmptyComponent={gate === null ? (
+                ListEmptyComponent={gate === null && view === 'today' ? (
                     <View style={styles.empty}>
                         <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
                             {shareTime ? `Your day posts here at ${shareTime}. Your friends' days show up at the times they choose.` : "Your friends' days show up here at the times they choose."}
@@ -419,6 +457,10 @@ export default function CommunityScreen() {
                 <Overlay>
                     <View pointerEvents="none" style={styles.cheer}><Confetti key={cheer} colors={[primary, colors.success, colors.warning, colors.textPrimary]} /></View>
                 </Overlay>
+            ) : null}
+            {/* The crown changed hands: everyone in the crew sees it once that week. */}
+            {gate === null && week.dethroned && week.king && week.previousKing ? (
+                <CrownMoment king={week.king} previous={week.previousKing} meId={me?.id ?? null} onDone={week.markCrownSeen} />
             ) : null}
             <AddFriendModal visible={showAddFriend} onClose={() => setShowAddFriend(false)} userCode={userCode} onFriendAdded={() => { void load(); }} />
         </VoidShell>

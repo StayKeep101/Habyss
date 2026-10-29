@@ -23,7 +23,7 @@ import { countedHistory, countedTasks } from './sharedGate';
 
 export const MARKS = {
     add: { habit: 1, task: 2, goal: 5 },
-    complete: { habit: 5, task: 10, goal: 50, sleep: 20, milestone: 30 },
+    complete: { habit: 5, task: 10, goal: 50, sleep: 20, milestone: 30, mission: 50 },
     miss: { habit: -2, task: -4, goal: -15, sleep: -20 },
 } as const;
 
@@ -109,7 +109,7 @@ export function rankFor(marks: number): { rank: Rank; next: Rank | null; progres
 }
 
 export type MarkKind = 'add' | 'complete' | 'miss';
-export type MarkItem = 'habit' | 'task' | 'goal' | 'sleep' | 'focus' | 'milestone';
+export type MarkItem = 'habit' | 'task' | 'goal' | 'sleep' | 'focus' | 'milestone' | 'mission';
 
 export interface MarkEvent {
     date: string;
@@ -139,6 +139,8 @@ export interface MarksInput {
     goalsCompletedOn?: Record<string, string | null | undefined>;
     /** Milestones reached on a goal: +30 each, on the day reached (lib/goalMilestones.ts). */
     milestones?: { title: string; doneAt: string }[];
+    /** Secret missions accomplished: +50 Marks each, on the day (lib/weekly.ts). XP only: Shards leave them out. */
+    missions?: { title: string; doneAt: string }[];
     /** Mornings after a night that reached the sleep goal: +20 each (sleep matters that much). */
     goodNights?: string[];
     /** Mornings after a recorded night that fell short of it: −20 each. A night with no data counts for nothing. */
@@ -269,6 +271,10 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     // ------------------------------------------------------------ milestones
     for (const milestone of input.milestones ?? []) {
         record(dayOf(milestone.doneAt), MARKS.complete.milestone, 'complete', 'milestone', milestone.title, { at: milestone.doneAt });
+    }
+
+    for (const mission of input.missions ?? []) {
+        record(dayOf(mission.doneAt), MARKS.complete.mission, 'complete', 'mission', mission.title, { at: mission.doneAt });
     }
 
     for (const night of input.goodNights ?? []) {
