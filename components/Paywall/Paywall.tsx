@@ -1,28 +1,30 @@
-import React, { useEffect, useState } from 'react';
-import { Image, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Image, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MatteSurface } from '@/components/ui/MatteSurface';
-import { MatteInput } from '@/components/ui/MatteInput';
-import { AppButton } from '@/components/ui/AppButton';
-import { IconButton } from '@/components/ui/IconButton';
-import { FontFamily, Spacing } from '@/theme/designSystem';
+import { AppButton, HoldButton, IconButton, MatteInput, StatTile, Text, VoidCard } from '@/components/ui';
+import { Control, Spacing } from '@/theme/designSystem';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccess } from '@/hooks/useAccess';
-import { FRIENDS_NEEDED, PRODUCTS, TRIAL_DAYS, buy, friendPrice, restore, startTrial } from '@/lib/access';
+import { useGoalsInsights } from '@/hooks/useGoalInsights';
+import { useMarks } from '@/hooks/useMarks';
+import { FRIENDS_NEEDED, PRODUCTS, TRIAL_DAYS, buy, challengeDay, friendPrice, restore, startTrial } from '@/lib/access';
+import { challengeReport } from '@/lib/challengeReport';
 import { priceInviteMessage } from '@/lib/referrals';
 
 type Mode = 'start' | 'ended' | 'open';
 type Prices = { full: string; friend: string };
 
 /**
- * Paying for Habyss: a free week, then one payment to keep it for good.
+ * Paying for Habyss: the 14-day challenge, then one payment to keep it for life.
  *
- * - start: before the free week, saying plainly how long it lasts, what
- *   locks after it and what it costs then (Guideline 3.1.1).
- * - ended: the week is over and the app is locked until it is bought; what
- *   you built is kept and comes back the moment you do.
- * - open: from Settings, closable.
+ * - start: before the challenge, saying plainly how long it lasts, what locks
+ *   after it and what it costs then (Guideline 3.1.1).
+ * - ended: the fourteen days are up and the whole app is locked until it is
+ *   bought. First what they did (the proof, in their own numbers), then the
+ *   price and a button held to commit; what they built comes back the moment
+ *   they do.
+ * - open: from Settings, closable: the day of the challenge, or that it is theirs.
  *
  * Everyone in an invite pays half: each friend who joins with it, and you
  * once one has; the invite is shared from here.
@@ -36,6 +38,10 @@ export function Paywall({ mode, onClose }: { mode: Mode; onClose?: () => void })
     const [prices, setPrices] = useState<Prices>({ full: '$9.99', friend: '$4.99' });
     const [busy, setBusy] = useState<'trial' | 'buy' | 'restore' | null>(null);
     const [note, setNote] = useState<string | null>(null);
+    // What the fourteen days came to, from the record the Marks keep.
+    const goalsData = useGoalsInsights();
+    const marks = useMarks(goalsData);
+    const report = useMemo(() => challengeReport(marks.ledger, goalsData.today, TRIAL_DAYS), [marks.ledger, goalsData.today]);
 
     // The store's own prices, in the person's currency.
     useEffect(() => {
@@ -46,6 +52,7 @@ export function Paywall({ mode, onClose }: { mode: Mode; onClose?: () => void })
     }, []);
 
     const price = half ? prices.friend : prices.full;
+    const day = challengeDay(access);
     const begin = async () => {
         setBusy('trial'); setNote(null);
         const result = await startTrial();
@@ -56,7 +63,7 @@ export function Paywall({ mode, onClose }: { mode: Mode; onClose?: () => void })
         setBusy('buy'); setNote(null);
         const result = await buy(half ? 'friend' : 'full');
         setBusy(null);
-        if (result === 'bought') { successFeedback(); onClose?.(); }
+        if (result === 'bought') onClose?.();
         if (result === 'failed') setNote('The App Store could not be reached. Nothing was charged. Try again in a moment.');
     };
     const bringBack = async () => {
@@ -66,14 +73,20 @@ export function Paywall({ mode, onClose }: { mode: Mode; onClose?: () => void })
         if (found) { successFeedback(); onClose?.(); } else setNote('No earlier purchase was found for this Apple ID.');
     };
 
-    const title = mode === 'start' ? `Try Habyss free for ${TRIAL_DAYS} days`
-        : mode === 'ended' ? 'Your free week is over'
-        : access.kind === 'owned' ? 'Habyss is yours' : 'Keep Habyss for good';
+    const owned = access.kind === 'owned';
+    const title = mode === 'start' ? 'The 14-day challenge'
+        : mode === 'ended' ? 'Your 14 days are up'
+        : owned ? 'Habyss is yours'
+        : day ? `Day ${day} of ${TRIAL_DAYS}` : 'Unlock Habyss';
     const body = mode === 'start'
-        ? `Everything is open for ${TRIAL_DAYS} days. After that, Habyss is ${prices.full} once, not a subscription. If you don’t buy it, the app locks, and your habits and goals wait for you.`
-        : access.kind === 'owned' ? 'Bought once, yours for good. Thank you.'
-        : access.kind === 'trial' ? `${access.daysLeft} ${access.daysLeft === 1 ? 'day' : 'days'} left of your free week. Keep everything you build with one payment, not a subscription.`
-        : 'Keep everything you’ve built with one payment, not a subscription. It all comes back the moment you do.';
+        ? `Use everything in Habyss free for ${TRIAL_DAYS} days. Motivation fades. Systems don’t. On day ${TRIAL_DAYS + 1} you’ll see what you built, then keep Habyss for life for ${prices.full}, once. No subscription. If you don’t, the app locks, and everything you built waits for you.`
+        : mode === 'ended' ? 'Motivation got you started. Here’s what you built while it faded.'
+        : owned ? 'Bought once, yours for life. Thank you.'
+        : `${TRIAL_DAYS - (day ?? TRIAL_DAYS)} ${TRIAL_DAYS - (day ?? TRIAL_DAYS) === 1 ? 'day' : 'days'} left in your challenge. Commit now and keep everything for life, one payment, no subscription.`;
+    // Said after the numbers, in their measure.
+    const verdict = report.daysShownUp >= 10 ? 'You built a system. Keep it.'
+        : report.daysShownUp >= 5 ? 'You started something real. Don’t let it stop here.'
+        : 'This is where a system takes over from motivation. Start it now.';
 
     return (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: t.color.background }]}>
@@ -84,30 +97,51 @@ export function Paywall({ mode, onClose }: { mode: Mode; onClose?: () => void })
             ) : null}
             <ScrollView contentContainerStyle={[styles.page, { paddingTop: insets.top + Spacing.xxl, paddingBottom: insets.bottom + Spacing.lg }]} showsVerticalScrollIndicator={false}>
                 <Image source={require('@/assets/images/habyss-mark.png')} style={styles.mark} resizeMode="contain" accessibilityIgnoresInvertColors />
-                <Text style={[styles.title, { color: t.color.textPrimary }]} accessibilityRole="header">{title}</Text>
-                <Text style={[styles.body, { color: t.color.textMuted }]}>{body}</Text>
+                <Text variant="screenTitle" align="center" accessibilityRole="header">{title}</Text>
+                <Text variant="body" tone="muted" align="center">{body}</Text>
 
-                {mode !== 'start' && access.kind !== 'owned' ? (
-                    <MatteSurface radius={20} style={styles.price}>
-                        <Text style={[styles.priceLabel, { color: t.color.textMuted }]}>{half ? 'Friend price' : 'One payment'}</Text>
+                {/* Day 15: the proof first, in their own numbers. */}
+                {mode === 'ended' ? (
+                    <>
+                        <VoidCard style={styles.report}>
+                            <View style={styles.row}>
+                                <StatTile value={`${report.daysShownUp}/${report.days}`} label="Days you showed up" />
+                                <StatTile value={String(report.bestRun)} label="Best run" />
+                            </View>
+                            <View style={styles.row}>
+                                <StatTile value={String(report.habitsKept)} label="Habits kept" />
+                                <StatTile value={String(report.tasksDone)} label="Tasks done" />
+                                <StatTile value={String(report.goalsReached)} label="Goals reached" />
+                            </View>
+                            <View style={styles.row}>
+                                <StatTile value={`+${report.marksEarned.toLocaleString()}`} label="Marks earned" tone="accent" />
+                            </View>
+                        </VoidCard>
+                        <Text variant="title" align="center">{verdict}</Text>
+                    </>
+                ) : null}
+
+                {mode !== 'start' && !owned ? (
+                    <VoidCard style={styles.price}>
+                        <Text variant="caption" tone="muted">{half ? 'Friend price' : 'Unlock Habyss for life'}</Text>
                         <View style={styles.priceRow}>
-                            <Text style={[styles.priceValue, { color: t.color.textPrimary }]}>{price}</Text>
-                            {half ? <Text style={[styles.priceWas, { color: t.color.textMuted }]} accessibilityLabel={`instead of ${prices.full}`}>{prices.full}</Text> : null}
+                            <Text variant="display" numeric>{price}</Text>
+                            {half ? <Text variant="heading" tone="muted" accessibilityLabel={`instead of ${prices.full}`}>{prices.full}</Text> : null}
                         </View>
-                        <Text style={[styles.priceNote, { color: t.color.textMuted }]}>Yours for good. No subscription.</Text>
-                    </MatteSurface>
+                        <Text variant="caption" tone="muted">Once. Yours for life. No subscription.</Text>
+                    </VoidCard>
                 ) : null}
 
                 {mode === 'start'
-                    ? <AppButton label={`Start ${TRIAL_DAYS} free days`} loading={busy === 'trial'} onPress={begin} />
-                    : access.kind !== 'owned'
-                        ? <AppButton label={`Buy for ${price}`} loading={busy === 'buy'} disabled={!!busy} onPress={purchase} />
+                    ? <AppButton label="Start the challenge" icon="flag" loading={busy === 'trial'} onPress={begin} />
+                    : !owned
+                        ? <HoldButton label={`Commit · ${price}`} icon="lock-open" hint="Touch and hold to commit" loading={busy === 'buy'} disabled={!!busy && busy !== 'buy'} onComplete={() => { void purchase(); }} />
                         : null}
 
-                {access.kind !== 'owned' ? <InviteCard referral={referral} /> : null}
+                {!owned ? <InviteCard referral={referral} /> : null}
 
-                {note ? <Text style={[styles.note, { color: t.color.textMuted }]} accessibilityLiveRegion="polite">{note}</Text> : null}
-                {access.kind !== 'owned' ? (
+                {note ? <Text variant="bodySmall" tone="muted" align="center" accessibilityLiveRegion="polite">{note}</Text> : null}
+                {!owned ? (
                     <AppButton label="Restore purchase" variant="ghost" loading={busy === 'restore'} disabled={!!busy} onPress={() => { lightFeedback(); void bringBack(); }} />
                 ) : null}
             </ScrollView>
@@ -142,9 +176,9 @@ function InviteCard({ referral }: { referral: { invitedBy: string | null; joined
     };
 
     return (
-        <MatteSurface radius={20} style={styles.invite}>
-            <Text style={[styles.inviteTitle, { color: t.color.textPrimary }]}>Half price with friends</Text>
-            <Text style={[styles.body, styles.left, { color: t.color.textMuted }]}>
+        <VoidCard style={styles.invite}>
+            <Text variant="heading">Half price with friends</Text>
+            <Text variant="bodySmall" tone="muted">
                 {referral?.invitedBy
                     ? `@${referral.invitedBy} invited you, so yours is half price. Every friend you invite gets it half price too.`
                     : joined >= FRIENDS_NEEDED
@@ -154,40 +188,32 @@ function InviteCard({ referral }: { referral: { invitedBy: string | null; joined
             {(referral?.joined ?? 0) > 0 ? (
                 <View style={styles.dots}>
                     <View style={[styles.dot, { backgroundColor: t.color.accent }]} />
-                    <Text style={[styles.dotsText, { color: t.color.textMuted }]}>{referral!.joined === 1 ? '1 friend joined' : `${referral!.joined} friends joined`}</Text>
+                    <Text variant="caption" tone="muted">{referral!.joined === 1 ? '1 friend joined' : `${referral!.joined} friends joined`}</Text>
                 </View>
             ) : null}
             {username ? (
                 <AppButton label="Invite friends" icon="share-outline" variant="ghost" onPress={() => { void invite(); }} />
             ) : username === null ? (
                 <>
-                    <Text style={[styles.body, styles.left, { color: t.color.textMuted }]}>Friends find you by your username. Pick one first.</Text>
+                    <Text variant="bodySmall" tone="muted">Friends find you by your username. Pick one first.</Text>
                     <MatteInput value={draft} onChangeText={setDraft} placeholder="username" autoCapitalize="none" autoCorrect={false} accessibilityLabel="Your username" />
-                    {error ? <Text style={[styles.note, { color: t.color.textMuted }]}>{error}</Text> : null}
+                    {error ? <Text variant="bodySmall" tone="danger">{error}</Text> : null}
                     <AppButton label="Save username" variant="ghost" disabled={draft.trim().length < 3} onPress={() => { void choose(); }} />
                 </>
             ) : null}
-        </MatteSurface>
+        </VoidCard>
     );
 }
 
 const styles = StyleSheet.create({
     close: { position: 'absolute', right: Spacing.lg, zIndex: 1 },
     page: { paddingHorizontal: Spacing.xl, gap: Spacing.lg, alignItems: 'stretch' },
-    mark: { width: 72, height: 72, alignSelf: 'center' },
-    title: { fontSize: 28, fontFamily: FontFamily.bold, textAlign: 'center' },
-    body: { fontSize: 15, lineHeight: 21, fontFamily: FontFamily.regular, textAlign: 'center' },
-    left: { textAlign: 'left' },
+    mark: { width: Control.hitTarget * 1.6, height: Control.hitTarget * 1.6, alignSelf: 'center' },
+    report: { paddingVertical: Spacing.lg, gap: Spacing.lg },
+    row: { flexDirection: 'row' },
     price: { padding: Spacing.lg, gap: Spacing.xs, alignItems: 'center' },
-    priceLabel: { fontSize: 13, fontFamily: FontFamily.semibold },
     priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm },
-    priceValue: { fontSize: 34, fontFamily: FontFamily.bold },
-    priceWas: { fontSize: 17, fontFamily: FontFamily.medium, textDecorationLine: 'line-through' },
-    priceNote: { fontSize: 13, fontFamily: FontFamily.regular },
     invite: { padding: Spacing.lg, gap: Spacing.sm },
-    inviteTitle: { fontSize: 17, fontFamily: FontFamily.semibold },
     dots: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-    dot: { width: 10, height: 10, borderRadius: 5 },
-    dotsText: { fontSize: 13, fontFamily: FontFamily.medium, marginLeft: Spacing.xs },
-    note: { fontSize: 13, lineHeight: 18, fontFamily: FontFamily.regular, textAlign: 'center' },
+    dot: { width: Spacing.sm, height: Spacing.sm, borderRadius: Spacing.xs },
 });

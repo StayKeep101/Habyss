@@ -43,6 +43,7 @@ import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
+import { ChallengePill } from '@/components/Home/ChallengePill';
 import { ShardsWallet } from '@/components/Shards/ShardsWallet';
 import { useWallet } from '@/hooks/useWallet';
 import { useMarks } from '@/hooks/useMarks';
@@ -464,6 +465,9 @@ const Home = () => {
             />
             <ShardsCard wallet={wallet} onPress={() => setShowWallet(true)} />
           </View>
+
+          {/* The 14-day challenge, while it runs: which day, and what comes after it. */}
+          <ChallengePill style={{ marginTop: sectionGap }} />
 
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}

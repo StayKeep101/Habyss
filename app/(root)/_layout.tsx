@@ -183,7 +183,7 @@ export default function RootLayout() {
         />
 
       </Stack>
-      {/* The free week, and the lock after it until Habyss is bought. */}
+      {/* The 14-day challenge, and the lock after it until Habyss is bought. */}
       <AccessGate />
       {/* Demon mode: far behind on tasks, the edge of the screen glows red (lib/taskPressure.ts). */}
       <DemonEdge on={demon} />

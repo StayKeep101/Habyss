@@ -26,8 +26,8 @@ export default function DeveloperScreen() {
                 <SettingsGroup title="Screens">
                     <SettingsRow icon="grid" color="#8A8A94" label="UI catalogue" onPress={() => router.push('/(root)/ui-catalog')} />
                     <SettingsRow icon="play" color="#30D158" label="Test onboarding" onPress={() => router.push({ pathname: '/(auth)/onboarding', params: { preview: '1' } } as never)} />
-                    {/* The free week, without waiting a week (this phone only; the App Store's date still counts). */}
-                    <SettingsRow icon="time" color="#FFB020" label="Free week: end it now" onPress={() => { void setTrialStartForTesting(Date.now() - TRIAL_LENGTH_MS - 1000); }} />
+                    {/* The challenge's end, without waiting two weeks (this phone only; the App Store's date still counts). */}
+                    <SettingsRow icon="time" color="#FFB020" label="Challenge: end it now" onPress={() => { void setTrialStartForTesting(Date.now() - TRIAL_LENGTH_MS - 1000); }} />
                     <SettingsRow icon="refresh" color="#64D2FF" label="Free week: start again" onPress={() => { void setTrialStartForTesting(null); }} />
                 </SettingsGroup>
                 <Text style={[styles.note, { color: colors.textTertiary }]}>Test onboarding runs the whole flow from the start and saves nothing.</Text>

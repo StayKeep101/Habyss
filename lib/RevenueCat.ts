@@ -188,7 +188,7 @@ class RevenueCatService {
         try {
             const info = await Purchases.getCustomerInfo();
             const { PRODUCTS } = require('@/lib/access') as typeof import('@/lib/access');
-            const trial = info.nonSubscriptionTransactions.find(transaction => transaction.productIdentifier === PRODUCTS.trial);
+            const trial = info.nonSubscriptionTransactions.find(transaction => transaction.productIdentifier === PRODUCTS.trial || transaction.productIdentifier === PRODUCTS.legacyTrial);
             const trialStart = trial ? new Date(trial.purchaseDate).getTime() : null;
             return { owned: this.checkProEntitlement(info), trialStart: Number.isFinite(trialStart) ? trialStart : null };
         } catch {

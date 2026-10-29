@@ -1,11 +1,12 @@
 /**
- * Whether Habyss is open to you: a 7-day free trial, then one payment of $10
- * to keep it for good, no subscription. Invites make it half price for
+ * Whether Habyss is open to you: the 14-day challenge (a free trial), then
+ * one payment of $10 to keep it for good, no subscription. Motivation carries
+ * the first two weeks; what is left after is the system, and the proof. Invites make it half price for
  * everybody in them: each friend who joins with your invite pays $5, and so do
  * you once one has joined. Invite three and all four of you pay half.
  *
  * The trial is Apple's way for an app with no subscription: a free
- * "7-day Trial" purchase (App Store Review Guideline 3.1.1), so the day it
+ * "14-day Trial" purchase (App Store Review Guideline 3.1.1), so the day it
  * started is kept by the App Store and survives a reinstall. If that product
  * cannot be reached the trial starts on this phone alone.
  *
@@ -15,7 +16,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PAYWALL_ENABLED } from '@/constants/features';
 
-export const TRIAL_DAYS = 7;
+export const TRIAL_DAYS = 14;
 /** Friends who must join with your invite before your own price halves. */
 export const FRIENDS_NEEDED = 1;
 export const PRODUCTS = {
@@ -23,8 +24,10 @@ export const PRODUCTS = {
     full: 'habyss_lifetime',
     /** $4.99, non-consumable: the friend price, half. */
     friend: 'habyss_lifetime_friend',
-    /** $0, non-consumable, named "7-day Trial". */
-    trial: 'habyss_trial_7day',
+    /** $0, non-consumable, named "14-day Trial". */
+    trial: 'habyss_trial_14day',
+    /** The earlier "7-day Trial": still honoured, so nobody who started with it is cut off. */
+    legacyTrial: 'habyss_trial_7day',
 } as const;
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -50,6 +53,10 @@ export function accessFrom({ billing, owned, trialStart, now }: { billing: boole
 
 /** Half price: you were invited, or someone you invited has joined. */
 export const friendPrice = (referral: Referral | null) => !!referral && (!!referral.invitedBy || referral.joined >= FRIENDS_NEEDED);
+
+/** Which day of the challenge it is, 1 to 14, while it runs. */
+export const challengeDay = (access: Access): number | null =>
+    access.kind === 'trial' ? Math.min(TRIAL_DAYS, Math.max(1, TRIAL_DAYS - access.daysLeft + 1)) : null;
 
 /** You can use the app: it is yours or the trial is running. */
 export const isOpen = (access: Access) => access.kind === 'owned' || access.kind === 'trial' || access.kind === 'loading';
@@ -99,7 +106,7 @@ export async function refreshAccess(): Promise<Access> {
     return access;
 }
 
-/** Starts the 7 free days (Apple's free trial purchase where there is one). */
+/** Starts the 14-day challenge (Apple's free trial purchase where there is one). */
 export async function startTrial(): Promise<'started' | 'cancelled'> {
     if (billingAvailable()) {
         const service = revenueCat();
@@ -144,13 +151,13 @@ async function remindBeforeTheEnd(start: number) {
         const at = new Date(start + (TRIAL_DAYS - 1) * DAY);
         await Notifications.scheduleNotificationAsync({
             identifier: 'habyss-trial-ending',
-            content: { title: 'Your free week ends tomorrow', body: 'Keep Habyss for good with one payment, or half price with friends.' },
+            content: { title: 'Your 14-day challenge ends tomorrow', body: 'See what you built, then keep Habyss for life with one payment.' },
             trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at },
         });
     } catch { /* a reminder is a kindness, not a requirement */ }
 }
 
-/** Developer tools: test the end of the trial without waiting a week. */
+/** Developer tools: test the end of the challenge without waiting two weeks. */
 export async function setTrialStartForTesting(start: number | null) {
     try {
         if (start === null) await AsyncStorage.removeItem(TRIAL_KEY);
