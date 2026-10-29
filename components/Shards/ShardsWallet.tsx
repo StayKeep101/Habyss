@@ -37,9 +37,9 @@ export function ShardsWallet({ visible, onClose, wallet }: { visible: boolean; o
     const [now, setNow] = useState(() => Date.now());
     useEffect(() => {
         if (!visible) return;
-        setNow(Date.now());
+        const opened = setTimeout(() => setNow(Date.now()), 0);
         const timer = setInterval(() => setNow(Date.now()), 60_000);
-        return () => clearInterval(timer);
+        return () => { clearTimeout(opened); clearInterval(timer); };
     }, [visible]);
     const [scrub, setScrub] = useState<GoalPoint | null>(null);
     const [info, setInfo] = useState(false);
