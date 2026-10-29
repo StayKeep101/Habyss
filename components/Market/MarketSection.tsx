@@ -1,44 +1,74 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { AppButton, Avatar, ChoicePill, IconTile, ListItem, SectionTitle, Text, VoidCard, VoidSheet } from '@/components/ui';
+import {
+    AppButton, AppIcon, Avatar, ChoicePill, EmptyState, IconTile, ListItem, SectionTitle, SettingsGroup, SettingsRow, SheetSection, Text, VoidCard, VoidSheet,
+} from '@/components/ui';
 import { AnimatedFill } from '@/components/ui/Motion';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { on } from '@/lib/appEvents';
-import { MAX_STAKE, STAKES, marketFeed, myWallet, payoutFor, placeStake, resultFor, type Market, type Side } from '@/lib/market';
+import { addDays } from '@/lib/goalInsights';
+import { MAX_STAKE, STAKES, marketFeed, myWallet, openMarket, payoutFor, placeStake, resultFor, type Market, type Side } from '@/lib/market';
+import type { Habit } from '@/lib/habitsSQLite';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
 
 const dueLabel = (deadline: string) =>
     `by ${new Date(`${deadline}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}`;
 
 /**
- * The market, on Community: your goals and your friends' that are open to
- * bets, each with both sides' Shards, and the bet sheet. Shown only once
- * there is something on it; a goal is opened to bets from its own page.
+ * The market, on Community: your goals and your friends' open to bets, each
+ * with both sides' Shards and a way to bet, what you have to spend beside the
+ * title, and the way to open one of your own goals. Empty, it says how it
+ * works instead of hiding.
  */
 export function MarketSection({ style }: { style?: StyleProp<ViewStyle> }) {
-    const [markets, setMarkets] = useState<Market[]>([]);
+    const t = useTokens();
+    const [markets, setMarkets] = useState<Market[] | null>(null);
+    const [spendable, setSpendable] = useState<number | null>(null);
     const [betting, setBetting] = useState<{ market: Market; side: Side } | null>(null);
-    const load = useCallback(() => { marketFeed().then(setMarkets).catch(() => undefined); }, []);
+    const [opening, setOpening] = useState(false);
+    const load = useCallback(() => {
+        marketFeed().then(setMarkets).catch(() => setMarkets([]));
+        myWallet().then(wallet => setSpendable(wallet.spendable)).catch(() => undefined);
+    }, []);
     useFocusEffect(load);
     useEffect(() => {
         const sub = on('market_changed', load);
         return () => sub.remove();
     }, [load]);
 
-    if (!markets.length) return null;
+    const openKeys = useMemo(() => new Set((markets ?? []).filter(market => market.mine && market.status === 'open').map(market => market.goalKey)), [markets]);
+
     return (
         <View style={style}>
-            <SectionTitle first>Bets</SectionTitle>
-            <View style={styles.list}>
-                {markets.map(market => (
-                    <ListItem key={market.id}>
-                        <MarketCard market={market} onBet={side => setBetting({ market, side })} />
-                    </ListItem>
-                ))}
-            </View>
-            {betting ? <StakeSheet market={betting.market} side={betting.side} onClose={() => setBetting(null)} /> : null}
+            <SectionTitle first right={spendable !== null ? (
+                <View style={styles.balance} accessible accessibilityLabel={`${spendable} Shards to spend`}>
+                    <AppIcon name="diamond" filled size={Spacing.md} color={t.color.accent} />
+                    <Text variant="heading" numeric>{spendable.toLocaleString()}</Text>
+                </View>
+            ) : undefined}>Bets</SectionTitle>
+
+            {markets && markets.length ? (
+                <View style={styles.list}>
+                    {markets.map(market => (
+                        <ListItem key={market.id}>
+                            <MarketCard market={market} onBet={side => setBetting({ market, side })} />
+                        </ListItem>
+                    ))}
+                    <AppButton label="Open a goal to bets" icon="add-circle" variant="ghost" onPress={() => setOpening(true)} />
+                </View>
+            ) : markets ? (
+                <VoidCard>
+                    <EmptyState icon="trending-up" title="No bets yet"
+                        message="Open one of your goals to bets, and friends put Shards on whether you make it. Back yourself too."
+                        actionLabel="Open a goal to bets" onAction={() => setOpening(true)} />
+                </VoidCard>
+            ) : null}
+
+            {betting ? <StakeSheet market={betting.market} side={betting.side} spendable={spendable} onClose={() => setBetting(null)} /> : null}
+            <OpenSheet visible={opening} openKeys={openKeys} onClose={() => setOpening(false)} />
         </View>
     );
 }
@@ -56,7 +86,7 @@ function MarketCard({ market, onBet }: { market: Market; onBet: (side: Side) => 
         <VoidCard style={styles.card}>
             <View style={styles.head}>
                 <Avatar name={market.name} uri={market.avatarUrl} size={Control.hitTarget - Spacing.sm} />
-                <View style={styles.headText}>
+                <View style={styles.grow}>
                     <Text variant="heading" numberOfLines={2}>{market.title}</Text>
                     <Text variant="caption" tone="muted">{`${market.mine ? 'You' : market.name} · ${open ? dueLabel(market.deadline) : market.status === 'won' ? 'Made it' : market.status === 'missed' ? 'Missed it' : 'Called off'}`}</Text>
                 </View>
@@ -86,8 +116,8 @@ function MarketCard({ market, onBet }: { market: Market; onBet: (side: Side) => 
                     <AppButton label={stake ? 'Back yourself more' : 'Back yourself'} icon="trending-up" onPress={() => onBet('make')} />
                 ) : (
                     <View style={styles.buttons}>
-                        {!stake || stake.side === 'make' ? <View style={styles.button}><AppButton label="Makes it" icon="trending-up" onPress={() => onBet('make')} /></View> : null}
-                        {!stake || stake.side === 'miss' ? <View style={styles.button}><AppButton label="Misses it" icon="trending-down" onPress={() => onBet('miss')} /></View> : null}
+                        {!stake || stake.side === 'make' ? <View style={styles.grow}><AppButton label="Makes it" icon="trending-up" onPress={() => onBet('make')} /></View> : null}
+                        {!stake || stake.side === 'miss' ? <View style={styles.grow}><AppButton label="Misses it" icon="trending-down" onPress={() => onBet('miss')} /></View> : null}
                     </View>
                 )
             ) : null}
@@ -96,19 +126,19 @@ function MarketCard({ market, onBet }: { market: Market; onBet: (side: Side) => 
 }
 
 /** How many Shards on which side: the amounts, what it would pay, and the bet. */
-function StakeSheet({ market, side, onClose }: { market: Market; side: Side; onClose: () => void }) {
+function StakeSheet({ market, side, spendable, onClose }: { market: Market; side: Side; spendable: number | null; onClose: () => void }) {
     const t = useTokens();
     const { successFeedback, selectionFeedback } = useHaptics();
     const already = market.myStake?.amount ?? 0;
     const room = MAX_STAKE - already;
     const [amount, setAmount] = useState<number>(Math.min(STAKES[0], room));
-    const [spendable, setSpendable] = useState<number | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    useEffect(() => { myWallet().then(wallet => setSpendable(wallet.spendable)).catch(() => undefined); }, []);
 
     const back = payoutFor(amount, side, market.pool, already);
     const who = market.mine ? 'you' : market.name;
+    const verb = side === 'make' ? (market.mine ? 'make it' : 'makes it') : (market.mine ? 'miss it' : 'misses it');
+    const otherSide = market.pool[side === 'make' ? 'miss' : 'make'];
     const place = async () => {
         setBusy(true);
         setError(null);
@@ -125,9 +155,8 @@ function StakeSheet({ market, side, onClose }: { market: Market; side: Side; onC
 
     return (
         <VoidSheet visible onClose={onClose} title={side === 'make' ? 'Makes it' : 'Misses it'} caption={market.title}
-            footer={<AppButton label={busy ? 'Placing…' : `Bet ◆ ${amount}`} icon="diamond" loading={busy} disabled={amount <= 0 || (spendable !== null && spendable < amount)} onPress={place} />}>
-            <View style={styles.sheet}>
-                <Text variant="body" tone="muted">{spendable === null ? ' ' : `You have ◆ ${spendable.toLocaleString()} Shards to spend.`}</Text>
+            footer={<AppButton label={`Bet ◆ ${amount}`} icon="diamond" loading={busy} disabled={amount <= 0 || (spendable !== null && spendable < amount)} onPress={place} />}>
+            <SheetSection first title="How much" description={spendable === null ? `Up to ◆ ${MAX_STAKE} per goal.` : `You have ◆ ${spendable.toLocaleString()} to spend. Up to ◆ ${MAX_STAKE} per goal.`}>
                 <View style={styles.amounts}>
                     {STAKES.filter(value => value <= room).map(value => (
                         <ChoicePill key={value} label={`◆ ${value}`} on={amount === value} color={t.color.accent}
@@ -135,29 +164,62 @@ function StakeSheet({ market, side, onClose }: { market: Market; side: Side; onC
                             onPress={() => { selectionFeedback(); setAmount(value); }} />
                     ))}
                 </View>
-                <VoidCard style={styles.preview}>
-                    <Text variant="caption" tone="muted">{`If ${who} ${side === 'make' ? 'make' + (market.mine ? '' : 's') + ' it' : 'miss' + (market.mine ? '' : 'es') + ' it'}`}</Text>
-                    <Text variant="title" tone="success" numeric>{`◆ ${back} back`}</Text>
-                    <Text variant="caption" tone="muted">{market.pool[side === 'make' ? 'miss' : 'make'] ? 'Your share of the other side, as the bets stand now.' : 'Nobody’s on the other side yet. If it stays that way, you get your Shards back.'}</Text>
-                </VoidCard>
-                {error ? <Text variant="bodySmall" tone="danger">{error}</Text> : null}
-                <Text variant="caption" tone="muted">{`Up to ◆ ${MAX_STAKE} per goal. Shards can’t be bought or cashed out.`}</Text>
-            </View>
+            </SheetSection>
+            <SettingsGroup title="If it goes your way">
+                <SettingsRow icon="trophy" color={t.color.success} label={`If ${who} ${verb}`} value={`◆ ${back} back`} />
+                <SettingsRow icon="people" color={t.color.accent} label="On the other side" value={otherSide ? `◆ ${otherSide}` : 'Nobody yet: you’d get yours back'} />
+            </SettingsGroup>
+            {error ? <Text variant="bodySmall" tone="danger">{error}</Text> : null}
+        </VoidSheet>
+    );
+}
+
+/** Your goals, to open one to bets: the ones that can be (a deadline three or more days away), and why the rest can't. */
+function OpenSheet({ visible, openKeys, onClose }: { visible: boolean; openKeys: Set<string>; onClose: () => void }) {
+    const { goals, today } = useGoalsInsights();
+    const { successFeedback } = useHaptics();
+    const earliest = addDays(today, 3);
+    const deadlineOf = (goal: Habit) => goal.targetDate?.slice(0, 10);
+    const ready = goals.filter(goal => !openKeys.has(goal.id) && (deadlineOf(goal) ?? '') >= earliest);
+    const notYet = goals.filter(goal => !openKeys.has(goal.id) && !((deadlineOf(goal) ?? '') >= earliest));
+
+    const open = (goal: Habit) => {
+        openMarket({ id: goal.id, name: goal.name, icon: goal.icon, color: goal.color, targetDate: deadlineOf(goal)! })
+            .then(() => { successFeedback(); onClose(); })
+            .catch((failed: unknown) => Alert.alert('Couldn’t open it', failed instanceof Error ? failed.message : 'Try again in a moment.'));
+    };
+
+    return (
+        <VoidSheet visible={visible} onClose={onClose} title="Open to bets" caption="Friends bet Shards on whether you make it" scrollable>
+            {ready.length ? (
+                <SettingsGroup title="Your goals">
+                    {ready.map(goal => (
+                        <SettingsRow key={goal.id} icon={goal.icon || 'flag'} color={goal.color} label={goal.name} value={dueLabel(deadlineOf(goal)!)} onPress={() => open(goal)} />
+                    ))}
+                </SettingsGroup>
+            ) : (
+                <SheetSection first title="Nothing to open yet" description="A goal can be opened to bets once it has a deadline at least three days away. Set one from the goal’s page." />
+            )}
+            {notYet.length ? (
+                <SettingsGroup title="Need a deadline 3+ days away">
+                    {notYet.map(goal => (
+                        <SettingsRow key={goal.id} icon={goal.icon || 'flag'} color={goal.color} label={goal.name} value={deadlineOf(goal) ? 'Too soon' : 'No deadline'} disabled />
+                    ))}
+                </SettingsGroup>
+            ) : null}
         </VoidSheet>
     );
 }
 
 const styles = StyleSheet.create({
+    balance: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
     list: { gap: Spacing.sm },
     card: { padding: Spacing.lg, gap: Spacing.md },
     head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-    headText: { flex: 1 },
+    grow: { flex: 1 },
     track: { height: Spacing.sm, borderRadius: Radius.pill, overflow: 'hidden' },
     fill: { height: '100%', borderRadius: Radius.pill },
     sides: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -Spacing.xs },
     buttons: { flexDirection: 'row', gap: Spacing.sm },
-    button: { flex: 1 },
-    sheet: { gap: Spacing.lg },
     amounts: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
-    preview: { padding: Spacing.lg, gap: Spacing.xs },
 });

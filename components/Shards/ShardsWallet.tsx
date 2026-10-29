@@ -1,18 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { AppButton, AppIcon, IconButton, ModalHeader, SectionTitle, StatTile, Text, VoidCard, VoidModal } from '@/components/ui';
+import { AppButton, AppIcon, ModalHeader, SectionTitle, StatTile, Text, VoidCard, VoidModal } from '@/components/ui';
 import { CountUp } from '@/components/ui/Motion';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
-import { PerfectLadder } from '@/components/Marks/PerfectLadder';
+import { ShardsRules } from './ShardsRules';
 import { useTokens } from '@/hooks/useTokens';
 import { MARKET_ENABLED } from '@/constants/features';
 import { SHARDS, WALLET_RANGES, sampleRange, type ShardMove, type WalletRange } from '@/lib/shards';
 import type { GoalPoint } from '@/lib/goalInsights';
 import type { Wallet } from '@/hooks/useWallet';
-import { Control, Radius, Spacing } from '@/theme/designSystem';
-import { DURATION } from '@/theme/motion';
+import { Control, Spacing } from '@/theme/designSystem';
 
 const RANGE_NAME: Record<WalletRange, string> = { '1H': 'Past hour', '24H': 'Past 24 hours', '1W': 'Past week', '1M': 'Past month', '1Y': 'Past year', ALL: 'All time' };
 const VERB: Record<ShardMove['kind'], string> = { add: 'Added', complete: 'Completed', miss: 'Missed', stake: 'Bet placed', payout: 'Bet won', refund: 'Bet refunded' };
@@ -68,7 +66,6 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
     const percent = start > 0 ? (change / start) * 100 : 0;
     const tone = change > 0 ? t.color.success : change < 0 ? t.color.danger : t.color.textMuted;
     const line = change >= 0 ? t.color.success : t.color.danger;
-    const rules = SHARDS.rules;
 
     return (
         <VoidModal visible={visible} onClose={onClose}>
@@ -129,81 +126,8 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
                 )}
             </ScrollView>
 
-            {/* How Shards work: everything that earns and costs them, nothing to take on trust. */}
-            {info ? (
-                <Animated.View entering={FadeIn.duration(DURATION.quick)} exiting={FadeOut.duration(DURATION.exit)} style={[styles.overlay, { backgroundColor: t.color.background }]}>
-                    <Pressable style={StyleSheet.absoluteFill} onPress={() => setInfo(false)} accessibilityLabel="Close" accessibilityRole="button" />
-                    <VoidCard style={styles.window}>
-                        <View style={styles.windowHead}>
-                            <Text variant="title">How Shards work</Text>
-                            <IconButton icon="close" label="Close" onPress={() => setInfo(false)} />
-                        </View>
-                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.windowBody}>
-                            {/* Said first, plainly: a game currency, not money. */}
-                            <View style={[styles.notice, { backgroundColor: t.tint('subtle', t.color.warning) }]} accessible>
-                                <AppIcon name="warning" filled size={Control.icon} color={t.color.warning} />
-                                <View style={styles.grow}>
-                                    <Text variant="heading">Game currency only</Text>
-                                    <Text variant="bodySmall" tone="muted">Shards are for fun inside Habyss. They aren’t real money and have no cash value. They can’t be bought, sold, cashed out, transferred outside the app or exchanged for money or prizes. Bets are a game between friends.</Text>
-                                </View>
-                            </View>
-
-                            <Text variant="bodySmall" tone="muted">Shards are your currency in Habyss. Marks are your XP: they only go up.</Text>
-
-                            <View style={[styles.table, { backgroundColor: t.color.surfaceRaised }]}>
-                                <View style={styles.tableRow}>
-                                    <View style={styles.first} />
-                                    {(['Habit', 'Task', 'Goal'] as const).map(label => (
-                                        <View key={label} style={styles.cell}><Text variant="caption" tone="muted" align="right">{label}</Text></View>
-                                    ))}
-                                </View>
-                                {(['add', 'complete', 'miss'] as const).map(kind => (
-                                    <View key={kind} style={styles.tableRow}>
-                                        <View style={styles.first}><Text variant="bodySmall" tone="muted">{VERB[kind]}</Text></View>
-                                        {(['habit', 'task', 'goal'] as const).map(item => {
-                                            const points = rules[kind][item];
-                                            return (
-                                                <View key={item} style={styles.cell}>
-                                                    <Text variant="bodySmall" numeric align="right" tone={points > 0 ? 'primary' : 'danger'}>{`${points > 0 ? '+' : '−'}${Math.abs(points)}`}</Text>
-                                                </View>
-                                            );
-                                        })}
-                                    </View>
-                                ))}
-                            </View>
-
-                            <View style={[styles.table, { backgroundColor: t.color.surfaceRaised }]}>
-                                {([
-                                    ['Sleep goal reached', rules.complete.sleep],
-                                    ['Sleep goal missed', rules.miss.sleep],
-                                    ['Milestone reached', rules.complete.milestone],
-                                ] as const).map(([label, points]) => (
-                                    <View key={label} style={styles.tableRow}>
-                                        <View style={styles.grow}><Text variant="bodySmall" tone="muted">{label}</Text></View>
-                                        <Text variant="bodySmall" numeric tone={points > 0 ? 'primary' : 'danger'}>{`${points > 0 ? '+' : '−'}${Math.abs(points)}`}</Text>
-                                    </View>
-                                ))}
-                            </View>
-
-                            {/* Perfect days in a row multiply what completing earns. */}
-                            <View style={[styles.table, { backgroundColor: t.color.surfaceRaised }]}>
-                                <PerfectLadder multiplier={multiplier} run={perfectRun} />
-                            </View>
-
-                            {[
-                                ['shield-checkmark', `No farming: finishing something made the same day earns nothing, and neither does a habit ticked days later. A goal pays only if it existed ${SHARDS.goalMinDays} days. Adding things earns at most ${SHARDS.addCap} a day, milestones ${SHARDS.milestonesPerDay} a day, and no day earns more than ${SHARDS.dailyCap}. Deleting something takes back what it earned.`],
-                                ['trending-up', 'Bet them on friends’ goals. Win and you take a share of the other side’s Shards.'],
-                                ['lock-closed', `Everyone starts with ${SHARDS.starter}. Never below zero.`],
-                            ].map(([icon, sentence]) => (
-                                <View key={icon} style={styles.rule}>
-                                    <AppIcon name={icon} filled size={Control.icon} color={t.color.accentText} />
-                                    <View style={styles.grow}><Text variant="bodySmall">{sentence}</Text></View>
-                                </View>
-                            ))}
-                        </ScrollView>
-                    </VoidCard>
-                </Animated.View>
-            ) : null}
+            {/* How Shards work: the app's own sheet, game-currency notice first. */}
+            <ShardsRules visible={info} onClose={() => setInfo(false)} multiplier={multiplier} perfectRun={perfectRun} />
         </VoidModal>
     );
 }
@@ -217,14 +141,4 @@ const styles = StyleSheet.create({
     list: { paddingHorizontal: Spacing.lg },
     row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md },
     grow: { flex: 1 },
-    overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', padding: Spacing.xl },
-    window: { maxHeight: '82%', padding: Spacing.xl, gap: Spacing.md },
-    windowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    windowBody: { gap: Spacing.md, paddingBottom: Spacing.sm },
-    notice: { flexDirection: 'row', gap: Spacing.md, alignItems: 'flex-start', padding: Spacing.md, borderRadius: Radius.small },
-    table: { borderRadius: Radius.small, padding: Spacing.md, gap: Spacing.sm },
-    tableRow: { flexDirection: 'row', alignItems: 'center' },
-    first: { flex: 1.4 },
-    cell: { flex: 1 },
-    rule: { flexDirection: 'row', gap: Spacing.md, alignItems: 'flex-start' },
 });

@@ -13,6 +13,9 @@ import type { CrewMember } from './crewQuest';
  * except the world leaderboard, which shows only people who share progress.
  */
 
+/** How long a day card stays in the feed after it is posted. */
+const FEED_LIFETIME_MS = 24 * 60 * 60 * 1000;
+
 interface Context { sb: NonNullable<ReturnType<typeof getSupabase>>; me: string }
 
 async function signedIn(): Promise<Context | null> {
@@ -72,7 +75,8 @@ export class FeedService {
 
     /**
      * A page of the feed, newest first: each person's latest posted day only,
-     * a new card taking the place of the one before (20261028000300). Pass the
+     * a new card taking the place of the one before, and only for the 24 hours
+     * after it was posted (20261028000400). Pass the
      * last post's time for the next page, or a user for all their days.
      */
     static async feed(before?: string, limit = 20, userId?: string): Promise<FeedPost[]> {
@@ -80,7 +84,7 @@ export class FeedService {
         if (!ctx) return [];
         const { data, error } = await ctx.sb.rpc('community_feed', { p_before: before ?? null, p_limit: limit, p_user: userId ?? null });
         if (error) { console.warn('[Feed] could not load:', error.message); return []; }
-        return ((data as any[]) ?? []).map(row => ({
+        const posts: FeedPost[] = ((data as any[]) ?? []).map(row => ({
             userId: row.user_id,
             day: row.day,
             postedAt: row.posted_at,
@@ -96,6 +100,8 @@ export class FeedService {
             reactions: row.reactions && typeof row.reactions === 'object' ? row.reactions : (row.ack_count ? { proud: row.ack_count } : {}),
             mine: row.user_id === ctx.me,
         }));
+        // A card is in the feed for the 24 hours after it is posted, then it leaves; a profile keeps every day.
+        return userId ? posts : posts.filter(post => Date.now() - new Date(post.postedAt).getTime() < FEED_LIFETIME_MS);
     }
 
     /** Reacts to a friend's day, or changes your reaction to it. */

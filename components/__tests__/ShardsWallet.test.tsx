@@ -40,5 +40,6 @@ it('says plainly, in its info card, that Shards are a game currency and not mone
     fireEvent.press(screen.getByLabelText('How Shards work'));
     expect(screen.getByText('Game currency only')).toBeTruthy();
     expect(screen.getByText(/aren’t real money and have no cash value/)).toBeTruthy();
-    expect(screen.getByText(/No farming/)).toBeTruthy();
+    expect(screen.getByText('Fair play')).toBeTruthy();
+    expect(screen.getByText('Made and finished the same day')).toBeTruthy();
 });

@@ -29,7 +29,9 @@ as $$
     where c.posted_at is not null
       and (p_before is null or c.posted_at < p_before)
       and (p_user is null or c.user_id = p_user)
-      -- The feed: only each person's latest posted day.
+      -- The feed: only each person's latest posted day, and only for the day
+      -- after it is posted, so cards never pile up. A profile keeps them all.
+      and (p_user is not null or c.posted_at > now() - interval '24 hours')
       and (p_user is not null or c.day = (
           select max(latest.day) from public.day_cards latest
           where latest.user_id = c.user_id and latest.posted_at is not null
