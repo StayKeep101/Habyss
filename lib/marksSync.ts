@@ -64,22 +64,26 @@ export async function publishMarks(
 }
 
 /**
- * The Shards this phone has earned by doing (lib/shards.ts), for the server to
- * check bets against. Private: friends never read it, and the server caps it
- * by the account's age. Sent only when it changes.
+ * What doing has earned in Shards (lib/shards.ts), for the server to check
+ * bets against; private, and capped there by the account's age. With it, the
+ * last sixty days of the wallet, the backdrop friends see behind your profile
+ * (only while you share your progress). Sent only when either changes.
  */
 const SHARDS_KEY = 'shards_published';
-export async function publishShards(earned: number): Promise<void> {
+export async function publishShards(earned: number, series: number[] | null): Promise<void> {
     try {
         const sb = getSupabase();
         if (!sb) return;
         const { data } = await sb.auth.getSession();
         const me = data.session?.user?.id;
         if (!me) return;
+        const { getSharing } = require('./profileSync') as typeof import('./profileSync');
+        const allowed = (await getSharing()).progress;
         const value = Math.max(0, Math.round(earned));
-        const stamp = `${me}:${value}`;
+        const line = allowed && series ? series.map(point => Math.max(0, Math.round(point))) : null;
+        const stamp = `${me}:${value}:${line?.length ?? 0}:${line?.[0] ?? ''}:${line?.[line.length - 1] ?? ''}`;
         if ((await AsyncStorage.getItem(SHARDS_KEY)) === stamp) return;
-        const { error } = await sb.from('profiles').update({ shards_earned: value }).eq('id', me);
+        const { error } = await sb.from('profiles').update({ shards_earned: value, shards_series: line }).eq('id', me);
         if (!error) await AsyncStorage.setItem(SHARDS_KEY, stamp);
-    } catch { /* bets read a slightly older number; nothing here is affected */ }
+    } catch { /* bets and friends read a slightly older number; nothing here is affected */ }
 }

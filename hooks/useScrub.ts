@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { Gesture } from 'react-native-gesture-handler';
 import {
     runOnJS, useAnimatedReaction, useSharedValue, withTiming,
@@ -95,7 +95,12 @@ export function centreOf(index: number, width: number, count: number, mode: Scru
     return count === 1 ? width / 2 : (index / (count - 1)) * width;
 }
 
-export function useScrub({ count, width, mode = 'points', gap = 0, onIndex, onRelease, haptics = true, sticky = false }: {
+/** The closest two ticks may come, so a fast flick reads as a ripple rather than a motor. */
+const TICK_GAP_MS = 28;
+/** The time, read on the UI thread where the ticks are decided. */
+const stamp = () => { 'worklet'; return Date.now(); };
+
+export function useScrub({ count, width, mode = 'points', gap = 0, onIndex, onRelease, haptics = true, sticky = false, accents }: {
     count: number;
     width: number;
     mode?: ScrubMode;
@@ -124,8 +129,17 @@ export function useScrub({ count, width, mode = 'points', gap = 0, onIndex, onRe
      * scrubbing bar chart, leave this off.
      */
     sticky?: boolean;
+    /**
+     * Points that land with a firmer tap: a trading chart's high, low and
+     * latest, so the extremes can be felt as the finger passes them. With
+     * these, touching down gives a soft tap too.
+     */
+    accents?: number[];
 }): Scrub {
-    const { selectionFeedback } = useHaptics();
+    const { selectionFeedback, softFeedback, rigidFeedback } = useHaptics();
+    const lastTick = useSharedValue(0);
+    const marked = useSharedValue<number[]>([]);
+    useEffect(() => { marked.set(accents ?? []); }, [accents, marked]);
     const x = useSharedValue(0);
     const index = useSharedValue(-1);
     const active = useSharedValue(0);
@@ -138,7 +152,11 @@ export function useScrub({ count, width, mode = 'points', gap = 0, onIndex, onRe
         () => index.value,
         (now, before) => {
             if (now === before) return;
-            if (now >= 0 && haptics) runOnJS(selectionFeedback)();
+            if (now >= 0 && haptics) {
+                const at = stamp();
+                if (marked.get().includes(now)) { lastTick.set(at); runOnJS(rigidFeedback)(); }
+                else if (at - lastTick.get() >= TICK_GAP_MS) { lastTick.set(at); runOnJS(selectionFeedback)(); }
+            }
             if (onIndex) runOnJS(onIndex)(now >= 0 ? now : null);
         },
         [onIndex, haptics],
@@ -171,6 +189,8 @@ export function useScrub({ count, width, mode = 'points', gap = 0, onIndex, onRe
             // far enough sideways to be a drag rather than a tap.
             .onStart(() => {
                 'worklet';
+                // A chart with accents answers the drag taking hold, softly, as trading apps do (never a page scroll).
+                if (haptics && marked.get().length) { lastTick.set(stamp()); runOnJS(softFeedback)(); }
                 dragged.set(1);
             })
             .onUpdate(event => {
@@ -187,7 +207,7 @@ export function useScrub({ count, width, mode = 'points', gap = 0, onIndex, onRe
                 active.set(withTiming(0, FADE));
                 index.set(-1);
             });
-    }, [count, width, mode, gap, onRelease, sticky, x, index, active, dragged]);
+    }, [count, width, mode, gap, onRelease, sticky, x, index, active, dragged, haptics, marked, lastTick, softFeedback]);
 
     /** Puts the mark away. For a sticky chart, whoever decides it is finished. */
     const clear = useCallback(() => {

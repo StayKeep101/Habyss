@@ -20,7 +20,8 @@ const QUESTIONS: { q: string; a: string; typed?: boolean }[] = [
     { q: 'How do I add a habit?', a: 'Tap + at the bottom of the screen.' },
     { q: 'How does my streak work?', a: 'Do one habit or task a day and it keeps going.' },
     { q: 'Does it work offline?', a: 'Yes. Everything saves on your phone first.' },
-    { q: 'What are Marks?', a: 'Points for keeping your habits and tasks. They go down when you miss. Sleep counts too: reach your sleep goal and you get +20, fall short and it’s −20, because sleep matters that much.' },
+    { q: 'What are Marks?', a: 'Your XP. You earn them by adding and finishing habits, tasks and goals, and they never go down. They set your rank.' },
+    { q: 'What are Shards?', a: 'Habyss’s game currency. Finishing things earns them and missing things costs them; sleep counts too (+20 at your goal, −20 short of it). Bet them on friends’ goals. They’re for fun only: not real money, and they can’t be bought or cashed out. The ⓘ in your wallet has every rule.' },
 ];
 
 /**

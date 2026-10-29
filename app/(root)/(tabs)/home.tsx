@@ -42,7 +42,6 @@ import { useTheme } from '@/context/ThemeContext';
 import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
-import { MarksModal } from '@/components/Marks/MarksModal';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
 import { ShardsWallet } from '@/components/Shards/ShardsWallet';
 import { useWallet } from '@/hooks/useWallet';
@@ -260,8 +259,8 @@ const Home = () => {
   const { overall: avgGoalProgress, tasks: allTasks, skippedToday, today: todayKeyString } = goalsData;
   // Marks, from the same habits, tasks and history already loaded here.
   const marks = useMarks(goalsData);
-  // Shards, the currency, from the same Marks (lib/shards.ts) plus what bets moved.
-  const wallet = useWallet(marks, allTasks);
+  // Shards, the currency: the same record with Shards' rules (lib/shards.ts), plus what bets moved.
+  const wallet = useWallet(marks);
 
   // One-go goals ("run 21 km"): their training habit steps up each week (lib/peakPlan.ts).
   useEffect(() => {
@@ -319,7 +318,6 @@ const Home = () => {
     });
     return () => { sub.remove(); ask.remove(); };
   }, [playLevelUp, aiPersonality]);
-  const [showMarks, setShowMarks] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
 
 
@@ -463,7 +461,6 @@ const Home = () => {
               uri={profileAvatar}
               marks={marks}
               onPress={() => router.push('/(root)/profile')}
-              onMarks={() => setShowMarks(true)}
             />
             <ShardsCard wallet={wallet} onPress={() => setShowWallet(true)} />
           </View>
@@ -542,8 +539,7 @@ const Home = () => {
           missed={missed}
           habits={habits}
         />
-        <MarksModal visible={showMarks} onClose={() => setShowMarks(false)} marks={marks} />
-        <ShardsWallet visible={showWallet} onClose={() => setShowWallet(false)} wallet={wallet} />
+        <ShardsWallet visible={showWallet} onClose={() => setShowWallet(false)} wallet={wallet} multiplier={marks.multiplier} perfectRun={marks.perfectRun} />
         <ClimbMomentOverlay moment={climbMoment} onDone={() => setClimbMoment(null)} />
         {/* The end of the Ascent: rising out of its light, then the first step. */}
         <AscentArrival />

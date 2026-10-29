@@ -56,7 +56,7 @@ export function ShardsCard({ wallet, onPress }: { wallet: Wallet; onPress: () =>
         // Beside your picture on Home, with no card of its own: the balance and its gem, today's
         // change, and the week's line filling the rest, like a holding in a portfolio app.
         <Pressable onPress={() => { lightFeedback(); onPress(); }} accessibilityRole="button" style={styles.wrap}
-            accessibilityLabel={`Wallet: ${wallet.balance} Shards. ${wallet.today ? `Up ${wallet.today} today.` : ''} Open your wallet.`}>
+            accessibilityLabel={`Wallet: ${wallet.balance} Shards. ${wallet.today ? `${wallet.today > 0 ? 'Up' : 'Down'} ${Math.abs(wallet.today)} today.` : ''} Open your wallet.`}>
             <View style={styles.text}>
                 <View style={styles.caption}>
                     <AppIcon name="diamond" filled size={Spacing.md} color={t.color.accent} />
@@ -65,7 +65,9 @@ export function ShardsCard({ wallet, onPress }: { wallet: Wallet; onPress: () =>
                 <Animated.View ref={balanceRef} collapsable={false} style={bumpStyle}>
                     <CountUp style={[t.type.screenTitle, { color: t.color.textPrimary }]} value={wallet.balance.toLocaleString()} />
                 </Animated.View>
-                <Text variant="caption" numeric tone={wallet.today ? 'success' : 'muted'}>{wallet.today ? `+${wallet.today} today` : 'Nothing yet today'}</Text>
+                <Text variant="caption" numeric tone={wallet.today > 0 ? 'success' : wallet.today < 0 ? 'danger' : 'muted'}>
+                    {wallet.today ? `${wallet.today > 0 ? '+' : '−'}${Math.abs(wallet.today)} today` : 'Nothing yet today'}
+                </Text>
             </View>
             {week.length > 1 ? (
                 <View style={styles.spark} pointerEvents="none">

@@ -30,6 +30,8 @@ interface Props {
      * draws what it is given, without cutting it by days.
      */
     custom?: { options: { id: string; label: string }[]; selected: string; onSelect: (id: string) => void };
+    /** Trading-app haptics: a soft tap as the drag takes hold, a firm one at the high, the low and now. */
+    ticks?: boolean;
     color: string;
     height?: number;
     /** Called with the point under the finger while scrubbing, then null. */
@@ -66,7 +68,7 @@ interface Props {
  * were still dragging. A pan gesture that gives vertical movement to the page
  * and keeps horizontal movement for itself does not have to fight anybody.
  */
-export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact, unbounded, pace: showPace = true, label, sticky = true, ranges: offered, initialRange = 'ALL', onRange, custom }) => {
+export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact, unbounded, pace: showPace = true, label, sticky = true, ranges: offered, initialRange = 'ALL', onRange, custom, ticks }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
@@ -124,7 +126,18 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
     // Sticky: the reading is the whole point of dragging along this chart, and
     // one that vanished on release could only ever be read with a finger over
     // the number. It is put away by tapping the chart again.
-    const scrub = useScrub({ count: compact ? 0 : visible.length, width, mode: 'points', onIndex: report, sticky });
+    // The points felt more firmly under the finger: the range's high, its low, and where it ends.
+    const accents = useMemo(() => {
+        if (!ticks || visible.length < 2) return undefined;
+        let high = 0;
+        let low = 0;
+        visible.forEach((point, index) => {
+            if (point.actual > visible[high].actual) high = index;
+            if (point.actual < visible[low].actual) low = index;
+        });
+        return [...new Set([high, low, visible.length - 1])];
+    }, [ticks, visible]);
+    const scrub = useScrub({ count: compact ? 0 : visible.length, width, mode: 'points', onIndex: report, sticky, accents });
 
     // The dot's height follows the same index the line does, one frame later at
     // worst, because both are read from shared values rather than from props.

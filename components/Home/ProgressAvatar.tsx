@@ -21,11 +21,12 @@ const STROKE = s(4);
 /**
  * You, with your Marks drawn around you: the ring fills toward the next rank,
  * like experience in a game, and your Marks sit in a small pill on its foot
- * (with the perfect-day multiplier beside them while it is running). The
- * picture opens your profile; the pill opens the Marks page. Marks orbs fly
- * into the pill, and it gives a little bump as each one lands.
+ * (with the perfect-day multiplier beside them while it is running). Marks
+ * are XP: they only go up, and how they are earned needs no page of its own.
+ * The picture opens your profile. Marks orbs fly into the pill, and it gives
+ * a little bump as each one lands.
  */
-export const ProgressAvatar: React.FC<{ uri?: string | null; marks: Marks; onPress: () => void; onMarks: () => void }> = ({ uri, marks, onPress, onMarks }) => {
+export const ProgressAvatar: React.FC<{ uri?: string | null; marks: Marks; onPress: () => void }> = ({ uri, marks, onPress }) => {
     const t = useTokens();
     const { lightFeedback } = useHaptics();
     const radius = (SIZE - STROKE) / 2;
@@ -65,10 +66,8 @@ export const ProgressAvatar: React.FC<{ uri?: string | null; marks: Marks; onPre
                 </View>
             </Pressable>
 
-            {/* Your Marks on the ring's foot: the way to the Marks page. */}
-            <Pressable onPress={() => { lightFeedback(); onMarks(); }} hitSlop={{ top: Spacing.md, bottom: Spacing.md, left: Spacing.sm, right: Spacing.sm }}
-                accessibilityRole="button"
-                accessibilityLabel={`${marks.total} Marks, rank ${marks.rank.name}.${marks.next ? ` ${marks.toNext} to ${marks.next.name}.` : ''}${marks.multiplier > 1 ? ` Earning ×${marks.multiplier}.` : ''} Open Marks.`}
+            {/* Your Marks on the ring's foot. */}
+            <View accessible accessibilityLabel={`${marks.total} Marks, rank ${marks.rank.name}.${marks.next ? ` ${marks.toNext} to ${marks.next.name}.` : ''}${marks.multiplier > 1 ? ` Earning ×${marks.multiplier}.` : ''}`}
                 style={styles.pillWrap}>
                 <Animated.View ref={pillRef} collapsable={false} style={bumpStyle}>
                     <MatteSurface radius={Radius.pill} level="control" style={styles.pill}>
@@ -76,7 +75,7 @@ export const ProgressAvatar: React.FC<{ uri?: string | null; marks: Marks; onPre
                         {marks.multiplier > 1 ? <Text variant="caption" tone="accent" numeric>{`×${marks.multiplier}`}</Text> : null}
                     </MatteSurface>
                 </Animated.View>
-            </Pressable>
+            </View>
         </View>
     );
 };

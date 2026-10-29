@@ -1,5 +1,5 @@
-import { computeMarks } from '../marks';
-import { SHARDS, earnedShards, sampleRange, shardsForDay, valueAt, walletTimeline } from '../shards';
+import { computeMarks, MARKS, type MarkEvent } from '../marks';
+import { SHARDS, dailyCloses, sampleRange, shardMoves, valueAt, walletPoints } from '../shards';
 import { payoutFor, resultFor, type Market } from '../market';
 import type { Habit } from '../habitsSQLite';
 import type { Task } from '../tasks';
@@ -15,72 +15,86 @@ const task = (over: Partial<Task> = {}): Task => ({
     id: 't', title: 'Send proposal', priority: 2, status: 'open', source: 'app',
     createdAt: '2026-10-01T09:00:00', updatedAt: '2026-10-01T09:00:00', ...over,
 });
+const at = (day: string, h: number, m = 0) => new Date(`${day}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`).getTime();
+const balance = (moves: ReturnType<typeof shardMoves>, now = at(TODAY, 23)) => { const points = walletPoints(moves, now); return points[points.length - 1].value; };
+const event = (over: Partial<MarkEvent>): MarkEvent => ({ date: '2026-10-03', points: 10, kind: 'complete', item: 'task', title: 'x', ...over });
 
-describe('Shards are earned only by doing', () => {
-    it('come from completions, never from adding or missing', () => {
-        const { completedByDay } = computeMarks({
-            habits: [habit()], tasks: [task({ status: 'done', completedAt: '2026-10-03T10:00:00' })],
-            history: { '2026-10-02': ['h'], '2026-10-03': ['h'] }, today: TODAY,
-        });
-        // Oct 2: the habit (+5). Oct 3: the habit (+5) and the task (+10). Missed Oct 4 counts for nothing here.
-        expect(completedByDay).toEqual({ '2026-10-02': 5, '2026-10-03': 15 });
-        expect(earnedShards(completedByDay)).toBe(1 + 3);
+describe('Shards follow the record: earned by doing, lost by missing', () => {
+    it('add, complete and miss exactly as the table says, from a hundred to start', () => {
+        // Added Oct 1 (+1); done Oct 1 is the day it was made (no Shards), done Oct 2 and 4 (+10); missed Oct 3 (-2).
+        const marks = computeMarks({ habits: [habit()], tasks: [], history: { '2026-10-01': ['h'], '2026-10-02': ['h'], '2026-10-04': ['h'] }, today: TODAY });
+        expect(balance(shardMoves(marks.ledger, {}))).toBe(SHARDS.starter + 1 + 10 - 2);
+        // Marks, the XP, never lost the 2.
+        expect(marks.total).toBe(16);
     });
 
-    it('cannot be farmed: something made and ticked the same day earns none', () => {
-        const tasks = Array.from({ length: 30 }, (_, index) => task({
-            id: `t${index}`, status: 'done', createdAt: '2026-10-04T09:00:00', completedAt: '2026-10-04T09:01:00',
-        }));
-        const fresh = computeMarks({ habits: [habit({ createdAt: '2026-10-04T08:00:00', startDate: '2026-10-04' })], tasks, history: { '2026-10-04': ['h'] }, today: TODAY });
-        expect(fresh.completedByDay['2026-10-04'] ?? 0).toBe(0);
-        // The Marks are still there: only the Shards are held back.
-        expect(fresh.total).toBeGreaterThan(0);
+    it('never go below zero', () => {
+        const misses = Array.from({ length: 80 }, (_, index) => event({ date: '2026-10-03', kind: 'miss', points: MARKS.miss.goal, title: `m${index}` }));
+        expect(balance(shardMoves(misses, {}))).toBe(0);
+    });
+
+    it('land at the moment: a habit at its tick, a miss as the day begins, a task when finished', () => {
+        const moves = shardMoves([
+            event({ item: 'habit', id: 'h', points: 5 }),
+            event({ kind: 'miss', points: -4 }),
+            event({ points: 10, at: at('2026-10-03', 15) }),
+        ], { 'h:2026-10-03': at('2026-10-03', 9) });
+        expect(moves.map(move => [new Date(move.t).getHours(), move.amount])).toEqual([[0, -4], [9, 5], [15, 10]]);
+    });
+});
+
+describe('Shards cannot be farmed', () => {
+    it('pay nothing for finishing something made the same day', () => {
+        const tasks = Array.from({ length: 30 }, (_, index) => task({ id: `t${index}`, status: 'done', createdAt: '2026-10-04T09:00:00', completedAt: '2026-10-04T09:01:00' }));
+        const marks = computeMarks({ habits: [], tasks, history: {}, today: TODAY });
+        const moves = shardMoves(marks.ledger, {});
+        expect(moves.filter(move => move.kind === 'complete')).toHaveLength(0);
+        // Adding them all pays at most the daily cap for adding.
+        expect(moves.filter(move => move.kind === 'add').reduce((sum, move) => sum + move.amount, 0)).toBe(SHARDS.addCap);
+    });
+
+    it('pay nothing for a habit ticked days after the day it counts for', () => {
+        const late = shardMoves([event({ item: 'habit', id: 'h', points: 5 })], { 'h:2026-10-03': at('2026-10-06', 9) });
+        expect(late).toHaveLength(0);
+        // The next morning is fine: logging yesterday.
+        expect(shardMoves([event({ item: 'habit', id: 'h', points: 5 })], { 'h:2026-10-03': at('2026-10-04', 8) })).toHaveLength(1);
+    });
+
+    it('pay a goal only once it has lived a few days, and two milestones a day at most', () => {
+        expect(shardMoves([event({ item: 'goal', points: 50, madeOn: '2026-10-02' })], {})).toHaveLength(0);
+        expect(shardMoves([event({ item: 'goal', points: 50, madeOn: '2026-09-28' })], {})).toHaveLength(1);
+        const milestones = Array.from({ length: 5 }, (_, index) => event({ item: 'milestone', points: 30, title: `m${index}` }));
+        expect(shardMoves(milestones, {})).toHaveLength(SHARDS.milestonesPerDay);
     });
 
     it('stop at the daily cap, however much is done', () => {
-        expect(shardsForDay(5)).toBe(1);
-        expect(shardsForDay(4)).toBe(0);
-        expect(shardsForDay(10_000)).toBe(SHARDS.dailyCap);
+        const lots = Array.from({ length: 50 }, (_, index) => event({ points: 50, title: `t${index}` }));
+        expect(shardMoves(lots, {}).reduce((sum, move) => sum + move.amount, 0)).toBe(SHARDS.dailyCap);
     });
+});
 
-    it('start everyone with a hundred, landing at the moments things were done, and the line ends where the bets leave it', () => {
-        const day = (h: number, m = 0) => new Date(`2026-10-04T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`).getTime();
-        const now = day(23);
-        // 50 Marks that day = 10 Shards, across a habit at 9 (weight 5) and a task at 15 (weight 10).
-        const timeline = walletTimeline({ '2026-10-04': 50 }, [{ at: day(9), weight: 5 }, { at: day(15), weight: 10 }], [{ at: day(20), amount: -25 }], now);
-        expect(valueAt(timeline, day(8))).toBe(100);
-        expect(valueAt(timeline, day(10))).toBe(103);
-        expect(valueAt(timeline, day(16))).toBe(110);
-        expect(valueAt(timeline, day(21))).toBe(85);
-        // A day with nothing timed lands at noon.
-        expect(valueAt(walletTimeline({ '2026-10-04': 25 }, [], [], now), day(12, 1))).toBe(105);
-    });
-
-    it('draws each range at its own fineness, ending now', () => {
-        const now = new Date('2026-10-04T23:00:00').getTime();
-        const timeline = walletTimeline({}, [], [], now);
-        const hour = sampleRange(timeline, '1H', now);
-        expect(hour).toHaveLength(31);
-        expect(hour[hour.length - 1]).toEqual({ t: now, value: SHARDS.starter });
-        expect(sampleRange(timeline, '24H', now)).toHaveLength(49);
+describe('the wallet line', () => {
+    it('draws each range at its own fineness, ending now, and closes each day for a profile', () => {
+        const now = at('2026-10-04', 23);
+        const points = walletPoints(shardMoves([event({ date: '2026-10-04', points: 10, at: at('2026-10-04', 12) })], {}), now);
+        expect(sampleRange(points, '1H', now)).toHaveLength(31);
+        expect(sampleRange(points, '24H', now)).toHaveLength(49);
+        expect(valueAt(points, at('2026-10-04', 11))).toBe(100);
+        expect(valueAt(points, at('2026-10-04', 13))).toBe(110);
+        expect(dailyCloses(points, 2, now)).toEqual([100, 110]);
     });
 });
 
 describe('the pool', () => {
     it('pays the winners their stake plus their share of the other side', () => {
-        // 30 on makes it already, 60 on misses it; 10 more on makes it pays 10 + 60 × 10/40.
         expect(payoutFor(10, 'make', { make: 30, miss: 60 })).toBe(25);
-        // Adding to a stake counts the whole of it.
         expect(payoutFor(10, 'make', { make: 30, miss: 60 }, 20)).toBe(30 + Math.floor((60 * 30) / 40));
     });
-
     it('refunds when nobody is on the other side', () => {
         expect(payoutFor(25, 'miss', { make: 0, miss: 40 })).toBe(25);
     });
-
     it('says how a settled bet went', () => {
-        const market = { myStake: { side: 'make', amount: 20, payout: 50 } } as Market;
-        expect(resultFor(market)).toBe(30);
+        expect(resultFor({ myStake: { side: 'make', amount: 20, payout: 50 } } as Market)).toBe(30);
         expect(resultFor({ myStake: { side: 'miss', amount: 20, payout: 0 } } as Market)).toBe(-20);
         expect(resultFor({ myStake: null } as Market)).toBeNull();
     });

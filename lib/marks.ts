@@ -5,12 +5,11 @@ import { addDays, dateAt } from './goalInsights';
 import { countedHistory, countedTasks } from './sharedGate';
 
 /**
- * Marks: the record your actions leave.
- *
- * Not points for opening the app. A mark is earned by committing to something
- * (adding it), by keeping it (completing it), and lost by letting it slide
- * (missing it). Keeping is worth five times committing, so a list of good
- * intentions is never worth as much as a week of doing them.
+ * Marks: your experience. Earned by committing to something (adding it) and
+ * by keeping it (completing it), never lost: a miss costs nothing here. They
+ * rank you. The same record, misses and all, is what Shards (the currency,
+ * lib/shards.ts) are worked out from: `ledger` is every event, with the moment
+ * it happened where that is known.
  *
  * Nothing is stored. Marks are read back from what is already recorded — the
  * habits, tasks and goals, every check-in, every due date — so the number can
@@ -118,6 +117,14 @@ export interface MarkEvent {
     kind: MarkKind;
     item: MarkItem;
     title: string;
+    /** When it happened (ms), where the record says: an item added, a task finished. */
+    at?: number;
+    /** What it is (a habit's id), so a habit's tick time can be found. */
+    id?: string;
+    /** Completed the same day it was made: it counts as XP, never as Shards (no farming). */
+    sameDay?: boolean;
+    /** For a completion, the day the thing was made: a goal pays Shards only if it lived a few days. */
+    madeOn?: string;
 }
 
 export interface MarksInput {
@@ -157,13 +164,8 @@ export interface MarksResult {
     series: { date: string; value: number }[];
     /** Newest first, at most `recent` of them. */
     events: MarkEvent[];
-    /**
-     * What completing things earned each day (multiplier included), counting
-     * only things that existed before that day: what Shards are made from
-     * (lib/shards.ts). Adding and missing never count, and neither does
-     * something made and ticked the same day, so Shards cannot be farmed.
-     */
-    completedByDay: Record<string, number>;
+    /** Every event, misses included, oldest first: what Shards are worked out from (lib/shards.ts). */
+    ledger: MarkEvent[];
 }
 
 /** How far back misses are counted. Enough for any real history, bounded for speed. */
@@ -182,18 +184,23 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     const { today } = input;
     const floor = addDays(today, -HORIZON_DAYS);
     const byDay = new Map<string, number>();
-    const completedByDay: Record<string, number> = {};
     const events: MarkEvent[] = [];
     // The multiplier each day carried, from the perfect days before it.
     const runs = input.dailyTarget ? perfectRuns(input, input.dailyTarget) : new Map<string, number>();
     const multiplierOn = (date: string) => multiplierFor(runs.get(addDays(date, -1)) ?? 0);
-    const record = (date: string | null, points: number, kind: MarkKind, item: MarkItem, title: string, since?: string | null) => {
+    const record = (date: string | null, points: number, kind: MarkKind, item: MarkItem, title: string, more: { since?: string | null; at?: string | null; id?: string } = {}) => {
         if (!date || date > today) return;
         const times = kind === 'complete' && points > 0 ? multiplierOn(date) : 1;
         const earned = points * times;
-        byDay.set(date, (byDay.get(date) ?? 0) + earned);
-        if (kind === 'complete' && earned > 0 && !(since && since >= date)) completedByDay[date] = (completedByDay[date] ?? 0) + earned;
-        events.push({ date, points: earned, kind, item, title: times > 1 ? `${title} · ×${times}` : title });
+        // XP only ever goes up: a miss is on the record (it costs Shards) but not in your Marks.
+        if (earned > 0) byDay.set(date, (byDay.get(date) ?? 0) + earned);
+        const at = more.at ? new Date(more.at).getTime() : NaN;
+        events.push({
+            date, points: earned, kind, item, title: times > 1 ? `${title} · ×${times}` : title,
+            ...(Number.isFinite(at) ? { at } : null), ...(more.id ? { id: more.id } : null),
+            ...(kind === 'complete' && more.since && more.since >= date ? { sameDay: true } : null),
+            ...(kind === 'complete' && more.since ? { madeOn: more.since } : null),
+        });
     };
 
     const habits = input.habits.filter(habit => !habit.isGoal);
@@ -201,13 +208,13 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     const habitIds = new Map(habits.map(habit => [habit.id, habit]));
 
     // ---------------------------------------------------------------- habits
-    for (const habit of habits) record(dayOf(habit.createdAt), MARKS.add.habit, 'add', 'habit', habit.name);
+    for (const habit of habits) record(dayOf(habit.createdAt), MARKS.add.habit, 'add', 'habit', habit.name, { at: habit.createdAt });
 
     for (const [date, ids] of Object.entries(input.history)) {
         if (date > today) continue;
         for (const id of new Set(ids)) {
             const habit = habitIds.get(id);
-            if (habit) record(date, MARKS.complete.habit, 'complete', 'habit', habit.name, dayOf(habit.createdAt));
+            if (habit) record(date, MARKS.complete.habit, 'complete', 'habit', habit.name, { since: dayOf(habit.createdAt), id: habit.id });
         }
     }
 
@@ -234,9 +241,9 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
 
     // ----------------------------------------------------------------- tasks
     for (const task of input.tasks) {
-        record(dayOf(task.createdAt), MARKS.add.task, 'add', 'task', task.title);
+        record(dayOf(task.createdAt), MARKS.add.task, 'add', 'task', task.title, { at: task.createdAt });
         if (task.status === 'cancelled') continue;
-        if (task.status === 'done') record(dayOf(task.completedAt ?? task.updatedAt), MARKS.complete.task, 'complete', 'task', task.title, dayOf(task.createdAt));
+        if (task.status === 'done') record(dayOf(task.completedAt ?? task.updatedAt), MARKS.complete.task, 'complete', 'task', task.title, { since: dayOf(task.createdAt), at: task.completedAt ?? task.updatedAt });
         // Missed once, the day after it was due — and that stands even if it is
         // finished later. Late still counts for finishing; it was still late.
         const finished = task.status === 'done' ? dayOf(task.completedAt ?? task.updatedAt) : null;
@@ -249,9 +256,9 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
 
     // ----------------------------------------------------------------- goals
     for (const goal of goals) {
-        record(dayOf(goal.createdAt), MARKS.add.goal, 'add', 'goal', goal.name);
+        record(dayOf(goal.createdAt), MARKS.add.goal, 'add', 'goal', goal.name, { at: goal.createdAt });
         const reached = input.goalsCompletedOn?.[goal.id] ?? null;
-        if (reached) record(reached, MARKS.complete.goal, 'complete', 'goal', goal.name, dayOf(goal.createdAt));
+        if (reached) record(reached, MARKS.complete.goal, 'complete', 'goal', goal.name, { since: dayOf(goal.createdAt) });
         const deadline = dayOf(goal.targetDate);
         if (deadline && deadline < today && (!reached || reached > deadline)) {
             record(addDays(deadline, 1), MARKS.miss.goal, 'miss', 'goal', goal.name);
@@ -261,7 +268,7 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     // ----------------------------------------------------------------- sleep
     // ------------------------------------------------------------ milestones
     for (const milestone of input.milestones ?? []) {
-        record(dayOf(milestone.doneAt), MARKS.complete.milestone, 'complete', 'milestone', milestone.title);
+        record(dayOf(milestone.doneAt), MARKS.complete.milestone, 'complete', 'milestone', milestone.title, { at: milestone.doneAt });
     }
 
     for (const night of input.goodNights ?? []) {
@@ -283,14 +290,14 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     let yesterday = 0;
     if (days.length) {
         for (let day = days[0]; day <= today; day = addDays(day, 1)) {
-            // Never below zero: a bad week takes you back to Lost, not into debt.
-            total = Math.max(0, total + (byDay.get(day) ?? 0));
+            total += byDay.get(day) ?? 0;
             if (day < today) yesterday = total;
             series.push({ date: day, value: total });
         }
     }
     if (!series.length || series[series.length - 1].date !== today) series.push({ date: today, value: total });
 
+    const ledger = [...events].sort((a, b) => a.date.localeCompare(b.date) || (a.at ?? 0) - (b.at ?? 0));
     events.sort((a, b) => b.date.localeCompare(a.date) || b.points - a.points);
     const perfectRun = runs.get(addDays(today, -1)) ?? 0;
     return {
@@ -299,8 +306,8 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
         perfectRun: runs.has(today) ? (runs.get(today) ?? 0) : perfectRun,
         todayChange: total - (series.length > 1 ? yesterday : 0),
         series,
-        events: events.slice(0, recent),
-        completedByDay,
+        events: events.filter(event => event.points > 0).slice(0, recent),
+        ledger,
     };
 }
 
@@ -318,7 +325,7 @@ export function penaltiesOf(input: MarksInput, ids: { habits?: string[]; tasks?:
         tasks: input.tasks.filter(task => taskIds.has(task.id)),
         goodNights: [], shortNights: [], kept: [],
     };
-    return computeMarks(only, Number.MAX_SAFE_INTEGER).events
+    return [...computeMarks(only, Number.MAX_SAFE_INTEGER).ledger].reverse()
         // A goal's deadline miss depends on whether it was reached, which only
         // its insights know; goals are left out rather than charged wrongly.
         .filter(event => event.kind === 'miss' && event.item !== 'goal')

@@ -14,15 +14,19 @@ const task = (over: Partial<Task> = {}): Task => ({
     createdAt: '2026-10-01T09:00:00', updatedAt: '2026-10-01T09:00:00', ...over,
 });
 
+/** The record's net, misses included: what Shards follow (lib/shards.ts). Marks themselves only go up. */
+const net = (result: ReturnType<typeof computeMarks>) => result.ledger.reduce((sum, event) => sum + event.points, 0);
+
 describe('marks', () => {
-    it('pays for keeping a habit and charges for missing one, never for today', () => {
-        // Added Oct 1 (+1); done Oct 1, 2, 4 (+15); missed Oct 3 (-2); today not yet due.
+    it('pays for keeping a habit; a miss is on the record but costs no XP, and today is never a miss', () => {
+        // Added Oct 1 (+1); done Oct 1, 2, 4 (+15); missed Oct 3 (-2 on the record, nothing in Marks).
         const result = computeMarks({
             habits: [habit()], tasks: [],
             history: { '2026-10-01': ['h'], '2026-10-02': ['h'], '2026-10-04': ['h'] },
             today: TODAY,
         });
-        expect(result.total).toBe(14);
+        expect(result.total).toBe(16);
+        expect(net(result)).toBe(14);
     });
 
     it('treats a skipped day as neither kept nor missed', () => {
@@ -43,7 +47,8 @@ describe('marks', () => {
             ],
             history: {}, today: TODAY,
         });
-        expect(result.total).toBe(18);
+        expect(result.total).toBe(26);
+        expect(net(result)).toBe(18);
     });
 
     it('rewards a goal reached and charges a goal missed', () => {
@@ -52,17 +57,20 @@ describe('marks', () => {
             habits: [goal('won', '2026-10-30'), goal('lost', '2026-10-02')], tasks: [], history: {},
             goalsCompletedOn: { won: '2026-10-03' }, today: TODAY,
         });
-        // +5 +5 for adding, +50 for reaching one, -15 for the deadline that passed.
-        expect(result.total).toBe(45);
+        // +5 +5 for adding, +50 for reaching one; -15 for the deadline that passed is on the record only.
+        expect(result.total).toBe(60);
+        expect(net(result)).toBe(45);
     });
 
-    it('never goes below zero, and draws a running total ending today', () => {
+    it('never goes down, however much is missed, and draws a running total ending today', () => {
         const result = computeMarks({
             habits: [habit({ startDate: '2026-09-01', createdAt: '2026-09-01T09:00:00' })], tasks: [], history: {}, today: TODAY,
         });
-        expect(result.total).toBe(0);
-        expect(result.series[result.series.length - 1]).toEqual({ date: TODAY, value: 0 });
-        expect(result.series.every(point => point.value >= 0)).toBe(true);
+        expect(result.total).toBe(1);
+        expect(result.series[result.series.length - 1]).toEqual({ date: TODAY, value: 1 });
+        expect(result.series.every((point, index) => index === 0 || point.value >= result.series[index - 1].value)).toBe(true);
+        expect(result.ledger.some(event => event.kind === 'miss')).toBe(true);
+        expect(result.events.every(event => event.points > 0)).toBe(true);
     });
 
     it('takes back what an undone tick earned', () => {
@@ -101,8 +109,9 @@ describe('sleep', () => {
         const good = computeMarks({ habits: [], tasks: [], history: {}, goodNights: ['2026-10-14', '2026-10-15', '2026-10-16'], today: '2026-10-16' });
         expect(good.total).toBe(60);
         const mixed = computeMarks({ habits: [], tasks: [], history: {}, goodNights: ['2026-10-14', '2026-10-15'], shortNights: ['2026-10-16'], today: '2026-10-16' });
-        expect(mixed.total).toBe(20);
-        expect(mixed.events.filter(event => event.item === 'sleep')).toHaveLength(3);
+        expect(mixed.total).toBe(40);
+        expect(net(mixed)).toBe(20);
+        expect(mixed.ledger.filter(event => event.item === 'sleep')).toHaveLength(3);
     });
 });
 
@@ -121,10 +130,10 @@ describe('deleting is break-even, never a way up', () => {
     it('keeps the misses of a deleted habit, so deleting a neglected one does not raise Marks', () => {
         // Kept Oct 1 and 2 (+10, +1 for adding), missed Oct 3 and 4 (-4): 7.
         const input = { ...base, habits: [habit()], history: { '2026-10-01': ['h'], '2026-10-02': ['h'] } };
-        const withHabit = computeMarks(input).total;
+        const withHabit = net(computeMarks(input));
         const kept = penaltiesOf(input, { habits: ['h'] });
         expect(kept.map(p => [p.date, p.points])).toEqual([['2026-10-04', -2], ['2026-10-03', -2]]);
-        const afterDelete = computeMarks({ ...base, habits: [], history: input.history, kept }).total;
+        const afterDelete = net(computeMarks({ ...base, habits: [], history: input.history, kept }));
         expect(afterDelete).toBeLessThanOrEqual(withHabit);
     });
 

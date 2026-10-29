@@ -101,11 +101,11 @@ export function SleepCard() {
                 <IconTile icon="moon" color={primary} size={32} />
                 <Text style={[styles.title, styles.flex, { color: colors.textPrimary }]}>Sleep</Text>
                 {last !== undefined ? (
-                    // What last night did to your Marks: +20 at your goal, −20 short of it.
+                    // What last night did to your Shards: +20 at your goal, −20 short of it.
                     <View style={[styles.earned, { backgroundColor: (met ? colors.success : colors.error) + '22' }]}>{/* ui-allow: tint */}
                         <AppIcon name={met ? 'sparkles' : 'trending-down'} size={12} color={met ? colors.success : colors.error} />
                         <Text style={[styles.earnedText, { color: met ? colors.success : colors.error }]}>
-                            {met ? `+${MARKS.complete.sleep}` : `${MARKS.miss.sleep}`} Marks
+                            {met ? `+${MARKS.complete.sleep}` : `${MARKS.miss.sleep}`} Shards
                         </Text>
                     </View>
                 ) : null}

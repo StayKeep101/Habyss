@@ -200,7 +200,8 @@ export interface FriendProfile {
     avatarUrl?: string;
     coverUrl?: string;
     /** Their Marks over the last 60 days, when they share progress. */
-    marksSeries?: number[];
+    /** Their Shards wallet over the last sixty days: the backdrop of their profile. */
+    walletSeries?: number[];
     bestStreak?: number;
     goalsCompleted?: number;
 }
@@ -510,11 +511,13 @@ export class FriendsService {
     static async profileOf(friendId: string): Promise<FriendProfile> {
         const ctx = await signedIn();
         if (!ctx) return {};
-        const { data } = await ctx.sb.from('profiles')
-            .select('bio, avatar_url, cover_url, marks_series, best_streak, goals_completed').eq('id', friendId).maybeSingle();
+        const fields = 'bio, avatar_url, cover_url, best_streak, goals_completed';
+        let { data, error } = await ctx.sb.from('profiles').select(`${fields}, shards_series`).eq('id', friendId).maybeSingle();
+        // A server without the wallet's column yet still shows the rest of the profile.
+        if (error) ({ data } = await ctx.sb.from('profiles').select(fields).eq('id', friendId).maybeSingle());
         return {
             bio: data?.bio ?? undefined, avatarUrl: data?.avatar_url ?? undefined, coverUrl: data?.cover_url ?? undefined,
-            marksSeries: data?.marks_series ?? undefined,
+            walletSeries: (data as { shards_series?: number[] } | null)?.shards_series ?? undefined,
             bestStreak: data?.best_streak ?? undefined,
             goalsCompleted: data?.goals_completed ?? undefined,
         };

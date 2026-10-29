@@ -73,6 +73,16 @@ export const useHaptics = () => {
     if (hapticsEnabled) fire(() => Haptics.selectionAsync());
   };
 
+  /** A cushioned tap: a finger landing on a chart. */
+  const softFeedback = () => {
+    if (hapticsEnabled) fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft));
+  };
+
+  /** A crisp, firm tap: the high, the low or the end of a chart under the finger. */
+  const rigidFeedback = () => {
+    if (hapticsEnabled) fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid));
+  };
+
   return {
     enabled: hapticsEnabled,
     lightFeedback,
@@ -83,6 +93,8 @@ export const useHaptics = () => {
     successFeedback,
     errorFeedback,
     selectionFeedback,
+    softFeedback,
+    rigidFeedback,
   };
   }, [hapticsEnabled]);
 };

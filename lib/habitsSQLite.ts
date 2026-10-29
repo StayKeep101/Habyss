@@ -752,6 +752,33 @@ export async function getCompletionTicks(days: number): Promise<{ habitId: strin
 }
 
 /**
+ * When every habit tick was made over the last `days` days, late ones
+ * included, keyed "habitId:date": a tick made days after the day it counts
+ * for (filled in later) earns no Shards (lib/shards.ts).
+ */
+export async function getCompletionStamps(days: number): Promise<Record<string, string>> {
+    if (!isSQLiteAvailable()) return {};
+    try {
+        const uid = await getUserId();
+        const db = await getDatabase();
+        if (!db || !uid) return {};
+        const start = new Date();
+        start.setDate(start.getDate() - (days - 1));
+        const rows = await db.getAllAsync(
+            'SELECT habit_id, date, created_at FROM completions WHERE user_id = ? AND date >= ? AND deleted = 0 AND COALESCE(skipped, 0) = 0',
+            uid, todayString(start),
+        );
+        const out: Record<string, string> = {};
+        for (const row of (rows ?? []) as { habit_id: string; date: string; created_at: string }[]) {
+            if (row.created_at) out[`${row.habit_id}:${row.date}`] = row.created_at;
+        }
+        return out;
+    } catch {
+        return {};
+    }
+}
+
+/**
  * When each habit was ticked on `date`, for the habits ticked on that day
  * itself (a tick made later for an earlier day has no real time of day).
  * The timeline shows a done habit ending at this moment.
