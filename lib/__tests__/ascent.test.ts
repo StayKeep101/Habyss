@@ -42,8 +42,8 @@ describe('the Ascent story', () => {
     it('meets Echo and asks a name, which can be skipped', () => {
         const state = toWait(initialAscent());
         expect(currentBeat(state)).toMatchObject({ kind: 'input', field: 'name', optional: true });
-        expect(currentBeat(answer(state, { name: 'sam peter' }))).toMatchObject({ text: 'Nice to meet you, Sam.' });
-        expect(currentBeat(answer(state, { name: '' }))).toMatchObject({ text: 'Mysterious. I like it.' });
+        expect(currentBeat(answer(state, { name: 'sam peter' }))).toMatchObject({ text: 'Sam. Good to meet you.' });
+        expect(currentBeat(answer(state, { name: '' }))).toMatchObject({ text: 'A mystery. Fair enough.' });
     });
 
     it('answers each way of having ended up here differently, and never says you failed', () => {
@@ -55,7 +55,7 @@ describe('the Ascent story', () => {
     it('asks what they juggle, their rhythm, their hours and their sleep', () => {
         const life = toWait(at('life'));
         expect(currentBeat(life)).toMatchObject({ kind: 'multi', field: 'juggling' });
-        expect(currentBeat(answer(life, { juggling: ['job', 'school', 'family'] }))).toMatchObject({ text: 'That’s a lot to carry. We’ll make it lighter.' });
+        expect(currentBeat(answer(life, { juggling: ['job', 'school', 'family'] }))).toMatchObject({ text: 'That’s a lot. We’ll guard time for what matters.' });
 
         let rhythm = toWait(at('rhythm'));
         expect(currentBeat(rhythm)).toMatchObject({ kind: 'choice', field: 'chronotype' });
@@ -63,7 +63,7 @@ describe('the Ascent story', () => {
         expect(currentBeat(rhythm)?.kind).toBe('day');
         rhythm = toWait(answer(rhythm, { wake: '09:00', sleep: '01:00' }));
         expect(currentBeat(rhythm)).toMatchObject({ kind: 'choice', field: 'sleepAmount' });
-        expect(currentBeat(answer(rhythm, { sleepAmount: 'under_six' }))).toMatchObject({ text: 'Running on empty, then. I’ll go easy on your mornings.' });
+        expect(currentBeat(answer(rhythm, { sleepAmount: 'under_six' }))).toMatchObject({ text: 'Let’s work on that. Everything’s harder tired.' });
     });
 
     it('gives each obstacle its own line and its own first step', () => {
@@ -75,7 +75,7 @@ describe('the Ascent story', () => {
 
     it('asks for the goal in their words only for something important or their own', () => {
         const goal = toWait(at('goal'));
-        expect(currentBeat(answer(goal, { goal: 'health' }))).toMatchObject({ kind: 'line', text: 'Improve my health. That’s worth working toward.' });
+        expect(currentBeat(answer(goal, { goal: 'health' }))).toMatchObject({ kind: 'line', text: 'Improve my health. Let’s do it.' });
         expect(currentBeat(answer(goal, { goal: 'own' }))).toMatchObject({ kind: 'input', field: 'goalText' });
         expect(goalTitle({ goal: 'achieve', goalText: 'finish my degree' })).toBe('Finish my degree');
     });
@@ -93,7 +93,18 @@ describe('the Ascent story', () => {
         expect(answer(foothold, { when: 'later' })).toBe(foothold);
         expect(ascentReducer(foothold, { type: 'built' })).toBe(foothold);
         const made = ascentReducer(foothold, { type: 'created', created: { goalId: 'g', stepId: 's', stepKind: 'habit' } });
-        expect(currentBeat(made)).toMatchObject({ text: 'There. Your first step.' });
+        expect(currentBeat(made)).toMatchObject({ text: 'Done. That’s your first step.' });
+    });
+
+    it('keeps Echo brief: a line or two between each answer, never a speech', () => {
+        SCENES.forEach(scene => {
+            let run = 0;
+            scene.beats(everyone).forEach(beat => {
+                run = beat.kind === 'line' ? run + 1 : 0;
+                expect(run).toBeLessThanOrEqual(2);
+                if (beat.kind === 'line') expect(beat.text.length).toBeLessThanOrEqual(80);
+            });
+        });
     });
 
     it('plays start to finish, ending on Echo built for them and the last button', () => {

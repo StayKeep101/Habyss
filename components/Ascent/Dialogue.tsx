@@ -69,7 +69,7 @@ export function Dialogue({ text, onTyped, handle }: { text: string; onTyped?: ()
 }
 
 const styles = StyleSheet.create({
-    // Echo's line is what the page is about: it is set as a page title.
-    line: Typography.screenTitle,
+    // Echo talks like a friend in a chat, not a headline: the card-title size.
+    line: Typography.title,
     unseen: { opacity: 0 },
 });

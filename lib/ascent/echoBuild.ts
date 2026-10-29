@@ -17,9 +17,9 @@ const BLOCKERS: Record<ObstacleId, BlockerId[]> = {
 
 /** How Echo tells them which voice it chose, in its own words. */
 const SAYS: Record<PersonalityModeId, string> = {
-    friendly: 'I’ll be gentle with you, and cheer every win, however small.',
-    normal: 'I’ll keep it calm and steady, and stay out of your way when you’re flying.',
-    dad_mode: 'I’ll be firm. If the deadline is what makes it real, I’ll be your deadline.',
+    friendly: 'I’ll keep it kind, and cheer every win.',
+    normal: 'I’ll keep it calm, and stay out of your way.',
+    dad_mode: 'I’ll keep you honest. Deadlines are my thing.',
     bully_mode: 'I won’t go easy on you.',
 };
 

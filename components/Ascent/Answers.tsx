@@ -125,7 +125,7 @@ export function ActionPicker({ suggestions, color, onPick }: { suggestions: Sugg
 export function BeginButton({ onPress }: { onPress: () => void }) {
     return (
         <Animated.View entering={FadeInDown.delay(STAGGER.stage).duration(DURATION.reward).easing(EASE.enter)}>
-            <AppButton label="Begin my ascent" icon="arrow-up" onPress={onPress} />
+            <AppButton label="Let’s go" icon="arrow-forward" onPress={onPress} />
         </Animated.View>
     );
 }

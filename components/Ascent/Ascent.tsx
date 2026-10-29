@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeOut, useReducedMotion } from 'react-native-reanimated';
-import { AppButton, Echo, IconButton, Text, VoidShell } from '@/components/ui';
+import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
+import { AppButton, Echo, Text, VoidShell } from '@/components/ui';
 import { AnimatedFill } from '@/components/ui/Motion';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -186,7 +186,10 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
 
                     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.bottom} pointerEvents="box-none">
                         {line !== null ? (
-                            <Dialogue key={line} text={line} handle={dialogue} onTyped={() => setTyped(line)} />
+                            // No arrow: a tap anywhere moves on. VoiceOver gets the line itself as the button.
+                            <Pressable onPress={tapScreen} accessibilityRole="button" accessibilityHint={beat?.kind === 'line' ? 'Double-tap to continue' : undefined}>
+                                <Dialogue key={line} text={line} handle={dialogue} onTyped={() => setTyped(line)} />
+                            </Pressable>
                         ) : beat?.kind === 'build' ? (
                             <Animated.View entering={FadeIn.duration(DURATION.base)} style={styles.building}>
                                 <Text variant="title" tone="muted">Building your Echo…</Text>
@@ -200,11 +203,6 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
 
                         {!leaving && ready ? (
                             <View style={styles.controls} pointerEvents="box-none">
-                                {beat?.kind === 'line' ? (
-                                    <Animated.View entering={FadeIn.delay(DURATION.base).duration(DURATION.base)} exiting={FadeOut.duration(DURATION.tap)} style={styles.centre}>
-                                        <IconButton icon="chevron-down" label="Continue" onPress={tapScreen} />
-                                    </Animated.View>
-                                ) : null}
                                 {beat?.kind === 'choice' ? (
                                     <ChoiceList key={beatKey} options={beat.options} color={color} onChoose={id => choose(beat.field, id)} />
                                 ) : null}
@@ -254,6 +252,5 @@ const styles = StyleSheet.create({
     echo: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     bottom: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg, gap: Spacing.lg },
     controls: { gap: Spacing.sm },
-    centre: { alignSelf: 'center' },
     building: { gap: Spacing.lg },
 });

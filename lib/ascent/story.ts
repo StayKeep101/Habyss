@@ -117,86 +117,86 @@ export const SCENES: Scene[] = [
     {
         id: 'first-light', label: 'Meeting Echo.',
         beats: answers => [
-            { kind: 'line', text: 'Oh. Hey.', mood: 'appear' },
-            { kind: 'line', text: 'Didn’t think I’d find someone else down here.', mood: 'curious' },
-            { kind: 'line', text: 'I’m Echo.', mood: 'speak' },
+            { kind: 'line', text: 'Hey. I’m Echo.', mood: 'appear' },
             { kind: 'line', text: 'What should I call you?', mood: 'listen' },
             { kind: 'input', field: 'name', placeholder: 'Your name', optional: true, mood: 'listen' },
-            { kind: 'line', text: first(answers) ? `Nice to meet you, ${first(answers)}.` : 'Mysterious. I like it.', mood: 'excited' },
+            { kind: 'line', text: first(answers) ? `${first(answers)}. Good to meet you.` : 'A mystery. Fair enough.', mood: 'excited' },
         ],
     },
     {
         id: 'history', label: 'How they got here.',
         beats: answers => [
-            { kind: 'line', text: 'So… how’d you end up here?', mood: 'curious' },
-            { kind: 'line', text: 'Ever promised yourself you’d change something, and ended up right back where you started?', mood: 'listen' },
+            { kind: 'line', text: 'Ever promised yourself you’d change, then ended up back at square one?', mood: 'curious' },
             { kind: 'choice', field: 'history', mood: 'listen', options: [
-                { id: 'always', label: 'All the time.' },
-                { id: 'sometimes', label: 'Sometimes.' },
-                { id: 'rarely', label: 'Not really.' },
+                { id: 'always', label: 'All the time' },
+                { id: 'sometimes', label: 'Sometimes' },
+                { id: 'rarely', label: 'Not really' },
             ] },
             answers.history === 'always'
-                ? { kind: 'line', text: 'Yeah. Starting over again and again can be exhausting.', mood: 'empathetic' }
+                ? { kind: 'line', text: 'Most people have. It’s rarely willpower. It’s the plan.', mood: 'empathetic' }
                 : answers.history === 'sometimes'
-                    ? { kind: 'line', text: 'Fair enough. It happens to almost everyone.', mood: 'empathetic' }
-                    : { kind: 'line', text: 'That’s good. Maybe you’re here to see how much further you can go.', mood: 'encourage' },
+                    ? { kind: 'line', text: 'Normal. Let’s make the next one stick.', mood: 'empathetic' }
+                    : { kind: 'line', text: 'Love that. Then let’s aim higher.', mood: 'encourage' },
         ],
     },
     {
         id: 'life', label: 'What they are carrying.',
         beats: answers => [
-            { kind: 'line', text: 'Tell me about your days. What are you juggling right now?', mood: 'listen' },
+            { kind: 'line', text: 'What’s on your plate right now?', mood: 'listen' },
             { kind: 'multi', field: 'juggling', options: options(JUGGLES), mood: 'listen' },
             (answers.juggling?.length ?? 0) >= 3
-                ? { kind: 'line', text: 'That’s a lot to carry. We’ll make it lighter.', mood: 'empathetic' }
-                : { kind: 'line', text: 'Good. Then there’s room for what matters most.', mood: 'encourage' },
+                ? { kind: 'line', text: 'That’s a lot. We’ll guard time for what matters.', mood: 'empathetic' }
+                : { kind: 'line', text: 'Good. Room to go deep.', mood: 'encourage' },
         ],
     },
     {
         id: 'rhythm', label: 'Their day and their sleep.',
         beats: answers => [
-            { kind: 'line', text: 'Are you more of a morning person, or a night owl?', mood: 'curious' },
+            { kind: 'line', text: 'Morning person or night owl?', mood: 'curious' },
             { kind: 'choice', field: 'chronotype', mood: 'listen', options: options(CHRONOTYPES) },
-            { kind: 'line', text: 'When does your day usually start and end?', mood: 'listen' },
+            { kind: 'line', text: 'When’s your day, roughly?', mood: 'listen' },
             { kind: 'day', mood: 'listen' },
-            { kind: 'line', text: 'And honestly, how much sleep do you actually get?', mood: 'listen' },
+            { kind: 'line', text: 'Real talk: how much do you sleep?', mood: 'listen' },
             { kind: 'choice', field: 'sleepAmount', mood: 'listen', options: options(SLEEP_AMOUNTS) },
             answers.sleepAmount === 'under_six'
-                ? { kind: 'line', text: 'Running on empty, then. I’ll go easy on your mornings.', mood: 'empathetic' }
-                : { kind: 'line', text: 'Good. A rested mind climbs further.', mood: 'encourage' },
+                ? { kind: 'line', text: 'Let’s work on that. Everything’s harder tired.', mood: 'empathetic' }
+                : { kind: 'line', text: 'Nice. That’s half the battle.', mood: 'encourage' },
         ],
     },
     {
         id: 'mirror', label: 'What gets in the way.',
         beats: answers => [
-            { kind: 'line', text: 'Everyone gets stuck differently. What tends to get in your way?', mood: 'think' },
+            { kind: 'line', text: 'What usually gets in your way?', mood: 'think' },
             { kind: 'choice', field: 'obstacle', mood: 'listen', options: OBSTACLES },
-            { kind: 'line', mood: 'empathetic', text:
-                answers.obstacle === 'starting' ? 'Starting can feel bigger than the thing itself.'
-                    : answers.obstacle === 'consistency' ? 'You know where you want to go. Keeping it going is the hard part.'
-                        : answers.obstacle === 'distraction' ? 'So many things pulling at your attention.'
-                            : 'When everything seems important, it’s hard to know where to begin.' },
-            { kind: 'line', text: 'When does work actually get done for you?', mood: 'curious' },
+            { kind: 'line', mood: 'encourage', text:
+                answers.obstacle === 'starting' ? 'Then we make starting tiny. Two minutes counts.'
+                    : answers.obstacle === 'consistency' ? 'Then missing a day is fine. Just never twice in a row.'
+                        : answers.obstacle === 'distraction' ? 'Then we fence off your focus. One thing at a time.'
+                            : 'Then we pick one thing. The rest can wait.' },
+            { kind: 'line', text: 'When does work actually get done?', mood: 'curious' },
             { kind: 'choice', field: 'timing', mood: 'listen', options: options(TIMINGS) },
-            { kind: 'line', text: 'Motivation gives you a spark. But sparks don’t last.', mood: 'think' },
-            { kind: 'line', text: 'So we’ll build something that keeps going when the spark doesn’t. Small steps count.', mood: 'encourage' },
+            { kind: 'line', mood: 'speak', text:
+                answers.timing === 'last_minute' ? 'Deadlines work for you. I’ll set earlier ones.'
+                    : answers.timing === 'straight_away' ? 'Love that. I’ll keep up.'
+                        : answers.timing === 'planned' ? 'A planner. I can work with that.'
+                            : 'Honest. We’ll start small.' },
         ],
     },
     {
         id: 'goal', label: 'Where they want to go.',
         beats: answers => [
-            { kind: 'line', text: 'Enough about what keeps you down here. Where do you want to go?', mood: 'encourage' },
+            { kind: 'line', text: 'So what do you want to work toward?', mood: 'curious' },
             { kind: 'choice', field: 'goal', mood: 'listen', options: (Object.keys(GOALS) as GoalId[]).map(id => ({ id, label: GOALS[id].label })) },
             ...(answers.goal === 'achieve' || answers.goal === 'own'
-                ? [{ kind: 'input', field: 'goalText', placeholder: answers.goal === 'achieve' ? 'Finish my degree' : 'Write it in your words', mood: 'listen' } as Beat]
+                ? [{ kind: 'input', field: 'goalText', placeholder: answers.goal === 'achieve' ? 'Finish my degree' : 'In your words', mood: 'listen' } as Beat]
                 : []),
-            { kind: 'line', text: `${goalTitle(answers)}. That’s worth working toward.`, mood: 'excited' },
+            { kind: 'line', text: `${goalTitle(answers)}. Let’s do it.`, mood: 'excited' },
         ],
     },
     {
         id: 'foothold', label: 'The first step.',
         beats: () => [
-            { kind: 'line', text: 'Now let’s make it real. What’s one small thing you could do to move closer?', mood: 'listen' },
+            { kind: 'line', text: 'What’s one tiny step toward it?', mood: 'listen' },
             { kind: 'action', mood: 'listen' },
             { kind: 'line', text: 'When?', mood: 'listen' },
             { kind: 'choice', field: 'when', mood: 'listen', options: [
@@ -205,36 +205,29 @@ export const SCENES: Scene[] = [
                 { id: 'tomorrow', label: 'Tomorrow morning' },
             ] },
             { kind: 'commit' },
-            { kind: 'line', text: 'There. Your first step.', mood: 'celebrate' },
+            { kind: 'line', text: 'Done. That’s your first step.', mood: 'celebrate' },
         ],
     },
     {
         id: 'allies', label: 'Someone to come along.',
-        beats: answers => [
-            { kind: 'line', text: 'You don’t have to do this alone. Want someone to come along?', mood: 'encourage' },
+        beats: () => [
+            { kind: 'line', text: 'Bring a friend? It’s easier with someone in your corner.', mood: 'encourage' },
             { kind: 'choice', field: 'invite', mood: 'listen', options: [
                 { id: 'yes', label: 'Invite a friend' },
                 { id: 'later', label: 'Maybe later' },
             ] },
-            { kind: 'line', mood: 'speak', text: answers.invite === 'yes' ? 'The more the merrier.' : 'Whenever you’re ready.' },
-            { kind: 'line', text: 'One last thing: how did you find me?', mood: 'curious' },
+            { kind: 'line', text: 'Last one: how’d you find me?', mood: 'curious' },
             { kind: 'choice', field: 'source', mood: 'listen', options: options(SOURCES) },
         ],
     },
     {
         id: 'your-echo', label: 'Echo, built for them.',
-        beats: answers => {
-            const echo = buildEcho(answers);
-            return [
-                { kind: 'line', text: 'I’ve learned a lot about you. Now let me become the Echo you need.', mood: 'think' },
-                { kind: 'line', text: 'To keep you on track, I’ll ask if I can send you notifications.', mood: 'speak' },
-                { kind: 'build' },
-                { kind: 'line', text: first(answers) ? `There. I’m your Echo now, ${first(answers)}.` : 'There. I’m your Echo now.', mood: 'celebrate' },
-                { kind: 'line', text: echo.reason, mood: 'speak' },
-                { kind: 'line', text: 'You have somewhere to go, and a first step. The rest, we build one day at a time.', mood: 'encourage' },
-                { kind: 'begin' },
-            ];
-        },
+        beats: answers => [
+            { kind: 'line', text: 'Got it. Let me tune myself to you. I’ll ask to send you nudges.', mood: 'think' },
+            { kind: 'build' },
+            { kind: 'line', text: `${first(answers) ? `Ready, ${first(answers)}. ` : 'Ready. '}${buildEcho(answers).reason}`, mood: 'celebrate' },
+            { kind: 'begin' },
+        ],
     },
 ];
 

@@ -11,10 +11,10 @@ jest.mock('@/lib/analytics', () => ({ track: jest.fn() }));
 jest.mock('@/lib/echo', () => ({ saveName: jest.fn(async () => undefined) }));
 jest.mock('@/lib/ascent/plan', () => ({ ...jest.requireActual('@/lib/ascent/plan'), commitPlan: jest.fn() }));
 
-/** Lets the line finish typing, then taps Continue. */
+/** Lets the line finish typing, then taps anywhere. */
 const through = (screen: ReturnType<typeof render>) => {
     act(() => { jest.advanceTimersByTime(6000); });
-    fireEvent.press(screen.getByLabelText('Continue'));
+    fireEvent.press(screen.UNSAFE_root.findAll(node => node.props.onPress && node.props.accessible === false)[0]);
 };
 
 describe('the Ascent, played', () => {
@@ -24,19 +24,20 @@ describe('the Ascent, played', () => {
     it('meets Echo, takes a name, and goes down answering how they got here', () => {
         const screen = render(<Ascent preview onEnd={jest.fn()} />);
         expect(track).toHaveBeenCalledWith('onboarding_started', { preview: true });
-        for (let line = 0; line < 4; line++) through(screen);
+        for (let line = 0; line < 2; line++) through(screen);
         act(() => { jest.advanceTimersByTime(1000); });
         fireEvent.changeText(screen.getByPlaceholderText('Your name'), 'Sam');
         fireEvent.press(screen.getByText('Continue'));
-        expect(screen.getByLabelText('Nice to meet you, Sam.')).toBeTruthy();
+        expect(screen.getByLabelText('Sam. Good to meet you.')).toBeTruthy();
         through(screen);
         expect(track).toHaveBeenCalledWith('eco_introduction_completed');
         through(screen);
-        through(screen);
         act(() => { jest.advanceTimersByTime(1000); });
-        fireEvent.press(screen.getByLabelText('All the time.'));
+        fireEvent.press(screen.getByLabelText('All the time'));
         act(() => { jest.advanceTimersByTime(1000); });
-        expect(screen.getByLabelText('Yeah. Starting over again and again can be exhausting.')).toBeTruthy();
+        expect(screen.getByLabelText('Most people have. It’s rarely willpower. It’s the plan.')).toBeTruthy();
+        // No arrow under a line: tapping moves on.
+        expect(screen.queryByLabelText('Continue')).toBeNull();
     });
 
     it('a first tap shows the whole line, the next moves on', () => {
@@ -44,9 +45,9 @@ describe('the Ascent, played', () => {
         act(() => { jest.advanceTimersByTime(260); });
         const tapAnywhere = () => fireEvent.press(screen.UNSAFE_root.findAll(node => node.props.onPress && node.props.accessible === false)[0]);
         tapAnywhere();
-        expect(screen.getByLabelText('Oh. Hey.')).toBeTruthy();
+        expect(screen.getByLabelText('Hey. I’m Echo.')).toBeTruthy();
         tapAnywhere();
-        expect(screen.getByLabelText('Didn’t think I’d find someone else down here.')).toBeTruthy();
+        expect(screen.getByLabelText('What should I call you?')).toBeTruthy();
     });
 
     it('can be left at any point, and says where', () => {
