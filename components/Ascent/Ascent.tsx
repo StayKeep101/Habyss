@@ -6,6 +6,7 @@ import { AppButton, Echo, Text, VoidShell } from '@/components/ui';
 import { AnimatedFill } from '@/components/ui/Motion';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useKeyboardShown } from '@/hooks/useKeyboardShown';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { APP_SLOGAN } from '@/constants/brand';
@@ -53,6 +54,8 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
     const [saveFailed, setSaveFailed] = useState(false);
     const [attempt, setAttempt] = useState(0);
     const [leaving, setLeaving] = useState(false);
+    // Typing an answer, Echo steps aside so its line, the field and Continue all fit above the keyboard.
+    const typing = useKeyboardShown();
 
     // Where it was left, or the start. Preview never reads or writes it.
     useEffect(() => {
@@ -180,11 +183,13 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
                             variant="ghost" fullWidth={false} onPress={skip} />
                     </View>
 
-                    <View style={styles.echo} pointerEvents="none" accessible accessibilityRole="image" accessibilityLabel={scene.label}>
-                        <Echo mood={mood} color={color} speaking={line !== null && !ready} />
-                    </View>
+                    {typing ? null : (
+                        <View style={styles.echo} pointerEvents="none" accessible accessibilityRole="image" accessibilityLabel={scene.label}>
+                            <Echo mood={mood} color={color} speaking={line !== null && !ready} />
+                        </View>
+                    )}
 
-                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.bottom} pointerEvents="box-none">
+                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.bottom, typing && styles.raised]} pointerEvents="box-none">
                         {line !== null ? (
                             // No arrow: a tap anywhere moves on. VoiceOver gets the line itself as the button.
                             <Pressable onPress={tapScreen} accessibilityRole="button" accessibilityHint={beat?.kind === 'line' ? 'Double-tap to continue' : undefined}>
@@ -249,8 +254,11 @@ const styles = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.xl, paddingRight: Spacing.sm, minHeight: Control.hitTarget },
     track: { flex: 1, height: Spacing.xs, borderRadius: Radius.pill, overflow: 'hidden' },
     bar: { height: '100%', borderRadius: Radius.pill },
-    echo: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    // Echo's rings reach past its box; clipped here so they never pass over its words.
+    echo: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
     bottom: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg, gap: Spacing.lg },
+    // With the keyboard up the answer fills the page from just under the header.
+    raised: { flex: 1, justifyContent: 'flex-end' },
     controls: { gap: Spacing.sm },
     building: { gap: Spacing.lg },
 });

@@ -74,7 +74,7 @@ export const ProfileView: React.FC<{
 }> = ({ name, bio, meta, avatar, initials, status, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, onGoalsDone, children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { primary, secondary } = useAccentGradient();
+    const { primary } = useAccentGradient();
     const { height: screenHeight, width: screenWidth } = useWindowDimensions();
     // The banner, plus the half of the avatar that overlaps it.
     const coverHeight = topInset + vs(150) + s(48);
@@ -85,37 +85,26 @@ export const ProfileView: React.FC<{
     return (
         <>
             <Animated.View entering={FadeIn.duration(220)} layout={MORPH} style={styles.head}>
-                {/* The backdrop: the person's Marks over time (or an aurora in
+                {/* The backdrop: the person's Marks over time (or a wash in
                     the accent colours before there is a history), fading into
                     the page. */}
                 {/* It also reaches a full screen above the top, in the same
                     colour, so pulling the page down never shows an edge. */}
                 <View pointerEvents="none" style={[styles.backdrop, { top: -screenHeight, height: screenHeight + coverHeight }]}>
+                    {/* One wash in the accent, the same above the page and below its top,
+                        so there is never an edge; the Marks graph sits on it once there is
+                        a history. */}
+                    <View style={[styles.above, { height: screenHeight }]}>
+                        <LinearGradient colors={[primary + '40', primary + '40']} style={StyleSheet.absoluteFill} />
+                    </View>
+                    <View style={[styles.below, { top: screenHeight }]}>
+                        <LinearGradient colors={[primary + '40', primary + '10', 'transparent']} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
+                    </View>
                     {marksSeries && marksSeries.length > 1 ? (
-                        <>
-                            {/* Above the page, the colour the backdrop starts with, so
-                                pulling or scrolling never shows a hard edge. */}
-                            <View style={[styles.above, { height: screenHeight }]}>
-                                <LinearGradient colors={[primary + '40', primary + '40']} style={StyleSheet.absoluteFill} />
-                            </View>
-                            <View style={[styles.below, { top: screenHeight }]}>
-                                <LinearGradient colors={[primary + '40', primary + '10', 'transparent']} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
-                            </View>
-                            <View style={[styles.graph, { top: screenHeight, height: coverHeight }]}>
-                                <MarksBackdrop series={marksSeries} width={screenWidth} height={coverHeight} color={primary} />
-                            </View>
-                        </>
-                    ) : (
-                        <>
-                            <View style={[styles.above, { height: screenHeight, backgroundColor: primary }]} />
-                            <View style={[styles.below, { top: screenHeight }]}>
-                                <LinearGradient colors={[primary, primary + '33', 'transparent']} locations={[0, 0.45, 0.8]}
-                                    start={{ x: 0, y: 0 }} end={{ x: 0.8, y: 1 }} style={StyleSheet.absoluteFill} />
-                                <LinearGradient colors={['transparent', secondary + '66', 'transparent']} locations={[0, 0.4, 0.85]}
-                                    start={{ x: 1, y: 0 }} end={{ x: 0.2, y: 0.9 }} style={StyleSheet.absoluteFill} />
-                            </View>
-                        </>
-                    )}
+                        <View style={[styles.graph, { top: screenHeight, height: coverHeight }]}>
+                            <MarksBackdrop series={marksSeries} width={screenWidth} height={coverHeight} color={primary} />
+                        </View>
+                    ) : null}
                     {/* Fades into the page under the photo or graph — late, so the
                         graph above the avatar stays clear. */}
                     <View style={[styles.below, { top: screenHeight }]}>
