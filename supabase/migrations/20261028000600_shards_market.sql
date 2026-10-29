@@ -6,9 +6,8 @@
 -- made the same day, at most 10 a day for adding things, at most 200 a day in
 -- all. The phone publishes what doing has earned (profiles.shards_earned,
 -- private: friends never read it), and the server holds it to 200 a day for
--- the account's age, so an edited phone cannot mint them. It also publishes
--- the last 60 days of the wallet (profiles.shards_series), the backdrop
--- friends see behind a profile. Everyone starts with a hundred. shards_ledger
+-- the account's age, so an edited phone cannot mint them. Everyone starts
+-- with a hundred. shards_ledger
 -- holds every Shard a bet moved. What you can spend: 100 + earned + ledger.
 --
 -- The market: the owner of a goal with a deadline at least three days away
@@ -28,12 +27,6 @@
 alter table public.profiles add column if not exists shards_earned integer not null default 0 check (shards_earned >= 0);
 grant update (shards_earned) on public.profiles to authenticated;
 
-alter table public.profiles add column if not exists shards_series integer[];
-alter table public.profiles drop constraint if exists profiles_shards_series_length;
-alter table public.profiles add constraint profiles_shards_series_length
-    check (shards_series is null or cardinality(shards_series) <= 60);
-grant select (shards_series) on public.profiles to authenticated;
-grant update (shards_series) on public.profiles to authenticated;
 
 -- No more than 200 a day for every day the account has existed.
 create or replace function public.cap_shards_earned()

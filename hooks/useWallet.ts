@@ -3,7 +3,7 @@ import { on } from '@/lib/appEvents';
 import { getCompletionStamps } from '@/lib/habitsSQLite';
 import { myWallet, type LedgerEntry } from '@/lib/market';
 import { publishShards } from '@/lib/marksSync';
-import { SHARDS, changeToday, profileLine, shardMoves, walletPoints, type ShardMove, type TimedPoint } from '@/lib/shards';
+import { SHARDS, changeToday, shardMoves, walletPoints, type ShardMove, type TimedPoint } from '@/lib/shards';
 import type { Marks } from '@/hooks/useMarks';
 
 export interface Wallet {
@@ -26,8 +26,7 @@ export interface Wallet {
  * (lib/shards.ts), at the moments they happened, plus what bets moved on the
  * server (lib/market.ts). The doing part moves the instant something is
  * ticked; the bets part is read again whenever a bet is placed or settled.
- * The earned total is sent to the server (bets are checked against it) and
- * the last sixty days to your profile, where they are its backdrop.
+ * The earned total is sent to the server, which checks bets against it.
  */
 export function useWallet(marks: Pick<Marks, 'ledger'>): Wallet {
     const [bets, setBets] = useState<{ ledger: number; inPlay: number; entries: LedgerEntry[] }>({ ledger: 0, inPlay: 0, entries: [] });
@@ -66,10 +65,8 @@ export function useWallet(marks: Pick<Marks, 'ledger'>): Wallet {
         };
     }, [marks.ledger, ticks, bets]);
 
-    // The server checks bets against what doing earned, capped by the account's age; friends see the line behind your profile.
-    useEffect(() => {
-        void publishShards(Math.max(0, wallet.earned), profileLine(wallet.timeline));
-    }, [wallet.earned, wallet.timeline]);
+    // The server checks bets against what doing earned, capped by the account's age.
+    useEffect(() => { void publishShards(Math.max(0, wallet.earned)); }, [wallet.earned]);
 
     return wallet;
 }

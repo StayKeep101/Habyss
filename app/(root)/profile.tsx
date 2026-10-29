@@ -13,8 +13,7 @@ import { localDateKey } from '@/lib/habitSchedule';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { useMarks } from '@/hooks/useMarks';
-import { useWallet } from '@/hooks/useWallet';
-import { profileLine } from '@/lib/shards';
+import { seriesForProfile } from '@/lib/marksSync';
 import { ageFrom, initials, saveProfile, type Profile } from '@/lib/profile';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ProfileView } from '@/components/Profile/ProfileView';
@@ -79,9 +78,6 @@ export default function ProfileScreen() {
     // The same Marks Home shows and friends see, as your level.
     const goalsData = useGoalsInsights();
     const marks = useMarks(goalsData);
-    // Your wallet over the last sixty days: your profile's backdrop, as friends see it.
-    const wallet = useWallet(marks);
-    const walletSeries = React.useMemo(() => profileLine(wallet.timeline), [wallet.timeline]);
     // Goals finished: the trophies.
     const goalsCompleted = goalsData.finished.length;
     const [goalsOpen, setGoalsOpen] = useState(false);
@@ -149,7 +145,7 @@ export default function ProfileScreen() {
                     initials={initials(profile)}
                     topInset={insets.top}
                     marks={marks.total}
-                    walletSeries={walletSeries ?? undefined}
+                    marksSeries={seriesForProfile(marks.series)}
                     numbers={{ streak, bestStreak, goalsCompleted }}
                     onGoalsDone={() => { selectionFeedback(); setGoalsOpen(true); }}
                     edit={{

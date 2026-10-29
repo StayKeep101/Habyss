@@ -148,7 +148,7 @@ export default function FriendScreen() {
                     initials={name.slice(0, 1).toUpperCase()}
                     topInset={insets.top}
                     marks={marks}
-                    walletSeries={isFriend ? profile.walletSeries : undefined}
+                    marksSeries={isFriend ? profile.marksSeries : undefined}
                     status={isFriend ? now : undefined}
                     numbers={numbers}
                     hiddenNote={isFriend ? undefined : 'Add them as a friend to see their day'}

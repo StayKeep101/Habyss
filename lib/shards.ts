@@ -183,10 +183,3 @@ export function changeToday(moves: ShardMove[], now = Date.now()): number {
     return moves.filter(move => move.date === today && move.t <= now).reduce((sum, move) => sum + move.amount, 0);
 }
 
-/** The line behind a profile: each day's closing balance since the wallet began, the last sixty at most; null before there are two days. */
-export function profileLine(points: TimedPoint[], now = Date.now()): number[] | null {
-    const first = points[1]?.t;
-    if (first === undefined) return null;
-    const days = Math.min(60, Math.ceil((now - first) / DAY) + 1);
-    return days > 1 ? dailyCloses(points, days, now) : null;
-}
