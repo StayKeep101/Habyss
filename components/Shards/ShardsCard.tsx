@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { useFocusEffect } from 'expo-router';
-import { AppIcon, Text, VoidCard } from '@/components/ui';
+import { AppIcon, Text } from '@/components/ui';
 import { CountUp } from '@/components/ui/Motion';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
 import { useTokens } from '@/hooks/useTokens';
@@ -15,8 +15,8 @@ import { Control, Spacing } from '@/theme/designSystem';
 import { DURATION } from '@/theme/motion';
 
 /**
- * Your wallet on Home: the Shards balance with its gem, today's change, and
- * the week's line in green or red, like a stock in a watchlist. Shards you
+ * Your wallet on Home, beside your picture: the Shards balance with its gem,
+ * today's change, and the week's line in green or red, like a stock in a watchlist. Shards you
  * earn fly here as gems (lib/marksOrbs.ts), counted from what the balance
  * really gained, so the animation never shows Shards that did not count.
  */
@@ -46,44 +46,39 @@ export function ShardsCard({ wallet, onPress }: { wallet: Wallet; onPress: () =>
     }, [wallet.earned]);
 
     // The past week, drawn the way the wallet draws it.
-    const month = useMemo<GoalPoint[]>(
+    const week = useMemo<GoalPoint[]>(
         () => sampleRange(wallet.timeline, '1W').map(point => ({ date: new Date(point.t).toISOString(), actual: point.value, pace: point.value, value: point.value })),
         [wallet.timeline],
     );
-    const up = month.length > 1 ? month[month.length - 1].actual >= month[0].actual : true;
+    const up = week.length > 1 ? week[week.length - 1].actual >= week[0].actual : true;
 
     return (
-        <Pressable onPress={() => { lightFeedback(); onPress(); }} accessibilityRole="button"
+        // Beside your picture on Home, with no card of its own: the balance and its gem, today's
+        // change, and the week's line filling the rest, like a holding in a portfolio app.
+        <Pressable onPress={() => { lightFeedback(); onPress(); }} accessibilityRole="button" style={styles.wrap}
             accessibilityLabel={`Wallet: ${wallet.balance} Shards. ${wallet.today ? `Up ${wallet.today} today.` : ''} Open your wallet.`}>
-            <VoidCard style={styles.card}>
-                <View style={[styles.gem, { backgroundColor: t.tint('subtle') }]}>
-                    <AppIcon name="diamond" filled size={Control.icon} color={t.color.accent} />
+            <View style={styles.text}>
+                <View style={styles.caption}>
+                    <AppIcon name="diamond" filled size={Spacing.md} color={t.color.accent} />
+                    <Text variant="caption" tone="muted">Shards</Text>
                 </View>
-                <View style={styles.text}>
-                    <Text variant="caption" tone="muted">Wallet</Text>
-                    <View style={styles.balance}>
-                        <Animated.View ref={balanceRef} collapsable={false} style={bumpStyle}>
-                            <CountUp style={[t.type.title, { color: t.color.textPrimary }]} value={wallet.balance.toLocaleString()} />
-                        </Animated.View>
-                        <Text variant="bodySmall" tone="muted">Shards</Text>
-                        {wallet.today ? <Text variant="caption" tone="success" numeric>{`+${wallet.today} today`}</Text> : null}
-                    </View>
+                <Animated.View ref={balanceRef} collapsable={false} style={bumpStyle}>
+                    <CountUp style={[t.type.screenTitle, { color: t.color.textPrimary }]} value={wallet.balance.toLocaleString()} />
+                </Animated.View>
+                <Text variant="caption" numeric tone={wallet.today ? 'success' : 'muted'}>{wallet.today ? `+${wallet.today} today` : 'Nothing yet today'}</Text>
+            </View>
+            {week.length > 1 ? (
+                <View style={styles.spark} pointerEvents="none">
+                    <GoalProgressChart series={week} color={up ? t.color.success : t.color.danger} compact unbounded pace={false} height={Control.height} label="Shards this week" />
                 </View>
-                {month.length > 1 ? (
-                    <View style={styles.spark} pointerEvents="none">
-                        <GoalProgressChart series={month} color={up ? t.color.success : t.color.danger} compact unbounded pace={false} height={Control.hitTarget} label="Shards this week" />
-                    </View>
-                ) : null}
-                <AppIcon name="chevron-forward" size={Spacing.lg} color={t.color.textSubtle} />
-            </VoidCard>
+            ) : null}
         </Pressable>
     );
 }
 
 const styles = StyleSheet.create({
-    card: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg },
-    gem: { width: Control.hitTarget, height: Control.hitTarget, borderRadius: Control.hitTarget / 2, alignItems: 'center', justifyContent: 'center' },
-    text: { flex: 1 },
-    balance: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.xs },
-    spark: { width: Control.hitTarget * 2, height: Control.hitTarget },
+    wrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+    text: { gap: Spacing.xs / 2 },
+    caption: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+    spark: { flex: 1, height: Control.height },
 });

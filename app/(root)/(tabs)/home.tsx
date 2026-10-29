@@ -42,13 +42,11 @@ import { useTheme } from '@/context/ThemeContext';
 import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
-import { MarksBar } from '@/components/Marks/MarksBar';
 import { MarksModal } from '@/components/Marks/MarksModal';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
 import { ShardsWallet } from '@/components/Shards/ShardsWallet';
 import { useWallet } from '@/hooks/useWallet';
 import { useMarks } from '@/hooks/useMarks';
-import { tallyDay } from '@/lib/dayComplete';
 import { useDailyFocus, useDailyTarget } from '@/hooks/useDailyFocus';
 import { bestStreakFrom, streakFrom } from '@/lib/dayComplete';
 import { useHistory } from '@/hooks/useHistory';
@@ -394,13 +392,6 @@ const Home = () => {
   // Today's promise, and ticking one of its rows off.
   const focus = useDailyFocus();
 
-  // What today asked for, habits and the promise together: the number the ring
-  // around the avatar draws.
-  const dayTally = useMemo(
-    () => tallyDay(allHabits, completions, skippedToday, allTasks, todayKeyString, focus.target),
-    [allHabits, completions, skippedToday, allTasks, todayKeyString, focus.target],
-  );
-
   const handleFocusToggle = (task: Task) => {
     const done = task.status === 'done';
     if (!done) playComplete();
@@ -463,30 +454,24 @@ const Home = () => {
         >
 
           {/* Header Row
-              Your picture, its ring for today, and your Marks beside it: who
-              you are today and the record you have built, side by side. */}
+              Your picture with your Marks (XP) as its ring, and your Shards (the
+              currency) beside it as a holding: who you are, and what you have. */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(16), marginTop: topSpacing }}>
             {/* The ring is today: empty at nothing done, closed and green
                 when the day is kept. */}
             <ProgressAvatar
               uri={profileAvatar}
-              done={dayTally.done}
-              total={dayTally.total}
-              multiplier={marks.multiplier}
+              marks={marks}
               onPress={() => router.push('/(root)/profile')}
+              onMarks={() => setShowMarks(true)}
             />
-            <MarksBar marks={marks} onPress={() => setShowMarks(true)} />
+            <ShardsCard wallet={wallet} onPress={() => setShowWallet(true)} />
           </View>
 
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
           {motivationalQuote ? <EchoLine text={motivationalQuote} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)} style={{ marginTop: sectionGap }}
             onDone={() => { const kind = pendingQuestion.current; if (kind) { pendingQuestion.current = null; setTimeout(() => setQuestion(kind), 400); } }} /> : null}
-
-          {/* Your Shards: the currency, with its own wallet. Marks above are XP. */}
-          <View style={{ marginTop: sectionGap }}>
-            <ShardsCard wallet={wallet} onPress={() => setShowWallet(true)} />
-          </View>
 
           {/* Spacer after header */}
           <View style={{ height: sectionGap }} />
