@@ -3,7 +3,10 @@ import { on } from '@/lib/appEvents';
 import { localDateKey } from '@/lib/habitSchedule';
 import { myWallet, type LedgerEntry } from '@/lib/market';
 import { publishShards } from '@/lib/marksSync';
-import { SHARDS, earnedShards, shardsForDay, walletSeries, type WalletPoint } from '@/lib/shards';
+import { SHARDS, earnedShards, shardsForDay, walletTimeline, type TimedEarning, type TimedPoint } from '@/lib/shards';
+import { getCompletionTicks } from '@/lib/habitsSQLite';
+import { MARKS } from '@/lib/marks';
+import type { Task } from '@/lib/tasks';
 import type { Marks } from '@/hooks/useMarks';
 
 export interface WalletActivity {
@@ -25,7 +28,8 @@ export interface Wallet {
     /** Earned today by doing, and how much of the day's cap is left. */
     today: number;
     capLeft: number;
-    series: WalletPoint[];
+    /** Every moment the balance moved, oldest first (lib/shards.ts walletTimeline), for the hour-by-hour chart. */
+    timeline: TimedPoint[];
     activity: WalletActivity[];
 }
 
@@ -35,7 +39,7 @@ export interface Wallet {
  * moves the instant something is ticked; the bets part is read again whenever
  * a bet is placed or settled.
  */
-export function useWallet(marks: Pick<Marks, 'completedByDay'>): Wallet {
+export function useWallet(marks: Pick<Marks, 'completedByDay'>, tasks: Task[]): Wallet {
     const [bets, setBets] = useState<{ ledger: number; inPlay: number; entries: LedgerEntry[] }>({ ledger: 0, inPlay: 0, entries: [] });
     const refresh = useCallback(() => { myWallet().then(setBets).catch(() => undefined); }, []);
     useEffect(() => {
@@ -45,25 +49,23 @@ export function useWallet(marks: Pick<Marks, 'completedByDay'>): Wallet {
     }, [refresh]);
 
     const earned = useMemo(() => earnedShards(marks.completedByDay), [marks.completedByDay]);
+    // When habits were ticked, read again whenever what was earned changes: the moments Shards landed.
+    const [ticks, setTicks] = useState<{ at: string }[]>([]);
+    useEffect(() => { getCompletionTicks(400).then(setTicks).catch(() => undefined); }, [marks.completedByDay]);
     // The server checks bets against this, capped by the account's age.
     useEffect(() => { void publishShards(earned); }, [earned]);
 
     return useMemo(() => {
         const today = localDateKey(new Date());
-        // What bets moved, by the local day they happened. Entries older than the
-        // newest hundred are folded into the first day, so the line still ends at the balance.
-        const moves: Record<string, number> = {};
-        let listed = 0;
-        for (const entry of bets.entries) {
-            const day = localDateKey(new Date(entry.at));
-            moves[day] = (moves[day] ?? 0) + entry.amount;
-            listed += entry.amount;
-        }
-        const series = walletSeries(marks.completedByDay, moves, today);
-        if (bets.ledger !== listed && series.length) {
-            const older = bets.ledger - listed;
-            for (const point of series) point.value = Math.max(0, point.value + older);
-        }
+        // Entries older than the newest hundred are folded into where the line starts.
+        const listed = bets.entries.reduce((sum, entry) => sum + entry.amount, 0);
+        const earnings: TimedEarning[] = [
+            ...ticks.map(tick => ({ at: new Date(tick.at).getTime(), weight: MARKS.complete.habit })),
+            ...tasks.filter(task => task.status === 'done' && task.completedAt).map(task => ({ at: new Date(task.completedAt!).getTime(), weight: MARKS.complete.task })),
+        ].filter(item => Number.isFinite(item.at));
+        const timeline = walletTimeline(marks.completedByDay, earnings, bets.entries.map(entry => ({ at: new Date(entry.at).getTime(), amount: entry.amount })));
+        // Bets older than the newest hundred listed still count: folded into where the line starts.
+        if (bets.ledger !== listed) for (const point of timeline) point.value = Math.max(0, point.value + bets.ledger - listed);
         const todayEarned = shardsForDay(marks.completedByDay[today] ?? 0);
         const earnedRows: WalletActivity[] = Object.entries(marks.completedByDay)
             .map(([date, points]) => ({ date, amount: shardsForDay(points) }))
@@ -84,8 +86,8 @@ export function useWallet(marks: Pick<Marks, 'completedByDay'>): Wallet {
             earned,
             today: todayEarned,
             capLeft: Math.max(0, SHARDS.dailyCap - todayEarned),
-            series,
+            timeline,
             activity,
         };
-    }, [marks.completedByDay, earned, bets]);
+    }, [marks.completedByDay, earned, bets, ticks, tasks]);
 }

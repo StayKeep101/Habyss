@@ -24,6 +24,12 @@ interface Props {
     initialRange?: Range;
     /** Told when another range is picked, so a page can say what changed over it (a wallet's "past month"). */
     onRange?: (range: Range, days: number) => void;
+    /**
+     * Ranges the page defines itself (a wallet's 1H, 24H, 1W…), with the
+     * series already drawn for the one chosen: the chart shows the buttons and
+     * draws what it is given, without cutting it by days.
+     */
+    custom?: { options: { id: string; label: string }[]; selected: string; onSelect: (id: string) => void };
     color: string;
     height?: number;
     /** Called with the point under the finger while scrubbing, then null. */
@@ -60,7 +66,7 @@ interface Props {
  * were still dragging. A pan gesture that gives vertical movement to the page
  * and keeps horizontal movement for itself does not have to fight anybody.
  */
-export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact, unbounded, pace: showPace = true, label, sticky = true, ranges: offered, initialRange = 'ALL', onRange }) => {
+export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact, unbounded, pace: showPace = true, label, sticky = true, ranges: offered, initialRange = 'ALL', onRange, custom }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
@@ -74,9 +80,12 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
         .filter(option => option === 'ALL' || series.length > RANGE_DAYS[option]);
 
     const visible = useMemo(() => {
+        if (custom) return series;
         const days = RANGE_DAYS[range];
         return Number.isFinite(days) ? series.slice(-days) : series;
-    }, [series, range]);
+    }, [series, range, custom]);
+    // What the intro replays on: the chosen range, whoever defines it.
+    const shown = custom ? custom.selected : range;
 
     const geometry = useMemo(() => {
         if (width === 0 || visible.length === 0) return null;
@@ -141,7 +150,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
         >
             {geometry ? (
                 <>
-                    <Reveal style={{ height }} replay={range}>
+                    <Reveal style={{ height }} replay={shown}>
                     <Svg width={width} height={height}>
                         <Defs>
                             <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -169,7 +178,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
                         over it rather than replacing it, so the chart never has
                         a moment with no marker at all. */}
                     <PopIn
-                        key={range}
+                        key={shown}
                         index={MOTION.intro / (MOTION.stagger / 2)}
                         style={[styles.end, {
                             pointerEvents: 'none',
@@ -199,7 +208,20 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
                 </GestureDetector>
             )}
 
-            {ranges.length > 1 ? (
+            {custom ? (
+                <View style={styles.ranges}>
+                    {custom.options.map(option => {
+                        const selected = option.id === custom.selected;
+                        return (
+                            <TouchableOpacity key={option.id} accessibilityRole="button" accessibilityState={{ selected }}
+                                onPress={() => { selectionFeedback(); custom.onSelect(option.id); }}
+                                style={[styles.range, selected && { backgroundColor: color }]}>
+                                <Text style={[styles.rangeText, { color: selected ? textOn(color) : colors.textTertiary }]}>{option.label}</Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+            ) : ranges.length > 1 ? (
                 <View style={styles.ranges}>
                     {ranges.map(option => {
                         const selected = option === range;

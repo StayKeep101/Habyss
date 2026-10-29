@@ -1,22 +1,27 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { AppButton, AppIcon, IconButton, SectionTitle, StatTile, Text, VoidCard, VoidModal, ModalHeader } from '@/components/ui';
 import { CountUp } from '@/components/ui/Motion';
-import { GoalProgressChart, type Range } from '@/components/Goal/GoalProgressChart';
+import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
 import { useTokens } from '@/hooks/useTokens';
 import { MARKET_ENABLED } from '@/constants/features';
-import { SHARDS } from '@/lib/shards';
+import { SHARDS, WALLET_RANGES, sampleRange, type WalletRange } from '@/lib/shards';
 import type { GoalPoint } from '@/lib/goalInsights';
 import type { Wallet, WalletActivity } from '@/hooks/useWallet';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
 import { DURATION } from '@/theme/motion';
 
-const RANGE_NAME: Record<Range, string> = { '1W': 'Past week', '1M': 'Past month', '3M': 'Past 3 months', ALL: 'All time' };
-const RANGE_DAYS: Record<Range, number> = { '1W': 7, '1M': 30, '3M': 90, ALL: Infinity };
+const RANGE_NAME: Record<WalletRange, string> = { '1H': 'Past hour', '24H': 'Past 24 hours', '1W': 'Past week', '1M': 'Past month', '1Y': 'Past year', ALL: 'All time' };
+/** A moment under the finger, said as finely as the range is drawn. */
+const momentLabel = (iso: string, range: WalletRange) => {
+    const at = new Date(iso);
+    if (range === '1H' || range === '24H') return at.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    if (range === '1W') return at.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric' });
+    return at.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+};
 const ICON: Record<WalletActivity['kind'], string> = { earned: 'sparkles', stake: 'trending-up', payout: 'trophy', refund: 'return-up-back' };
-const longDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 const shortDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
 /**
@@ -27,17 +32,25 @@ const shortDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateStri
  */
 export function ShardsWallet({ visible, onClose, wallet }: { visible: boolean; onClose: () => void; wallet: Wallet }) {
     const t = useTokens();
-    const [range, setRange] = useState<Range>('1M');
+    const [range, setRange] = useState<WalletRange>('24H');
+    // The line ends at now: moved on every minute while the wallet is open.
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+        if (!visible) return;
+        setNow(Date.now());
+        const timer = setInterval(() => setNow(Date.now()), 60_000);
+        return () => clearInterval(timer);
+    }, [visible]);
     const [scrub, setScrub] = useState<GoalPoint | null>(null);
     const [info, setInfo] = useState(false);
 
+    // The range drawn point by point: every 2 minutes over an hour, every 30 over a day, and so on.
     const series = useMemo<GoalPoint[]>(
-        () => wallet.series.map(point => ({ date: point.date, actual: point.value, pace: point.value, value: point.value })),
-        [wallet.series],
+        () => sampleRange(wallet.timeline, range, now).map(point => ({ date: new Date(point.t).toISOString(), actual: point.value, pace: point.value, value: point.value })),
+        [wallet.timeline, range, now],
     );
     // The change over the period shown, the way a stock app states it.
-    const window = Number.isFinite(RANGE_DAYS[range]) ? series.slice(-RANGE_DAYS[range]) : series;
-    const start = window[0]?.actual ?? SHARDS.starter;
+    const start = series[0]?.actual ?? SHARDS.starter;
     const end = scrub ? scrub.actual : wallet.balance;
     const change = end - start;
     const percent = start > 0 ? (change / start) * 100 : 0;
@@ -55,7 +68,7 @@ export function ShardsWallet({ visible, onClose, wallet }: { visible: boolean; o
                 <CountUp style={[t.type.display, { color: t.color.textPrimary }]} value={end.toLocaleString()} />
                 <View style={styles.change}>
                     {scrub ? (
-                        <Text variant="bodySmall" tone="muted">{longDay(scrub.date)}</Text>
+                        <Text variant="bodySmall" tone="muted">{momentLabel(scrub.date, range)}</Text>
                     ) : (
                         <>
                             <AppIcon name={change > 0 ? 'caret-up' : change < 0 ? 'caret-down' : 'remove'} size={Spacing.md} color={tone} />
@@ -68,12 +81,8 @@ export function ShardsWallet({ visible, onClose, wallet }: { visible: boolean; o
                 </View>
 
                 <View style={styles.chart}>
-                    {series.length > 1 ? (
-                        <GoalProgressChart series={series} color={line} height={200} onScrub={setScrub} unbounded pace={false} label="Shards balance"
-                            sticky={false} ranges={['1W', '1M', '3M', 'ALL']} initialRange="1M" onRange={next => setRange(next)} />
-                    ) : (
-                        <VoidCard style={styles.empty}><Text variant="bodySmall" tone="muted">Your chart starts tomorrow</Text></VoidCard>
-                    )}
+                    <GoalProgressChart series={series} color={line} height={200} onScrub={setScrub} unbounded pace={false} label="Shards balance" sticky={false}
+                        custom={{ options: WALLET_RANGES.map(({ id, label }) => ({ id, label })), selected: range, onSelect: id => { setScrub(null); setRange(id as WalletRange); } }} />
                 </View>
 
                 <VoidCard style={styles.stats}>
@@ -141,7 +150,6 @@ const styles = StyleSheet.create({
     label: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     change: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: -Spacing.sm },
     chart: { marginTop: Spacing.sm },
-    empty: { height: Control.height * 2, alignItems: 'center', justifyContent: 'center' },
     stats: { flexDirection: 'row', paddingVertical: Spacing.lg },
     list: { paddingHorizontal: Spacing.lg },
     row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: Control.height + Spacing.sm },

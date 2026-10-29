@@ -1,5 +1,5 @@
 import { computeMarks } from '../marks';
-import { SHARDS, earnedShards, shardsForDay, walletSeries } from '../shards';
+import { SHARDS, earnedShards, sampleRange, shardsForDay, valueAt, walletTimeline } from '../shards';
 import { payoutFor, resultFor, type Market } from '../market';
 import type { Habit } from '../habitsSQLite';
 import type { Task } from '../tasks';
@@ -43,10 +43,26 @@ describe('Shards are earned only by doing', () => {
         expect(shardsForDay(10_000)).toBe(SHARDS.dailyCap);
     });
 
-    it('start everyone with a hundred, and the line ends where the bets leave it', () => {
-        const series = walletSeries({ '2026-10-03': 50 }, { '2026-10-04': -25 }, TODAY);
-        expect(series.map(point => point.value)).toEqual([110, 85, 85]);
-        expect(walletSeries({}, {}, TODAY)).toEqual([{ date: TODAY, value: SHARDS.starter }]);
+    it('start everyone with a hundred, landing at the moments things were done, and the line ends where the bets leave it', () => {
+        const day = (h: number, m = 0) => new Date(`2026-10-04T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`).getTime();
+        const now = day(23);
+        // 50 Marks that day = 10 Shards, across a habit at 9 (weight 5) and a task at 15 (weight 10).
+        const timeline = walletTimeline({ '2026-10-04': 50 }, [{ at: day(9), weight: 5 }, { at: day(15), weight: 10 }], [{ at: day(20), amount: -25 }], now);
+        expect(valueAt(timeline, day(8))).toBe(100);
+        expect(valueAt(timeline, day(10))).toBe(103);
+        expect(valueAt(timeline, day(16))).toBe(110);
+        expect(valueAt(timeline, day(21))).toBe(85);
+        // A day with nothing timed lands at noon.
+        expect(valueAt(walletTimeline({ '2026-10-04': 25 }, [], [], now), day(12, 1))).toBe(105);
+    });
+
+    it('draws each range at its own fineness, ending now', () => {
+        const now = new Date('2026-10-04T23:00:00').getTime();
+        const timeline = walletTimeline({}, [], [], now);
+        const hour = sampleRange(timeline, '1H', now);
+        expect(hour).toHaveLength(31);
+        expect(hour[hour.length - 1]).toEqual({ t: now, value: SHARDS.starter });
+        expect(sampleRange(timeline, '24H', now)).toHaveLength(49);
     });
 });
 

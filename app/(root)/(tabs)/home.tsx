@@ -263,7 +263,7 @@ const Home = () => {
   // Marks, from the same habits, tasks and history already loaded here.
   const marks = useMarks(goalsData);
   // Shards, the currency, from the same Marks (lib/shards.ts) plus what bets moved.
-  const wallet = useWallet(marks);
+  const wallet = useWallet(marks, allTasks);
 
   // One-go goals ("run 21 km"): their training habit steps up each week (lib/peakPlan.ts).
   useEffect(() => {

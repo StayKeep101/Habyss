@@ -10,7 +10,7 @@ jest.mock('react-native-screens', () => ({ FullWindowOverlay: ({ children }: { c
 
 const wallet: Wallet = {
     balance: 140, inPlay: 25, earned: 65, today: 4, capLeft: 16,
-    series: [{ date: '2026-10-26', value: 100 }, { date: '2026-10-27', value: 120 }, { date: '2026-10-28', value: 140 }],
+    timeline: [{ t: Date.now() - 30 * 3600e3, value: 100 }, { t: Date.now() - 2 * 3600e3, value: 120 }, { t: Date.now() - 10 * 60e3, value: 140 }],
     activity: [
         { key: 'a', date: '2026-10-28', title: 'Earned by doing', detail: 'Habits, tasks and goals done', amount: 4, kind: 'earned' },
         { key: 'b', date: '2026-10-27', title: 'Bet placed', detail: 'Run a 5k', amount: -25, kind: 'stake' },
@@ -21,7 +21,9 @@ it('reads like a brokerage account: balance, the period’s change, what is on b
     const screen = render(<ShardsWallet visible onClose={jest.fn()} wallet={wallet} />);
     expect(screen.getByText('Shards balance')).toBeTruthy();
     expect(screen.getByText('+40 (40.0%)')).toBeTruthy();
-    expect(screen.getByText('Past month')).toBeTruthy();
+    expect(screen.getByText('Past 24 hours')).toBeTruthy();
+    // Every range a trading app has, no candles.
+    ['1H', '24H', '1W', '1M', '1Y', 'All'].forEach(label => expect(screen.getByText(label)).toBeTruthy());
     expect(screen.getByText('On bets')).toBeTruthy();
     expect(screen.getByText('Bet placed')).toBeTruthy();
     expect(screen.getByText('−25')).toBeTruthy();
