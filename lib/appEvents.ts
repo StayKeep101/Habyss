@@ -60,6 +60,8 @@ export interface AppEvents {
     cloud_restored: void;
     /** A bet was placed, a goal opened to bets, or one settled (lib/market.ts): the wallet and market read again. */
     market_changed: void;
+    /** A habit or goal sheet opened by the create flow has closed (saved or not): speaking freely opens the next one (lib/voicePlan.ts). */
+    creation_sheet_closed: { kind: 'habit' | 'goal' };
     social_state_updated: void;
     premium_status_updated: void;
     notifications_updated: { unreadCount: number };

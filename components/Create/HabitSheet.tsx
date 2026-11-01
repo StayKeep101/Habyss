@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useAutoReschedule } from '@/context/AppSettingsContext';
+import { DEFAULT_LENGTH } from '@/lib/dayFlow';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
@@ -94,7 +96,7 @@ const PRIORITIES: { id: 1 | 2 | 3; label: string }[] = [
     { id: 3, label: 'Not urgent' },
 ];
 
-const blank = (): Draft => ({ name: '', days: EVERY_DAY, icon: 'ellipse-outline', color: '#6B8AF5', rule: DAILY, places: [] });
+const blank = (): Draft => ({ name: '', days: EVERY_DAY, icon: 'ellipse-outline', color: '#6B8AF5', rule: DAILY, places: [], durationMinutes: DEFAULT_LENGTH.habit });
 
 const fromHabit = (from: Habit): Draft => ({
     name: from.name,
@@ -166,6 +168,8 @@ export const HabitSheet: React.FC<{
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const { primary: appAccent } = useAccentGradient();
+    // Off, nothing moves: Exact, Urgency and Difficulty are not asked.
+    const autoReschedule = useAutoReschedule();
     const { successFeedback } = useHaptics();
 
     const [eventVisible, setEventVisible] = useState(false);
@@ -273,7 +277,7 @@ export const HabitSheet: React.FC<{
     // Deciding to do this with somebody happens while writing it, not after —
     // so the choice is held here and sent the moment the habit has an id.
     const share = useShareDraft('habit', current?.id);
-    const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); };
+    const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); emit('creation_sheet_closed', { kind: 'habit' }); };
     const toggleRow = (id: string | null) => { setOpenRow(id as Row); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
 
@@ -360,7 +364,7 @@ export const HabitSheet: React.FC<{
         {
             id: 'time', icon: 'time-outline', label: 'Time',
             value: draft.startTime
-                ? `${draft.durationMinutes ? `${draft.startTime} → ${endTime(draft.startTime, draft.durationMinutes)}` : draft.startTime}${draft.flexible === false ? ' · exact' : ''}`
+                ? `${draft.durationMinutes ? `${draft.startTime} → ${endTime(draft.startTime, draft.durationMinutes)}` : draft.startTime}${draft.flexible === false && autoReschedule ? ' · exact' : ''}`
                 : undefined,
             content: (
                 <>
@@ -370,12 +374,16 @@ export const HabitSheet: React.FC<{
                         accent={accent}
                         onChange={next => change({ startTime: next.start, durationMinutes: next.minutes })}
                     />
-                    {/* Under the wheels: may the timeline move it, or does it stay at its time? */}
+                    {/* Under the wheels: may the timeline move it, or does it stay at its time? Not asked when nothing moves (Auto-reschedule off). */}
+                    {autoReschedule ? (
+                    <>
                     <Choices options={TIMING} value={draft.flexible === false ? 'exact' : 'flexible'} accent={accent}
                         onChange={id => change({ flexible: id !== 'exact' })} />
                     <Text style={[styles.hint, { color: colors.textTertiary }]}>
                         {draft.flexible === false ? 'Stays at this time.' : 'Moves with your day.'}
                     </Text>
+                    </>
+                    ) : null}
                 </>
             ),
         },
@@ -429,16 +437,17 @@ export const HabitSheet: React.FC<{
                 />
             ),
         },
-        {
+        // Urgency and difficulty only order what the timeline moves: not asked when nothing moves.
+        ...(autoReschedule ? [{
             // Where the timeline fits it in when it has no set time.
-            id: 'priority', icon: 'flame-outline', label: 'Urgency',
+            id: 'priority' as const, icon: 'flame-outline' as const, label: 'Urgency',
             value: !draft.priority || draft.priority === 2 ? undefined : PRIORITIES.find(item => item.id === draft.priority)?.label,
             content: <Choices options={PRIORITIES} value={draft.priority ?? 2} accent={accent} onChange={priority => change({ priority })} />,
         },
         {
-            id: 'difficulty', icon: 'barbell-outline', label: 'Difficulty', value: difficultyLabel(draft.difficulty),
+            id: 'difficulty' as const, icon: 'barbell-outline' as const, label: 'Difficulty', value: difficultyLabel(draft.difficulty),
             content: <Choices options={DIFFICULTIES} value={draft.difficulty ?? 2} accent={accent} onChange={difficulty => change({ difficulty })} />,
-        },
+        }] : []),
         ...(goals.length > 0 ? [{
             id: 'goal', icon: 'flag-outline' as const, label: 'Goal', value: goalName,
             content: (

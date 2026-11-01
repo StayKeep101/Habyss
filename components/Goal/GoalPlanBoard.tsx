@@ -180,7 +180,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
     };
     const dayCard = (day: GoalDay) => (
         <DropTarget key={day.day} id={day.day} accepts={plannable(day.day)} radius={Radius.card}>
-            <GoalDayCard day={day} today={today} color={color} readOnly={readOnly}
+            <GoalDayCard deadline={goalEnd} day={day} today={today} color={color} readOnly={readOnly}
                 onToggle={toggleItem} onOpen={openItem} onAddTask={readOnly ? undefined : addOnDay} />
         </DropTarget>
     );
@@ -249,7 +249,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
                         {tray}
                         {monthsBetween(calendar.from, calendar.to).map(month => (
                             <View key={month} style={styles.monthBlock}>
-                                <GoalMonth month={month} days={calendar.byDay} selected={chosenDay} today={today} color={color}
+                                <GoalMonth deadline={goalEnd} month={month} days={calendar.byDay} selected={chosenDay} today={today} color={color}
                                     weekStartsMonday={weekStartsMonday} inRange={inGoal} onSelect={pick} droppable={plannable}
                                     title={dateOf(month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })} />
                                 {chosenDay && chosenDay.slice(0, 7) === month.slice(0, 7) && calendar.byDay[chosenDay] ? dayCard(calendar.byDay[chosenDay]) : null}
@@ -272,7 +272,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
             ) : range === 'month' && calendar && plan ? (
                 <Animated.View key={`month:${shownOffset}`} entering={FadeIn.duration(200)} style={styles.body}>
                     {tray}
-                    <GoalMonth month={calendar.from} days={calendar.byDay} selected={chosenDay} today={today} color={color}
+                    <GoalMonth deadline={goalEnd} month={calendar.from} days={calendar.byDay} selected={chosenDay} today={today} color={color}
                         weekStartsMonday={weekStartsMonday} inRange={inGoal} onSelect={pick} droppable={plannable} />
                     <GoalMonthKey color={color} />
                     {chosenDay && calendar.byDay[chosenDay] ? dayCard(calendar.byDay[chosenDay]) : null}
@@ -285,6 +285,7 @@ export function GoalPlanBoard({ goalId, insights, milestones, today, color, read
                 </Animated.View>
             ) : plan ? (
                 <Animated.View key={`${range}:${shownOffset}`} entering={FadeIn.duration(200)} style={styles.body}>
+                    {range === 'day' && plan.from === goalEnd ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><AppIcon name="flag" size={18} color={color} /><Text style={{ color, fontFamily: FontFamily.medium }}>Goal deadline</Text></View> : null}
                     {range === 'day' && shownOffset === 0 && pace ? pace : null}
                     {range === 'day' && shownOffset === 0 && onLog ? <AppButton label="Log progress" icon="create-outline" variant="ghost" onPress={onLog} /> : null}
 

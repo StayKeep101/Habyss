@@ -1,3 +1,4 @@
+import { ExposedSection } from './ExposedSection';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useFocusEffect } from 'expo-router';
@@ -67,6 +68,7 @@ export function MarketSection({ style }: { style?: StyleProp<ViewStyle> }) {
                 </VoidCard>
             ) : null}
 
+            <ExposedSection />
             {betting ? <StakeSheet market={betting.market} side={betting.side} spendable={spendable} onClose={() => setBetting(null)} /> : null}
             <OpenSheet visible={opening} openKeys={openKeys} onClose={() => setOpening(false)} />
         </View>

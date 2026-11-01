@@ -22,9 +22,9 @@ const event = (over: Partial<MarkEvent>): MarkEvent => ({ date: '2026-10-03', po
 
 describe('Shards follow the record: earned by doing, lost by missing', () => {
     it('add, complete and miss exactly as the table says, from a hundred to start', () => {
-        // Added Oct 1 (+1); done Oct 1 is the day it was made (no Shards), done Oct 2 and 4 (+10); missed Oct 3 (-2).
+        // Added Oct 1 (+1); done Oct 1, 2 and 4 (+15); missed Oct 3 (-2).
         const marks = computeMarks({ habits: [habit()], tasks: [], history: { '2026-10-01': ['h'], '2026-10-02': ['h'], '2026-10-04': ['h'] }, today: TODAY });
-        expect(balance(shardMoves(marks.ledger, {}))).toBe(SHARDS.starter + 1 + 10 - 2);
+        expect(balance(shardMoves(marks.ledger, {}))).toBe(SHARDS.starter + 1 + 15 - 2);
         // Marks, the XP, never lost the 2.
         expect(marks.total).toBe(16);
     });
@@ -45,13 +45,12 @@ describe('Shards follow the record: earned by doing, lost by missing', () => {
 });
 
 describe('Shards cannot be farmed', () => {
-    it('pay nothing for finishing something made the same day', () => {
+    it('pay for same-day completions while respecting the daily cap', () => {
         const tasks = Array.from({ length: 30 }, (_, index) => task({ id: `t${index}`, status: 'done', createdAt: '2026-10-04T09:00:00', completedAt: '2026-10-04T09:01:00' }));
         const marks = computeMarks({ habits: [], tasks, history: {}, today: TODAY });
         const moves = shardMoves(marks.ledger, {});
-        expect(paying(moves).filter(move => move.kind === 'complete')).toHaveLength(0);
-        // Still listed, saying why, so nobody wonders.
-        expect(moves.filter(move => move.kind === 'complete').every(move => move.held === 'same day')).toBe(true);
+        expect(paying(moves).some(move => move.kind === 'complete')).toBe(true);
+        expect(moves.reduce((sum, move) => sum + move.amount, 0)).toBe(SHARDS.dailyCap);
         expect(moves.some(move => move.kind === 'add' && move.held === 'limit')).toBe(true);
         // Adding them all pays at most the daily cap for adding.
         expect(moves.filter(move => move.kind === 'add').reduce((sum, move) => sum + move.amount, 0)).toBe(SHARDS.addCap);
@@ -65,9 +64,8 @@ describe('Shards cannot be farmed', () => {
         expect(paying(shardMoves([event({ item: 'habit', id: 'h', points: 5 })], { 'h:2026-10-03': at('2026-10-04', 8) }))).toHaveLength(1);
     });
 
-    it('pay a goal only once it has lived a few days, and two milestones a day at most', () => {
-        expect(paying(shardMoves([event({ item: 'goal', points: 50, madeOn: '2026-10-02' })], {}))).toHaveLength(0);
-        expect(shardMoves([event({ item: 'goal', points: 50, madeOn: '2026-10-02' })], {})[0].held).toBe('new goal');
+    it('pay new goals immediately, and two milestones a day at most', () => {
+        expect(paying(shardMoves([event({ item: 'goal', points: 50, madeOn: '2026-10-02', sameDay: true })], {}))).toHaveLength(1);
         expect(paying(shardMoves([event({ item: 'goal', points: 50, madeOn: '2026-09-28' })], {}))).toHaveLength(1);
         const milestones = Array.from({ length: 5 }, (_, index) => event({ item: 'milestone', points: 30, title: `m${index}` }));
         expect(paying(shardMoves(milestones, {}))).toHaveLength(SHARDS.milestonesPerDay);
@@ -104,4 +102,27 @@ describe('the pool', () => {
         expect(resultFor({ myStake: { side: 'miss', amount: 20, payout: 0 } } as Market)).toBe(-20);
         expect(resultFor({ myStake: null } as Market)).toBeNull();
     });
+});
+
+
+describe('deletion removes earnings without debt', () => {
+    it('removes creation and completion earnings when a task is deleted', () => {
+        const completed = task({ status: 'done', completedAt: `${TODAY}T09:00:00` });
+        const before = computeMarks({ habits: [], tasks: [completed], history: {}, today: TODAY });
+        const after = computeMarks({ habits: [], tasks: [], history: {}, today: TODAY });
+        expect(balance(shardMoves(before.ledger, {}))).toBeGreaterThan(SHARDS.starter);
+        expect(balance(shardMoves(after.ledger, {}))).toBe(SHARDS.starter);
+        expect(balance(shardMoves(after.ledger, {}, [{ at: at(TODAY, 10), amount: -200, reason: 'stake', title: 'Spent' }]))).toBe(0);
+    });
+});
+
+it('does not let deletion or undo recycle the daily earning allowance', () => {
+    const old = event({ id: 'old', points: SHARDS.dailyCap, at: at('2026-10-03', 8) });
+    const replacement = event({ id: 'new', points: 10, at: at('2026-10-03', 9) });
+    const moves = shardMoves([replacement], {}, [], [old]);
+    expect(moves).toHaveLength(1);
+    expect(moves[0].amount).toBe(0);
+    expect(moves[0].held).toBe('limit');
+    expect(balance(moves)).toBe(SHARDS.starter);
+    expect(shardMoves([old], {}, [], [old])[0].amount).toBe(SHARDS.dailyCap);
 });

@@ -7,7 +7,7 @@ import { CountUp } from '@/components/ui/Motion';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
-import { burstShards, onOrbLanded, registerShardsTarget } from '@/lib/marksOrbs';
+import { burstShards, recentRewardAction, onOrbLanded, registerShardsTarget } from '@/lib/marksOrbs';
 import type { GoalPoint } from '@/lib/goalInsights';
 import { sampleRange } from '@/lib/shards';
 import type { Wallet } from '@/hooks/useWallet';
@@ -42,7 +42,7 @@ export function ShardsCard({ wallet, onPress }: { wallet: Wallet; onPress: () =>
     useEffect(() => {
         const before = seen.current;
         seen.current = wallet.earned;
-        if (before !== null && wallet.earned > before) burstShards(wallet.earned - before);
+        if (before !== null && recentRewardAction() && wallet.earned > before) burstShards(wallet.earned - before);
     }, [wallet.earned]);
 
     // The past week, drawn the way the wallet draws it.

@@ -22,9 +22,9 @@ export const Colors = {
     accent: '#EC4899', // Pink-500
 
     // Status
-    success: '#10B981', // Emerald-500
+    success: '#20C98B', // Emerald-500
     brandSuccess: '#4ECDC4', // Teal
-    warning: '#F59E0B', // Amber-500
+    warning: '#FFAD29', // Amber-500
     error: '#EF4444', // Red-500
 
     // Surfaces - Light mode surfaces
@@ -58,7 +58,7 @@ export const Colors = {
     accent: '#FF4757', // Alert Coral
 
     // Status
-    success: '#3DDC97', // Vivid green
+    success: '#2FE3A1', // Vivid green
     brandSuccess: '#4ECDC4',
     warning: '#FFB020', // Vivid amber
     error: '#FF4757', // Alert Coral
@@ -82,21 +82,21 @@ export const Colors = {
   trueDark: {
     text: '#FFFFFF',
     background: '#000000', // Pure Black - OLED
-    tint: '#8BADD6', // Muted Light Blue (same as abyss)
+    tint: '#7098FF', // Muted Light Blue (same as abyss)
     tabIconDefault: '#4B5563', // Darker icons
-    tabIconSelected: '#8BADD6', // Muted Light Blue
+    tabIconSelected: '#7098FF', // Muted Light Blue
 
     // Brand Colors - Use muted blue (accent color via context overrides these)
-    primary: '#8BADD6', // Muted Light Blue (not purple)
+    primary: '#7098FF', // Muted Light Blue (not purple)
     primaryLight: '#A8C4E0', // Lighter blue
     primaryDark: '#5B7FB8', // Mid blue
     secondary: '#3A5A8C', // Deep blue
-    accent: '#8BADD6', // Muted blue
+    accent: '#7098FF', // Muted blue
 
     // Status
-    success: '#10B981', // Emerald-500
+    success: '#20C98B', // Emerald-500
     brandSuccess: '#4ECDC4',
-    warning: '#F59E0B',
+    warning: '#FFAD29',
     error: '#EF4444',
 
     // Surfaces - Pure blacks for OLED
@@ -123,7 +123,7 @@ export const Colors = {
     // Core Brand Palette
     deepBlue: '#3A5A8C',
     midBlue: '#5B7FB8',
-    lightBlue: '#8BADD6',
+    lightBlue: '#7098FF',
     successGreen: '#4ECDC4',
     energeticCoral: '#FF6B6B',
     warmGold: '#FFD93D',

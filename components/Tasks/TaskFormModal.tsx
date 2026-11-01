@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useAutoReschedule } from '@/context/AppSettingsContext';
+import { DEFAULT_LENGTH } from '@/lib/dayFlow';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -126,6 +128,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const { primary: accent, foreground: accentText } = useAccentGradient();
+    // Off, nothing moves: Exact, Urgency and Difficulty are not asked.
+    const autoReschedule = useAutoReschedule();
     const { selectionFeedback, successFeedback } = useHaptics();
 
     const [eventVisible, setEventVisible] = useState(false);
@@ -199,7 +203,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         // in Reminders — but only a brand new one.
         const start: Draft = current
             ? fromTask(current)
-            : { title: '', priority: 2, dueDate: startDay ?? localDateKey(new Date()), goalId: eventGoal, measure: 'done' };
+            : { title: '', priority: 2, dueDate: startDay ?? localDateKey(new Date()), goalId: eventGoal, measure: 'done', estimate: DEFAULT_LENGTH.task };
         const read: Draft = parsed ? {
             ...start,
             title: parsed.title || start.title,
@@ -321,7 +325,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         {
             id: 'time', icon: 'time-outline', label: 'Time',
             value: draft.dueTime
-                ? `${draft.estimate ? `${draft.dueTime} → ${endTime(draft.dueTime, draft.estimate)}` : draft.dueTime}${draft.flexible === false ? ' · exact' : ''}`
+                ? `${draft.estimate ? `${draft.dueTime} → ${endTime(draft.dueTime, draft.estimate)}` : draft.dueTime}${draft.flexible === false && autoReschedule ? ' · exact' : ''}`
                 : undefined,
             content: (
                 <>
@@ -332,12 +336,16 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                         startLabel="Due at"
                         onChange={next => change({ dueTime: next.start, estimate: next.minutes })}
                     />
-                    {/* Under the wheels: may the timeline move it, or does it stay at its time? */}
+                    {/* Under the wheels: may the timeline move it, or does it stay at its time? Not asked when nothing moves (Auto-reschedule off). */}
+                    {autoReschedule ? (
+                    <>
                     <Choices options={TIMING} value={draft.flexible === false ? 'exact' : 'flexible'} accent={accent}
                         onChange={id => change({ flexible: id !== 'exact' })} />
                     <Text style={[styles.hint, { color: colors.textTertiary }]}>
                         {draft.flexible === false ? 'Stays at this time.' : 'Moves with your day.'}
                     </Text>
+                    </>
+                    ) : null}
                 </>
             ),
         },
@@ -347,17 +355,18 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             value: draft.subtasks?.length ? `${draft.subtasks.length}` : undefined,
             content: <SubtaskEditor steps={draft.subtasks ?? []} onChange={subtasks => change({ subtasks })} color={accent} />,
         },
-        {
-            id: 'priority', icon: 'flag-outline', label: 'Urgency',
+        // Urgency and difficulty only order what the timeline moves: not asked when nothing moves.
+        ...(autoReschedule ? [{
+            id: 'priority' as const, icon: 'flag-outline' as const, label: 'Urgency',
             value: draft.priority === 2 ? undefined : PRIORITIES.find(item => item.id === draft.priority)?.label,
             content: (
                 <Choices options={PRIORITIES} value={draft.priority} accent={accent} onChange={priority => change({ priority })} />
             ),
         },
         {
-            id: 'difficulty', icon: 'barbell-outline', label: 'Difficulty', value: difficultyLabel(draft.difficulty),
+            id: 'difficulty' as const, icon: 'barbell-outline' as const, label: 'Difficulty', value: difficultyLabel(draft.difficulty),
             content: <Choices options={DIFFICULTIES} value={draft.difficulty ?? 2} accent={accent} onChange={difficulty => change({ difficulty })} />,
-        },
+        }] : []),
         ...(goals.length > 0 ? [{
             id: 'goal', icon: 'trophy-outline' as const, label: 'Goal', value: goalName,
             content: (

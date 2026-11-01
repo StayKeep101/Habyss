@@ -11,6 +11,8 @@ export type CommunicationStyle = 'empathetic' | 'direct' | 'philosophical';
 interface AppSettings {
     hapticsEnabled: boolean;
     soundsEnabled: boolean;
+    /** The timeline moves habits and tasks for you (lib/dayFlow.ts); off, everything stays at its time. */
+    autoReschedule: boolean;
     notificationsEnabled: boolean;
     aiPersonality: PersonalityModeId;
     cardSize: RoadMapCardSize;
@@ -23,6 +25,7 @@ interface AppSettings {
 
 interface AppSettingsContextType extends AppSettings {
     setHapticsEnabled: (enabled: boolean) => void;
+    setAutoReschedule: (enabled: boolean) => void;
     setSoundsEnabled: (enabled: boolean) => void;
     setNotificationsEnabled: (enabled: boolean) => Promise<void>;
     setAIPersonality: (personality: PersonalityModeId) => void;
@@ -39,6 +42,7 @@ interface AppSettingsContextType extends AppSettings {
 const defaultSettings: AppSettings = {
     hapticsEnabled: true,
     soundsEnabled: true,
+    autoReschedule: true,
     notificationsEnabled: true,
     aiPersonality: 'friendly',
     cardSize: 'small',
@@ -52,6 +56,14 @@ const defaultSettings: AppSettings = {
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'app_settings';
+
+/** Whether the timeline moves things, read outside any screen (the Live Activity, widgets). */
+export async function readAutoReschedule(): Promise<boolean> {
+    try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        return stored ? JSON.parse(stored).autoReschedule !== false : true;
+    } catch { return true; }
+}
 
 export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [settings, setSettings] = useState<AppSettings>(defaultSettings);
@@ -109,6 +121,10 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     const setHapticsEnabled = (enabled: boolean) => {
         void commit({ hapticsEnabled: enabled });
+    };
+
+    const setAutoReschedule = (enabled: boolean) => {
+        void commit({ autoReschedule: enabled });
     };
 
     const setSoundsEnabled = (enabled: boolean) => {
@@ -171,6 +187,7 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
             value={{
                 ...settings,
                 setHapticsEnabled,
+                setAutoReschedule,
                 setSoundsEnabled,
                 setNotificationsEnabled,
                 setAIPersonality,
@@ -211,3 +228,8 @@ export const useGlobalHaptics = () => {
         },
     };
 };
+
+/** Whether the timeline moves things for you; on wherever there are no settings yet (tests, early screens). */
+export function useAutoReschedule(): boolean {
+    return useContext(AppSettingsContext)?.autoReschedule !== false;
+}

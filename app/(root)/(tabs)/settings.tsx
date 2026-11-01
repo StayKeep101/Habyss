@@ -73,6 +73,8 @@ export default function ProfileScreen() {
     const {
         notificationsEnabled,
         aiPersonality,
+        autoReschedule,
+        setAutoReschedule,
     } = useAppSettings();
 
 
@@ -141,6 +143,10 @@ export default function ProfileScreen() {
                                 setWeekStartState(id as WeekStart);
                                 void setWeekStart(id as WeekStart).then(() => syncBrainDumpReview());
                             }} />
+                        {/* Whether the timeline moves things for you. Off, everything stays at its
+                            time, and Exact, Urgency and Difficulty leave the task and habit forms. */}
+                        <SettingsRow icon="shuffle" color="#30D158" label="Auto-reschedule"
+                            toggle={autoReschedule} onToggle={value => { lightFeedback(); setAutoReschedule(value); }} />
                         {/* Sleep: one switch for Home's sleep card; while it is on, the goal a
                             night has to reach to earn Marks sits right under it. */}
                         <SettingsRow icon="moon" color="#5E5CE6" label="Sleep"
@@ -184,6 +190,7 @@ export default function ProfileScreen() {
                     </SettingsGroup>
 
                     <SettingsGroup title="App">
+                        <SettingsRow icon="sparkles" color="#8EB0FF" label="The next chapter" value="Preview" onPress={() => router.push('/(root)/upcoming-update')} />
                         <SettingsRow icon="color-palette" color="#0A84FF" label="Appearance" onPress={() => router.push('/(root)/appearance')} />
                         {/* Hold + and speak: where the words go. */}
                         <SettingsRow icon="mic" color="#0A84FF" label="Hold + to say"

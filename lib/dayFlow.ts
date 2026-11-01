@@ -25,7 +25,8 @@ import { habitMinutes, toMinutes } from './dayPlan';
  * How it is drawn, so the rules have a page to sit on:
  *   - The line starts when you wake.
  *   - Each thing starts the minute the one before it ends.
- *   - Something with no length takes 30 minutes.
+ *   - Something with no length takes its kind's default: a task 90 minutes,
+ *     a habit 30 (DEFAULT_LENGTH).
  *   - Ticking something does not move anything: done things keep their place
  *     in the order. The clock only says which one is on now and which is next.
  */
@@ -101,8 +102,15 @@ export interface DayWindowMinutes {
     active?: string | null;
 }
 
-/** How long something with no length is given on the line. */
-export const DEFAULT_MINUTES = 30;
+/**
+ * How long something with no length is given: a task is real work (90
+ * minutes), a habit a regular slot (30). New tasks and habits start at these
+ * too, so what is planned and what the line shows agree.
+ */
+export const DEFAULT_LENGTH = { task: 90, habit: 30 } as const;
+/** The length the line gives an item: its own, or its kind's default (anything else: a habit's). */
+export const lengthOf = (item: { kind: string; minutes: number }): number =>
+    item.minutes > 0 ? item.minutes : item.kind === 'task' ? DEFAULT_LENGTH.task : DEFAULT_LENGTH.habit;
 /** How long past its end something can run before the "still going?" alert. */
 export const GRACE = 10;
 
@@ -150,7 +158,7 @@ function pack(items: FlowInput[], from: number, blocks: Span[]): FlowItem[] {
     const out: FlowItem[] = [];
     let at = from;
     for (const item of [...items].sort(lineOrder)) {
-        const parts = spans(at, item.minutes > 0 ? item.minutes : DEFAULT_MINUTES, taken);
+        const parts = spans(at, lengthOf(item), taken);
         parts.forEach((span, index) => {
             out.push({ ...item, start: span.start, end: span.end, plannedStart: span.start, shift: 0, state: 'later', auto: true,
                 ...(parts.length > 1 ? { part: { index: index + 1, of: parts.length } } : null) });
@@ -165,17 +173,24 @@ function pack(items: FlowInput[], from: number, blocks: Span[]): FlowItem[] {
  * Lays the day out by the rules. `now` is minutes from midnight on the day
  * shown, or null for another day; it only decides what is on now and next,
  * never where anything goes.
+ *
+ * With `auto` off (Settings → Auto-reschedule), nothing is moved for you:
+ * every habit and task with a time stays at its time, as an exact one does,
+ * and neither a reschedule nor finishing early lays anything out again. What
+ * has no time is placed once, in order, in the free time.
  */
-export function flowDay(items: FlowInput[], now: number | null, window: DayWindowMinutes = { wake: 7 * 60, sleep: 23 * 60 }): DayFlow {
-    const at = (item: FlowInput): FlowItem => ({ ...item, start: item.start as number, end: (item.start as number) + Math.max(1, item.minutes > 0 ? item.minutes : DEFAULT_MINUTES), plannedStart: item.start as number, shift: 0, state: 'later' });
+export function flowDay(items: FlowInput[], now: number | null, window: DayWindowMinutes = { wake: 7 * 60, sleep: 23 * 60 }, options: { auto?: boolean } = {}): DayFlow {
+    const auto = options.auto !== false;
+    const at = (item: FlowInput): FlowItem => ({ ...item, start: item.start as number, end: (item.start as number) + Math.max(1, lengthOf(item)), plannedStart: item.start as number, shift: 0, state: 'later' });
     // Rule 6: ticked before its end, it ends at the tick (never before it began).
     const finishedAt = (row: FlowItem): number | null =>
         row.done && !row.fixed && row.doneAt !== undefined && row.doneAt < row.end ? Math.max(row.start, row.doneAt) : null;
     // Rules 1 and 3: meals, events and exact-time things, where they are.
-    const held = items.filter(item => (item.fixed || item.locked) && item.start !== null).map(at)
+    const holds = (item: FlowInput) => (item.fixed || item.locked || !auto) && item.start !== null;
+    const held = items.filter(holds).map(at)
         .map(row => { const end = finishedAt(row); return end === null ? row : { ...row, end }; });
     const blocks: Span[] = held.map(item => ({ start: item.start, end: item.end }));
-    const moving = items.filter(item => !((item.fixed || item.locked) && item.start !== null));
+    const moving = items.filter(item => !holds(item));
 
     // Rule 2: everything else, from waking, in order (rule 4 splitting around
     // blocks). Rescheduled things too, so what comes before a reschedule keeps
@@ -196,7 +211,7 @@ export function flowDay(items: FlowInput[], now: number | null, window: DayWindo
     }
     const finishes = [...held.map(finishedAt).filter((minute): minute is number => minute !== null), ...finish.values()];
     const reschedules = moving.map(item => item.rescheduledAt).filter((minute): minute is number => minute !== undefined);
-    const moments = [...new Set([...finishes, ...reschedules])].sort((a, b) => a - b);
+    const moments = auto ? [...new Set([...finishes, ...reschedules])].sort((a, b) => a - b) : [];
     for (const moment of moments) {
         // Finished early at this moment: it ends here, and any later parts go.
         // Ticked before it began, it takes no time, where it was.

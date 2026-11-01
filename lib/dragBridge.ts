@@ -9,7 +9,7 @@
  */
 
 export type Rect = { x: number; y: number; width: number; height: number };
-export type RemoveDrag = { active: boolean; over: boolean };
+export type RemoveDrag = { active: boolean; over: boolean; label?: string; kind?: 'delete' | 'unlink' };
 
 let state: RemoveDrag = { active: false, over: false };
 let orb: Rect | null = null;
@@ -22,7 +22,7 @@ export function getRemoveDrag(): RemoveDrag {
 export function setRemoveDrag(next: Partial<RemoveDrag>): void {
     const merged = { ...state, ...next };
     if (!merged.active) merged.over = false;
-    if (merged.active === state.active && merged.over === state.over) return;
+    if (merged.active === state.active && merged.over === state.over && merged.label === state.label && merged.kind === state.kind) return;
     state = merged;
     listeners.forEach(listener => listener(state));
 }

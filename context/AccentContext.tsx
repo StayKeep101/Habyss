@@ -6,7 +6,7 @@ import { mixHex, readableAccent } from '@/lib/colorContrast';
 
 // Beautiful gradient presets for app accent
 export const ACCENT_GRADIENTS = [
-    { id: 'habyss', name: 'Habyss', colors: ['#4F7BFF', '#8EB0FF'], shadowColor: '#4F7BFF' }, // Habyss blue, at full strength
+    { id: 'habyss', name: 'Habyss', colors: ['#4268FF', '#7098FF'], shadowColor: '#4F7BFF' }, // Habyss blue, at full strength
     { id: 'electric', name: 'Electric Blue', colors: ['#3B82F6', '#8B5CF6'], shadowColor: '#3B82F6' },
     { id: 'ocean', name: 'Ocean Wave', colors: ['#0EA5E9', '#06B6D4'], shadowColor: '#0EA5E9' },
     { id: 'sunset', name: 'Sunset', colors: ['#F97316', '#EC4899'], shadowColor: '#F97316' },

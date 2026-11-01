@@ -158,7 +158,7 @@ export async function getReachedMilestones(): Promise<{ title: string; doneAt: s
     if (!db) return [];
     const uid = await getLocalUserId().catch(() => null);
     const rows = await db.getAllAsync(
-        'SELECT title, done_at FROM milestones WHERE done_at IS NOT NULL AND deleted = 0 AND (user_id = ? OR user_id IS NULL)', uid,
+        'SELECT m.title, m.done_at FROM milestones m JOIN habits h ON h.id = m.goal_id AND h.deleted = 0 WHERE m.done_at IS NOT NULL AND m.deleted = 0 AND (m.user_id = ? OR m.user_id IS NULL)', uid,
     );
     return (rows ?? []).map((row: any) => ({ title: row.title, doneAt: row.done_at }));
 }

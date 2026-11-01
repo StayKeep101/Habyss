@@ -28,7 +28,9 @@ export async function todayFlow(now = new Date()): Promise<DayFlow> {
         kept: memory.day === today ? memory.slots : undefined, planned: memory.day === today ? memory.planned : undefined,
         rescheduled,
     });
-    return flowDay(items, now.getHours() * 60 + now.getMinutes(), { wake: minutesOf(day.wake), sleep: minutesOf(day.sleep) });
+    const { readAutoReschedule } = require('@/context/AppSettingsContext') as typeof import('@/context/AppSettingsContext');
+    const auto = await readAutoReschedule();
+    return flowDay(items, now.getHours() * 60 + now.getMinutes(), { wake: minutesOf(day.wake), sleep: minutesOf(day.sleep) }, { auto });
 }
 
 /** Where each open habit and task starts and ends today, in minutes from midnight. */

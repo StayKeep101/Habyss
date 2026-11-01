@@ -25,6 +25,8 @@ export const MAX_ORBS = 24;
 let lastTouch: Point | null = null;
 const targets: Record<OrbKind, { owner: string; measure: Measure } | null> = { marks: null, shards: null };
 let nextId = 1;
+let rewardActionAt = 0;
+export const recentRewardAction = () => rewardActionAt > 0 && Date.now() - rewardActionAt < 3000;
 const listeners = new Set<(burst: Burst) => void>();
 const landers: Record<OrbKind, Set<() => void>> = { marks: new Set(), shards: new Set() };
 
@@ -58,6 +60,7 @@ export const orbLanded = (kind: OrbKind = 'marks') => landers[kind].forEach(list
 /** Sends `marks` Marks' worth of orbs from the last touch (or `from`). */
 export function burstMarks(marks: number, from?: Point | null): Burst | null {
     if (marks <= 0) return null;
+    rewardActionAt = Date.now();
     const burst: Burst = { id: nextId++, kind: 'marks', count: orbCount(marks), marks, from: from ?? lastTouch ?? { x: 0, y: 0 } };
     listeners.forEach(listener => listener(burst));
     return burst;
@@ -138,6 +141,6 @@ export function marksRange(marks: number, at = Date.now()): { from: number; to: 
 
 /** For tests. */
 export const resetMarksOrbs = () => {
-    burst.clear(); tasksBurst.clear(); lastTouch = null; targets.marks = null; targets.shards = null;
+    burst.clear(); tasksBurst.clear(); rewardActionAt = 0; lastTouch = null; targets.marks = null; targets.shards = null;
     total = null; before = null; changedAt = 0; claimed = true;
 };

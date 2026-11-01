@@ -212,14 +212,14 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
             {removeDrag.active ? (
                 <Animated.Text pointerEvents="none" numberOfLines={1}
                     style={[styles.removeLabel, { bottom: floatingButtonSize + 10, color: removeDrag.over ? palette.error : palette.textPrimary }, removeLabel]}>
-                    Remove from goal
+                    {removeDrag.label ?? 'Remove from goal'}
                 </Animated.Text>
             ) : null}
             <TouchableOpacity
                 ref={orbRef}
                 onLayout={measureOrb}
                 accessibilityRole="button"
-                accessibilityLabel={removeDrag.active ? 'Remove from goal' : 'Create a habit, goal, or task'}
+                accessibilityLabel={removeDrag.active ? (removeDrag.label ?? 'Remove from goal') : 'Create a habit, goal, or task'}
                 accessibilityHint={removeDrag.active ? undefined : 'Hold to say it instead'}
                 activeOpacity={0.8}
                 disabled={removeDrag.active}
@@ -261,7 +261,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                     <MatteSurface radius={floatingButtonSize / 2} elevation="floating" edge={dockEdge} hairline style={StyleSheet.absoluteFill}>
                         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: palette.error, borderRadius: floatingButtonSize / 2 }, removeFill]} />
                         <View style={styles.orbCenter}>
-                            <Ionicons name="remove" size={isCompactWidth ? 28 : 32} color={removeDrag.over ? '#FFFFFF' : palette.error} />
+                            <Ionicons name={removeDrag.kind === 'delete' ? 'trash' : 'remove'} size={isCompactWidth ? 28 : 32} color={removeDrag.over ? '#FFFFFF' : palette.error} />
                         </View>
                     </MatteSurface>
                 </Animated.View>

@@ -26,7 +26,8 @@ function useKindColor(color: string) {
  * day. An empty day says it is free, and a day still to come offers to plan a
  * task on it, so the week reads as a page to plan on.
  */
-export function GoalDayCard({ day, today, color, readOnly, onToggle, onOpen, onAddTask }: {
+export function GoalDayCard({ day, today, color, readOnly, onToggle, onOpen, onAddTask, deadline }: {
+    deadline?: string | null;
     day: GoalDay;
     today: string;
     color: string;
@@ -46,6 +47,7 @@ export function GoalDayCard({ day, today, color, readOnly, onToggle, onOpen, onA
                     {isToday ? 'Today' : date.toLocaleDateString(undefined, { weekday: 'long' })}
                 </Text>
                 <Text style={[styles.date, { color: t.color.textMuted }]}>{date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
+                {day.day === deadline ? <Ionicons name="flag" size={16} color={color} accessibilityLabel="Goal deadline" /> : null}
                 <View style={styles.spacer} />
                 {day.items.length ? <Text style={[styles.count, { color: done === day.items.length ? t.color.success : t.color.textMuted }]}>{`${done} of ${day.items.length}`}</Text> : null}
             </View>
@@ -110,9 +112,10 @@ const BARS = 6;
  * it started, after its deadline) are not drawn, and a week with none of the
  * goal's days is left out, so the calendar runs from its first day to its last.
  */
-export function GoalMonth({ month, days, selected, today, color, weekStartsMonday, inRange, onSelect, title, droppable, still, compact }: {
+export function GoalMonth({ month, days, selected, today, color, weekStartsMonday, inRange, onSelect, title, droppable, still, compact, deadline }: {
     /** Any day in the month, YYYY-MM-DD. */
     month: string;
+    deadline?: string | null;
     days: Record<string, GoalDay>;
     selected: string | null;
     today: string;
@@ -154,12 +157,13 @@ export function GoalMonth({ month, days, selected, today, color, weekStartsMonda
                             + (items.length ? items.map(item => `${item.title}${item.done ? ', done' : ''}`).join('; ') : 'Nothing planned');
                         const cell = (
                             <Pressable key={key} onPress={() => onSelect(key)} style={[styles.cell, compact && styles.cellCompact]}
-                                accessibilityRole="button" accessibilityState={{ selected: isSelected }} accessibilityLabel={label}>
+                                accessibilityRole="button" accessibilityState={{ selected: isSelected }} accessibilityLabel={`${label}${key === deadline ? '. Goal deadline' : ''}`}>
                                 <PopIn index={still ? 0 : rowIndex * 7 + column} still={still} style={[styles.cellInner,
                                     isSelected ? { backgroundColor: t.color.surfaceRaised, borderColor: color } : { borderColor: 'transparent' }]}>
                                     <Text style={[styles.dayNumber, { color: isToday ? color : t.color.textPrimary, fontFamily: isToday || isSelected ? FontFamily.bold : FontFamily.medium }]}>
                                         {Number(key.slice(8))}
                                     </Text>
+                                    {key === deadline ? <Ionicons name="flag" size={13} color={color} /> : null}
                                     <View style={styles.bars}>
                                         {shown.map(item => (
                                             <View key={`${item.kind}:${item.id}`} style={[styles.bar, { backgroundColor: kindColor(item.kind), opacity: item.done ? 1 : 0.35 }]} />

@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { router } from 'expo-router';
-import { AppButton, AppIcon, IconButton, ModalHeader, SectionTitle, StatTile, Text, VoidCard, VoidModal } from '@/components/ui';
+import { AppIcon, IconButton, ModalHeader, SectionTitle, StatTile, Text, VoidCard, VoidModal } from '@/components/ui';
 import { CountUp } from '@/components/ui/Motion';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
 import { PerfectLadder } from '@/components/Marks/PerfectLadder';
 import { useTokens } from '@/hooks/useTokens';
-import { MARKET_ENABLED } from '@/constants/features';
 import { SHARDS, WALLET_RANGES, sampleRange, type ShardMove, type WalletRange } from '@/lib/shards';
 import type { GoalPoint } from '@/lib/goalInsights';
 import type { Wallet } from '@/hooks/useWallet';
@@ -26,9 +24,7 @@ const momentLabel = (iso: string, range: WalletRange) => {
 };
 /** Why a fair-play rule held a move back, said where it is listed. */
 const HELD: Record<NonNullable<ShardMove['held']>, string> = {
-    'same day': 'Made today, so no Shards',
     late: 'Ticked late, so no Shards',
-    'new goal': `Goal under ${SHARDS.goalMinDays} days old, so no Shards`,
     limit: 'Daily limit reached',
 };
 /** What a move was, under its title, the way the Marks page said it (and why it earned nothing, when a rule held it back). */
@@ -111,9 +107,7 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
                     <StatTile value={`${wallet.today >= 0 ? '+' : '−'}${Math.abs(wallet.today)}`} label="Today" tone={wallet.today > 0 ? 'success' : wallet.today < 0 ? 'danger' : 'primary'} />
                 </VoidCard>
 
-                {MARKET_ENABLED ? (
-                    <AppButton label="Bet on friends’ goals" icon="trending-up" onPress={() => { onClose(); router.navigate('/(root)/(tabs)/community'); }} />
-                ) : null}
+
 
                 {/* Every transaction, as the Marks page listed them: what, how, when, and the Shards. */}
                 <SectionTitle>Recent</SectionTitle>
@@ -201,7 +195,7 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
 
                             <SectionTitle>Fair play</SectionTitle>
                             {[
-                                ['shield-checkmark', `No farming: finishing something made the same day earns nothing, and neither does a habit ticked days later. A goal pays only if it existed ${SHARDS.goalMinDays} days. Adding things earns at most ${SHARDS.addCap} a day, milestones ${SHARDS.milestonesPerDay} a day, and no day earns more than ${SHARDS.dailyCap}. Deleting something takes back what it earned.`],
+                                ['shield-checkmark', `No farming: earn on the day you create and finish something. Habits ticked days late do not earn. Adding things earns at most ${SHARDS.addCap} a day, milestones ${SHARDS.milestonesPerDay} a day, and no day earns more than ${SHARDS.dailyCap}. Deleting a task, habit or goal removes its earnings. Deleting or undoing does not free up today’s earning allowance. Your balance stops at zero; you never owe Shards.`],
                                 ['trending-up', 'Bet them on friends’ goals. Win and you take a share of the other side’s Shards.'],
                                 ['lock-closed', `Everyone starts with ${SHARDS.starter}. Never below zero.`],
                             ].map(([icon, sentence]) => (

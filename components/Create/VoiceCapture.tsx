@@ -1,13 +1,16 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { useHaptics } from '@/hooks/useHaptics';
 import { emit, on } from '@/lib/appEvents';
 import { readVoice } from '@/lib/voiceIntent';
-import { tidySpeech } from '@/lib/voiceClean';
+import { cleanSpeech, tidySpeech } from '@/lib/voiceClean';
 import { getVoiceDestination } from '@/lib/voiceDestination';
 import { addThought } from '@/lib/brainDump';
 import { normaliseLevel, voiceLevel } from '@/lib/voiceLevel';
 import { speechOptions, Transcript } from '@/lib/speechOptions';
+import { planFromSpeech, type VoiceItem } from '@/lib/voicePlan';
+import { DEFAULT_LENGTH } from '@/lib/dayFlow';
+import { VoicePlanSheet } from './VoicePlanSheet';
 
 type Speech = typeof import('expo-speech-recognition')['ExpoSpeechRecognitionModule'];
 
@@ -27,14 +30,21 @@ function speech(): Speech | null {
 /**
  * Listens while the create button is held, and acts when it is let go.
  *
- * Hold and speak; release, and the words go where Settings says: a thought
- * in the brain dump (the default), or a task, habit or goal sheet opened with
- * the words already in it, where the usual parser fills in the rest.
+ * Hold and speak; release, and the words go where Settings says. Auto (the
+ * default): speak freely, and the tasks, habits and goals in it are worked
+ * out (lib/voicePlan.ts). One thing opens its own sheet, filled in; several
+ * are shown together to add at once (tasks right away, each habit and goal
+ * opening ready to save, one after the other). Or always one place: a
+ * thought in the brain dump, or a task, habit or goal sheet.
  *
- * Draws nothing itself. The button morphs into the listening pill
- * (components/TabBar/VoiceOrb.tsx) from the `voice_state` it announces.
+ * The button morphs into the listening pill (components/TabBar/VoiceOrb.tsx)
+ * from the `voice_state` it announces; the only thing drawn here is the
+ * "Here's what I heard" sheet.
  */
 export function VoiceCapture() {
+    const [heard, setHeard] = useState<VoiceItem[] | null>(null);
+    // Habits and goals still to open, one sheet at a time.
+    const queue = useRef<VoiceItem[]>([]);
     const { mediumFeedback, lightFeedback } = useHaptics();
     const latest = useRef('');
     const transcript = useRef(new Transcript()).current;
@@ -57,7 +67,15 @@ export function VoiceCapture() {
             // Fillers out (and, with Apple's model, a ramble condensed), then
             // where it goes is the person's choice in Settings (Brain dump by
             // default). "Create a task to…" is still tidied off the front.
-            void Promise.all([tidySpeech(raw), getVoiceDestination()]).then(([spoken, destination]) => {
+            void getVoiceDestination().then(async destination => {
+                if (destination === 'auto') {
+                    const items = await planFromSpeech(raw);
+                    if (!items.length) return;
+                    // One thing: straight to its own sheet, as before. Several: shown together.
+                    setTimeout(() => { if (items.length === 1) openItem(items[0]); else setHeard(items); }, 220);
+                    return;
+                }
+                const spoken = await tidySpeech(raw);
                 if (!spoken) return;
                 const text = readVoice(spoken)?.text ?? spoken;
                 // A beat, so the pill has folded back into the button first.
@@ -111,12 +129,60 @@ export function VoiceCapture() {
             module.stop();
         });
 
+        // A habit or goal sheet from the list closed: the next one opens.
+        const next = on('creation_sheet_closed', () => {
+            const following = queue.current.shift();
+            if (following) setTimeout(() => openItem(following), 350);
+        });
+
         return () => {
             listeners.forEach(listener => listener.remove());
             start.remove();
             stop.remove();
+            next.remove();
         };
     }, [lightFeedback, mediumFeedback]);
 
-    return null;
+    /** Everything heard, added: tasks now; habits and goals open one at a time, ready to save. */
+    const addAll = (items: VoiceItem[]) => {
+        setHeard(null);
+        const tasks = items.filter(item => item.kind === 'task');
+        void Promise.all(tasks.map(item => addTask(item.text))).then(() => emit('tasks_changed'));
+        queue.current = items.filter(item => item.kind !== 'task');
+        const first = queue.current.shift();
+        if (first) setTimeout(() => openItem(first), 350);
+    };
+    /** Closed without adding: kept in the brain dump, so nothing said is lost. */
+    const keep = (items: VoiceItem[]) => {
+        setHeard(null);
+        void Promise.all(items.map(item => addThought(item.text)));
+    };
+
+    return heard ? <VoicePlanSheet items={heard} onAdd={addAll} onKeep={keep} /> : null;
+}
+
+/** One thing heard, in its own sheet with the words already in it. */
+function openItem(item: VoiceItem) {
+    if (item.kind === 'habit') emit('show_quick_add', { prefillName: item.text });
+    else if (item.kind === 'goal') emit('show_goal_quick_add', { prefill: item.text });
+    else emit('show_task_form', { prefill: item.text });
+}
+
+/** A task straight from words, read the way the task sheet reads them (lib/taskParser.ts). */
+async function addTask(text: string): Promise<void> {
+    const { parseTaskText } = require('@/lib/taskParser') as typeof import('@/lib/taskParser');
+    const { createTask } = require('@/lib/tasks') as typeof import('@/lib/tasks');
+    const { localDateKey } = require('@/lib/habitSchedule') as typeof import('@/lib/habitSchedule');
+    const parsed = parseTaskText(cleanSpeech(text));
+    const dueDate = parsed.dueDate ?? localDateKey(new Date());
+    await createTask({
+        title: parsed.title || text,
+        dueDate,
+        deadline: parsed.deadline && parsed.deadline > dueDate ? parsed.deadline : undefined,
+        dueTime: parsed.dueTime,
+        flexible: parsed.dueTime ? parsed.flexible !== false : undefined,
+        estimatedMinutes: parsed.estimatedMinutes ?? DEFAULT_LENGTH.task,
+        priority: parsed.priority,
+        difficulty: parsed.difficulty,
+    }).catch(() => null);
 }

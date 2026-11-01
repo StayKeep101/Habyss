@@ -1,3 +1,5 @@
+import { DeadlineCountdown } from '@/components/Goal/DeadlineCountdown';
+import { GoalHabitRow } from '@/components/Goal/GoalRows';
 import { FontFamily } from '@/theme/designSystem';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { GoalSheet } from '@/components/Create/GoalSheet';
@@ -469,7 +471,6 @@ const GoalDetail = () => {
   };
 
   // Same count as Stats and Roadmap; date-only targets stay on their calendar day.
-  const daysLeft = insights?.daysLeft ?? 0;
 
   if (!goalId) {
     return (
@@ -568,12 +569,12 @@ const GoalDetail = () => {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.goalTitle, { color: colors.text }]}>{goal.name}</Text>
                 {/* The date, quietly: it is context, not the headline. */}
-                <View style={styles.targetRow}>
+                <View style={[styles.targetRow, { flexWrap: 'wrap' }]}>
                   <Ionicons name="calendar-outline" size={12} color={colors.textTertiary} />
                   <Text style={[styles.goalTarget, { color: colors.textTertiary }]}>
                     {insights && goal.targetDate ? dateAt(insights.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Ongoing'}
                   </Text>
-                  {daysLeft > 0 ? <CountUp style={[styles.goalTarget, { color: colors.textTertiary }]} value={`· ${daysLeft} days left`} /> : null}
+                  {goal.targetDate ? <DeadlineCountdown deadline={goal.targetDate} style={[styles.goalTarget, { color: colors.textSecondary }]} /> : null}
                 </View>
               </View>
               {/* Everything a goal can do lives behind the ⋯ in the header. */}
@@ -599,6 +600,13 @@ const GoalDetail = () => {
           <Animated.View key={view} entering={FadeIn.duration(220)} style={[styles.tabBody, styles.swapped]}>
             {view === 'stats' ? <GoalStatsView goalId={goal.id} embedded /> : view === 'todo' ? (
               <View style={styles.todoBody}>
+                {insights?.habits.length ? <View style={{ gap: 12, marginBottom: 20 }}>
+                  <Text style={{ fontFamily: FontFamily.bold, fontSize: 20, color: colors.textPrimary }}>Habits</Text>
+                  {insights.habits.map(summary => <GoalHabitRow key={summary.habit.id} summary={summary} color={goal.color || accentColor}
+                    onToggle={isSharedGoal ? undefined : () => handleHabitPress(summary.habit)}
+                    onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: summary.habit.id } })}
+                    onLongPress={isSharedGoal ? undefined : () => setEditingHabit(summary.habit)} />)}
+                </View> : null}
                 <GoalTodoList goalId={goal.id} tasks={goalTasks} today={today} color={goal.color || accentColor} readOnly={isSharedGoal}
                   onOpenTask={task => openTask(task)} onPlan={task => { lightFeedback(); setPlanning(task); }} onToggle={task => void toggleTask(task)} />
               </View>

@@ -210,7 +210,7 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     const habitIds = new Map(habits.map(habit => [habit.id, habit]));
 
     // ---------------------------------------------------------------- habits
-    for (const habit of habits) record(dayOf(habit.createdAt), MARKS.add.habit, 'add', 'habit', habit.name, { at: habit.createdAt });
+    for (const habit of habits) record(dayOf(habit.createdAt), MARKS.add.habit, 'add', 'habit', habit.name, { id: habit.id, at: habit.createdAt });
 
     for (const [date, ids] of Object.entries(input.history)) {
         if (date > today) continue;
@@ -243,9 +243,9 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
 
     // ----------------------------------------------------------------- tasks
     for (const task of input.tasks) {
-        record(dayOf(task.createdAt), MARKS.add.task, 'add', 'task', task.title, { at: task.createdAt });
+        record(dayOf(task.createdAt), MARKS.add.task, 'add', 'task', task.title, { id: task.id, at: task.createdAt });
         if (task.status === 'cancelled') continue;
-        if (task.status === 'done') record(dayOf(task.completedAt ?? task.updatedAt), MARKS.complete.task, 'complete', 'task', task.title, { since: dayOf(task.createdAt), at: task.completedAt ?? task.updatedAt });
+        if (task.status === 'done') record(dayOf(task.completedAt ?? task.updatedAt), MARKS.complete.task, 'complete', 'task', task.title, { id: task.id, since: dayOf(task.createdAt), at: task.completedAt ?? task.updatedAt });
         // Missed once, the day after it was due — and that stands even if it is
         // finished later. Late still counts for finishing; it was still late.
         const finished = task.status === 'done' ? dayOf(task.completedAt ?? task.updatedAt) : null;
@@ -258,9 +258,9 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
 
     // ----------------------------------------------------------------- goals
     for (const goal of goals) {
-        record(dayOf(goal.createdAt), MARKS.add.goal, 'add', 'goal', goal.name, { at: goal.createdAt });
+        record(dayOf(goal.createdAt), MARKS.add.goal, 'add', 'goal', goal.name, { id: goal.id, at: goal.createdAt });
         const reached = input.goalsCompletedOn?.[goal.id] ?? null;
-        if (reached) record(reached, MARKS.complete.goal, 'complete', 'goal', goal.name, { since: dayOf(goal.createdAt) });
+        if (reached) record(reached, MARKS.complete.goal, 'complete', 'goal', goal.name, { id: goal.id, since: dayOf(goal.createdAt) });
         const deadline = dayOf(goal.targetDate);
         if (deadline && deadline < today && (!reached || reached > deadline)) {
             record(addDays(deadline, 1), MARKS.miss.goal, 'miss', 'goal', goal.name);

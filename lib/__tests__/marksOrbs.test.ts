@@ -1,4 +1,4 @@
-import { MAX_ORBS, burstMarks, habitDone, marksRange, measureMarksTarget, noteMarksTotal, noteTouch, onMarksBurst, orbCount, registerMarksTarget, resetMarksOrbs } from '../marksOrbs';
+import { MAX_ORBS, burstMarks, habitDone, marksRange, measureMarksTarget, noteMarksTotal, noteTouch, onMarksBurst, orbCount, registerMarksTarget, resetMarksOrbs, recentRewardAction } from '../marksOrbs';
 import { MARKS } from '../marks';
 
 beforeEach(() => resetMarksOrbs());
@@ -51,4 +51,17 @@ describe('Marks orbs', () => {
         expect(marksRange(10, 20_300)).toEqual({ from: 115, to: 125 });
         expect(marksRange(10, 20_400)).toEqual({ from: 125, to: 135 });
     });
+});
+
+it('does not treat restored totals as a new reward, and expires the action window', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-10-30T12:00:00Z'));
+    expect(recentRewardAction()).toBe(false);
+    noteMarksTotal(500);
+    expect(recentRewardAction()).toBe(false);
+    burstMarks(5);
+    expect(recentRewardAction()).toBe(true);
+    jest.advanceTimersByTime(3001);
+    expect(recentRewardAction()).toBe(false);
+    jest.useRealTimers();
 });

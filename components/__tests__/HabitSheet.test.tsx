@@ -215,7 +215,8 @@ describe('shared habit controls', () => {
         // into 08:00 on the way to the wheel.
         const screen = render(<HabitSheet visible />);
         write(screen, 'Stretch at 00:00');
-        fireEvent.press(screen.getByLabelText('Time, 00:00'));
+        // A new habit takes 30 minutes unless told otherwise.
+        fireEvent.press(screen.getByLabelText('Time, 00:00 → 00:30'));
         // The wheel is on screen the moment the row opens, not behind a button.
         const hour = within(screen.getByTestId('start-hour')).getAllByRole('radio').find(row => row.props.accessibilityState?.selected);
         expect(hour?.props.accessibilityLabel).toBe('00');

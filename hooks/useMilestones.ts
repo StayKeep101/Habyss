@@ -23,8 +23,8 @@ export function useMilestoneDays(): string[] {
     useEffect(() => {
         const load = () => { void getOpenMilestoneDays().then(setDays).catch(() => undefined); };
         load();
-        const sub = on('milestones_changed', load);
-        return () => sub.remove();
+        const subs = [on('milestones_changed', load), on('goal_deleted', load), on('habit_deleted', load)];
+        return () => subs.forEach(sub => sub.remove());
     }, []);
     return days;
 }
@@ -35,8 +35,8 @@ export function useReachedMilestones(): { title: string; doneAt: string }[] {
     useEffect(() => {
         const load = () => { void getReachedMilestones().then(setList).catch(() => undefined); };
         load();
-        const sub = on('milestones_changed', load);
-        return () => sub.remove();
+        const subs = [on('milestones_changed', load), on('goal_deleted', load), on('habit_deleted', load)];
+        return () => subs.forEach(sub => sub.remove());
     }, []);
     return list;
 }

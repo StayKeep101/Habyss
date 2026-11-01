@@ -1,16 +1,19 @@
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
+import { HOLD_MS } from '@/components/ui/DragDrop';
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 // The gesture handler's Pressable for every touch on a row, so the one under
 // the finger wins: Focus or the tick no longer also opens the habit behind them.
 import { Pressable } from 'react-native-gesture-handler';
-import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { MOTION } from '@/components/ui/Motion';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { CheckPop } from '@/components/ui/CheckPop';
-import { ListItem, useProgress } from '@/components/ui/Motion';
+import { ListItem } from '@/components/ui/Motion';
+import { SwipeRow } from '@/components/ui/SwipeRow';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { FaceStack, type Face } from '@/components/ui/FaceStack';
-import { SwipeRow } from '@/components/ui/SwipeRow';
 import { SharedFaces } from '@/components/Common/SharedFaces';
 import type { SharedState } from '@/lib/shared';
 import { namesLine } from '@/lib/focusTogether';
@@ -35,16 +38,6 @@ const SIZES = {
     big: { pill: s(54), min: vs(46), max: vs(400), per: vs(1.7), icon: s(21), ring: s(28), check: s(16), gap: s(14), pad: vs(10), titleType: 'heading' as const },
 };
 type Size = (typeof SIZES)[keyof typeof SIZES];
-/** How long one pill takes to fill in the intro's domino run. */
-const FILL_MS = 340;
-/** And one line between two of them: shorter, so the pour keeps one pace down the page. */
-const LINK_MS = 160;
-/**
- * At an even speed, so pill after pill reads as one steady pour rather than
- * each one rushing and stopping.
- */
-const POUR = Easing.linear;
-
 /**
  * Up to when the day shown has been lived, in its own minutes: now for today,
  * all of it for a day gone, none of it for a day ahead. Every fill on the line
@@ -76,7 +69,7 @@ const pillHeight = (size: Size, minutes: number) => Math.max(size.min, Math.min(
  * marks one that moved since you last opened it. Meals and calendar events
  * sit as fixed blocks with a lock. A habit's pill is round, a task's squarer.
  */
-export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, sharedFor, now, moved, scrubbing, day, wake, sleep, dueToday, company }: {
+export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, sharedFor, now, moved, scrubbing, day, wake, sleep, dueToday, company, onDrag, onDragCancel, onChangeDay }: {
     /** Who else is on a habit or task (lib/shared.ts): their faces beside its name, as on its list card. */
     sharedFor?: (item: FlowInput) => SharedState | null;
     /** Rule 5: swiped left to right, a habit or task is laid out again from now, by priority. Today only. */
@@ -87,6 +80,9 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, sha
     /** Waking and bedtime, in minutes from midnight: the day's first and last card. */
     wake?: number;
     sleep?: number;
+    onDrag?: (phase: 'start' | 'move' | 'end', item: FlowInput, x: number, y: number) => void;
+    onDragCancel?: () => void;
+    onChangeDay?: (direction: number) => void;
     /** Open tasks due by this day that are not on it: shown at the top, so a deadline is never missed. */
     dueToday?: FlowInput[];
     /**
@@ -106,27 +102,21 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, sha
 }) {
     const t = useTokens();
     const size = SIZES[useAppSettings().cardSize] ?? SIZES.standard;
-    // The intro fills the pills like dominoes: each one fills completely
-    // before the next begins, top to bottom, a partly gone one only as far as
-    // the clock says. Each knows when its turn comes and how long it takes.
-    // One pour, top to bottom: a pill fills, then the line below it, then the
-    // next pill, each starting the moment the one above finishes, at one even
-    // speed, so the line never trails behind the pills.
     const lived = livedUntil(now, day);
-    const turns = React.useMemo(() => {
-        let at = 0;
-        return flow.timeline.map((item, index) => {
-            const pill = { delay: at, duration: Math.max(1, Math.round(FILL_MS * elapsedOf(item, lived))) };
-            at += pill.duration;
-            const link = { delay: at, duration: Math.max(1, Math.round(LINK_MS * linkProgress(item, flow.timeline[index + 1]?.start, lived))) };
-            at += link.duration;
-            return { pill, link };
-        });
-    }, [flow.timeline, lived]);
+    const offset = useSharedValue(0);
+    const pageStyle = useAnimatedStyle(() => ({ transform: [{ translateX: offset.get() }] }));
+    const dayGesture = Gesture.Pan().enabled(!!onChangeDay).activeOffsetX([-24, 24]).failOffsetY([-14, 14])
+        .onUpdate(event => { offset.set(Math.max(-50, Math.min(50, event.translationX * 0.25))); })
+        .onEnd(event => {
+            if (Math.abs(event.translationX) > 65 || Math.abs(event.velocityX) > 650) {
+                if (onChangeDay) runOnJS(onChangeDay)(event.translationX < 0 ? 1 : -1);
+            }
+        })
+        .onFinalize(() => { offset.set(withTiming(0, { duration: 180, reduceMotion: ReduceMotion.System })); });
     const colorOf = (item: FlowInput) => item.color || (item.kind === 'meal' ? t.color.textMuted : item.kind === 'task' ? t.color.warning : t.color.accent);
     const edges = !scrubbing;
     return (
-        <View key={day}>
+        <GestureDetector gesture={dayGesture}><Animated.View style={pageStyle}>
             {/* Due by today and not on today's plan: named first, so the deadline is seen. */}
             {edges && dueToday?.length ? (
                 <Chips title="Due today" icon="flag" tint={t.color.warning} items={dueToday} onOpen={onOpen} />
@@ -135,12 +125,12 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, sha
             {flow.timeline.length ? flow.timeline.map((item, index) => {
                 const next = flow.timeline[index + 1];
                 return (
-                    <ListItem key={`${item.kind}-${item.id}${item.part ? `-${item.part.index}` : ''}`} index={index} rise still={scrubbing}>
-                        <Row size={size} item={item} turn={turns[index].pill} linkTurn={turns[index].link} color={colorOf(item)} last={index === flow.timeline.length - 1} first={index === 0}
+                    <ListItem key={`${item.kind}-${item.id}${item.part ? `-${item.part.index}` : ''}`} index={index} still>
+                        <TimelineDrag item={item} onDrag={onDrag} onCancel={onDragCancel}><Row size={size} item={item} color={colorOf(item)} last={index === flow.timeline.length - 1} first={index === 0}
                             nextColor={next ? colorOf(next) : undefined} nextStart={next?.start} day={day}
                             now={now} lived={lived} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus}
                             faces={company?.id === item.id ? company.faces : undefined} onReschedule={onReschedule}
-                            shared={sharedFor?.(item) ?? null} />
+                            shared={sharedFor?.(item) ?? null} /></TimelineDrag>
                     </ListItem>
                 );
             }) : (
@@ -153,7 +143,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, sha
             {flow.unfit.length && edges ? (
                 <Chips title="No room before bedtime" icon="moon" tint={t.color.textMuted} items={flow.unfit} onOpen={onOpen} />
             ) : null}
-        </View>
+        </Animated.View></GestureDetector>
     );
 }
 
@@ -199,13 +189,13 @@ function Chips({ title, icon, tint, items, onOpen }: { title: string; icon: stri
     );
 }
 
-function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, first, now, lived, updated, onToggle, onOpen, onFocus, day, faces, onReschedule, shared }: {
+function Row({ size, item, color, nextColor, nextStart, last, first, now, lived, updated, onToggle, onOpen, onFocus, day, faces, onReschedule, shared }: {
     shared: SharedState | null;
     /** Up to when this day has been lived (livedUntil): what every fill reads. */
     lived: number;
     faces?: Face[];
     onReschedule?: (item: FlowInput) => void;
-    size: Size; item: FlowItem; turn: { delay: number; duration: number }; linkTurn: { delay: number; duration: number }; color: string; nextColor?: string; nextStart?: number; last: boolean; first?: boolean; now: number | null; updated: boolean; day?: string;
+    size: Size; item: FlowItem; color: string; nextColor?: string; nextStart?: number; last: boolean; first?: boolean; now: number | null; updated: boolean; day?: string;
     onToggle: (item: FlowInput) => void; onOpen: (item: FlowInput) => void; onFocus: (item: FlowInput) => void;
 }) {
     const t = useTokens();
@@ -251,7 +241,8 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
     return (
         <View>
         {/* Rule 5: pull the whole card, its icon with it, to the right to
-            reschedule it from now (not a meal, an exact time or something done). */}
+            reschedule it from now (not a meal, an exact time or something done).
+            A quick swipe is this; a still hold is the drag (TimelineDrag), so the two never meet. */}
         <SwipeRow leftLook="band" bandShape={{ width: size.pill, height, radius: corner }} left={onReschedule && !meal && !done && !item.locked ? {
             icon: 'refresh', label: 'Reschedule', color: t.color.accent, destructive: true, onPress: () => onReschedule(item),
         } : undefined}>
@@ -262,7 +253,7 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
                         {/* Still to come: the plain card surface with its icon in
                             colour; filled from the top in its own flat colour as its
                             time passes. Done keeps its full colour: only the name is struck through. */}
-                        <Fill color={color} height={height} progress={elapsed} turn={turn} />
+                        <Fill color={color} height={height} progress={elapsed} />
                         <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon} color={elapsed >= 0.5 ? t.color.onAccent : color} />
                     </Animated.View>
                 </Pressable>
@@ -270,7 +261,7 @@ function Row({ size, item, turn, linkTurn, color, nextColor, nextStart, last, fi
                     the time between them passes. */}
                 {/* Free time before the next one shows as line, on the same
                     scale as the pills: an hour free is a long stretch, back to back is short. */}
-                {!last ? <Link color={color} progress={linkProgress(item, nextStart, lived)} turn={linkTurn}
+                {!last ? <Link color={color} progress={linkProgress(item, nextStart, lived)}
                     gap={nextStart !== undefined ? Math.min(size.max, Math.max(0, nextStart - item.end) * size.per) : 0} /> : null}
             </View>
 
@@ -370,11 +361,9 @@ function linkProgress(item: FlowItem, nextStart: number | undefined, lived: numb
  * no gap; the part already lived is in this item's flat colour, and the rest
  * is the quiet track.
  */
-function Link({ color, progress, turn, gap = 0 }: { color: string; progress: number; turn: { delay: number; duration: number }; gap?: number }) {
+function Link({ color, progress, gap = 0 }: { color: string; progress: number; gap?: number }) {
     const t = useTokens();
     const [length, setLength] = useState(0);
-    const shown = useProgress(Math.max(0, Math.min(1, progress)), turn.delay, undefined, turn.duration, POUR);
-    const style = useAnimatedStyle(() => ({ height: shown.get() * length }));
     // The line tucks s(10) under each pill, so free time adds that back to show at its true length.
     const target = gap > 0 ? gap + s(20) : vs(10);
     const minHeight = useSharedValue(target);
@@ -384,19 +373,15 @@ function Link({ color, progress, turn, gap = 0 }: { color: string; progress: num
     const lengthStyle = useAnimatedStyle(() => ({ minHeight: minHeight.get() }));
     return (
         <Animated.View style={[styles.link, { backgroundColor: t.color.border }, lengthStyle]} onLayout={event => setLength(event.nativeEvent.layout.height)}>
-            <Animated.View pointerEvents="none" style={[styles.linkFill, style]}>
+            <Animated.View pointerEvents="none" style={[styles.linkFill, { height: Math.max(0, Math.min(1, progress)) * length }]}>
                 <View style={{ height: length, backgroundColor: color }} />
             </Animated.View>
         </Animated.View>
     );
 }
 
-function Fill({ color, height, progress, turn }: { color: string; height: number; progress: number; turn: { delay: number; duration: number } }) {
-    // Arriving (a page opened, a day switched), it waits for the pill above to
-    // be full, then fills; after that it glides with the clock.
-    const shown = useProgress(Math.max(0, Math.min(1, progress)), turn.delay, undefined, turn.duration, POUR);
-    const style = useAnimatedStyle(() => ({ height: shown.get() * height }));
-    return <Animated.View pointerEvents="none" style={[styles.fill, { backgroundColor: color }, style]} />;
+function Fill({ color, height, progress }: { color: string; height: number; progress: number }) {
+    return <View pointerEvents="none" style={[styles.fill, { backgroundColor: color, height: Math.max(0, Math.min(1, progress)) * height }]} />;
 }
 
 /**
@@ -456,3 +441,17 @@ const styles = StyleSheet.create({
     check: { borderWidth: s(2), alignItems: 'center', justifyContent: 'center' },
     empty: { textAlign: 'center', paddingVertical: vs(24) },
 });
+
+/** Long press wins only after a still hold, leaving ordinary scrolling alone. */
+function TimelineDrag({ item, onDrag, onCancel, children }: {
+    item: FlowInput; onDrag?: (phase: 'start' | 'move' | 'end', item: FlowInput, x: number, y: number) => void;
+    onCancel?: () => void; children: React.ReactNode;
+}) {
+    const gesture = Gesture.Pan().enabled(!!onDrag && (item.kind === 'habit' || item.kind === 'task'))
+        .activateAfterLongPress(HOLD_MS)
+        .onStart(e => { if (onDrag) runOnJS(onDrag)('start', item, e.absoluteX, e.absoluteY); })
+        .onUpdate(e => { if (onDrag) runOnJS(onDrag)('move', item, e.absoluteX, e.absoluteY); })
+        .onEnd(e => { if (onDrag) runOnJS(onDrag)('end', item, e.absoluteX, e.absoluteY); })
+        .onFinalize((_e, success) => { if (!success && onCancel) runOnJS(onCancel)(); });
+    return <GestureDetector gesture={gesture}><View>{children}</View></GestureDetector>;
+}

@@ -10,10 +10,9 @@ import { MARKS, type MarkEvent, type MarkItem, type MarkKind } from './marks';
  * costs, a milestone earns. Never below zero. Everyone starts with a hundred.
  *
  * And they cannot be farmed:
- * - completing something made the same day earns nothing;
+ * - same-day creations and completions pay normally;
  * - a habit ticked more than a day after the day it counts for (filled in
  *   later) earns nothing;
- * - a goal pays its reward only if it existed at least three days;
  * - adding things earns at most ten a day, milestones at most two a day;
  * - no day earns more than two hundred, all together;
  * - deleting something takes back what it earned and keeps what it cost
@@ -30,8 +29,6 @@ export const SHARDS = {
     dailyCap: 200,
     /** Milestones that pay Shards in one day. */
     milestonesPerDay: 2,
-    /** Days a goal must have existed before reaching it pays Shards. */
-    goalMinDays: 3,
     /** How late a habit may be ticked for a day and still pay (logging yesterday is fine). */
     lateTickDays: 1,
     /** What each thing earns or costs: the table the Marks record already keeps. */
@@ -46,8 +43,13 @@ export interface ShardMove {
     item?: MarkItem;
     title: string;
     /** Earned nothing (or less) because of a fair-play rule: said in the transactions, so nobody wonders why. */
-    held?: 'same day' | 'late' | 'new goal' | 'limit';
+    held?: 'late' | 'limit';
+    /** Internal: an old reward consumes allowance but no longer belongs to the wallet. */
+    reserved?: boolean;
 }
+
+/** Identity survives title edits and allows spent daily allowance to stay spent after deletion. */
+export const shardEventKey = (event: MarkEvent) => `${event.item}:${event.id ?? event.title}:${event.kind}:${event.date}`;
 
 export interface TimedPoint { t: number; value: number }
 
@@ -62,26 +64,27 @@ const dayOf = (t: number) => { const d = new Date(t); return `${d.getFullYear()}
  * Every Shard that moved, oldest first: the record's events at the moment
  * they happened (a habit at the minute it was ticked, `ticks` by
  * "habitId:date", when that was the same day; a miss as its day begins; a
- * night's sleep in the morning; anything else untimed at noon), with the
+ * night's sleep in the morning; anything else untimed at the start of its day), with the
  * farming guards applied, and the bets the server holds.
  */
 export function shardMoves(
     ledger: MarkEvent[],
     ticks: Record<string, number>,
     bets: { at: number; amount: number; reason: 'stake' | 'payout' | 'refund'; title: string }[] = [],
+    previouslyEarned: MarkEvent[] = [],
 ): ShardMove[] {
     // Why a completion earns nothing: made the same day, ticked days later, or a goal too new.
     const heldBack = (event: MarkEvent): ShardMove['held'] => {
         if (event.kind !== 'complete') return undefined;
-        if (event.sameDay) return 'same day';
         if (event.item === 'habit' && event.id) {
             const made = ticks[`${event.id}:${event.date}`];
             if (made !== undefined && made >= startOf(event.date) + (1 + SHARDS.lateTickDays) * DAY) return 'late';
         }
-        if (event.item === 'goal' && event.madeOn && startOf(event.date) - startOf(event.madeOn) < SHARDS.goalMinDays * DAY) return 'new goal';
         return undefined;
     };
-    const timed = ledger
+    const liveKeys = new Set(ledger.map(shardEventKey));
+    const removed = previouslyEarned.filter(event => event.points > 0 && !liveKeys.has(shardEventKey(event)));
+    const timed = [...ledger, ...removed]
         // Missions earn Marks (XP), not Shards.
         .filter(event => event.points !== 0 && event.item !== 'mission')
         .map(event => {
@@ -91,9 +94,9 @@ export function shardMoves(
                 : event.item === 'habit' && event.kind === 'complete' ? (tick !== undefined && tick < from + DAY ? tick : from + 12 * HOUR)
                 : event.item === 'sleep' ? from + 8 * HOUR
                 : event.at !== undefined && event.at >= from && event.at < from + DAY ? event.at
-                : from + 12 * HOUR;
+                : from + MINUTE;
             const held = heldBack(event);
-            return { t, date: event.date, amount: held ? 0 : event.points, kind: event.kind, item: event.item, title: event.title, ...(held ? { held } : null) } as ShardMove;
+            return { reserved: !liveKeys.has(shardEventKey(event)), t, date: event.date, amount: held ? 0 : event.points, kind: event.kind, item: event.item, title: event.title, ...(held ? { held } : null) } as ShardMove;
         })
         .sort((a, b) => a.t - b.t);
 
@@ -103,7 +106,7 @@ export function shardMoves(
     const milestones = new Map<string, number>();
     const moves: ShardMove[] = [];
     for (const move of timed) {
-        if (move.held) { moves.push(move); continue; }
+        if (move.held) { if (!move.reserved) moves.push(move); continue; }
         let amount = move.amount;
         if (amount > 0 && move.item === 'milestone') {
             const count = milestones.get(move.date) ?? 0;
@@ -119,6 +122,7 @@ export function shardMoves(
             gained.set(move.date, (gained.get(move.date) ?? 0) + Math.max(0, amount));
         }
         // Cut by a daily limit: kept in the record at what it did earn, saying why.
+        if (move.reserved) continue;
         moves.push(amount < move.amount ? { ...move, amount, held: 'limit' } : { ...move, amount });
     }
     for (const bet of bets) moves.push({ t: bet.at, date: dayOf(bet.at), amount: bet.amount, kind: bet.reason, title: bet.title });

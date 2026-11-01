@@ -245,6 +245,7 @@ export const GoalSheet: React.FC<{
     const share = useShareDraft('goal', current?.id);
     const close = () => {
         setEventVisible(false); setEditing(null); share.close(); onClose?.();
+        emit('creation_sheet_closed', { kind: 'goal' });
         // Several goals asked for at once (the brain dump): the next one opens.
         if (listenToGlobalEvents) (require('@/lib/goalQueue') as typeof import('@/lib/goalQueue')).openNextGoal();
     };

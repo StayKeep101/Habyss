@@ -109,7 +109,7 @@ const CalendarScreen = () => {
     const isLight = theme === 'light';
     const { primary: accentColor } = useAccentGradient();
     const { lightFeedback, selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
-    const { cardSize } = useAppSettings();
+    const { cardSize, autoReschedule } = useAppSettings();
     const { activeHabitId, activeHabitName, isRunning: isFocusRunning, isPaused: isFocusPaused, totalDuration } = useFocusSession();
     // Friends focusing with you show on the card of what you are focusing on.
     const focusingNow = isFocusRunning || isFocusPaused;
@@ -260,7 +260,7 @@ const CalendarScreen = () => {
     }));
     // "Remove from goal": while something in a goal is dragged, the plus button
     // in the dock becomes the drop target (lib/dragBridge).
-    const isOverRemove = useCallback((x: number, y: number, inGoal: boolean) => inGoal && isOverOrb(x, y), []);
+    const isOverRemove = useCallback((x: number, y: number, inGoal: boolean) => (inGoal || roadmapView === 'timeline') && isOverOrb(x, y), [roadmapView]);
     const trackRemove = useCallback((value: boolean) => {
         if (value === getRemoveDrag().over) return;
         setRemoveDrag({ over: value });
@@ -375,10 +375,10 @@ const CalendarScreen = () => {
 
     const { playComplete } = useSoundEffects();
 
-    const handleDateSelect = (date: Date) => {
+    const handleDateSelect = useCallback((date: Date) => {
         lightFeedback();
         setSelectedDate(date);
-    };
+    }, [lightFeedback]);
 
     // Debounce ref to prevent double-tap
     const isNavigating = useRef(false);
@@ -631,7 +631,7 @@ const CalendarScreen = () => {
         dragOwner.current = `habit:${habit.id}`;
         selectionFeedback();
         setDraggingHabit(habit);
-        setRemoveDrag({ active: !!habit.goalId });
+        setRemoveDrag({ active: !!habit.goalId || roadmapView === 'timeline', kind: roadmapView === 'timeline' ? 'delete' : 'unlink', label: roadmapView === 'timeline' ? 'Delete habit' : 'Remove from goal' });
         measureArea();
         measureViewport();
         dragY.set(y);
@@ -639,10 +639,11 @@ const CalendarScreen = () => {
         dragLift.set(withSpring(1, { damping: 18, stiffness: 260 }));
         const currentGoals = habitsStore.filter((item) => item.isGoal) as Habit[];
         await measureGoalDropTargets(currentGoals);
+        if (dragOwner.current !== `habit:${habit.id}`) return;
         const initial = getHoveredGoalAtPoint(x, y);
         hoveredGoalRef.current = initial;
         setHoveredGoalId(initial);
-    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore, dragX, dragY, dragLift, measureArea, measureViewport]);
+    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore, dragX, dragY, dragLift, measureArea, measureViewport, roadmapView]);
 
     const handleHabitDragMove = useCallback((habit: Habit, x: number, y: number) => {
         // dragY is a shared value, so the floating card follows the finger on the UI
@@ -681,6 +682,11 @@ const CalendarScreen = () => {
         setHoveredGoalId(null);
         setRemoveDrag({ active: false });
 
+        if (removing && roadmapView === 'timeline') {
+            try { await removeHabitEverywhere(habit.id); lightFeedback(); }
+            catch { Alert.alert('Could not delete habit', 'Nothing was removed. Please try again.'); }
+            return;
+        }
         if (removing) {
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: undefined } : item));
@@ -707,7 +713,7 @@ const CalendarScreen = () => {
             setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: habit.goalId } : item));
             Alert.alert('Could not move habit', 'Your habit is still in its original goal. Please try again.');
         }
-    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove, stopFollowing, measureGoalDropTargets, habitsStore]);
+    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove, stopFollowing, measureGoalDropTargets, habitsStore, roadmapView]);
 
     /**
      * Tasks move between goals exactly like habits: hold one, drag it onto a
@@ -718,17 +724,18 @@ const CalendarScreen = () => {
         dragOwner.current = `task:${task.id}`;
         selectionFeedback();
         setDraggingTask(task);
-        setRemoveDrag({ active: !!task.goalId });
+        setRemoveDrag({ active: !!task.goalId || roadmapView === 'timeline', kind: roadmapView === 'timeline' ? 'delete' : 'unlink', label: roadmapView === 'timeline' ? 'Delete task' : 'Remove from goal' });
         measureArea();
         measureViewport();
         dragY.set(y);
         dragX.set(x);
         dragLift.set(withSpring(1, { damping: 18, stiffness: 260 }));
         await measureGoalDropTargets(habitsStore.filter(item => item.isGoal) as Habit[]);
+        if (dragOwner.current !== `task:${task.id}`) return;
         const initial = getHoveredGoalAtPoint(x, y);
         hoveredGoalRef.current = initial;
         setHoveredGoalId(initial);
-    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore, dragX, dragY, dragLift, measureArea, measureViewport]);
+    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore, dragX, dragY, dragLift, measureArea, measureViewport, roadmapView]);
 
     const handleTaskDragMove = useCallback((task: Task, x: number, y: number) => {
         dragY.set(y);
@@ -757,6 +764,11 @@ const CalendarScreen = () => {
         setHoveredGoalId(null);
         setRemoveDrag({ active: false });
 
+        if (removing && roadmapView === 'timeline') {
+            try { await removeTask(task.id); emit('tasks_changed'); lightFeedback(); }
+            catch { Alert.alert('Could not delete task', 'Nothing was removed. Please try again.'); }
+            return;
+        }
         if (removing) {
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: undefined } : item));
@@ -782,7 +794,7 @@ const CalendarScreen = () => {
             setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: task.goalId } : item));
             Alert.alert('Could not move task', 'Your task is still in its original goal. Please try again.');
         }
-    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove, stopFollowing, measureGoalDropTargets, habitsStore]);
+    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove, stopFollowing, measureGoalDropTargets, habitsStore, roadmapView]);
 
     const toggleGoalExpansion = (goalId: string) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -962,7 +974,7 @@ const CalendarScreen = () => {
             rescheduled,
         });
     }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, eventTravel, flexibleMeals, memory, doneTimes, rescheduled]);
-    const flow = useMemo(() => flowDay(flowItems, flowNow, flowWindow), [flowItems, flowNow, flowWindow]);
+    const flow = useMemo(() => flowDay(flowItems, flowNow, flowWindow, { auto: autoReschedule }), [flowItems, flowNow, flowWindow, autoReschedule]);
     // Whether this flow was built from everything it needs: the stored layout,
     // the tick times and the waking day. Saving one built before they arrived
     // is what once moved every ticked thing to the morning after a reload.
@@ -1142,6 +1154,7 @@ const CalendarScreen = () => {
                         </Animated.View>
                         <Animated.ScrollView
                             ref={listRef}
+                            scrollEnabled={!draggingHabit && !draggingTask}
                             onContentSizeChange={(_w, height) => { contentHeight.current = height; }}
                             onScroll={scrollHandler}
                             scrollEventThrottle={16}
@@ -1220,10 +1233,23 @@ const CalendarScreen = () => {
                                 // twice and the rows jumped into place in front of you.
                                 !flowComplete && !timelineShown.current ? <View style={styles.timelineWait} /> : <>
                                 <CalendarPrompt />
-                                <DayTimeline flow={shownFlow} day={localDateKey(selectedDate)} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
+                                <DayTimeline onChangeDay={direction => { const next = new Date(selectedDate); next.setDate(next.getDate() + direction); handleDateSelect(next); }} flow={shownFlow} day={localDateKey(selectedDate)} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
                                     wake={flowWindow.wake} sleep={flowWindow.sleep} dueToday={dueToday}
                                     onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem}
                                     onReschedule={flowNow !== null ? rescheduleFlowItem : undefined}
+                                    onDrag={(phase, item, x, y) => {
+                                        if (item.kind === 'habit') {
+                                            const habit = habitsStore.find(h => h.id === item.id);
+                                            if (habit) void ({ start: handleHabitDragStart, move: handleHabitDragMove, end: handleHabitDragEnd }[phase])(habit, x, y);
+                                        } else if (item.kind === 'task') {
+                                            const task = tasks.find(t => t.id === item.id);
+                                            if (task) void ({ start: handleTaskDragStart, move: handleTaskDragMove, end: handleTaskDragEnd }[phase])(task, x, y);
+                                        }
+                                    }}
+                                    onDragCancel={() => {
+                                        dragOwner.current = null; stopFollowing(); dragLift.set(0);
+                                        setDraggingTask(null); setDraggingHabit(null); setRemoveDrag({ active: false });
+                                    }}
                                     company={focusCompany}
                                     sharedFor={item => (item.kind === 'habit' ? sharedFor(item.id) : item.kind === 'task' ? sharedTaskFor(item.id) : null)} />
                                 </>

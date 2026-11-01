@@ -7,6 +7,7 @@ import {
 } from './cloudMapping';
 import { emit } from './appEvents';
 import { syncPersonal } from './personalBackup';
+import { cloudPullPage, type PullPosition } from './cloudPullPage';
 
 /**
  * Backup and restore.
@@ -54,6 +55,7 @@ const TABLES: TableSpec[] = [
 const BATCH = 200;
 const PAGE = 1000;
 const cursorKey = (userId: string) => `cloud_pull_cursor_${userId}`;
+const tableCursorKey = (userId: string, table: string) => `cloud_pull_v2_${userId}_${table}`;
 export const LAST_SYNC_KEY = 'cloud_last_sync_at';
 
 export interface SyncReport {
@@ -348,21 +350,20 @@ async function markUploaded(db: any, table: Table, rows: any[]): Promise<number>
 let skippedOnDownload = 0;
 
 async function download(db: any, sb: any, userId: string): Promise<number> {
-    const since = await AsyncStorage.getItem(cursorKey(userId));
-    let newest = since;
     let written = 0;
     skippedOnDownload = 0;
 
     for (const spec of TABLES) {
         if (absentTables.has(spec.remote)) continue;
 
-        for (let from = 0; ; from += PAGE) {
-            let query = sb.from(spec.remote).select('*').eq('user_id', userId)
-                .order('updated_at', { ascending: true }).range(from, from + PAGE - 1);
-            // gte rather than gt: a row sharing the cursor's timestamp is applied
-            // twice rather than missed, and applying it twice is harmless.
-            if (since) query = query.gte('updated_at', since);
-
+        // Independent cursors prevent a later table's timestamp from skipping
+        // changes arriving in a table that was already read during this sync.
+        const since = await AsyncStorage.getItem(tableCursorKey(userId, spec.remote));
+        let newest = since;
+        let after: PullPosition | null = null;
+        const failuresBefore = skippedOnDownload;
+        for (;;) {
+            const query = cloudPullPage(sb, spec.remote, userId, since, after, PAGE);
             const { data, error } = await query;
             if (error) {
                 // A table the server does not have is not a failed restore.
@@ -389,10 +390,14 @@ async function download(db: any, sb: any, userId: string): Promise<number> {
                 }
             });
             if (data.length < PAGE) break;
+            const last = data[data.length - 1];
+            after = { updated_at: last.updated_at, id: last.id };
+        }
+        // Failed local writes must be retried rather than passed by the cursor.
+        if (newest && newest !== since && skippedOnDownload === failuresBefore) {
+            await AsyncStorage.setItem(tableCursorKey(userId, spec.remote), newest);
         }
     }
-
-    if (newest && newest !== since) await AsyncStorage.setItem(cursorKey(userId), newest);
     return written;
 }
 
@@ -543,7 +548,7 @@ function humanError(error: any): string {
 /** Forgets where downloads left off, so the next sync fetches everything. */
 export async function resetSyncCursor(userId: string): Promise<void> {
     try {
-        await AsyncStorage.removeItem(cursorKey(userId));
+        await AsyncStorage.multiRemove([cursorKey(userId), ...TABLES.map(spec => tableCursorKey(userId, spec.remote))]);
     } catch {
         // Nothing to do.
     }

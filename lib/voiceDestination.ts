@@ -1,15 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
- * Where holding the create button and speaking sends what was said.
- * Brain dump by default: the quickest place to get a thought out of your head.
+ * Where holding the create button and speaking sends what was said. Auto by
+ * default: speak freely, and Habyss works out the tasks, habits and goals in
+ * it (lib/voicePlan.ts), with as little as possible between the thought, the
+ * plan and doing it. Or always one place: the brain dump, a task, a habit, a goal.
  */
-export type VoiceDestination = 'thought' | 'task' | 'habit' | 'goal';
+export type VoiceDestination = 'auto' | 'thought' | 'task' | 'habit' | 'goal';
 
 const KEY = 'habyss_voice_destination';
-export const DEFAULT_VOICE_DESTINATION: VoiceDestination = 'thought';
+export const DEFAULT_VOICE_DESTINATION: VoiceDestination = 'auto';
 
 export const VOICE_DESTINATIONS: { id: VoiceDestination; label: string }[] = [
+    { id: 'auto', label: 'Auto' },
     { id: 'thought', label: 'Dump' },
     { id: 'task', label: 'Task' },
     { id: 'habit', label: 'Habit' },

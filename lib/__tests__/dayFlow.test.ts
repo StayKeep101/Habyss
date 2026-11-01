@@ -70,8 +70,21 @@ describe('the line', () => {
         const items = [task('mom'), habit('bugs')];
         expect(slot(items.map(item => ({ ...item, done: item.id === 'mom' })), 'bugs', 500)).toEqual(slot(items, 'bugs', 500));
     });
-    it('gives something with no length 30 minutes', () => {
-        expect(slot([task('call', { minutes: 0 })], 'call')).toEqual([480, 510]);
+    it('gives something with no length its kind\'s default: a task 90 minutes, a habit 30', () => {
+        expect(slot([task('call', { minutes: 0 })], 'call')).toEqual([480, 570]);
+        expect(slot([habit('stretch', { minutes: 0 })], 'stretch')).toEqual([480, 510]);
+    });
+    it('with auto-reschedule off, moves nothing: things keep their times, and a reschedule or an early finish lays nothing out again', () => {
+        const items = [task('report', { start: 600, minutes: 60 }), habit('run', { start: 540, minutes: 30, rescheduledAt: 700 }), task('loose', { minutes: 30 })];
+        const off = flowDay(items, 720, day, { auto: false });
+        const at = (id: string) => { const row = off.timeline.find(item => item.id === id)!; return [row.start, row.end]; };
+        expect(at('report')).toEqual([600, 660]);
+        expect(at('run')).toEqual([540, 570]);
+        // What has no time is placed once, in the free time.
+        expect(at('loose')).toEqual([480, 510]);
+        // On, the same day moves: the reschedule lays the run out again from 11:40.
+        const on = flowDay(items, 720, day);
+        expect(on.timeline.find(item => item.id === 'run')!.start).toBe(700);
     });
     it('says what is on now and what is next, and nothing else', () => {
         const flow = flowDay([meal('breakfast', 480, 60), task('mom'), habit('bugs')], 552, day);
