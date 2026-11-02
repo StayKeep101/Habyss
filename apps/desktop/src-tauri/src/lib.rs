@@ -1,4 +1,4 @@
-#[allow(dead_code)]
+#[allow(dead_code)] // Sign-in commands (task 7) use the rest.
 mod cloud;
 mod commands;
 pub mod engine;
@@ -9,7 +9,7 @@ mod storage;
 use commands::*;
 use platform::ActivityCollector;
 use tauri::{Emitter,Manager};
-use std::sync::Mutex;
+use std::sync::{Arc,Mutex};
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app,_,_|{let _=open_dashboard(app.clone(),None);}))
@@ -20,6 +20,13 @@ pub fn run() {
             let minimized=service.settings.start_minimized || std::env::args().any(|a|a=="--autostart");
             let titles=service.settings.collect_titles;
             app.manage(Mutex::new(service));
+            if let Some(config)=cloud::client::Config::from_build() {
+                let client=Arc::new(cloud::client::Client::new(config));
+                let auth=Arc::new(cloud::auth::Auth::new(client.clone(),Arc::new(cloud::auth::Keychain)));
+                let (cloud,nudges)=cloud::runner::Cloud::new(client,auth);
+                app.manage(cloud.clone());
+                tauri::async_runtime::spawn(cloud::runner::run(app.handle().clone(),cloud,nudges));
+            }
             let (sender,receiver)=std::sync::mpsc::channel();
             let collector=platform::MacCollector::new(sender);collector.start();collector.set_title_collection(titles);
             let handle=app.handle().clone();
@@ -58,7 +65,8 @@ pub fn run() {
         })
         .on_window_event(|window,event|match event {
             tauri::WindowEvent::CloseRequested{api,..}=>{api.prevent_close();let _=window.hide();},
-            tauri::WindowEvent::Focused(false) if window.label()=="panel"=>{let _=window.hide();},_=>{}
+            tauri::WindowEvent::Focused(false) if window.label()=="panel"=>{let _=window.hide();},
+            tauri::WindowEvent::Focused(true) if window.label()=="main"=>{if let Some(c)=window.app_handle().try_state::<Arc<cloud::runner::Cloud>>(){c.nudge(cloud::runner::Nudge::Focus);}},_=>{}
         })
         .build(tauri::generate_context!()).expect("Habyss initialization failed")
         .run(|app,event|match event {
