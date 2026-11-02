@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { AppButton, Text, VoidShell } from '@/components/ui';
@@ -25,10 +25,17 @@ import { commitPlan, stepOf } from '@/lib/ascent/plan';
 import { buildEcho } from '@/lib/ascent/echoBuild';
 import { Dialogue, type DialogueHandle } from './Dialogue';
 import { Stage } from './Stage';
-import { ActionPicker, BeginButton, BUILD_STEP_MS, BuildList, ChoiceList, DayAnswer, MultiList, TextAnswer } from './Answers';
+import { ActionPicker, BeginButton, BUILD_STEP_MS, BuildList, ChoiceList, DayAnswer, MultiList, NumberAnswer, TextAnswer } from './Answers';
 
 /** The save holds at least this long, so the moment reads as something made. */
 const SAVE_BEAT_MS = 900;
+/**
+ * How long a finished line stays before the conversation moves on by itself:
+ * a breath, plus time to read it, plus time for a slide it brings on to build.
+ */
+const READ_MS = 1200;
+const READ_PER_CHAR_MS = 32;
+const SLIDE_MS = 2200;
 
 export interface AscentEnd { state: AscentState; how: 'finished' | 'skipped' }
 
@@ -42,7 +49,11 @@ export interface AscentEnd { state: AscentState; how: 'finished' | 'skipped' }
  * anything on screen. A tap anywhere finishes a line, the next moves on;
  * VoiceOver gets a Continue button for the same.
  */
-export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd: (end: AscentEnd) => void; onAccount?: () => void }) {
+export function Ascent({ preview, onEnd, onAccount, autoPlay = true }: {
+    preview: boolean; onEnd: (end: AscentEnd) => void; onAccount?: () => void;
+    /** Lines move on by themselves once read (off for VoiceOver, and in tests that tap through). */
+    autoPlay?: boolean;
+}) {
     const reduced = useReducedMotion();
     const t = useTokens();
     const { primary: color } = useAccentGradient();
@@ -130,6 +141,22 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [beatKey, attempt]);
 
+    // Like a conversation: a finished line moves on by itself after a reading pause. A tap still moves on at once.
+    const [screenReader, setScreenReader] = useState(false);
+    useEffect(() => {
+        AccessibilityInfo.isScreenReaderEnabled().then(setScreenReader).catch(() => undefined);
+        const sub = AccessibilityInfo.addEventListener('screenReaderChanged', setScreenReader);
+        return () => sub.remove();
+    }, []);
+    useEffect(() => {
+        if (!autoPlay || screenReader || leaving || beat?.kind !== 'line' || !line || typed !== line) return;
+        const wait = READ_MS + line.length * READ_PER_CHAR_MS + (beat.stage && beat.stage !== 'echo' ? SLIDE_MS : 0);
+        const timer = setTimeout(() => dispatch({ type: 'next' }), wait);
+        return () => clearTimeout(timer);
+        // Keyed on where the story is (the beat object is rebuilt each render).
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoPlay, screenReader, leaving, beatKey, line, typed]);
+
     const tapScreen = () => {
         if (!state || leaving) return;
         if (dialogue.current?.finish()) return;
@@ -189,7 +216,7 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
                     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.fill} pointerEvents="box-none">
                         {/* Echo, or what it has become; a fixed height, so its line sits at eye level just under it. */}
                         {typing ? null : (
-                            <Stage stage={stageOf(state)} answers={state.answers} mood={mood} color={color} label={scene.label} speaking={line !== null && !ready} />
+                            <Stage {...stageOf(state)} answers={state.answers} mood={mood} color={color} label={scene.label} speaking={line !== null && !ready} />
                         )}
     
                         <ScrollView style={styles.fill} contentContainerStyle={styles.lower} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -230,6 +257,9 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
                                                 if (value && !preview) saveName(value).catch(() => undefined);
                                                 answer({ name: value });
                                             }} />
+                                    ) : null}
+                                    {beat?.kind === 'number' ? (
+                                        <NumberAnswer key={beatKey} label="Your age" placeholder={beat.placeholder} min={beat.min} max={beat.max} onAnswer={age => answer({ age })} />
                                     ) : null}
                                     {beat?.kind === 'action' ? (
                                         <ActionPicker key={beatKey} suggestions={suggestions(state.answers)} color={color}

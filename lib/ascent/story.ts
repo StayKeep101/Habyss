@@ -53,15 +53,16 @@ export type ObstacleId = 'starting' | 'consistency' | 'distraction' | 'overwhelm
 export type GoalId = 'discipline' | 'organized' | 'health' | 'skill' | 'career' | 'calm' | 'own';
 export type WhenId = 'now' | 'later' | 'tomorrow';
 export type ActionKind = 'task' | 'habit' | 'focus' | 'dump';
-export type PhoneId = 'under_1' | 'one_two' | 'two_four' | 'four_six' | 'over_6';
-export type AgeId = 'under_18' | 'age_18' | 'age_25' | 'age_35' | 'age_45' | 'over_55';
+export type PhoneId = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
 export type SkillId = 'morse' | 'language' | 'guitar' | 'typing' | 'code' | 'drawing';
 
 /**
  * What Echo becomes on screen while a line is said: itself, or one of the
- * explainers it shapeshifts into (components/Ascent/Explainers.tsx).
+ * explainers it shapeshifts into (components/Ascent/Explainers.tsx). Each
+ * explainer is built like a slide, piece by piece: a line's `step` says how
+ * far it has got, so the picture moves on with the conversation.
  */
-export type StageId = 'echo' | 'clock' | 'lifetime' | 'trade' | 'motivation' | 'discipline' | 'compound';
+export type StageId = 'echo' | 'clock' | 'cost' | 'trade' | 'motivation' | 'compound';
 
 export interface Answers {
     name?: string;
@@ -75,7 +76,8 @@ export interface Answers {
     sleepAmount?: SleepAmountId;
     /** Hours a day on the phone outside work. */
     phone?: PhoneId;
-    age?: AgeId;
+    /** In years, as typed. */
+    age?: number;
     /** What they would learn with thirty minutes a day. */
     skill?: SkillId;
     obstacle?: ObstacleId;
@@ -96,16 +98,18 @@ export interface Answers {
 export interface Option<T extends string = string> { id: T; label: string; icon?: string }
 
 /** Answers that are one of a few choices. */
-export type ChoiceField = 'history' | 'chronotype' | 'sleepAmount' | 'phone' | 'age' | 'skill' | 'obstacle' | 'timing' | 'goal' | 'when' | 'invite' | 'source';
+export type ChoiceField = 'history' | 'chronotype' | 'sleepAmount' | 'phone' | 'skill' | 'obstacle' | 'timing' | 'goal' | 'when' | 'invite' | 'source';
 
 export type Beat =
-    | { kind: 'line'; text: string; mood?: Mood; stage?: StageId }
+    | { kind: 'line'; text: string; mood?: Mood; stage?: StageId; step?: number }
     /** A choice that sets one answer; `own` adds "Something else", typed, saved to that field. */
     | { kind: 'choice'; field: ChoiceField; options: Option[]; mood?: Mood; own?: { field: 'goalText'; label: string; placeholder: string } }
     /** Several of a few choices (what they juggle). */
     | { kind: 'multi'; field: 'juggling'; options: Option[]; mood?: Mood }
     /** Words typed (or skipped, when optional). */
     | { kind: 'input'; field: 'name'; placeholder: string; optional?: boolean; mood?: Mood }
+    /** A number typed: their age. */
+    | { kind: 'number'; field: 'age'; placeholder: string; min: number; max: number; mood?: Mood }
     /** When the day starts and ends, set from their rhythm and adjustable. */
     | { kind: 'day'; mood?: Mood }
     /** The first step: suggestions for this person, or their own. */
@@ -130,24 +134,16 @@ const first = (answers: Answers) => {
 };
 
 export const PHONE: Record<PhoneId, { label: string; hours: number }> = {
-    under_1: { label: 'Less than an hour', hours: 0.5 },
-    one_two: { label: '1 to 2 hours', hours: 1.5 },
-    two_four: { label: '2 to 4 hours', hours: 3 },
-    four_six: { label: '4 to 6 hours', hours: 5 },
-    over_6: { label: 'More than 6 hours', hours: 7 },
+    h1: { label: 'About an hour', hours: 1 },
+    h2: { label: '2 hours', hours: 2 },
+    h3: { label: '3 hours', hours: 3 },
+    h4: { label: '4 hours', hours: 4 },
+    h5: { label: '5 hours', hours: 5 },
+    h6: { label: '6 hours or more', hours: 6 },
 };
 
-export const AGES: Record<AgeId, { label: string; years: number }> = {
-    under_18: { label: 'Under 18', years: 16 },
-    age_18: { label: '18 to 24', years: 21 },
-    age_25: { label: '25 to 34', years: 30 },
-    age_35: { label: '35 to 44', years: 40 },
-    age_45: { label: '45 to 54', years: 50 },
-    over_55: { label: '55 or over', years: 60 },
-};
-
-/** The life the years are counted against. */
-export const LIFE_YEARS = 80;
+/** The average life the years are counted against. */
+export const LIFE_YEARS = 90;
 /** The half hour a day the trade is about. */
 export const TRADE_MINUTES = 30;
 
@@ -164,24 +160,28 @@ export const SKILLS: Record<SkillId, { label: string; icon: string; days: number
     drawing: { label: 'Drawing', icon: 'brush', days: 90, outcome: 'draw what you see', goal: 'Learn to draw' },
 };
 
-/** The hours their phone takes from the rest of their life, until 80: hours a day × years left ÷ 24, as years. */
-export function screenYears(answers: Answers): { hours: number; years: number; left: number; lived: number } {
-    const hours = PHONE[answers.phone ?? 'two_four'].hours;
-    const lived = AGES[answers.age ?? 'age_25'].years;
-    const left = Math.max(0, LIFE_YEARS - lived);
-    return { hours, years: Math.round((hours * left / 24) * 10) / 10, left, lived };
+const round = (value: number, places: number) => Math.round(value * 10 ** places) / 10 ** places;
+
+/**
+ * The time their phone has taken, and will, at the pace they said: hours a
+ * day × 365 × their years so far, as hours, days and years; and the same for
+ * the years left of an average life of ninety. Arithmetic only.
+ */
+export function screenTime(answers: Answers) {
+    const perDay = PHONE[answers.phone ?? 'h3'].hours;
+    const age = Math.min(LIFE_YEARS - 1, Math.max(1, Math.round(answers.age ?? 25)));
+    const hours = perDay * 365 * age;
+    const days = Math.round(hours / 24);
+    const years = round(hours / 24 / 365, 2);
+    const left = LIFE_YEARS - age;
+    const ahead = round((perDay * 365 * left) / 24 / 365, 1);
+    return { perDay, age, hours, days, years, left, ahead, lifetime: round((perDay * LIFE_YEARS) / 24, 1) };
 }
 
-/** The years, as said: "7.4 years", or months under a year. */
-export function yearsLabel(years: number): string {
-    if (years < 1) {
-        const months = Math.max(1, Math.round(years * 12));
-        return `${months} ${months === 1 ? 'month' : 'months'}`;
-    }
-    return `${years} ${years === 1 ? 'year' : 'years'}`;
-}
+/** A number as said: 27,740. */
+export const grouped = (value: number) => value.toLocaleString('en-US');
 
-const hoursLabel = (hours: number) => (hours < 1 ? 'Half an hour' : `${hours} hours`);
+const hoursLabel = (hours: number) => `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
 
 /** What 1% a day becomes in a year, better and worse. */
 export const COMPOUND = { better: Math.round(1.01 ** 365 * 10) / 10, worse: Math.round(0.99 ** 365 * 100) / 100 };
@@ -219,57 +219,78 @@ export const SCENES: Scene[] = [
     {
         id: 'abyss', label: 'In the dark.',
         beats: answers => [
-            { kind: 'line', text: 'It’s dark down here.', mood: 'appear' },
-            { kind: 'line', text: 'Ever promised yourself you’d change, then slid back to square one?', mood: 'curious' },
+            { kind: 'line', text: 'Hey… you made it down here.', mood: 'appear' },
+            { kind: 'line', text: 'Quiet, isn’t it? This is where people end up when the days slip away.', mood: 'appear' },
+            { kind: 'line', text: 'Can I ask you something honest?', mood: 'curious' },
+            { kind: 'line', text: 'Ever promised yourself you’d change, then slid back to square one?', mood: 'listen' },
             { kind: 'choice', field: 'history', mood: 'listen', options: [
                 { id: 'always', label: 'All the time' },
                 { id: 'sometimes', label: 'Sometimes' },
                 { id: 'rarely', label: 'Not really' },
             ] },
             answers.history === 'always'
-                ? { kind: 'line', text: 'That pull back down has a name. The Abyss. Everyone has one.', mood: 'empathetic' }
+                ? { kind: 'line', text: 'Yeah. You’re not the only one. That pull back down has a name.', mood: 'empathetic' }
                 : answers.history === 'sometimes'
-                    ? { kind: 'line', text: 'That pull back down? The Abyss. Everyone carries one.', mood: 'empathetic' }
-                    : { kind: 'line', text: 'Then the Abyss hasn’t got you yet. Let’s keep it that way.', mood: 'encourage' },
-            { kind: 'line', text: 'But you heard something, didn’t you?', mood: 'appear' },
+                    ? { kind: 'line', text: 'Most people say that. That pull back down has a name.', mood: 'empathetic' }
+                    : { kind: 'line', text: 'Lucky. Most people feel a pull back down. It has a name.', mood: 'encourage' },
+            { kind: 'line', text: 'The Abyss. Lost hours, plans that never start, thoughts that keep you up.', mood: 'think' },
+            { kind: 'line', text: 'Everyone carries one. But something reached you down here, didn’t it?', mood: 'appear' },
         ],
     },
     {
         id: 'echo', label: 'Meeting Echo.',
         beats: answers => [
-            { kind: 'line', text: 'That was me. Echo. A ripple in time.', mood: 'excited' },
-            { kind: 'line', text: 'Who am I talking to?', mood: 'listen' },
+            { kind: 'line', text: 'That was me. I’m Echo.', mood: 'excited' },
+            { kind: 'line', text: 'A ripple in time. I find whoever needs a way back up.', mood: 'speak' },
+            { kind: 'line', text: 'Before we climb, what should I call you?', mood: 'listen' },
             { kind: 'input', field: 'name', placeholder: 'Your name', optional: true, mood: 'listen' },
-            { kind: 'line', text: first(answers) ? `${first(answers)}. Let’s get you out of here.` : 'A mystery. Let’s get you out anyway.', mood: 'excited' },
+            { kind: 'line', text: first(answers) ? `${first(answers)}. I like that.` : 'No name? A mystery. I like that too.', mood: 'excited' },
+            { kind: 'line', text: `Alright${first(answers) ? `, ${first(answers)}` : ''}. Let me show you how this place works.`, mood: 'speak' },
         ],
     },
     {
         id: 'chronos', label: 'Time, and their day.',
-        beats: answers => [
-            { kind: 'line', text: 'Down here, one thing never stops.', mood: 'think', stage: 'clock' },
-            { kind: 'line', text: 'When does your day start and end?', mood: 'listen' },
-            { kind: 'day', mood: 'listen' },
-            { kind: 'line', text: 'Chronos gives everyone 24 hours. You, me, a billionaire.', mood: 'speak' },
-            { kind: 'line', text: 'Morning person or night owl?', mood: 'curious' },
-            { kind: 'choice', field: 'chronotype', mood: 'listen', options: options(CHRONOTYPES) },
-            { kind: 'line', text: 'Real talk: how much do you sleep?', mood: 'listen' },
-            { kind: 'choice', field: 'sleepAmount', mood: 'listen', options: options(SLEEP_AMOUNTS) },
-            answers.sleepAmount === 'under_six'
-                ? { kind: 'line', text: 'We’ll work on that. Everything’s harder tired.', mood: 'empathetic' }
-                : { kind: 'line', text: 'Nice. That’s half the battle.', mood: 'encourage' },
-        ],
+        beats: answers => {
+            const awake = awakeHours(answers);
+            return [
+                { kind: 'line', text: 'Down here, one thing never stops.', mood: 'think', stage: 'clock', step: 0 },
+                { kind: 'line', text: 'Time. Chronos keeps it, and he’s fair about exactly one thing.', mood: 'speak', stage: 'clock', step: 0 },
+                { kind: 'line', text: 'Everyone gets 24 hours. You. Me. A billionaire. Same 24.', mood: 'speak', stage: 'clock', step: 1 },
+                { kind: 'line', text: 'So let’s look at yours. When does your day start and end?', mood: 'listen', stage: 'clock', step: 1 },
+                { kind: 'day', mood: 'listen' },
+                { kind: 'line', text: `${awake} hours awake. That’s what you get to spend, every day.`, mood: 'encourage', stage: 'clock', step: 2 },
+                { kind: 'line', text: 'Are you a morning person or a night owl?', mood: 'curious' },
+                { kind: 'choice', field: 'chronotype', mood: 'listen', options: options(CHRONOTYPES) },
+                { kind: 'line', mood: 'encourage', text:
+                    answers.chronotype === 'early_bird' ? 'Mornings. Nice, we’ll put the hard things early.'
+                        : answers.chronotype === 'night_owl' ? 'A night owl. I’ll keep your mornings gentle.'
+                            : 'Depends on the day? Then we’ll follow your energy.' },
+                { kind: 'line', text: 'And honestly, how much do you sleep?', mood: 'listen' },
+                { kind: 'choice', field: 'sleepAmount', mood: 'listen', options: options(SLEEP_AMOUNTS) },
+                answers.sleepAmount === 'under_six'
+                    ? { kind: 'line', text: 'We’ll work on that together. Everything’s harder tired.', mood: 'empathetic' }
+                    : { kind: 'line', text: 'Good. That’s half the battle already won.', mood: 'encourage' },
+            ];
+        },
     },
     {
         id: 'cost', label: 'What the screen takes.',
         beats: answers => {
-            const { hours, years } = screenYears(answers);
+            const time = screenTime(answers);
             return [
-                { kind: 'line', text: 'Outside work, how long are you on your phone a day?', mood: 'curious' },
+                { kind: 'line', text: 'Now, the part most people never look at.', mood: 'think' },
+                { kind: 'line', text: 'On a normal day, outside work, how long are you on your phone?', mood: 'curious' },
                 { kind: 'choice', field: 'phone', mood: 'listen', options: fromRecord(PHONE) },
                 { kind: 'line', text: 'And how old are you?', mood: 'listen' },
-                { kind: 'choice', field: 'age', mood: 'listen', options: fromRecord(AGES) },
-                { kind: 'line', text: `${hoursLabel(hours)} a day until 80 is ${yearsLabel(years)}. On a screen.`, mood: 'think', stage: 'lifetime' },
-                { kind: 'line', text: 'Not to scare you. To show you what’s still yours.', mood: 'empathetic' },
+                { kind: 'number', field: 'age', placeholder: 'Your age', min: 8, max: 89, mood: 'listen' },
+                { kind: 'line', text: 'Let’s do the math together.', mood: 'think', stage: 'cost', step: 0 },
+                { kind: 'line', text: `${hoursLabel(time.perDay)} a day, 365 days a year, for ${time.age} years.`, mood: 'think', stage: 'cost', step: 0 },
+                { kind: 'line', text: `That’s ${grouped(time.hours)} hours. ${grouped(time.days)} days.`, mood: 'think', stage: 'cost', step: 1 },
+                { kind: 'line', text: `${time.years} years of your life. Already gone.`, mood: 'empathetic', stage: 'cost', step: 2 },
+                { kind: 'line', text: `Now picture a whole life. About ${LIFE_YEARS} years, one cube each.`, mood: 'think', stage: 'cost', step: 3 },
+                { kind: 'line', text: `Keep going like this, and ${time.ahead} more years go to a screen.`, mood: 'think', stage: 'cost', step: 4 },
+                { kind: 'line', text: 'It’s not only time. Heavy screen use is tied to worse sleep, focus and mood.', mood: 'empathetic' },
+                { kind: 'line', text: 'I’m not saying this to scare you. I’m saying it because it can change.', mood: 'encourage' },
             ];
         },
     },
@@ -278,18 +299,22 @@ export const SCENES: Scene[] = [
         beats: answers => {
             const skill = SKILLS[answers.skill ?? 'morse'];
             return [
-                { kind: 'line', text: 'Take back just 30 minutes a day. What would you learn?', mood: 'curious' },
+                { kind: 'line', text: 'Here’s the good part.', mood: 'excited' },
+                { kind: 'line', text: 'Take back just 30 minutes a day. What would you love to learn?', mood: 'curious' },
                 { kind: 'choice', field: 'skill', mood: 'listen', options: fromRecord(SKILLS) },
-                { kind: 'line', text: `In about ${skill.days} days, you could ${skill.outcome}.`, mood: 'excited', stage: 'trade' },
-                { kind: 'line', text: 'Same 30 minutes scrolling? Nothing to show for it.', mood: 'speak' },
+                { kind: 'line', text: 'Watch what 30 minutes does.', mood: 'speak', stage: 'trade', step: 0 },
+                { kind: 'line', text: `Every day, for ${skill.days} days.`, mood: 'speak', stage: 'trade', step: 1 },
+                { kind: 'line', text: `Scrolling leaves nothing behind. ${skill.label}? You could ${skill.outcome}.`, mood: 'excited', stage: 'trade', step: 2 },
+                { kind: 'line', text: 'Same time. A completely different life.', mood: 'encourage', stage: 'trade', step: 2 },
             ];
         },
     },
     {
         id: 'compound', label: 'Discipline, not motivation.',
         beats: answers => [
-            { kind: 'line', text: 'Most people wait to feel motivated. It spikes, then it’s gone.', mood: 'think', stage: 'motivation' },
-            { kind: 'line', text: 'Discipline is quiet. It just keeps climbing.', mood: 'encourage', stage: 'discipline' },
+            { kind: 'line', text: 'So why hasn’t it stuck before? It’s not you. It’s how you’ve been trying.', mood: 'empathetic' },
+            { kind: 'line', text: 'Most people wait to feel motivated. It spikes, then it’s gone.', mood: 'think', stage: 'motivation', step: 0 },
+            { kind: 'line', text: 'Discipline is quieter. Small, every day. And it keeps climbing.', mood: 'encourage', stage: 'motivation', step: 1 },
             { kind: 'line', text: 'What usually gets in your way?', mood: 'think' },
             { kind: 'choice', field: 'obstacle', mood: 'listen', options: OBSTACLES },
             { kind: 'line', mood: 'encourage', text:
@@ -297,74 +322,85 @@ export const SCENES: Scene[] = [
                     : answers.obstacle === 'consistency' ? 'Then missing a day is fine. Just never twice in a row.'
                         : answers.obstacle === 'distraction' ? 'Then we fence off your focus. One thing at a time.'
                             : 'Then we pick one thing. The rest can wait.' },
-            { kind: 'line', text: `1% better a day looks like nothing. A year later, it’s ${COMPOUND.better}×.`, mood: 'excited', stage: 'compound' },
-            { kind: 'line', text: 'When does work actually get done?', mood: 'curious' },
+            { kind: 'line', text: 'And small adds up faster than you’d think.', mood: 'speak', stage: 'compound', step: 0 },
+            { kind: 'line', text: `1% better each day. After a year, that’s ${COMPOUND.better} times better.`, mood: 'excited', stage: 'compound', step: 1 },
+            { kind: 'line', text: 'So tell me, when does your work actually get done?', mood: 'curious' },
             { kind: 'choice', field: 'timing', mood: 'listen', options: options(TIMINGS) },
             { kind: 'line', mood: 'speak', text:
-                answers.timing === 'last_minute' ? 'Deadlines work for you. I’ll set earlier ones.'
-                    : answers.timing === 'straight_away' ? 'Love that. I’ll keep up.'
-                        : answers.timing === 'planned' ? 'A planner. I can work with that.'
-                            : 'Honest. We’ll start small.' },
+                answers.timing === 'last_minute' ? 'Deadlines work for you. I’ll quietly set earlier ones.'
+                    : answers.timing === 'straight_away' ? 'Love that. I’ll keep up with you.'
+                        : answers.timing === 'planned' ? 'A planner. We’re going to get along.'
+                            : 'Thanks for being honest. We’ll start small.' },
         ],
     },
     {
         id: 'life', label: 'What they are carrying.',
         beats: answers => [
-            { kind: 'line', text: 'What’s on your plate right now?', mood: 'listen' },
+            { kind: 'line', text: 'Tell me what’s on your plate right now.', mood: 'listen' },
             { kind: 'multi', field: 'juggling', options: options(JUGGLES), mood: 'listen' },
             (answers.juggling?.length ?? 0) >= 3
-                ? { kind: 'line', text: 'That’s a lot. We’ll guard time for what matters.', mood: 'empathetic' }
-                : { kind: 'line', text: 'Good. Room to go deep.', mood: 'encourage' },
+                ? { kind: 'line', text: 'That’s a lot to carry. I’ll guard time for what matters.', mood: 'empathetic' }
+                : { kind: 'line', text: 'Good. That leaves room to go deep.', mood: 'encourage' },
         ],
     },
     {
         id: 'goal', label: 'Where they want to go.',
         beats: answers => [
-            { kind: 'line', text: 'Picture the next 90 days going perfectly. What changed?', mood: 'curious' },
+            { kind: 'line', text: 'Okay. Close your eyes for a second.', mood: 'speak' },
+            { kind: 'line', text: 'It’s 90 days from now, and they went perfectly. What changed?', mood: 'curious' },
             { kind: 'choice', field: 'goal', mood: 'listen',
                 options: (Object.keys(GOALS) as GoalId[]).filter(id => id !== 'own').map(id => ({ id, label: GOALS[id].label, icon: GOALS[id].icon })),
                 own: { field: 'goalText', label: 'Your goal', placeholder: 'In your words' } },
-            { kind: 'line', text: `${goalTitle(answers)}. Let’s make it real.`, mood: 'excited' },
+            { kind: 'line', text: `${goalTitle(answers)}. Let’s make that real, one small step at a time.`, mood: 'excited' },
         ],
     },
     {
         id: 'foothold', label: 'The first step.',
         beats: () => [
-            { kind: 'line', text: 'What’s one tiny step toward it?', mood: 'listen' },
+            { kind: 'line', text: 'What’s one tiny step you could take toward it?', mood: 'listen' },
             { kind: 'action', mood: 'listen' },
-            { kind: 'line', text: 'When?', mood: 'listen' },
+            { kind: 'line', text: 'Love it. When will you do it?', mood: 'listen' },
             { kind: 'choice', field: 'when', mood: 'listen', options: [
                 { id: 'now', label: 'Right now' },
                 { id: 'later', label: 'Later today' },
                 { id: 'tomorrow', label: 'Tomorrow morning' },
             ] },
             { kind: 'commit' },
-            { kind: 'line', text: 'Done. That’s your first step.', mood: 'celebrate' },
+            { kind: 'line', text: 'Done. That’s your first step, and it’s on your plan.', mood: 'celebrate' },
         ],
     },
     {
         id: 'allies', label: 'Someone to come along.',
         beats: () => [
-            { kind: 'line', text: 'Bring a friend? It’s easier with someone in your corner.', mood: 'encourage' },
+            { kind: 'line', text: 'Climbing’s easier with someone in your corner. Bring a friend?', mood: 'encourage' },
             { kind: 'choice', field: 'invite', mood: 'listen', options: [
                 { id: 'yes', label: 'Invite a friend' },
                 { id: 'later', label: 'Maybe later' },
             ] },
-            { kind: 'line', text: 'Last one: how’d you find me?', mood: 'curious' },
+            { kind: 'line', text: 'Last thing, I’m curious: how did you find me?', mood: 'curious' },
             { kind: 'choice', field: 'source', mood: 'listen', options: options(SOURCES) },
         ],
     },
     {
         id: 'your-echo', label: 'Echo, built for them.',
         beats: answers => [
-            { kind: 'line', text: 'Got it. Let me tune myself to you. I’ll ask to send you nudges.', mood: 'think' },
+            { kind: 'line', text: 'Thank you for telling me all that. Let me tune myself to you.', mood: 'think' },
+            { kind: 'line', text: 'I’ll ask to send you nudges, so I can keep you on track.', mood: 'speak' },
             { kind: 'build' },
             { kind: 'line', text: `${first(answers) ? `Ready, ${first(answers)}. ` : 'Ready. '}${buildEcho(answers).reason}`, mood: 'celebrate' },
-            { kind: 'line', text: 'The Abyss is behind you. Hold to rise.', mood: 'encourage' },
+            { kind: 'line', text: 'The Abyss is behind you now. Hold to rise.', mood: 'encourage' },
             { kind: 'begin' },
         ],
     },
 ];
+
+/** Hours awake in their day, from when it starts to when it ends. */
+export function awakeHours(answers: Answers): number {
+    const toMinutes = (time: string) => { const [h, m] = time.split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+    const fallback = CHRONOTYPES.find(type => type.id === answers.chronotype) ?? CHRONOTYPES[2];
+    const span = toMinutes(answers.sleep ?? fallback.sleep) - toMinutes(answers.wake ?? fallback.wake);
+    return Math.round(((span + 1440) % 1440 || 1440) / 60);
+}
 
 export interface Suggestion { label: string; kind: ActionKind; minutes: number }
 

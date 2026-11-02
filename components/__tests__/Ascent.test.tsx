@@ -22,37 +22,45 @@ describe('the Ascent, played', () => {
     afterEach(() => jest.useRealTimers());
 
     it('opens in the dark, names the Abyss, then meets Echo and takes a name', () => {
-        const screen = render(<Ascent preview onEnd={jest.fn()} />);
+        const screen = render(<Ascent preview autoPlay={false} onEnd={jest.fn()} />);
         expect(track).toHaveBeenCalledWith('onboarding_started', { preview: true });
-        for (let line = 0; line < 2; line++) through(screen);
+        for (let line = 0; line < 4; line++) through(screen);
         act(() => { jest.advanceTimersByTime(1000); });
         fireEvent.press(screen.getByLabelText('All the time'));
         act(() => { jest.advanceTimersByTime(1000); });
-        expect(screen.getByLabelText('That pull back down has a name. The Abyss. Everyone has one.')).toBeTruthy();
+        expect(screen.getByLabelText('Yeah. You’re not the only one. That pull back down has a name.')).toBeTruthy();
         // No arrow under a line: tapping moves on.
         expect(screen.queryByLabelText('Continue')).toBeNull();
-        for (let line = 0; line < 4; line++) through(screen);
+        for (let line = 0; line < 6; line++) through(screen);
         act(() => { jest.advanceTimersByTime(1000); });
         fireEvent.changeText(screen.getByPlaceholderText('Your name'), 'Sam');
         fireEvent.press(screen.getByText('Continue'));
-        expect(screen.getByLabelText('Sam. Let’s get you out of here.')).toBeTruthy();
+        expect(screen.getByLabelText('Sam. I like that.')).toBeTruthy();
+        through(screen);
         through(screen);
         expect(track).toHaveBeenCalledWith('eco_introduction_completed');
     });
 
     it('a first tap shows the whole line, the next moves on', () => {
-        const screen = render(<Ascent preview onEnd={jest.fn()} />);
+        const screen = render(<Ascent preview autoPlay={false} onEnd={jest.fn()} />);
         act(() => { jest.advanceTimersByTime(260); });
         const tapAnywhere = () => fireEvent.press(screen.UNSAFE_root.findAll(node => node.props.onPress && node.props.accessible === false)[0]);
         tapAnywhere();
-        expect(screen.getByLabelText('It’s dark down here.')).toBeTruthy();
+        expect(screen.getByLabelText('Hey… you made it down here.')).toBeTruthy();
         tapAnywhere();
-        expect(screen.getByLabelText('Ever promised yourself you’d change, then slid back to square one?')).toBeTruthy();
+        expect(screen.getByLabelText('Quiet, isn’t it? This is where people end up when the days slip away.')).toBeTruthy();
+    });
+
+    it('moves on by itself once a line has been read, like a conversation', () => {
+        const screen = render(<Ascent preview onEnd={jest.fn()} />);
+        act(() => { jest.advanceTimersByTime(4000); });
+        act(() => { jest.advanceTimersByTime(4000); });
+        expect(screen.getByLabelText('Quiet, isn’t it? This is where people end up when the days slip away.')).toBeTruthy();
     });
 
     it('can be left at any point, and says where', () => {
         const onEnd = jest.fn();
-        const screen = render(<Ascent preview onEnd={onEnd} />);
+        const screen = render(<Ascent preview autoPlay={false} onEnd={onEnd} />);
         fireEvent.press(screen.getByLabelText('Close preview'));
         expect(track).toHaveBeenCalledWith('onboarding_skipped', { scene: 'abyss' });
         expect(onEnd).toHaveBeenCalledWith(expect.objectContaining({ how: 'skipped' }));

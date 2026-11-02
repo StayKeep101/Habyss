@@ -118,6 +118,21 @@ export function TextAnswer({ label, placeholder, optional, onAnswer, autoCapital
     );
 }
 
+/** A number typed (their age): digits only, and Continue once it is in range. */
+export function NumberAnswer({ label, placeholder, min, max, onAnswer }: { label: string; placeholder: string; min: number; max: number; onAnswer: (value: number) => void }) {
+    const [value, setValue] = useState('');
+    const number = Number(value);
+    const ready = value.length > 0 && number >= min && number <= max;
+    return (
+        <Animated.View entering={rise(0)} style={styles.list}>
+            <AppTextField label={label} value={value} onChangeText={text => setValue(text.replace(/[^0-9]/g, ''))} placeholder={placeholder}
+                autoFocus keyboardType="number-pad" returnKeyType="done" maxLength={2}
+                onSubmitEditing={() => { if (ready) onAnswer(number); }} />
+            <AppButton label="Continue" icon="arrow-forward" disabled={!ready} onPress={() => onAnswer(number)} />
+        </Animated.View>
+    );
+}
+
 /** The first step: the suggestions for this person, or their own words. */
 export function ActionPicker({ suggestions, color, onPick }: { suggestions: Suggestion[]; color: string; onPick: (label: string, own: boolean) => void }) {
     return (
