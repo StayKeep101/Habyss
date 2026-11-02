@@ -21,23 +21,23 @@ describe('the Ascent, played', () => {
     beforeEach(() => { jest.useFakeTimers(); (track as jest.Mock).mockClear(); });
     afterEach(() => jest.useRealTimers());
 
-    it('meets Echo, takes a name, and goes down answering how they got here', () => {
+    it('opens in the dark, names the Abyss, then meets Echo and takes a name', () => {
         const screen = render(<Ascent preview onEnd={jest.fn()} />);
         expect(track).toHaveBeenCalledWith('onboarding_started', { preview: true });
         for (let line = 0; line < 2; line++) through(screen);
         act(() => { jest.advanceTimersByTime(1000); });
-        fireEvent.changeText(screen.getByPlaceholderText('Your name'), 'Sam');
-        fireEvent.press(screen.getByText('Continue'));
-        expect(screen.getByLabelText('Sam. Good to meet you.')).toBeTruthy();
-        through(screen);
-        expect(track).toHaveBeenCalledWith('eco_introduction_completed');
-        through(screen);
-        act(() => { jest.advanceTimersByTime(1000); });
         fireEvent.press(screen.getByLabelText('All the time'));
         act(() => { jest.advanceTimersByTime(1000); });
-        expect(screen.getByLabelText('Most people have. It’s rarely willpower. It’s the plan.')).toBeTruthy();
+        expect(screen.getByLabelText('That pull back down has a name. The Abyss. Everyone has one.')).toBeTruthy();
         // No arrow under a line: tapping moves on.
         expect(screen.queryByLabelText('Continue')).toBeNull();
+        for (let line = 0; line < 4; line++) through(screen);
+        act(() => { jest.advanceTimersByTime(1000); });
+        fireEvent.changeText(screen.getByPlaceholderText('Your name'), 'Sam');
+        fireEvent.press(screen.getByText('Continue'));
+        expect(screen.getByLabelText('Sam. Let’s get you out of here.')).toBeTruthy();
+        through(screen);
+        expect(track).toHaveBeenCalledWith('eco_introduction_completed');
     });
 
     it('a first tap shows the whole line, the next moves on', () => {
@@ -45,22 +45,41 @@ describe('the Ascent, played', () => {
         act(() => { jest.advanceTimersByTime(260); });
         const tapAnywhere = () => fireEvent.press(screen.UNSAFE_root.findAll(node => node.props.onPress && node.props.accessible === false)[0]);
         tapAnywhere();
-        expect(screen.getByLabelText('Hey. I’m Echo.')).toBeTruthy();
+        expect(screen.getByLabelText('It’s dark down here.')).toBeTruthy();
         tapAnywhere();
-        expect(screen.getByLabelText('What should I call you?')).toBeTruthy();
+        expect(screen.getByLabelText('Ever promised yourself you’d change, then slid back to square one?')).toBeTruthy();
     });
 
     it('can be left at any point, and says where', () => {
         const onEnd = jest.fn();
         const screen = render(<Ascent preview onEnd={onEnd} />);
         fireEvent.press(screen.getByLabelText('Close preview'));
-        expect(track).toHaveBeenCalledWith('onboarding_skipped', { scene: 'first-light' });
+        expect(track).toHaveBeenCalledWith('onboarding_skipped', { scene: 'abyss' });
         expect(onEnd).toHaveBeenCalledWith(expect.objectContaining({ how: 'skipped' }));
     });
 });
 
 describe('the new answers', () => {
-    const { MultiList, DayAnswer, BuildList } = jest.requireActual('../Ascent/Answers');
+    const { MultiList, DayAnswer, BuildList, ChoiceList, BeginButton } = jest.requireActual('../Ascent/Answers');
+
+    it('offers choices, or something else in their own words', () => {
+        const onChoose = jest.fn();
+        const onText = jest.fn();
+        const screen = render(<ChoiceList color="#6B8AF5" onChoose={onChoose} options={[{ id: 'health', label: 'I’d be fitter and healthier' }]}
+            own={{ label: 'Your goal', placeholder: 'In your words', onText }} />);
+        fireEvent.press(screen.getByText('Something else'));
+        fireEvent.changeText(screen.getByPlaceholderText('In your words'), 'Run a marathon');
+        fireEvent.press(screen.getByText('Continue'));
+        expect(onText).toHaveBeenCalledWith('Run a marathon');
+        expect(onChoose).not.toHaveBeenCalled();
+    });
+
+    it('ends on Rise, held (VoiceOver confirms directly)', () => {
+        const onPress = jest.fn();
+        const screen = render(<BeginButton onPress={onPress} />);
+        fireEvent(screen.getByLabelText('Rise'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+        expect(onPress).toHaveBeenCalled();
+    });
 
     it('takes several of what they juggle, and only goes on with at least one', () => {
         const onDone = jest.fn();

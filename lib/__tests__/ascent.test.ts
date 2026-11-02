@@ -1,7 +1,7 @@
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined), removeItem: jest.fn(async () => undefined) }));
 
-import { ascentReducer, currentBeat, initialAscent, lineOf, progressOf, type AscentState } from '../ascent/machine';
-import { SCENES, goalTitle, suggestions, type Answers } from '../ascent/story';
+import { ascentReducer, currentBeat, initialAscent, lineOf, progressOf, stageOf, type AscentState } from '../ascent/machine';
+import { COMPOUND, SCENES, goalTitle, screenYears, suggestions, yearsLabel, type Answers } from '../ascent/story';
 import { buildEcho } from '../ascent/echoBuild';
 import { stepOf, whenOf } from '../ascent/plan';
 
@@ -23,7 +23,7 @@ function play(given: Answers): AscentState {
         if (!beat || beat.kind === 'begin') return state;
         if (beat.kind === 'line') state = tap(state);
         else if (beat.kind === 'choice' || beat.kind === 'multi') state = answer(state, { [beat.field]: given[beat.field] });
-        else if (beat.kind === 'input') state = answer(state, { [beat.field]: given[beat.field] ?? '' });
+        else if (beat.kind === 'input') state = answer(state, { name: given.name ?? '' });
         else if (beat.kind === 'day') state = answer(state, { wake: given.wake, sleep: given.sleep });
         else if (beat.kind === 'action') state = answer(state, { action: given.action, actionKind: given.actionKind });
         else if (beat.kind === 'commit') state = ascentReducer(state, { type: 'created', created: { goalId: 'g', stepId: 's', stepKind: 'task' } });
@@ -34,50 +34,75 @@ function play(given: Answers): AscentState {
 
 const everyone: Answers = {
     name: 'sam', history: 'sometimes', juggling: ['job', 'school'], chronotype: 'early_bird', wake: '06:30', sleep: '22:30',
-    sleepAmount: 'seven_eight', obstacle: 'consistency', timing: 'planned', goal: 'health', action: 'A ten-minute walk', actionKind: 'habit',
+    sleepAmount: 'seven_eight', phone: 'two_four', age: 'age_18', skill: 'morse', obstacle: 'consistency', timing: 'planned', goal: 'health', action: 'A ten-minute walk', actionKind: 'habit',
     when: 'now', invite: 'later', source: 'friend',
 };
 
 describe('the Ascent story', () => {
-    it('meets Echo and asks a name, which can be skipped', () => {
-        const state = toWait(initialAscent());
-        expect(currentBeat(state)).toMatchObject({ kind: 'input', field: 'name', optional: true });
-        expect(currentBeat(answer(state, { name: 'sam peter' }))).toMatchObject({ text: 'Sam. Good to meet you.' });
-        expect(currentBeat(answer(state, { name: '' }))).toMatchObject({ text: 'A mystery. Fair enough.' });
-    });
-
-    it('answers each way of having ended up here differently, and never says you failed', () => {
-        const replies = (['always', 'sometimes', 'rarely'] as const).map(history => (currentBeat(answer(toWait(at('history')), { history })) as { text: string }).text);
+    it('opens in the dark, and names the Abyss only once they have felt it', () => {
+        const start = toWait(initialAscent());
+        expect(SCENES[start.scene].id).toBe('abyss');
+        expect(currentBeat(start)).toMatchObject({ kind: 'choice', field: 'history' });
+        const replies = (['always', 'sometimes', 'rarely'] as const).map(history => (currentBeat(answer(start, { history })) as { text: string }).text);
         expect(new Set(replies).size).toBe(3);
-        replies.forEach(text => expect(text.toLowerCase()).not.toMatch(/fail/));
+        replies.forEach(text => { expect(text).toMatch(/Abyss/); expect(text.toLowerCase()).not.toMatch(/fail/); });
     });
 
-    it('asks what they juggle, their rhythm, their hours and their sleep', () => {
-        const life = toWait(at('life'));
-        expect(currentBeat(life)).toMatchObject({ kind: 'multi', field: 'juggling' });
-        expect(currentBeat(answer(life, { juggling: ['job', 'school', 'family'] }))).toMatchObject({ text: 'That’s a lot. We’ll guard time for what matters.' });
-
-        let rhythm = toWait(at('rhythm'));
-        expect(currentBeat(rhythm)).toMatchObject({ kind: 'choice', field: 'chronotype' });
-        rhythm = toWait(answer(rhythm, { chronotype: 'night_owl' }));
-        expect(currentBeat(rhythm)?.kind).toBe('day');
-        rhythm = toWait(answer(rhythm, { wake: '09:00', sleep: '01:00' }));
-        expect(currentBeat(rhythm)).toMatchObject({ kind: 'choice', field: 'sleepAmount' });
-        expect(currentBeat(answer(rhythm, { sleepAmount: 'under_six' }))).toMatchObject({ text: 'Let’s work on that. Everything’s harder tired.' });
+    it('meets Echo, a ripple in time, and asks a name, which can be skipped', () => {
+        const state = toWait(at('echo'));
+        expect(lineOf(state)).toBe('Who am I talking to?');
+        expect(currentBeat(state)).toMatchObject({ kind: 'input', field: 'name', optional: true });
+        expect(currentBeat(answer(state, { name: 'sam peter' }))).toMatchObject({ text: 'Sam. Let’s get you out of here.' });
+        expect(currentBeat(answer(state, { name: '' }))).toMatchObject({ text: 'A mystery. Let’s get you out anyway.' });
     });
 
-    it('gives each obstacle its own line and its own first step', () => {
-        const lines = (['starting', 'consistency', 'distraction', 'overwhelm'] as const).map(obstacle => (currentBeat(answer(toWait(at('mirror')), { obstacle })) as { text: string }).text);
+    it('shows time as a 24-hour day, then asks their rhythm and their sleep', () => {
+        let day = toWait(at('chronos'));
+        expect(stageOf(day)).toBe('clock');
+        expect(currentBeat(day)?.kind).toBe('day');
+        day = toWait(answer(day, { wake: '09:00', sleep: '01:00' }));
+        expect(currentBeat(day)).toMatchObject({ kind: 'choice', field: 'chronotype' });
+        day = toWait(answer(day, { chronotype: 'night_owl' }));
+        expect(currentBeat(day)).toMatchObject({ kind: 'choice', field: 'sleepAmount' });
+        expect(currentBeat(answer(day, { sleepAmount: 'under_six' }))).toMatchObject({ text: 'We’ll work on that. Everything’s harder tired.' });
+    });
+
+    it('works out the years a screen takes from their own hours and age, and shows them as a life', () => {
+        expect(screenYears({ phone: 'two_four', age: 'age_18' })).toMatchObject({ hours: 3, years: 7.4, left: 59 });
+        expect(yearsLabel(0.4)).toBe('5 months');
+        let cost = toWait(at('cost'));
+        cost = toWait(answer(cost, { phone: 'two_four' }));
+        const shown = answer(cost, { age: 'age_18' });
+        expect(currentBeat(shown)).toMatchObject({ text: '3 hours a day until 80 is 7.4 years. On a screen.' });
+        expect(stageOf(shown)).toBe('lifetime');
+    });
+
+    it('trades the same thirty minutes for the skill they picked', () => {
+        const trade = answer(toWait(at('trade')), { skill: 'morse' });
+        expect(currentBeat(trade)).toMatchObject({ text: 'In about 90 days, you could read and send Morse code.' });
+        expect(stageOf(trade)).toBe('trade');
+        expect(goalTitle({ goal: 'skill', skill: 'morse' })).toBe('Learn Morse code');
+    });
+
+    it('draws motivation, then discipline over it, then the compounding, around what gets in their way', () => {
+        const opening = at('compound');
+        expect(stageOf(opening)).toBe('motivation');
+        expect(stageOf(tap(opening))).toBe('discipline');
+        const obstacle = toWait(opening);
+        expect(currentBeat(obstacle)).toMatchObject({ kind: 'choice', field: 'obstacle' });
+        const lines = (['starting', 'consistency', 'distraction', 'overwhelm'] as const).map(id => (currentBeat(answer(obstacle, { obstacle: id })) as { text: string }).text);
         expect(new Set(lines).size).toBe(4);
+        expect(stageOf(tap(answer(obstacle, { obstacle: 'starting' })))).toBe('compound');
+        expect(COMPOUND.better).toBe(37.8);
         expect(suggestions({ obstacle: 'distraction' })[0].kind).toBe('focus');
         expect(suggestions({ obstacle: 'consistency', goal: 'health' })[0]).toMatchObject({ kind: 'habit', label: 'A ten-minute walk' });
     });
 
-    it('asks for the goal in their words only for something important or their own', () => {
+    it('asks the goal as choices, with something else in their own words', () => {
         const goal = toWait(at('goal'));
-        expect(currentBeat(answer(goal, { goal: 'health' }))).toMatchObject({ kind: 'line', text: 'Improve my health. Let’s do it.' });
-        expect(currentBeat(answer(goal, { goal: 'own' }))).toMatchObject({ kind: 'input', field: 'goalText' });
-        expect(goalTitle({ goal: 'achieve', goalText: 'finish my degree' })).toBe('Finish my degree');
+        expect(currentBeat(goal)).toMatchObject({ kind: 'choice', field: 'goal', own: { field: 'goalText' } });
+        expect(currentBeat(answer(goal, { goal: 'health' }))).toMatchObject({ kind: 'line', text: 'Get fitter and healthier. Let’s make it real.' });
+        expect(currentBeat(answer(goal, { goal: 'own', goalText: 'finish my degree' }))).toMatchObject({ text: 'Finish my degree. Let’s make it real.' });
     });
 
     it('cannot be tapped past an answer, the save or the build', () => {
@@ -96,18 +121,18 @@ describe('the Ascent story', () => {
         expect(currentBeat(made)).toMatchObject({ text: 'Done. That’s your first step.' });
     });
 
-    it('keeps Echo brief: a line or two between each answer, never a speech', () => {
+    it('keeps Echo brief: a few lines between answers, never a speech', () => {
         SCENES.forEach(scene => {
             let run = 0;
             scene.beats(everyone).forEach(beat => {
                 run = beat.kind === 'line' ? run + 1 : 0;
-                expect(run).toBeLessThanOrEqual(2);
+                expect(run).toBeLessThanOrEqual(3);
                 if (beat.kind === 'line') expect(beat.text.length).toBeLessThanOrEqual(80);
             });
         });
     });
 
-    it('plays start to finish, ending on Echo built for them and the last button', () => {
+    it('plays start to finish, ending on Echo built for them and the hold to rise', () => {
         const end = play(everyone);
         expect(SCENES[end.scene].id).toBe('your-echo');
         expect(currentBeat(end)?.kind).toBe('begin');

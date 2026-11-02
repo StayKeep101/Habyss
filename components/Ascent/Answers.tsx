@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { AppButton, AppIcon, AppTextField, ChoicePill, Text, TimeRow } from '@/components/ui';
+import { AppButton, AppIcon, AppTextField, ChoicePill, HoldButton, Text, TimeRow } from '@/components/ui';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Control, Radius, Spacing, Typography } from '@/theme/designSystem';
 import { DURATION, EASE, STAGGER } from '@/theme/motion';
@@ -12,11 +12,19 @@ const rise = (index: number) => FadeInDown.delay(index * STAGGER.stage * 0.6).du
 /**
  * A choice: the app's own choice pills, at full width and control height,
  * rising one after another; the tapped one fills solid in the accent (as a
- * chosen chip does everywhere), then the story goes on.
+ * chosen chip does everywhere), then the story goes on. With `own`, a last
+ * "Something else" opens a field for their own words, under the question.
  */
-export function ChoiceList({ options, color, onChoose }: { options: Option[]; color: string; onChoose: (id: string) => void }) {
+export function ChoiceList({ options, color, onChoose, own }: {
+    options: Option[]; color: string; onChoose: (id: string) => void;
+    own?: { label: string; placeholder: string; onText: (text: string) => void };
+}) {
     const { selectionFeedback } = useHaptics();
     const [chosen, setChosen] = useState<string | null>(null);
+    const [typing, setTyping] = useState(false);
+    if (own && typing) {
+        return <TextAnswer label={own.label} placeholder={own.placeholder} autoCapitalize="sentences" onAnswer={value => value && own.onText(value)} />;
+    }
     return (
         <View style={styles.list} accessibilityRole="radiogroup">
             {options.map((option, index) => (
@@ -31,6 +39,11 @@ export function ChoiceList({ options, color, onChoose }: { options: Option[]; co
                         }} />
                 </Animated.View>
             ))}
+            {own ? (
+                <Animated.View entering={rise(options.length)}>
+                    <AppButton label="Something else" icon="create-outline" variant="ghost" onPress={() => { selectionFeedback(); setTyping(true); }} />
+                </Animated.View>
+            ) : null}
         </View>
     );
 }
@@ -107,25 +120,18 @@ export function TextAnswer({ label, placeholder, optional, onAnswer, autoCapital
 
 /** The first step: the suggestions for this person, or their own words. */
 export function ActionPicker({ suggestions, color, onPick }: { suggestions: Suggestion[]; color: string; onPick: (label: string, own: boolean) => void }) {
-    const [own, setOwn] = useState(false);
-    const { selectionFeedback } = useHaptics();
-    if (own) return <TextAnswer label="Your first step" placeholder="Something small, today" autoCapitalize="sentences" onAnswer={value => value && onPick(value, true)} />;
     return (
-        <View style={styles.list}>
-            <ChoiceList color={color} onChoose={label => onPick(label, false)}
-                options={suggestions.map(item => ({ id: item.label, label: item.label }))} />
-            <Animated.View entering={rise(suggestions.length)}>
-                <AppButton label="Something else" variant="ghost" onPress={() => { selectionFeedback(); setOwn(true); }} />
-            </Animated.View>
-        </View>
+        <ChoiceList color={color} onChoose={label => onPick(label, false)}
+            options={suggestions.map(item => ({ id: item.label, label: item.label }))}
+            own={{ label: 'Your first step', placeholder: 'Something small, today', onText: value => onPick(value, true) }} />
     );
 }
 
-/** The last button: begin the climb. */
+/** The last control: hold to rise. It fills, the haptics build and land, and the climb begins. */
 export function BeginButton({ onPress }: { onPress: () => void }) {
     return (
         <Animated.View entering={FadeInDown.delay(STAGGER.stage).duration(DURATION.reward).easing(EASE.enter)}>
-            <AppButton label="Let’s go" icon="arrow-forward" onPress={onPress} />
+            <HoldButton label="Rise" icon="arrow-up" hint="Touch and hold to rise" onComplete={onPress} />
         </Animated.View>
     );
 }

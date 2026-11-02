@@ -17,9 +17,9 @@ jest.mock('@/context/AppSettingsContext', () => ({ useAppSettings: () => ({ setA
 jest.mock('@/lib/notificationService', () => ({ NotificationService: { requestPermissions: jest.fn(async () => true), refreshReminders: jest.fn(async () => undefined) } }));
 jest.mock('@/lib/analytics', () => ({ track: jest.fn() }));
 
-it('test mode opens on Echo, and closing it saves nothing and goes back to Settings', async () => {
+it('test mode opens on Echo in the dark, and closing it saves nothing and goes back to Settings', async () => {
     const screen = render(<OnboardingScreen />);
-    expect(screen.getByLabelText('Meeting Echo.')).toBeTruthy();
+    expect(screen.getByLabelText('In the dark.')).toBeTruthy();
     // Preview has no "I already have an account": it would leave the test run.
     expect(screen.queryByText('I already have an account')).toBeNull();
     await act(async () => { fireEvent.press(screen.getByLabelText('Close preview')); });

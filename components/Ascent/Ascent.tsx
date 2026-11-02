@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
-import { AppButton, Echo, Text, VoidShell } from '@/components/ui';
+import { AppButton, Text, VoidShell } from '@/components/ui';
 import { AnimatedFill } from '@/components/ui/Motion';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -18,12 +18,13 @@ import { NotificationService } from '@/lib/notificationService';
 import { dayWindowFor } from '@/lib/onboardingProfile';
 import { SCENES, suggestions, type Answers, type ChoiceField } from '@/lib/ascent/story';
 import {
-    ascentReducer, clearAscent, currentBeat, initialAscent, lineOf, loadAscent, progressOf, saveAscent,
+    ascentReducer, clearAscent, currentBeat, initialAscent, lineOf, loadAscent, progressOf, saveAscent, stageOf,
     type AscentAction, type AscentState,
 } from '@/lib/ascent/machine';
 import { commitPlan, stepOf } from '@/lib/ascent/plan';
 import { buildEcho } from '@/lib/ascent/echoBuild';
 import { Dialogue, type DialogueHandle } from './Dialogue';
+import { Stage } from './Stage';
 import { ActionPicker, BeginButton, BUILD_STEP_MS, BuildList, ChoiceList, DayAnswer, MultiList, TextAnswer } from './Answers';
 
 /** The save holds at least this long, so the moment reads as something made. */
@@ -54,7 +55,7 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
     const [saveFailed, setSaveFailed] = useState(false);
     const [attempt, setAttempt] = useState(0);
     const [leaving, setLeaving] = useState(false);
-    // Typing an answer, Echo steps aside so its line, the field and Continue all fit above the keyboard.
+    // Typing an answer, the stage steps aside so Echo's line, the field and Continue all fit above the keyboard.
     const typing = useKeyboardShown();
 
     // Where it was left, or the start. Preview never reads or writes it.
@@ -83,7 +84,7 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
         if (!state) return;
         const was = lastScene.current;
         lastScene.current = state.scene;
-        if (was !== null && was !== state.scene && SCENES[was]?.id === 'first-light') track('eco_introduction_completed');
+        if (was !== null && was !== state.scene && SCENES[was]?.id === 'echo') track('eco_introduction_completed');
     }, [state]);
 
     // The commit beat saves the goal and its first step, once; the build beat saves their Echo. Then the story goes on.
@@ -142,6 +143,8 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
         if (field === 'obstacle') track('obstacle_selected', { obstacle: id });
         if (field === 'goal') track('goal_selected', { goal: id });
         if (field === 'source') track('source_selected', { source: id });
+        if (field === 'phone') track('screen_time_selected', { phone: id });
+        if (field === 'skill') track('skill_selected', { skill: id });
         if (field === 'invite') {
             track('friend_invite_selected', { choice: id });
             // The system sheet is the whole invite: nothing about who is chosen is read or kept.
@@ -183,61 +186,65 @@ export function Ascent({ preview, onEnd, onAccount }: { preview: boolean; onEnd:
                             variant="ghost" fullWidth={false} onPress={skip} />
                     </View>
 
-                    {typing ? null : (
-                        <View style={styles.echo} pointerEvents="none" accessible accessibilityRole="image" accessibilityLabel={scene.label}>
-                            <Echo mood={mood} color={color} speaking={line !== null && !ready} />
-                        </View>
-                    )}
-
-                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.bottom, typing && styles.raised]} pointerEvents="box-none">
-                        {line !== null ? (
-                            // No arrow: a tap anywhere moves on. VoiceOver gets the line itself as the button.
-                            <Pressable onPress={tapScreen} accessibilityRole="button" accessibilityHint={beat?.kind === 'line' ? 'Double-tap to continue' : undefined}>
-                                <Dialogue key={line} text={line} handle={dialogue} onTyped={() => setTyped(line)} />
-                            </Pressable>
-                        ) : beat?.kind === 'build' ? (
-                            <Animated.View entering={FadeIn.duration(DURATION.base)} style={styles.building}>
-                                <Text variant="title" tone="muted">Building your Echo…</Text>
-                                <BuildList parts={buildEcho(state.answers).parts} color={color} />
-                            </Animated.View>
-                        ) : (
-                            <Animated.View entering={FadeIn.duration(DURATION.base)} accessibilityLiveRegion="polite">
-                                <Text variant="title" tone="muted">{saveFailed ? 'That didn’t save.' : 'Making it real…'}</Text>
-                            </Animated.View>
+                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.fill} pointerEvents="box-none">
+                        {/* Echo, or what it has become; a fixed height, so its line sits at eye level just under it. */}
+                        {typing ? null : (
+                            <Stage stage={stageOf(state)} answers={state.answers} mood={mood} color={color} label={scene.label} speaking={line !== null && !ready} />
                         )}
-
-                        {!leaving && ready ? (
-                            <View style={styles.controls} pointerEvents="box-none">
-                                {beat?.kind === 'choice' ? (
-                                    <ChoiceList key={beatKey} options={beat.options} color={color} onChoose={id => choose(beat.field, id)} />
-                                ) : null}
-                                {beat?.kind === 'multi' ? (
-                                    <MultiList key={beatKey} options={beat.options} color={color} onDone={ids => answer({ juggling: ids as Answers['juggling'] })} />
-                                ) : null}
-                                {beat?.kind === 'day' ? (
-                                    <DayAnswer key={beatKey} wake={state.answers.wake ?? day.wake} sleep={state.answers.sleep ?? day.sleep} color={color} onDone={answer} />
-                                ) : null}
-                                {beat?.kind === 'input' ? (
-                                    <TextAnswer key={beatKey} label={beat.field === 'name' ? 'Your name' : 'Your goal'} placeholder={beat.placeholder} optional={beat.optional}
-                                        autoCapitalize={beat.field === 'name' ? 'words' : 'sentences'}
-                                        onAnswer={value => {
-                                            if (beat.field === 'name' && value && !preview) saveName(value).catch(() => undefined);
-                                            answer({ [beat.field]: value });
-                                        }} />
-                                ) : null}
-                                {beat?.kind === 'action' ? (
-                                    <ActionPicker key={beatKey} suggestions={suggestions(state.answers)} color={color}
-                                        onPick={(label, own) => answer({ action: label, actionKind: own ? undefined : suggestions(state.answers).find(item => item.label === label)?.kind })} />
-                                ) : null}
-                                {beat?.kind === 'commit' && saveFailed ? (
-                                    <AppButton label="Try again" icon="refresh" onPress={() => { setSaveFailed(false); setAttempt(count => count + 1); }} />
-                                ) : null}
-                                {beat?.kind === 'begin' ? <BeginButton onPress={begin} /> : null}
-                                {state.scene === 0 && onAccount && !preview ? (
-                                    <AppButton label="I already have an account" variant="ghost" onPress={onAccount} />
-                                ) : null}
-                            </View>
-                        ) : null}
+    
+                        <ScrollView style={styles.fill} contentContainerStyle={styles.lower} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                            {line !== null ? (
+                                // No arrow: a tap anywhere moves on. VoiceOver gets the line itself as the button.
+                                <Pressable onPress={tapScreen} accessibilityRole="button" accessibilityHint={beat?.kind === 'line' ? 'Double-tap to continue' : undefined}>
+                                    <Dialogue key={line} text={line} handle={dialogue} onTyped={() => setTyped(line)} />
+                                </Pressable>
+                            ) : beat?.kind === 'build' ? (
+                                <Animated.View entering={FadeIn.duration(DURATION.base)} style={styles.building}>
+                                    <Text variant="title" tone="muted">Building your Echo…</Text>
+                                    <BuildList parts={buildEcho(state.answers).parts} color={color} />
+                                </Animated.View>
+                            ) : (
+                                <Animated.View entering={FadeIn.duration(DURATION.base)} accessibilityLiveRegion="polite">
+                                    <Text variant="title" tone="muted">{saveFailed ? 'That didn’t save.' : 'Making it real…'}</Text>
+                                </Animated.View>
+                            )}
+    
+                            {!leaving && ready ? (
+                                <View style={styles.controls} pointerEvents="box-none">
+                                    {beat?.kind === 'choice' ? (
+                                        <ChoiceList key={beatKey} options={beat.options} color={color} onChoose={id => choose(beat.field, id)}
+                                            own={beat.own ? {
+                                                label: beat.own.label, placeholder: beat.own.placeholder,
+                                                onText: text => { track('goal_selected', { goal: 'own' }); answer({ [beat.field]: 'own', [beat.own!.field]: text } as Partial<Answers>); },
+                                            } : undefined} />
+                                    ) : null}
+                                    {beat?.kind === 'multi' ? (
+                                        <MultiList key={beatKey} options={beat.options} color={color} onDone={ids => answer({ juggling: ids as Answers['juggling'] })} />
+                                    ) : null}
+                                    {beat?.kind === 'day' ? (
+                                        <DayAnswer key={beatKey} wake={state.answers.wake ?? day.wake} sleep={state.answers.sleep ?? day.sleep} color={color} onDone={answer} />
+                                    ) : null}
+                                    {beat?.kind === 'input' ? (
+                                        <TextAnswer key={beatKey} label="Your name" placeholder={beat.placeholder} optional={beat.optional} autoCapitalize="words"
+                                            onAnswer={value => {
+                                                if (value && !preview) saveName(value).catch(() => undefined);
+                                                answer({ name: value });
+                                            }} />
+                                    ) : null}
+                                    {beat?.kind === 'action' ? (
+                                        <ActionPicker key={beatKey} suggestions={suggestions(state.answers)} color={color}
+                                            onPick={(label, own) => answer({ action: label, actionKind: own ? undefined : suggestions(state.answers).find(item => item.label === label)?.kind })} />
+                                    ) : null}
+                                    {beat?.kind === 'commit' && saveFailed ? (
+                                        <AppButton label="Try again" icon="refresh" onPress={() => { setSaveFailed(false); setAttempt(count => count + 1); }} />
+                                    ) : null}
+                                    {beat?.kind === 'begin' ? <BeginButton onPress={begin} /> : null}
+                                    {state.scene === 0 && onAccount && !preview ? (
+                                        <AppButton label="I already have an account" variant="ghost" onPress={onAccount} />
+                                    ) : null}
+                                </View>
+                            ) : null}
+                        </ScrollView>
                     </KeyboardAvoidingView>
                 </SafeAreaView>
             </Pressable>
@@ -254,11 +261,8 @@ const styles = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.xl, paddingRight: Spacing.sm, minHeight: Control.hitTarget },
     track: { flex: 1, height: Spacing.xs, borderRadius: Radius.pill, overflow: 'hidden' },
     bar: { height: '100%', borderRadius: Radius.pill },
-    // Echo's rings reach past its box; clipped here so they never pass over its words.
-    echo: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-    bottom: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg, gap: Spacing.lg },
-    // With the keyboard up the answer fills the page from just under the header.
-    raised: { flex: 1, justifyContent: 'flex-end' },
+    // Echo's line first, at eye level under the stage, then whatever it asks for.
+    lower: { flexGrow: 1, paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing.lg, gap: Spacing.lg },
     controls: { gap: Spacing.sm },
     building: { gap: Spacing.lg },
 });

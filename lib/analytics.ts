@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export type ProductEvent =
     | 'onboarding_started' | 'eco_introduction_completed' | 'obstacle_selected' | 'source_selected'
     | 'goal_selected' | 'first_action_created' | 'friend_invite_selected' | 'echo_built' | 'onboarding_completed'
-    | 'onboarding_skipped' | 'first_action_completed';
+    | 'onboarding_skipped' | 'first_action_completed' | 'screen_time_selected' | 'skill_selected';
 
 type Props = Record<string, string | number | boolean | null | undefined>;
 const KEY = 'habyss_events';

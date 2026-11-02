@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SCENES, type Answers, type Beat } from './story';
+import { SCENES, type Answers, type Beat, type StageId } from './story';
 
 /**
  * Walks the story (lib/ascent/story.ts): which scene, which beat, and what
@@ -14,7 +14,7 @@ export interface AscentState {
     /** Saved once (lib/ascent/plan.ts): what the commit beat created, so it is never created twice. */
     created?: { goalId: string; stepId: string; stepKind: 'task' | 'habit' };
     finished: boolean;
-    version: 2;
+    version: 3;
 }
 
 export type AscentAction =
@@ -26,7 +26,7 @@ export type AscentAction =
     | { type: 'built' }
     | { type: 'finish' };
 
-export const initialAscent = (): AscentState => ({ scene: 0, beat: 0, answers: {}, finished: false, version: 2 });
+export const initialAscent = (): AscentState => ({ scene: 0, beat: 0, answers: {}, finished: false, version: 3 });
 
 /** The beats of the current scene, for what has been answered so far. */
 export const beatsOf = (state: AscentState): Beat[] => SCENES[state.scene]?.beats(state.answers) ?? [];
@@ -70,6 +70,16 @@ export function lineOf(state: AscentState): string | null {
     return null;
 }
 
+/** What Echo is on screen: the last stage set in this scene, up to this beat; itself by default. */
+export function stageOf(state: AscentState): StageId {
+    const beats = beatsOf(state);
+    for (let index = state.beat; index >= 0; index--) {
+        const beat = beats[index];
+        if (beat?.kind === 'line' && beat.stage) return beat.stage;
+    }
+    return 'echo';
+}
+
 /** How far through, 0 to 1, for the progress line and VoiceOver. */
 export const progressOf = (state: AscentState): number =>
     state.finished ? 1 : Math.min(1, (state.scene + state.beat / Math.max(1, beatsOf(state).length)) / SCENES.length);
@@ -79,7 +89,7 @@ const KEY = 'habyss_ascent';
 export async function loadAscent(): Promise<AscentState | null> {
     try {
         const raw = JSON.parse((await AsyncStorage.getItem(KEY)) ?? 'null');
-        if (raw && raw.version === 2 && typeof raw.scene === 'number' && raw.answers) {
+        if (raw && raw.version === 3 && typeof raw.scene === 'number' && raw.answers) {
             // Resume at the start of the scene it was in: a beat mid-scene may depend on a moment that has passed.
             return { ...raw, scene: Math.min(raw.scene, SCENES.length - 1), beat: 0 };
         }
