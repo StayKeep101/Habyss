@@ -10,8 +10,9 @@ impl Store {
         conn.busy_timeout(std::time::Duration::from_secs(2))?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA secure_delete=ON;")?;
         let version: i64=conn.pragma_query_value(None,"user_version",|r|r.get(0))?;
-        if version>1 { return Err("Database was created by a newer Habyss version".into()); }
+        if version>2 { return Err("Database was created by a newer Habyss version".into()); }
         conn.execute_batch(include_str!("../migrations/001_initial.sql"))?;
+        conn.execute_batch(include_str!("../migrations/002_cloud.sql"))?;
         // Persisted open intervals already end at their last durable heartbeat.
         // Running focus sessions recover at the same observation, never at launch time.
         conn.execute("UPDATE focus_sessions SET ended_at=MAX(started_at,COALESCE((SELECT observed_at FROM checkpoint WHERE id=1),started_at)),state='interrupted' WHERE ended_at IS NULL",[])?;
