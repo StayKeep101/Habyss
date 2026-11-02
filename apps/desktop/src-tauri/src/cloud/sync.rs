@@ -89,12 +89,16 @@ impl<D: Db> Run<'_, D> {
         }
     }
 
-    /// Shared completions recorded while offline. An entry is removed once the server has it.
+    /// Shared completions recorded while offline. An entry is removed once the server has it, or once access rules refuse it.
+    /// After an entry fails, later entries for the same item and day wait for the next run, so they never replay out of order.
     async fn flush_outbox(&mut self) -> std::result::Result<(), Stop> {
         let c = self.client;
+        let mut blocked = HashSet::new();
         for (n, kind_name, p) in self.db.with(mirror::outbox_all)? {
             let me = self.me.clone();
             let text = |k: &str| p[k].as_str().unwrap_or("").to_string();
+            let key = (text("item_id"), text("day"));
+            if blocked.contains(&key) { continue; }
             let sent = match kind_name.as_str() {
                 "shared_done" => {
                     let rows = [json!({"user_id": me, "item_id": p["item_id"], "item_type": p["item_type"], "day": p["day"], "evidence": p["evidence"]})];
@@ -111,7 +115,17 @@ impl<D: Db> Run<'_, D> {
             match sent {
                 Ok(()) => self.db.with(|c| mirror::outbox_done(c, n))?,
                 Err(e) if fatal(&e) => return Err(e.into()),
-                Err(e) => eprintln!("[sync] outbox {n} ({kind_name}) not sent: {}", kind(&e)),
+                // A share that was withdrawn will be refused every time.
+                Err(CloudError::Forbidden { .. }) => {
+                    self.db.with(|c| mirror::outbox_done(c, n))?;
+                    self.report.refused += 1;
+                    eprintln!("[sync] outbox {n} ({kind_name}) refused by the server; dropped");
+                }
+                Err(e) => {
+                    self.report.failed += 1;
+                    blocked.insert(key);
+                    eprintln!("[sync] outbox {n} ({kind_name}) not sent: {}", kind(&e));
+                }
             }
         }
         Ok(())
@@ -481,6 +495,59 @@ mod tests {
         undo.assert_async().await;
         assert_eq!(r.error, None);
         assert!(d.with(mirror::outbox_all).unwrap().is_empty());
+    }
+
+    fn queue(d: &TestDb, entries: &[(&str, u32, &str)]) {
+        d.with(|c| { for (k, i, day) in entries { mirror::outbox_push(c, k, &json!({"item_id": uid(*i), "item_type": "habit", "day": day, "evidence": null}), NOW)?; } Ok(()) }).unwrap();
+    }
+    fn queued(d: &TestDb) -> Vec<(String, String)> { d.with(mirror::outbox_all).unwrap().into_iter().map(|(_, k, p)| (k, p["item_id"].as_str().unwrap().to_string())).collect() }
+
+    #[tokio::test] async fn failed_outbox_entry_holds_later_entries_for_the_same_key() {
+        let mut s = Server::new_async().await;
+        s.mock("POST", "/rest/v1/shared_completions").match_query(Matcher::Any).with_status(500).with_body("{}").expect(1).create_async().await;
+        let undo = s.mock("DELETE", "/rest/v1/shared_completions").match_query(Matcher::Any).with_status(204).expect(0).create_async().await;
+        empty_reads(&mut s).await;
+        let d = db();
+        queue(&d, &[("shared_done", 1, "2026-01-01"), ("shared_undone", 1, "2026-01-01")]);
+        let (c, a) = signed_in(s.url()).await;
+        let r = run_sync(&d, &c, &a).await;
+        undo.assert_async().await;
+        assert!(r.failed >= 1 && !r.ok);
+        assert_eq!(queued(&d), vec![("shared_done".into(), uid(1)), ("shared_undone".into(), uid(1))]);
+    }
+
+    #[tokio::test] async fn refused_outbox_entry_is_dropped() {
+        let mut s = Server::new_async().await;
+        s.mock("POST", "/rest/v1/shared_completions").match_query(Matcher::Any).with_status(403).with_body(r#"{"code":"42501","message":"rls"}"#).expect(1).create_async().await;
+        empty_reads(&mut s).await;
+        let d = db();
+        queue(&d, &[("shared_done", 1, "2026-01-01")]);
+        let (c, a) = signed_in(s.url()).await;
+        let r = run_sync(&d, &c, &a).await;
+        assert_eq!((r.refused, r.failed), (1, 0));
+        assert!(queued(&d).is_empty());
+    }
+
+    #[tokio::test] async fn offline_during_outbox_keeps_the_rest() {
+        let d = db();
+        queue(&d, &[("shared_done", 1, "2026-01-01"), ("shared_done", 2, "2026-01-01")]);
+        let (c, a) = signed_in("http://127.0.0.1:9".into()).await;
+        let r = run_sync(&d, &c, &a).await;
+        assert!(r.error.as_deref().unwrap_or("").contains("No connection"));
+        assert_eq!(queued(&d).len(), 2);
+    }
+
+    #[tokio::test] async fn unauthorized_during_download_keeps_cursor() {
+        let mut s = Server::new_async().await;
+        s.mock("GET", "/rest/v1/habits").match_query(Matcher::Any).with_status(401).with_body("{}").create_async().await;
+        s.mock("POST", "/auth/v1/token?grant_type=refresh_token").with_status(400).with_body(r#"{"error":"invalid_grant"}"#).create_async().await;
+        empty_reads(&mut s).await;
+        let d = db();
+        d.with(|c| mirror::set_cursor(c, Table::Habits, "2026-01-01T00:00:00Z")).unwrap();
+        let (c, a) = signed_in(s.url()).await;
+        let r = run_sync(&d, &c, &a).await;
+        assert_eq!(r.error.as_deref(), Some("Your session expired. Sign in again to keep syncing."));
+        assert_eq!(d.with(|c| mirror::cursor(c, Table::Habits)).unwrap().as_deref(), Some("2026-01-01T00:00:00Z"));
     }
 
     #[tokio::test] async fn mismatched_account_uploads_nothing() {
