@@ -6,6 +6,15 @@ Read this before designing or building anything in Habyss. The UI rules (structu
 
 A productivity app for habits, tasks and goals, and for planning the day around them. Its promise is time: **time is money**, and Habyss gives people theirs back. The world it is told in: the **Abyss** (the place in everyone's head where time is lost and plans never start), **Chronos** (time itself, the one constant, the same 24 hours for everyone) and **Echo** (the companion, a ripple in time, that pulls you out).
 
+## 0. Design first
+
+Design is the first principle, before features and before copy. Every input and every number should be something you can see and touch, not a form:
+
+- set a value by moving it on a visual that shows what it means, not by typing it or spinning a generic wheel. Example: changing the sleep schedule is a clock face where you drag the bedtime and wake-up handles round to the right hour and minute, with the night drawn between them; not two scroll wheels;
+- use sliders, dials, rings, gradients and direct manipulation wherever a value has a range, a time or an amount;
+- show data as visuals (rings, bars, cubes, timelines) that move, so the meaning is clear before anything is read;
+- the more intuitive control wins even if it takes longer to build: the goal is an app that is interesting to touch and obvious to use.
+
 ## 1. Speed from thought to action
 
 Every UX decision starts here. The path is:
@@ -37,9 +46,10 @@ Minimal never means less usable: accessibility labels, contrast, 44 pt targets a
 
 When two options compete, choose in this order:
 
-1. the one that gets the user from thought to action faster;
-2. the one with less text and fewer elements;
-3. the one that fits the existing system (`components/ui`, `theme/`) rather than a one-off.
+1. the one that is more visual and more direct to touch (design first);
+2. the one that gets the user from thought to action faster;
+3. the one with less text and fewer elements;
+4. the one that fits the existing system (`components/ui`, `theme/`) rather than a one-off.
 
 # Preview delivery
 
