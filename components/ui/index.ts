@@ -17,6 +17,7 @@
  *
  * Controls
  *   AppButton, HoldButton (hold to mean it: fills, buzz builds, lands with a thud), IconButton, AppTextField, ChoiceRow, ChipPicker, Toggle,
+ *   StepSlider (a value chosen by sliding: gradient fill, snaps you feel, VoiceOver adjustable),
  *   TimeRow, Wheel, TimeWheels (a clock time on wheels), DateWheels (a date on wheels), ViewSwitcher, SwipeRow, TypingPlaceholder,
  *   MorphMenu (a ⋯ button that grows into its own menu), MicButton (talk instead of typing),
  *   FocusPill (the solid "Focus" pill on whatever is on right now)
@@ -71,6 +72,7 @@ export { VoidSheet } from './VoidSheet';
 
 export { AppButton } from './AppButton';
 export { HoldButton } from './HoldButton';
+export { StepSlider } from './StepSlider';
 export { IconButton } from './IconButton';
 export { FocusPill } from './FocusPill';
 export { AppTextField } from './AppTextField';

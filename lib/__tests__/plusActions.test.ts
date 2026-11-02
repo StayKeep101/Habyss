@@ -6,7 +6,7 @@ import { matchesSearch, searchDeep } from '../settingsSearch';
 
 describe('the + on each tab', () => {
     it('checks in on Home, makes things on Roadmap, bets on Community, searches on Settings', () => {
-        expect(DEFAULT_PLUS).toEqual({ home: ['mood', 'energy'], roadmap: ['goal', 'habit', 'task', 'thought'], community: ['bet'] });
+        expect(DEFAULT_PLUS).toEqual({ home: ['mood', 'energy'], roadmap: ['goal', 'habit', 'task', 'thought'], community: ['bet', 'duel'] });
         expect(plusTabOf('home')).toBe('home');
         expect(plusTabOf('settings')).toBe('settings');
         expect(plusTabOf(undefined)).toBe('home');

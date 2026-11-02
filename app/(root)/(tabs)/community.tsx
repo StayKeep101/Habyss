@@ -32,6 +32,7 @@ import { Overlay } from '@/components/ui/Overlay';
 import { SealedDayCard } from '@/components/Community/SealedDayCard';
 import { CrewQuest } from '@/components/Community/CrewQuest';
 import { MarketSection } from '@/components/Market/MarketSection';
+import { DuelSection } from '@/components/Duel/DuelSection';
 import { WeekView } from '@/components/Community/WeekView';
 import { CrownMoment } from '@/components/Community/CrownMoment';
 import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
@@ -374,6 +375,7 @@ export default function CommunityScreen() {
             ) : null}
 
             {/* Friends' goals open to bets: Shards on whether they make it. */}
+            {gate === null && view === 'bets' ? <DuelSection style={styles.block} /> : null}
             {gate === null && view === 'bets' && MARKET_ENABLED ? <MarketSection style={styles.block} /> : null}
 
             {gate === null && view === 'today' ? <SectionTitle first>Feed</SectionTitle> : null}

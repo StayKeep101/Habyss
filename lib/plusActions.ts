@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  *
  * - Home: how you are (mood, energy), one tap each;
  * - Roadmap: make something (goal, habit, task, thought);
- * - Community: put Shards on a goal;
+ * - Community: put Shards on a goal, or duel a friend;
  * - Settings: the + is a search lens, not a menu (see settings.tsx).
  *
  * Each tab's list can be changed in Settings → Plus button, from the same
@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  */
 
 export type PlusTab = 'home' | 'roadmap' | 'community';
-export type PlusActionId = 'mood' | 'energy' | 'goal' | 'habit' | 'task' | 'thought' | 'focus' | 'bet';
+export type PlusActionId = 'mood' | 'energy' | 'goal' | 'habit' | 'task' | 'thought' | 'focus' | 'bet' | 'duel';
 
 /** Every action the + can offer, with the token colour its icon wears. */
 export const PLUS_ACTIONS: Record<PlusActionId, { label: string; icon: string; tone: 'accent' | 'success' | 'warning' | 'danger' }> = {
@@ -26,6 +26,7 @@ export const PLUS_ACTIONS: Record<PlusActionId, { label: string; icon: string; t
     thought: { label: 'Thought', icon: 'bulb-outline', tone: 'warning' },
     focus: { label: 'Focus', icon: 'timer-outline', tone: 'danger' },
     bet: { label: 'Bet on a goal', icon: 'diamond-outline', tone: 'accent' },
+    duel: { label: 'Duel a friend', icon: 'flash-outline', tone: 'warning' },
 };
 
 export const PLUS_TABS: { id: PlusTab; label: string; icon: string }[] = [
@@ -37,7 +38,7 @@ export const PLUS_TABS: { id: PlusTab; label: string; icon: string }[] = [
 export const DEFAULT_PLUS: Record<PlusTab, PlusActionId[]> = {
     home: ['mood', 'energy'],
     roadmap: ['goal', 'habit', 'task', 'thought'],
-    community: ['bet'],
+    community: ['bet', 'duel'],
 };
 
 /** The most a menu holds, so it never reaches the top of the screen. */
@@ -109,4 +110,5 @@ export function runPlus(id: PlusActionId): void {
     else if (id === 'thought') go('/brain-dump');
     else if (id === 'focus') go('/(root)/focus');
     else if (id === 'bet') emit('show_open_bet');
+    else if (id === 'duel') emit('show_duel');
 }

@@ -73,6 +73,8 @@ export interface AppEvents {
     show_check_in: { kind: 'mood' | 'energy' };
     /** Open one of your goals to bets (the + on Community). */
     show_open_bet: void;
+    /** Challenge a friend to a duel (the + on Community). */
+    show_duel: void;
     /** The + on Settings: search the settings. */
     show_settings_search: void;
     close_creation_modal: void;
