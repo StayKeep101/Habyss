@@ -7,7 +7,8 @@ import { Control, Radius, Spacing, Typography } from '@/theme/designSystem';
 import { MatteSurface } from './MatteSurface';
 
 interface AppTextFieldProps extends TextInputProps {
-    label: string;
+    /** Shown over the field; left out where the field says what it is (a search with its lens). */
+    label?: string;
     leadingIcon?: keyof typeof Ionicons.glyphMap;
     trailingIcon?: keyof typeof Ionicons.glyphMap;
     onTrailingPress?: () => void;
@@ -26,7 +27,7 @@ export const AppTextField: React.FC<AppTextFieldProps> = ({
 
     return (
         <View style={styles.group}>
-            <Text style={[Typography.caption, { color: colors.textSecondary }]}>{label}</Text>
+            {label ? <Text style={[Typography.caption, { color: colors.textSecondary }]}>{label}</Text> : null}
             <MatteSurface
                 radius={Radius.control}
                 level="control"

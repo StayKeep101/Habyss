@@ -1,14 +1,17 @@
 import { FontFamily } from '@/theme/designSystem';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
-import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
+import { SettingsGroup, SettingsRow, SettingsSearch } from '@/components/ui/SettingsList';
+import { AppTextField } from '@/components/ui/AppTextField';
+import { PlusButtonSheet } from '@/components/Settings/PlusButtonSheet';
+import { searchDeep } from '@/lib/settingsSearch';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
-import { emit } from '@/lib/appEvents';
+import { emit, on } from '@/lib/appEvents';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { useSleep } from '@/hooks/useSleep';
 import { setSleepCardVisible, setSleepTarget } from '@/lib/sleepLog';
@@ -66,6 +69,17 @@ export default function ProfileScreen() {
     const [weekStart, setWeekStartState] = useState<WeekStart>(DEFAULT_WEEK_START);
     useEffect(() => { void getWeekStart().then(setWeekStartState); }, []);
     useEffect(() => { void getVoiceDestination().then(setVoiceDestinationState); }, []);
+    // The + on this tab is a search lens: it opens the field, and the rows filter as you type.
+    const [searching, setSearching] = useState(false);
+    const [query, setQuery] = useState('');
+    const [plusSheet, setPlusSheet] = useState(false);
+    const scroll = useRef<ScrollView>(null);
+    useEffect(() => {
+        const sub = on('show_settings_search', () => { setSearching(true); scroll.current?.scrollTo({ y: 0, animated: true }); });
+        return () => sub.remove();
+    }, []);
+    const stopSearching = () => { setQuery(''); setSearching(false); };
+    const deep = searchDeep(query);
     const username = me.name;
     const avatarUri = me.avatar;
 
@@ -99,9 +113,18 @@ export default function ProfileScreen() {
                     <View style={{ width: isCompactWidth ? 32 : 40 }} />
                 </View>
 
-                <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance, paddingHorizontal: horizontalPadding }]} showsVerticalScrollIndicator={false}>
+                {searching ? (
+                    <View style={[styles.search, { paddingHorizontal: horizontalPadding }]}>
+                        <AppTextField value={query} onChangeText={setQuery} accessibilityLabel="Search settings" placeholder="Search settings" autoFocus returnKeyType="search"
+                            autoCorrect={false} leadingIcon="search" trailingIcon="close-circle" trailingAccessibilityLabel="Close search" onTrailingPress={stopSearching} />
+                    </View>
+                ) : null}
+
+                <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+                    contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance, paddingHorizontal: horizontalPadding }]} showsVerticalScrollIndicator={false}>
+                    <SettingsSearch value={query}>
                     {/* Who you are, small: a settings screen is a list, not a poster. */}
-                    <TouchableOpacity
+                    {query.trim() ? null : <TouchableOpacity
                         accessibilityRole="button"
                         accessibilityLabel="Edit your profile"
                         activeOpacity={0.85}
@@ -124,7 +147,7 @@ export default function ProfileScreen() {
                             </Text>
                         </View>
                         <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                    </TouchableOpacity>
+                    </TouchableOpacity>}
 
                     {/* One topic per group, in the order people reach for them:
                         their day, focusing, Echo, their things, the app, the
@@ -190,7 +213,8 @@ export default function ProfileScreen() {
                     </SettingsGroup>
 
                     <SettingsGroup title="App">
-                        <SettingsRow icon="color-palette" color="#0A84FF" label="Appearance" onPress={() => router.push('/(root)/appearance')} />
+                        <SettingsRow icon="color-palette" color="#0A84FF" label="Appearance" keywords="theme dark light accent sound vibration" onPress={() => router.push('/(root)/appearance')} />
+                        <SettingsRow icon="add-circle" color="#0A84FF" label="Plus button" keywords="+ create menu shortcut mood energy bet" onPress={() => setPlusSheet(true)} />
                         {/* Hold + and speak: where the words go. */}
                         <SettingsRow icon="mic" color="#0A84FF" label="Hold + to say"
                             choices={VOICE_DESTINATIONS} chosen={voiceDestination}
@@ -225,12 +249,26 @@ export default function ProfileScreen() {
                         ) : null}
                     </SettingsGroup>
 
-                    <View style={styles.footer}>
-                        <Text style={[styles.quote, { color: colors.textSecondary }]}>{APP_SLOGAN}</Text>
-                        <Text style={[styles.version, { color: colors.textTertiary }]}>v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
-                    </View>
+                    {/* Deeper than this page: found by name, opened where they live. */}
+                    {deep.length ? (
+                        <SettingsGroup title="On other pages">
+                            {deep.map(entry => (
+                                <SettingsRow key={`${entry.page}-${entry.label}`} icon={entry.icon} color="#8A8A94" label={entry.label} value={entry.page}
+                                    keywords={entry.keywords} onPress={() => router.push(entry.route as never)} />
+                            ))}
+                        </SettingsGroup>
+                    ) : null}
+                    </SettingsSearch>
+
+                    {query.trim() ? null : (
+                        <View style={styles.footer}>
+                            <Text style={[styles.quote, { color: colors.textSecondary }]}>{APP_SLOGAN}</Text>
+                            <Text style={[styles.version, { color: colors.textTertiary }]}>v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
+                        </View>
+                    )}
 
                 </ScrollView>
+                <PlusButtonSheet visible={plusSheet} onClose={() => setPlusSheet(false)} />
             </SafeAreaView>
         </VoidShell>
     );

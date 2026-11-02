@@ -1,5 +1,5 @@
 import { FontFamily } from '@/theme/designSystem';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {Dimensions, Pressable, StyleSheet, Text, View} from 'react-native';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import Animated, {
@@ -15,6 +15,9 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
 import { useCoachTarget } from '@/hooks/useCoachTarget';
+import { useTokens } from '@/hooks/useTokens';
+import { getTour } from '@/lib/coachMarks';
+import { PLUS_ACTIONS, currentPlus, loadPlus, runPlus, subscribePlus, type PlusActionId, type PlusTab } from '@/lib/plusActions';
 
 const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 
@@ -25,7 +28,8 @@ const OPEN = { duration: 260, easing: Easing.out(Easing.cubic) };
 const CLOSE = { duration: 180, easing: Easing.in(Easing.cubic) };
 
 /**
- * The menu behind the plus button.
+ * The menu behind the plus button: what this tab's + offers
+ * (lib/plusActions.ts, changeable in Settings → Plus button).
  *
  * It opens exactly where the button is, because the button measures itself and
  * sends its position: the same plus, in the same place, turning 45 degrees into
@@ -44,13 +48,18 @@ export const CreationModal = () => {
     const [visible, setVisible] = useState(false);
     const [anchor, setAnchor] = useState<Anchor | null>(null);
     const progress = useSharedValue(0);
-    const pending = useRef<'habit' | 'goal' | 'task' | 'thought' | null>(null);
-    const fallback = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const t = useTokens();
+    const [tab, setTab] = useState<PlusTab>('roadmap');
+    const plus = useSyncExternalStore(subscribePlus, currentPlus, currentPlus);
+    useEffect(() => { void loadPlus(); }, []);
+    const pending = useRef<PlusActionId | null>(null);
     const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
-        const open = on('show_creation_modal', (data?: Partial<Anchor>) => {
+        const open = on('show_creation_modal', (data?: Partial<Anchor> & { tab?: PlusTab }) => {
             if (closing.current) { clearTimeout(closing.current); closing.current = null; }
+            // The tour teaches making a goal from Home, so while it runs the + makes things.
+            setTab(getTour().active ? 'roadmap' : data?.tab ?? 'roadmap');
             if (typeof data?.x === 'number' && typeof data?.y === 'number') {
                 setAnchor({ x: data.x, y: data.y, size: data.size ?? floatingButtonSize });
             }
@@ -61,7 +70,6 @@ export const CreationModal = () => {
         return () => {
             open.remove();
             close.remove();
-            if (fallback.current) clearTimeout(fallback.current);
             if (closing.current) clearTimeout(closing.current);
         };
     }, [floatingButtonSize]);
@@ -73,29 +81,15 @@ export const CreationModal = () => {
         closing.current = setTimeout(() => { setVisible(false); closing.current = null; }, CLOSE.duration);
     };
 
-    const openSelection = () => {
-        const selection = pending.current;
-        pending.current = null;
-        if (fallback.current) clearTimeout(fallback.current);
-        // Creating a habit opens quick add; the full form is for editing,
-        // reachable from quick add's More options.
-        if (selection === 'habit') emit('show_quick_add');
-        if (selection === 'goal') emit('show_goal_quick_add');
-        if (selection === 'task') emit('show_task_form');
-        if (selection === 'thought') require('expo-router').router.push('/brain-dump');
-    };
-
-    const choose = (selection: 'habit' | 'goal' | 'task' | 'thought') => {
+    const choose = (selection: PlusActionId) => {
         if (pending.current) return;
         mediumFeedback();
         pending.current = selection;
-        // The composer opens now, while the menu folds away behind it. It
-        // used to wait for this menu's native modal to finish dismissing —
-        // animation, iOS dismissal, then a safety timeout — which was most of a
-        // second between the tap and a keyboard. The menu is a plain overlay
-        // now, so nothing has to wait.
-        openSelection();
+        // What was chosen opens now, while the menu folds away behind it: the
+        // menu is a plain overlay, so nothing waits for it to leave.
+        runPlus(selection);
         dismiss();
+        setTimeout(() => { pending.current = null; }, CLOSE.duration);
     };
 
     const screen = Dimensions.get('window');
@@ -109,12 +103,8 @@ export const CreationModal = () => {
         transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 45])}deg` }],
     }));
 
-    const items = [
-        { id: 'goal', label: 'Goal', icon: 'flag-outline', color: primary, hint: 'Where you are heading' },
-        { id: 'habit', label: 'Habit', icon: 'repeat', color: '#10B981', hint: 'Something you repeat' },
-        { id: 'task', label: 'Task', icon: 'checkmark-circle-outline', color: '#F59E0B', hint: 'Done once, by a date' },
-        { id: 'thought', label: 'Thought', icon: 'bulb-outline', color: '#FFD60A', hint: 'Get it out of your head' },
-    ] as const;
+    const tone = { accent: primary, success: t.color.success, warning: t.color.warning, danger: t.color.danger };
+    const items = plus[tab].map(id => ({ id, label: PLUS_ACTIONS[id].label, icon: PLUS_ACTIONS[id].icon, color: tone[PLUS_ACTIONS[id].tone] }));
 
     return (
         visible ? <View style={StyleSheet.absoluteFill}>
@@ -188,7 +178,7 @@ const MenuRow = ({ item, index, count, progress, size, colors, isLight, onPress 
             <Pressable
                 ref={pill}
                 accessibilityRole="button"
-                accessibilityLabel={`Create ${item.label.toLowerCase()}`}
+                accessibilityLabel={['goal', 'habit', 'task', 'thought'].includes(item.id) ? `Create ${item.label.toLowerCase()}` : item.label}
                 onPress={onPress}
                 // Static, not a function: see ViewSwitcher — a function style
                 // loses the layout on this React Native.

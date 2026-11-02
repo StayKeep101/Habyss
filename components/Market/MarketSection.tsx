@@ -201,7 +201,7 @@ function StakeSheet({ market, side, spendable, onClose }: { market: Market; side
 }
 
 /** Your goals, to open one to bets: the ones that can be (a deadline three or more days away), and why the rest can't. */
-function OpenSheet({ visible, openKeys, onClose }: { visible: boolean; openKeys: Set<string>; onClose: () => void }) {
+export function OpenSheet({ visible, openKeys, onClose }: { visible: boolean; openKeys: Set<string>; onClose: () => void }) {
     const { goals, today } = useGoalsInsights();
     const { successFeedback } = useHaptics();
     const earliest = addDays(today, 3);

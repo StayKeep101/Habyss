@@ -29,6 +29,8 @@ import { AppSettingsProvider } from '@/context/AppSettingsContext';
 import { AccentProvider, useAccentGradient } from '@/context/AccentContext';
 import { FocusTimeProvider, useFocusSession } from '@/context/FocusTimeContext';
 import { CreationModal } from '@/components/Create/CreationModal';
+import { CheckInHost } from '@/components/Echo/CheckInHost';
+import { OpenBetHost } from '@/components/Market/OpenBetHost';
 import { DayCompleteCelebration } from '@/components/Celebrations/DayCompleteCelebration';
 import { MilestoneCelebration } from '@/components/Celebrations/MilestoneCelebration';
 import { HabitSheet } from '@/components/Create/HabitSheet';
@@ -446,6 +448,9 @@ function InnerLayout() {
         <MilestoneCelebration />
         <DailyTargetCelebration />
         <CreationModal />
+        {/* What the + opens from any tab: Echo's one-tap question, a goal opened to bets. */}
+        <CheckInHost />
+        <OpenBetHost />
         {/* Hold the create button and speak. */}
         <VoiceCapture />
         <HabitSheet listenToGlobalEvents />

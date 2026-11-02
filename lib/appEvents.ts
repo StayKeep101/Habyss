@@ -68,7 +68,13 @@ export interface AppEvents {
 
     /* -------------------------------------------------- a screen is being asked */
     /** Where on screen the creation modal should grow from. */
-    show_creation_modal: { x: number; y: number; size: number; height?: number } | undefined;
+    show_creation_modal: { x: number; y: number; size: number; height?: number; /** Which tab's + it is (lib/plusActions.ts). */ tab?: 'home' | 'roadmap' | 'community' } | undefined;
+    /** One of Echo's one-tap questions, asked now, wherever you are. */
+    show_check_in: { kind: 'mood' | 'energy' };
+    /** Open one of your goals to bets (the + on Community). */
+    show_open_bet: void;
+    /** The + on Settings: search the settings. */
+    show_settings_search: void;
     close_creation_modal: void;
     /** Holding the create button: listen for a habit, task or goal said aloud. */
     voice_start: void;

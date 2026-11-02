@@ -11,7 +11,8 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { RAIL_WIDTH, useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
-import { registerTarget } from '@/lib/coachMarks';
+import { getTour, registerTarget } from '@/lib/coachMarks';
+import { PLUS_ACTIONS, currentPlus, loadPlus, plusTabOf, runPlus, subscribePlus } from '@/lib/plusActions';
 import { AppState } from 'react-native';
 import { FriendsService } from '@/lib/friendsService';
 import { getRemoveDrag, setOrbRect, subscribeRemoveDrag, type RemoveDrag } from '@/lib/dragBridge';
@@ -207,6 +208,14 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                         );
                     });
 
+    // What this tab's + does (lib/plusActions.ts): a menu, its one action, or on Settings a search lens.
+    const plusTab = plusTabOf(state.routes[state.index]?.name);
+    const plus = React.useSyncExternalStore(subscribePlus, currentPlus, currentPlus);
+    React.useEffect(() => { void loadPlus(); }, []);
+    const plusLabel = plusTab === 'settings' ? 'Search settings'
+        : plus[plusTab].length === 1 ? PLUS_ACTIONS[plus[plusTab][0]].label
+            : plusTab === 'home' ? 'Check in' : plusTab === 'community' ? 'Bet or challenge' : 'Create a habit, goal, or task';
+
     const orb = (
             <Animated.View style={orbScale}>
             {removeDrag.active ? (
@@ -219,7 +228,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 ref={orbRef}
                 onLayout={measureOrb}
                 accessibilityRole="button"
-                accessibilityLabel={removeDrag.active ? (removeDrag.label ?? 'Remove from goal') : 'Create a habit, goal, or task'}
+                accessibilityLabel={removeDrag.active ? (removeDrag.label ?? 'Remove from goal') : plusLabel}
                 accessibilityHint={removeDrag.active ? undefined : 'Hold to say it instead'}
                 activeOpacity={0.8}
                 disabled={removeDrag.active}
@@ -231,10 +240,13 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                     // Listening: the tap ends it, and what was said is used.
                     if (voiceOn.current) { mediumFeedback(); emit('voice_stop'); return; }
                     mediumFeedback();
+                    if (plusTab === 'settings') { emit('show_settings_search'); return; }
+                    // One action: no menu for one choice (the tour still opens the menu, to teach it).
+                    if (plus[plusTab].length === 1 && !getTour().active) { runPlus(plus[plusTab][0]); return; }
                     // The menu opens exactly on top of this button, wherever the
                     // phone puts it, so the plus can turn into the close button.
                     orbRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
-                        emit('show_creation_modal', { x, y, size: width || floatingButtonSize, height });
+                        emit('show_creation_modal', { x, y, size: width || floatingButtonSize, height, tab: plusTab });
                     });
                 }}
                 style={[
@@ -254,7 +266,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                         end={{ x: 1, y: 1 }}
                         style={[styles.orbGradient, { borderRadius: floatingButtonSize / 2 }]}
                     >
-                        <Ionicons name="add" size={isCompactWidth ? 28 : 32} color="#fff" />
+                        <Ionicons name={plusTab === 'settings' ? 'search' : 'add'} size={isCompactWidth ? 28 : 32} color="#fff" />
                     </LinearGradient>
                 </Animated.View>
                 <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, removeLayer]}>

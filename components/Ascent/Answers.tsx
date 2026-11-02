@@ -131,7 +131,7 @@ export function ActionPicker({ suggestions, color, onPick }: { suggestions: Sugg
 export function BeginButton({ onPress }: { onPress: () => void }) {
     return (
         <Animated.View entering={FadeInDown.delay(STAGGER.stage).duration(DURATION.reward).easing(EASE.enter)}>
-            <HoldButton label="Rise" icon="arrow-up" hint="Touch and hold to rise" onComplete={onPress} />
+            <HoldButton label="Rise" icon="arrow-up" onComplete={onPress} />
         </Animated.View>
     );
 }

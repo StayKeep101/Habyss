@@ -12,6 +12,11 @@ import { VoidCard } from './VoidCard';
 import { AppSwitch } from './AppSwitch';
 import { useInSheet } from './inSheet';
 import { MatteSurface } from './MatteSurface';
+import { matchesSearch } from '@/lib/settingsSearch';
+
+/** The words typed in the Settings search, if any: groups show only the rows they match. */
+const SearchContext = React.createContext('');
+export const SettingsSearch = SearchContext.Provider;
 
 /**
  * Settings, the way iOS lays them out: groups of rows on a card, each row a
@@ -21,7 +26,14 @@ import { MatteSurface } from './MatteSurface';
 export function SettingsGroup({ title, children }: { title?: string; children: React.ReactNode }) {
     const { theme } = useTheme();
     const colors = Colors[theme] ?? Colors.abyss;
-    const rows = React.Children.toArray(children).filter(Boolean);
+    const query = React.useContext(SearchContext);
+    const all = React.Children.toArray(children).filter(Boolean);
+    // Searching: a group whose title matches keeps every row; otherwise only the rows whose words match.
+    const rows = !query.trim() || matchesSearch(query, title) ? all : all.filter(row => {
+        const props = React.isValidElement(row) ? (row.props as { label?: unknown; value?: unknown; keywords?: unknown }) : null;
+        return typeof props?.label === 'string' && matchesSearch(query, props.label, typeof props.value === 'string' ? props.value : undefined, typeof props.keywords === 'string' ? props.keywords : undefined);
+    });
+    if (!rows.length) return null;
     // In a sheet the sheet is the surface: the rows sit on it, no card of their own.
     const inSheet = useInSheet();
     const Surface = inSheet ? View : VoidCard;
@@ -42,6 +54,8 @@ export function SettingsGroup({ title, children }: { title?: string; children: R
 
 export function SettingsRow({ icon, color, label, value, onPress, toggle, onToggle, choices, chosen, onChoose, destructive, disabled }: {
     icon: string;
+    /** Other words people might search for this row by (the Settings search). */
+    keywords?: string;
     /** The tile's colour. */
     color: string;
     label: string;

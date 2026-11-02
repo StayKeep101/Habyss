@@ -33,6 +33,8 @@ export const styles = StyleSheet.create({
         paddingVertical: 12,
     },
     headerTitle: Typography.screenTitle,
+    // The search field under the title, while the + is being used as a lens.
+    search: { paddingBottom: 8 },
     settingsButton: {
         width: 36,
         height: 36,

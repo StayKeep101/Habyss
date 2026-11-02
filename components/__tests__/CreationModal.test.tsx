@@ -73,4 +73,15 @@ describe('the plus button and the menu are one object', () => {
         subscription.remove();
         screen.unmount();
     });
+    it('offers this tab’s actions: mood and energy on Home', () => {
+        const asked = jest.fn();
+        const subscription = DeviceEventEmitter.addListener('show_check_in', asked);
+        const screen = render(<CreationModal />);
+        act(() => { DeviceEventEmitter.emit('show_creation_modal', { x: 300, y: 700, size: 60, tab: 'home' }); });
+        expect(screen.queryByLabelText('Create goal')).toBeNull();
+        fireEvent.press(screen.getByLabelText('Mood'));
+        expect(asked).toHaveBeenCalledWith({ kind: 'mood' });
+        subscription.remove();
+        screen.unmount();
+    });
 });
