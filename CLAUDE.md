@@ -1,5 +1,7 @@
 # Habyss — UI rules
 
+**Read `AGENTS.md` first**: what Habyss is for (speed from thought to action; beautiful, premium, minimal, as little text as possible). Every decision below serves it.
+
 These rules keep every screen consistent. They apply to every change that touches what the user sees.
 
 ## Project structure

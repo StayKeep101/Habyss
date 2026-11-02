@@ -190,7 +190,6 @@ export default function ProfileScreen() {
                     </SettingsGroup>
 
                     <SettingsGroup title="App">
-                        <SettingsRow icon="sparkles" color="#8EB0FF" label="The next chapter" value="Preview" onPress={() => router.push('/(root)/upcoming-update')} />
                         <SettingsRow icon="color-palette" color="#0A84FF" label="Appearance" onPress={() => router.push('/(root)/appearance')} />
                         {/* Hold + and speak: where the words go. */}
                         <SettingsRow icon="mic" color="#0A84FF" label="Hold + to say"
