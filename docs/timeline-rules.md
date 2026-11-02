@@ -25,7 +25,8 @@ These are not rules about order. They only say how the rules are put on the page
 
 - The line starts when you wake.
 - Each thing starts the minute the one before it ends.
-- Something with no length takes 30 minutes.
+- Something with no length takes 90 minutes for a task, 30 for a habit.
+- With Auto-reschedule off (Settings), everything with a time keeps it: rules 4–6 move nothing, and only things without a time are placed.
 - The clock never moves anything. It only marks what is **now** (its slot contains this minute) and what is **next** (the first open thing after now).
 - Ticking something on time or late never moves anything (rule 6 is the only change a tick makes).
 - Every day is laid out the same way, today included. Opening the app late never changes a start.
