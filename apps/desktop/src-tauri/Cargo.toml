@@ -18,5 +18,8 @@ uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
 fs2 = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["json","rustls-tls"] }
+tokio = { version = "1", features = ["rt","macros"] }
 [dev-dependencies]
 tempfile = "3"
+mockito = "1"

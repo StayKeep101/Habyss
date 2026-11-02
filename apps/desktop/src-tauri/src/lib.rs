@@ -1,3 +1,5 @@
+#[allow(dead_code)]
+mod cloud;
 mod commands;
 pub mod engine;
 mod models;

@@ -12,5 +12,14 @@ fn main() {
         for framework in ["AppKit", "ApplicationServices", "CoreGraphics", "Foundation", "WidgetKit"] { println!("cargo:rustc-link-lib=framework={framework}"); }
         println!("cargo:rerun-if-changed=native/Collector.swift");
     }
+    println!("cargo:rerun-if-changed=.env");
+    if let Ok(text) = std::fs::read_to_string(".env") {
+        for line in text.lines() {
+            let Some((k, v)) = line.split_once('=') else { continue };
+            let v = v.trim().trim_matches(|c| c == '"' || c == '\'');
+            let name = match k.trim() { "SUPABASE_URL" => "HABYSS_SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY" => "HABYSS_SUPABASE_KEY", _ => continue };
+            if !v.is_empty() { println!("cargo:rustc-env={name}={v}"); }
+        }
+    }
     tauri_build::build();
 }
