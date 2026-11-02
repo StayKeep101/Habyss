@@ -48,12 +48,13 @@ impl Auth {
     }
     /// Refresh from the Keychain token at launch. Offline keeps the token for a later retry.
     pub async fn restore(&self) -> std::result::Result<Option<Session>, CloudError> {
-        let Some(rt) = self.secret.get() else { return Ok(None) };
         let mut guard = self.session.lock().await;
+        let Some(rt) = self.secret.get() else { return Ok(None) };
         match self.refresh(&rt).await {
             Ok(s) => { *guard = Some(s.clone()); Ok(Some(s)) }
             Err(CloudError::Offline) => Ok(None),
-            Err(e) => { self.drop_session(&mut guard); Err(e) }
+            Err(CloudError::Server { status: 400, .. }) | Err(CloudError::Unauthorized) => { self.drop_session(&mut guard); Err(CloudError::Unauthorized) }
+            Err(e) => Err(e),
         }
     }
     pub async fn token(&self) -> std::result::Result<String, CloudError> {
@@ -133,6 +134,25 @@ mod tests {
         a.set_session(Session { access_token: "old".into(), user_id: "u1".into(), email: None, expires_at: now() - 10 }).await;
         assert!(matches!(a.token().await, Err(CloudError::Unauthorized)));
         assert!(secret.get().is_none());
+        assert!(a.session.lock().await.is_none());
+    }
+    #[tokio::test] async fn restore_keeps_token_on_server_error() {
+        let mut server = mockito::Server::new_async().await;
+        server.mock("POST", "/auth/v1/token?grant_type=refresh_token").with_status(500).with_body("{}").create_async().await;
+        let (a, secret) = auth(server.url());
+        secret.set("rt1").unwrap();
+        assert!(matches!(a.restore().await, Err(CloudError::Server { status: 500, .. })));
+        assert_eq!(secret.get().as_deref(), Some("rt1"));
+    }
+    #[tokio::test] async fn restore_after_sign_out_does_nothing() {
+        let mut server = mockito::Server::new_async().await;
+        let m = server.mock("POST", mockito::Matcher::Any).expect(0).create_async().await;
+        let (a, secret) = auth(server.url());
+        secret.set("rt1").unwrap();
+        a.sign_out().await;
+        assert!(matches!(a.restore().await, Ok(None)));
+        assert!(secret.get().is_none());
+        m.assert_async().await;
     }
     #[tokio::test] async fn restore_offline_keeps_token() {
         let (a, secret) = auth("http://127.0.0.1:9".into());
