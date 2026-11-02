@@ -1,0 +1,13 @@
+PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS categories(id TEXT PRIMARY KEY, name TEXT NOT NULL, classification TEXT NOT NULL DEFAULT 'neutral', rules TEXT NOT NULL DEFAULT '[]');
+INSERT OR IGNORE INTO categories(id,name) VALUES ('uncategorized','Uncategorized'),('development','Development'),('communication','Communication'),('research','Research'),('design','Design'),('personal','Personal');
+CREATE TABLE IF NOT EXISTS applications(id TEXT PRIMARY KEY,bundle_id TEXT NOT NULL UNIQUE,display_name TEXT NOT NULL,category TEXT NOT NULL DEFAULT 'uncategorized' REFERENCES categories(id),first_seen INTEGER NOT NULL,last_seen INTEGER NOT NULL,category_override TEXT REFERENCES categories(id));
+CREATE TABLE IF NOT EXISTS intervals(id TEXT PRIMARY KEY,application_id TEXT REFERENCES applications(id),window_title TEXT,started_at INTEGER NOT NULL,ended_at INTEGER NOT NULL CHECK(ended_at>=started_at),state TEXT NOT NULL,source TEXT NOT NULL,availability TEXT NOT NULL,pid INTEGER,window_id TEXT,project_id TEXT,updated_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS intervals_range ON intervals(started_at,ended_at);
+CREATE INDEX IF NOT EXISTS intervals_application ON intervals(application_id,started_at);
+CREATE TABLE IF NOT EXISTS focus_sessions(id TEXT PRIMARY KEY,label TEXT NOT NULL,started_at INTEGER NOT NULL,ended_at INTEGER,target_ms INTEGER NOT NULL,state TEXT NOT NULL,updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS settings(id INTEGER PRIMARY KEY CHECK(id=1),json TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS checkpoint(id INTEGER PRIMARY KEY CHECK(id=1),interval_id TEXT,observed_at INTEGER NOT NULL);
+INSERT OR IGNORE INTO schema_migrations VALUES(1,CAST(strftime('%s','now') AS INTEGER)*1000);
+PRAGMA user_version = 1;

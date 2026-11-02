@@ -1,0 +1,66 @@
+mod commands;
+pub mod engine;
+mod models;
+mod platform;
+mod service;
+mod storage;
+use commands::*;
+use platform::ActivityCollector;
+use tauri::{Emitter,Manager};
+use std::sync::Mutex;
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app,_,_|{let _=open_dashboard(app.clone(),None);}))
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent,Some(vec!["--autostart"])))
+        .invoke_handler(tauri::generate_handler![snapshot,save_settings,set_tracking,start_focus,stop_focus,categorize,request_permission,open_permissions,erase_history,export_history,export_to_file,open_dashboard,quit])
+        .setup(|app| {
+            let service=service::Service::open(app.path().app_data_dir()?).map_err(|e|std::io::Error::other(e.to_string()))?;
+            let minimized=service.settings.start_minimized || std::env::args().any(|a|a=="--autostart");
+            let titles=service.settings.collect_titles;
+            app.manage(Mutex::new(service));
+            let (sender,receiver)=std::sync::mpsc::channel();
+            let collector=platform::MacCollector::new(sender);collector.start();collector.set_title_collection(titles);
+            let handle=app.handle().clone();
+            std::thread::Builder::new().name("habyss-tracking".into()).spawn(move || {
+                let mut last_emit=0;
+                for sample in receiver {
+                    let now=sample.utc;
+                    let state=handle.state::<Shared>();
+                    if let Ok(mut service)=state.lock() {if let Err(error)=service.observe(sample) {eprintln!("Tracking persistence failed: {error}");service.error=Some(error.to_string());}}
+                    if now-last_emit>=5000 {for label in ["main","panel"] {if let Some(w)=handle.get_webview_window(label) {if w.is_visible().unwrap_or(false){let _=w.emit("activity-updated",());}}}last_emit=now;}
+                }
+            })?;
+            let menu=tauri::menu::Menu::with_items(app,&[
+                &tauri::menu::MenuItem::with_id(app,"open","Open Habyss",true,None::<&str>)?,
+                &tauri::menu::MenuItem::with_id(app,"settings","Settings…",true,None::<&str>)?,
+                &tauri::menu::MenuItem::with_id(app,"quit","Quit Habyss",true,None::<&str>)?,
+            ])?;
+            tauri::tray::TrayIconBuilder::with_id("habyss")
+                .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?)
+                .icon_as_template(true).tooltip("Habyss • Local activity tracking").menu(&menu).show_menu_on_left_click(false)
+                .on_menu_event(|app,event|match event.id.as_ref(){"open"=>{let _=open_dashboard(app.clone(),None);},"settings"=>{let _=open_dashboard(app.clone(),Some("Settings".into()));},"quit"=>{if let Err(e)=quit(app.clone(),app.state()){eprintln!("Quit failed: {e}");}},_=>{}})
+                .on_tray_icon_event(|tray,event| {
+                    if let tauri::tray::TrayIconEvent::Click{button:tauri::tray::MouseButton::Left,button_state:tauri::tray::MouseButtonState::Up,rect,..}=event {
+                        if let Some(panel)=tray.app_handle().get_webview_window("panel") {
+                            if panel.is_visible().unwrap_or(false){let _=panel.hide();return;}
+                            let scale=panel.scale_factor().unwrap_or(1.0);
+                            let pos=rect.position.to_physical::<f64>(scale);let size=rect.size.to_physical::<f64>(scale);
+                            let mut x=pos.x+size.width/2.0-180.0*scale;
+                            if let Ok(Some(monitor))=panel.monitor_from_point(pos.x,pos.y){let left=monitor.position().x as f64;let right=left+monitor.size().width as f64;x=x.max(left).min(right-360.0*scale);}
+                            let _=panel.set_position(tauri::PhysicalPosition::new(x,pos.y+size.height+8.0));let _=panel.show();let _=panel.set_focus();
+                        }
+                    }
+                }).build(app)?;
+            if minimized {if let Some(w)=app.get_webview_window("main"){w.hide()?;}}
+            Ok(())
+        })
+        .on_window_event(|window,event|match event {
+            tauri::WindowEvent::CloseRequested{api,..}=>{api.prevent_close();let _=window.hide();},
+            tauri::WindowEvent::Focused(false) if window.label()=="panel"=>{let _=window.hide();},_=>{}
+        })
+        .build(tauri::generate_context!()).expect("Habyss initialization failed")
+        .run(|app,event|match event {
+            tauri::RunEvent::Exit=>{let state=app.state::<Shared>();if let Ok(mut s)=state.lock(){if let Err(e)=s.shutdown(){eprintln!("Final checkpoint failed: {e}");}};},
+            tauri::RunEvent::Opened{urls}=>{let focus=urls.iter().any(|u|u.host_str()==Some("focus"));let _=open_dashboard(app.clone(),Some(if focus{"Focus"}else{"Dashboard"}.into()));},_=>{}
+        });
+}
