@@ -57,6 +57,9 @@ impl Auth {
             Err(e) => Err(e),
         }
     }
+    pub async fn user_id(&self) -> Option<String> { self.session.lock().await.as_ref().map(|s| s.user_id.clone()) }
+    /// The server rejected the access token: the next `token()` refreshes it.
+    pub async fn expire(&self) { if let Some(s) = self.session.lock().await.as_mut() { s.expires_at = 0; } }
     pub async fn token(&self) -> std::result::Result<String, CloudError> {
         let mut guard = self.session.lock().await;
         if let Some(s) = guard.as_ref() { if s.expires_at - now() >= 60 { return Ok(s.access_token.clone()); } }

@@ -68,7 +68,8 @@ impl Client {
     fn parse(body: &str) -> Value { serde_json::from_str(body).unwrap_or(Value::Null) }
     pub async fn select(&self, token: &str, table: &str, query: &[(String, String)]) -> Result<Vec<Value>, CloudError> {
         let body = self.send(self.request(Method::GET, &format!("rest/v1/{table}"), Some(token)).query(query)).await?;
-        Ok(match Self::parse(&body) { Value::Array(rows) => rows, _ => vec![] })
+        // A 2xx body that is not rows must not read as "no more rows", or a download would advance past them.
+        match Self::parse(&body) { Value::Array(rows) => Ok(rows), _ => Err(CloudError::Server { status: 200, code: "bad_body".into(), message: "response was not a list of rows".into() }) }
     }
     pub async fn upsert(&self, token: &str, table: &str, on_conflict: &str, rows: &[Value]) -> Result<(), CloudError> {
         self.send(self.request(Method::POST, &format!("rest/v1/{table}"), Some(token)).query(&[("on_conflict", on_conflict)]).header("Prefer", "resolution=merge-duplicates,return=minimal").json(rows)).await.map(|_| ())
@@ -107,5 +108,11 @@ mod tests {
         let c=Client::new(Config{url:server.url(),key:"k".into()});
         c.select("t","habits",&pull_query("u",Some("2026-11-02T10:00:00+00:00"),None,1000)).await.unwrap();
         m.assert_async().await;
+    }
+    #[tokio::test] async fn select_rejects_a_body_that_is_not_rows() {
+        let mut server=mockito::Server::new_async().await;
+        server.mock("GET","/rest/v1/habits").with_body("{}").create_async().await;
+        let c=Client::new(Config{url:server.url(),key:"k".into()});
+        assert!(matches!(c.select("t","habits",&[]).await,Err(CloudError::Server{code,..}) if code=="bad_body"));
     }
 }
