@@ -68,6 +68,8 @@ impl Plan {
         ];
         due.into_iter().flatten().min().map(|t| t - now)
     }
+    /// The launch pass: it also counts as the focus pass, since the window usually gains focus as the app opens.
+    pub(crate) fn launch(&mut self, now: i64) { self.immediate = true; self.last_focus = Some(now); }
     pub(crate) fn start(&mut self) { (self.immediate, self.edit, self.remote, self.periodic) = (false, None, None, None); }
     /// After a pass: every 5 min while signed in, every 30 s while offline (a success is how a regained network shows), never while signed out.
     pub(crate) fn finish(&mut self, state: &str, now: i64) {
@@ -118,7 +120,7 @@ pub async fn run(app: tauri::AppHandle, cloud: Arc<Cloud>, mut rx: UnboundedRece
     let remote = cloud.nudge.clone();
     tauri::async_runtime::spawn(realtime::follow(cloud.client.config.clone(), cloud.auth.clone(), wake.clone(), move || { let _ = remote.send(Nudge::Remote); }));
     let mut plan = Plan::default();
-    plan.on(Nudge::SignedIn, now_ms());
+    plan.launch(now_ms());
     let mut open = true;
     let take = |plan: &mut Plan, n: Nudge| {
         if matches!(n, Nudge::SignedIn | Nudge::SignedOut) { wake.notify_one(); }
@@ -189,6 +191,12 @@ mod tests {
         let passes = simulate(&mut Plan::default(), 130_000, |p, t| if t % 10_000 == 0 { p.on(Nudge::Focus, t) });
         // 300 000 ms periodic passes never fall inside this window, so these are all focus passes.
         assert_eq!(passes, [0, 60_000, 120_000]);
+    }
+    #[test] fn launch_pass_counts_as_the_focus_pass() {
+        let mut p = Plan::default();
+        p.launch(0);
+        let passes = simulate(&mut p, 70_000, |p, t| if t == 500 || t == 60_000 { p.on(Nudge::Focus, t) });
+        assert_eq!(passes, [0, 60_000]);
     }
     #[test] fn nudges_during_a_pass_schedule_exactly_one_more() {
         let mut p = Plan::default();

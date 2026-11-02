@@ -15,6 +15,8 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 /// How often the session is checked for a refreshed token, and how long to wait while signed out.
 const RECHECK: Duration = Duration::from_secs(60);
 const MAX_BACKOFF: u64 = 60;
+/// A joined connection that lasted this long counts as healthy: the next retry starts again at 1 s.
+const STABLE_MS: i64 = 30_000;
 
 fn socket_url(config: &Config) -> String {
     let host = config.url.replacen("https://", "wss://", 1).replacen("http://", "ws://", 1);
@@ -27,8 +29,9 @@ pub fn join_payload(user_id: &str, token: &str) -> Value {
     json!({"config": {"broadcast": {"self": false}, "presence": {"key": ""}, "postgres_changes": changes}, "access_token": token})
 }
 
-/// Retry delay after a failed connection: 1, 2, 4 … up to 60 s.
-pub fn next_backoff(secs: u64) -> u64 { (secs * 2).clamp(1, MAX_BACKOFF) }
+/// Seconds to wait before reconnecting, given the previous wait (0 at first). A connection that joined and stayed up
+/// for 30 s resets it to 1; anything else (a failed connect or join, or a join the server drops at once) doubles it, up to 60.
+pub fn next_backoff(prev: u64, uptime_ms: i64, ok: bool) -> u64 { if ok && uptime_ms >= STABLE_MS { 1 } else { (prev * 2).clamp(1, MAX_BACKOFF) } }
 
 fn offline<E>(_: E) -> CloudError { CloudError::Offline }
 fn refused(why: &str) -> CloudError { CloudError::Server { status: 0, code: "realtime".into(), message: why.into() } }
@@ -65,6 +68,8 @@ pub async fn realtime(config: Config, token: String, user_id: String, on_change:
                     }
                     (Some(TOPIC), Some("postgres_changes")) => on_change(),
                     (Some(TOPIC), Some("phx_error" | "phx_close")) => break,
+                    // The payload can name tables or echo the filter; only the fact is logged.
+                    (Some(TOPIC), Some("system")) if v["payload"]["status"] == "error" => eprintln!("[realtime] server reported an error"),
                     _ => {}
                 }
             }
@@ -85,22 +90,24 @@ async fn session_changed(auth: &Auth, token: &str, wake: &Notify) {
 
 /// Keeps one Realtime connection open while signed in, rejoining with the fresh token after each refresh.
 pub async fn follow(config: Config, auth: Arc<Auth>, wake: Arc<Notify>, on_change: impl Fn()) {
-    let mut backoff = 1;
+    let mut backoff = 0;
     loop {
         let session = match auth.token().await { Ok(t) => auth.user_id().await.map(|u| (t, u)), Err(_) => None };
         let Some((token, user_id)) = session else {
             tokio::select! { _ = sleep(RECHECK) => {}, _ = wake.notified() => {} }
             continue;
         };
+        let started = Instant::now();
         tokio::select! {
             r = realtime(config.clone(), token.clone(), user_id, &on_change) => {
-                let wait = match r {
-                    Ok(()) => { backoff = 1; eprintln!("[realtime] disconnected; reconnecting"); 1 }
-                    Err(e) => { eprintln!("[realtime] connection failed ({e}); retrying in {backoff}s"); let w = backoff; backoff = next_backoff(backoff); w }
-                };
-                tokio::select! { _ = sleep(Duration::from_secs(wait)) => {}, _ = wake.notified() => {} }
+                backoff = next_backoff(backoff, started.elapsed().as_millis() as i64, r.is_ok());
+                match r {
+                    Ok(()) => eprintln!("[realtime] disconnected; reconnecting in {backoff}s"),
+                    Err(e) => eprintln!("[realtime] connection failed ({e}); retrying in {backoff}s"),
+                }
+                tokio::select! { _ = sleep(Duration::from_secs(backoff)) => {}, _ = wake.notified() => {} }
             }
-            _ = session_changed(&auth, &token, &wake) => { backoff = 1; eprintln!("[realtime] session changed; reconnecting"); }
+            _ = session_changed(&auth, &token, &wake) => { backoff = 0; eprintln!("[realtime] session changed; reconnecting"); }
         }
     }
 }
@@ -122,9 +129,19 @@ mod tests {
         assert_eq!(socket_url(&Config { url: "https://x.supabase.co".into(), key: "k".into() }), "wss://x.supabase.co/realtime/v1/websocket?apikey=k&vsn=1.0.0");
     }
     #[test] fn backoff_doubles_up_to_a_minute() {
-        let mut s = 1; let mut seen = vec![];
-        for _ in 0..8 { seen.push(s); s = next_backoff(s); }
+        let (mut s, mut seen) = (0, vec![]);
+        for _ in 0..8 { s = next_backoff(s, 0, false); seen.push(s); }
         assert_eq!(seen, [1, 2, 4, 8, 16, 32, 60, 60]);
+    }
+    #[test] fn backoff_survives_flapping_joins() {
+        // Joined, then dropped at once: still backs off.
+        let (mut s, mut seen) = (0, vec![]);
+        for _ in 0..4 { s = next_backoff(s, 200, true); seen.push(s); }
+        assert_eq!(seen, [1, 2, 4, 8]);
+        assert_eq!(next_backoff(60, 29_999, true), 60);
+        // Only a connection that stayed up 30 s resets it.
+        assert_eq!(next_backoff(60, 30_000, true), 1);
+        assert_eq!(next_backoff(60, 120_000, false), 60);
     }
     #[tokio::test] async fn joins_then_reports_each_change() {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
