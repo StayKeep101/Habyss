@@ -65,6 +65,31 @@ describe('buildToday', () => {
         expect(today.goalsTotal).toBe(2);
         expect(today.goalsDone).toBe(today.goals.filter(g => g.percent === 100).length);
     });
+    it('done_time_uses_created_at_on_the_same_day_only', () => {
+        const base = { habits: [habit('h')] };
+        const end = (c: CompletionRow) => build(cloud({ ...base, completions: [c] }), at(TODAY, 12)).items[0].end;
+        // 07:00 start, 30 min long; ticked 07:10 ends at 07:10, a later updated_at does not move it.
+        expect(end(done('h', TODAY, { created_at: `${TODAY}T07:10:00`, updated_at: `${TODAY}T07:25:00` }))).toBe(430);
+        expect(end(done('h', TODAY, { created_at: '2026-11-01T07:10:00', updated_at: `${TODAY}T07:10:00` }))).toBe(450);
+    });
+    it('skipped_completion_is_marked_and_not_counted', () => {
+        const data = cloud({ habits: [habit('a'), habit('b')], completions: [done('a', TODAY, { skipped: 1 })] });
+        const today = build(data, at(TODAY));
+        const a = today.items.find(i => i.id === 'a');
+        expect(a).toMatchObject({ skipped: true, done: false });
+        expect(today.total).toBe(1);
+    });
+    it('goals_done_counts_goals_at_100', () => {
+        const goal = (id: string) => habit(id, { is_goal: 1, start_date: '2026-11-01', target_date: '2026-11-02' });
+        const data = cloud({
+            habits: [goal('won'), goal('open'), habit('h1', { goal_id: 'won' }), habit('h2', { goal_id: 'open' })],
+            completions: [done('h1', '2026-11-01'), done('h1', TODAY), done('h2', TODAY)],
+        });
+        const today = build(data, at(TODAY));
+        expect(today.goals.find(g => g.id === 'won')?.percent).toBe(100);
+        expect(today.goalsDone).toBe(1);
+        expect(today.goalsTotal).toBe(2);
+    });
     it('signed_out_gives_empty_model', () => {
         const data = cloud({ habits: [habit('h')], completions: [done('h', TODAY)] });
         const today = build(data, at(TODAY), false);
