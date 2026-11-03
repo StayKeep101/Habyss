@@ -13,11 +13,12 @@ export function Account() {
     const s = status;
     const body = !s ? <p className="muted">Loading…</p>
         : s.state === 'unconfigured' ? <p className="muted">Sync isn't set up in this build.</p>
-        : s.state === 'signed_out' ? <div className="delete-confirm">
-            <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)}/></label>
+        : s.state === 'signed_out' ? <div className="sync-form">
+            <label>Email<input type="email" disabled={sent} value={email} onChange={e => setEmail(e.target.value)}/></label>
             {usePassword ? <><label>Password<input type="password" value={password} onChange={e => setPassword(e.target.value)}/></label><button className="primary" disabled={busy || !email || !password} onClick={() => void run(async () => { await invoke('cloud_sign_in_password', { email, password }); setPassword(''); })}>Sign in</button></>
                 : <>{sent && <label>6-digit code<input inputMode="numeric" maxLength={6} value={code} onChange={e => setCode(e.target.value)}/></label>}
-                    {sent ? <button className="primary" disabled={busy || code.length !== 6} onClick={() => void run(async () => { await invoke('cloud_verify_code', { email, code }); setCode(''); setSent(false); })}>Verify</button> : <button className="primary" disabled={busy || !email} onClick={() => void send()}>Send code</button>}</>}
+                    {sent && <button onClick={() => { setSent(false); setCode(''); setError(''); }}>Use a different email</button>}
+                    {sent ? <button className="primary" disabled={busy || !/^\d{6}$/.test(code)} onClick={() => void run(async () => { await invoke('cloud_verify_code', { email, code }); setCode(''); setSent(false); })}>Verify</button> : <button className="primary" disabled={busy || !email} onClick={() => void send()}>Send code</button>}</>}
             <button className="link" onClick={() => setUsePassword(!usePassword)}>{usePassword ? 'Use a code instead' : 'Use a password instead'}</button>
         </div>
         : <>
@@ -25,6 +26,6 @@ export function Account() {
             {s.pending > 0 && <p className="muted">{s.pending} changes waiting</p>}
             {s.refused > 0 && <p className="muted">{s.refused} changes couldn't sync</p>}
         </>;
-    const shown = error || ((s?.state === 'offline' || s?.state === 'error' || s?.error) && s?.error) || '';
+    const shown = error || s?.error || '';
     return <section className="card"><CardTitle title="Habyss account" detail="Habits, goals and tasks sync with your account"/>{body}{shown && <p role="alert" className="error">{shown}</p>}</section>;
 }
