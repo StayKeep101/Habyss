@@ -3,6 +3,7 @@ import { rowToHabit, rowToTask } from '../shared/rows';
 import { isHabitScheduledForDate, localDateKey, setHistory } from '../shared/habitSchedule';
 import { flowDay, flowInputs } from '../shared/dayFlow';
 import { streakFrom, tallyDay } from '../shared/dayComplete';
+import { tasksForDay } from '../shared/tasks';
 import { goalProgress } from '../shared/goalInsights';
 export interface TodayItem { id: string; kind: 'habit' | 'task'; title: string; done: boolean; skipped: boolean; start: number; end: number; state: 'done' | 'now' | 'next' | 'later'; locked: boolean; icon?: string; color?: string; goalId?: string }
 export interface GoalSummary { id: string; name: string; percent: number; icon?: string; color?: string }
@@ -35,7 +36,8 @@ export function buildToday(data: CloudData | null, opts: { now: Date; signedIn: 
     const allTasks = data.tasks.filter(t => !t.deleted).map(rowToTask);
     const habits = allHabits.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, now));
     const doneToday = (t: { completedAt?: string }) => t.completedAt !== undefined && Number.isFinite(new Date(t.completedAt).getTime()) && localDateKey(new Date(t.completedAt)) === day;
-    const tasks = allTasks.filter(t => (t.status === 'open' || t.status === 'done') && (t.dueDate === day || (t.status === 'done' && doneToday(t))));
+    const onDay = new Set(tasksForDay(allTasks, day, day).map(t => t.id));
+    const tasks = allTasks.filter(t => onDay.has(t.id) || (t.status === 'done' && doneToday(t)));
     const done: Record<string, boolean> = {};
     for (const id of history[day] ?? [])
         done[id] = true;

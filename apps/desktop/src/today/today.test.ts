@@ -34,14 +34,18 @@ describe('buildToday', () => {
         expect(today.current?.id).toBe('t');
         expect(today.next?.id).toBe('h');
     });
+    it('overdue_and_undated_open_tasks_show_today', () => {
+        const data = cloud({ tasks: [task('overdue', { due_date: '2026-10-30' }), task('undated'), task('goal-todo', { goal_id: 'g' }), task('done-old', { due_date: '2026-10-30', status: 'done', completed_at: '2026-10-30T09:00:00' })] });
+        expect(build(data, at(TODAY)).items.map(i => i.id).sort()).toEqual(['overdue', 'undated']);
+    });
     it('midnight_rolls_the_day', () => {
-        const data = cloud({ tasks: [task('t', { due_date: TODAY })] });
+        const data = cloud({ tasks: [task('t', { due_date: TODAY }), task('n', { due_date: TOMORROW })] });
         const before = build(data, at(TODAY, 23, 59));
         const after = build(data, at('2026-11-03', 0, 1));
         expect(before.day).toBe(TODAY);
         expect(after.day).toBe(TOMORROW);
         expect(before.items.map(i => i.id)).toEqual(['t']);
-        expect(after.items).toEqual([]);
+        expect(after.items.map(i => i.id).sort()).toEqual(['n', 't']); // t is now overdue and carries over
     });
     it('streak_matches_shared_rule', () => {
         const data = cloud({ habits: [habit('h')], completions: [done('h', '2026-10-31'), done('h', '2026-11-01'), done('h', TODAY)] });
