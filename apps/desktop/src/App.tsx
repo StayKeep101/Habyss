@@ -11,6 +11,7 @@ import { Timeline } from './screens/Timeline';
 import { Focus } from './screens/Focus';
 import { SettingsView } from './screens/Settings';
 import { Onboarding } from './screens/Onboarding';
+import { applyTheme, themeForAppearance } from './theme/css';
 const sections: Screen[] = ['Dashboard', 'Timeline', 'Applications', 'Focus', 'Analytics', 'Settings'];
 const icons = [LayoutDashboard, Activity, Layers, Timer, BarChart3, Settings2];
 const categories = ['uncategorized', 'development', 'communication', 'research', 'design', 'personal'];
@@ -57,7 +58,7 @@ export default function App() {
         f();
     else
         dispose = f; }); return () => { cancelled = true; dispose?.(); }; }, []);
-    useEffect(() => { const mode = data?.settings.appearance ?? 'dark'; document.documentElement.dataset.theme = mode; }, [data?.settings.appearance]);
+    useEffect(() => { const mode = data?.settings.appearance ?? 'dark'; const apply = () => applyTheme(themeForAppearance(mode)); apply(); if (mode !== 'system') return; const mq = matchMedia('(prefers-color-scheme: light)'); mq.addEventListener('change', apply); return () => mq.removeEventListener('change', apply); }, [data?.settings.appearance]);
     useEffect(() => { function keys(e: KeyboardEvent) { if ((e.metaKey || e.ctrlKey) && e.key === ',') {
         e.preventDefault();
         setScreen('Settings');
