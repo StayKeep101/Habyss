@@ -145,4 +145,23 @@ describe('TodayPanel', () => {
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByText(/boom/)).toBeNull();
   });
+  it('snapshot_error_clears_after_a_successful_snapshot', async () => {
+    let n = 0;
+    wire({ snapshot: () => { if (n++ === 0) throw new Error('snap-fail'); return snap(); } });
+    render(<TodayPanel mode="menubar" />);
+    expect((await screen.findByRole('alert')).textContent).toContain('snap-fail');
+    fireEvent.click(await screen.findByRole('switch', { name: 'Focus Mode' })); // reloads the snapshot
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
+
+  it('unrelated_success_keeps_another_actions_error', async () => {
+    wire({ cloud_set_completion: () => { throw new Error('offline'); } });
+    render(<TodayPanel mode="menubar" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark Workout done' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('offline');
+    fireEvent.click(screen.getByRole('switch', { name: 'Focus Mode' }));
+    await waitFor(() => expect(called('start_focus')).toHaveLength(1));
+    await waitFor(() => expect(called('snapshot').length).toBeGreaterThan(1));
+    expect(screen.getByRole('alert').textContent).toContain('offline');
+  });
 });

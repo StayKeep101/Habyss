@@ -37,11 +37,12 @@ export function TodayPanel({ mode }: { mode: 'menubar' | 'window' }) {
   const [error, setError] = useState('');
   const [collapsed, setCollapsed] = useState(false);
 
+  const errorOwner = useRef('');
   const day = localDate(new Date(now));
   const loadSnap = useCallback(async () => {
     if (!isTauri()) return;
     const [from, to] = dayRange(localDate());
-    try { setSnap(await invoke<Snapshot>('snapshot', { from, to })); } catch (e) { setError(String(e)); }
+    try { setSnap(await invoke<Snapshot>('snapshot', { from, to })); if (errorOwner.current === 'snapshot') { errorOwner.current = ''; setError(''); } } catch (e) { errorOwner.current = 'snapshot'; setError(String(e)); }
   }, []);
   useEffect(() => {
     void loadSnap();
@@ -63,7 +64,6 @@ export function TodayPanel({ mode }: { mode: 'menubar' | 'window' }) {
   const classifiedMs = m.categories.reduce((n, [c, ms]) => n + (snap?.classifications[c] ? ms : 0), 0);
   const productive = classifiedMs > 0 && m.active > 0 ? `${Math.round(productiveMs / m.active * 100)}%` : '–';
 
-  const errorOwner = useRef('');
   /** Returns whether the command succeeded. Only the action that set the error clears it. */
   const run = async (cmd: string, args?: Record<string, unknown>, revert = false): Promise<boolean> => {
     try { await invoke(cmd, args); if (errorOwner.current === cmd) { errorOwner.current = ''; setError(''); } return true; }
