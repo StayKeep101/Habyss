@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { dayRange, focusElapsed, metrics, overlap } from './analytics';
+import { countdown, dayRange, focusElapsed, metrics, overlap } from './analytics';
 import type { Interval } from './types';
 const interval = (start: number, end: number, bundle: string, state = 'active'): Interval => ({ id: String(start), application_id: bundle, bundle_id: bundle, name: bundle, title: null, start, end, state, category: 'research', availability: 'app_only', pid: 1, window_id: null });
 describe('observed analytics', () => {
@@ -33,4 +33,10 @@ it('clips local days correctly across DST and timezone changes', () => {
         expect(utcEnd-utcStart).toBe(24*3600000);
         expect(utcStart).not.toBe(fallStart);
     } finally { vi.unstubAllEnvs(); }
+});
+describe('countdown', () => {
+    it('rounds_remaining_time_up_like_the_tray', () => {
+        // focus.rs title_formats: 25:00 at the start, 00:01 with 999 ms left.
+        expect([countdown(1_500_000), countdown(1_499_999), countdown(999), countdown(0), countdown(-5)]).toEqual(['25:00', '25:00', '00:01', '00:00', '00:00']);
+    });
 });

@@ -15,7 +15,8 @@
 .tp-row.done .tp-row-title { text-decoration: line-through; color: var(--text-subtle); }
 .tp-check { display: grid; place-items: center; width: 44px; height: 44px; margin-left: calc(var(--space-md) * -1); border: 0; padding: 0; background: transparent; color: var(--text-muted); cursor: pointer; }
 .tp-row.done .tp-check { color: var(--accent); }
-.tp-check:focus-visible, .fc-round:focus-visible, .fc-step:focus-visible, .fc-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tp-check:focus-visible, .fc-round:focus-visible, .fc-step:focus-visible, .fc-switch:focus-visible::before { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fc-switch:focus-visible { outline: none; }
 .tp-when { font: 400 12px/1.3 var(--font-body); color: var(--text-muted); white-space: nowrap; }
 .tp-time { padding: var(--space-md); }
 .tp-time.now { box-shadow: inset 0 0 0 1px var(--accent); }
@@ -31,9 +32,11 @@
 .tp-stat strong { font: 700 16px/1 var(--font-display); color: var(--text); } .tp-stat small { grid-column: 3; grid-row: 1; font-size: 12px; } .tp-stat strong { grid-column: 2; }
 
 /* FocusControls */
-.fc-switch { position: relative; width: 44px; height: 26px; padding: 0; border: 0; border-radius: var(--radius-pill); background: var(--line); cursor: pointer; transition: background var(--dur-quick) var(--ease-enter); }
-.fc-switch[aria-checked='true'] { background: var(--accent); }
-.fc-knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--text); transition: transform var(--dur-quick) var(--ease-move); }
+.fc-switch { position: relative; flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-pill); background: transparent; cursor: pointer; }
+/* The button is the 44 px hit target; the visible track is 26 px tall inside it. */
+.fc-switch::before { content: ''; position: absolute; inset: 9px 0; border-radius: var(--radius-pill); background: var(--line); transition: background var(--dur-quick) var(--ease-enter); }
+.fc-switch[aria-checked='true']::before { background: var(--accent); }
+.fc-knob { position: absolute; top: 12px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--text); transition: transform var(--dur-quick) var(--ease-move); }
 .fc-switch[aria-checked='true'] .fc-knob { transform: translateX(18px); }
 .fc-full { display: flex; flex-direction: column; align-items: center; gap: var(--space-md); }
 .fc-clock { font: 700 48px/1 var(--font-display); font-variant-numeric: tabular-nums; color: var(--text); }
@@ -43,4 +46,4 @@
 .fc-row { display: flex; align-items: center; gap: var(--space-lg); }
 .fc-round { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: var(--surface-raised); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; }
 .fc-round.primary { width: 56px; height: 56px; background: var(--accent); color: var(--bg); }
-@media (prefers-reduced-motion: reduce) { .fc-switch, .fc-knob { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .fc-switch::before, .fc-knob { transition: none; } }

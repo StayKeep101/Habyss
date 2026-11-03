@@ -6,6 +6,10 @@ export function dayRange(date: string): [
 ] { const [y, m, d] = date.split('-').map(Number); return [new Date(y, m - 1, d).getTime(), new Date(y, m - 1, d + 1).getTime()]; }
 export function localDate(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
 export function duration(ms: number) { const mins = Math.floor(Math.max(0, ms) / 60000); return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`; }
+/** The length of a new focus session. */
+export const FOCUS_MINUTES = 25;
+/** Remaining focus time as MM:SS, rounded up to the second like the menu bar title (focus.rs tray_title, `+999`). */
+export function countdown(ms: number) { return precise(Math.ceil(Math.max(0, ms) / 1000) * 1000); }
 export function precise(ms: number) { const secs = Math.floor(Math.max(0, ms) / 1000); return `${Math.floor(secs / 60).toString().padStart(2, '0')}:${(secs % 60).toString().padStart(2, '0')}`; }
 /** Active focus ms: wall time minus stored pauses and any open pause; mirrors focus.rs focus_elapsed. */
 export function focusElapsed(f: FocusSession, now: number): number {

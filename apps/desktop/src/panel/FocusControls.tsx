@@ -1,5 +1,5 @@
 import type { FocusSession } from '../types';
-import { focusElapsed, precise } from '../analytics';
+import { countdown, FOCUS_MINUTES, focusElapsed, precise } from '../analytics';
 import { AppIcon } from '../ui';
 
 export interface FocusControlsProps {
@@ -23,6 +23,10 @@ export function focusClock(s: FocusSession, now: number): number {
   const elapsed = focusElapsed(s, now);
   return s.target_ms > 0 ? Math.max(0, s.target_ms - elapsed) : elapsed;
 }
+/** The clock text: remaining time rounds up, as the menu bar does; elapsed time rounds down. */
+export function focusClockText(s: FocusSession, now: number): string {
+  return s.target_ms > 0 ? countdown(focusClock(s, now)) : precise(focusClock(s, now));
+}
 
 const Round = ({ icon, label, onClick, primary = false }: { icon: 'stop' | 'play' | 'pause' | 'play-skip-forward'; label: string; onClick: () => void; primary?: boolean }) => (
   <button type="button" className={`fc-round${primary ? ' primary' : ''}`} aria-label={label} title={label} onClick={onClick}><AppIcon name={icon} size={primary ? 26 : 20} filled={primary} /></button>
@@ -42,12 +46,12 @@ export function FocusControls(p: FocusControlsProps) {
   );
   if (!p.session) {
     // Idle: previous and next pick the item that play will focus on.
-    return <div className="fc-full"><div className="fc-clock">25:00</div>{nav(p.label ?? 'Focus')}<div className="fc-row"><Round icon="play" label="Start focus" onClick={p.onStart} primary /></div></div>;
+    return <div className="fc-full"><div className="fc-clock">{countdown(FOCUS_MINUTES * 60000)}</div>{nav(p.label ?? 'Focus')}<div className="fc-row"><Round icon="play" label="Start focus" onClick={p.onStart} primary /></div></div>;
   }
   const paused = p.session.paused_at !== null;
   return (
     <div className="fc-full">
-      <div className="fc-clock" aria-live="off">{precise(focusClock(p.session, p.now))}</div>
+      <div className="fc-clock" aria-live="off">{focusClockText(p.session, p.now)}</div>
       {nav(p.session.label)}
       <div className="fc-row">
         <Round icon="stop" label="Stop focus" onClick={p.onStop} />
