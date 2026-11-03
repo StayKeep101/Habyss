@@ -301,19 +301,21 @@ mod tests {
     }
 
     #[test]
-    fn migration_002_is_idempotent_and_version_is_2() {
+    fn migration_002_is_idempotent_and_recorded_without_raising_user_version() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("db");
         drop(Store::open(&path).unwrap());
         let s = Store::open(&path).unwrap();
-        assert_eq!(s.conn.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0)).unwrap(), 2);
+        s.conn.execute_batch(include_str!("../../migrations/002_cloud.sql")).unwrap();
+        assert_eq!(s.conn.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0)).unwrap(), 1);
+        assert_eq!(s.conn.query_row("SELECT COUNT(*) FROM schema_migrations WHERE version=2", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
     }
 
     #[test]
     fn every_to_local_key_is_a_real_column() {
         let all = json!({"id": "x", "priority": 1, "difficulty": 1, "flexible": true, "subtasks": "[]", "deadline": "2026-01-01", "section": "s"});
         for (t, out) in [(Table::Habits, habit_to_local(&all)), (Table::Completions, completion_to_local(&all)), (Table::Tasks, task_to_local(&all)), (Table::Milestones, milestone_to_local(&all))] {
-            let cols = columns(&Connection::open_in_memory().and_then(|c| { c.execute_batch(include_str!("../../migrations/002_cloud.sql"))?; Ok(c) }).unwrap(), t).unwrap();
+            let cols = columns(&Connection::open_in_memory().and_then(|c| { c.execute_batch(include_str!("../../migrations/001_initial.sql"))?; c.execute_batch(include_str!("../../migrations/002_cloud.sql"))?; Ok(c) }).unwrap(), t).unwrap();
             for k in out.as_object().unwrap().keys() { assert!(cols.contains(k), "{} lacks column {k}", t.local()); }
         }
     }

@@ -1,5 +1,6 @@
 -- Local mirror of the signed-in account's Supabase rows. Column names are the keys of cloud::mapping::*_to_local.
--- Idempotent: runs on every open, after 001 (which resets user_version to 1).
+-- Idempotent: runs on every open, after 001. It is additive, so user_version stays 1 (older builds refuse anything above 1
+-- and must still open this file); the migration is recorded in schema_migrations instead.
 CREATE TABLE IF NOT EXISTS cloud_habits(
   id TEXT PRIMARY KEY, user_id TEXT, name TEXT, description TEXT, category TEXT, icon TEXT,
   is_goal INTEGER, target_date TEXT, goal_id TEXT, task_days TEXT, reminders TEXT, start_date TEXT, end_date TEXT,
@@ -39,4 +40,4 @@ CREATE INDEX IF NOT EXISTS cloud_habits_synced ON cloud_habits(synced);
 CREATE INDEX IF NOT EXISTS cloud_completions_synced ON cloud_completions(synced);
 CREATE INDEX IF NOT EXISTS cloud_tasks_synced ON cloud_tasks(synced);
 CREATE INDEX IF NOT EXISTS cloud_milestones_synced ON cloud_milestones(synced);
-PRAGMA user_version = 2;
+INSERT OR IGNORE INTO schema_migrations VALUES(2,CAST(strftime('%s','now') AS INTEGER)*1000);

@@ -9,8 +9,12 @@ impl Store {
         let conn = Connection::open(path)?;
         conn.busy_timeout(std::time::Duration::from_secs(2))?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA secure_delete=ON;")?;
+        // user_version only rises for a change older builds cannot read; additive migrations are recorded in schema_migrations.
+        // Pre-release cloud builds set it to 2 without recording anything past 1: that file is ours, and 001 puts it back to 1.
+        // So a future breaking change must use 3 or more.
         let version: i64=conn.pragma_query_value(None,"user_version",|r|r.get(0))?;
-        if version>2 { return Err("Database was created by a newer Habyss version".into()); }
+        let ours=version==2 && conn.query_row("SELECT MAX(version) FROM schema_migrations",[],|r|r.get::<_,Option<i64>>(0)).ok().flatten()==Some(1);
+        if version>1 && !ours { return Err("Database was created by a newer Habyss version".into()); }
         conn.execute_batch(include_str!("../migrations/001_initial.sql"))?;
         conn.execute_batch(include_str!("../migrations/002_cloud.sql"))?;
         // Persisted open intervals already end at their last durable heartbeat.
@@ -68,6 +72,30 @@ fn insert_span(tx:&Transaction<'_>,id:&str,span:&Span,now:i64)->Result<()> {
         store.save_settings(&Settings { collect_titles: true, ..Settings::default() }).unwrap();
         drop(store);let store = Store::open(&path).unwrap();assert!(store.settings().unwrap().collect_titles);
         store.conn.pragma_update(None, "user_version", 999).unwrap();drop(store);
+        assert!(Store::open(&path).is_err());
+    }
+    fn version(s: &Store) -> (i64, Vec<i64>) {
+        let v = s.conn.pragma_query_value(None, "user_version", |r| r.get(0)).unwrap();
+        let mut q = s.conn.prepare("SELECT version FROM schema_migrations ORDER BY version").unwrap();
+        (v, q.query_map([], |r| r.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap())
+    }
+    #[test]
+    fn cloud_migration_keeps_the_file_readable_by_older_builds() {
+        let dir = tempfile::tempdir().unwrap();let path = dir.path().join("db");
+        drop(Store::open(&path).unwrap());
+        let s = Store::open(&path).unwrap();
+        // Older builds open anything up to user_version 1.
+        assert_eq!(version(&s), (1, vec![1, 2]));
+    }
+    #[test]
+    fn pre_release_version_2_opens_and_goes_back_to_1() {
+        let dir = tempfile::tempdir().unwrap();let path = dir.path().join("db");
+        let s = Store::open(&path).unwrap();
+        s.conn.execute_batch("DELETE FROM schema_migrations WHERE version=2; PRAGMA user_version=2;").unwrap();drop(s);
+        let s = Store::open(&path).unwrap();
+        assert_eq!(version(&s), (1, vec![1, 2]));
+        // A 2 from a genuinely newer schema, which records its own migrations, is still refused.
+        s.conn.execute_batch("INSERT INTO schema_migrations VALUES(3,0); PRAGMA user_version=2;").unwrap();drop(s);
         assert!(Store::open(&path).is_err());
     }
     #[test]
