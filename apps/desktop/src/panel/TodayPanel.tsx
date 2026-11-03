@@ -27,7 +27,7 @@ const tickHabit = (d: CloudData, habitId: string, date: string, on: boolean, at:
   return { ...d, completions: [...d.completions, row] };
 };
 
-export function TodayPanel({ mode }: { mode: 'menubar' | 'window' }) {
+export function TodayPanel({ mode, collapsed: controlled, onCollapsedChange }: { mode: 'menubar' | 'window'; collapsed?: boolean; onCollapsedChange?: (collapsed: boolean) => void }) {
   const cloud = useCloud();
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -35,7 +35,9 @@ export function TodayPanel({ mode }: { mode: 'menubar' | 'window' }) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
-  const [collapsed, setCollapsed] = useState(false);
+  const [inner, setInner] = useState(false);
+  const collapsed = controlled ?? inner;
+  const setCollapsed = (next: boolean) => { setInner(next); onCollapsedChange?.(next); };
 
   const errorOwner = useRef('');
   const day = localDate(new Date(now));

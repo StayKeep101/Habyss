@@ -60,7 +60,7 @@ export interface Snapshot {
     version: string;
     classifications: Record<string, 'productive' | 'neutral' | 'unproductive'>;
 }
-export type Screen = 'Dashboard' | 'Timeline' | 'Applications' | 'Focus' | 'Analytics' | 'Settings';
+export type Screen = 'Dashboard' | 'Calendar' | 'Progress' | 'Analytics' | 'Friends' | 'Profile' | 'Settings';
 export type Act = (command: string, args?: Record<string, unknown>) => Promise<void>;
 export interface SyncStatus { state: string; email: string | null; last_sync: string | null; pending: number; refused: number; error: string | null }
 export interface Cached<T> { value: T; fetched_at: string; stale: boolean }

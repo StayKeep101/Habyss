@@ -10,15 +10,22 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
         "title": "Habyss",
         "width": 1180,
         "height": 820,
-        "minWidth": 820,
-        "minHeight": 620,
+        "minWidth": 1180,
+        "minHeight": 760,
         "visible": true,
+        "transparent": true,
+        "windowEffects": {
+          "effects": [
+            "sidebar"
+          ]
+        },
         "titleBarStyle": "Overlay",
         "hiddenTitle": true
       },
