@@ -19,17 +19,27 @@ const IDLE_MS: i64 = 3_600_000;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Nudge { LocalEdit, Remote, Focus, Manual, SignedIn, SignedOut }
 
+/// `state` describes the latest pass and changes during one ("syncing"); `account` is the durable answer to "signed in?": an account is
+/// recorded on this Mac and a session or a saved sign-in is present. The app reads sign-in from `account`, never from `state`.
 #[derive(Serialize, Clone, Debug)]
-pub struct SyncStatus { pub state: String, pub email: Option<String>, pub last_sync: Option<String>, pub pending: i64, pub refused: i64, pub error: Option<String> }
+pub struct SyncStatus { pub state: String, pub account: bool, pub email: Option<String>, pub last_sync: Option<String>, pub pending: i64, pub refused: i64, pub error: Option<String> }
+impl SyncStatus { pub fn without_account(state: &str, error: Option<String>) -> SyncStatus { SyncStatus { state: state.into(), account: false, email: None, last_sync: None, pending: 0, refused: 0, error } } }
+pub const CLOUD_CHANGED: &str = "cloud-changed";
 
 pub struct Cloud { pub client: Arc<Client>, pub auth: Arc<Auth>, nudge: UnboundedSender<Nudge>, pub status: Arc<Mutex<SyncStatus>> }
 impl Cloud {
     pub fn new(client: Arc<Client>, auth: Arc<Auth>) -> (Arc<Cloud>, UnboundedReceiver<Nudge>) {
         let (tx, rx) = unbounded_channel();
-        let status = SyncStatus { state: "signed_out".into(), email: None, last_sync: None, pending: 0, refused: 0, error: None };
-        (Arc::new(Cloud { client, auth, nudge: tx, status: Arc::new(Mutex::new(status)) }), rx)
+        (Arc::new(Cloud { client, auth, nudge: tx, status: Arc::new(Mutex::new(SyncStatus::without_account("signed_out", None))) }), rx)
     }
     pub fn nudge(&self, n: Nudge) { let _ = self.nudge.send(n); }
+    /// The status before the first pass: still "signed_out" (Plan 1), but `account` already comes from the database and the Keychain,
+    /// so a signed-in user is not shown the sign-in prompt while the launch pass runs.
+    pub fn launch(&self, c: &Connection) {
+        let status = read_status(c, "signed_out", None, self.auth.has_saved_token()).unwrap_or_else(|e| { eprintln!("[sync] could not read the account: {e}"); SyncStatus::without_account("signed_out", None) });
+        if let Ok(mut s) = self.status.lock() { *s = status; }
+    }
+    pub(crate) fn set_account(&self, account: bool, email: Option<String>) { if let Ok(mut s) = self.status.lock() { s.account = account; if account { s.email = email; } } }
 }
 
 /// The app's database, locked only for the length of `f`.
@@ -91,21 +101,25 @@ fn state_after(error: Option<&str>, signed_in: bool, saved: bool) -> &'static st
 /// Not signed in, yet not signed out either: the session could not be restored for a reason other than the server rejecting it.
 fn restoring(state: &str, signed_in: bool) -> bool { state == "error" && !signed_in }
 
-fn read_status(c: &Connection, state: &str, error: Option<String>) -> Result<SyncStatus> {
+/// `credentials`: a live session or a saved refresh token. With a recorded account, that is "signed in".
+fn read_status(c: &Connection, state: &str, error: Option<String>, credentials: bool) -> Result<SyncStatus> {
     let (pending, refused) = mirror::counts(c)?;
-    let (email, last_sync) = c.query_row("SELECT email,last_sync FROM cloud_account WHERE id=1", [], |r| Ok((r.get(0)?, r.get(1)?))).optional()?.unwrap_or((None, None));
-    Ok(SyncStatus { state: state.into(), email, last_sync, pending, refused, error })
+    let row = c.query_row("SELECT email,last_sync FROM cloud_account WHERE id=1", [], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    let account = credentials && row.is_some();
+    let (email, last_sync) = row.unwrap_or((None, None));
+    Ok(SyncStatus { state: state.into(), account, email, last_sync, pending, refused, error })
 }
 
 /// One sync pass, then the status it leaves, which is also stored on `cloud`, and whether a saved sign-in is waiting to be restored.
 pub(crate) async fn pass(db: &impl Db, cloud: &Cloud) -> (SyncStatus, SyncReport, bool) {
     let report = run_sync(db, &cloud.client, &cloud.auth).await;
     let signed_in = cloud.auth.user_id().await.is_some();
-    let state = state_after(report.error.as_deref(), signed_in, !signed_in && cloud.auth.has_saved_token());
+    let credentials = signed_in || cloud.auth.has_saved_token();
+    let state = state_after(report.error.as_deref(), signed_in, !signed_in && credentials);
     let error = matches!(state, "offline" | "error").then(|| report.error.clone()).flatten();
-    let status = db.with(|c| read_status(c, state, error.clone())).unwrap_or_else(|e| {
+    let status = db.with(|c| read_status(c, state, error.clone(), credentials)).unwrap_or_else(|e| {
         eprintln!("[sync] could not read the sync status: {e}");
-        SyncStatus { state: state.into(), email: None, last_sync: None, pending: 0, refused: 0, error }
+        SyncStatus { account: credentials, ..SyncStatus::without_account(state, error) }
     });
     if let Ok(mut s) = cloud.status.lock() { *s = status.clone(); }
     let waiting = restoring(state, signed_in);
@@ -154,7 +168,7 @@ pub async fn run(app: tauri::AppHandle, cloud: Arc<Cloud>, mut rx: UnboundedRece
                 let Some((status, report, waiting)) = finished else { eprintln!("[sync] account changed; pass abandoned"); continue };
                 plan.finish(&status.state, waiting, now_ms());
                 publish(&app, &status);
-                if report.downloaded > 0 { let _ = app.emit("cloud-changed", ()); }
+                if report.downloaded > 0 { let _ = app.emit(CLOUD_CHANGED, ()); }
             }
             wait => {
                 if !open { return; }
@@ -255,6 +269,8 @@ mod tests {
         mirror::set_account(&store.conn, ME, None).unwrap();
         let (status, _, waiting) = pass(&TestDb(Mutex::new(store)), &cloud).await;
         assert_eq!((status.state.as_str(), waiting), ("error", true));
+        // Not signed in this run, but the saved sign-in still counts: no sign-in prompt while it is restored.
+        assert!(status.account);
         let mut p = Plan::default();
         p.finish(&status.state, waiting, 0);
         assert_eq!(p.wait(0), Some(OFFLINE_RETRY_MS));
@@ -271,6 +287,37 @@ mod tests {
         assert!(report.error.as_deref().unwrap().starts_with("No connection"));
         assert_eq!(status.state, "offline");
         assert_eq!(status.email.as_deref(), Some("me@example.com"));
+        assert!(status.account);
         assert_eq!(cloud.status.lock().unwrap().state, "offline");
+    }
+    fn plain_cloud(secret: Arc<MemorySecret>) -> Arc<Cloud> {
+        let client = Arc::new(Client::new(Config { url: "http://127.0.0.1:9".into(), key: "k".into() }));
+        Cloud::new(client.clone(), Arc::new(Auth::new(client, secret))).0
+    }
+    #[test] fn launch_status_reads_the_durable_account() {
+        let store = Store::open(Path::new(":memory:")).unwrap();
+        let secret = Arc::new(MemorySecret::default());
+        // Nothing recorded, nothing saved.
+        let cloud = plain_cloud(secret.clone());
+        cloud.launch(&store.conn);
+        let s = cloud.status.lock().unwrap().clone();
+        assert_eq!((s.state.as_str(), s.account), ("signed_out", false));
+        // A recorded account and a saved sign-in: signed in before the first pass, although the state still says signed_out.
+        mirror::set_account(&store.conn, ME, Some("me@example.com")).unwrap();
+        secret.set("rt").unwrap();
+        cloud.launch(&store.conn);
+        let s = cloud.status.lock().unwrap().clone();
+        assert_eq!((s.state.as_str(), s.account, s.email.as_deref()), ("signed_out", true, Some("me@example.com")));
+        // Signed out earlier: the mirror keeps the account row, but no sign-in is saved.
+        secret.clear().unwrap();
+        cloud.launch(&store.conn);
+        assert!(!cloud.status.lock().unwrap().account);
+    }
+    #[tokio::test] async fn a_pass_without_any_sign_in_has_no_account() {
+        let store = Store::open(Path::new(":memory:")).unwrap();
+        mirror::set_account(&store.conn, ME, Some("me@example.com")).unwrap();
+        let cloud = plain_cloud(Arc::new(MemorySecret::default()));
+        let (status, _, _) = pass(&TestDb(Mutex::new(store)), &cloud).await;
+        assert_eq!((status.state.as_str(), status.account), ("signed_out", false));
     }
 }

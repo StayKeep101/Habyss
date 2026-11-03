@@ -1,12 +1,12 @@
 //! Tauri commands for the account, the mirrored data and the server's RPCs. The logic is in functions over `&Connection` (tested here); the commands only fetch, lock and nudge.
 //! Every write saves locally first, so it works offline, then nudges the runner.
-use super::{client::CloudError, mapping::is_uuid, mirror::{self, Table}, runner::{Cloud, Nudge, SyncStatus}, sync::Db};
+use super::{client::CloudError, mapping::is_uuid, mirror::{self, Table}, runner::{Cloud, Nudge, SyncStatus, CLOUD_CHANGED}, sync::Db};
 use crate::storage::Result as Stored;
 use rusqlite::{Connection, OptionalExtension};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 type Result<T> = std::result::Result<T, String>;
 const UNCONFIGURED: &str = "Sync isn't set up in this build.";
@@ -108,20 +108,21 @@ pub(crate) fn rpc_result(c: &Connection, key: &str, fetched: std::result::Result
 
 fn cloud(app: &tauri::AppHandle) -> Result<Arc<Cloud>> { app.try_state::<Arc<Cloud>>().map(|c| c.inner().clone()).ok_or_else(|| UNCONFIGURED.to_string()) }
 fn db<T>(app: &tauri::AppHandle, f: impl FnOnce(&Connection) -> Stored<T>) -> Result<T> { Db::with(app, f).map_err(|e| e.to_string()) }
-/// A write that is saved locally, then synced soon.
+/// Runs a local write, then `saved` only if it succeeded.
+pub(crate) fn after_write<T>(write: impl FnOnce() -> Result<T>, saved: impl FnOnce()) -> Result<T> { let out = write()?; saved(); Ok(out) }
+/// A write that is saved locally, then synced soon. Every window (the main one and the menu bar panel) is told at once, so none
+/// shows the old data until the next download.
 fn edit<T>(app: &tauri::AppHandle, f: impl FnOnce(&Connection) -> Stored<T>) -> Result<T> {
     let cloud = cloud(app)?;
-    let out = db(app, f)?;
-    cloud.nudge(Nudge::LocalEdit);
-    Ok(out)
+    after_write(|| db(app, f), || { cloud.nudge(Nudge::LocalEdit); let _ = app.emit(CLOUD_CHANGED, ()); })
 }
 fn failed(e: CloudError) -> String { match e { CloudError::Offline => "Needs a connection".into(), e => e.to_string() } }
 
 #[tauri::command]
 pub fn cloud_status(app: tauri::AppHandle) -> SyncStatus {
     match cloud(&app) {
-        Ok(c) => c.status.lock().map(|s| s.clone()).unwrap_or_else(|_| SyncStatus { state: "error".into(), email: None, last_sync: None, pending: 0, refused: 0, error: Some("Status unavailable".into()) }),
-        Err(_) => SyncStatus { state: "unconfigured".into(), email: None, last_sync: None, pending: 0, refused: 0, error: None },
+        Ok(c) => c.status.lock().map(|s| s.clone()).unwrap_or_else(|_| SyncStatus::without_account("error", Some("Status unavailable".into()))),
+        Err(_) => SyncStatus::without_account("unconfigured", None),
     }
 }
 
@@ -136,6 +137,7 @@ async fn signed_in(d: &impl Db, cloud: &Cloud, session: super::auth::Session) ->
         if sign_out(cloud).await.is_err() { eprintln!("[auth] could not remove the saved sign-in from Keychain"); }
         return Err(e);
     }
+    cloud.set_account(true, session.email.clone());
     let query = vec![("select".to_string(), "*".to_string()), ("user_id".to_string(), format!("eq.{}", session.user_id))];
     if let Ok(rows) = cloud.client.select(&session.access_token, "personal_backups", &query).await {
         let rows = Value::Array(rows);
@@ -148,6 +150,7 @@ async fn signed_in(d: &impl Db, cloud: &Cloud, session: super::auth::Session) ->
 /// Signs out of this run even if the Keychain refuses, and says so: the saved sign-in would bring the account back at the next launch.
 async fn sign_out(cloud: &Cloud) -> Result<()> {
     let cleared = cloud.auth.sign_out().await;
+    cloud.set_account(false, None);
     cloud.nudge(Nudge::SignedOut);
     cleared.map_err(|_| KEYCHAIN.to_string())
 }
@@ -361,15 +364,40 @@ mod tests {
         let d = TestDb(Mutex::new(Store::open(Path::new(":memory:")).unwrap()));
         signed_in(&d, &cloud, session()).await.unwrap();
         assert_eq!((d.with(mirror::account).unwrap().map(|a| a.0), cloud.auth.user_id().await), (Some("u2".into()), Some("u2".into())));
+        assert!(cloud.status.lock().unwrap().account);
     }
 
     #[tokio::test]
     async fn sign_out_reports_a_keychain_failure() {
         let cloud = offline_cloud(Arc::new(StuckSecret));
         cloud.auth.set_session(session()).await;
+        cloud.set_account(true, None);
         assert_eq!(sign_out(&cloud).await.unwrap_err(), KEYCHAIN);
         assert!(cloud.auth.user_id().await.is_none());
+        assert!(!cloud.status.lock().unwrap().account);
         assert!(sign_out(&offline_cloud(Arc::new(MemorySecret::default()))).await.is_ok());
+    }
+
+    #[test]
+    fn a_write_announces_itself_only_when_it_succeeds() {
+        let s = store();
+        let mut told = 0;
+        assert!(after_write(|| save(&s.conn, "tasks", json!({"title": "A"}), AT).map_err(|e| e.to_string()), || told += 1).is_ok());
+        assert_eq!(told, 1);
+        assert!(after_write(|| save(&s.conn, "tasks", json!({"id": "bad"}), AT).map_err(|e| e.to_string()), || told += 1).is_err());
+        assert_eq!(told, 1);
+    }
+
+    /// Every local write command goes through `edit`, which emits `cloud-changed` after the write.
+    #[test]
+    fn every_write_command_emits_cloud_changed() {
+        let src = include_str!("commands.rs");
+        let edit = &src[src.find("fn edit<T>").unwrap()..];
+        assert!(edit[..edit.find("\n}").unwrap()].contains("app.emit(CLOUD_CHANGED"));
+        for cmd in ["cloud_save", "cloud_delete", "cloud_set_completion", "cloud_set_task_done"] {
+            let body = &src[src.find(&format!("pub fn {cmd}(")).unwrap()..];
+            assert!(body[..body.find('\n').unwrap()].contains("edit(&app,"), "{cmd} must write through edit()");
+        }
     }
 
     #[test]

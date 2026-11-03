@@ -25,6 +25,7 @@ pub fn run() {
                 let client=Arc::new(cloud::client::Client::new(config));
                 let auth=Arc::new(cloud::auth::Auth::new(client.clone(),Arc::new(cloud::auth::Keychain)));
                 let (cloud,nudges)=cloud::runner::Cloud::new(client,auth);
+                if let Ok(s)=app.state::<Shared>().lock() { cloud.launch(&s.store.conn); }
                 app.manage(cloud.clone());
                 tauri::async_runtime::spawn(cloud::runner::run(app.handle().clone(),cloud,nudges));
             }
