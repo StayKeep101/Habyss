@@ -48,6 +48,7 @@ pub(crate) fn save(c: &Connection, table: &str, mut row: Value, at: &str) -> Sto
 pub(crate) fn delete(c: &Connection, table: &str, id: &str, at: &str) -> Stored<()> {
     let t = editable(table)?;
     let user = me(c)?;
+    if !c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM {} WHERE id=?1)", t.local()), [id], |r| r.get::<_, bool>(0))? { return Err("Not found".into()); }
     mirror::save_local(c, t, json!({"id": id, "deleted": 1}), &user, at)
 }
 
@@ -199,10 +200,10 @@ pub async fn cloud_delete_account(app: tauri::AppHandle) -> Result<()> {
     let cloud = cloud(&app)?;
     let token = cloud.auth.token().await.map_err(|e| if matches!(e, CloudError::Offline) { "This needs a connection.".to_string() } else { e.to_string() })?;
     cloud.client.rpc(&token, "delete_my_account", &json!({})).await.map_err(|e| if matches!(e, CloudError::Offline) { "This needs a connection.".to_string() } else { e.to_string() })?;
-    db(&app, |c| mirror::clear_cloud(c))?;
+    let cleared = db(&app, |c| mirror::clear_cloud(c));
     cloud.auth.sign_out().await;
     cloud.nudge(Nudge::SignedOut);
-    Ok(())
+    cleared
 }
 
 #[cfg(test)]
@@ -267,6 +268,24 @@ mod tests {
         set_task_done(&s.conn, &id, false, AT, "2026-01-01").unwrap();
         assert!(one(&s.conn, Table::Tasks)["completed_at"].is_null());
         assert!(set_task_done(&s.conn, "nope", true, AT, "2026-01-01").is_err());
+    }
+
+    #[test]
+    fn delete_unknown_id_writes_nothing() {
+        let s = store();
+        assert_eq!(delete(&s.conn, "tasks", "nope", AT).unwrap_err().to_string(), "Not found");
+        assert!(mirror::select(&s.conn, Table::Tasks, "").unwrap().is_empty());
+        assert_eq!(mirror::counts(&s.conn).unwrap(), (0, 0));
+    }
+
+    #[test]
+    fn friend_owned_habit_is_read_only() {
+        let s = store();
+        s.conn.execute("INSERT INTO cloud_habits(id,user_id,name,owner_id,synced) VALUES('fh','friend','F','friend',1)", []).unwrap();
+        assert!(delete(&s.conn, "habits", "fh", AT).is_err());
+        assert!(save(&s.conn, "habits", json!({"id": "fh", "name": "X"}), AT).is_err());
+        let r = one(&s.conn, Table::Habits);
+        assert_eq!((r["name"].as_str(), r["deleted"].as_i64(), r["synced"].as_i64()), (Some("F"), Some(0), Some(1)));
     }
 
     #[test]
