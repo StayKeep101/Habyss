@@ -1,6 +1,6 @@
 //! Tauri commands for the account, the mirrored data and the server's RPCs. The logic is in functions over `&Connection` (tested here); the commands only fetch, lock and nudge.
 //! Every write saves locally first, so it works offline, then nudges the runner.
-use super::{client::CloudError, mirror::{self, Table}, runner::{Cloud, Nudge, SyncStatus}, sync::Db};
+use super::{client::CloudError, mapping::is_uuid, mirror::{self, Table}, runner::{Cloud, Nudge, SyncStatus}, sync::Db};
 use crate::storage::Result as Stored;
 use rusqlite::{Connection, OptionalExtension};
 use serde::Serialize;
@@ -11,6 +11,8 @@ use tauri::Manager;
 type Result<T> = std::result::Result<T, String>;
 const UNCONFIGURED: &str = "Sync isn't set up in this build.";
 const NEEDS_SIGN_IN: &str = "Sign in to edit your habits and tasks.";
+const BAD_ID: &str = "The id must be a UUID.";
+const BAD_HABIT_ID: &str = "The habit id must be a UUID.";
 const RPC_READS: [&str; 15] = ["my_wallet", "my_ledger", "my_streak_freezes", "community_feed", "friend_stats", "friend_today_tasks", "friend_presence", "leaderboard", "crew_consistency", "crew_king", "crew_quest", "crew_challenges_for", "my_mission", "revealed_missions", "market_feed"];
 const RPC_ACTIONS: [&str; 9] = ["issue_challenge", "join_challenge", "open_market", "place_stake", "settle_market", "use_streak_freeze", "gift_streak_freeze", "create_exposed", "act_on_exposed"];
 
@@ -39,7 +41,8 @@ pub(crate) fn save(c: &Connection, table: &str, mut row: Value, at: &str) -> Sto
     let t = editable(table)?;
     let user = me(c)?;
     let o = row.as_object_mut().ok_or("row must be an object")?;
-    let id = match o.get("id").and_then(Value::as_str) { Some(i) if !i.is_empty() => i.to_string(), _ => uuid::Uuid::new_v4().to_string() };
+    // The server only takes UUIDs; anything else could never upload, and would hold "Last synced" back for good.
+    let id = match o.get("id").and_then(Value::as_str) { Some(i) if !i.is_empty() => if is_uuid(&json!(i)) { i.to_string() } else { return Err(BAD_ID.into()) }, _ => uuid::Uuid::new_v4().to_string() };
     o.insert("id".into(), json!(id));
     mirror::save_local(c, t, row, &user, at)?;
     Ok(id)
@@ -53,6 +56,7 @@ pub(crate) fn delete(c: &Connection, table: &str, id: &str, at: &str) -> Stored<
 }
 
 pub(crate) fn set_completion(c: &Connection, habit_id: &str, date: &str, value: Option<f64>, skipped: bool, memo: Option<String>, evidence: Option<String>, at: &str) -> Stored<()> {
+    if !is_uuid(&json!(habit_id)) { return Err(BAD_HABIT_ID.into()); }
     let user = me(c)?;
     let existing: Option<String> = c.query_row("SELECT id FROM cloud_completions WHERE habit_id=?1 AND date=?2", [habit_id, date], |r| r.get(0)).optional()?;
     match value {
@@ -60,12 +64,13 @@ pub(crate) fn set_completion(c: &Connection, habit_id: &str, date: &str, value: 
             let id = existing.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
             mirror::save_local(c, Table::Completions, json!({"id": id, "habit_id": habit_id, "date": date, "value": v, "skipped": skipped as i64, "memo": memo, "evidence": evidence, "deleted": 0}), &user, at)?;
         }
-        None => if let Some(id) = existing { mirror::save_local(c, Table::Completions, json!({"id": id, "habit_id": habit_id, "date": date, "deleted": 1}), &user, at)?; },
+        None => if let Some(id) = existing { mirror::save_local(c, Table::Completions, json!({"id": id, "habit_id": habit_id, "date": date, "skipped": 0, "deleted": 1}), &user, at)?; },
     }
+    // A skip is not done: friends see nothing, and an earlier tick that day is withdrawn.
     if mirror::is_shared(c, habit_id)? {
         match value {
-            Some(_) => mirror::outbox_push(c, "shared_done", &json!({"item_id": habit_id, "item_type": "habit", "day": date, "evidence": evidence.as_deref().unwrap_or("self")}), at)?,
-            None => mirror::outbox_push(c, "shared_undone", &json!({"item_id": habit_id, "day": date}), at)?,
+            Some(_) if !skipped => mirror::outbox_push(c, "shared_done", &json!({"item_id": habit_id, "item_type": "habit", "day": date, "evidence": evidence.as_deref().unwrap_or("self")}), at)?,
+            _ => mirror::outbox_push(c, "shared_undone", &json!({"item_id": habit_id, "day": date}), at)?,
         }
     }
     Ok(())
@@ -213,6 +218,8 @@ mod tests {
     use std::path::Path;
 
     const AT: &str = "2026-01-01T00:00:00.000Z";
+    const H1: &str = "00000000-0000-4000-8000-000000000001";
+    const H2: &str = "00000000-0000-4000-8000-000000000002";
     fn store() -> Store { let s = Store::open(Path::new(":memory:")).unwrap(); mirror::set_account(&s.conn, "me", Some("a@b.c")).unwrap(); s }
     fn one(c: &Connection, t: Table) -> Value { mirror::select(c, t, "").unwrap().remove(0) }
 
@@ -235,9 +242,9 @@ mod tests {
     #[test]
     fn untick_sets_deleted_and_pending() {
         let s = store();
-        set_completion(&s.conn, "h1", "2026-01-01", Some(1.0), false, None, None, AT).unwrap();
+        set_completion(&s.conn, H1, "2026-01-01", Some(1.0), false, None, None, AT).unwrap();
         mirror::mark_uploaded(&s.conn, Table::Completions, &mirror::select(&s.conn, Table::Completions, "").unwrap()).unwrap();
-        set_completion(&s.conn, "h1", "2026-01-01", None, false, None, None, "2026-01-02T00:00:00.000Z").unwrap();
+        set_completion(&s.conn, H1, "2026-01-01", None, false, None, None, "2026-01-02T00:00:00.000Z").unwrap();
         let r = one(&s.conn, Table::Completions);
         assert_eq!((r["deleted"].as_i64(), r["synced"].as_i64()), (Some(1), Some(0)));
         assert!(data(&s.conn, None).unwrap().completions.is_empty());
@@ -246,14 +253,44 @@ mod tests {
     #[test]
     fn tick_on_shared_habit_queues_shared_done() {
         let s = store();
-        mirror::set_shared_ids(&s.conn, &["h1".to_string()]).unwrap();
-        set_completion(&s.conn, "h1", "2026-01-01", Some(1.0), false, None, None, AT).unwrap();
-        set_completion(&s.conn, "h2", "2026-01-01", Some(1.0), false, None, None, AT).unwrap();
-        set_completion(&s.conn, "h1", "2026-01-01", None, false, None, None, AT).unwrap();
+        mirror::set_shared_ids(&s.conn, &[H1.to_string()]).unwrap();
+        set_completion(&s.conn, H1, "2026-01-01", Some(1.0), false, None, None, AT).unwrap();
+        set_completion(&s.conn, H2, "2026-01-01", Some(1.0), false, None, None, AT).unwrap();
+        set_completion(&s.conn, H1, "2026-01-01", None, false, None, None, AT).unwrap();
         let q = mirror::outbox_all(&s.conn).unwrap();
         assert_eq!(q.len(), 2);
-        assert_eq!((q[0].1.as_str(), &q[0].2), ("shared_done", &json!({"item_id": "h1", "item_type": "habit", "day": "2026-01-01", "evidence": "self"})));
-        assert_eq!((q[1].1.as_str(), &q[1].2), ("shared_undone", &json!({"item_id": "h1", "day": "2026-01-01"})));
+        assert_eq!((q[0].1.as_str(), &q[0].2), ("shared_done", &json!({"item_id": H1, "item_type": "habit", "day": "2026-01-01", "evidence": "self"})));
+        assert_eq!((q[1].1.as_str(), &q[1].2), ("shared_undone", &json!({"item_id": H1, "day": "2026-01-01"})));
+    }
+
+    #[test]
+    fn skip_on_shared_habit_withdraws_the_tick() {
+        let s = store();
+        mirror::set_shared_ids(&s.conn, &[H1.to_string()]).unwrap();
+        set_completion(&s.conn, H1, "2026-01-01", Some(1.0), false, None, None, AT).unwrap();
+        set_completion(&s.conn, H1, "2026-01-01", Some(0.0), true, None, None, AT).unwrap();
+        let kinds: Vec<String> = mirror::outbox_all(&s.conn).unwrap().into_iter().map(|e| e.1).collect();
+        assert_eq!(kinds, ["shared_done", "shared_undone"]);
+        assert_eq!(mirror::outbox_all(&s.conn).unwrap()[1].2, json!({"item_id": H1, "day": "2026-01-01"}));
+        assert_eq!(one(&s.conn, Table::Completions)["skipped"], 1);
+    }
+
+    #[test]
+    fn untick_clears_skipped() {
+        let s = store();
+        set_completion(&s.conn, H1, "2026-01-01", Some(0.0), true, None, None, AT).unwrap();
+        set_completion(&s.conn, H1, "2026-01-01", None, true, None, None, AT).unwrap();
+        let r = one(&s.conn, Table::Completions);
+        assert_eq!((r["deleted"].as_i64(), r["skipped"].as_i64()), (Some(1), Some(0)));
+    }
+
+    #[test]
+    fn ids_must_be_uuids() {
+        let s = store();
+        assert_eq!(save(&s.conn, "tasks", json!({"id": "t1", "title": "A"}), AT).unwrap_err().to_string(), BAD_ID);
+        assert_eq!(set_completion(&s.conn, "h1", "2026-01-01", Some(1.0), false, None, None, AT).unwrap_err().to_string(), BAD_HABIT_ID);
+        assert!(mirror::select(&s.conn, Table::Tasks, "").unwrap().is_empty() && mirror::select(&s.conn, Table::Completions, "").unwrap().is_empty());
+        assert!(save(&s.conn, "tasks", json!({"id": H1, "title": "A"}), AT).is_ok());
     }
 
     #[test]
@@ -281,9 +318,9 @@ mod tests {
     #[test]
     fn friend_owned_habit_is_read_only() {
         let s = store();
-        s.conn.execute("INSERT INTO cloud_habits(id,user_id,name,owner_id,synced) VALUES('fh','friend','F','friend',1)", []).unwrap();
-        assert!(delete(&s.conn, "habits", "fh", AT).is_err());
-        assert!(save(&s.conn, "habits", json!({"id": "fh", "name": "X"}), AT).is_err());
+        s.conn.execute("INSERT INTO cloud_habits(id,user_id,name,owner_id,synced) VALUES(?1,'friend','F','friend',1)", [H1]).unwrap();
+        assert!(delete(&s.conn, "habits", H1, AT).is_err());
+        assert_eq!(save(&s.conn, "habits", json!({"id": H1, "name": "X"}), AT).unwrap_err().to_string(), "This belongs to a friend and is read-only");
         let r = one(&s.conn, Table::Habits);
         assert_eq!((r["name"].as_str(), r["deleted"].as_i64(), r["synced"].as_i64()), (Some("F"), Some(0), Some(1)));
     }
@@ -312,8 +349,8 @@ mod tests {
         let keep = save(&s.conn, "tasks", json!({"title": "keep"}), AT).unwrap();
         let gone = save(&s.conn, "tasks", json!({"title": "gone"}), AT).unwrap();
         delete(&s.conn, "tasks", &gone, AT).unwrap();
-        set_completion(&s.conn, "h1", "2026-01-01", Some(1.0), false, None, None, AT).unwrap();
-        set_completion(&s.conn, "h1", "2026-01-05", Some(1.0), false, None, None, AT).unwrap();
+        set_completion(&s.conn, H1, "2026-01-01", Some(1.0), false, None, None, AT).unwrap();
+        set_completion(&s.conn, H1, "2026-01-05", Some(1.0), false, None, None, AT).unwrap();
         let d = data(&s.conn, Some("2026-01-03")).unwrap();
         assert_eq!(d.tasks.len(), 1);
         assert_eq!(d.tasks[0]["id"], keep.as_str());
