@@ -104,6 +104,14 @@ impl Service {
         assert_eq!(rows[0].state,"excluded");assert!(rows[0].title.is_none());assert!(rows[0].application_id.is_none());assert!(s.store.applications().unwrap().is_empty());
     }
     #[test]
+    fn focus_tick_titles_then_completes_the_due_session() {
+        let dir=tempfile::tempdir().unwrap();let mut s=Service::open(dir.path().into()).unwrap();
+        s.store.start_focus("Deep Work",1000,0,None,None).unwrap();
+        assert_eq!(s.focus_tick(500).unwrap(),("00:01 · Deep Work".to_string(),false));
+        assert_eq!(s.focus_tick(1000).unwrap(),(String::new(),true));
+        assert_eq!(s.focus_tick(2000).unwrap(),(String::new(),false));
+    }
+    #[test]
     fn title_preference_is_enforced_in_rust_as_well_as_native() {
         let dir=tempfile::tempdir().unwrap();let mut s=Service::open(dir.path().into()).unwrap();
         s.settings.tracking_enabled=true;s.settings.collect_titles=false;

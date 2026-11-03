@@ -46,9 +46,13 @@ pub fn run() {
                 loop {
                     std::thread::sleep(std::time::Duration::from_secs(1));
                     // The lock is held only for the database step; Tauri is called after it is released.
-                    let step={let state=handle.state::<Shared>();let mut service=match state.lock(){Ok(s)=>s,Err(_)=>{if !poisoned{eprintln!("Focus ticker: service lock poisoned");poisoned=true;}
+                    // A poisoned lock is dropped inside the block too: set_title waits on the main thread, which may want this lock.
+                    let step={let state=handle.state::<Shared>();let locked=state.lock();match locked {Ok(mut service)=>Some(service.focus_tick(chrono::Utc::now().timestamp_millis())),Err(poison)=>{drop(poison);None}}};
+                    let Some(step)=step else {
+                        if !poisoned{eprintln!("Focus ticker: service lock poisoned");poisoned=true;}
                         if !shown.is_empty() { if let Some(tray)=handle.tray_by_id("habyss") { if tray.set_title(None::<&str>).is_ok() { shown.clear(); } } }
-                        continue}};service.focus_tick(chrono::Utc::now().timestamp_millis())};
+                        continue
+                    };
                     let (title,ended)=match step {Ok(v)=>v,Err(error)=>{eprintln!("Focus tick failed: {error}");continue}};
                     if ended {for label in ["main","panel"] {if let Some(w)=handle.get_webview_window(label) {let _=w.emit("activity-updated",());}}}
                     if title!=shown { if let Some(tray)=handle.tray_by_id("habyss") { if tray.set_title(Some(title.as_str())).is_ok() { shown=title; } } }
