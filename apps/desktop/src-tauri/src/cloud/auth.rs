@@ -22,6 +22,15 @@ impl SecretStore for MemorySecret {
     fn set(&self, v: &str) -> Result<()> { *self.0.lock().unwrap() = Some(v.into()); Ok(()) }
     fn clear(&self) -> Result<()> { *self.0.lock().unwrap() = None; Ok(()) }
 }
+/// A Keychain that holds a token and refuses to delete it.
+#[cfg(test)]
+pub struct StuckSecret;
+#[cfg(test)]
+impl SecretStore for StuckSecret {
+    fn get(&self) -> Option<String> { Some("rt".into()) }
+    fn set(&self, _: &str) -> Result<()> { Ok(()) }
+    fn clear(&self) -> Result<()> { Err("keychain refused".into()) }
+}
 
 #[derive(Clone)]
 pub struct Session { pub access_token: String, pub user_id: String, pub email: Option<String>, pub expires_at: i64 }
@@ -55,7 +64,7 @@ impl Auth {
         match self.refresh(&rt).await {
             Ok(s) => { *guard = Some(s.clone()); Ok(Some(s)) }
             Err(CloudError::Offline) => Ok(None),
-            Err(CloudError::Server { status: 400, .. }) | Err(CloudError::Unauthorized) => { self.drop_session(&mut guard); Err(CloudError::Unauthorized) }
+            Err(CloudError::Server { status: 400, .. }) | Err(CloudError::Unauthorized) => { self.forget(&mut guard); Err(CloudError::Unauthorized) }
             Err(e) => Err(e),
         }
     }
@@ -68,18 +77,24 @@ impl Auth {
         let Some(rt) = self.secret.get() else { *guard = None; return Err(CloudError::Unauthorized) };
         match self.refresh(&rt).await {
             Ok(s) => { let t = s.access_token.clone(); *guard = Some(s); Ok(t) }
-            Err(CloudError::Server { status: 400, .. }) | Err(CloudError::Unauthorized) => { self.drop_session(&mut guard); Err(CloudError::Unauthorized) }
+            Err(CloudError::Server { status: 400, .. }) | Err(CloudError::Unauthorized) => { self.forget(&mut guard); Err(CloudError::Unauthorized) }
             Err(e) => Err(e),
         }
     }
+    /// A refresh token is saved, so a later `token()` can still sign back in (for example after a server error at launch).
+    pub fn has_saved_token(&self) -> bool { self.secret.get().is_some() }
     /// Best-effort server logout, then forget the session and refresh token. Local data is kept.
-    pub async fn sign_out(&self) {
+    /// `Err` when the Keychain kept the refresh token: this run is signed out, but the next launch would sign back in.
+    pub async fn sign_out(&self) -> Result<()> {
         let mut guard = self.session.lock().await;
         if let Some(s) = guard.as_ref() { let _ = self.client.auth_post("logout", Some(&s.access_token), &json!({})).await; }
-        self.drop_session(&mut guard);
+        self.drop_session(&mut guard)
     }
 
-    fn drop_session(&self, guard: &mut Option<Session>) { let _ = self.secret.clear(); *guard = None; }
+    /// Forgets the session in memory whatever happens, then the saved refresh token.
+    fn drop_session(&self, guard: &mut Option<Session>) -> Result<()> { *guard = None; self.secret.clear() }
+    /// The server rejected the session. There is no caller to tell, so a Keychain failure is logged; the next rejection tries again.
+    fn forget(&self, guard: &mut Option<Session>) { if self.drop_session(guard).is_err() { eprintln!("[auth] could not remove the saved sign-in from Keychain"); } }
     async fn refresh(&self, refresh_token: &str) -> std::result::Result<Session, CloudError> {
         let v = self.client.auth_post("token?grant_type=refresh_token", None, &json!({"refresh_token": refresh_token})).await?;
         self.parse_and_store(&v)
@@ -154,10 +169,17 @@ mod tests {
         let m = server.mock("POST", mockito::Matcher::Any).expect(0).create_async().await;
         let (a, secret) = auth(server.url());
         secret.set("rt1").unwrap();
-        a.sign_out().await;
+        a.sign_out().await.unwrap();
         assert!(matches!(a.restore().await, Ok(None)));
         assert!(secret.get().is_none());
         m.assert_async().await;
+    }
+    #[tokio::test] async fn sign_out_reports_a_keychain_that_kept_the_token() {
+        let a = Auth::new(Arc::new(Client::new(Config { url: "http://127.0.0.1:9".into(), key: "k".into() })), Arc::new(StuckSecret));
+        a.set_session(Session { access_token: "at".into(), user_id: "u1".into(), email: None, expires_at: now() + 3600 }).await;
+        assert!(a.sign_out().await.is_err());
+        assert!(a.user_id().await.is_none(), "still signed in for this run");
+        assert!(a.has_saved_token());
     }
     #[tokio::test] async fn restore_offline_keeps_token() {
         let (a, secret) = auth("http://127.0.0.1:9".into());

@@ -13,6 +13,7 @@ const UNCONFIGURED: &str = "Sync isn't set up in this build.";
 const NEEDS_SIGN_IN: &str = "Sign in to edit your habits and tasks.";
 const BAD_ID: &str = "The id must be a UUID.";
 const BAD_HABIT_ID: &str = "The habit id must be a UUID.";
+const KEYCHAIN: &str = "Couldn't remove the saved sign-in from Keychain.";
 const RPC_READS: [&str; 15] = ["my_wallet", "my_ledger", "my_streak_freezes", "community_feed", "friend_stats", "friend_today_tasks", "friend_presence", "leaderboard", "crew_consistency", "crew_king", "crew_quest", "crew_challenges_for", "my_mission", "revealed_missions", "market_feed"];
 const RPC_ACTIONS: [&str; 9] = ["issue_challenge", "join_challenge", "open_market", "place_stake", "settle_market", "use_streak_freeze", "gift_streak_freeze", "create_exposed", "act_on_exposed"];
 
@@ -128,14 +129,27 @@ pub fn cloud_status(app: tauri::AppHandle) -> SyncStatus {
 pub async fn cloud_send_code(app: tauri::AppHandle, email: String) -> Result<()> { cloud(&app)?.auth.send_code(&email).await.map_err(failed) }
 
 /// After a sign-in: remember the account (clearing the mirror if it changed), cache the personal backups, and sync.
-async fn signed_in(app: &tauri::AppHandle, cloud: &Cloud, session: super::auth::Session) -> Result<()> {
-    db(app, |c| mirror::set_account(c, &session.user_id, session.email.as_deref()))?;
+/// If the account cannot be recorded, the sign-in is undone: every pass would otherwise stop at "Account mismatch".
+async fn signed_in(d: &impl Db, cloud: &Cloud, session: super::auth::Session) -> Result<()> {
+    let db = |f: &dyn Fn(&Connection) -> Stored<()>| d.with(f).map_err(|e| e.to_string());
+    if let Err(e) = db(&|c| mirror::set_account(c, &session.user_id, session.email.as_deref())) {
+        if sign_out(cloud).await.is_err() { eprintln!("[auth] could not remove the saved sign-in from Keychain"); }
+        return Err(e);
+    }
     let query = vec![("select".to_string(), "*".to_string()), ("user_id".to_string(), format!("eq.{}", session.user_id))];
     if let Ok(rows) = cloud.client.select(&session.access_token, "personal_backups", &query).await {
-        let _ = db(app, |c| mirror::cache_put(c, "personal_backups", &Value::Array(rows), &now()));
+        let rows = Value::Array(rows);
+        let _ = db(&|c| mirror::cache_put(c, "personal_backups", &rows, &now()));
     }
     cloud.nudge(Nudge::SignedIn);
     Ok(())
+}
+
+/// Signs out of this run even if the Keychain refuses, and says so: the saved sign-in would bring the account back at the next launch.
+async fn sign_out(cloud: &Cloud) -> Result<()> {
+    let cleared = cloud.auth.sign_out().await;
+    cloud.nudge(Nudge::SignedOut);
+    cleared.map_err(|_| KEYCHAIN.to_string())
 }
 
 #[tauri::command]
@@ -154,12 +168,7 @@ pub async fn cloud_sign_in_password(app: tauri::AppHandle, email: String, passwo
 
 /// Keeps the mirror, so the same account can sign back in without downloading everything again.
 #[tauri::command]
-pub async fn cloud_sign_out(app: tauri::AppHandle) -> Result<()> {
-    let cloud = cloud(&app)?;
-    cloud.auth.sign_out().await;
-    cloud.nudge(Nudge::SignedOut);
-    Ok(())
-}
+pub async fn cloud_sign_out(app: tauri::AppHandle) -> Result<()> { let cloud = cloud(&app)?; sign_out(&cloud).await }
 
 /// Asks for a pass and returns the status as it is now; the result arrives as the `sync-status` event.
 #[tauri::command]
@@ -206,16 +215,16 @@ pub async fn cloud_delete_account(app: tauri::AppHandle) -> Result<()> {
     let token = cloud.auth.token().await.map_err(|e| if matches!(e, CloudError::Offline) { "This needs a connection.".to_string() } else { e.to_string() })?;
     cloud.client.rpc(&token, "delete_my_account", &json!({})).await.map_err(|e| if matches!(e, CloudError::Offline) { "This needs a connection.".to_string() } else { e.to_string() })?;
     let cleared = db(&app, |c| mirror::clear_cloud(c));
-    cloud.auth.sign_out().await;
-    cloud.nudge(Nudge::SignedOut);
-    cleared
+    let signed_out = sign_out(&cloud).await;
+    cleared.and(signed_out)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cloud::{auth::{Auth, MemorySecret, SecretStore, Session, StuckSecret}, client::{Client, Config}};
     use crate::storage::Store;
-    use std::path::Path;
+    use std::{path::Path, sync::Mutex};
 
     const AT: &str = "2026-01-01T00:00:00.000Z";
     const H1: &str = "00000000-0000-4000-8000-000000000001";
@@ -323,6 +332,44 @@ mod tests {
         assert_eq!(save(&s.conn, "habits", json!({"id": H1, "name": "X"}), AT).unwrap_err().to_string(), "This belongs to a friend and is read-only");
         let r = one(&s.conn, Table::Habits);
         assert_eq!((r["name"].as_str(), r["deleted"].as_i64(), r["synced"].as_i64()), (Some("F"), Some(0), Some(1)));
+    }
+
+    struct TestDb(Mutex<Store>);
+    impl Db for TestDb { fn with<T>(&self, f: impl FnOnce(&Connection) -> Stored<T>) -> Stored<T> { f(&self.0.lock().unwrap().conn) } }
+    fn offline_cloud(secret: Arc<dyn SecretStore>) -> Arc<Cloud> {
+        let client = Arc::new(Client::new(Config { url: "http://127.0.0.1:9".into(), key: "k".into() }));
+        Cloud::new(client.clone(), Arc::new(Auth::new(client, secret))).0
+    }
+    fn session() -> Session { Session { access_token: "at".into(), user_id: "u2".into(), email: None, expires_at: chrono::Utc::now().timestamp() + 3600 } }
+
+    #[tokio::test]
+    async fn unrecorded_sign_in_is_undone() {
+        let secret = Arc::new(MemorySecret::default());
+        secret.set("rt").unwrap();
+        let cloud = offline_cloud(secret.clone());
+        cloud.auth.set_session(session()).await;
+        let d = TestDb(Mutex::new(Store::open(Path::new(":memory:")).unwrap()));
+        d.with(|c| Ok(c.execute_batch("CREATE TRIGGER no_account BEFORE INSERT ON cloud_account BEGIN SELECT RAISE(ABORT,'disk full'); END;")?)).unwrap();
+        assert!(signed_in(&d, &cloud, session()).await.unwrap_err().contains("disk full"));
+        assert!(cloud.auth.user_id().await.is_none() && secret.get().is_none());
+    }
+
+    #[tokio::test]
+    async fn recorded_sign_in_keeps_the_session() {
+        let cloud = offline_cloud(Arc::new(MemorySecret::default()));
+        cloud.auth.set_session(session()).await;
+        let d = TestDb(Mutex::new(Store::open(Path::new(":memory:")).unwrap()));
+        signed_in(&d, &cloud, session()).await.unwrap();
+        assert_eq!((d.with(mirror::account).unwrap().map(|a| a.0), cloud.auth.user_id().await), (Some("u2".into()), Some("u2".into())));
+    }
+
+    #[tokio::test]
+    async fn sign_out_reports_a_keychain_failure() {
+        let cloud = offline_cloud(Arc::new(StuckSecret));
+        cloud.auth.set_session(session()).await;
+        assert_eq!(sign_out(&cloud).await.unwrap_err(), KEYCHAIN);
+        assert!(cloud.auth.user_id().await.is_none());
+        assert!(sign_out(&offline_cloud(Arc::new(MemorySecret::default()))).await.is_ok());
     }
 
     #[test]
