@@ -42,11 +42,13 @@ pub fn run() {
             })?;
             let handle=app.handle().clone();
             std::thread::Builder::new().name("habyss-tray".into()).spawn(move || {
-                let mut shown=String::new();
+                let (mut shown,mut poisoned)=(String::new(),false);
                 loop {
                     std::thread::sleep(std::time::Duration::from_secs(1));
                     // The lock is held only for the database step; Tauri is called after it is released.
-                    let step={let state=handle.state::<Shared>();let mut service=match state.lock(){Ok(s)=>s,Err(_)=>continue};service.focus_tick(chrono::Utc::now().timestamp_millis())};
+                    let step={let state=handle.state::<Shared>();let mut service=match state.lock(){Ok(s)=>s,Err(_)=>{if !poisoned{eprintln!("Focus ticker: service lock poisoned");poisoned=true;}
+                        if !shown.is_empty() { if let Some(tray)=handle.tray_by_id("habyss") { if tray.set_title(None::<&str>).is_ok() { shown.clear(); } } }
+                        continue}};service.focus_tick(chrono::Utc::now().timestamp_millis())};
                     let (title,ended)=match step {Ok(v)=>v,Err(error)=>{eprintln!("Focus tick failed: {error}");continue}};
                     if ended {for label in ["main","panel"] {if let Some(w)=handle.get_webview_window(label) {let _=w.emit("activity-updated",());}}}
                     if title!=shown { if let Some(tray)=handle.tray_by_id("habyss") { if tray.set_title(Some(title.as_str())).is_ok() { shown=title; } } }

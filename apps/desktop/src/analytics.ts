@@ -7,6 +7,10 @@ export function dayRange(date: string): [
 export function localDate(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
 export function duration(ms: number) { const mins = Math.floor(Math.max(0, ms) / 60000); return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`; }
 export function precise(ms: number) { const secs = Math.floor(Math.max(0, ms) / 1000); return `${Math.floor(secs / 60).toString().padStart(2, '0')}:${(secs % 60).toString().padStart(2, '0')}`; }
+/** Active focus ms: wall time minus stored pauses and any open pause; mirrors focus.rs focus_elapsed. */
+export function focusElapsed(f: FocusSession, now: number): number {
+    return Math.max(0, (f.end ?? now) - f.start - f.paused_ms - (f.paused_at !== null ? Math.max(0, now - f.paused_at) : 0));
+}
 export function metrics(intervals: Interval[], focus: FocusSession[], from: number, to: number, now = Date.now()) {
     const list = intervals.filter(i => i.end > from && i.start < to);
     const active = list.filter(i => i.state === 'active');
@@ -37,13 +41,14 @@ export function metrics(intervals: Interval[], focus: FocusSession[], from: numb
             switches++;
         previous = i;
     }
-    // Paused time is only known as a total per session, so it is spread evenly over the session's span.
+    // A running pause is subtracted exactly. Stored pauses are only a total, so they are spread evenly over the session's span.
     const activeMs = (f: FocusSession) => {
         const end = f.end ?? now, span = end - f.start, inRange = overlap(f.start, end, from, to);
-        const paused = f.paused_ms + (f.end === null && f.paused_at !== null ? Math.max(0, now - f.paused_at) : 0);
-        return span > 0 ? Math.max(0, inRange - Math.min(paused, span) * inRange / span) : 0;
+        const open = f.end === null && f.paused_at !== null ? overlap(f.paused_at, now, from, to) : 0;
+        return span > 0 ? Math.max(0, inRange - open - Math.min(f.paused_ms, span) * inRange / span) : 0;
     };
     const declared = focus.reduce((n, f) => n + activeMs(f), 0);
+    // Limitation: observed activity is not split by pause, so it is only capped at the session's declared focus.
     const observedFocus = focus.reduce((n, f) => n + Math.min(activeMs(f), active.reduce((s, i) => s + overlap(i.start, i.end, Math.max(from, f.start), Math.min(to, f.end ?? now)), 0)), 0);
     const categories = new Map<string, number>();
     for (const a of apps.values())
