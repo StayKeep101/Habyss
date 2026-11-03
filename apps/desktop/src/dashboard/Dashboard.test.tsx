@@ -15,8 +15,8 @@ vi.mock('@tauri-apps/api/event', () => ({ listen: (name: string, cb: () => void)
 import { Dashboard } from './Dashboard';
 
 const NOW = new Date('2026-11-02T20:04:00');
-const SIGNED_IN = { state: 'idle', email: 'a@b.c', last_sync: null, pending: 0, refused: 0, error: null };
-const SIGNED_OUT = { ...SIGNED_IN, state: 'signed_out', email: null };
+const SIGNED_IN = { state: 'idle', account: true, email: 'a@b.c', last_sync: null, pending: 0, refused: 0, error: null };
+const SIGNED_OUT = { ...SIGNED_IN, state: 'signed_out', account: false, email: null };
 const EMPTY: CloudData = { habits: [], completions: [], tasks: [], milestones: [] };
 const iv = (name: string, category: string, startMin: number, mins: number): Interval => { const start = NOW.getTime() - startMin * 60000; return { id: `${name}-${start}`, application_id: null, bundle_id: name, name, title: null, start, end: start + mins * 60000, state: 'active', category, availability: 'available', pid: 1, window_id: null }; };
 const snap = (over: Partial<Snapshot> = {}): Snapshot => ({ settings: { tracking_enabled: true } as Snapshot['settings'], intervals: [], applications: [], focus: [], trusted: true, current_app: null, current_since: null, state: 'active', error: null, widget_available: false, database_path: '', version: '', classifications: {}, ...over });
@@ -92,6 +92,60 @@ describe('Dashboard', () => {
     expect(screen.getByText('Total Tracked')).toBeTruthy();
     expect(called('cloud_rpc')).toHaveLength(0);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Good Evening.');
+  });
+
+  it('syncing_without_an_account_shows_the_prompt_and_dashes', async () => {
+    withPlan(PLAN, [], { cloud_status: () => ({ ...SIGNED_OUT, state: 'syncing' }) });
+    render(<Dashboard />);
+    await waitFor(() => expect(screen.getAllByText(/^Sign in to see/)).toHaveLength(2));
+    expect(tile('Tasks')).toBe('–');
+    expect(tile('Day Streak')).toBe('–');
+  });
+
+  it('signed_out_at_launch_with_an_account_shows_the_plan', async () => {
+    withPlan(PLAN, [], { cloud_status: () => ({ ...SIGNED_IN, state: 'signed_out' }) });
+    render(<Dashboard />);
+    await waitFor(() => expect(tile('Tasks')).toBe('0/1'));
+    expect(screen.queryByText(/^Sign in to see/)).toBeNull();
+  });
+
+  it('no_status_yet_shows_neither_prompt_nor_numbers', async () => {
+    withPlan(PLAN, [], { cloud_status: () => new Promise(() => {}) });
+    render(<Dashboard />);
+    await waitFor(() => expect(called('cloud_data')).toHaveLength(1));
+    expect(screen.getAllByText('Loading…').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/^Sign in to see/)).toBeNull();
+    expect([tile('Tasks'), tile('Goals'), tile('Day Streak')]).toEqual(['–', '–', '–']);
+  });
+
+  it('tasks_tile_today_counts_listed_tasks_and_wider_ranges_count_due_tasks', async () => {
+    // Overdue and undated tasks are listed today (Ruling P2), so the Today tile counts them, as the panel does (Ruling P6).
+    withPlan({ ...PLAN, tasks: [task('Ship'), task('Overdue', { due_date: '2026-10-30' }), task('Undated', { due_date: null })] });
+    render(<Dashboard />);
+    await waitFor(() => expect(tile('Tasks')).toBe('0/3'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Week' }));
+    await waitFor(() => expect(tile('Tasks')).toBe('0/1'));
+  });
+
+  it('focus_clock_rounds_remaining_time_up_like_the_menu_bar', async () => {
+    withPlan(PLAN, [{ ...session('Ship', 'task'), start: NOW.getTime() - 1 }]);
+    render(<Dashboard />);
+    expect(await screen.findByText('25:00')).toBeTruthy();
+  });
+
+  it('idle_clock_shows_the_session_length', async () => {
+    render(<Dashboard />);
+    expect(await screen.findByText('25:00')).toBeTruthy();
+  });
+
+  it('finish_after_midnight_completes_on_the_new_day', async () => {
+    withPlan(PLAN, [session('Read', 'habit')]);
+    render(<Dashboard />);
+    const finish = await screen.findByRole('button', { name: 'Finish focus' });
+    vi.setSystemTime(new Date('2026-11-03T00:00:10'));
+    fireEvent.click(finish);
+    await waitFor(() => expect(called('cloud_set_completion')).toHaveLength(1));
+    expect(called('cloud_set_completion')[0][1]).toMatchObject({ habitId: 'Read', date: '2026-11-03' });
   });
 
   it('empty_day_shows_empty_states', async () => {

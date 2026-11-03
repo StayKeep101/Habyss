@@ -21,7 +21,7 @@ const completion = (habitId: string): CompletionRow => ({ id: `c-${habitId}`, us
 const cloud: CloudData = { habits: [habit('Workout'), habit('Read')], completions: [completion('Read')], tasks: [task('Deep Work', { due_date: TODAY })], milestones: [] };
 const snap = (over: Partial<Snapshot> = {}): Snapshot => ({ settings: {} as Snapshot['settings'], intervals: [], applications: [], focus: [], trusted: true, current_app: null, current_since: null, state: 'active', error: null, widget_available: false, database_path: '', version: '', classifications: {}, ...over });
 const wire = (over: Record<string, (args?: Record<string, unknown>) => unknown> = {}) => {
-  handlers = { cloud_data: () => structuredClone(cloud), cloud_status: () => ({ state: 'idle', email: 'a@b.c', last_sync: null, pending: 0, refused: 0, error: null }), snapshot: () => snap(), ...over };
+  handlers = { cloud_data: () => structuredClone(cloud), cloud_status: () => ({ state: 'idle', account: true, email: 'a@b.c', last_sync: null, pending: 0, refused: 0, error: null }), snapshot: () => snap(), ...over };
 };
 const called = (cmd: string) => calls.filter(c => c[0] === cmd);
 
@@ -35,6 +35,56 @@ describe('TodayPanel', () => {
     expect(screen.getByText('Workout')).toBeTruthy();
     expect(screen.getByText('Read')).toBeTruthy();
     expect(screen.getByText(/Due Today/).textContent).toContain('1/3');
+    // Ruling P6: the glance counts tasks only (Deep Work), not the habits the header lists.
+    expect(screen.getByText('Tasks', { selector: '.tp-stat small' }).previousElementSibling?.textContent).toBe('0/1');
+  });
+
+  it('syncing_without_an_account_shows_the_prompt', async () => {
+    wire({ cloud_status: () => ({ state: 'syncing', account: false, email: null, last_sync: null, pending: 0, refused: 0, error: null }) });
+    render(<TodayPanel mode="menubar" />);
+    expect((await screen.findAllByText('Sign in to see your habits and tasks')).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Mark Deep Work done' })).toBeNull();
+    expect(screen.getByText('Tasks', { selector: '.tp-stat small' }).previousElementSibling?.textContent).toBe('–');
+  });
+
+  it('signed_out_at_launch_with_an_account_does_not_flash_the_prompt', async () => {
+    // Before the launch pass ends the state still reads signed_out; the durable account flag says signed in.
+    wire({ cloud_status: () => ({ state: 'signed_out', account: true, email: 'a@b.c', last_sync: null, pending: 0, refused: 0, error: null }) });
+    render(<TodayPanel mode="menubar" />);
+    expect(await screen.findByRole('button', { name: 'Mark Deep Work done' })).toBeTruthy();
+    expect(screen.queryByText('Sign in to see your habits and tasks')).toBeNull();
+  });
+
+  it('no_status_yet_shows_neither_prompt_nor_numbers', async () => {
+    wire({ cloud_status: () => new Promise(() => {}) });
+    render(<TodayPanel mode="menubar" />);
+    await waitFor(() => expect(called('cloud_data')).toHaveLength(1));
+    expect(screen.getAllByText('Loading…').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Sign in to see your habits and tasks')).toBeNull();
+    expect(screen.getByText('Tasks', { selector: '.tp-stat small' }).previousElementSibling?.textContent).toBe('–');
+  });
+
+  it('a_tick_after_midnight_lands_on_the_new_day', async () => {
+    render(<TodayPanel mode="menubar" />);
+    const button = await screen.findByRole('button', { name: 'Mark Workout done' });
+    // The shared clock has not ticked yet, so the panel still shows the old day.
+    vi.setSystemTime(new Date('2026-11-03T00:00:10'));
+    fireEvent.click(button);
+    await waitFor(() => expect(called('cloud_set_completion')).toHaveLength(1));
+    expect(called('cloud_set_completion')[0][1]).toMatchObject({ habitId: 'Workout', date: '2026-11-03' });
+  });
+
+  it('focus_switch_starts_on_the_next_item_when_nothing_is_now', async () => {
+    const early = new Date('2026-11-02T05:30:00');
+    vi.setSystemTime(early);
+    const today = buildToday(cloud, { now: early, signedIn: true });
+    expect(today.current).toBeNull();
+    expect(today.next).not.toBeNull();
+    render(<TodayPanel mode="menubar" />);
+    await screen.findByRole('button', { name: 'Mark Deep Work done' });
+    fireEvent.click(screen.getByRole('switch', { name: 'Focus Mode' }));
+    await waitFor(() => expect(called('start_focus')).toHaveLength(1));
+    expect(called('start_focus')[0][1]).toEqual({ label: today.next!.title, minutes: 25, itemId: today.next!.id, itemKind: today.next!.kind });
   });
 
   it('ticking_a_habit_calls_set_completion_and_strikes_it', async () => {
@@ -96,7 +146,7 @@ describe('TodayPanel', () => {
   });
 
   it('signed_out_shows_prompt_but_glance_still_renders', async () => {
-    wire({ cloud_status: () => ({ state: 'signed_out', email: null, last_sync: null, pending: 0, refused: 0, error: null }), cloud_data: () => ({ habits: [], completions: [], tasks: [], milestones: [] }), snapshot: () => snap({ intervals: [{ start: NOW.getTime() - 3600000, end: NOW.getTime(), state: 'active', name: 'Code', bundle_id: 'x', category: 'development' } as never] }) });
+    wire({ cloud_status: () => ({ state: 'signed_out', account: false, email: null, last_sync: null, pending: 0, refused: 0, error: null }), cloud_data: () => ({ habits: [], completions: [], tasks: [], milestones: [] }), snapshot: () => snap({ intervals: [{ start: NOW.getTime() - 3600000, end: NOW.getTime(), state: 'active', name: 'Code', bundle_id: 'x', category: 'development' } as never] }) });
     render(<TodayPanel mode="menubar" />);
     expect((await screen.findAllByText('Sign in to see your habits and tasks')).length).toBeGreaterThan(0);
     expect(screen.getByText('Today at a Glance')).toBeTruthy();
@@ -145,7 +195,7 @@ describe('TodayPanel', () => {
   });
 
   it('signed_out_hides_a_cloud_data_error', async () => {
-    wire({ cloud_status: () => ({ state: 'signed_out', email: null, last_sync: null, pending: 0, refused: 0, error: null }), cloud_data: () => { throw new Error('boom'); } });
+    wire({ cloud_status: () => ({ state: 'signed_out', account: false, email: null, last_sync: null, pending: 0, refused: 0, error: null }), cloud_data: () => { throw new Error('boom'); } });
     vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<TodayPanel mode="menubar" />);
     expect((await screen.findAllByText('Sign in to see your habits and tasks')).length).toBeGreaterThan(0);

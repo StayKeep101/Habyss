@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { CloudData, SyncStatus } from '../types';
 import { localDateKey } from '../shared/habitSchedule';
 const HISTORY_DAYS = 400;
+/** Signed in on this Mac, from the durable `account` flag, never from the sync pass state (which reads "syncing" or "signed_out" mid-pass).
+ * A null status is still loading: callers show neither the sign-in prompt nor numbers until it arrives. */
+export function isSignedIn(status: SyncStatus | null): boolean {
+    return status !== null && status.state !== 'unconfigured' && status.account;
+}
+export type Cloud = ReturnType<typeof useCloud>;
 export function useCloud(): { data: CloudData | null; status: SyncStatus | null; error: string | null; loading: boolean; refresh(): Promise<void>; setLocal(mutate: (d: CloudData) => CloudData): void } {
     const [data, setData] = useState<CloudData | null>(null);
     const [status, setStatus] = useState<SyncStatus | null>(null);
@@ -68,5 +74,5 @@ export function useCloud(): { data: CloudData | null; status: SyncStatus | null;
         return () => { cancelled = true; alive.current = false; disposers.forEach(f => f()); document.removeEventListener('visibilitychange', onVisible); };
     }, [refresh, loadData, loadStatus]);
     const setLocal = useCallback((mutate: (d: CloudData) => CloudData) => setData(d => (d ? mutate(d) : d)), []);
-    return { data, status, error, loading, refresh, setLocal };
+    return useMemo(() => ({ data, status, error, loading, refresh, setLocal }), [data, status, error, loading, refresh, setLocal]);
 }

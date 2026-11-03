@@ -8,7 +8,7 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invoke(...
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn(() => Promise.resolve(() => {})) }));
 import { Account, ago } from './Account';
 
-const st = (o: Partial<SyncStatus>): SyncStatus => ({ state: 'signed_out', email: null, last_sync: null, pending: 0, refused: 0, error: null, ...o });
+const st = (o: Partial<SyncStatus>): SyncStatus => ({ state: 'signed_out', account: false, email: null, last_sync: null, pending: 0, refused: 0, error: null, ...o });
 const mockStatus = (s: SyncStatus, extra: Record<string, unknown> = {}) => invoke.mockImplementation((cmd: string) => cmd === 'cloud_status' ? Promise.resolve(s) : Promise.resolve(extra[cmd] ?? null));
 
 beforeEach(() => invoke.mockReset());

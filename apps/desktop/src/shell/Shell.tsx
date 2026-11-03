@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { invoke, isTauri } from '@tauri-apps/api/core';
+import { isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { motion, useReducedMotion } from 'motion/react';
-import type { Act, Screen, Snapshot, SyncStatus } from '../types';
+import type { Act, Screen, Snapshot } from '../types';
 import { dayRange, duration, localDate, metrics } from '../analytics';
 import { AppBadge, CardTitle, Metric } from '../components/ui';
 import { AppUsage, CategoryChart, WeeklyChart } from '../components/charts';
@@ -10,6 +10,7 @@ import { Timeline } from '../screens/Timeline';
 import { SettingsView } from '../screens/Settings';
 import { TodayPanel } from '../panel/TodayPanel';
 import { Dashboard } from '../dashboard/Dashboard';
+import { CloudProvider, useSharedCloud } from '../today/CloudProvider';
 import { AppIcon, Empty } from '../ui';
 import { Sidebar, TABS } from './Sidebar';
 import './shell.css';
@@ -29,18 +30,21 @@ const writeCollapsed = (v: boolean) => { try { localStorage.setItem(PANEL_KEY, v
 
 interface ShellProps {
   data: Snapshot; act: Act; date: string; setDate: (d: string) => void; now: number;
-  busy?: boolean; error?: string; setError?: (e: string) => void; sync?: SyncStatus | null;
+  busy?: boolean; error?: string; setError?: (e: string) => void;
 }
 
-export function Shell({ data, act, date, setDate, now, busy = false, error = '', setError = () => {}, sync: syncProp }: ShellProps) {
+/** One cloud source for the whole window: the Dashboard and the right-column panel share it, so a tick in one shows in the other. */
+export function Shell(props: ShellProps) {
+  return <CloudProvider><ShellBody {...props} /></CloudProvider>;
+}
+
+function ShellBody({ data, act, date, setDate, now, busy = false, error = '', setError = () => {} }: ShellProps) {
   const [screen, setScreen] = useState<Screen>('Dashboard');
   const [collapsed, setCollapsed] = useState(readCollapsed);
-  const [ownSync, setOwnSync] = useState<SyncStatus | null>(null);
-  const sync = syncProp === undefined ? ownSync : syncProp;
+  const { cloud, signedIn, statusLoading } = useSharedCloud();
+  const sync = cloud.status;
   const reduced = useReducedMotion();
-  const signedIn = Boolean(sync && !['unconfigured', 'signed_out'].includes(sync.state));
 
-  useEffect(() => { if (syncProp !== undefined || !isTauri()) return; let dispose: (() => void) | undefined, cancelled = false; void invoke<SyncStatus>('cloud_status').then(s => { if (!cancelled) setOwnSync(s); }).catch(() => {}); void listen<SyncStatus>('sync-status', e => setOwnSync(e.payload)).then(f => { if (cancelled) f(); else dispose = f; }); return () => { cancelled = true; dispose?.(); }; }, [syncProp]);
   useEffect(() => { let dispose: (() => void) | undefined, cancelled = false; void listen<string>('navigate', e => { const next = resolveScreen(e.payload); if (next) setScreen(next); }).then(f => { if (cancelled) f(); else dispose = f; }); return () => { cancelled = true; dispose?.(); }; }, []);
   useEffect(() => {
     const keys = (e: KeyboardEvent) => {
@@ -86,7 +90,7 @@ export function Shell({ data, act, date, setDate, now, busy = false, error = '',
           {(error || data.error) && <div role="alert" className="error">{error || data.error}</div>}
           {!data.trusted && data.settings.collect_titles && <div className="notice">App-level tracking is available. Allow Accessibility to include window titles.<button type="button" onClick={() => void act('open_permissions')}>Open Settings</button></div>}
           <motion.div key={screen} initial={reduced ? false : { opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>{body}</motion.div>
-          <p className="app-privacy">{signedIn ? 'Activity stays on this Mac. Habits, goals and tasks sync with your Habyss account.' : 'Private by design. No accounts. No uploads.'}</p>
+          {!statusLoading && <p className="app-privacy">{signedIn ? 'Activity stays on this Mac. Habits, goals and tasks sync with your Habyss account.' : 'Private by design. No accounts. No uploads.'}</p>}
         </div>
       </main>
       <div className="app-right"><TodayPanel mode="window" collapsed={collapsed} onCollapsedChange={setPanel} /></div>

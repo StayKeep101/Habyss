@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { Cached, FocusSession, Interval, Screen, Snapshot } from '../types';
-import { dayRange, duration, localDate, metrics, overlap } from '../analytics';
+import { dayRange, duration, FOCUS_MINUTES, localDate, metrics, overlap } from '../analytics';
 import { buildToday, type TodayItem } from '../today/today';
-import { useCloud } from '../today/useCloud';
+import { useFastClock, useSharedCloud, WithCloud } from '../today/CloudProvider';
 import { localDateKey } from '../shared/habitSchedule';
 import { FocusControls } from '../panel/FocusControls';
 import { AbyssArt, AppIcon, Button, Card, Donut, Empty, IconButton, ProgressBar, Segmented, StatTile, Tag, type IconName } from '../ui';
@@ -16,7 +16,7 @@ type View = 'Scheduled' | 'Activity';
 type Loaded = { snap: Snapshot; range: Range; from: number };
 const RANGES: Range[] = ['Today', 'Week', 'Month', 'Year'];
 const VIEWS: View[] = ['Scheduled', 'Activity'];
-const FOCUS_MINUTES = 25, MIN = 60000;
+const MIN = 60000;
 /** Wider ranges re-query on activity at most once a minute; Today stays live. */
 const WIDE_REFRESH_MS = MIN;
 const itemKey = (id: string | null | undefined, kind: string | null | undefined) => `${kind ?? ''}:${id ?? ''}`;
@@ -41,21 +41,25 @@ function SignIn({ text, onNavigate }: { text: string; onNavigate?: (s: Screen) =
   return <div className="db-signin"><p>{text}</p>{onNavigate && <Button variant="quiet" onClick={() => onNavigate('Settings')}>Open Settings</Button>}</div>;
 }
 
-export function Dashboard({ onNavigate }: { onNavigate?: (s: Screen) => void }) {
-  const cloud = useCloud();
+type DashboardProps = { onNavigate?: (s: Screen) => void };
+
+/** In the Shell it shares the panel's cloud data and clock; on its own it starts them. */
+export function Dashboard(props: DashboardProps) {
+  return <WithCloud><DashboardBody {...props} /></WithCloud>;
+}
+
+function DashboardBody({ onNavigate }: DashboardProps) {
+  const { cloud, signedIn, statusLoading, now, minute } = useSharedCloud();
   const [range, setRange] = useState<Range>('Today');
   const [view, setView] = useState<View>('Scheduled');
   const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const [now, setNow] = useState(Date.now());
   const [name, setName] = useState('');
   const [pickKey, setPickKey] = useState<string | null>(null);
   const [snapError, setSnapError] = useState('');
   const [error, setError] = useState('');
 
-  const state = cloud.status?.state;
-  const signedIn = !!state && state !== 'signed_out' && state !== 'unconfigured';
-  const waiting = cloud.loading || (cloud.status === null && !cloud.error);
-  const day = localDate(new Date(now));
+  const waiting = statusLoading || cloud.loading;
+  const day = localDate(new Date(minute));
 
   // The range has its own query; the shell's 7-day snapshot stays as it is. Only the latest request lands.
   const seq = useRef(0);
@@ -93,10 +97,9 @@ export function Dashboard({ onNavigate }: { onNavigate?: (s: Screen) => void }) 
 
   const snap = loaded?.snap ?? null;
   const running: FocusSession | null = snap?.focus.find(f => f.end === null) ?? null;
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), running ? 1000 : 30000); return () => clearInterval(t); }, [running]);
+  useFastClock(running !== null);
 
-  // Day and range figures move by the minute; only the focus clock needs the second.
-  const minute = Math.floor(now / MIN) * MIN;
+  // Day and range figures move by the shared minute; only the focus clock needs the second.
   const today = useMemo(() => buildToday(cloud.data, { now: new Date(minute), signedIn }), [cloud.data, minute, signedIn]);
   const from = loaded?.from ?? rangeBounds(range, new Date(minute))[0];
   const intervals = useMemo(() => snap?.intervals ?? [], [snap]);
@@ -104,7 +107,9 @@ export function Dashboard({ onNavigate }: { onNavigate?: (s: Screen) => void }) 
   const m = useMemo(() => metrics(intervals, snap?.focus ?? [], from, minute, minute), [intervals, snap, from, minute]);
   const slices = useMemo(() => allocation(intervals, from, minute, minute), [intervals, from, minute]);
   const productive = useMemo(() => productivePercent(intervals, classes, from, minute, minute), [intervals, classes, from, minute]);
-  const tasks = useMemo(() => tasksInRange(cloud.data?.tasks ?? [], localDateKey(new Date(from)), localDateKey(new Date(minute))), [cloud.data, from, minute]);
+  // Ruling P6: for Today, the listed tasks of the today model, as the panel shows; wider ranges count tasks due in the range.
+  const rangeTasks = useMemo(() => tasksInRange(cloud.data?.tasks ?? [], localDateKey(new Date(from)), localDateKey(new Date(minute))), [cloud.data, from, minute]);
+  const tasks = range === 'Today' ? { done: today.tasksDone, total: today.tasksTotal } : rangeTasks;
   const recent = useMemo(() => { const [start, end] = dayRange(day); return intervals.filter(i => i.state === 'active' && i.end > start && i.start < end).sort((a, b) => b.start - a.start).slice(0, 6); }, [intervals, day]);
   const tracked = slices.reduce((n, s) => n + s.value, 0);
   // Plan figures need an account and its data; anything less shows a dash, never a zero.
@@ -138,7 +143,7 @@ export function Dashboard({ onNavigate }: { onNavigate?: (s: Screen) => void }) 
     if (!(await run('stop_focus')) || !linked || linked.done) { await loadSnap(); return; }
     const ok = linked.kind === 'task'
       ? await run('cloud_set_task_done', { id: linked.id, done: true })
-      : await run('cloud_set_completion', { habitId: linked.id, date: today.day, value: 1, skipped: false, memo: null, evidence: null });
+      : await run('cloud_set_completion', { habitId: linked.id, date: localDateKey(new Date()), value: 1, skipped: false, memo: null, evidence: null });
     await Promise.all([loadSnap(), ok ? cloud.refresh() : Promise.resolve()]);
   };
   const canStep = ready && open.some(i => itemKey(i.id, i.kind) !== focusKey);
@@ -201,7 +206,7 @@ export function Dashboard({ onNavigate }: { onNavigate?: (s: Screen) => void }) 
           {view === 'Scheduled'
             ? planner ?? (!signedIn ? <SignIn text="Sign in to see your habits and tasks." onNavigate={onNavigate} />
               : today.items.length === 0 ? <Empty>Nothing scheduled today.</Empty>
-              : <ol className="db-tl">{today.items.map(i => <ScheduledRow key={i.id} item={i} />)}</ol>)
+              : <ol className="db-tl">{today.items.map(i => <ScheduledRow key={`${i.kind}:${i.id}:${i.start}`} item={i} />)}</ol>)
             : recent.length === 0 ? <Empty>No activity recorded today.</Empty>
             : <ol className="db-tl">{recent.map(i => <ActivityRow key={i.id} interval={i} day={day} />)}</ol>}
         </Card>
