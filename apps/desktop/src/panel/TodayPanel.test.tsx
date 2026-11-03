@@ -117,4 +117,32 @@ describe('TodayPanel', () => {
     render(<TodayPanel mode="menubar" />);
     await waitFor(() => expect(screen.getByText('Productive').previousElementSibling?.textContent).toBe('100%'));
   });
+  it('failed_tick_reverts_and_shows_the_error', async () => {
+    wire({ cloud_set_completion: () => { throw new Error('offline'); } });
+    render(<TodayPanel mode="menubar" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark Workout done' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('offline');
+    await waitFor(() => expect(screen.getByText('Workout').closest('li')?.className).not.toContain('done'));
+    expect(called('cloud_data').length).toBeGreaterThan(1);
+  });
+
+  it('failed_add_keeps_the_draft_open', async () => {
+    wire({ cloud_save: () => { throw new Error('nope'); } });
+    render(<TodayPanel mode="menubar" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add task' }));
+    const input = screen.getByRole('textbox', { name: 'New task' }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Call bank' } });
+    fireEvent.submit(input.closest('form')!);
+    expect((await screen.findByRole('alert')).textContent).toContain('nope');
+    expect((screen.getByRole('textbox', { name: 'New task' }) as HTMLInputElement).value).toBe('Call bank');
+  });
+
+  it('signed_out_hides_a_cloud_data_error', async () => {
+    wire({ cloud_status: () => ({ state: 'signed_out', email: null, last_sync: null, pending: 0, refused: 0, error: null }), cloud_data: () => { throw new Error('boom'); } });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<TodayPanel mode="menubar" />);
+    expect((await screen.findAllByText('Sign in to see your habits and tasks')).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByText(/boom/)).toBeNull();
+  });
 });

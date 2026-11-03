@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { CloudData, CompletionRow, FocusSession, Snapshot } from '../types';
@@ -63,25 +63,30 @@ export function TodayPanel({ mode }: { mode: 'menubar' | 'window' }) {
   const classifiedMs = m.categories.reduce((n, [c, ms]) => n + (snap?.classifications[c] ? ms : 0), 0);
   const productive = classifiedMs > 0 && m.active > 0 ? `${Math.round(productiveMs / m.active * 100)}%` : '–';
 
-  const run = async (cmd: string, args?: Record<string, unknown>) => { setError(''); try { await invoke(cmd, args); } catch (e) { setError(String(e)); await cloud.refresh(); } };
+  const errorOwner = useRef('');
+  /** Returns whether the command succeeded. Only the action that set the error clears it. */
+  const run = async (cmd: string, args?: Record<string, unknown>, revert = false): Promise<boolean> => {
+    try { await invoke(cmd, args); if (errorOwner.current === cmd) { errorOwner.current = ''; setError(''); } return true; }
+    catch (e) { errorOwner.current = cmd; setError(String(e)); if (revert) await cloud.refresh(); return false; }
+  };
   const focusCmd = async (cmd: string, args?: Record<string, unknown>) => { await run(cmd, args); await loadSnap(); };
   const startFocus = (item: TodayItem | null) => focusCmd('start_focus', { label: item?.title ?? 'Focus', minutes: FOCUS_MINUTES, itemId: item?.id ?? null, itemKind: item?.kind ?? null });
   const toggle = (item: TodayItem) => {
     const on = !item.done, at = new Date().toISOString();
     if (item.kind === 'habit') {
       cloud.setLocal(d => tickHabit(d, item.id, today.day, on, at));
-      void run('cloud_set_completion', { habitId: item.id, date: today.day, value: on ? 1 : null, skipped: false, memo: null, evidence: null });
+      void run('cloud_set_completion', { habitId: item.id, date: today.day, value: on ? 1 : null, skipped: false, memo: null, evidence: null }, true);
     } else {
       cloud.setLocal(d => ({ ...d, tasks: d.tasks.map(t => (t.id === item.id ? { ...t, status: on ? 'done' : 'open', completed_at: on ? at : null } : t)) }));
-      void run('cloud_set_task_done', { id: item.id, done: on });
+      void run('cloud_set_task_done', { id: item.id, done: on }, true);
     }
   };
   const addTask = async (e: FormEvent) => {
     e.preventDefault();
     const title = draft.trim();
     if (!title) return;
+    if (!(await run('cloud_save', { table: 'tasks', row: { title, due_date: today.day, status: 'open' } }))) return;
     setDraft(''); setAdding(false);
-    await run('cloud_save', { table: 'tasks', row: { title, due_date: today.day, status: 'open' } });
     await cloud.refresh();
   };
 
