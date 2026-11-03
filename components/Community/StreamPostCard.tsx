@@ -1,20 +1,17 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import {
-    AppButton, AppIcon, Avatar, CountUp, Crown, FaceStack, IconTile, PostCard, SegmentBar, Text, VersusBar, type PostStat,
-} from '@/components/ui';
+import { Pressable, Text as RNText, StyleSheet, View } from 'react-native';
+import { AppIcon, Avatar, CountUp, Crown, MatteSurface, PostCard, SegmentBar, Text, type PostStat } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
-import { Control, Spacing } from '@/theme/designSystem';
+import { Control, Radius, Spacing } from '@/theme/designSystem';
 import { maskObjectionable } from '@/lib/contentFilter';
 import { focusDuration } from '@/lib/focusStats';
-import { daysLeft, leader, shareOf } from '@/lib/duels';
-import { revealText } from '@/lib/weekly';
 import { STREAK_MILESTONES } from '@/lib/dayMoments';
 import type { StreamPost } from '@/lib/communityStream';
 import type { DayCardLine } from '@/lib/dayCard';
 import type { FeedPost } from '@/lib/feedService';
 import type { FriendStatus } from '@/lib/presence';
 import type { Reaction } from '@/lib/reactions';
+import { bestComments, splitMentions, type Comment } from '@/lib/comments';
 import { StatusBadge } from './StatusBadge';
 import { ReactionBar } from './ReactionBar';
 
@@ -30,23 +27,17 @@ export interface StreamContext {
     onReact: (post: FeedPost, reaction: Reaction | null) => void;
     onReport: (post: FeedPost) => void;
     openPerson: (userId: string) => void;
-    /** Starts a duel (the + sheet), for a rematch. */
-    rematch: () => void;
-    /** Shows This week, for the race behind the crown. */
-    seeWeek: () => void;
+    /** The comments under a day, by its post key. */
+    commentsOf: (key: string) => Comment[];
+    onOpenComments: (post: FeedPost) => void;
 }
 
 const KIND = {
-    daily: { icon: 'today', label: 'Today' },
+    daily: { icon: 'today', label: 'Daily' },
     milestone: { icon: 'flag', label: 'Milestone' },
     best: { icon: 'trophy', label: 'Personal best' },
     chronos: { icon: 'hourglass', label: 'Chronos' },
     comeback: { icon: 'trending-up', label: 'Comeback' },
-    rivalry: { icon: 'flash', label: 'Rivalry' },
-    victory: { icon: 'trophy', label: 'Victory' },
-    squad: { icon: 'people', label: 'Squad' },
-    king: { icon: 'ribbon', label: 'King of the Week' },
-    mission: { icon: 'eye-off', label: 'Secret mission' },
 } as const;
 
 const postedLabel = (postedAt: string) => {
@@ -85,7 +76,7 @@ function Line({ item, mine }: { item: DayCardLine; mine: boolean }) {
 }
 
 /** A day card, as whichever of the five day kinds it is. */
-function DayPost({ item, ctx }: { item: Extract<StreamPost, { post: FeedPost }>; ctx: StreamContext }) {
+function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
     const t = useTokens();
     const { post } = item;
     const card = post.card;
@@ -142,8 +133,7 @@ function DayPost({ item, ctx }: { item: Extract<StreamPost, { post: FeedPost }>;
             details={lines.length ? <View style={styles.lines}>{lines.map((line, index) => <Line key={`${line.name}-${index}`} item={line} mine={post.mine} />)}</View> : undefined}
             onOpenAuthor={() => ctx.openPerson(post.userId)}
             onReport={post.mine ? undefined : () => ctx.onReport(post)}
-            footer={<ReactionBar mine={post.mine} myReaction={post.myReaction} reactions={post.reactions}
-                faces={ctx.facesOf(post.ackUsers)} onReact={reaction => ctx.onReact(post, reaction)} />}>
+            footer={<Footer item={item} ctx={ctx} />}>
             {visual}
             {did.length ? (
                 <Text variant="bodySmall" tone="muted" numberOfLines={1}>
@@ -154,96 +144,65 @@ function DayPost({ item, ctx }: { item: Extract<StreamPost, { post: FeedPost }>;
     );
 }
 
-/** Any post in the stream, drawn for its kind. */
-export function StreamPostCard({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
+/** A comment as one line on the card: the name, then the words, @mentions in cobalt. */
+function Preview({ comment }: { comment: Comment }) {
     const t = useTokens();
-    if ('post' in item) return <DayPost item={item} ctx={ctx} />;
-
-    if (item.kind === 'rivalry') {
-        const { duel } = item;
-        const ahead = leader(duel);
-        const left = daysLeft(duel.ends);
-        return (
-            <PostCard live kind={KIND.rivalry} when={`${left} ${left === 1 ? 'day' : 'days'} left`}
-                lead={<Avatar name={duel.name} uri={duel.avatarUrl} size={Control.hitTarget} />}
-                name={`You vs ${duel.name.split(' ')[0]}`} onOpenAuthor={() => ctx.openPerson(duel.friendId)}
-                hero={<Hero value={ahead === 'me' ? 'Ahead' : ahead === 'them' ? 'Behind' : 'Even'} caption={duel.stake ? `${duel.stake * 2} Shards on it` : 'For pride'} />}>
-                <VersusBar left={{ label: 'You', percent: shareOf(duel.me) * 100, color: t.color.cobalt }}
-                    right={{ label: duel.name.split(' ')[0], percent: shareOf(duel.them) * 100, color: t.color.silver }} />
-            </PostCard>
-        );
-    }
-
-    if (item.kind === 'victory' && item.duel) {
-        const { duel } = item;
-        const won = duel.winnerId === null ? null : duel.winnerId !== duel.friendId;
-        return (
-            <PostCard kind={KIND.victory} when={`${duel.days}-day duel`}
-                lead={<IconTile icon={won ? 'trophy' : 'flag'} color={won ? t.color.cobalt : t.color.silver} size={Control.hitTarget} />}
-                name={won === null ? `Draw with ${duel.name}` : won ? `You beat ${duel.name}` : `${duel.name} beat you`}
-                hero={duel.stake && won !== null ? <Hero value={won ? `+${duel.stake * 2}` : `−${duel.stake}`} unit="Shards" /> : undefined}
-                footer={<AppButton label={won ? 'Run it back' : 'Rematch'} icon="flash" variant="ghost" onPress={ctx.rematch} />}>
-                <VersusBar left={{ label: 'You', percent: shareOf(duel.me) * 100, color: t.color.cobalt }}
-                    right={{ label: duel.name.split(' ')[0], percent: shareOf(duel.them) * 100, color: t.color.silver }} />
-            </PostCard>
-        );
-    }
-
-    if (item.kind === 'victory' && item.market) {
-        const { market } = item;
-        const total = market.pool.make + market.pool.miss;
-        const made = market.status === 'won';
-        const owner = market.mine ? 'You' : market.name.split(' ')[0];
-        return (
-            <PostCard kind={KIND.victory} when={market.title}
-                lead={<Avatar name={market.name} uri={market.avatarUrl} size={Control.hitTarget} />}
-                name={`${owner} ${made ? 'made it' : 'missed it'}`} onOpenAuthor={() => ctx.openPerson(market.ownerId)}
-                hero={<Hero value={String(total)} unit="Shards in play" caption={made ? 'Backers win' : 'Doubters win'} />}>
-                <VersusBar left={{ label: 'Backed', percent: total ? (market.pool.make / total) * 100 : 50, color: made ? t.color.cobalt : t.color.silver }}
-                    right={{ label: 'Doubted', percent: total ? (market.pool.miss / total) * 100 : 50, color: made ? t.color.silver : t.color.cobalt }} />
-            </PostCard>
-        );
-    }
-
-    if (item.kind === 'squad') {
-        return (
-            <PostCard kind={KIND.squad} when="This week"
-                lead={<IconTile icon="people" color={t.color.cobalt} size={Control.hitTarget} />}
-                name="The crew did it"
-                hero={<Hero value={String(item.done)} unit="show-ups together" caption={`Goal ${item.target}`} />}>
-                <SegmentBar done={item.done} total={item.target} />
-                <FaceStack faces={item.crew.map(member => ({ userId: member.userId, name: member.name, avatarUrl: member.avatarUrl }))} size={Spacing.xxl + Spacing.xs} shown={6} />
-            </PostCard>
-        );
-    }
-
-    if (item.kind === 'king') {
-        const { king } = item;
-        const you = king.userId === ctx.meId;
-        return (
-            <PostCard kind={KIND.king} when="This week"
-                lead={<Avatar name={king.name} uri={king.avatarUrl} size={Control.hitTarget} ring={t.color.cobalt} badge={<Crown size={Spacing.lg} />} />}
-                name={you ? 'You wear the crown' : `${king.name} wears the crown`} onOpenAuthor={() => ctx.openPerson(king.userId)}
-                hero={<Hero value={String(king.days)} unit="of 7 days" caption="Most consistent" />}
-                footer={<AppButton label="See the race" icon="podium" variant="ghost" onPress={ctx.seeWeek} />}>
-                <SegmentBar done={king.days} total={7} accessibilityLabel={`${king.days} of 7 days`} />
-            </PostCard>
-        );
-    }
-
-    // A secret mission, revealed.
-    const { revealed } = item;
+    const body = comment.mine ? comment.body : maskObjectionable(comment.body);
     return (
-        <PostCard kind={KIND.mission} when="Revealed"
-            lead={<Avatar name={revealed.mine ? revealed.friendName : revealed.ownerName} uri={revealed.mine ? undefined : revealed.ownerAvatar} size={Control.hitTarget}
-                badge={<AppIcon name="eye-off" filled size={Spacing.md} color={t.color.textPrimary} />} />}
-            name={revealed.mine ? 'Your secret is out' : `${revealed.ownerName} had a secret`}>
-            <Text variant="body">{revealText(revealed)}</Text>
-        </PostCard>
+        <RNText numberOfLines={2} style={[t.type.bodySmall, { color: t.color.textPrimary }]}>
+            <RNText style={{ fontFamily: t.type.heading.fontFamily }}>{`${comment.authorName}  `}</RNText>
+            {splitMentions(body).map((part, index) => (
+                <RNText key={index} style={part.mention ? { color: t.color.cobalt } : { color: t.color.textMuted }}>{part.text}</RNText>
+            ))}
+        </RNText>
     );
 }
 
+/**
+ * Under a day: the two best comments (most reacted, then most replied), then
+ * who reacted, the reactions and the comments button. Any of the comment
+ * parts opens the conversation.
+ */
+function Footer({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
+    const t = useTokens();
+    const { post } = item;
+    const comments = ctx.commentsOf(item.key);
+    const best = bestComments(comments);
+    const open = () => ctx.onOpenComments(post);
+    return (
+        <View style={styles.footer}>
+            {best.length ? (
+                <Pressable onPress={open} style={styles.previews} accessibilityRole="button"
+                    accessibilityLabel={`${comments.length} ${comments.length === 1 ? 'comment' : 'comments'}. Open the conversation`}>
+                    {best.map(comment => <Preview key={comment.id} comment={comment} />)}
+                    {comments.length > best.length ? <Text variant="caption" tone="muted">{`View all ${comments.length}`}</Text> : null}
+                </Pressable>
+            ) : null}
+            <ReactionBar mine={post.mine} myReaction={post.myReaction} reactions={post.reactions}
+                faces={ctx.facesOf(post.ackUsers)} onReact={reaction => ctx.onReact(post, reaction)}
+                extra={(
+                    <Pressable onPress={open} hitSlop={Spacing.xs} accessibilityRole="button"
+                        accessibilityLabel={comments.length ? `${comments.length} comments` : 'Comment'}>
+                        <MatteSurface radius={Radius.pill} level="control" style={styles.commentPill}>
+                            <AppIcon name="chatbubble" size={Spacing.lg} color={t.color.silver} />
+                            {comments.length ? <RNText style={[t.type.caption, styles.numeric, { color: t.color.textPrimary }]}>{comments.length}</RNText> : null}
+                        </MatteSurface>
+                    </Pressable>
+                )} />
+        </View>
+    );
+}
+
+/** A post in Today's feed: a friend's day, drawn as the kind of day it was. */
+export function StreamPostCard({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
+    return <DayPost item={item} ctx={ctx} />;
+}
+
 const styles = StyleSheet.create({
+    footer: { gap: Spacing.md },
+    previews: { gap: Spacing.xs },
+    commentPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, minWidth: Control.hitTarget - Spacing.xs, minHeight: Control.hitTarget - Spacing.xs, paddingHorizontal: Spacing.md },
+    numeric: { fontVariant: ['tabular-nums'] },
     hero: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm },
     lines: { gap: Spacing.xs },
     line: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: Spacing.xxl },

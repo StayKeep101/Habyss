@@ -27,7 +27,7 @@ export function CrewQuest({ members, style }: { members: CrewMember[]; style?: S
     const left = Math.max(0, target - done);
     return (
         <View style={style}>
-            <SectionTitle first>Crew quest</SectionTitle>
+            <SectionTitle>Crew quest</SectionTitle>
             <VoidCard style={styles.card}>
                 <View style={styles.head} accessible accessibilityLabel={reached ? `Crew quest done: ${done} show-ups this week` : `${done} of ${target} show-ups by Sunday`}>
                     {reached ? <AppIcon name="trophy" filled size={26} color={t.color.silver} /> : null}

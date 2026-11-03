@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { Pressable, Text as RNText, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
-import { AppIcon, Avatar, MatteSurface, Text } from '@/components/ui';
+import { AppIcon, Avatar, CountUp, MatteSurface, Text } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { textOn } from '@/theme/tokens';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
@@ -14,12 +14,14 @@ import { REACTIONS, reactionLabel, type Reaction } from '@/lib/reactions';
  * Tap another to change it, tap yours to take it back. Faces of who reacted
  * sit at the front. On your own post, only who reacted.
  */
-export function ReactionBar({ mine, myReaction, reactions, faces, onReact }: {
+export function ReactionBar({ mine, myReaction, reactions, faces, onReact, extra }: {
     mine: boolean;
     myReaction: Reaction | null;
     reactions: Partial<Record<Reaction, number>>;
     faces: { name: string; avatarUrl?: string }[];
     onReact: (reaction: Reaction | null) => void;
+    /** Another control at the end of the row: the comments button. */
+    extra?: React.ReactNode;
 }) {
     const t = useTokens();
     const pop = useSharedValue(1);
@@ -50,7 +52,8 @@ export function ReactionBar({ mine, myReaction, reactions, faces, onReact }: {
                     const pill = (
                         <MatteSurface radius={Radius.pill} level="control" style={[styles.pill, on && { backgroundColor: t.color.cobalt }]}>
                             <AppIcon name={option.icon} filled={on} size={Spacing.lg} color={on ? fg : t.color.silver} />
-                            {count ? <RNText style={[t.type.caption, styles.count, { color: fg }]}>{count}</RNText> : null}
+                            {/* The count ticks over as a reaction lands, like a balance. */}
+                            {count ? <CountUp value={count} style={[t.type.caption, styles.count, { color: fg }]} /> : null}
                         </MatteSurface>
                     );
                     if (mine) return <View key={option.id} accessible accessibilityLabel={`${reactionLabel(option.id)} ${count}`}>{pill}</View>;
@@ -63,6 +66,7 @@ export function ReactionBar({ mine, myReaction, reactions, faces, onReact }: {
                         </Pressable>
                     );
                 })}
+                {extra}
             </View>
         </View>
     );

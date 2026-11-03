@@ -36,6 +36,7 @@
  *   CardRail (cards swiped side by side, the next peeking in),
  *   PostCard (a Community post of any kind: face, name, rank, kind; one big figure; a visual; stats; details on demand),
  *   SegmentBar (a bar in pieces, one per thing to do, lit in cobalt as it arrives),
+ *   Receipt (the moment something is paid for: a ring closes, the tick lands with haptics and sound, the amount counts in),
  *   Confetti (falls once from the top, for the biggest moments; none with Reduce Motion)
  *
  * Motion (how charts, bars and numbers move — use these, never a still bar)
@@ -101,6 +102,7 @@ export { VersusBar, type VersusSide } from './VersusBar';
 export { CardRail } from './CardRail';
 export { PostCard, type PostStat } from './PostCard';
 export { SegmentBar } from './SegmentBar';
+export { Receipt } from './Receipt';
 export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { StatTile, type StatTileProps } from './StatTile';
 export { ChartCard, type ChartCardProps } from './ChartCard';

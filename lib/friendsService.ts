@@ -97,19 +97,6 @@ export interface InboxItem {
     share?: { type: 'habit' | 'task' | 'goal'; itemId: string; ownerId: string };
 }
 
-/** A note on somebody's day, as the server holds it. */
-export interface DayComment {
-    id: string;
-    author: string;
-    toUser: string;
-    day: string;
-    body: string;
-    createdAt: string;
-    /** Written by you: only your own can be taken back. */
-    mine: boolean;
-    authorName?: string;
-}
-
 export interface FriendActivity {
     id: string;
     userId: string;
@@ -842,56 +829,6 @@ export class FriendsService {
         if (!ctx) return false;
         const { error } = await ctx.sb.from('feed_reactions').delete()
             .eq('from_user', ctx.me).eq('to_user', toUserId).eq('day', day);
-        return !error;
-    }
-
-    /* ------------------------------------------------ saying something */
-
-    /** Every note on this day that you are allowed to see, by whose day it is. */
-    static async getDayComments(day = localDateKey(new Date())): Promise<Record<string, DayComment[]>> {
-        const ctx = await signedIn();
-        if (!ctx) return {};
-        const { data, error } = await ctx.sb.from('feed_comments')
-            .select('id, author, to_user, day, body, created_at').eq('day', day)
-            .order('created_at', { ascending: true });
-        if (error) return {};
-
-        const names = await profiles(ctx, (data ?? []).map((row: any) => row.author));
-        const byCard: Record<string, DayComment[]> = {};
-        for (const row of data ?? []) {
-            const comment: DayComment = {
-                id: row.id, author: row.author, toUser: row.to_user, day: row.day,
-                body: row.body, createdAt: row.created_at,
-                mine: row.author === ctx.me,
-                authorName: names.has(row.author) ? nameOf(names.get(row.author)) : undefined,
-            };
-            (byCard[row.to_user] ??= []).push(comment);
-        }
-        return byCard;
-    }
-
-    /** Returns the row the server made, so the id it is deleted by is the real one. */
-    static async addDayComment(toUserId: string, body: string, day = localDateKey(new Date())): Promise<DayComment | null> {
-        const ctx = await signedIn();
-        if (!ctx) return null;
-        const text = body.trim();
-        // The same bounds the table checks, so a hopeless insert is not attempted.
-        if (!text || text.length > 500) return null;
-        const { data, error } = await ctx.sb.from('feed_comments')
-            .insert({ author: ctx.me, to_user: toUserId, day, body: text })
-            .select('id, author, to_user, day, body, created_at').single();
-        if (error || !data) return null;
-        return {
-            id: data.id, author: data.author, toUser: data.to_user, day: data.day,
-            body: data.body, createdAt: data.created_at, mine: true,
-        };
-    }
-
-    /** Only your own; the policy enforces it, this only saves a pointless call. */
-    static async deleteDayComment(id: string): Promise<boolean> {
-        const ctx = await signedIn();
-        if (!ctx) return false;
-        const { error } = await ctx.sb.from('feed_comments').delete().eq('id', id).eq('author', ctx.me);
         return !error;
     }
 

@@ -1,9 +1,8 @@
-import { ExposedSection } from './ExposedSection';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, Text as RNText, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import {
-    AppButton, AppIcon, Avatar, CardRail, CountUp, GameCard, IconButton, IconTile, ListItem, MatteSurface, SectionTitle, SettingsGroup, SettingsRow, SheetSection, StepSlider, Text, VersusBar, VoidSheet,
+    AppButton, AppIcon, Avatar, CardRail, CountUp, GameCard, HoldButton, IconButton, Receipt, IconTile, ListItem, MatteSurface, SectionTitle, SettingsGroup, SettingsRow, SheetSection, StepSlider, Text, VersusBar, VoidSheet,
     type BadgeProps,
 } from '@/components/ui';
 import { textOn } from '@/theme/tokens';
@@ -57,7 +56,6 @@ export function MarketSection({ style }: { style?: StyleProp<ViewStyle> }) {
             ) : null}
             {done.map(market => <ListItem key={market.id}><MarketCard market={market} onBet={() => undefined} /></ListItem>)}
 
-            <ExposedSection />
             {betting ? <StakeSheet market={betting} spendable={spendable} onClose={() => setBetting(null)} /> : null}
             <OpenSheet visible={opening} openKeys={openKeys} onClose={() => setOpening(false)} />
         </View>
@@ -117,7 +115,7 @@ function MarketCard({ market, onBet }: { market: Market; onBet: () => void }) {
  */
 function StakeSheet({ market, spendable, onClose }: { market: Market; spendable: number | null; onClose: () => void }) {
     const t = useTokens();
-    const { successFeedback, selectionFeedback } = useHaptics();
+    const { selectionFeedback } = useHaptics();
     const already = market.myStake?.amount ?? 0;
     const room = MAX_STAKE - already;
     const cap = spendable === null ? room : Math.min(room, spendable);
@@ -131,6 +129,8 @@ function StakeSheet({ market, spendable, onClose }: { market: Market; spendable:
     const [amount, setAmount] = useState<number>(steps[Math.min(1, steps.length - 1)]);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Placed: the sheet becomes the receipt, then closes.
+    const [paid, setPaid] = useState(false);
 
     const total = market.pool.make + market.pool.miss;
     const back = payoutFor(amount, side, market.pool, already);
@@ -140,8 +140,7 @@ function StakeSheet({ market, spendable, onClose }: { market: Market; spendable:
         setError(null);
         try {
             await placeStake(market.id, side, amount);
-            successFeedback();
-            onClose();
+            setPaid(true);
         } catch (failed) {
             setError(failed instanceof Error ? failed.message : 'That bet didn’t go through.');
         } finally {
@@ -169,11 +168,17 @@ function StakeSheet({ market, spendable, onClose }: { market: Market; spendable:
 
     return (
         <VoidSheet visible onClose={onClose} title={market.title} caption={market.mine ? 'Back yourself' : `${market.name.split(' ')[0]}’s goal · ${dueLabel(market.deadline)}`}
-            footer={
+            footer={paid ? undefined : (
                 <View style={styles.footer}>
-                    <AppButton label={amount > 0 ? `Bet ${amount} Shards` : 'Not enough Shards'} icon="diamond" loading={busy} disabled={amount <= 0} onPress={place} />
+                    {/* Held, like paying: the fill builds, the buzz builds, it lands. */}
+                    {amount > 0 ? <HoldButton label={`Hold to bet ${amount} Shards`} icon="diamond" loading={busy} onComplete={() => void place()} />
+                        : <AppButton label="Not enough Shards" disabled onPress={() => undefined} />}
                 </View>
-            }>
+            )}>
+            {paid ? (
+                <Receipt title="Bet placed" amount={-amount}
+                    line={`On ${side === 'make' ? 'makes it' : 'misses it'}${gain ? ` · wins ${gain} if you’re right` : ''}`} onDone={onClose} />
+            ) : (
             <View style={styles.body}>
                 {locked ? null : <View style={styles.sides}>{(['make', 'miss'] as const).map(sideButton)}</View>}
                 {steps.length > 1 ? (
@@ -189,6 +194,7 @@ function StakeSheet({ market, spendable, onClose }: { market: Market; spendable:
                 </View>
                 {error ? <Text variant="bodySmall" tone="danger" align="center">{error}</Text> : null}
             </View>
+            )}
         </VoidSheet>
     );
 }

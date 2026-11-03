@@ -5,6 +5,7 @@ import { MarketSection } from '../Market/MarketSection';
 jest.mock('expo-router', () => ({ useFocusEffect: (effect: () => void) => { const React = require('react'); React.useEffect(effect, []); } }));
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'abyss' }) }));
 jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#6B8AF5', foreground: '#6B8AF5', buttonColors: ['#6B8AF5', '#6B8AF5'] }) }));
+jest.mock('@/hooks/useSoundEffects', () => ({ useSoundEffects: () => ({ playComplete: jest.fn() }) }));
 jest.mock('@/lib/market', () => ({
     ...jest.requireActual('@/lib/market'),
     marketFeed: jest.fn(async () => []),
@@ -48,6 +49,8 @@ it('opens the bet from the card: pick a side, see what it would win, place it', 
     fireEvent.press(screen.getByLabelText('Makes it, 0%'));
     // 25 on makes it against 100 on misses it: all of their 100 comes to you.
     expect(screen.getByLabelText('Wins 100 Shards')).toBeTruthy();
-    await act(async () => { fireEvent.press(screen.getByText('Bet 25 Shards')); });
+    // Held like paying (VoiceOver activates it directly), then the receipt.
+    await act(async () => { fireEvent(screen.getByLabelText('Hold to bet 25 Shards'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } }); });
     expect(lib.placeStake).toHaveBeenCalledWith('m1', 'make', 25);
+    expect(screen.getByText('Bet placed')).toBeTruthy();
 });

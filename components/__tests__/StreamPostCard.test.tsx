@@ -9,7 +9,7 @@ jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primar
 
 const ctx = (extra: Partial<StreamContext> = {}): StreamContext => ({
     meId: 'me', myName: 'Me', kingId: null, rankOf: () => 2, statusOf: () => undefined, facesOf: () => [],
-    onReact: jest.fn(), onReport: jest.fn(), openPerson: jest.fn(), rematch: jest.fn(), seeWeek: jest.fn(), ...extra,
+    onReact: jest.fn(), onReport: jest.fn(), openPerson: jest.fn(), commentsOf: () => [], onOpenComments: jest.fn(), ...extra,
 });
 const post = (card = {}): FeedPost => ({
     userId: 'ana', day: '2026-11-02', postedAt: '2026-11-02T18:00:00.000Z', name: 'Ana', username: 'ana',
@@ -40,22 +40,16 @@ it('tells the day kinds apart', () => {
     expect(render(<StreamPostCard item={day('chronos', { focusMinutes: 135 })} ctx={ctx()} />).getByText('focused')).toBeTruthy();
 });
 
-it('draws a rivalry live, a victory with a rematch, the king with the race', () => {
-    const duel = { id: 'd', mine: true, friendId: 'sam', name: 'Sam', stake: 25, days: 7, starts: '2026-10-27', ends: '2099-01-01',
-        status: 'active' as const, winnerId: null, me: { done: 6, total: 8, days: 5 }, them: { done: 3, total: 8, days: 4 } };
-    const live = render(<StreamPostCard item={{ kind: 'rivalry', key: 'r', at: 'x', duel }} ctx={ctx()} />);
-    expect(live.getByText('You vs Sam')).toBeTruthy();
-    expect(live.getByText('Ahead')).toBeTruthy();
-    expect(live.getByLabelText('Live')).toBeTruthy();
-
-    const context = ctx();
-    const won = render(<StreamPostCard item={{ kind: 'victory', key: 'v', at: 'x', duel: { ...duel, status: 'settled', winnerId: 'me' } }} ctx={context} />);
-    expect(won.getByText('You beat Sam')).toBeTruthy();
-    fireEvent.press(won.getByText('Run it back'));
-    expect(context.rematch).toHaveBeenCalled();
-
-    const king = render(<StreamPostCard item={{ kind: 'king', key: 'k', at: 'x', king: { userId: 'bea', name: 'Bea', days: 6, showUps: 20 } }} ctx={context} />);
-    expect(king.getByText('Bea wears the crown')).toBeTruthy();
-    fireEvent.press(king.getByText('See the race'));
-    expect(context.seeWeek).toHaveBeenCalled();
+it('shows the best comments on the card and opens the conversation', () => {
+    const comment = (id: string, body: string, extra = {}) => ({
+        id, author: 'bo', authorName: 'Bo', toUser: 'ana', day: '2026-11-02', parentId: null, body, createdAt: id,
+        editedAt: null, mine: false, reactions: {}, myReaction: null, ...extra,
+    });
+    const context = ctx({ commentsOf: () => [comment('1', 'nice'), comment('2', 'go @ana', { reactions: { '🔥': 2 } }), comment('3', 'wow')] });
+    const screen = render(<StreamPostCard item={day('daily')} ctx={context} />);
+    expect(screen.getByText('go ')).toBeTruthy();
+    expect(screen.getByText('@ana')).toBeTruthy();
+    expect(screen.getByText('View all 3')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('3 comments'));
+    expect(context.onOpenComments).toHaveBeenCalledWith(expect.objectContaining({ userId: 'ana' }));
 });

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { AppButton, Avatar, EmptyState, StepSlider, Text, VoidSheet } from '@/components/ui';
+import { AppButton, Avatar, EmptyState, HoldButton, Receipt, StepSlider, Text, VoidSheet } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { FriendsService, type Friend } from '@/lib/friendsService';
@@ -13,16 +13,19 @@ import { Control, Spacing } from '@/theme/designSystem';
  */
 export function DuelSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
     const t = useTokens();
-    const { selectionFeedback, successFeedback } = useHaptics();
+    const { selectionFeedback } = useHaptics();
     const [friends, setFriends] = useState<Friend[] | null>(null);
     const [friend, setFriend] = useState<string | null>(null);
     const [days, setDays] = useState<(typeof DUEL_LENGTHS)[number]>(7);
     const [stake, setStake] = useState<(typeof DUEL_STAKES)[number]>(25);
     const [sending, setSending] = useState(false);
+    // Sent: the sheet becomes the receipt, then closes.
+    const [sent, setSent] = useState(false);
 
     useEffect(() => {
         if (!visible) return;
         setFriend(null);
+        setSent(false);
         FriendsService.getFriends().then(setFriends).catch(() => setFriends([]));
     }, [visible]);
 
@@ -30,19 +33,26 @@ export function DuelSheet({ visible, onClose }: { visible: boolean; onClose: () 
         if (!friend || sending) return;
         setSending(true);
         createDuel(friend, stake, days)
-            .then(() => { successFeedback(); onClose(); })
+            .then(() => setSent(true))
             .catch((failed: unknown) => Alert.alert('Couldn’t send it', failed instanceof Error ? failed.message : 'Try again in a moment.'))
             .finally(() => setSending(false));
     };
 
     return (
         <VoidSheet visible={visible} onClose={onClose} title="Duel a friend" caption="Who keeps their own plan better"
-            footer={friends?.length ? (
+            footer={friends?.length && !sent ? (
                 <View style={styles.footer}>
-                    <AppButton label="Send challenge" icon="flash" disabled={!friend} loading={sending} onPress={send} />
+                    {/* With Shards on it, held like paying; for pride, one tap. */}
+                    {stake && friend ? <HoldButton label={`Hold to stake ${stake} Shards`} icon="flash" loading={sending} onComplete={send} />
+                        : <AppButton label="Send challenge" icon="flash" disabled={!friend} loading={sending} onPress={send} />}
                 </View>
             ) : undefined}>
-            <View style={styles.body}>
+            {sent ? (
+                <Receipt title="Challenge sent" amount={stake ? -stake : undefined}
+                    line={`${days} days against ${(friends?.find(item => item.userId === friend)?.displayName ?? 'your friend').split(' ')[0]}. Starts the day after they accept.`}
+                    onDone={onClose} />
+            ) : null}
+            {sent ? null : <View style={styles.body}>
                 {friends === null ? null : friends.length === 0 ? (
                     <EmptyState icon="people" title="No friends yet" message="Add a friend on Community to duel them." />
                 ) : (
@@ -67,7 +77,7 @@ export function DuelSheet({ visible, onClose }: { visible: boolean; onClose: () 
                         </Text>
                     </>
                 )}
-            </View>
+            </View>}
         </VoidSheet>
     );
 }

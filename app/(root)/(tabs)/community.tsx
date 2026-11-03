@@ -16,8 +16,8 @@ import { AddFriendModal } from '@/components/Community/AddFriendModal';
 import { FriendsRail, type RailFriend } from '@/components/Community/FriendsRail';
 import { StreamPostCard, type StreamContext } from '@/components/Community/StreamPostCard';
 import { buildStream } from '@/lib/communityStream';
-import { myDuels, type Duel } from '@/lib/duels';
-import type { Market } from '@/lib/market';
+import { listenToComments, loadThreads, threadKey, type Comment } from '@/lib/comments';
+import { CommentSheet, type CommentTarget } from '@/components/Community/CommentSheet';
 import { FocusingNow } from '@/components/Community/FocusingNow';
 import { useFocusSession } from '@/context/FocusTimeContext';
 import { hostOf, togetherId } from '@/lib/focusTogether';
@@ -35,6 +35,7 @@ import { Overlay } from '@/components/ui/Overlay';
 import { SealedDayCard } from '@/components/Community/SealedDayCard';
 import { CrewQuest } from '@/components/Community/CrewQuest';
 import { MarketSection } from '@/components/Market/MarketSection';
+import { ExposedSection } from '@/components/Market/ExposedSection';
 import { DuelSection } from '@/components/Duel/DuelSection';
 import { WalletHero } from '@/components/Market/WalletHero';
 import { WeekView } from '@/components/Community/WeekView';
@@ -52,7 +53,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { statusOf } from '@/lib/presence';
 import { listenToFriends, announceChange } from '@/lib/livePulse';
 import { onAccountChange } from '@/lib/account';
-import { emit, on } from '@/lib/appEvents';
+import { on } from '@/lib/appEvents';
 import { useCoachTarget } from '@/hooks/useCoachTarget';
 import { OFFLINE_LINES, useOnline } from '@/lib/connectivity';
 import { useMyProfile } from '@/hooks/useMyProfile';
@@ -96,15 +97,16 @@ export default function CommunityScreen() {
     const [requests, setRequests] = useState<FriendRequest[]>([]);
     const [statuses, setStatuses] = useState<FriendStatusRow[]>([]);
     const [posts, setPosts] = useState<FeedPost[]>([]);
+    // The conversation under each day in the feed, by its post key, and the one open.
+    const [comments, setComments] = useState<Record<string, Comment[]>>({});
+    const [talking, setTalking] = useState<CommentTarget | null>(null);
     // Whose focus session you are in, if you joined one (lib/focusTogether.ts).
     const focusSession = useFocusSession();
     const joinedHost = focusSession.isRunning || focusSession.isPaused ? hostOf(focusSession.activeHabitId) : null;
     const [rank, setRank] = useState<number | null>(null);
     // Everyone's place among friends, for the #2 beside a name on a post.
     const [ranks, setRanks] = useState<Map<string, number>>(new Map());
-    // Your duels and the bets, for Rivalry and Victory posts.
-    const [duels, setDuels] = useState<Duel[]>([]);
-    const [markets, setMarkets] = useState<Market[]>([]);
+
     const [shareTime, setShareTime] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -154,7 +156,7 @@ export default function CommunityScreen() {
             await FriendsService.repairFriendshipsFromAcceptedRequests().catch(() => undefined);
             void FriendsService.refreshSharedIds().catch(() => undefined);
             const week = questWeek(localDateKey(new Date()), mondayFirst.current);
-            const [current, requestList, statusList, feed, board, settings, unreadCount, quest, duelList, marketList] = await Promise.all([
+            const [current, requestList, statusList, feed, board, settings, unreadCount, quest] = await Promise.all([
                 FriendsService.getCurrentUser(),
                 FriendsService.getFriendRequests(),
                 FeedService.friendStatuses(),
@@ -163,11 +165,7 @@ export default function CommunityScreen() {
                 FeedService.shareSettings(),
                 FriendsService.unreadCount(),
                 FeedService.crewQuest(week.from, week.to),
-                myDuels().catch(() => [] as Duel[]),
-                MARKET_ENABLED ? marketFeed().catch(() => [] as Market[]) : Promise.resolve([] as Market[]),
             ]);
-            setDuels(duelList);
-            setMarkets(marketList);
             setRanks(new Map(board.map(row => [row.userId, row.rank])));
             setCrew(quest);
             setQuestFrom(week.from);
@@ -261,11 +259,26 @@ export default function CommunityScreen() {
             void AsyncStorage.setItem(QUEST_CHEERED, questFrom).catch(() => undefined);
         }).catch(() => undefined);
     }, [questReached, questFrom, successFeedback]);
-    // The feed as posts of ten kinds (lib/communityStream.ts).
-    const stream = useMemo(() => buildStream({
-        posts, duels, markets, crew, week: week.week, king: week.king, revealed: week.revealed,
-        today, now: clock.toISOString(),
-    }), [posts, duels, markets, crew, week.week, week.king, week.revealed, today, clock]);
+    // Today's accountability cards, each as the kind of day it was (lib/communityStream.ts).
+    const stream = useMemo(() => buildStream(posts), [posts]);
+
+    // Comments under those days: loaded with the feed, and again whenever anyone writes (live).
+    const dayKeys = posts.map(post => threadKey(post.userId, post.day)).join(',');
+    const loadComments = useCallback(() => {
+        if (!posts.length) return;
+        void loadThreads(posts.map(post => ({ toUser: post.userId, day: post.day }))).then(setComments).catch(() => undefined);
+        // `dayKeys` stands for `posts`: the threads only change when the days do.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dayKeys]);
+    useEffect(() => {
+        loadComments();
+        let pending: ReturnType<typeof setTimeout> | null = null;
+        const stop = listenToComments(() => {
+            if (pending) clearTimeout(pending);
+            pending = setTimeout(() => { pending = null; loadComments(); }, 600);
+        });
+        return () => { stop(); if (pending) clearTimeout(pending); };
+    }, [loadComments]);
 
     /** Reacts to a friend's day, changes the reaction, or takes it back (null). */
     const react = async (post: FeedPost, reaction: Reaction | null) => {
@@ -321,9 +334,15 @@ export default function CommunityScreen() {
         facesOf: ids => ids.flatMap(id => { const face = people.get(id); return face ? [face] : []; }),
         onReact: (post, reaction) => void react(post, reaction),
         onReport: reportPost,
+        commentsOf: key => comments[key] ?? [],
+        onOpenComments: post => {
+            selectionFeedback();
+            setTalking({
+                toUser: post.userId, day: post.day, name: post.mine ? 'You' : post.name, mine: post.mine,
+                done: post.card.habitsDone + post.card.tasksDone, total: post.card.habitsTotal + post.card.tasksTotal,
+            });
+        },
         openPerson: userId => (userId === me?.id ? router.push('/(root)/profile') : openFriend(userId)),
-        rematch: () => emit('show_duel'),
-        seeWeek: () => choose('week'),
     };
 
     const answer = async (request: FriendRequest, accept: boolean) => {
@@ -365,7 +384,7 @@ export default function CommunityScreen() {
                     <ViewSwitcher accent={primary} value={view} onChange={choose} options={[
                         { id: 'today', label: 'Today', icon: 'sunny' },
                         { id: 'week', label: 'This week', icon: 'calendar', dot: week.fresh },
-                        ...(MARKET_ENABLED ? [{ id: 'bets' as const, label: 'Bets', icon: 'trending-up' as const, dot: betsNew }] : []),
+                        ...(MARKET_ENABLED ? [{ id: 'bets' as const, label: 'Challenges', icon: 'flash' as const, dot: betsNew }] : []),
                     ]} />
                 </View>
             ) : null}
@@ -410,10 +429,11 @@ export default function CommunityScreen() {
                 <WeekView style={styles.block} week={week} meId={me?.id ?? null} quest={<CrewQuest members={crew} />} />
             ) : null}
 
-            {/* Friends' goals open to bets: Shards on whether they make it. */}
+            {/* Challenges: your Shards, duels, bets on goals, and Exposed. */}
             {gate === null && view === 'bets' && MARKET_ENABLED ? <WalletHero style={styles.block} /> : null}
             {gate === null && view === 'bets' ? <DuelSection style={styles.block} /> : null}
             {gate === null && view === 'bets' && MARKET_ENABLED ? <MarketSection style={styles.block} /> : null}
+            {gate === null && view === 'bets' ? <ExposedSection /> : null}
 
             {gate === null && view === 'today' ? <SectionTitle first>Feed</SectionTitle> : null}
         </View>
@@ -446,6 +466,7 @@ export default function CommunityScreen() {
     return (
         <VoidShell>
             <FlatList
+                // Today is accountability only: each friend's day. The games live under This week and Challenges.
                 data={gate === null && view === 'today' ? stream : []}
                 keyExtractor={item => item.key}
                 ListHeaderComponent={header}
@@ -455,13 +476,13 @@ export default function CommunityScreen() {
                 onEndReached={() => { void loadMore(); }}
                 onEndReachedThreshold={0.6}
                 renderItem={({ item, index }) => {
-                    const day = 'post' in item ? item.post : null;
+                    const day = item.post;
                     return (
                         <ListItem index={index}>
-                            {day && isSealed(day, today, shareTime, nowMinutes) ? (
+                            {isSealed(day, today, shareTime, nowMinutes) ? (
                                 <SealedDayCard key="sealed" name={day.name} avatarUrl={day.avatarUrl} opensAt={opensAt} />
                             ) : (
-                                <Animated.View key="open" entering={flipping && day && !day.mine && day.day === today ? FlipInEasyY.duration(520).delay(index * 140).reduceMotion(ReduceMotion.System) : undefined}>
+                                <Animated.View key="open" entering={flipping && !day.mine && day.day === today ? FlipInEasyY.duration(520).delay(index * 140).reduceMotion(ReduceMotion.System) : undefined}>
                                     <StreamPostCard item={item} ctx={streamContext} />
                                 </Animated.View>
                             )}
@@ -490,6 +511,7 @@ export default function CommunityScreen() {
             {gate === null && week.dethroned && week.king && week.previousKing ? (
                 <CrownMoment king={week.king} previous={week.previousKing} meId={me?.id ?? null} onDone={week.markCrownSeen} />
             ) : null}
+            <CommentSheet target={talking} onClose={() => setTalking(null)} onChanged={loadComments} />
             <AddFriendModal visible={showAddFriend} onClose={() => setShowAddFriend(false)} userCode={userCode} onFriendAdded={() => { void load(); }} />
         </VoidShell>
     );

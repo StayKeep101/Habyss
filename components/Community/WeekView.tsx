@@ -13,9 +13,9 @@ import { Control, Radius, Spacing } from '@/theme/designSystem';
 const endsLabel = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long' });
 
 /**
- * Community's This week: who wears the crown and the race for the next one,
- * the king's challenge, your secret mission, last week's secrets, and the
- * crew quest (passed in, it already has its own card).
+ * Community's This week, the crew's week in one place: who wears the crown
+ * and the race for the next one, the king's challenge, the crew quest (passed
+ * in, it has its own card), then your secret mission and last week's secrets.
  */
 export function WeekView({ week, meId, quest, style }: { week: CrewWeek; meId: string | null; quest?: React.ReactNode; style?: StyleProp<ViewStyle> }) {
     return (
@@ -28,12 +28,13 @@ export function WeekView({ week, meId, quest, style }: { week: CrewWeek; meId: s
                 </ListItem>
             ))}
 
+            {/* The crew quest titles itself, and stays away with fewer than two in the crew. */}
+            {quest}
+
+            {/* Yours alone, so last: the shared things come first. */}
             <SectionTitle>Secret mission</SectionTitle>
             <MissionCard mission={week.mission} />
             {week.revealed.length ? <RevealedCard week={week} /> : null}
-
-            {quest ? <SectionTitle>Crew quest</SectionTitle> : null}
-            {quest}
         </View>
     );
 }
