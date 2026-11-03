@@ -4,11 +4,12 @@ import { listen } from '@tauri-apps/api/event';
 import { motion, useReducedMotion } from 'motion/react';
 import type { Act, Screen, Snapshot, SyncStatus } from '../types';
 import { dayRange, duration, localDate, metrics } from '../analytics';
-import { ActivityRows, AppBadge, CardTitle, Metric } from '../components/ui';
-import { ActivityChart, AppUsage, CategoryChart, WeeklyChart } from '../components/charts';
+import { AppBadge, CardTitle, Metric } from '../components/ui';
+import { AppUsage, CategoryChart, WeeklyChart } from '../components/charts';
 import { Timeline } from '../screens/Timeline';
 import { SettingsView } from '../screens/Settings';
 import { TodayPanel } from '../panel/TodayPanel';
+import { Dashboard } from '../dashboard/Dashboard';
 import { AppIcon, Empty } from '../ui';
 import { Sidebar, TABS } from './Sidebar';
 import './shell.css';
@@ -16,8 +17,9 @@ import './shell.css';
 const CATEGORIES = ['uncategorized', 'development', 'communication', 'research', 'design', 'personal'];
 const PANEL_KEY = 'habyss.panelCollapsed';
 const COMING: Partial<Record<Screen, string>> = { Progress: 'Goals and roadmaps arrive here soon.', Friends: 'Friends and shared streaks arrive here soon.', Profile: 'Your profile and achievements arrive here soon.' };
-const SUBTITLE: Record<Screen, string> = { Dashboard: 'An honest picture of where your time goes.', Calendar: 'Every recorded context. Every meaningful gap.', Progress: 'Where your goals are heading.', Analytics: 'Patterns grounded in observed activity.', Friends: 'Better together.', Profile: 'Your account and achievements.', Settings: 'A quiet utility, on your terms.' };
-const DATED: Screen[] = ['Dashboard', 'Calendar', 'Analytics'];
+/** Dashboard draws its own header. */
+const SUBTITLE: Record<Exclude<Screen, 'Dashboard'>, string> = { Calendar: 'Every recorded context. Every meaningful gap.', Progress: 'Where your goals are heading.', Analytics: 'Patterns grounded in observed activity.', Friends: 'Better together.', Profile: 'Your account and achievements.', Settings: 'A quiet utility, on your terms.' };
+const DATED: Screen[] = ['Calendar', 'Analytics'];
 /** Names the app and the native menu emit: the retired Focus and Timeline tabs now live in Dashboard and Calendar. */
 const NAV_ALIASES: Record<string, Screen> = { Focus: 'Dashboard', Timeline: 'Calendar', Applications: 'Analytics' };
 const resolveScreen = (name: string): Screen | undefined => NAV_ALIASES[name] ?? TABS.find(t => t.screen === name)?.screen;
@@ -65,7 +67,7 @@ export function Shell({ data, act, date, setDate, now, busy = false, error = '',
   const setPanel = (v: boolean) => { setCollapsed(v); writeCollapsed(v); };
 
   let body: ReactNode;
-  if (screen === 'Dashboard') body = <DashboardContent data={day} m={m} from={from} to={to} setScreen={setScreen} />;
+  if (screen === 'Dashboard') body = <Dashboard onNavigate={setScreen} />;
   else if (screen === 'Calendar') body = <Timeline data={day} from={from} to={to} />;
   else if (screen === 'Analytics') body = <AnalyticsContent data={data} m={m} weekly={weekly} to={to} weekFrom={weekFrom} busy={busy} act={act} />;
   else if (screen === 'Settings') body = <SettingsView data={data} busy={busy} act={act} setError={setError} />;
@@ -77,10 +79,10 @@ export function Shell({ data, act, date, setDate, now, busy = false, error = '',
       <main className="app-main">
         <div className="app-topbar" data-tauri-drag-region />
         <div className="app-content">
-          <header className="app-header">
-            <div><p className="app-eyebrow">{screen.toUpperCase()}</p><h1>{screen === 'Dashboard' ? 'Your day, in focus.' : screen}</h1><p className="app-sub">{SUBTITLE[screen]}</p></div>
+          {screen !== 'Dashboard' && <header className="app-header">
+            <div><p className="app-eyebrow">{screen.toUpperCase()}</p><h1>{screen}</h1><p className="app-sub">{SUBTITLE[screen]}</p></div>
             {DATED.includes(screen) && <div className="app-date"><button type="button" aria-label="Previous day" onClick={() => changeDate(-1)}><AppIcon name="chevron-back" size={16} /></button><input aria-label="Selected date" type="date" value={date} onChange={e => setDate(e.target.value || localDate())} /><button type="button" aria-label="Next day" onClick={() => changeDate(1)}><AppIcon name="chevron-forward" size={16} /></button></div>}
-          </header>
+          </header>}
           {(error || data.error) && <div role="alert" className="error">{error || data.error}</div>}
           {!data.trusted && data.settings.collect_titles && <div className="notice">App-level tracking is available. Allow Accessibility to include window titles.<button type="button" onClick={() => void act('open_permissions')}>Open Settings</button></div>}
           <motion.div key={screen} initial={reduced ? false : { opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>{body}</motion.div>
@@ -93,18 +95,6 @@ export function Shell({ data, act, date, setDate, now, busy = false, error = '',
 }
 
 type M = ReturnType<typeof metrics>;
-
-/** Interim Dashboard: the activity overview that Task 7 replaces. */
-function DashboardContent({ data, m, from, to, setScreen }: { data: Snapshot; m: M; from: number; to: number; setScreen: (s: Screen) => void }) {
-  const tracking = data.settings.tracking_enabled;
-  const status = <span className={`status ${tracking ? 'on' : ''}`}><i />{data.error ? 'Tracking error' : tracking ? data.state.replaceAll('_', ' ') : 'Paused'}</span>;
-  return <>
-    <div className="metric-grid"><Metric title="Active time" value={duration(m.active)} detail="Observed computer activity" /><Metric title="Declared focus" value={duration(m.declared)} detail={`${duration(m.observedFocus)} overlapped active use`} /><Metric title="Idle time" value={duration(m.idle)} detail={`After ${data.settings.idle_threshold}s without input`} /><Metric title="App switches" value={String(m.switches)} detail="Between adjacent active contexts" /></div>
-    <div className="dashboard-columns"><section className="card activity-card"><CardTitle title="The rhythm of your day" detail="Active minutes per hour" /><ActivityChart intervals={data.intervals} from={from} to={to} /><div className="chart-legend"><i />Active computer time<span>Unobserved time stays empty</span></div></section><section className="card current-card"><p className="eyebrow"><span className="live-dot" /> RIGHT NOW</p><AppBadge name={data.current_app ?? '—'} /><h2>{data.current_app ?? 'Taking a pause'}</h2><p className="muted">{data.current_app ? 'Your current foreground application' : 'No active application being attributed'}</p><div className="current-footer"><span>{status}</span><button type="button" onClick={() => setScreen('Calendar')}>View calendar</button></div></section></div>
-    <div className="dashboard-columns lower"><section className="card"><CardTitle title="Most used applications" detail={`${m.apps.length} applications observed`} action={() => setScreen('Analytics')} /><AppUsage apps={m.apps.slice(0, 5)} total={m.active} /></section><section className="card"><CardTitle title="By category" detail="Categories you control" /><CategoryChart categories={m.categories} total={m.active} /></section></div>
-    <section className="card"><CardTitle title="Recent activity" detail="A record of your contexts" action={() => setScreen('Calendar')} /><ActivityRows intervals={data.intervals.slice(-5).reverse()} from={from} to={to} /></section>
-  </>;
-}
 
 /** Analytics tab: the former Applications table above the former Analytics charts. */
 function AnalyticsContent({ data, m, weekly, to, weekFrom, busy, act }: { data: Snapshot; m: M; weekly: M; to: number; weekFrom: number; busy: boolean; act: Act }) {

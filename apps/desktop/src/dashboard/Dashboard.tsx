@@ -1,0 +1,238 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { invoke, isTauri } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import type { Cached, FocusSession, Interval, Screen, Snapshot } from '../types';
+import { dayRange, duration, localDate, metrics, overlap } from '../analytics';
+import { buildToday, type TodayItem } from '../today/today';
+import { useCloud } from '../today/useCloud';
+import { localDateKey } from '../shared/habitSchedule';
+import { FocusControls } from '../panel/FocusControls';
+import { AbyssArt, AppIcon, Button, Card, Donut, Empty, IconButton, ProgressBar, Segmented, StatTile, Tag, type IconName } from '../ui';
+import { allocation, greeting, productivePercent, rangeBounds, tasksInRange, type Range } from './stats';
+import '../panel/panel.css';
+import './dashboard.css';
+
+type View = 'Scheduled' | 'Activity';
+type Loaded = { snap: Snapshot; range: Range; from: number };
+const RANGES: Range[] = ['Today', 'Week', 'Month', 'Year'];
+const VIEWS: View[] = ['Scheduled', 'Activity'];
+const FOCUS_MINUTES = 25, MIN = 60000;
+const DASH = '–';
+/** Phone item icons that AppIcon can draw; anything else falls back to the item's kind. */
+const KNOWN_ICONS: IconName[] = ['cube', 'heart', 'wallet', 'moon', 'flame', 'sparkles', 'timer', 'desktop', 'calendar', 'people', 'person', 'home', 'trending-up', 'stats-chart', 'hourglass'];
+
+const clock = (minute: number) => { const h = Math.floor(minute / 60) % 24, m = minute % 60; return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+const clockAt = (ms: number) => { const d = new Date(ms); return clock(d.getHours() * 60 + d.getMinutes()); };
+const iconFor = (icon: string | undefined, fallback: IconName): IconName => { const name = icon?.replace(/-outline$/, '') as IconName | undefined; return name && KNOWN_ICONS.includes(name) ? name : fallback; };
+/** Slice colours: shades of the accent, with Other in the neutral tone. Shared by the donut and its legend. */
+const sliceColor = (i: number, label: string) => (label === 'Other' ? 'var(--text-subtle)' : `color-mix(in srgb, var(--accent) ${Math.max(30, 100 - i * 18)}%, var(--surface-raised))`);
+
+/** The profiles row arrives as one object or a one-row array. The display name wins; the username stands in. */
+export function profileName(value: unknown): string {
+  const row = (Array.isArray(value) ? value[0] : value) as { display_name?: unknown; username?: unknown } | null | undefined;
+  const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  return text(row?.display_name) || text(row?.username);
+}
+
+function SignIn({ text, onNavigate }: { text: string; onNavigate?: (s: Screen) => void }) {
+  return <div className="db-signin"><p>{text}</p>{onNavigate && <Button variant="quiet" onClick={() => onNavigate('Settings')}>Open Settings</Button>}</div>;
+}
+
+export function Dashboard({ onNavigate }: { onNavigate?: (s: Screen) => void }) {
+  const cloud = useCloud();
+  const [range, setRange] = useState<Range>('Today');
+  const [view, setView] = useState<View>('Scheduled');
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const [name, setName] = useState('');
+  const [pickId, setPickId] = useState<string | null>(null);
+  const [snapError, setSnapError] = useState('');
+  const [error, setError] = useState('');
+
+  const state = cloud.status?.state;
+  const signedIn = !!state && state !== 'signed_out' && state !== 'unconfigured';
+  const waiting = cloud.loading || (cloud.status === null && !cloud.error);
+  const day = localDate(new Date(now));
+
+  // The range has its own query; the shell's 7-day snapshot stays as it is. Only the latest request lands.
+  const seq = useRef(0);
+  const loadSnap = useCallback(async () => {
+    if (!isTauri()) return;
+    const id = ++seq.current;
+    const [from, to] = rangeBounds(range, new Date());
+    try {
+      const snap = await invoke<Snapshot>('snapshot', { from, to });
+      if (id === seq.current) { setLoaded({ snap, range, from }); setSnapError(''); }
+    } catch (e) { if (id === seq.current) setSnapError(String(e)); }
+  }, [range, day]); // day: a new local day moves the range start, so it requeries.
+  useEffect(() => {
+    void loadSnap();
+    let dispose: (() => void) | undefined, cancelled = false;
+    void listen('activity-updated', () => void loadSnap()).then(f => { if (cancelled) f(); else dispose = f; });
+    return () => { cancelled = true; dispose?.(); };
+  }, [loadSnap]);
+
+  useEffect(() => {
+    if (!signedIn) return;
+    let alive = true;
+    invoke<Cached<unknown>>('cloud_rpc', { name: 'profile', args: {} }).then(r => { if (alive) setName(profileName(r?.value)); }, () => { if (alive) setName(''); });
+    return () => { alive = false; };
+  }, [signedIn]);
+  const shownName = signedIn ? name : '';
+
+  const snap = loaded?.snap ?? null;
+  const running: FocusSession | null = snap?.focus.find(f => f.end === null) ?? null;
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), running ? 1000 : 30000); return () => clearInterval(t); }, [running]);
+
+  // Day and range figures move by the minute; only the focus clock needs the second.
+  const minute = Math.floor(now / MIN) * MIN;
+  const today = useMemo(() => buildToday(cloud.data, { now: new Date(minute), signedIn }), [cloud.data, minute, signedIn]);
+  const from = loaded?.from ?? rangeBounds(range, new Date(minute))[0];
+  const intervals = useMemo(() => snap?.intervals ?? [], [snap]);
+  const classes = useMemo(() => snap?.classifications ?? {}, [snap]);
+  const m = useMemo(() => metrics(intervals, snap?.focus ?? [], from, minute, minute), [intervals, snap, from, minute]);
+  const slices = useMemo(() => allocation(intervals, from, minute, minute), [intervals, from, minute]);
+  const productive = useMemo(() => productivePercent(intervals, classes, from, minute, minute), [intervals, classes, from, minute]);
+  const tasks = useMemo(() => tasksInRange(cloud.data?.tasks ?? [], localDateKey(new Date(from)), localDateKey(new Date(minute))), [cloud.data, from, minute]);
+  const recent = useMemo(() => { const [start, end] = dayRange(day); return intervals.filter(i => i.state === 'active' && i.end > start && i.start < end).sort((a, b) => b.start - a.start).slice(0, 6); }, [intervals, day]);
+  const tracked = slices.reduce((n, s) => n + s.value, 0);
+  const planned = (value: string) => (signedIn ? value : DASH);
+
+  /** Only the action that set the error clears it. */
+  const errorOwner = useRef('');
+  const run = async (cmd: string, args?: Record<string, unknown>): Promise<boolean> => {
+    try { await invoke(cmd, args); if (errorOwner.current === cmd) { errorOwner.current = ''; setError(''); } return true; }
+    catch (e) { errorOwner.current = cmd; setError(String(e)); return false; }
+  };
+  const open = today.items.filter(i => !i.done);
+  const picked = open.find(i => i.id === pickId) ?? today.current ?? today.next ?? null;
+  const linked = running?.item_id ? today.items.find(i => i.id === running.item_id) ?? null : null;
+  const start = async (item: TodayItem | null) => { await run('start_focus', { label: item?.title ?? 'Focus', minutes: FOCUS_MINUTES, itemId: item?.id ?? null, itemKind: item?.kind ?? null }); await loadSnap(); };
+  const focusCmd = async (cmd: string) => { await run(cmd); await loadSnap(); };
+  /** Switches the running timer to the neighbouring open item: a fresh countdown on that item. */
+  const step = async (delta: number) => {
+    const at = open.findIndex(i => i.id === running?.item_id);
+    const target = open[at < 0 ? (delta > 0 ? 0 : open.length - 1) : (at + delta + open.length) % open.length];
+    if (!target || target.id === running?.item_id) return;
+    setPickId(target.id);
+    if (await run('stop_focus')) await start(target); else await loadSnap();
+  };
+  /** Ends the session and marks its linked item done. */
+  const finish = async () => {
+    if (!(await run('stop_focus')) || !linked || linked.done) { await loadSnap(); return; }
+    const ok = linked.kind === 'task'
+      ? await run('cloud_set_task_done', { id: linked.id, done: true })
+      : await run('cloud_set_completion', { habitId: linked.id, date: today.day, value: 1, skipped: false, memo: null, evidence: null });
+    await Promise.all([loadSnap(), ok ? cloud.refresh() : Promise.resolve()]);
+  };
+  const canStep = signedIn && open.some(i => i.id !== running?.item_id);
+
+  const planner = waiting ? <Empty>Loading…</Empty> : null;
+  return (
+    <div className="db">
+      <header className="db-hero">
+        <div className="db-hero-art"><AbyssArt size="hero" /></div>
+        <p className="db-eyebrow">DASHBOARD</p>
+        <h1 className="db-title">{`${greeting(new Date(minute))}${shownName ? `, ${shownName}` : ''}.`}</h1>
+        <p className="db-sub">Discipline compounds. So does freedom.</p>
+        <div className="db-range"><Segmented options={RANGES} value={range} onChange={setRange} /></div>
+      </header>
+
+      {snapError && <p role="alert" className="db-error">{snapError}</p>}
+      {cloud.error && signedIn && <p role="alert" className="db-error">{cloud.error}</p>}
+
+      <div className="db-stats">
+        <StatTile icon="flame" value={planned(String(today.streak))} label="Day Streak" />
+        <StatTile icon="hourglass" value={duration(m.declared)} label="Focus Time" />
+        <StatTile icon="trending-up" value={planned(`${today.goalsDone}/${today.goalsTotal}`)} label="Goals" />
+        <StatTile icon="checkmark-circle" value={planned(`${tasks.done}/${tasks.total}`)} label="Tasks" />
+        <StatTile icon="stats-chart" value={productive === null ? DASH : `${productive}%`} label="Productive" />
+      </div>
+
+      <div className="db-row db-row-mid">
+        <Card className="db-focus" title={<><AppIcon name="timer" size={18} />Focus</>}>
+          {error && <p role="alert" className="db-error">{error}</p>}
+          <FocusControls variant="full" session={running} now={now} label={picked?.title}
+            onStart={() => void start(picked)} onStop={() => void focusCmd('stop_focus')} onPause={() => void focusCmd('pause_focus')} onResume={() => void focusCmd('resume_focus')}
+            onPrevious={canStep ? () => void step(-1) : undefined} onNext={canStep ? () => void step(1) : undefined}
+            onFinish={signedIn && linked && !linked.done ? () => void finish() : undefined} />
+        </Card>
+
+        <Card className="db-alloc" title="Time Allocation" aside={`(${loaded?.range ?? range})`}>
+          {slices.length === 0 ? <Empty>No tracked time yet.</Empty> : (
+            <div className="db-alloc-body">
+              <Donut slices={slices.map((s, i) => ({ ...s, color: sliceColor(i, s.label) }))} center={duration(tracked)} caption="Total Tracked" />
+              <ul className="db-legend">{slices.map((s, i) => (
+                <li key={s.label}><i style={{ background: sliceColor(i, s.label) }} /><span className="db-legend-label">{s.label}</span><span className="db-legend-value">{Math.round(s.value / tracked * 100)}%</span></li>
+              ))}</ul>
+            </div>
+          )}
+        </Card>
+
+        <Card className="db-progress" title="Progress" action={onNavigate && <IconButton icon="chevron-forward" label="Open Progress" onClick={() => onNavigate('Progress')} />}>
+          {planner ?? (!signedIn ? <SignIn text="Sign in to see your goals." onNavigate={onNavigate} />
+            : today.goals.length === 0 ? <Empty>No goals yet.</Empty>
+            : <ul className="db-goals">{today.goals.slice(0, 3).map(g => (
+              <li key={g.id}>
+                <span className="db-goal-icon"><AppIcon name={iconFor(g.icon, 'cube')} size={20} /></span>
+                <div className="db-goal-body"><div className="db-goal-head"><span>{g.name}</span><span>{g.percent}%</span></div><ProgressBar value={g.percent} label={g.name} /></div>
+              </li>))}</ul>)}
+        </Card>
+      </div>
+
+      <div className="db-row db-row-low">
+        <Card className="db-timeline" title="Today's Timeline" action={<Segmented options={VIEWS} value={view} onChange={setView} />}>
+          {view === 'Scheduled'
+            ? planner ?? (!signedIn ? <SignIn text="Sign in to see your habits and tasks." onNavigate={onNavigate} />
+              : today.items.length === 0 ? <Empty>Nothing scheduled today.</Empty>
+              : <ol className="db-tl">{today.items.map(i => <ScheduledRow key={i.id} item={i} />)}</ol>)
+            : recent.length === 0 ? <Empty>No activity recorded today.</Empty>
+            : <ol className="db-tl">{recent.map(i => <ActivityRow key={i.id} interval={i} day={day} />)}</ol>}
+        </Card>
+
+        <Card className="db-live" title={<><span className={`db-live-dot${snap?.settings.tracking_enabled ? ' on' : ''}`} aria-hidden="true" />Activity</>} aside="(Live)">
+          {m.apps.length === 0 ? <Empty>No app activity yet.</Empty> : (
+            <ul className="db-apps">{m.apps.slice(0, 5).map(a => (
+              <li key={a.bundle}>
+                <span className="db-badge" aria-hidden="true">{a.name.slice(0, 1).toUpperCase() || '·'}</span>
+                <span className="db-app-name">{a.name}</span>
+                <Tag tone={classes[a.category] ?? 'neutral'} />
+                <span className="db-app-ms">{duration(a.ms)}</span>
+              </li>))}</ul>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function ScheduledRow({ item: i }: { item: TodayItem }) {
+  const now = i.state === 'now';
+  const icon: IconName = i.done ? 'checkmark-circle' : now ? 'play' : iconFor(i.icon, i.kind === 'task' ? 'checkmark-circle' : 'ellipse');
+  return (
+    <li className={`db-tl-row${now ? ' now' : ''}${i.done ? ' done' : ''}`}>
+      <span className="db-tl-time">{clock(i.start)}</span>
+      <span className="db-tl-rail" aria-hidden="true">{now && <i />}</span>
+      <div className="db-tl-item">
+        <span className="db-tl-icon"><AppIcon name={icon} size={18} filled={i.done || now} label={i.done ? 'Done' : undefined} /></span>
+        <span className="db-tl-title">{i.title}</span>
+        {now ? <span className="db-tl-now">Now</span> : <span className="db-tl-len">{duration((i.end - i.start) * MIN)}</span>}
+      </div>
+    </li>
+  );
+}
+
+function ActivityRow({ interval: i, day }: { interval: Interval; day: string }) {
+  const [start, end] = dayRange(day);
+  return (
+    <li className="db-tl-row">
+      <span className="db-tl-time">{clockAt(Math.max(i.start, start))}</span>
+      <span className="db-tl-rail" aria-hidden="true" />
+      <div className="db-tl-item">
+        <span className="db-badge small" aria-hidden="true">{i.name.slice(0, 1).toUpperCase() || '·'}</span>
+        <span className="db-tl-title">{i.name}</span>
+        <span className="db-tl-len">{duration(overlap(i.start, i.end, start, end))}</span>
+      </div>
+    </li>
+  );
+}
