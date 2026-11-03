@@ -1,7 +1,7 @@
 use super::client::{Client, CloudError};
 use crate::storage::Result;
 use serde_json::{json, Value};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub trait SecretStore: Send + Sync { fn get(&self) -> Option<String>; fn set(&self, v: &str) -> Result<()>; fn clear(&self) -> Result<()>; }
 
@@ -13,8 +13,10 @@ impl SecretStore for Keychain {
     fn clear(&self) -> Result<()> { match Self::entry()?.delete_credential() { Ok(()) | Err(keyring::Error::NoEntry) => Ok(()), Err(e) => Err(e.into()) } }
 }
 
+#[cfg(test)]
 #[derive(Default)]
-pub struct MemorySecret(Mutex<Option<String>>);
+pub struct MemorySecret(std::sync::Mutex<Option<String>>);
+#[cfg(test)]
 impl SecretStore for MemorySecret {
     fn get(&self) -> Option<String> { self.0.lock().unwrap().clone() }
     fn set(&self, v: &str) -> Result<()> { *self.0.lock().unwrap() = Some(v.into()); Ok(()) }

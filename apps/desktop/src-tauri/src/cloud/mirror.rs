@@ -38,7 +38,7 @@ fn columns(c: &Connection, t: Table) -> Result<Vec<String>> {
     let cols = q.query_map([], |r| r.get::<_, String>(1))?.collect::<rusqlite::Result<_>>()?;
     Ok(cols)
 }
-fn select(c: &Connection, t: Table, filter: &str) -> Result<Vec<Value>> {
+pub fn select(c: &Connection, t: Table, filter: &str) -> Result<Vec<Value>> {
     let mut q = c.prepare(&format!("SELECT * FROM {} {} ORDER BY rowid", t.local(), filter))?;
     let names: Vec<String> = q.column_names().iter().map(|s| s.to_string()).collect();
     let rows = q.query_map([], |r| {
