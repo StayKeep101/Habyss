@@ -36,12 +36,15 @@ export function Shell({ data, act, date, setDate, now, busy = false, error = '',
   const [ownSync, setOwnSync] = useState<SyncStatus | null>(null);
   const sync = syncProp === undefined ? ownSync : syncProp;
   const reduced = useReducedMotion();
+  const signedIn = Boolean(sync && !['unconfigured', 'signed_out'].includes(sync.state));
 
   useEffect(() => { if (syncProp !== undefined || !isTauri()) return; let dispose: (() => void) | undefined, cancelled = false; void invoke<SyncStatus>('cloud_status').then(s => { if (!cancelled) setOwnSync(s); }).catch(() => {}); void listen<SyncStatus>('sync-status', e => setOwnSync(e.payload)).then(f => { if (cancelled) f(); else dispose = f; }); return () => { cancelled = true; dispose?.(); }; }, [syncProp]);
   useEffect(() => { let dispose: (() => void) | undefined, cancelled = false; void listen<string>('navigate', e => { const next = resolveScreen(e.payload); if (next) setScreen(next); }).then(f => { if (cancelled) f(); else dispose = f; }); return () => { cancelled = true; dispose?.(); }; }, []);
   useEffect(() => {
     const keys = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) || t.isContentEditable)) return;
       if (e.key === ',') { e.preventDefault(); setScreen('Settings'); return; }
       const tab = /^[1-7]$/.test(e.key) ? TABS[Number(e.key) - 1] : undefined;
       if (tab) { e.preventDefault(); setScreen(tab.screen); }
@@ -81,6 +84,7 @@ export function Shell({ data, act, date, setDate, now, busy = false, error = '',
           {(error || data.error) && <div role="alert" className="error">{error || data.error}</div>}
           {!data.trusted && data.settings.collect_titles && <div className="notice">App-level tracking is available. Allow Accessibility to include window titles.<button type="button" onClick={() => void act('open_permissions')}>Open Settings</button></div>}
           <motion.div key={screen} initial={reduced ? false : { opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>{body}</motion.div>
+          <p className="app-privacy">{signedIn ? 'Activity stays on this Mac. Habits, goals and tasks sync with your Habyss account.' : 'Private by design. No accounts. No uploads.'}</p>
         </div>
       </main>
       <TodayPanel mode="window" collapsed={collapsed} onCollapsedChange={setPanel} />

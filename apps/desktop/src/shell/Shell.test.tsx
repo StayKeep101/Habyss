@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act as rtlAct, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { Snapshot } from '../types';
+import type { Snapshot, SyncStatus } from '../types';
 
 let navigate: ((e: { payload: string }) => void) | undefined;
 vi.mock('@tauri-apps/api/core', () => ({
@@ -15,7 +15,7 @@ import { Shell } from './Shell';
 
 const NOW = new Date('2026-11-02T20:04:00').getTime();
 const data = (): Snapshot => ({ settings: { tracking_enabled: true, onboarding_complete: true, idle_threshold: 120, collect_titles: false, excluded_apps: [], excluded_title_patterns: [], start_minimized: false, appearance: 'dark', retention_days: 90, menu_bar_timer: false, menu_bar_task: false }, intervals: [], applications: [], focus: [], trusted: true, current_app: null, current_since: null, state: 'active', error: null, widget_available: false, database_path: '', version: '0.1.0', classifications: {} });
-const mount = () => render(<Shell data={data()} act={() => Promise.resolve()} date="2026-11-02" setDate={() => {}} now={NOW} />);
+const mount = (sync?: SyncStatus | null) => render(<Shell data={data()} act={() => Promise.resolve()} date="2026-11-02" setDate={() => {}} now={NOW} sync={sync} />);
 const TABS = ['Dashboard', 'Calendar', 'Progress', 'Analytics', 'Friends', 'Profile', 'Settings'];
 const selected = () => screen.getByRole('navigation').querySelector('[aria-current="page"]')?.textContent;
 
@@ -72,5 +72,24 @@ describe('Shell', () => {
     mount();
     fireEvent.click(screen.getByRole('button', { name: 'Calendar' }));
     expect(screen.getByText('Your activity, in sequence')).toBeTruthy();
+  });
+
+  it('shortcuts_ignored_while_typing', () => {
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Calendar' }));
+    const input = screen.getByLabelText('Selected date');
+    input.focus();
+    fireEvent.keyDown(input, { key: '3', metaKey: true });
+    expect(selected()).toBe('Calendar');
+    fireEvent.keyDown(document.body, { key: '3', metaKey: true });
+    expect(selected()).toBe('Progress');
+  });
+
+  it('privacy_footer_reflects_sign_in', () => {
+    const out = mount(null);
+    expect(screen.getByText('Private by design. No accounts. No uploads.')).toBeTruthy();
+    out.unmount();
+    mount({ state: 'idle', email: 'a@b.c', last_sync: null, pending: 0, refused: 0, error: null });
+    expect(screen.getByText('Activity stays on this Mac. Habits, goals and tasks sync with your Habyss account.')).toBeTruthy();
   });
 });

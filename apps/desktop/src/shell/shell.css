@@ -1,6 +1,6 @@
 /* App shell: three columns. Theme variables only. */
 html.has-vibrancy, html.has-vibrancy body { background: transparent; }
-.app-shell { display: flex; height: 100vh; min-width: 0; color: var(--text); font-family: var(--font-body); }
+.app-shell { display: flex; height: 100vh; background: var(--bg); min-width: 0; color: var(--text); font-family: var(--font-body); }
 
 /* Sidebar: solid surface by default; translucent over the system material when the window is transparent. */
 .app-sidebar { width: 232px; flex: none; display: flex; flex-direction: column; box-sizing: border-box; padding: 0 var(--space-md) var(--space-xl); background: var(--surface); border-right: 1px solid var(--line); }
@@ -15,7 +15,8 @@ html.has-vibrancy .app-sidebar { background: color-mix(in srgb, var(--surface) 3
 .app-nav-item button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .app-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-xs); }
-.app-abyss { height: 120px; margin: 0 calc(-1 * var(--space-md)) var(--space-sm); overflow: hidden; -webkit-mask-image: linear-gradient(180deg, transparent, #000 40%); mask-image: linear-gradient(180deg, transparent, #000 40%); }
+.app-shell { --mask-solid: black; }
+.app-abyss { height: 120px; margin: 0 calc(-1 * var(--space-md)) var(--space-sm); overflow: hidden; -webkit-mask-image: linear-gradient(180deg, transparent, var(--mask-solid) 40%); mask-image: linear-gradient(180deg, transparent, var(--mask-solid) 40%); }
 .app-abyss .ui-abyss { width: 100%; height: 100%; display: block; }
 .app-foot-title { margin: 0 var(--space-md); font: 500 16px/1.3 var(--font-body); }
 .app-foot-sub { margin: 0 var(--space-md) var(--space-md); font: 400 14px/1.3 var(--font-body); color: var(--text-muted); }
@@ -37,11 +38,16 @@ html.has-vibrancy .app-sidebar { background: color-mix(in srgb, var(--surface) 3
 .app-content { flex: 1; overflow-y: auto; padding: 0 var(--space-xxl) var(--space-section); }
 .app-header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-xl); margin-bottom: var(--space-xxl); }
 .app-eyebrow { margin: 0 0 var(--space-xs); font: 500 13px/1 var(--font-body); letter-spacing: 1.5px; color: var(--text-muted); }
-.app-header h1 { margin: 0; font: 700 38px/1.15 var(--font-display); letter-spacing: -0.5px; }
+.app-header h1 { margin: 0; font: 700 38px/1.15 var(--font-body); letter-spacing: -0.5px; }
 .app-sub { margin: var(--space-xs) 0 0; font: 400 18px/1.4 var(--font-body); color: var(--text-muted); }
 .app-date { display: flex; align-items: center; gap: var(--space-xs); }
 .app-date button { width: 44px; height: 44px; padding: 0; border-radius: var(--radius-control); }
 .app-date input { min-height: 44px; padding: 0 var(--space-md); border-radius: var(--radius-control); border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+
+/* Panel and the space under a collapsed panel stay opaque over the transparent window. */
+.app-shell > .tp { background: var(--bg); }
+.app-shell > .tp-window { background: linear-gradient(180deg, var(--surface-top), var(--surface-bottom)), var(--bg); }
+.app-privacy { margin: var(--space-section) 0 0; color: var(--text-subtle); font: 400 12px/1.5 var(--font-body); }
 
 /* Right column: the today panel keeps its own width. Margins give the floating-card look of the target. */
 .app-shell > .tp-window { margin: var(--space-md); height: calc(100vh - 2 * var(--space-md)); box-sizing: border-box; }
