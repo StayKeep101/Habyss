@@ -1,6 +1,6 @@
 /* App shell: three columns. Theme variables only. */
 html.has-vibrancy, html.has-vibrancy body { background: transparent; }
-.app-shell { display: flex; height: 100vh; background: var(--bg); min-width: 0; color: var(--text); font-family: var(--font-body); }
+.app-shell { display: flex; height: 100vh; min-width: 0; color: var(--text); font-family: var(--font-body); }
 
 /* Sidebar: solid surface by default; translucent over the system material when the window is transparent. */
 .app-sidebar { width: 232px; flex: none; display: flex; flex-direction: column; box-sizing: border-box; padding: 0 var(--space-md) var(--space-xl); background: var(--surface); border-right: 1px solid var(--line); }
@@ -44,13 +44,10 @@ html.has-vibrancy .app-sidebar { background: color-mix(in srgb, var(--surface) 3
 .app-date button { width: 44px; height: 44px; padding: 0; border-radius: var(--radius-control); }
 .app-date input { min-height: 44px; padding: 0 var(--space-md); border-radius: var(--radius-control); border: 1px solid var(--line); background: var(--surface); color: var(--text); }
 
-/* Panel and the space under a collapsed panel stay opaque over the transparent window. */
-.app-shell > .tp { background: var(--bg); }
-.app-shell > .tp-window { background: linear-gradient(180deg, var(--surface-top), var(--surface-bottom)), var(--bg); }
 .app-privacy { margin: var(--space-section) 0 0; color: var(--text-subtle); font: 400 12px/1.5 var(--font-body); }
 
-/* Right column: the today panel keeps its own width. Margins give the floating-card look of the target. */
-.app-shell > .tp-window { margin: var(--space-md); height: calc(100vh - 2 * var(--space-md)); box-sizing: border-box; }
-.app-shell > .tp-collapsed { height: auto; align-self: flex-start; }
+/* Right column: an opaque wrapper holds the gutter and the area under a collapsed panel; only the sidebar is see-through. */
+.app-right { flex: none; display: flex; align-items: flex-start; box-sizing: border-box; height: 100vh; padding: var(--space-md); background: var(--bg); }
+.app-right > .tp-window { height: 100%; box-sizing: border-box; }
 
 @media (prefers-reduced-motion: reduce) { .app-nav-item button { transition: none; } }

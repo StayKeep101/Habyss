@@ -59,7 +59,10 @@ describe('Shell', () => {
 
   it('right_panel_collapses_and_remembers', async () => {
     const first = mount();
+    const wrapper = () => document.querySelector('.app-right');
+    expect(wrapper()?.querySelector('.tp-window')).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: 'Collapse panel' }));
+    expect(wrapper()?.querySelector('.tp-collapsed')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Expand panel' })).toBeTruthy();
     first.unmount();
     mount();

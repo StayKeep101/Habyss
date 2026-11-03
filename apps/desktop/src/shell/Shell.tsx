@@ -87,7 +87,7 @@ export function Shell({ data, act, date, setDate, now, busy = false, error = '',
           <p className="app-privacy">{signedIn ? 'Activity stays on this Mac. Habits, goals and tasks sync with your Habyss account.' : 'Private by design. No accounts. No uploads.'}</p>
         </div>
       </main>
-      <TodayPanel mode="window" collapsed={collapsed} onCollapsedChange={setPanel} />
+      <div className="app-right"><TodayPanel mode="window" collapsed={collapsed} onCollapsedChange={setPanel} /></div>
     </div>
   );
 }
