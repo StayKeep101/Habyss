@@ -71,21 +71,25 @@ impl Plan {
     /// The launch pass: it also counts as the focus pass, since the window usually gains focus as the app opens.
     pub(crate) fn launch(&mut self, now: i64) { self.immediate = true; self.last_focus = Some(now); }
     pub(crate) fn start(&mut self) { (self.immediate, self.edit, self.remote, self.periodic) = (false, None, None, None); }
-    /// After a pass: every 5 min while signed in, every 30 s while offline (a success is how a regained network shows), never while signed out.
-    pub(crate) fn finish(&mut self, state: &str, now: i64) {
-        self.periodic = match state { "offline" => Some(now + OFFLINE_RETRY_MS), "signed_out" => None, _ => Some(now + PERIODIC_MS) };
+    /// After a pass: every 5 min while signed in, every 30 s while offline (a success is how a regained network shows) or while a
+    /// server error keeps the saved sign-in from being restored, never while signed out.
+    pub(crate) fn finish(&mut self, state: &str, restoring: bool, now: i64) {
+        self.periodic = match state { "offline" => Some(now + OFFLINE_RETRY_MS), _ if restoring => Some(now + OFFLINE_RETRY_MS), "signed_out" => None, _ => Some(now + PERIODIC_MS) };
     }
 }
 
 /// Offline is checked before the session: a launch without network has no session yet but still holds a refresh token, and must keep retrying.
-fn state_after(error: Option<&str>, signed_in: bool) -> &'static str {
+/// Likewise a server error (5xx, 429) while the Keychain still holds a refresh token is an `error`, not `signed_out`: see `restoring`.
+fn state_after(error: Option<&str>, signed_in: bool, saved: bool) -> &'static str {
     match error {
         Some(e) if e.starts_with("No connection") => "offline",
+        Some(_) if signed_in || saved => "error",
         _ if !signed_in => "signed_out",
-        Some(_) => "error",
-        None => "idle",
+        _ => "idle",
     }
 }
+/// Not signed in, yet not signed out either: the session could not be restored for a reason other than the server rejecting it.
+fn restoring(state: &str, signed_in: bool) -> bool { state == "error" && !signed_in }
 
 fn read_status(c: &Connection, state: &str, error: Option<String>) -> Result<SyncStatus> {
     let (pending, refused) = mirror::counts(c)?;
@@ -93,17 +97,19 @@ fn read_status(c: &Connection, state: &str, error: Option<String>) -> Result<Syn
     Ok(SyncStatus { state: state.into(), email, last_sync, pending, refused, error })
 }
 
-/// One sync pass, then the status it leaves, which is also stored on `cloud`.
-pub(crate) async fn pass(db: &impl Db, cloud: &Cloud) -> (SyncStatus, SyncReport) {
+/// One sync pass, then the status it leaves, which is also stored on `cloud`, and whether a saved sign-in is waiting to be restored.
+pub(crate) async fn pass(db: &impl Db, cloud: &Cloud) -> (SyncStatus, SyncReport, bool) {
     let report = run_sync(db, &cloud.client, &cloud.auth).await;
-    let state = state_after(report.error.as_deref(), cloud.auth.user_id().await.is_some());
+    let signed_in = cloud.auth.user_id().await.is_some();
+    let state = state_after(report.error.as_deref(), signed_in, !signed_in && cloud.auth.has_saved_token());
     let error = matches!(state, "offline" | "error").then(|| report.error.clone()).flatten();
     let status = db.with(|c| read_status(c, state, error.clone())).unwrap_or_else(|e| {
         eprintln!("[sync] could not read the sync status: {e}");
         SyncStatus { state: state.into(), email: None, last_sync: None, pending: 0, refused: 0, error }
     });
     if let Ok(mut s) = cloud.status.lock() { *s = status.clone(); }
-    (status, report)
+    let waiting = restoring(state, signed_in);
+    (status, report, waiting)
 }
 
 fn now_ms() -> i64 { chrono::Utc::now().timestamp_millis() }
@@ -145,8 +151,8 @@ pub async fn run(app: tauri::AppHandle, cloud: Arc<Cloud>, mut rx: UnboundedRece
                         },
                     }
                 };
-                let Some((status, report)) = finished else { eprintln!("[sync] account changed; pass abandoned"); continue };
-                plan.finish(&status.state, now_ms());
+                let Some((status, report, waiting)) = finished else { eprintln!("[sync] account changed; pass abandoned"); continue };
+                plan.finish(&status.state, waiting, now_ms());
                 publish(&app, &status);
                 if report.downloaded > 0 { let _ = app.emit("cloud-changed", ()); }
             }
@@ -165,7 +171,7 @@ pub async fn run(app: tauri::AppHandle, cloud: Arc<Cloud>, mut rx: UnboundedRece
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cloud::{auth::{MemorySecret, Session}, client::Config};
+    use crate::cloud::{auth::{MemorySecret, SecretStore, Session}, client::Config};
     use crate::storage::Store;
     use std::path::Path;
 
@@ -178,7 +184,7 @@ mod tests {
         let mut passes = vec![];
         for t in (0..=until).step_by(100) {
             at(plan, t);
-            if plan.wait(t) == Some(0) { passes.push(t); plan.start(); plan.finish("idle", t); }
+            if plan.wait(t) == Some(0) { passes.push(t); plan.start(); plan.finish("idle", false, t); }
         }
         passes
     }
@@ -211,24 +217,47 @@ mod tests {
         assert_eq!(p.wait(0), Some(0));
         p.start();
         for n in [Nudge::Manual, Nudge::Manual, Nudge::SignedIn] { p.on(n, 50); }
-        p.finish("idle", 100);
+        p.finish("idle", false, 100);
         assert_eq!(p.wait(100), Some(0));
         p.start();
-        p.finish("idle", 200);
+        p.finish("idle", false, 200);
         assert_eq!(p.wait(200), Some(PERIODIC_MS));
     }
     #[test] fn offline_retries_every_30s_and_signed_out_waits() {
         let mut p = Plan::default();
-        p.finish("offline", 0);
+        p.finish("offline", false, 0);
         assert_eq!(p.wait(0), Some(30_000));
-        p.finish("signed_out", 0);
+        p.finish("signed_out", false, 0);
         assert_eq!(p.wait(0), None);
+        p.finish("error", true, 0);
+        assert_eq!(p.wait(0), Some(30_000));
+        p.finish("error", false, 0);
+        assert_eq!(p.wait(0), Some(PERIODIC_MS));
     }
     #[test] fn state_mapping() {
-        assert_eq!(state_after(None, true), "idle");
-        assert_eq!(state_after(Some("No connection. x"), false), "offline");
-        assert_eq!(state_after(Some("Your session expired. x"), false), "signed_out");
-        assert_eq!(state_after(Some("Account mismatch; sign in again."), true), "error");
+        assert_eq!(state_after(None, true, false), "idle");
+        assert_eq!(state_after(Some("No connection. x"), false, true), "offline");
+        assert_eq!(state_after(Some("Your session expired. x"), false, false), "signed_out");
+        assert_eq!(state_after(Some("Account mismatch; sign in again."), true, false), "error");
+        // A server error at launch, with the refresh token still in the Keychain.
+        assert_eq!(state_after(Some("Sync did not finish. x"), false, true), "error");
+        assert_eq!(state_after(None, false, false), "signed_out");
+        assert!(restoring("error", false) && !restoring("error", true) && !restoring("signed_out", false));
+    }
+    #[tokio::test] async fn server_error_with_a_saved_sign_in_retries_soon() {
+        let mut s = mockito::Server::new_async().await;
+        s.mock("POST", "/auth/v1/token?grant_type=refresh_token").with_status(503).with_body("{}").expect_at_least(1).create_async().await;
+        let client = Arc::new(Client::new(Config { url: s.url(), key: "k".into() }));
+        let secret = Arc::new(MemorySecret::default());
+        secret.set("rt1").unwrap();
+        let (cloud, _rx) = Cloud::new(client.clone(), Arc::new(Auth::new(client, secret)));
+        let store = Store::open(Path::new(":memory:")).unwrap();
+        mirror::set_account(&store.conn, ME, None).unwrap();
+        let (status, _, waiting) = pass(&TestDb(Mutex::new(store)), &cloud).await;
+        assert_eq!((status.state.as_str(), waiting), ("error", true));
+        let mut p = Plan::default();
+        p.finish(&status.state, waiting, 0);
+        assert_eq!(p.wait(0), Some(OFFLINE_RETRY_MS));
     }
     #[tokio::test] async fn offline_status_after_unreachable_sync() {
         let url = "http://127.0.0.1:9".to_string();
@@ -238,7 +267,7 @@ mod tests {
         let store = Store::open(Path::new(":memory:")).unwrap();
         mirror::set_account(&store.conn, ME, Some("me@example.com")).unwrap();
         let (cloud, _rx) = Cloud::new(client, auth);
-        let (status, report) = pass(&TestDb(Mutex::new(store)), &cloud).await;
+        let (status, report, _) = pass(&TestDb(Mutex::new(store)), &cloud).await;
         assert!(report.error.as_deref().unwrap().starts_with("No connection"));
         assert_eq!(status.state, "offline");
         assert_eq!(status.email.as_deref(), Some("me@example.com"));
