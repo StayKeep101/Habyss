@@ -17,6 +17,9 @@ type Loaded = { snap: Snapshot; range: Range; from: number };
 const RANGES: Range[] = ['Today', 'Week', 'Month', 'Year'];
 const VIEWS: View[] = ['Scheduled', 'Activity'];
 const FOCUS_MINUTES = 25, MIN = 60000;
+/** Wider ranges re-query on activity at most once a minute; Today stays live. */
+const WIDE_REFRESH_MS = MIN;
+const itemKey = (id: string | null | undefined, kind: string | null | undefined) => `${kind ?? ''}:${id ?? ''}`;
 const DASH = '–';
 /** Phone item icons that AppIcon can draw; anything else falls back to the item's kind. */
 const KNOWN_ICONS: IconName[] = ['cube', 'heart', 'wallet', 'moon', 'flame', 'sparkles', 'timer', 'desktop', 'calendar', 'people', 'person', 'home', 'trending-up', 'stats-chart', 'hourglass'];
@@ -45,7 +48,7 @@ export function Dashboard({ onNavigate }: { onNavigate?: (s: Screen) => void }) 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [now, setNow] = useState(Date.now());
   const [name, setName] = useState('');
-  const [pickId, setPickId] = useState<string | null>(null);
+  const [pickKey, setPickKey] = useState<string | null>(null);
   const [snapError, setSnapError] = useState('');
   const [error, setError] = useState('');
 
@@ -56,9 +59,11 @@ export function Dashboard({ onNavigate }: { onNavigate?: (s: Screen) => void }) 
 
   // The range has its own query; the shell's 7-day snapshot stays as it is. Only the latest request lands.
   const seq = useRef(0);
+  const lastLoad = useRef(0);
   const loadSnap = useCallback(async () => {
     if (!isTauri()) return;
     const id = ++seq.current;
+    lastLoad.current = Date.now();
     const [from, to] = rangeBounds(range, new Date());
     try {
       const snap = await invoke<Snapshot>('snapshot', { from, to });
@@ -67,10 +72,16 @@ export function Dashboard({ onNavigate }: { onNavigate?: (s: Screen) => void }) 
   }, [range, day]); // day: a new local day moves the range start, so it requeries.
   useEffect(() => {
     void loadSnap();
-    let dispose: (() => void) | undefined, cancelled = false;
-    void listen('activity-updated', () => void loadSnap()).then(f => { if (cancelled) f(); else dispose = f; });
-    return () => { cancelled = true; dispose?.(); };
-  }, [loadSnap]);
+    let dispose: (() => void) | undefined, cancelled = false, timer: ReturnType<typeof setTimeout> | undefined;
+    const onActivity = () => {
+      if (range === 'Today') { void loadSnap(); return; }
+      if (timer) return;
+      const wait = lastLoad.current + WIDE_REFRESH_MS - Date.now();
+      if (wait <= 0) void loadSnap(); else timer = setTimeout(() => { timer = undefined; void loadSnap(); }, wait);
+    };
+    void listen('activity-updated', onActivity).then(f => { if (cancelled) f(); else dispose = f; });
+    return () => { cancelled = true; dispose?.(); clearTimeout(timer); };
+  }, [loadSnap, range]);
 
   useEffect(() => {
     if (!signedIn) return;
@@ -96,7 +107,9 @@ export function Dashboard({ onNavigate }: { onNavigate?: (s: Screen) => void }) 
   const tasks = useMemo(() => tasksInRange(cloud.data?.tasks ?? [], localDateKey(new Date(from)), localDateKey(new Date(minute))), [cloud.data, from, minute]);
   const recent = useMemo(() => { const [start, end] = dayRange(day); return intervals.filter(i => i.state === 'active' && i.end > start && i.start < end).sort((a, b) => b.start - a.start).slice(0, 6); }, [intervals, day]);
   const tracked = slices.reduce((n, s) => n + s.value, 0);
-  const planned = (value: string) => (signedIn ? value : DASH);
+  // Plan figures need an account and its data; anything less shows a dash, never a zero.
+  const ready = signedIn && cloud.data !== null;
+  const planned = (value: string) => (ready ? value : DASH);
 
   /** Only the action that set the error clears it. */
   const errorOwner = useRef('');
@@ -105,16 +118,19 @@ export function Dashboard({ onNavigate }: { onNavigate?: (s: Screen) => void }) 
     catch (e) { errorOwner.current = cmd; setError(String(e)); return false; }
   };
   const open = today.items.filter(i => !i.done);
-  const picked = open.find(i => i.id === pickId) ?? today.current ?? today.next ?? null;
-  const linked = running?.item_id ? today.items.find(i => i.id === running.item_id) ?? null : null;
+  const picked = open.find(i => itemKey(i.id, i.kind) === pickKey) ?? open.find(i => i === today.current || i === today.next) ?? open[0] ?? null;
+  const linked = running?.item_id ? today.items.find(i => itemKey(i.id, i.kind) === itemKey(running.item_id, running.item_kind)) ?? null : null;
+  /** The item the card is on: the running session's, or the one picked for the next start. */
+  const focusKey = running ? itemKey(running.item_id, running.item_kind) : picked && itemKey(picked.id, picked.kind);
   const start = async (item: TodayItem | null) => { await run('start_focus', { label: item?.title ?? 'Focus', minutes: FOCUS_MINUTES, itemId: item?.id ?? null, itemKind: item?.kind ?? null }); await loadSnap(); };
   const focusCmd = async (cmd: string) => { await run(cmd); await loadSnap(); };
-  /** Switches the running timer to the neighbouring open item: a fresh countdown on that item. */
+  /** Idle: picks the neighbouring open item for play. Running: switches the timer to it, a fresh countdown on that item. */
   const step = async (delta: number) => {
-    const at = open.findIndex(i => i.id === running?.item_id);
+    const at = open.findIndex(i => itemKey(i.id, i.kind) === focusKey);
     const target = open[at < 0 ? (delta > 0 ? 0 : open.length - 1) : (at + delta + open.length) % open.length];
-    if (!target || target.id === running?.item_id) return;
-    setPickId(target.id);
+    if (!target || itemKey(target.id, target.kind) === focusKey) return;
+    setPickKey(itemKey(target.id, target.kind));
+    if (!running) return;
     if (await run('stop_focus')) await start(target); else await loadSnap();
   };
   /** Ends the session and marks its linked item done. */
@@ -125,9 +141,9 @@ export function Dashboard({ onNavigate }: { onNavigate?: (s: Screen) => void }) 
       : await run('cloud_set_completion', { habitId: linked.id, date: today.day, value: 1, skipped: false, memo: null, evidence: null });
     await Promise.all([loadSnap(), ok ? cloud.refresh() : Promise.resolve()]);
   };
-  const canStep = signedIn && open.some(i => i.id !== running?.item_id);
+  const canStep = ready && open.some(i => itemKey(i.id, i.kind) !== focusKey);
 
-  const planner = waiting ? <Empty>Loading…</Empty> : null;
+  const planner = waiting ? <Empty>Loading…</Empty> : signedIn && !ready ? <Empty>Your plan could not be loaded.</Empty> : null;
   return (
     <div className="db">
       <header className="db-hero">
@@ -155,7 +171,7 @@ export function Dashboard({ onNavigate }: { onNavigate?: (s: Screen) => void }) 
           <FocusControls variant="full" session={running} now={now} label={picked?.title}
             onStart={() => void start(picked)} onStop={() => void focusCmd('stop_focus')} onPause={() => void focusCmd('pause_focus')} onResume={() => void focusCmd('resume_focus')}
             onPrevious={canStep ? () => void step(-1) : undefined} onNext={canStep ? () => void step(1) : undefined}
-            onFinish={signedIn && linked && !linked.done ? () => void finish() : undefined} />
+            onFinish={ready && linked && !linked.done ? () => void finish() : undefined} />
         </Card>
 
         <Card className="db-alloc" title="Time Allocation" aside={`(${loaded?.range ?? range})`}>

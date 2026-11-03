@@ -7,6 +7,7 @@ import { buildToday, type TodayItem } from '../today/today';
 import { useCloud } from '../today/useCloud';
 import { AppIcon, Button, Card, Empty, IconButton, Segmented } from '../ui';
 import { FocusControls } from './FocusControls';
+import { productivePercent } from '../dashboard/stats';
 import './panel.css';
 
 type Tab = 'Today' | 'Timeline';
@@ -62,9 +63,8 @@ export function TodayPanel({ mode, collapsed: controlled, onCollapsedChange }: {
   const upNext = today.current ?? today.next;
 
   const m = useMemo(() => { const [from, to] = dayRange(day); return metrics(snap?.intervals ?? [], snap?.focus ?? [], from, to, now); }, [snap, day, now]);
-  const productiveMs = m.categories.reduce((n, [c, ms]) => n + (snap?.classifications[c] === 'productive' ? ms : 0), 0);
-  const classifiedMs = m.categories.reduce((n, [c, ms]) => n + (snap?.classifications[c] ? ms : 0), 0);
-  const productive = classifiedMs > 0 && m.active > 0 ? `${Math.round(productiveMs / m.active * 100)}%` : '–';
+  const share = useMemo(() => { const [from, to] = dayRange(day); return productivePercent(snap?.intervals ?? [], snap?.classifications ?? {}, from, to, now); }, [snap, day, now]);
+  const productive = share === null ? '–' : `${share}%`;
 
   /** Returns whether the command succeeded. Only the action that set the error clears it. */
   const run = async (cmd: string, args?: Record<string, unknown>, revert = false): Promise<boolean> => {

@@ -117,6 +117,13 @@ describe('TodayPanel', () => {
     render(<TodayPanel mode="menubar" />);
     await waitFor(() => expect(screen.getByText('Productive').previousElementSibling?.textContent).toBe('100%'));
   });
+  it('productive_dash_when_all_time_is_uncategorized', async () => {
+    const hour = { start: NOW.getTime() - 3600000, end: NOW.getTime(), state: 'active', name: 'Code', bundle_id: 'x', category: 'uncategorized' } as never;
+    wire({ snapshot: () => snap({ intervals: [hour], classifications: { uncategorized: 'neutral' } }) });
+    render(<TodayPanel mode="menubar" />);
+    await waitFor(() => expect(screen.getByText('Screen Time').previousElementSibling?.textContent).toBe('1h 0m'));
+    expect(screen.getByText('Productive').previousElementSibling?.textContent).toBe('–');
+  });
   it('failed_tick_reverts_and_shows_the_error', async () => {
     wire({ cloud_set_completion: () => { throw new Error('offline'); } });
     render(<TodayPanel mode="menubar" />);

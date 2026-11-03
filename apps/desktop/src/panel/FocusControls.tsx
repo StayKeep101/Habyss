@@ -12,7 +12,7 @@ export interface FocusControlsProps {
   onStop: () => void;
   onPause: () => void;
   onResume: () => void;
-  /** Full variant only. Without a handler the button is hidden. */
+  /** Full variant only. Without a handler the button is hidden. Idle, previous/next pick the item to start on. */
   onPrevious?: () => void;
   onNext?: () => void;
   onFinish?: () => void;
@@ -33,18 +33,22 @@ export function FocusControls(p: FocusControlsProps) {
   if (p.variant === 'compact') {
     return <button type="button" role="switch" aria-checked={running} aria-label="Focus Mode" className="fc-switch" onClick={running ? p.onStop : p.onStart}><span className="fc-knob" /></button>;
   }
+  const nav = (label: string) => (
+    <div className="fc-nav">
+      {p.onPrevious && <button type="button" className="fc-step" aria-label="Previous item" onClick={p.onPrevious}><AppIcon name="chevron-back" size={16} /></button>}
+      <span className="fc-label">{label}</span>
+      {p.onNext && <button type="button" className="fc-step" aria-label="Next item" onClick={p.onNext}><AppIcon name="chevron-forward" size={16} /></button>}
+    </div>
+  );
   if (!p.session) {
-    return <div className="fc-full"><div className="fc-clock">25:00</div><div className="fc-label">{p.label ?? 'Focus'}</div><div className="fc-row"><Round icon="play" label="Start focus" onClick={p.onStart} primary /></div></div>;
+    // Idle: previous and next pick the item that play will focus on.
+    return <div className="fc-full"><div className="fc-clock">25:00</div>{nav(p.label ?? 'Focus')}<div className="fc-row"><Round icon="play" label="Start focus" onClick={p.onStart} primary /></div></div>;
   }
   const paused = p.session.paused_at !== null;
   return (
     <div className="fc-full">
       <div className="fc-clock" aria-live="off">{precise(focusClock(p.session, p.now))}</div>
-      <div className="fc-nav">
-        {p.onPrevious && <button type="button" className="fc-step" aria-label="Previous item" onClick={p.onPrevious}><AppIcon name="chevron-back" size={16} /></button>}
-        <span className="fc-label">{p.session.label}</span>
-        {p.onNext && <button type="button" className="fc-step" aria-label="Next item" onClick={p.onNext}><AppIcon name="chevron-forward" size={16} /></button>}
-      </div>
+      {nav(p.session.label)}
       <div className="fc-row">
         <Round icon="stop" label="Stop focus" onClick={p.onStop} />
         <Round icon={paused ? 'play' : 'pause'} label={paused ? 'Resume focus' : 'Pause focus'} onClick={paused ? p.onResume : p.onPause} primary />
