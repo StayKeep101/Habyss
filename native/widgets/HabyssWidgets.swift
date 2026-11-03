@@ -9,7 +9,9 @@ struct ActivitySnapshot: Decodable {
     let focus_label: String?
     let focus_start: Double?
     let focus_target_ms: Double?
-    static let empty = ActivitySnapshot(generated_at: 0, active_ms: 0, focus_ms: 0, state: "No snapshot", focus_label: nil, focus_start: nil, focus_target_ms: nil)
+    let focus_paused_ms: Double?
+    let focus_paused_at: Double?
+    static let empty = ActivitySnapshot(generated_at: 0, active_ms: 0, focus_ms: 0, state: "No snapshot", focus_label: nil, focus_start: nil, focus_target_ms: nil, focus_paused_ms: nil, focus_paused_at: nil)
 }
 struct Entry: TimelineEntry { let date: Date; let snapshot: ActivitySnapshot }
 struct Provider: TimelineProvider {
@@ -59,8 +61,11 @@ struct FocusView: View {
                 Text(entry.snapshot.focus_label ?? "Space for what matters").font(.headline).lineLimit(2)
                 // Session state is a snapshot: do not show a live timer that can keep running after a crash.
                 if let start = entry.snapshot.focus_start {
-                    Text(duration(entry.snapshot.generated_at - start)).font(.system(size: 28, weight: .medium, design: .rounded))
-                    Text("Elapsed at last update").font(.caption2).foregroundStyle(.secondary)
+                    let snap = entry.snapshot
+                    // Same formula as focus.rs: wall time minus stored pauses and any open pause.
+                    let open = snap.focus_paused_at.map { max(0, snap.generated_at - $0) } ?? 0
+                    Text(duration(max(0, snap.generated_at - start - (snap.focus_paused_ms ?? 0) - open))).font(.system(size: 28, weight: .medium, design: .rounded))
+                    Text(snap.focus_paused_at != nil ? "Paused" : "Elapsed at last update").font(.caption2).foregroundStyle(.secondary)
                 } else { Text("No active focus session").font(.caption).foregroundStyle(.secondary) }
                 SnapshotFooter(snapshot: entry.snapshot)
             }
