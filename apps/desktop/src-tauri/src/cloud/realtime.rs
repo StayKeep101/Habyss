@@ -37,7 +37,7 @@ fn offline<E>(_: E) -> CloudError { CloudError::Offline }
 fn refused(why: &str) -> CloudError { CloudError::Server { status: 0, code: "realtime".into(), message: why.into() } }
 fn frame(event: &str, payload: Value, n: u64) -> Message { Message::text(json!({"topic": if event == "heartbeat" { "phoenix" } else { TOPIC }, "event": event, "payload": payload, "ref": n.to_string()}).to_string()) }
 
-/// One connection: join, heartbeat, and call `on_change` for every `postgres_changes` message.
+/// One connection: join, heartbeat, and call `on_change` once joined and for every `postgres_changes` message.
 /// `Err` when the connection or the join failed; `Ok` when a joined connection later ended.
 pub async fn realtime(config: Config, token: String, user_id: String, on_change: impl Fn()) -> Result<(), CloudError> {
     let (mut ws, _) = match tokio::time::timeout(CONNECT_TIMEOUT, tokio_tungstenite::connect_async(socket_url(&config))).await {
@@ -65,6 +65,8 @@ pub async fn realtime(config: Config, token: String, user_id: String, on_change:
                     (Some(TOPIC), Some("phx_reply")) if !joined && v["ref"] == "1" => {
                         if v["payload"]["status"] != "ok" { return Err(refused("join refused")); }
                         joined = true;
+                        // Changes made while there was no connection (a drop, a token change, the Mac asleep) sent no message.
+                        on_change();
                     }
                     (Some(TOPIC), Some("postgres_changes")) => on_change(),
                     (Some(TOPIC), Some("phx_error" | "phx_close")) => break,
@@ -159,7 +161,8 @@ mod tests {
         let r = realtime(Config { url, key: "k".into() }, "tok".into(), "u1".into(), || { hits.fetch_add(1, Ordering::SeqCst); }).await;
         let join = server.await.unwrap();
         assert!(r.is_ok());
-        assert_eq!(hits.load(Ordering::SeqCst), 2);
+        // One for the join (catching up on the gap), one for each change.
+        assert_eq!(hits.load(Ordering::SeqCst), 3);
         assert_eq!((join["topic"].as_str(), join["event"].as_str()), (Some(TOPIC), Some("phx_join")));
     }
     #[tokio::test] async fn refused_join_is_an_error() {
@@ -171,6 +174,8 @@ mod tests {
             ws.send(Message::text(json!({"topic": TOPIC, "event": "phx_reply", "payload": {"status": "error", "response": {}}, "ref": "1"}).to_string())).await.unwrap();
             let _ = ws.next().await;
         });
-        assert!(realtime(Config { url, key: "k".into() }, "tok".into(), "u1".into(), || {}).await.is_err());
+        let hits = AtomicUsize::new(0);
+        assert!(realtime(Config { url, key: "k".into() }, "tok".into(), "u1".into(), || { hits.fetch_add(1, Ordering::SeqCst); }).await.is_err());
+        assert_eq!(hits.load(Ordering::SeqCst), 0);
     }
 }
