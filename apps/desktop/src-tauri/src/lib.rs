@@ -1,6 +1,7 @@
 mod cloud;
 mod commands;
 pub mod engine;
+mod focus;
 mod models;
 mod platform;
 mod service;
@@ -13,7 +14,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app,_,_|{let _=open_dashboard(app.clone(),None);}))
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent,Some(vec!["--autostart"])))
-        .invoke_handler(tauri::generate_handler![snapshot,save_settings,set_tracking,start_focus,stop_focus,categorize,request_permission,open_permissions,erase_history,export_history,export_to_file,open_dashboard,quit,
+        .invoke_handler(tauri::generate_handler![snapshot,save_settings,set_tracking,start_focus,pause_focus,resume_focus,stop_focus,categorize,request_permission,open_permissions,erase_history,export_history,export_to_file,open_dashboard,quit,
             cloud::commands::cloud_status,cloud::commands::cloud_send_code,cloud::commands::cloud_verify_code,cloud::commands::cloud_sign_in_password,cloud::commands::cloud_sign_out,cloud::commands::cloud_sync_now,cloud::commands::cloud_data,cloud::commands::cloud_save,cloud::commands::cloud_delete,cloud::commands::cloud_set_completion,cloud::commands::cloud_set_task_done,cloud::commands::cloud_rpc,cloud::commands::cloud_action,cloud::commands::cloud_delete_account])
         .setup(|app| {
             let service=service::Service::open(app.path().app_data_dir()?).map_err(|e|std::io::Error::other(e.to_string()))?;
@@ -37,6 +38,18 @@ pub fn run() {
                     let state=handle.state::<Shared>();
                     if let Ok(mut service)=state.lock() {if let Err(error)=service.observe(sample) {eprintln!("Tracking persistence failed: {error}");service.error=Some(error.to_string());}}
                     if now-last_emit>=5000 {for label in ["main","panel"] {if let Some(w)=handle.get_webview_window(label) {if w.is_visible().unwrap_or(false){let _=w.emit("activity-updated",());}}}last_emit=now;}
+                }
+            })?;
+            let handle=app.handle().clone();
+            std::thread::Builder::new().name("habyss-tray".into()).spawn(move || {
+                let mut shown=String::new();
+                loop {
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    // The lock is held only for the database step; Tauri is called after it is released.
+                    let step={let state=handle.state::<Shared>();let mut service=match state.lock(){Ok(s)=>s,Err(_)=>continue};service.focus_tick(chrono::Utc::now().timestamp_millis())};
+                    let (title,ended)=match step {Ok(v)=>v,Err(error)=>{eprintln!("Focus tick failed: {error}");continue}};
+                    if ended {for label in ["main","panel"] {if let Some(w)=handle.get_webview_window(label) {let _=w.emit("activity-updated",());}}}
+                    if title!=shown { if let Some(tray)=handle.tray_by_id("habyss") { if tray.set_title(Some(title.as_str())).is_ok() { shown=title; } } }
                 }
             })?;
             let menu=tauri::menu::Menu::with_items(app,&[
@@ -71,6 +84,6 @@ pub fn run() {
         .build(tauri::generate_context!()).expect("Habyss initialization failed")
         .run(|app,event|match event {
             tauri::RunEvent::Exit=>{let state=app.state::<Shared>();if let Ok(mut s)=state.lock(){if let Err(e)=s.shutdown(){eprintln!("Final checkpoint failed: {e}");}};},
-            tauri::RunEvent::Opened{urls}=>{let focus=urls.iter().any(|u|u.host_str()==Some("focus"));let _=open_dashboard(app.clone(),Some(if focus{"Focus"}else{"Dashboard"}.into()));},_=>{}
+            tauri::RunEvent::Opened{..}=>{let _=open_dashboard(app.clone(),Some("Dashboard".into()));},_=>{}
         });
 }

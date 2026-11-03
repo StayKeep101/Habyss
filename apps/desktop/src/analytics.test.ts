@@ -4,7 +4,13 @@ import type { Interval } from './types';
 const interval = (start: number, end: number, bundle: string, state = 'active'): Interval => ({ id: String(start), application_id: bundle, bundle_id: bundle, name: bundle, title: null, start, end, state, category: 'research', availability: 'app_only', pid: 1, window_id: null });
 describe('observed analytics', () => {
     it('clips intervals to arbitrary boundaries', () => expect(overlap(0, 200, 50, 150)).toBe(100));
-    it('distinguishes declared focus from observed active overlap', () => { const m = metrics([interval(0, 100, 'A'), interval(100, 200, 'B', 'idle')], [{ id: 'f', label: 'test', start: 0, end: 200, target_ms: 200, state: 'completed' }], 0, 200); expect(m.active).toBe(100); expect(m.idle).toBe(100); expect(m.declared).toBe(200); expect(m.observedFocus).toBe(100); });
+    it('distinguishes declared focus from observed active overlap', () => { const m = metrics([interval(0, 100, 'A'), interval(100, 200, 'B', 'idle')], [{ id: 'f', label: 'test', start: 0, end: 200, target_ms: 200, state: 'completed', paused_ms: 0, paused_at: null, item_id: null, item_kind: null }], 0, 200); expect(m.active).toBe(100); expect(m.idle).toBe(100); expect(m.declared).toBe(200); expect(m.observedFocus).toBe(100); });
+    it('declared_focus_excludes_paused_time', () => {
+        const base = { id: 'f', label: 't', target_ms: 1000, state: 'completed', item_id: null, item_kind: null };
+        expect(metrics([], [{ ...base, start: 0, end: 200, paused_ms: 50, paused_at: null }], 0, 200).declared).toBe(150);
+        expect(metrics([interval(0, 200, 'A')], [{ ...base, start: 0, end: 200, paused_ms: 50, paused_at: null }], 0, 200).observedFocus).toBe(150);
+        expect(metrics([], [{ ...base, start: 0, end: null, state: 'running', paused_ms: 20, paused_at: 150 }], 0, 200, 200).declared).toBe(130);
+    });
     it('does not count window changes as application switches', () => { const m = metrics([interval(0, 100, 'A'), interval(100, 200, 'A'), interval(200, 300, 'B'), interval(400, 500, 'C')], [], 0, 500); expect(m.switches).toBe(1); expect(m.longest).toBe(300); });
     it('uses calendar midnights', () => { const [from, to] = dayRange('2026-11-01'); expect(new Date(from).getHours()).toBe(0); expect(new Date(to).getDate()).toBe(2); });
 });

@@ -8,6 +8,8 @@ export interface Settings {
     start_minimized: boolean;
     appearance: 'dark' | 'light' | 'system';
     retention_days: number;
+    menu_bar_timer: boolean;
+    menu_bar_task: boolean;
 }
 export interface Interval {
     id: string;
@@ -38,6 +40,10 @@ export interface FocusSession {
     end: number | null;
     target_ms: number;
     state: string;
+    paused_ms: number;
+    paused_at: number | null;
+    item_id: string | null;
+    item_kind: string | null;
 }
 export interface Snapshot {
     settings: Settings;
@@ -52,6 +58,7 @@ export interface Snapshot {
     widget_available: boolean;
     database_path: string;
     version: string;
+    classifications: Record<string, 'productive' | 'neutral' | 'unproductive'>;
 }
 export type Screen = 'Dashboard' | 'Timeline' | 'Applications' | 'Focus' | 'Analytics' | 'Settings';
 export type Act = (command: string, args?: Record<string, unknown>) => Promise<void>;

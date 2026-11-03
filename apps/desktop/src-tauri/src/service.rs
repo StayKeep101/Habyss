@@ -37,6 +37,12 @@ impl Service {
         if n.utc-self.last_widget>=300000 {self.publish_widget(n.utc)?;self.last_widget=n.utc;}
         Ok(())
     }
+    /// One ticker step: completes a due session (publishing the widget) and returns the menu bar title plus whether a session ended.
+    pub fn focus_tick(&mut self,now:i64)->Result<(String,bool)> {
+        let ended=self.store.complete_due_focus(now)?;
+        if ended { self.publish_widget(now)?; }
+        Ok((crate::focus::tray_title(self.store.running_focus()?.as_ref(),now,&self.settings),ended))
+    }
     pub fn shutdown(&mut self)->Result<()> {
         self.flush()?;
         let now=chrono::Utc::now().timestamp_millis();
@@ -58,7 +64,7 @@ impl Service {
             }
         }
         intervals.sort_by_key(|i|i.start);
-        Ok(Snapshot{settings:self.settings.clone(),intervals,applications:self.store.applications()?,focus:self.store.focus()?,trusted:self.trusted,current_app:self.engine.current.as_ref().filter(|s|s.context.state=="active").map(|s|s.context.name.clone()),current_since:self.engine.current.as_ref().map(|s|s.start),state:self.engine.current.as_ref().map(|s|s.context.state.clone()).unwrap_or("starting".into()),error:self.error.clone(),widget_available:self.widget_available,database_path:self.path.display().to_string(),version:env!("CARGO_PKG_VERSION")})
+        Ok(Snapshot{settings:self.settings.clone(),intervals,applications:self.store.applications()?,focus:self.store.focus()?,trusted:self.trusted,current_app:self.engine.current.as_ref().filter(|s|s.context.state=="active").map(|s|s.context.name.clone()),current_since:self.engine.current.as_ref().map(|s|s.start),state:self.engine.current.as_ref().map(|s|s.context.state.clone()).unwrap_or("starting".into()),error:self.error.clone(),widget_available:self.widget_available,database_path:self.path.display().to_string(),version:env!("CARGO_PKG_VERSION"),classifications:self.store.classifications()?})
     }
     pub fn update_settings(&mut self,settings:Settings)->Result<()> {
         settings.validate().map_err(std::io::Error::other)?;
@@ -75,9 +81,10 @@ impl Service {
         let from=Local.from_local_datetime(&date.and_hms_opt(0,0,0).ok_or("Invalid midnight")?).earliest().ok_or("Local midnight unavailable")?.timestamp_millis();
         let snap=self.snapshot(from,now+1)?;
         let active:i64=snap.intervals.iter().filter(|i|i.state=="active").map(|i|crate::engine::overlap(i.start,i.end,from,now)).sum();
-        let focus_ms:i64=snap.focus.iter().map(|f|crate::engine::overlap(f.start,f.end.unwrap_or(now),from,now)).sum();
+        // Paused time is a per-session total, so it is spread evenly over the session.
+        let focus_ms:i64=snap.focus.iter().map(|f|{let end=f.end.unwrap_or(now);let span=(end-f.start).max(1);crate::engine::overlap(f.start,end,from,now)*crate::focus::focus_elapsed(f,now)/span}).sum();
         let running=snap.focus.iter().find(|f|f.end.is_none());
-        let json=serde_json::json!({"generated_at":now,"active_ms":active,"focus_ms":focus_ms,"state":if !self.settings.tracking_enabled {"paused"}else if self.engine.current.is_none(){"not_running"}else{snap.state.as_str()},"focus_label":running.map(|f|f.label.as_str()),"focus_start":running.map(|f|f.start),"focus_target_ms":running.map(|f|f.target_ms)});
+        let json=serde_json::json!({"generated_at":now,"active_ms":active,"focus_ms":focus_ms,"state":if !self.settings.tracking_enabled {"paused"}else if self.engine.current.is_none(){"not_running"}else{snap.state.as_str()},"focus_label":running.map(|f|f.label.as_str()),"focus_start":running.map(|f|f.start),"focus_target_ms":running.map(|f|f.target_ms),"focus_paused_ms":running.map(|f|f.paused_ms),"focus_paused_at":running.and_then(|f|f.paused_at)});
         self.widget_available=platform::publish(&json.to_string());Ok(())
     }
 }
