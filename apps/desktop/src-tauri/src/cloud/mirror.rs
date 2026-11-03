@@ -49,7 +49,7 @@ pub fn select(c: &Connection, t: Table, filter: &str) -> Result<Vec<Value>> {
     Ok(rows)
 }
 
-/// Insert or update from `row`. `guarded` applies the sync rule: only a synced row whose `updated_at` differs is replaced.
+/// Insert or update from `row`. `guarded` applies the sync rule: only a synced (or refused) row whose `updated_at` differs is replaced.
 fn upsert(c: &Connection, t: Table, row: &Value, keep: &[&str], guarded: bool) -> Result<usize> {
     let obj = row.as_object().ok_or("row must be an object")?;
     let real = columns(c, t)?;
@@ -61,14 +61,15 @@ fn upsert(c: &Connection, t: Table, row: &Value, keep: &[&str], guarded: bool) -
     let names = cols.iter().map(|n| n.as_str()).collect::<Vec<_>>().join(",");
     let marks = (1..=cols.len()).map(|i| format!("?{i}")).collect::<Vec<_>>().join(",");
     let action = if sets.is_empty() { "DO NOTHING".to_string() } else {
-        let guard = if guarded { format!(" WHERE {0}.synced=1 AND {0}.updated_at IS NOT excluded.updated_at", t.local()) } else { String::new() };
+        let guard = if guarded { format!(" WHERE ({0}.synced=1 OR {0}.refused=1) AND {0}.updated_at IS NOT excluded.updated_at", t.local()) } else { String::new() };
         format!("DO UPDATE SET {}{}", sets.join(","), guard)
     };
     let sql = format!("INSERT INTO {} ({names}) VALUES ({marks}) ON CONFLICT({}) {action}", t.local(), t.local_conflict());
     Ok(c.execute(&sql, params_from_iter(cols.iter().map(|n| to_sql(&obj[n.as_str()]))))?)
 }
 
-/// Write a row that came from the server. Never overwrites an unsent local edit. `keep` lists columns left untouched on update.
+/// Write a row that came from the server. Never overwrites an unsent local edit; a refused edit takes the server's version.
+/// `keep` lists columns left untouched on update.
 pub fn write_local(c: &Connection, t: Table, row: &Value, keep: &[&str]) -> Result<usize> { upsert(c, t, row, keep, true) }
 
 pub fn unsynced(c: &Connection, t: Table) -> Result<Vec<Value>> { select(c, t, "WHERE synced=0 AND refused=0") }
@@ -81,21 +82,32 @@ pub fn mark_uploaded(c: &Connection, t: Table, rows: &[Value]) -> Result<usize> 
     Ok(n)
 }
 pub fn mark_refused(c: &Connection, t: Table, id: &str) -> Result<()> { c.execute(&format!("UPDATE {} SET refused=1 WHERE id=?1", t.local()), [id])?; Ok(()) }
+/// Refused rows of `t` that are `me`'s own (a friend's shared row is re-read by the shared pull instead).
+pub fn refused_own(c: &Connection, t: Table, me: &str) -> Result<Vec<Value>> {
+    let me = me.replace('\'', "''");
+    select(c, t, &format!("WHERE refused=1 AND (owner_id IS NULL OR owner_id='{me}')"))
+}
 
 pub fn cursor(c: &Connection, t: Table) -> Result<Option<String>> { Ok(c.query_row("SELECT cursor FROM cloud_cursors WHERE table_name=?1", [t.remote()], |r| r.get(0)).optional()?) }
 pub fn set_cursor(c: &Connection, t: Table, v: &str) -> Result<()> { c.execute("INSERT INTO cloud_cursors VALUES(?1,?2) ON CONFLICT(table_name) DO UPDATE SET cursor=excluded.cursor", params![t.remote(), v])?; Ok(()) }
 
 pub fn account(c: &Connection) -> Result<Option<(String, Option<String>)>> { Ok(c.query_row("SELECT user_id,email FROM cloud_account WHERE id=1", [], |r| Ok((r.get(0)?, r.get(1)?))).optional()?) }
-/// One account per database: a different user clears the mirror first, in the same transaction.
+/// One account per database: anything but the same user (including no stored account, whose leftovers belong to no one) clears the mirror first, in the same transaction.
 pub fn set_account(c: &Connection, user_id: &str, email: Option<&str>) -> Result<()> {
     let tx = c.unchecked_transaction()?;
-    if account(&tx)?.map_or(false, |(u, _)| u != user_id) { clear_cloud(&tx)?; }
+    if account(&tx)?.map_or(true, |(u, _)| u != user_id) { wipe(&tx)?; }
     tx.execute("INSERT INTO cloud_account(id,user_id,email) VALUES(1,?1,?2) ON CONFLICT(id) DO UPDATE SET user_id=excluded.user_id,email=excluded.email", params![user_id, email])?;
     tx.commit()?;
     Ok(())
 }
-/// Empties every `cloud_*` table. Activity tables are untouched.
+/// Empties every `cloud_*` table, all or nothing. Activity tables are untouched.
 pub fn clear_cloud(c: &Connection) -> Result<()> {
+    let tx = c.unchecked_transaction()?;
+    wipe(&tx)?;
+    tx.commit()?;
+    Ok(())
+}
+fn wipe(c: &Connection) -> Result<()> {
     c.execute_batch("DELETE FROM cloud_habits; DELETE FROM cloud_completions; DELETE FROM cloud_tasks; DELETE FROM cloud_milestones; DELETE FROM cloud_cursors; DELETE FROM cloud_account; DELETE FROM cloud_cache; DELETE FROM cloud_outbox; DELETE FROM cloud_shared_ids;")?;
     Ok(())
 }
@@ -228,6 +240,53 @@ mod tests {
         assert!(select(&s.conn, Table::Habits, "").unwrap().is_empty());
         assert_eq!(s.intervals(0, 1000).unwrap().len(), 1);
         assert_eq!(account(&s.conn).unwrap(), Some(("u2".into(), None)));
+    }
+
+    #[test]
+    fn refused_row_takes_the_server_version() {
+        let s = store();
+        save_local(&s.conn, Table::Tasks, json!({"id": "t1", "title": "Mine"}), "me", "2026-01-01T00:00:00.000Z").unwrap();
+        mark_refused(&s.conn, Table::Tasks, "t1").unwrap();
+        assert_eq!(counts(&s.conn).unwrap(), (0, 1));
+        assert_eq!(refused_own(&s.conn, Table::Tasks, "me").unwrap().len(), 1);
+        write_local(&s.conn, Table::Tasks, &task_to_local(&json!({"id": "t1", "title": "Server", "updated_at": "2026-01-02T00:00:00+00:00"})), &[]).unwrap();
+        let r = get(&s.conn, Table::Tasks, "t1");
+        assert_eq!((r["title"].as_str(), r["synced"].as_i64(), r["refused"].as_i64()), (Some("Server"), Some(1), Some(0)));
+        assert_eq!(counts(&s.conn).unwrap(), (0, 0));
+    }
+
+    #[test]
+    fn refused_own_skips_friends_rows() {
+        let s = store();
+        let mut theirs = task_to_local(&json!({"id": "t2", "title": "Ours"}));
+        theirs["owner_id"] = json!("friend");
+        write_local(&s.conn, Table::Tasks, &theirs, &[]).unwrap();
+        save_local(&s.conn, Table::Tasks, json!({"id": "t1", "title": "Mine"}), "me", "2026-01-01T00:00:00.000Z").unwrap();
+        for id in ["t1", "t2"] { mark_refused(&s.conn, Table::Tasks, id).unwrap(); }
+        let own: Vec<Value> = refused_own(&s.conn, Table::Tasks, "me").unwrap().into_iter().map(|r| r["id"].clone()).collect();
+        assert_eq!(own, [json!("t1")]);
+    }
+
+    #[test]
+    fn signing_in_without_a_stored_account_clears_leftovers() {
+        let s = store();
+        write_local(&s.conn, Table::Tasks, &task_to_local(&json!({"id": "orphan", "title": "x"})), &[]).unwrap();
+        set_cursor(&s.conn, Table::Tasks, "c1").unwrap();
+        set_account(&s.conn, "u2", None).unwrap();
+        assert!(select(&s.conn, Table::Tasks, "").unwrap().is_empty());
+        assert_eq!(cursor(&s.conn, Table::Tasks).unwrap(), None);
+    }
+
+    #[test]
+    fn clear_cloud_is_all_or_nothing() {
+        let s = store();
+        set_account(&s.conn, "u1", None).unwrap();
+        save_local(&s.conn, Table::Habits, json!({"id": "h1", "name": "Run"}), "u1", "2026-01-01T00:00:00.000Z").unwrap();
+        set_shared_ids(&s.conn, &["x".into()]).unwrap();
+        s.conn.execute_batch("CREATE TRIGGER keep_shared BEFORE DELETE ON cloud_shared_ids BEGIN SELECT RAISE(ABORT,'injected'); END;").unwrap();
+        assert!(clear_cloud(&s.conn).is_err());
+        assert_eq!(select(&s.conn, Table::Habits, "").unwrap().len(), 1);
+        assert!(account(&s.conn).unwrap().is_some());
     }
 
     #[test]

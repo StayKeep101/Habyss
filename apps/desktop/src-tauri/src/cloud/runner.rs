@@ -133,12 +133,19 @@ pub async fn run(app: tauri::AppHandle, cloud: Arc<Cloud>, mut rx: UnboundedRece
                 mark_syncing(&app, &cloud);
                 let running = pass(&app, &cloud);
                 tokio::pin!(running);
-                let (status, report) = loop {
+                // A sign-in, sign-out or account deletion abandons the pass: it belongs to the old account. Dropping it is safe because
+                // every database step is synchronous inside `Db::with`, so the pass can only stop between steps (`Run::mine` also
+                // refuses its writes if it got that far). The nudge has already asked for the next pass.
+                let finished = loop {
                     tokio::select! {
-                        done = &mut running => break done,
-                        n = rx.recv(), if open => match n { Some(n) => take(&mut plan, n), None => open = false },
+                        done = &mut running => break Some(done),
+                        n = rx.recv(), if open => match n {
+                            Some(n) => { take(&mut plan, n); if matches!(n, Nudge::SignedIn | Nudge::SignedOut) { break None; } }
+                            None => open = false,
+                        },
                     }
                 };
+                let Some((status, report)) = finished else { eprintln!("[sync] account changed; pass abandoned"); continue };
                 plan.finish(&status.state, now_ms());
                 publish(&app, &status);
                 if report.downloaded > 0 { let _ = app.emit("cloud-changed", ()); }

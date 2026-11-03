@@ -16,6 +16,8 @@ pub trait Db: Send + Sync { fn with<T>(&self, f: impl FnOnce(&Connection) -> Res
 
 const BATCH: usize = 200;
 const PAGE: usize = 1000;
+/// Refused rows re-read per request; keeps the `in.(…)` list well inside URL limits.
+const REFETCH: usize = 100;
 const OFFLINE: &str = "No connection. Your changes are saved on this Mac and will sync when you're online.";
 const EXPIRED: &str = "Your session expired. Sign in again to keep syncing.";
 const MISMATCH: &str = "Account mismatch; sign in again.";
@@ -39,6 +41,8 @@ fn fatal(e: &CloudError) -> bool { matches!(e, CloudError::Offline | CloudError:
 /// For logs: never the server's message, which can echo row contents.
 fn kind(e: &CloudError) -> String { match e { CloudError::Server { status, code, .. } => format!("server {status} {code}"), CloudError::Forbidden { .. } => "forbidden".into(), e => e.to_string() } }
 fn id(row: &Value) -> &str { row["id"].as_str().unwrap_or("?") }
+/// Safe inside a PostgREST `in.(…)` list without quoting: ids and dates.
+fn plain(s: &str) -> bool { !s.is_empty() && s.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '-') }
 fn query(pairs: &[(&str, &str)]) -> Vec<(String, String)> { pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect() }
 fn strip(rows: &mut [Value], column: &str) { for r in rows { if let Some(o) = r.as_object_mut() { o.remove(column); } } }
 
@@ -58,10 +62,12 @@ pub async fn run_sync(db: &impl Db, client: &Client, auth: &Auth) -> SyncReport 
         eprintln!("[sync] stopped: {}", stop.log());
         run.report.error = Some(stop.message().into());
     }
-    let mut report = run.report;
+    let (mut report, me) = (run.report, run.me);
     report.ok = report.error.is_none() && report.failed == 0;
     let last_sync = report.ok.then(|| chrono::Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true));
-    let recorded = db.with(|c| Ok(c.execute("UPDATE cloud_account SET last_sync=COALESCE(?1,last_sync),last_error=?2 WHERE id=1", params![last_sync, report.error])?));
+    // Only onto the account this pass worked for; a pass that never got as far as an account records its error as is.
+    let sql = "UPDATE cloud_account SET last_sync=COALESCE(?1,last_sync),last_error=?2 WHERE id=1 AND (?3='' OR user_id=?3)";
+    let recorded = db.with(|c| Ok(c.execute(sql, params![last_sync, report.error, me])?));
     if let Err(e) = recorded { eprintln!("[sync] could not record the result: {e}"); }
     report
 }
@@ -77,8 +83,20 @@ impl<D: Db> Run<'_, D> {
         self.flush_outbox().await?;
         for t in Table::ALL { self.upload(t).await?; }
         for t in Table::ALL { self.download(t).await?; }
-        match self.pull_shared().await { Ok(n) => self.report.downloaded += n, Err(e) => eprintln!("[sync] shared items did not refresh: {}", e.log()) }
+        match self.pull_shared().await {
+            Ok(n) => self.report.downloaded += n,
+            Err(Stop::Mismatch) => return Err(Stop::Mismatch),
+            Err(e) => eprintln!("[sync] shared items did not refresh: {}", e.log()),
+        }
         Ok(())
+    }
+
+    /// The database, only while it still belongs to this pass's account. Every read and write of a pass goes through here, inside
+    /// the same lock as the check, so a sign-out, another sign-in or an account deletion during the pass stops it: one account's
+    /// rows never land in another's mirror, and another account's edits never go up under this one.
+    fn mine<T>(&self, f: impl FnOnce(&Connection) -> Result<T>) -> std::result::Result<T, Stop> {
+        let me = self.me.as_str();
+        self.db.with(|c| if mirror::account(c)?.is_some_and(|(u, _)| u == me) { f(c).map(Some) } else { Ok(None) })?.ok_or(Stop::Mismatch)
     }
 
     /// One request, sent again once with a refreshed token if the server rejects the current one.
@@ -94,7 +112,7 @@ impl<D: Db> Run<'_, D> {
     async fn flush_outbox(&mut self) -> std::result::Result<(), Stop> {
         let c = self.client;
         let mut blocked = HashSet::new();
-        for (n, kind_name, p) in self.db.with(mirror::outbox_all)? {
+        for (n, kind_name, p) in self.mine(mirror::outbox_all)? {
             let me = self.me.clone();
             let text = |k: &str| p[k].as_str().unwrap_or("").to_string();
             let key = (text("item_id"), text("day"));
@@ -113,11 +131,11 @@ impl<D: Db> Run<'_, D> {
                 _ => { eprintln!("[sync] outbox {n}: unknown kind"); continue; }
             };
             match sent {
-                Ok(()) => self.db.with(|c| mirror::outbox_done(c, n))?,
+                Ok(()) => self.mine(|c| mirror::outbox_done(c, n))?,
                 Err(e) if fatal(&e) => return Err(e.into()),
                 // A share that was withdrawn will be refused every time.
                 Err(CloudError::Forbidden { .. }) => {
-                    self.db.with(|c| mirror::outbox_done(c, n))?;
+                    self.mine(|c| mirror::outbox_done(c, n))?;
                     self.report.refused += 1;
                     eprintln!("[sync] outbox {n} ({kind_name}) refused by the server; dropped");
                 }
@@ -133,7 +151,7 @@ impl<D: Db> Run<'_, D> {
 
     /// Port of `upload`.
     async fn upload(&mut self, t: Table) -> std::result::Result<(), Stop> {
-        let rows = self.db.with(|c| mirror::unsynced(c, t))?;
+        let rows = self.mine(|c| mirror::unsynced(c, t))?;
         if rows.is_empty() { return Ok(()); }
         // A completion's own id never goes up; only its habit has to be a real id.
         let (usable, skipped) = if t == Table::Completions { rows.into_iter().partition(|r| is_uuid(&r["habit_id"])) } else { order_for_upload(rows) };
@@ -152,7 +170,7 @@ impl<D: Db> Run<'_, D> {
     async fn push(&mut self, t: Table, batch: &[Value], shared: bool) -> std::result::Result<bool, Stop> {
         let me = self.me.clone();
         match self.upsert_tolerant(t, batch.iter().map(|r| to_remote(t, r, &me, shared)).collect()).await {
-            Ok(()) => { self.db.with(|c| mirror::mark_uploaded(c, t, batch))?; self.report.uploaded += batch.len(); return Ok(true); }
+            Ok(()) => { self.mine(|c| mirror::mark_uploaded(c, t, batch))?; self.report.uploaded += batch.len(); return Ok(true); }
             Err(CloudError::MissingTable) => {
                 eprintln!("[sync] this server has no {} table yet; keeping those changes on this Mac", t.remote());
                 self.report.waiting.push(t.remote().into());
@@ -163,11 +181,12 @@ impl<D: Db> Run<'_, D> {
         }
         for row in batch {
             match self.upsert_tolerant(t, vec![to_remote(t, row, &me, shared)]).await {
-                Ok(()) => { self.db.with(|c| mirror::mark_uploaded(c, t, std::slice::from_ref(row)))?; self.report.uploaded += 1; }
+                Ok(()) => { self.mine(|c| mirror::mark_uploaded(c, t, std::slice::from_ref(row)))?; self.report.uploaded += 1; }
                 Err(e) if fatal(&e) => return Err(e.into()),
-                // Access rules will refuse it every time: stop retrying, and show it in sync health.
+                // Access rules will refuse it every time: stop retrying, and show it in sync health until the server's version replaces it
+                // (`refetch` for your own rows, the shared pull for a friend's).
                 Err(CloudError::Forbidden { .. }) => {
-                    self.db.with(|c| mirror::mark_refused(c, t, id(row)))?;
+                    self.mine(|c| mirror::mark_refused(c, t, id(row)))?;
                     self.report.refused += 1;
                     eprintln!("[sync] {} {} refused by the server", t.remote(), id(row));
                 }
@@ -200,7 +219,7 @@ impl<D: Db> Run<'_, D> {
     /// Port of `download`: keyset pages from the table's own cursor. A row that cannot be written holds the cursor back.
     async fn download(&mut self, t: Table) -> std::result::Result<(), Stop> {
         if self.report.waiting.iter().any(|w| w == t.remote()) { return Ok(()); }
-        let since = self.db.with(|c| mirror::cursor(c, t))?;
+        let since = self.mine(|c| mirror::cursor(c, t))?;
         let (mut newest, mut after, mut held) = (since.clone(), None::<(String, String)>, false);
         let c = self.client;
         loop {
@@ -212,7 +231,7 @@ impl<D: Db> Run<'_, D> {
                 Err(e) => return Err(e.into()),
             };
             if rows.is_empty() { break; }
-            let (written, failed) = self.db.with(|c| {
+            let (written, failed) = self.mine(|c| {
                 let tx = c.unchecked_transaction()?;
                 let (mut w, mut f) = (0, 0);
                 for r in &rows {
@@ -227,7 +246,36 @@ impl<D: Db> Run<'_, D> {
             let last = &rows[rows.len() - 1];
             match (last["updated_at"].as_str(), last["id"].as_str()) { (Some(u), Some(i)) => after = Some((u.into(), i.into())), _ => break }
         }
-        if let Some(n) = newest.as_deref().filter(|n| !held && Some(*n) != since.as_deref()) { self.db.with(|c| mirror::set_cursor(c, t, n))?; }
+        if let Some(n) = newest.as_deref().filter(|n| !held && Some(*n) != since.as_deref()) { self.mine(|c| mirror::set_cursor(c, t, n))?; }
+        self.refetch(t).await
+    }
+
+    /// Your own refused rows go back to the server's version: they are read again by id (a completion by habit and day, since its
+    /// local id is not the server's) on every pass until the server has one. The cursor is left alone, so this never re-downloads a table.
+    async fn refetch(&mut self, t: Table) -> std::result::Result<(), Stop> {
+        let me = self.me.clone();
+        let rows = self.mine(|c| mirror::refused_own(c, t, &me))?;
+        let c = self.client;
+        for chunk in rows.chunks(REFETCH) {
+            let list = |k: &str| { let mut v: Vec<&str> = chunk.iter().filter_map(|r| r[k].as_str()).filter(|s| plain(s)).collect(); v.sort(); v.dedup(); (!v.is_empty()).then(|| format!("in.({})", v.join(","))) };
+            let keys: &[&str] = if t == Table::Completions { &["habit_id", "date"] } else { &["id"] };
+            let Some(filters) = keys.iter().map(|k| list(k).map(|l| (k.to_string(), l))).collect::<Option<Vec<_>>>() else { continue };
+            let mut q = query(&[("select", "*"), ("user_id", &format!("eq.{me}"))]);
+            q.extend(filters);
+            let got = { let q = &q[..]; self.call(move |tok| async move { c.select(&tok, t.remote(), q).await }).await };
+            let got = match got {
+                Ok(rows) => rows,
+                Err(e) if fatal(&e) => return Err(e.into()),
+                Err(e) => { eprintln!("[sync] refused {} rows were not re-read: {}", t.remote(), kind(&e)); return Ok(()); }
+            };
+            let n = self.mine(|c| {
+                let tx = c.unchecked_transaction()?;
+                let n = got.iter().map(|r| mirror::write_local(&tx, t, &to_local(t, r), &[]).unwrap_or_else(|_| { eprintln!("[sync] could not write {} {}", t.remote(), id(r)); 0 })).sum::<usize>();
+                tx.commit()?;
+                Ok(n)
+            })?;
+            self.report.downloaded += n;
+        }
         Ok(())
     }
 
@@ -256,7 +304,7 @@ impl<D: Db> Run<'_, D> {
         let goals = self.shared("shared_goals", "goal_id").await?;
         let (habits, tasks) = (self.shared("shared_habits", "habit_id").await?, self.shared("shared_tasks", "task_id").await?);
         let ids: Vec<String> = habits.iter().chain(&tasks).cloned().collect();
-        self.db.with(|c| mirror::set_shared_ids(c, &ids))?;
+        self.mine(|c| mirror::set_shared_ids(c, &ids))?;
         let list = |v: &[String]| { let v: Vec<&str> = v.iter().map(String::as_str).filter(|i| is_uuid(&json!(i))).collect(); (!v.is_empty()).then(|| format!("({})", v.join(","))) };
         let (g, h, k) = (list(&goals), list(&habits), list(&tasks));
         let habit_filters: Vec<String> = [g.as_ref().map(|g| format!("id.in.{g}")), g.as_ref().map(|g| format!("goal_id.in.{g}")), h.map(|h| format!("id.in.{h}"))].into_iter().flatten().collect();
@@ -264,7 +312,7 @@ impl<D: Db> Run<'_, D> {
         let habit_rows = self.theirs(Table::Habits, &habit_filters).await?;
         let task_rows = self.theirs(Table::Tasks, &task_filters).await?;
         let me = self.me.clone();
-        Ok(self.db.with(|c| {
+        self.mine(|c| {
             let tx = c.unchecked_transaction()?;
             let mut n = 0;
             for (t, rows) in [(Table::Habits, &habit_rows), (Table::Tasks, &task_rows)] {
@@ -278,7 +326,7 @@ impl<D: Db> Run<'_, D> {
             }
             tx.commit()?;
             Ok(n)
-        })?)
+        })
     }
 }
 
@@ -611,6 +659,102 @@ mod tests {
         let t = d.with(|c| Ok(c.query_row("SELECT user_id,owner_id,status,amount FROM cloud_tasks WHERE id=?1", [uid(4)], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<f64>>(3)?)))?)).unwrap();
         assert_eq!(t, (ME.to_string(), FRIEND.to_string(), "open".to_string(), None));
         assert!(d.with(|c| Ok(mirror::is_shared(c, &uid(3))? && mirror::is_shared(c, &uid(4))?)).unwrap());
+    }
+
+    /// The first full download is under way when the account changes: the change lands while page 2 is in flight.
+    async fn account_changes_mid_download(change: fn(&Connection) -> Result<()>) -> (Arc<TestDb>, SyncReport) {
+        let mut s = Server::new_async().await;
+        let page1: Vec<Value> = (1..=1000).map(remote_task).collect();
+        s.mock("GET", "/rest/v1/tasks").match_query(Matcher::Any).match_request(|r| !r.path_and_query().contains("or=")).with_body(Value::from(page1).to_string()).create_async().await;
+        let d = Arc::new(db());
+        let (during, page2) = (d.clone(), json!([remote_task(1001)]).to_string());
+        s.mock("GET", "/rest/v1/tasks").match_query(Matcher::Any).match_request(|r| r.path_and_query().contains("or="))
+            .with_body_from_request(move |_| { during.with(change).unwrap(); page2.clone().into_bytes() }).expect(1).create_async().await;
+        empty_reads(&mut s).await;
+        let (c, a) = signed_in(s.url()).await;
+        let r = run_sync(&*d, &c, &a).await;
+        (d, r)
+    }
+    fn mirror_is_empty(d: &TestDb) {
+        let tasks = d.with(|c| Ok(c.query_row("SELECT COUNT(*) FROM cloud_tasks", [], |r| r.get::<_, i64>(0))?)).unwrap();
+        let cursors = d.with(|c| Ok(c.query_row("SELECT COUNT(*) FROM cloud_cursors", [], |r| r.get::<_, i64>(0))?)).unwrap();
+        assert_eq!((tasks, cursors), (0, 0));
+    }
+
+    #[tokio::test] async fn signing_in_as_someone_else_mid_pass_stops_it() {
+        let (d, r) = account_changes_mid_download(|c| mirror::set_account(c, FRIEND, None)).await;
+        assert_eq!((r.error.as_deref(), r.ok), (Some(MISMATCH), false));
+        mirror_is_empty(&d);
+        let (account, last) = d.with(|c| Ok(c.query_row("SELECT user_id,last_sync,last_error FROM cloud_account", [], |r| Ok((r.get::<_, String>(0)?, (r.get::<_, Option<String>>(1)?, r.get::<_, Option<String>>(2)?))))?)).unwrap();
+        assert_eq!((account.as_str(), last), (FRIEND, (None, None)), "the old pass stamped the new account");
+    }
+
+    #[tokio::test] async fn deleting_the_account_mid_pass_leaves_nothing_behind() {
+        let (d, r) = account_changes_mid_download(mirror::clear_cloud).await;
+        assert_eq!(r.error.as_deref(), Some(MISMATCH));
+        mirror_is_empty(&d);
+        assert_eq!(d.with(mirror::account).unwrap(), None);
+    }
+
+    async fn refuse_uploads(s: &mut Server, path: &str) { s.mock("POST", path).match_query(Matcher::Any).with_status(403).with_body(r#"{"code":"42501","message":"rls"}"#).expect(2).create_async().await; }
+
+    #[tokio::test] async fn refused_own_row_takes_the_server_version_in_the_same_pass() {
+        let mut s = Server::new_async().await;
+        refuse_uploads(&mut s, "/rest/v1/tasks").await;
+        let reread = s.mock("GET", "/rest/v1/tasks").match_query(Matcher::AllOf(vec![Matcher::UrlEncoded("id".into(), format!("in.({})", uid(1))), Matcher::UrlEncoded("user_id".into(), format!("eq.{ME}"))]))
+            .with_body(json!([{"id": uid(1), "user_id": ME, "title": "server", "updated_at": "2026-01-02T00:00:00+00:00"}]).to_string()).expect(1).create_async().await;
+        empty_reads(&mut s).await;
+        let d = db();
+        d.with(|c| mirror::set_cursor(c, Table::Tasks, "2026-01-05T00:00:00+00:00")).unwrap();
+        save(&d, Table::Tasks, json!({"id": uid(1), "title": "mine"}));
+        let (c, a) = signed_in(s.url()).await;
+        let r = run_sync(&d, &c, &a).await;
+        reread.assert_async().await;
+        assert_eq!((r.refused, r.downloaded), (1, 1));
+        assert_eq!(row(&d, Table::Tasks, &uid(1)), json!({"synced": 1, "refused": 0, "owner_id": null}));
+        assert_eq!(d.with(mirror::counts).unwrap(), (0, 0));
+        assert_eq!(d.with(|c| mirror::cursor(c, Table::Tasks)).unwrap().as_deref(), Some("2026-01-05T00:00:00+00:00"), "the cursor was reset");
+    }
+
+    #[tokio::test] async fn refused_completion_is_re_read_by_habit_and_day() {
+        let mut s = Server::new_async().await;
+        refuse_uploads(&mut s, "/rest/v1/habit_completions").await;
+        s.mock("GET", "/rest/v1/habit_completions").match_query(Matcher::AllOf(vec![Matcher::UrlEncoded("habit_id".into(), format!("in.({})", uid(1))), Matcher::UrlEncoded("date".into(), "in.(2026-01-01)".into())]))
+            .with_body(json!([{"id": uid(9), "user_id": ME, "habit_id": uid(1), "date": "2026-01-01", "value": 1, "updated_at": "2026-01-02T00:00:00+00:00"}]).to_string()).expect(1).create_async().await;
+        empty_reads(&mut s).await;
+        let d = db();
+        save(&d, Table::Completions, json!({"id": "c1", "habit_id": uid(1), "date": "2026-01-01", "value": 1}));
+        let (c, a) = signed_in(s.url()).await;
+        run_sync(&d, &c, &a).await;
+        assert_eq!(row(&d, Table::Completions, &uid(9))["refused"], 0);
+        assert_eq!(d.with(mirror::counts).unwrap(), (0, 0));
+    }
+
+    #[tokio::test] async fn refused_row_without_a_server_version_stays_refused() {
+        let mut s = Server::new_async().await;
+        refuse_uploads(&mut s, "/rest/v1/tasks").await;
+        empty_reads(&mut s).await;
+        let d = db();
+        save(&d, Table::Tasks, json!({"id": uid(1), "title": "mine"}));
+        let (c, a) = signed_in(s.url()).await;
+        run_sync(&d, &c, &a).await;
+        assert_eq!(d.with(mirror::counts).unwrap(), (0, 1));
+    }
+
+    #[tokio::test] async fn refused_shared_task_recovers_through_the_shared_pull() {
+        let mut s = Server::new_async().await;
+        s.mock("GET", "/rest/v1/shared_tasks").match_query(Matcher::Any).with_body(json!([{"task_id": uid(4)}]).to_string()).create_async().await;
+        s.mock("GET", "/rest/v1/tasks").match_query(Matcher::UrlEncoded("user_id".into(), format!("neq.{ME}")))
+            .with_body(json!([{"id": uid(4), "user_id": FRIEND, "title": "Plan v2", "updated_at": "2026-01-02T00:00:00+00:00"}]).to_string()).create_async().await;
+        empty_reads(&mut s).await;
+        let d = db();
+        let mut theirs = task_to_local(&json!({"id": uid(4), "title": "Plan", "updated_at": NOW}));
+        theirs["owner_id"] = json!(FRIEND);
+        d.with(|c| { mirror::write_local(c, Table::Tasks, &theirs, &[])?; c.execute("UPDATE cloud_tasks SET title='Mine',synced=0,refused=1", [])?; Ok(()) }).unwrap();
+        let (c, a) = signed_in(s.url()).await;
+        run_sync(&d, &c, &a).await;
+        let title = d.with(|c| Ok(c.query_row("SELECT title FROM cloud_tasks", [], |r| r.get::<_, String>(0))?)).unwrap();
+        assert_eq!((title.as_str(), d.with(mirror::counts).unwrap()), ("Plan v2", (0, 0)));
     }
 
     #[test] fn sync_future_is_send() {
