@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
@@ -6,6 +6,7 @@ import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { SwipeRow } from '@/components/ui/SwipeRow';
+import { ChoiceSheet } from '@/components/ui/ChoiceSheet';
 import { Colors } from '@/theme/colors';
 import { FontFamily, surfaceFor } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';
@@ -14,6 +15,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { FriendsService, type InboxItem } from '@/lib/friendsService';
 import { emit } from '@/lib/appEvents';
+import { groupInbox, isAnswerable, type InboxGroup } from '@/lib/inboxGroups';
 import { styles } from '@/styles/screens/inbox.styles';
 
 /** What an empty inbox says, one more each time you pull down to check again. */
@@ -146,15 +148,26 @@ export default function InboxScreen() {
         emit('habit_completion_updated', {});
     };
 
-    const dismiss = async (item: InboxItem) => {
+    // Repeats stack into one card with a count (lib/inboxGroups.ts).
+    const groups = useMemo(() => groupInbox(items ?? []), [items]);
+    const clearable = useMemo(() => (items ?? []).filter(item => !isAnswerable(item)), [items]);
+    const [confirming, setConfirming] = useState(false);
+
+    /** Clears a card, and every repeat stacked under it, in one go. */
+    const dismiss = async (ids: string[]) => {
         lightFeedback();
-        setItems(current => (current ?? []).filter(each => each.id !== item.id));
-        await FriendsService.dismissNotification(item.id);
+        const gone = new Set(ids);
+        setItems(current => (current ?? []).filter(each => !gone.has(each.id)));
+        await FriendsService.dismissNotifications(ids);
         emit('social_state_updated');
     };
 
+    /** Everything that is only news. Requests and shares stay: they are answered. */
+    const clearAll = () => void dismiss(clearable.map(item => item.id));
+
     return (
-        <SheetScreen title="Inbox" onBack={() => router.back()}>
+        <SheetScreen title="Inbox" onBack={() => router.back()}
+            {...(clearable.length ? { onAction: () => setConfirming(true), actionIcon: 'trash-outline' as const, actionLabel: 'Clear all' } : {})}>
             <ScrollView
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
@@ -177,7 +190,7 @@ export default function InboxScreen() {
                     </View>
                 ) : (
                     <Animated.View layout={MORPH} style={styles.list}>
-                        {items.map(item => {
+                        {groups.map(({ item, ids, count }: InboxGroup) => {
                             const look = LOOK[item.kind];
                             const tint = look.tint(colors, accent);
                             return (
@@ -187,7 +200,7 @@ export default function InboxScreen() {
                                         // buttons are the point of it being here.
                                         right={item.requestId || item.share ? [] : [{
                                             icon: 'trash', label: 'Clear', color: colors.error,
-                                            destructive: true, onPress: () => void dismiss(item),
+                                            destructive: true, onPress: () => void dismiss(ids),
                                         }]}
                                     >
                                     <VoidCard matte style={styles.row}>
@@ -206,6 +219,11 @@ export default function InboxScreen() {
                                             <View style={styles.side}>
                                                 {!item.read ? <View style={[styles.dot, { backgroundColor: accent }]} /> : null}
                                                 <Text style={[styles.when, { color: colors.textTertiary }]}>{ago(item.createdAt)}</Text>
+                                                {count > 1 ? (
+                                                    <View style={[styles.count, { backgroundColor: tone.raised }]} accessible accessibilityLabel={`${count} times`}>
+                                                        <Text style={[styles.countText, { color: colors.textSecondary }]}>×{count}</Text>
+                                                    </View>
+                                                ) : null}
                                             </View>
                                         </View>
 
@@ -264,6 +282,12 @@ export default function InboxScreen() {
                     </Animated.View>
                 )}
             </ScrollView>
+            <ChoiceSheet
+                visible={confirming} onClose={() => setConfirming(false)}
+                title={`Clear ${clearable.length === 1 ? 'this notification' : `all ${clearable.length}`}?`}
+                caption={clearable.length < (items?.length ?? 0) ? 'Requests waiting for an answer stay.' : undefined}
+                choices={[{ label: 'Clear all', icon: 'trash-outline', destructive: true, onPress: clearAll }]}
+            />
         </SheetScreen>
     );
 }

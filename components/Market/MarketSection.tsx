@@ -1,11 +1,12 @@
 import { ExposedSection } from './ExposedSection';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Alert, Pressable, Text as RNText, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import {
-    AppButton, AppIcon, AppTextField, Avatar, ChoicePill, EmptyState, IconTile, ListItem, SectionTitle, SettingsGroup, SettingsRow, SheetSection, Text, VoidCard, VoidSheet,
+    AppButton, AppIcon, Avatar, CardRail, CountUp, GameCard, IconButton, IconTile, ListItem, MatteSurface, SectionTitle, SettingsGroup, SettingsRow, SheetSection, StepSlider, Text, VersusBar, VoidSheet,
+    type BadgeProps,
 } from '@/components/ui';
-import { AnimatedFill } from '@/components/ui/Motion';
+import { textOn } from '@/theme/tokens';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
@@ -19,16 +20,16 @@ const dueLabel = (deadline: string) =>
     `by ${new Date(`${deadline}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}`;
 
 /**
- * The market, on Community: your goals and your friends' open to bets, each
- * with both sides' Shards and a way to bet, what you have to spend beside the
- * title, and the way to open one of your own goals. Empty, it says how it
- * works instead of hiding.
+ * The market, on Community: goals open to bets, swiped side by side like a
+ * trading app's markets. Each card is a face, a goal, a pill for how the crowd
+ * leans, and both sides as one bar. Tap one to bet. Empty, one card that
+ * opens your first.
  */
 export function MarketSection({ style }: { style?: StyleProp<ViewStyle> }) {
     const t = useTokens();
     const [markets, setMarkets] = useState<Market[] | null>(null);
     const [spendable, setSpendable] = useState<number | null>(null);
-    const [betting, setBetting] = useState<{ market: Market; side: Side } | null>(null);
+    const [betting, setBetting] = useState<Market | null>(null);
     const [opening, setOpening] = useState(false);
     const load = useCallback(() => {
         marketFeed().then(setMarkets).catch(() => setMarkets([]));
@@ -41,117 +42,104 @@ export function MarketSection({ style }: { style?: StyleProp<ViewStyle> }) {
     }, [load]);
 
     const openKeys = useMemo(() => new Set((markets ?? []).filter(market => market.mine && market.status === 'open').map(market => market.goalKey)), [markets]);
+    const live = (markets ?? []).filter(market => market.status === 'open');
+    const done = (markets ?? []).filter(market => market.status !== 'open');
 
     return (
-        <View style={style}>
-            <SectionTitle first right={spendable !== null ? (
-                <View style={styles.balance} accessible accessibilityLabel={`${spendable} Shards to spend`}>
-                    <AppIcon name="diamond" filled size={Spacing.md} color={t.color.accent} />
-                    <Text variant="heading" numeric>{spendable.toLocaleString()}</Text>
-                </View>
-            ) : undefined}>Bets</SectionTitle>
-
-            {markets && markets.length ? (
-                <View style={styles.list}>
-                    {markets.map(market => (
-                        <ListItem key={market.id}>
-                            <MarketCard market={market} onBet={side => setBetting({ market, side })} />
-                        </ListItem>
-                    ))}
-                    <AppButton label="Open a goal to bets" icon="add-circle" variant="ghost" onPress={() => setOpening(true)} />
-                </View>
+        <View style={[styles.section, style]}>
+            <SectionTitle right={<IconButton icon="add" label="Open a goal to bets" onPress={() => setOpening(true)} />}>Bets</SectionTitle>
+            {live.length ? (
+                <CardRail>{live.map(market => <MarketCard key={market.id} market={market} onBet={() => setBetting(market)} />)}</CardRail>
             ) : markets ? (
-                <VoidCard>
-                    <EmptyState icon="trending-up" title="No bets yet"
-                        message="Open one of your goals to bets, and friends put Shards on whether you make it. Back yourself too."
-                        actionLabel="Open a goal to bets" onAction={() => setOpening(true)} />
-                </VoidCard>
+                <GameCard onPress={() => setOpening(true)} title="Open a goal to bets" subtitle="Friends bet Shards on you"
+                    lead={<IconTile icon="trending-up" color={t.color.cobalt} size={Control.hitTarget} />}
+                    badge={{ label: 'Back yourself', tone: 'cobalt' }} />
             ) : null}
+            {done.map(market => <ListItem key={market.id}><MarketCard market={market} onBet={() => undefined} /></ListItem>)}
 
             <ExposedSection />
-            {betting ? <StakeSheet market={betting.market} side={betting.side} spendable={spendable} onClose={() => setBetting(null)} /> : null}
+            {betting ? <StakeSheet market={betting} spendable={spendable} onClose={() => setBetting(null)} /> : null}
             <OpenSheet visible={opening} openKeys={openKeys} onClose={() => setOpening(false)} />
         </View>
     );
 }
 
-/** One goal on the market: who, what, by when, both sides' Shards, and the two ways to bet. */
-function MarketCard({ market, onBet }: { market: Market; onBet: (side: Side) => void }) {
-    const t = useTokens();
-    const color = market.color ?? t.color.accent;
+/** How the crowd leans, said as a pill: the market's mood in one word. */
+function moodOf(market: Market): BadgeProps {
+    if (market.status === 'won') return { label: 'Made it', tone: 'cobalt', icon: 'checkmark' };
+    if (market.status === 'missed') return { label: 'Missed', tone: 'silver', icon: 'close' };
+    if (market.status === 'void') return { label: 'Called off', tone: 'neutral' };
     const total = market.pool.make + market.pool.miss;
-    const share = total ? market.pool.make / total : 0.5;
+    if (!total) return { label: 'New', tone: 'cobalt', icon: 'sparkles' };
+    const share = market.pool.make / total;
+    if (share >= 0.75) return { label: 'Very likely', tone: 'cobalt', icon: 'trending-up' };
+    if (share >= 0.55) return { label: 'Likely', tone: 'cobalt', icon: 'trending-up' };
+    if (share > 0.45) return { label: 'Split', tone: 'neutral', icon: 'swap-horizontal' };
+    if (share > 0.25) return { label: 'Doubted', tone: 'silver', icon: 'trending-down' };
+    return { label: 'Very doubted', tone: 'silver', icon: 'trending-down' };
+}
+
+/** One goal on the market: who, what, by when, how the crowd leans, both sides as one bar. Tap to bet. */
+function MarketCard({ market, onBet }: { market: Market; onBet: () => void }) {
+    const t = useTokens();
+    const total = market.pool.make + market.pool.miss;
+    const make = total ? (market.pool.make / total) * 100 : 50;
     const open = market.status === 'open';
     const result = resultFor(market);
     const stake = market.myStake;
+    const canBet = open && (!stake || stake.amount < MAX_STAKE);
     return (
-        <VoidCard style={styles.card}>
-            <View style={styles.head}>
-                <Avatar name={market.name} uri={market.avatarUrl} size={Control.hitTarget - Spacing.sm} />
-                <View style={styles.grow}>
-                    <Text variant="heading" numberOfLines={2}>{market.title}</Text>
-                    <Text variant="caption" tone="muted">{`${market.mine ? 'You' : market.name} · ${open ? dueLabel(market.deadline) : market.status === 'won' ? 'Made it' : market.status === 'missed' ? 'Missed it' : 'Called off'}`}</Text>
+        <GameCard
+            onPress={canBet ? onBet : undefined}
+            accessibilityHint={`Opens the bet. ${Math.round(make)}% say makes it`}
+            lead={<Avatar name={market.name} uri={market.avatarUrl} size={Control.hitTarget} />}
+            title={market.title}
+            subtitle={`${market.mine ? 'You' : market.name.split(' ')[0]} · ${dueLabel(market.deadline)}`}
+            badge={moodOf(market)}
+            footer={stake ? (
+                <View style={styles.stake}>
+                    <AppIcon name="diamond" filled size={Spacing.md} color={t.color.cobalt} />
+                    <Text variant="bodySmall" tone="muted" grow numberOfLines={1}>{`${stake.amount} on ${stake.side === 'make' ? 'makes it' : 'misses it'}`}</Text>
+                    {result !== null ? (
+                        <Text variant="heading" numeric tone={result > 0 ? 'success' : result < 0 ? 'danger' : 'muted'}>{result > 0 ? `+${result}` : result < 0 ? `−${-result}` : '±0'}</Text>
+                    ) : null}
                 </View>
-                {market.icon ? <IconTile icon={market.icon} color={color} size={Control.hitTarget - Spacing.sm} /> : null}
-            </View>
-
-            {/* Both sides, as one bar: backing on the left, doubting on the right. */}
-            <View style={[styles.track, { backgroundColor: t.tint('subtle', t.color.danger) }]}
-                accessible accessibilityLabel={`${market.pool.make} Shards on makes it, ${market.pool.miss} on misses it`}>
-                <AnimatedFill progress={share} style={[styles.fill, { backgroundColor: t.color.success }]} />
-            </View>
-            <View style={styles.sides}>
-                <Text variant="caption" tone="success" numeric>{`${market.pool.make} on makes it`}</Text>
-                <Text variant="caption" tone="danger" numeric>{`${market.pool.miss} on misses it`}</Text>
-            </View>
-
-            {stake ? (
-                <Text variant="bodySmall" tone={result === null ? 'muted' : result > 0 ? 'success' : result < 0 ? 'danger' : 'muted'}>
-                    {result === null
-                        ? `You put ${stake.amount} Shards on ${stake.side === 'make' ? 'makes it' : 'misses it'}`
-                        : result > 0 ? `You won ${result} Shards` : result < 0 ? `You lost ${-result} Shards` : 'Your Shards are back'}
-                </Text>
-            ) : null}
-
-            {open && (!stake || stake.amount < MAX_STAKE) ? (
-                market.mine ? (
-                    <AppButton label={stake ? 'Back yourself more' : 'Back yourself'} icon="trending-up" onPress={() => onBet('make')} />
-                ) : (
-                    <View style={styles.buttons}>
-                        {!stake || stake.side === 'make' ? <View style={styles.grow}><AppButton label="Makes it" icon="trending-up" onPress={() => onBet('make')} /></View> : null}
-                        {!stake || stake.side === 'miss' ? <View style={styles.grow}><AppButton label="Misses it" icon="trending-down" onPress={() => onBet('miss')} /></View> : null}
-                    </View>
-                )
-            ) : null}
-        </VoidCard>
+            ) : null}>
+            <VersusBar left={{ label: 'Makes it', percent: make, color: t.color.cobalt }}
+                right={{ label: 'Misses', percent: 100 - make, color: t.color.silver }} />
+        </GameCard>
     );
 }
 
-/** How many Shards on which side: the amounts, what it would pay, and the bet. */
-function StakeSheet({ market, side, spendable, onClose }: { market: Market; side: Side; spendable: number | null; onClose: () => void }) {
+/**
+ * The bet: pick a side (each says how the crowd leans), slide how many Shards,
+ * and watch what it would win grow as you slide.
+ */
+function StakeSheet({ market, spendable, onClose }: { market: Market; spendable: number | null; onClose: () => void }) {
     const t = useTokens();
     const { successFeedback, selectionFeedback } = useHaptics();
     const already = market.myStake?.amount ?? 0;
     const room = MAX_STAKE - already;
-    const [amount, setAmount] = useState<number>(Math.min(STAKES[0], room));
-    // Your own amount, typed: any whole number of Shards up to what is left of the 100 for this goal.
-    const [typing, setTyping] = useState(false);
-    const [typed, setTyped] = useState('');
+    const cap = spendable === null ? room : Math.min(room, spendable);
+    // Your own goal is only ever backed; a side you are already on is kept.
+    const locked: Side | null = market.mine ? 'make' : market.myStake?.side ?? null;
+    const [side, setSide] = useState<Side>(locked ?? 'make');
+    const steps = useMemo(() => {
+        const fits = STAKES.filter(value => value <= cap) as number[];
+        return fits.length ? fits : cap > 0 ? [cap] : [0];
+    }, [cap]);
+    const [amount, setAmount] = useState<number>(steps[Math.min(1, steps.length - 1)]);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const typedAmount = Math.floor(Number(typed));
-    const stake = typing ? (Number.isFinite(typedAmount) ? typedAmount : 0) : amount;
-    const tooMuch = stake > room || (spendable !== null && stake > spendable);
-    const back = payoutFor(Math.max(0, stake), side, market.pool, already);
-    const who = market.mine ? 'you' : market.name;
-    const verb = side === 'make' ? (market.mine ? 'make it' : 'makes it') : (market.mine ? 'miss it' : 'misses it');
-    const otherSide = market.pool[side === 'make' ? 'miss' : 'make'];
+    const total = market.pool.make + market.pool.miss;
+    const back = payoutFor(amount, side, market.pool, already);
+    const gain = Math.max(0, back - already - amount);
     const place = async () => {
         setBusy(true);
         setError(null);
         try {
-            await placeStake(market.id, side, stake);
+            await placeStake(market.id, side, amount);
             successFeedback();
             onClose();
         } catch (failed) {
@@ -160,41 +148,46 @@ function StakeSheet({ market, side, spendable, onClose }: { market: Market; side
             setBusy(false);
         }
     };
+    const sideButton = (value: Side) => {
+        const on = side === value;
+        const color = value === 'make' ? t.color.cobalt : t.color.silver;
+        const share = total ? Math.round((market.pool[value] / total) * 100) : 50;
+        return (
+            <Pressable key={value} style={styles.grow} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                accessibilityLabel={`${value === 'make' ? 'Makes it' : 'Misses it'}, ${share}%`}
+                onPress={() => { selectionFeedback(); setSide(value); }}>
+                <MatteSurface radius={Radius.control} level="control"
+                    style={[styles.side, on && { backgroundColor: color }]}>
+                    <AppIcon name={value === 'make' ? 'trending-up' : 'trending-down'} size={Control.icon} color={on ? textOn(color) : color} />
+                    {/* On a solid fill, the colour that reads on it (theme/tokens textOn). */}
+                    <RNText style={[t.type.heading, { color: on ? textOn(color) : t.color.textPrimary }]}>{value === 'make' ? 'Makes it' : 'Misses it'}</RNText>
+                    <RNText style={[t.type.bodySmall, styles.numeric, { color: on ? textOn(color) : t.color.textMuted }]}>{`${share}%`}</RNText>
+                </MatteSurface>
+            </Pressable>
+        );
+    };
 
     return (
-        <VoidSheet visible onClose={onClose} title={side === 'make' ? 'Makes it' : 'Misses it'} caption={market.title}
+        <VoidSheet visible onClose={onClose} title={market.title} caption={market.mine ? 'Back yourself' : `${market.name.split(' ')[0]}’s goal · ${dueLabel(market.deadline)}`}
             footer={
                 <View style={styles.footer}>
-                    <AppButton label={stake > 0 ? `Bet ${stake} Shards` : 'Bet'} icon="diamond" loading={busy} disabled={stake <= 0 || tooMuch} onPress={place} />
+                    <AppButton label={amount > 0 ? `Bet ${amount} Shards` : 'Not enough Shards'} icon="diamond" loading={busy} disabled={amount <= 0} onPress={place} />
                 </View>
             }>
             <View style={styles.body}>
-                <SheetSection first title="How much" description={spendable === null ? `Up to ${MAX_STAKE} Shards per goal.` : `You have ${spendable.toLocaleString()} Shards. Up to ${MAX_STAKE} per goal.`}>
-                    <View style={styles.amounts}>
-                        {STAKES.filter(value => value <= room).map(value => (
-                            <ChoicePill key={value} label={String(value)} icon="diamond" on={!typing && amount === value} color={t.color.accent}
-                                disabled={spendable !== null && spendable < value} accessibilityLabel={`${value} Shards`}
-                                onPress={() => { selectionFeedback(); setTyping(false); setAmount(value); }} />
-                        ))}
-                        <ChoicePill label="Other" icon="create" on={typing} color={t.color.accent} accessibilityLabel="Another amount"
-                            onPress={() => { selectionFeedback(); setTyping(true); }} />
+                {locked ? null : <View style={styles.sides}>{(['make', 'miss'] as const).map(sideButton)}</View>}
+                {steps.length > 1 ? (
+                    <StepSlider label="How much" values={steps} value={amount} onChange={setAmount} say={value => `${value} Shards`} />
+                ) : null}
+                {/* What it would win, growing as the slider moves. */}
+                <View style={styles.win} accessible accessibilityLabel={total && market.pool[side === 'make' ? 'miss' : 'make'] ? `Wins ${gain} Shards` : 'Nobody on the other side yet. You get your Shards back.'}>
+                    <Text variant="caption" tone="muted">{market.pool[side === 'make' ? 'miss' : 'make'] ? 'If you’re right' : 'Nobody on the other side yet'}</Text>
+                    <View style={styles.winRow}>
+                        <CountUp value={`+${gain}`} style={[t.type.display, { color: gain ? t.color.cobalt : t.color.textMuted }]} />
+                        <AppIcon name="diamond" filled size={Control.icon} color={gain ? t.color.cobalt : t.color.textMuted} />
                     </View>
-                    {typing ? (
-                        <View style={styles.typed}>
-                            <AppTextField label="Shards" value={typed} onChangeText={text => setTyped(text.replace(/[^0-9]/g, ''))}
-                                placeholder={`1 to ${spendable === null ? room : Math.min(room, spendable)}`} keyboardType="number-pad" autoFocus maxLength={3}
-                                error={tooMuch ? (stake > room ? `Up to ${room} more on this goal.` : 'You don’t have that many Shards.') : undefined} />
-                        </View>
-                    ) : null}
-                </SheetSection>
-                <SettingsGroup title="If it goes your way">
-                    {/* Your stake back plus your share of the other side's: said as both. */}
-                    <SettingsRow icon="trophy" color={t.color.success} label={`If ${who} ${verb}`} value={`${back} back · +${Math.max(0, back - already - Math.max(0, stake))}`} />
-                    <SettingsRow icon="people" color={t.color.accent} label="On the other side" value={otherSide ? `${otherSide} Shards` : 'Nobody yet'} />
-                </SettingsGroup>
-                {/* With nobody on the other side, the bet is only ever refunded: said once, plainly. */}
-                {otherSide ? null : <Text variant="caption" tone="muted">If nobody bets the other way, you get your Shards back.</Text>}
-                {error ? <Text variant="bodySmall" tone="danger">{error}</Text> : null}
+                </View>
+                {error ? <Text variant="bodySmall" tone="danger" align="center">{error}</Text> : null}
             </View>
         </VoidSheet>
     );
@@ -238,18 +231,15 @@ export function OpenSheet({ visible, openKeys, onClose }: { visible: boolean; op
 }
 
 const styles = StyleSheet.create({
-    balance: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-    list: { gap: Spacing.sm },
-    card: { padding: Spacing.lg, gap: Spacing.md },
-    head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+    section: { gap: Spacing.md },
     grow: { flex: 1 },
-    track: { height: Spacing.sm, borderRadius: Radius.pill, overflow: 'hidden' },
-    fill: { height: '100%', borderRadius: Radius.pill },
-    sides: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -Spacing.xs },
-    buttons: { flexDirection: 'row', gap: Spacing.sm },
-    amounts: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
-    typed: { marginTop: Spacing.md },
+    numeric: { fontVariant: ['tabular-nums'] },
+    stake: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    sides: { flexDirection: 'row', gap: Spacing.sm },
+    side: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.lg },
+    win: { alignItems: 'center', gap: Spacing.xs },
+    winRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     // A sheet that does not scroll pads its own content and footer, as every sheet in the app does.
-    body: { gap: Spacing.lg, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg },
+    body: { gap: Spacing.xl, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg },
     footer: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm },
 });

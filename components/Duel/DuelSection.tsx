@@ -1,131 +1,139 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { AppButton, AppIcon, Avatar, ListItem, MatteSurface, SectionTitle, Text } from '@/components/ui';
-import { useProgress } from '@/components/ui/Motion';
+import { AppButton, AppIcon, Avatar, CardRail, Divider, GameCard, IconButton, IconTile, ListItem, SectionTitle, Text, VersusBar, VoidCard } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { emit, on } from '@/lib/appEvents';
 import { cancelDuel, daysLeft, leader, myDuels, respondDuel, shareOf, type Duel } from '@/lib/duels';
-import { Control, Radius, Spacing } from '@/theme/designSystem';
+import { Control, Spacing } from '@/theme/designSystem';
+
+const stakeLabel = (duel: Duel) => (duel.stake ? `${duel.stake} Shards` : 'For pride');
 
 /**
- * Your duels, on Community's Bets: a challenge waiting for your answer first,
- * then the ones running (a tug of war between your share of your plan and
- * theirs), then the last two weeks' results. Nothing to show, it stays out
- * of the way: the + starts one.
+ * Your duels, on Community's Bets, laid out like a trading app: a challenge
+ * waiting for an answer first (it has buttons), then the ones running side by
+ * side to swipe through (you against them, as one bar, and a pill saying who
+ * is ahead), then past results as a short ledger. With none, one card that
+ * starts the first.
  */
 export function DuelSection({ style }: { style?: StyleProp<ViewStyle> }) {
-    const [duels, setDuels] = useState<Duel[]>([]);
+    const t = useTokens();
+    const [duels, setDuels] = useState<Duel[] | null>(null);
     const load = useCallback(() => { myDuels().then(setDuels).catch(() => setDuels([])); }, []);
     useFocusEffect(load);
     useEffect(() => {
         const sub = on('market_changed', load);
         return () => sub.remove();
     }, [load]);
-    if (!duels.length) return null;
+    if (duels === null) return null;
+    const start = () => emit('show_duel');
+    const waiting = duels.filter(duel => duel.status === 'proposed');
+    const running = duels.filter(duel => duel.status === 'active');
+    const past = duels.filter(duel => duel.status !== 'proposed' && duel.status !== 'active');
     return (
         <View style={[styles.section, style]}>
-            <SectionTitle first right={<AppButton label="Duel" icon="flash" variant="ghost" fullWidth={false} onPress={() => emit('show_duel')} />}>Duels</SectionTitle>
-            <View style={styles.list}>
-                {duels.map(duel => <ListItem key={duel.id}><DuelCard duel={duel} /></ListItem>)}
-            </View>
+            <SectionTitle first right={<IconButton icon="add" label="Duel a friend" onPress={start} />}>Duels</SectionTitle>
+            {waiting.map(duel => <ListItem key={duel.id}><Challenge duel={duel} /></ListItem>)}
+            {running.length ? (
+                <CardRail>{running.map(duel => <Running key={duel.id} duel={duel} />)}</CardRail>
+            ) : !waiting.length ? (
+                <GameCard onPress={start} title="Duel a friend" subtitle="Who keeps their plan better"
+                    lead={<IconTile icon="flash" color={t.color.cobalt} size={Control.hitTarget} />}
+                    badge={{ label: '3–14 days', tone: 'neutral' }} />
+            ) : null}
+            {past.length ? (
+                <VoidCard style={styles.ledger}>
+                    {past.map((duel, index) => (
+                        <React.Fragment key={duel.id}>
+                            {index ? <Divider inset /> : null}
+                            <Result duel={duel} />
+                        </React.Fragment>
+                    ))}
+                </VoidCard>
+            ) : null}
         </View>
     );
 }
 
-function DuelCard({ duel }: { duel: Duel }) {
-    const t = useTokens();
+/** A challenge not yet answered: theirs to you (accept it), or yours to them (take it back). */
+function Challenge({ duel }: { duel: Duel }) {
     const { successFeedback, selectionFeedback } = useHaptics();
     const act = (run: () => Promise<void>) => run().then(() => successFeedback())
         .catch((failed: unknown) => Alert.alert('That didn’t go through', failed instanceof Error ? failed.message : 'Try again in a moment.'));
-    const stake = duel.stake ? `${duel.stake} Shards each` : 'For pride';
-    const head = (line: string) => (
-        <View style={styles.head}>
-            <Avatar name={duel.name} uri={duel.avatarUrl} size={Control.hitTarget} />
-            <View style={styles.grow}>
-                <Text variant="heading">{line}</Text>
-                <Text variant="caption" tone="muted">{`${duel.days} days · ${stake}`}</Text>
-            </View>
-        </View>
-    );
-
-    if (duel.status === 'proposed') {
-        return (
-            <MatteSurface radius={Radius.card} style={styles.card}>
-                {head(duel.mine ? `Waiting for ${duel.name}` : `${duel.name} challenged you`)}
-                {duel.mine ? (
-                    <AppButton label="Take it back" variant="ghost" onPress={() => { selectionFeedback(); void act(() => cancelDuel(duel.id)); }} />
-                ) : (
-                    <View style={styles.buttons}>
-                        <View style={styles.grow}><AppButton label="Not now" variant="ghost" onPress={() => void act(() => respondDuel(duel.id, false))} /></View>
-                        <View style={styles.grow}><AppButton label="Accept" icon="flash" onPress={() => void act(() => respondDuel(duel.id, true))} /></View>
-                    </View>
-                )}
-            </MatteSurface>
-        );
-    }
-
-    const mine = shareOf(duel.me), theirs = shareOf(duel.them);
-    const ahead = leader(duel);
-    if (duel.status === 'active') {
-        const left = daysLeft(duel.ends);
-        const started = duel.starts ? new Date(`${duel.starts}T00:00:00`) <= new Date() : false;
-        return (
-            <MatteSurface radius={Radius.card} style={styles.card}>
-                {head(!started ? `Starts tomorrow vs ${duel.name}` : ahead === 'me' ? `You’re ahead of ${duel.name}` : ahead === 'them' ? `${duel.name} is ahead` : `Neck and neck with ${duel.name}`)}
-                <Tug mine={mine} theirs={theirs} color={t.color.accent} other={t.color.textSubtle} />
-                <View style={styles.sides}>
-                    <Text variant="bodySmall" numeric>{`You ${Math.round(mine * 100)}%`}</Text>
-                    <Text variant="caption" tone="muted">{started ? `${left} ${left === 1 ? 'day' : 'days'} left` : 'Not started'}</Text>
-                    <Text variant="bodySmall" tone="muted" numeric>{`${Math.round(theirs * 100)}%`}</Text>
-                </View>
-            </MatteSurface>
-        );
-    }
-
-    const won = duel.winnerId === null ? null : duel.winnerId !== duel.friendId;
-    const result = duel.status === 'settled'
-        ? (won === null ? 'A draw' : won ? `You beat ${duel.name}` : `${duel.name} won this one`)
-        : duel.status === 'declined' ? `${duel.mine ? duel.name : 'You'} passed` : 'Taken back';
     return (
-        <MatteSurface radius={Radius.card} style={styles.card}>
-            <View style={styles.head}>
-                <AppIcon name={won ? 'trophy' : won === false ? 'flag' : 'remove-circle'} filled size={Control.icon} color={won ? t.color.warning : t.color.textSubtle} />
-                <View style={styles.grow}><Text variant="heading">{result}</Text></View>
-                {duel.status === 'settled' && duel.stake ? (
-                    <Text variant="bodySmall" tone={won ? 'success' : 'muted'} numeric>{won === null ? 'Refunded' : won ? `+${duel.stake * 2}` : `−${duel.stake}`}</Text>
-                ) : null}
-            </View>
-        </MatteSurface>
+        <GameCard
+            lead={<Avatar name={duel.name} uri={duel.avatarUrl} size={Control.hitTarget} />}
+            title={duel.mine ? duel.name : `${duel.name} challenged you`}
+            subtitle={`${duel.days} days · ${stakeLabel(duel)}`}
+            badge={duel.mine ? { label: 'Waiting', tone: 'neutral', dot: true } : { label: 'New', tone: 'cobalt', icon: 'flash' }}
+            footer={duel.mine ? (
+                <AppButton label="Take it back" variant="ghost" onPress={() => { selectionFeedback(); void act(() => cancelDuel(duel.id)); }} />
+            ) : (
+                <View style={styles.buttons}>
+                    <View style={styles.grow}><AppButton label="Not now" variant="ghost" onPress={() => void act(() => respondDuel(duel.id, false))} /></View>
+                    <View style={styles.grow}><AppButton label="Accept" icon="flash" onPress={() => void act(() => respondDuel(duel.id, true))} /></View>
+                </View>
+            )} />
     );
 }
 
-/** The tug of war: your share pulling from the left, theirs from the right, meeting where you stand. */
-function Tug({ mine, theirs, color, other }: { mine: number; theirs: number; color: string; other: string }) {
-    const split = mine + theirs > 0 ? mine / (mine + theirs) : 0.5;
-    const shown = useProgress(split);
-    const left = useAnimatedStyle(() => ({ flex: Math.max(0.001, shown.get()) }));
-    const right = useAnimatedStyle(() => ({ flex: Math.max(0.001, 1 - shown.get()) }));
+/** A duel under way: you against them as one bar, and who is in front. */
+function Running({ duel }: { duel: Duel }) {
+    const t = useTokens();
+    const mine = shareOf(duel.me) * 100, theirs = shareOf(duel.them) * 100;
+    const ahead = leader(duel);
+    const left = daysLeft(duel.ends);
+    const started = duel.starts ? new Date(`${duel.starts}T00:00:00`) <= new Date() : false;
     return (
-        <View style={styles.tug} accessible accessibilityRole="progressbar" accessibilityLabel="You against them" accessibilityValue={{ min: 0, max: 100, now: Math.round(split * 100) }}>
-            <Animated.View style={[styles.half, { backgroundColor: color }, left]} />
-            <View style={[styles.knot, { backgroundColor: color }]} />
-            <Animated.View style={[styles.half, { backgroundColor: other }, right]} />
+        <GameCard
+            lead={<Avatar name={duel.name} uri={duel.avatarUrl} size={Control.hitTarget} />}
+            title={`vs ${duel.name}`}
+            subtitle={`${started ? `${left} ${left === 1 ? 'day' : 'days'} left` : 'Starts tomorrow'} · ${stakeLabel(duel)}`}
+            badge={!started ? { label: 'Soon', tone: 'neutral' }
+                : ahead === 'me' ? { label: 'Ahead', tone: 'cobalt', icon: 'trending-up' }
+                    : ahead === 'them' ? { label: 'Behind', tone: 'silver', icon: 'trending-down' }
+                        : { label: 'Even', tone: 'neutral', icon: 'remove' }}>
+            <VersusBar left={{ label: 'You', percent: mine, color: t.color.cobalt }}
+                right={{ label: duel.name.split(' ')[0], percent: theirs, color: t.color.silver }} />
+        </GameCard>
+    );
+}
+
+/** A finished duel, as a ledger line: what happened, and what it paid. */
+function Result({ duel }: { duel: Duel }) {
+    const t = useTokens();
+    const won = duel.winnerId === null ? null : duel.winnerId !== duel.friendId;
+    const settled = duel.status === 'settled';
+    const title = settled
+        ? (won === null ? `Draw with ${duel.name}` : won ? `You beat ${duel.name}` : `${duel.name} won`)
+        : duel.status === 'declined' ? `${duel.mine ? duel.name : 'You'} passed` : 'Taken back';
+    const icon = settled && won ? 'trophy' : settled && won === false ? 'flag' : 'remove-circle';
+    const color = settled && won ? t.color.silver : settled && won === false ? t.color.silver : t.color.textMuted;
+    return (
+        <View style={styles.row} accessible accessibilityLabel={`${title}, ${duel.days} days${settled && duel.stake ? (won === null ? ', Shards back' : won ? `, won ${duel.stake * 2} Shards` : `, lost ${duel.stake} Shards`) : ''}`}>
+            <IconTile icon={icon} color={color} size={Control.hitTarget - Spacing.xs} />
+            <View style={styles.grow}>
+                <Text variant="heading" numberOfLines={1}>{title}</Text>
+                <Text variant="bodySmall" tone="muted">{`${duel.days} days`}</Text>
+            </View>
+            {settled && duel.stake ? (
+                <View style={styles.amount}>
+                    <Text variant="heading" tone={won === null ? 'muted' : won ? 'success' : 'danger'} numeric>
+                        {won === null ? '±0' : won ? `+${duel.stake * 2}` : `−${duel.stake}`}
+                    </Text>
+                    <AppIcon name="diamond" filled size={Spacing.md} color={t.color.textMuted} />
+                </View>
+            ) : null}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     section: { gap: Spacing.md },
-    list: { gap: Spacing.sm },
-    card: { padding: Spacing.lg, gap: Spacing.md },
-    head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
     grow: { flex: 1 },
     buttons: { flexDirection: 'row', gap: Spacing.sm },
-    tug: { flexDirection: 'row', alignItems: 'center', height: Spacing.sm, gap: Spacing.xs },
-    half: { height: '100%', borderRadius: Radius.pill },
-    knot: { width: Spacing.xs, height: Spacing.md, borderRadius: Radius.pill },
-    sides: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: -Spacing.xs },
+    ledger: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xs },
+    row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md },
+    amount: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
 });

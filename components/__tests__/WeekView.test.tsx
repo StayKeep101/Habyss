@@ -22,7 +22,7 @@ it('shows who holds the crown, the race for the next one, and your secret missio
     expect(screen.getByText('Holds the crown · 6 of 7 days last week')).toBeTruthy();
     expect(screen.getByText('This week’s race')).toBeTruthy();
     expect(screen.getByText('Get Lucas to show up on 3 days this week.')).toBeTruthy();
-    expect(screen.getByText('1/3')).toBeTruthy();
+    expect(screen.getByLabelText('1 of 3')).toBeTruthy();
     // Only the king can set the challenge.
     expect(screen.queryByText('Set this week’s challenge')).toBeNull();
 });

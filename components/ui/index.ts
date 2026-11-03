@@ -31,6 +31,11 @@
  *   Crown (King of the Week's crown, drawn: beside the name of whoever holds it),
  *   Avatar (a face: photo or initial, optional ring and badge), FaceStack (a few friends' faces, overlapping), IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
  *   StatTile, ChartCard, HabitRow, ProgressRing, HalfCircleProgress, CheckPop,
+ *   GameCard (a bet, duel or challenge: face, name, a pill for how it stands, then the contest),
+ *   VersusBar (two sides on one line, "22% Long ━━ 78% Short": the split glides, the leader in full colour),
+ *   CardRail (cards swiped side by side, the next peeking in),
+ *   PostCard (a Community post of any kind: face, name, rank, kind; one big figure; a visual; stats; details on demand),
+ *   SegmentBar (a bar in pieces, one per thing to do, lit in cobalt as it arrives),
  *   Confetti (falls once from the top, for the biggest moments; none with Reduce Motion)
  *
  * Motion (how charts, bars and numbers move — use these, never a still bar)
@@ -91,6 +96,11 @@ export { AppIcon, type IconName } from './AppIcon';
 export { Text, type UITextProps, type TextTone } from './Text';
 export { Badge, type BadgeProps } from './Badge';
 export { Divider } from './Divider';
+export { GameCard } from './GameCard';
+export { VersusBar, type VersusSide } from './VersusBar';
+export { CardRail } from './CardRail';
+export { PostCard, type PostStat } from './PostCard';
+export { SegmentBar } from './SegmentBar';
 export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { StatTile, type StatTileProps } from './StatTile';
 export { ChartCard, type ChartCardProps } from './ChartCard';

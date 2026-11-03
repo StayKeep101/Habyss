@@ -1,6 +1,7 @@
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
 import { monthDays } from './progressMonth';
+import type { DayMoments } from './dayMoments';
 
 /**
  * Your day as a card a friend sees in your chat.
@@ -13,7 +14,8 @@ import { monthDays } from './progressMonth';
 
 export interface DayCardLine { name: string; done: boolean; skipped?: boolean }
 
-export interface DayCardData {
+/** The card, plus what made the day stand out (lib/dayMoments.ts): optional, so older cards still read. */
+export interface DayCardData extends DayMoments {
     habits?: DayCardLine[];
     tasks?: DayCardLine[];
     habitsDone: number;

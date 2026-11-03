@@ -30,15 +30,15 @@ export function CrewQuest({ members, style }: { members: CrewMember[]; style?: S
             <SectionTitle first>Crew quest</SectionTitle>
             <VoidCard style={styles.card}>
                 <View style={styles.head} accessible accessibilityLabel={reached ? `Crew quest done: ${done} show-ups this week` : `${done} of ${target} show-ups by Sunday`}>
-                    {reached ? <AppIcon name="trophy" filled size={26} color={t.color.warning} /> : null}
-                    <CountUp style={[styles.big, { color: reached ? t.color.warning : t.color.textPrimary }]} value={done} />
+                    {reached ? <AppIcon name="trophy" filled size={26} color={t.color.silver} /> : null}
+                    <CountUp style={[styles.big, { color: reached ? t.color.silver : t.color.textPrimary }]} value={done} />
                     <Text style={[styles.of, { color: t.color.textMuted }]}>{reached ? 'show-ups. Quest done' : `of ${target} show-ups by Sunday`}</Text>
                 </View>
                 {/* One star per show-up (or per few, on a big crew), lit as they come. */}
                 <View style={styles.sky} importantForAccessibility="no-hide-descendants">
                     {Array.from({ length: stars }, (_, index) => (
                         <PopIn key={index} index={index}>
-                            <AppIcon name="star" filled size={14} color={index < lit ? (reached ? t.color.warning : t.color.accent) : t.color.border} />
+                            <AppIcon name="star" filled size={14} color={index < lit ? (reached ? t.color.silver : t.color.cobalt) : t.color.border} />
                         </PopIn>
                     ))}
                 </View>

@@ -69,7 +69,7 @@ const pillHeight = (size: Size, minutes: number) => Math.max(size.min, Math.min(
  * marks one that moved since you last opened it. Meals and calendar events
  * sit as fixed blocks with a lock. A habit's pill is round, a task's squarer.
  */
-export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, sharedFor, now, moved, scrubbing, day, wake, sleep, dueToday, company, onDrag, onDragCancel, onChangeDay }: {
+export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, sharedFor, now, moved, scrubbing, day, wake, sleep, dueToday, company, onDrag, onDragCancel }: {
     /** Who else is on a habit or task (lib/shared.ts): their faces beside its name, as on its list card. */
     sharedFor?: (item: FlowInput) => SharedState | null;
     /** Rule 5: swiped left to right, a habit or task is laid out again from now, by priority. Today only. */
@@ -82,7 +82,6 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, sha
     sleep?: number;
     onDrag?: (phase: 'start' | 'move' | 'end', item: FlowInput, x: number, y: number) => void;
     onDragCancel?: () => void;
-    onChangeDay?: (direction: number) => void;
     /** Open tasks due by this day that are not on it: shown at the top, so a deadline is never missed. */
     dueToday?: FlowInput[];
     /**
@@ -103,20 +102,10 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, sha
     const t = useTokens();
     const size = SIZES[useAppSettings().cardSize] ?? SIZES.standard;
     const lived = livedUntil(now, day);
-    const offset = useSharedValue(0);
-    const pageStyle = useAnimatedStyle(() => ({ transform: [{ translateX: offset.get() }] }));
-    const dayGesture = Gesture.Pan().enabled(!!onChangeDay).activeOffsetX([-24, 24]).failOffsetY([-14, 14])
-        .onUpdate(event => { offset.set(Math.max(-50, Math.min(50, event.translationX * 0.25))); })
-        .onEnd(event => {
-            if (Math.abs(event.translationX) > 65 || Math.abs(event.velocityX) > 650) {
-                if (onChangeDay) runOnJS(onChangeDay)(event.translationX < 0 ? 1 : -1);
-            }
-        })
-        .onFinalize(() => { offset.set(withTiming(0, { duration: 180, reduceMotion: ReduceMotion.System })); });
     const colorOf = (item: FlowInput) => item.color || (item.kind === 'meal' ? t.color.textMuted : item.kind === 'task' ? t.color.warning : t.color.accent);
     const edges = !scrubbing;
     return (
-        <GestureDetector gesture={dayGesture}><Animated.View style={pageStyle}>
+        <View>
             {/* Due by today and not on today's plan: named first, so the deadline is seen. */}
             {edges && dueToday?.length ? (
                 <Chips title="Due today" icon="flag" tint={t.color.warning} items={dueToday} onOpen={onOpen} />
@@ -143,7 +132,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onReschedule, sha
             {flow.unfit.length && edges ? (
                 <Chips title="No room before bedtime" icon="moon" tint={t.color.textMuted} items={flow.unfit} onOpen={onOpen} />
             ) : null}
-        </Animated.View></GestureDetector>
+        </View>
     );
 }
 

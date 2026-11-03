@@ -16,6 +16,8 @@ export const styles = StyleSheet.create({
     side: { alignItems: 'flex-end', gap: vs(4) },
     dot: { width: s(7), height: s(7), borderRadius: s(4) },
     when: { fontSize: ms(11), fontFamily: FontFamily.regular },
+    count: { paddingHorizontal: s(7), minHeight: vs(18), borderRadius: s(9), alignItems: 'center', justifyContent: 'center' },
+    countText: { fontSize: ms(11), fontFamily: FontFamily.semibold },
     actions: { flexDirection: 'row', gap: s(8) },
     action: { flex: 1, minHeight: 40, borderRadius: s(12), alignItems: 'center', justifyContent: 'center' },
     actionText: { fontSize: ms(13), fontFamily: FontFamily.semibold },

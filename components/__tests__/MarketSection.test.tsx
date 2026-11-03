@@ -21,12 +21,10 @@ jest.mock('@/hooks/useGoalInsights', () => ({
     }),
 }));
 
-it('says how bets work when there are none, and opens a goal from the list', async () => {
+it('invites you to open a goal when there are no bets, and opens one from the list', async () => {
     const screen = render(<MarketSection />);
     await act(async () => { await Promise.resolve(); });
-    expect(screen.getByText('No bets yet')).toBeTruthy();
-    expect(screen.getByLabelText('140 Shards to spend')).toBeTruthy();
-    fireEvent.press(screen.getAllByText('Open a goal to bets')[0]);
+    fireEvent.press(screen.getByText('Open a goal to bets'));
     expect(screen.getByText('Run a half marathon')).toBeTruthy();
     // A goal without a deadline is listed, with why it can't be opened yet.
     expect(screen.getByText('No deadline')).toBeTruthy();
@@ -34,7 +32,7 @@ it('says how bets work when there are none, and opens a goal from the list', asy
     expect(jest.requireMock('@/lib/market').openMarket).toHaveBeenCalledWith(expect.objectContaining({ id: 'g1', targetDate: '2026-11-20' }));
 });
 
-it('lets you bet your own amount, checked against what you have and the 100 per goal, and says what it pays', async () => {
+it('opens the bet from the card: pick a side, see what it would win, place it', async () => {
     const market = {
         id: 'm1', ownerId: 'o', name: 'Sam', goalKey: 'g', title: 'Run a 5k', deadline: '2026-11-10', status: 'open',
         pool: { make: 0, miss: 100 }, people: { make: 0, miss: 1 }, mine: false, myStake: null,
@@ -44,14 +42,12 @@ it('lets you bet your own amount, checked against what you have and the 100 per 
     lib.placeStake = jest.fn(async () => undefined);
     const screen = render(<MarketSection />);
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    fireEvent.press(screen.getByText('Makes it'));
-    // 100 on makes it against 100 on misses it: your 100 back plus their 100.
-    fireEvent.press(screen.getByLabelText('100 Shards'));
-    expect(screen.getByText('200 back · +100')).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Another amount'));
-    fireEvent.changeText(screen.getByPlaceholderText('1 to 100'), '150');
-    expect(screen.getByText('Up to 100 more on this goal.')).toBeTruthy();
-    fireEvent.changeText(screen.getByPlaceholderText('1 to 100'), '40');
-    expect(screen.getByText('140 back · +100')).toBeTruthy();
-    expect(screen.getByText('Bet 40 Shards')).toBeTruthy();
+    // Everyone doubts Sam, and the card says so.
+    expect(screen.getByText('Very doubted')).toBeTruthy();
+    fireEvent.press(screen.getByText('Run a 5k'));
+    fireEvent.press(screen.getByLabelText('Makes it, 0%'));
+    // 25 on makes it against 100 on misses it: all of their 100 comes to you.
+    expect(screen.getByLabelText('Wins 100 Shards')).toBeTruthy();
+    await act(async () => { fireEvent.press(screen.getByText('Bet 25 Shards')); });
+    expect(lib.placeStake).toHaveBeenCalledWith('m1', 'make', 25);
 });

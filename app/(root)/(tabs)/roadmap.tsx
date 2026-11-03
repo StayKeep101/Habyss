@@ -1233,7 +1233,7 @@ const CalendarScreen = () => {
                                 // twice and the rows jumped into place in front of you.
                                 !flowComplete && !timelineShown.current ? <View style={styles.timelineWait} /> : <>
                                 <CalendarPrompt />
-                                <DayTimeline onChangeDay={direction => { const next = new Date(selectedDate); next.setDate(next.getDate() + direction); handleDateSelect(next); }} flow={shownFlow} day={localDateKey(selectedDate)} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
+                                <DayTimeline flow={shownFlow} day={localDateKey(selectedDate)} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
                                     wake={flowWindow.wake} sleep={flowWindow.sleep} dueToday={dueToday}
                                     onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem}
                                     onReschedule={flowNow !== null ? rescheduleFlowItem : undefined}

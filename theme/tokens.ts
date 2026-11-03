@@ -41,6 +41,10 @@ export interface ColorRoles {
     /** Caution, and also tasks and the streak flame. */
     warning: string;
     danger: string;
+    /** Community's games: the side in front, a live contest, a win. */
+    cobalt: string;
+    /** Community's games: the side behind, the quiet half of a contest. */
+    silver: string;
 }
 
 export type ThemeName = 'abyss' | 'trueDark' | 'light';
@@ -57,6 +61,8 @@ const rolesOf = (theme: ThemeName): ColorRoles => ({
     success: Colors[theme].success,
     warning: Colors[theme].warning,
     danger: Colors[theme].error,
+    cobalt: Colors[theme].cobalt,
+    silver: Colors[theme].silver,
 });
 
 export const colorRoles: Record<ThemeName, ColorRoles> = {

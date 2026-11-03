@@ -14,7 +14,10 @@ import { ListItem } from '@/components/ui/Motion';
 import { FriendsGate } from '@/components/Community/FriendsGate';
 import { AddFriendModal } from '@/components/Community/AddFriendModal';
 import { FriendsRail, type RailFriend } from '@/components/Community/FriendsRail';
-import { DayPostCard } from '@/components/Community/DayPostCard';
+import { StreamPostCard, type StreamContext } from '@/components/Community/StreamPostCard';
+import { buildStream } from '@/lib/communityStream';
+import { myDuels, type Duel } from '@/lib/duels';
+import type { Market } from '@/lib/market';
 import { FocusingNow } from '@/components/Community/FocusingNow';
 import { useFocusSession } from '@/context/FocusTimeContext';
 import { hostOf, togetherId } from '@/lib/focusTogether';
@@ -33,6 +36,7 @@ import { SealedDayCard } from '@/components/Community/SealedDayCard';
 import { CrewQuest } from '@/components/Community/CrewQuest';
 import { MarketSection } from '@/components/Market/MarketSection';
 import { DuelSection } from '@/components/Duel/DuelSection';
+import { WalletHero } from '@/components/Market/WalletHero';
 import { WeekView } from '@/components/Community/WeekView';
 import { CrownMoment } from '@/components/Community/CrownMoment';
 import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
@@ -48,7 +52,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { statusOf } from '@/lib/presence';
 import { listenToFriends, announceChange } from '@/lib/livePulse';
 import { onAccountChange } from '@/lib/account';
-import { on } from '@/lib/appEvents';
+import { emit, on } from '@/lib/appEvents';
 import { useCoachTarget } from '@/hooks/useCoachTarget';
 import { OFFLINE_LINES, useOnline } from '@/lib/connectivity';
 import { useMyProfile } from '@/hooks/useMyProfile';
@@ -96,6 +100,11 @@ export default function CommunityScreen() {
     const focusSession = useFocusSession();
     const joinedHost = focusSession.isRunning || focusSession.isPaused ? hostOf(focusSession.activeHabitId) : null;
     const [rank, setRank] = useState<number | null>(null);
+    // Everyone's place among friends, for the #2 beside a name on a post.
+    const [ranks, setRanks] = useState<Map<string, number>>(new Map());
+    // Your duels and the bets, for Rivalry and Victory posts.
+    const [duels, setDuels] = useState<Duel[]>([]);
+    const [markets, setMarkets] = useState<Market[]>([]);
     const [shareTime, setShareTime] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -145,7 +154,7 @@ export default function CommunityScreen() {
             await FriendsService.repairFriendshipsFromAcceptedRequests().catch(() => undefined);
             void FriendsService.refreshSharedIds().catch(() => undefined);
             const week = questWeek(localDateKey(new Date()), mondayFirst.current);
-            const [current, requestList, statusList, feed, board, settings, unreadCount, quest] = await Promise.all([
+            const [current, requestList, statusList, feed, board, settings, unreadCount, quest, duelList, marketList] = await Promise.all([
                 FriendsService.getCurrentUser(),
                 FriendsService.getFriendRequests(),
                 FeedService.friendStatuses(),
@@ -154,7 +163,12 @@ export default function CommunityScreen() {
                 FeedService.shareSettings(),
                 FriendsService.unreadCount(),
                 FeedService.crewQuest(week.from, week.to),
+                myDuels().catch(() => [] as Duel[]),
+                MARKET_ENABLED ? marketFeed().catch(() => [] as Market[]) : Promise.resolve([] as Market[]),
             ]);
+            setDuels(duelList);
+            setMarkets(marketList);
+            setRanks(new Map(board.map(row => [row.userId, row.rank])));
             setCrew(quest);
             setQuestFrom(week.from);
             if (current) setMe({ id: current.id, name: current.displayName || current.username });
@@ -247,6 +261,12 @@ export default function CommunityScreen() {
             void AsyncStorage.setItem(QUEST_CHEERED, questFrom).catch(() => undefined);
         }).catch(() => undefined);
     }, [questReached, questFrom, successFeedback]);
+    // The feed as posts of ten kinds (lib/communityStream.ts).
+    const stream = useMemo(() => buildStream({
+        posts, duels, markets, crew, week: week.week, king: week.king, revealed: week.revealed,
+        today, now: clock.toISOString(),
+    }), [posts, duels, markets, crew, week.week, week.king, week.revealed, today, clock]);
+
     /** Reacts to a friend's day, changes the reaction, or takes it back (null). */
     const react = async (post: FeedPost, reaction: Reaction | null) => {
         if (reaction) mediumFeedback(); else selectionFeedback();
@@ -288,6 +308,22 @@ export default function CommunityScreen() {
     const openFriend = (userId: string) => {
         lightFeedback();
         router.push({ pathname: '/(root)/friend' as never, params: { id: userId } });
+    };
+
+    /** What every post needs from this page: names, faces, ranks, and what to do on a tap. */
+    const streamContext: StreamContext = {
+        meId: me?.id ?? null,
+        myName: myProfile.name || me?.name || 'You',
+        myAvatar: myProfile.avatar ?? undefined,
+        kingId,
+        rankOf: userId => ranks.get(userId) ?? null,
+        statusOf: userId => statusById.get(userId),
+        facesOf: ids => ids.flatMap(id => { const face = people.get(id); return face ? [face] : []; }),
+        onReact: (post, reaction) => void react(post, reaction),
+        onReport: reportPost,
+        openPerson: userId => (userId === me?.id ? router.push('/(root)/profile') : openFriend(userId)),
+        rematch: () => emit('show_duel'),
+        seeWeek: () => choose('week'),
     };
 
     const answer = async (request: FriendRequest, accept: boolean) => {
@@ -375,6 +411,7 @@ export default function CommunityScreen() {
             ) : null}
 
             {/* Friends' goals open to bets: Shards on whether they make it. */}
+            {gate === null && view === 'bets' && MARKET_ENABLED ? <WalletHero style={styles.block} /> : null}
             {gate === null && view === 'bets' ? <DuelSection style={styles.block} /> : null}
             {gate === null && view === 'bets' && MARKET_ENABLED ? <MarketSection style={styles.block} /> : null}
 
@@ -409,39 +446,28 @@ export default function CommunityScreen() {
     return (
         <VoidShell>
             <FlatList
-                data={gate === null && view === 'today' ? posts : []}
-                keyExtractor={post => `${post.userId}:${post.day}`}
+                data={gate === null && view === 'today' ? stream : []}
+                keyExtractor={item => item.key}
                 ListHeaderComponent={header}
                 contentContainerStyle={{ paddingTop: topSpacing + 36, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance }}
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textTertiary} progressViewOffset={topSpacing} />}
                 onEndReached={() => { void loadMore(); }}
                 onEndReachedThreshold={0.6}
-                renderItem={({ item, index }) => (
-                    <ListItem index={index}>
-                        {isSealed(item, today, shareTime, nowMinutes) ? (
-                            <SealedDayCard key="sealed" name={item.name} avatarUrl={item.avatarUrl} opensAt={opensAt} />
-                        ) : (
-                        <Animated.View key="open" entering={flipping && !item.mine && item.day === today ? FlipInEasyY.duration(520).delay(index * 140).reduceMotion(ReduceMotion.System) : undefined}>
-                        <DayPostCard
-                            name={item.mine ? (myProfile.name || item.name) : item.name}
-                            avatarUrl={item.mine ? myProfile.avatar ?? undefined : item.avatarUrl}
-                            status={item.mine ? undefined : statusById.get(item.userId)}
-                            postedAt={item.postedAt}
-                            card={item.card}
-                            mine={item.mine}
-                            myReaction={item.myReaction}
-                            reactions={item.reactions}
-                            ackFaces={item.ackUsers.flatMap(id => { const face = people.get(id); return face ? [face] : []; })}
-                            onReact={reaction => void react(item, reaction)}
-                            onOpenAuthor={() => (item.mine ? router.push('/(root)/profile') : openFriend(item.userId))}
-                            onReport={item.mine ? undefined : () => reportPost(item)}
-                            crowned={item.userId === kingId}
-                        />
-                        </Animated.View>
-                        )}
-                    </ListItem>
-                )}
+                renderItem={({ item, index }) => {
+                    const day = 'post' in item ? item.post : null;
+                    return (
+                        <ListItem index={index}>
+                            {day && isSealed(day, today, shareTime, nowMinutes) ? (
+                                <SealedDayCard key="sealed" name={day.name} avatarUrl={day.avatarUrl} opensAt={opensAt} />
+                            ) : (
+                                <Animated.View key="open" entering={flipping && day && !day.mine && day.day === today ? FlipInEasyY.duration(520).delay(index * 140).reduceMotion(ReduceMotion.System) : undefined}>
+                                    <StreamPostCard item={item} ctx={streamContext} />
+                                </Animated.View>
+                            )}
+                        </ListItem>
+                    );
+                }}
                 ListEmptyComponent={gate === null && view === 'today' ? (
                     <View style={styles.empty}>
                         <Text style={[styles.emptyText, { color: colors.textTertiary }]}>

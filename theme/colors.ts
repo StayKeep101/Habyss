@@ -27,6 +27,10 @@ export const Colors = {
     warning: '#FFAD29', // Amber-500
     error: '#EF4444', // Red-500
 
+    // Community: restrained game colours (cobalt leads, silver follows).
+    cobalt: '#1F4FD8', // 6.6:1 on white
+    silver: '#5F6673', // 5.8:1 on white
+
     // Surfaces - Light mode surfaces
     surface: '#FFFFFF', // Pure white
     surfaceSecondary: '#F8FAFC', // Slate-50 - very subtle gray
@@ -63,6 +67,10 @@ export const Colors = {
     warning: '#FFB020', // Vivid amber
     error: '#FF4757', // Alert Coral
 
+    // Community: restrained game colours (cobalt leads, silver follows).
+    cobalt: '#6494FF', // 6.1:1 on the card, 4.8:1 on its own pill
+    silver: '#C3C9D4', // 10.7:1 on the card
+
     // Surfaces
     surface: '#121826', // Abyssal Navy
     surfaceSecondary: '#0A0F14', // Trench Blue
@@ -98,6 +106,10 @@ export const Colors = {
     brandSuccess: '#4ECDC4',
     warning: '#FFAD29',
     error: '#EF4444',
+
+    // Community: restrained game colours (cobalt leads, silver follows).
+    cobalt: '#4F7DFF', // 4.9:1 on a raised chip, 5.7:1 on black
+    silver: '#BFC5CF', // 10.3:1 on a raised chip
 
     // Surfaces - Pure blacks for OLED
     surface: '#000000', // Pure black

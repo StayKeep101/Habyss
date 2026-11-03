@@ -1,19 +1,29 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { AppButton, AppTextField, SectionTitle, Text, VoidCard, VoidSheet } from '@/components/ui';
+import { AppButton, AppIcon, AppTextField, Avatar, GameCard, IconButton, IconTile, ListItem, SectionTitle, Text, VoidSheet, type BadgeProps } from '@/components/ui';
+import { useTokens } from '@/hooks/useTokens';
 import { actOnExposed, createExposed, exposedActions, exposedFeed, type ExposedAction, type ExposedChallenge, type ExposedStatus } from '@/lib/exposed';
-import { Spacing } from '@/theme/designSystem';
+import { Control, Spacing } from '@/theme/designSystem';
 
-const STATUS: Record<ExposedStatus, string> = {
-    proposed: 'Waiting for a friend to agree', active: 'Proof method agreed · Challenge started',
-    claimed: 'Completion claimed', exposed: 'Proof requested', submitted: 'Proof awaiting review', verified: 'Verified', lost: 'Loss accepted',
+/** Where a challenge stands, as the pill on its card. */
+const STATUS: Record<ExposedStatus, BadgeProps> = {
+    proposed: { label: 'Waiting', tone: 'neutral', dot: true },
+    active: { label: 'Live', tone: 'cobalt', dot: true },
+    claimed: { label: 'Claimed', tone: 'silver', icon: 'checkmark' },
+    exposed: { label: 'Called out', tone: 'silver', icon: 'eye' },
+    submitted: { label: 'In review', tone: 'silver', icon: 'time' },
+    verified: { label: 'Verified', tone: 'cobalt', icon: 'checkmark-done' },
+    lost: { label: 'Lost', tone: 'silver', icon: 'close' },
 };
 const ACTION: Record<ExposedAction, string> = {
-    accept: 'Agree & become reviewer', claim: 'I did it', expose: 'Call their bluff', submit: 'Submit proof', verify: 'Verify proof', reject: 'Request better proof', concede: 'Take the loss',
+    accept: 'Be their reviewer', claim: 'I did it', expose: 'Call their bluff', submit: 'Send proof', verify: 'Verify', reject: 'Ask for better proof', concede: 'Take the loss',
 };
+/** The one action that moves it forward is drawn solid; the rest are quiet. */
+const PRIMARY: ExposedAction[] = ['accept', 'claim', 'submit', 'verify'];
 
 export function ExposedSection() {
+    const t = useTokens();
     const [feed, setFeed] = useState<Awaited<ReturnType<typeof exposedFeed>> | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -45,25 +55,38 @@ export function ExposedSection() {
         } catch (e) { setSaveError(e instanceof Error ? e.message : 'Could not save. Try again.'); }
         finally { setBusy(false); }
     };
-    return <View style={{ gap: Spacing.md, marginTop: Spacing.section }}>
-        <SectionTitle>Exposed</SectionTitle>
-        <Text variant="bodySmall" tone="muted">Big claim? Agree on the proof first. A friend can call your bluff after you say it’s done.</Text>
-        <Text variant="caption" tone="muted">Visible to friends. Share only proof you choose, such as a summary or a link you control. No access to private data. No currency penalty.</Text>
-        {loading ? <Text tone="muted">Loading challenges…</Text> : error ? <View style={{ gap: Spacing.sm }}><Text tone="danger">{error}</Text><AppButton label="Try again" onPress={() => void load()} /></View> : <>
-            {!feed?.challenges.length ? <Text tone="muted">Make your first public commitment. A friend must agree to the proof method before it begins.</Text> : null}
-            {feed?.challenges.map(challenge => <VoidCard key={challenge.id} style={{ padding: Spacing.lg, gap: Spacing.md }}>
-                <Text variant="heading">{challenge.title}</Text>
-                <Text variant="caption" tone={challenge.status === 'verified' ? 'success' : 'muted'}>{`${challenge.owner_id === feed.me ? 'Your challenge' : `${challenge.ownerName}’s challenge`} · ${STATUS[challenge.status]}`}</Text>
-                <Text variant="bodySmall">{`${challenge.status === 'proposed' ? 'Proposed' : 'Agreed'} proof: ${challenge.proof_method}`}</Text>
-                {challenge.reviewerName ? <Text variant="caption" tone="muted">{`Reviewer: ${challenge.reviewer_id === feed.me ? 'You' : challenge.reviewerName}`}</Text> : null}
-                {challenge.proof ? <Text variant="bodySmall" selectable>{challenge.proof}</Text> : null}
-                {exposedActions(challenge, feed.me).map(action => <AppButton key={action} label={ACTION[action]} disabled={busy} variant="ghost" onPress={() => {
-                    if (action === 'submit') { setProof(challenge.proof ?? ''); setSaveError(null); setSheet(challenge); }
-                    else if (action === 'concede') Alert.alert('Take the loss?', 'This closes the challenge as a loss. Your wallet stays unchanged.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Take the loss', style: 'destructive', onPress: () => void act(challenge, action) }]);
-                    else void act(challenge, action);
-                }} />)}
-            </VoidCard>)}
-            <AppButton label="Make a commitment" icon="flag" onPress={() => { setSaveError(null); setSheet('create'); }} />
+    const make = () => { setSaveError(null); setSheet('create'); };
+    return <View style={styles.section}>
+        <SectionTitle right={<IconButton icon="add" label="Make a commitment" onPress={make} />}>Exposed</SectionTitle>
+        {loading && !feed ? null : error ? <View style={styles.gap}><Text tone="danger">{error}</Text><AppButton label="Try again" variant="ghost" onPress={() => void load()} /></View> : <>
+            {!feed?.challenges.length ? (
+                <GameCard onPress={make} title="Make a big claim" subtitle="A friend checks the proof"
+                    lead={<IconTile icon="eye" color={t.color.silver} size={Control.hitTarget} />} badge={{ label: 'No Shards', tone: 'neutral' }} />
+            ) : null}
+            {feed?.challenges.map(challenge => {
+                const mine = challenge.owner_id === feed.me;
+                const owner = challenge.ownerName ?? 'Friend';
+                const actions = exposedActions(challenge, feed.me);
+                return <ListItem key={challenge.id}><GameCard
+                    lead={<Avatar name={mine ? 'You' : owner} size={Control.hitTarget} />}
+                    title={challenge.title}
+                    subtitle={challenge.reviewerName ? `${mine ? 'You' : owner} · checked by ${challenge.reviewer_id === feed.me ? 'you' : challenge.reviewerName}` : mine ? 'You' : owner}
+                    badge={STATUS[challenge.status]}
+                    footer={actions.length ? <View style={styles.actions}>{actions.map(action => <View key={action} style={styles.grow}><AppButton label={ACTION[action]} disabled={busy}
+                        variant={PRIMARY.includes(action) ? undefined : 'ghost'} onPress={() => {
+                            if (action === 'submit') { setProof(challenge.proof ?? ''); setSaveError(null); setSheet(challenge); }
+                            else if (action === 'concede') Alert.alert('Take the loss?', 'This closes the challenge as a loss. Your wallet stays unchanged.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Take the loss', style: 'destructive', onPress: () => void act(challenge, action) }]);
+                            else void act(challenge, action);
+                        }} /></View>)}</View> : null}>
+                    <View style={styles.gap}>
+                        <View style={styles.proof}>
+                            <AppIcon name="shield-checkmark" size={Spacing.lg} color={t.color.textMuted} />
+                            <Text variant="bodySmall" tone="muted" grow>{challenge.proof_method}</Text>
+                        </View>
+                        {challenge.proof ? <Text variant="bodySmall" selectable>{challenge.proof}</Text> : null}
+                    </View>
+                </GameCard></ListItem>;
+            })}
         </>}
         <VoidSheet visible={sheet !== null} onClose={() => { if (!busy) setSheet(null); }} title={sheet === 'create' ? 'Make a commitment' : 'The agreed proof'} scrollable>
             <View style={{ gap: Spacing.lg, padding: Spacing.xl }}>
@@ -82,3 +105,11 @@ export function ExposedSection() {
         </VoidSheet>
     </View>;
 }
+
+const styles = StyleSheet.create({
+    section: { gap: Spacing.md },
+    gap: { gap: Spacing.sm },
+    grow: { flex: 1 },
+    proof: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+    actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+});

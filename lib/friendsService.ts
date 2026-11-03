@@ -1067,6 +1067,25 @@ export class FriendsService {
         return !error;
     }
 
+    /**
+     * Clears many at once (a stack of repeats, or Clear all) in one call to the
+     * server rather than one each. Open requests are never cleared: they are answered.
+     */
+    static async dismissNotifications(ids: string[]): Promise<boolean> {
+        const local = ids.filter(id => id.startsWith('local:'));
+        const remote = ids.filter(id => !id.startsWith('local:') && !id.startsWith('request:'));
+        if (local.length) {
+            const { NotificationService } = require('./notificationService') as typeof import('./notificationService');
+            await Promise.all(local.map(id => NotificationService.markNotificationRead(id.slice(6)).catch(() => undefined)));
+        }
+        if (!remote.length) return true;
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const { error } = await ctx.sb.from('notifications').delete()
+            .in('id', remote).eq('user_id', ctx.me);
+        return !error;
+    }
+
     /* ------------------------------------------------ blocking, reporting */
 
     /**
