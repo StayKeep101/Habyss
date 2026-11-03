@@ -27,6 +27,22 @@ describe('buildToday', () => {
         expect(today.done).toBe(1);
         expect(today.total).toBe(2);
     });
+    it('tasks_count_only_listed_tasks', () => {
+        // Ruling P6: "Tasks" is task-only, over the tasks the day lists (overdue and undated included), with no habits and no cap.
+        const data = cloud({ habits: [habit('daily')], completions: [done('daily', TODAY)], tasks: [task('a', { due_date: TODAY }), task('b', { due_date: TODAY, status: 'done', completed_at: `${TODAY}T08:00:00` }), task('overdue', { due_date: '2026-10-30' }), task('undated'), task('later', { due_date: TOMORROW })] });
+        const today = build(data, at(TODAY));
+        const listed = today.items.filter(i => i.kind === 'task');
+        expect(listed.map(i => i.id).sort()).toEqual(['a', 'b', 'overdue', 'undated']);
+        expect([today.tasksDone, today.tasksTotal]).toEqual([1, 4]);
+        expect([build(data, at(TODAY), false).tasksDone, build(null, at(TODAY)).tasksTotal]).toEqual([0, 0]);
+    });
+    it('counts_an_item_split_into_parts_once', () => {
+        // Rule 4 can list one task in several parts; it is still one task and one row in the counts.
+        const data = cloud({ tasks: [task('Ship', { due_date: TODAY, status: 'done', completed_at: at(TODAY, 20, 4).toISOString() }), task('Overdue', { due_date: '2026-10-30' }), task('Undated'), task('Done', { due_date: TODAY, status: 'done', completed_at: `${TODAY}T09:00:00` })] });
+        const today = build(data, at(TODAY, 20, 4));
+        expect(today.items.filter(i => i.id === 'Undated').length).toBeGreaterThan(1);
+        expect([today.tasksDone, today.tasksTotal, today.listedDone, today.listedTotal]).toEqual([2, 4, 2, 4]);
+    });
     it('current_is_the_item_on_now', () => {
         const data = cloud({ habits: [habit('h')], tasks: [task('t', { due_date: TODAY })] });
         // Tasks come first: t 07:00-08:30, h 08:30-09:00.

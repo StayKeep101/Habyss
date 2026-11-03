@@ -8,10 +8,12 @@ import { tasksForDay } from '../shared/tasks';
 import { goalProgress } from '../shared/goalInsights';
 export interface TodayItem { id: string; kind: 'habit' | 'task'; title: string; done: boolean; skipped: boolean; start: number; end: number; state: 'done' | 'now' | 'next' | 'later'; locked: boolean; icon?: string; color?: string; goalId?: string }
 export interface GoalSummary { id: string; name: string; percent: number; icon?: string; color?: string }
-export interface Today { day: string; items: TodayItem[]; current: TodayItem | null; next: TodayItem | null; done: number; total: number; streak: number; goals: GoalSummary[]; goalsDone: number; goalsTotal: number; signedIn: boolean }
+/** `done`/`total` are the shared day tally (habits plus capped tasks). `tasksDone`/`tasksTotal` count the listed tasks only (Ruling P6): the "Tasks"
+ * figure everywhere for today. `listedDone`/`listedTotal` count every listed habit and task. An item split into parts (rule 4) counts once. */
+export interface Today { day: string; items: TodayItem[]; current: TodayItem | null; next: TodayItem | null; done: number; total: number; tasksDone: number; tasksTotal: number; listedDone: number; listedTotal: number; streak: number; goals: GoalSummary[]; goalsDone: number; goalsTotal: number; signedIn: boolean }
 const DEFAULT_WINDOW = { wake: 420, sleep: 1380 };
 export const minuteOfDay = (now: Date): number => now.getHours() * 60 + now.getMinutes();
-const empty = (day: string, signedIn: boolean): Today => ({ day, items: [], current: null, next: null, done: 0, total: 0, streak: 0, goals: [], goalsDone: 0, goalsTotal: 0, signedIn });
+const empty = (day: string, signedIn: boolean): Today => ({ day, items: [], current: null, next: null, done: 0, total: 0, tasksDone: 0, tasksTotal: 0, listedDone: 0, listedTotal: 0, streak: 0, goals: [], goalsDone: 0, goalsTotal: 0, signedIn });
 const add = (map: Record<string, string[]>, day: string, id: string) => { (map[day] ??= []).push(id); };
 export function buildToday(data: CloudData | null, opts: { now: Date; signedIn: boolean; window?: { wake: number; sleep: number } }): Today {
     const { now } = opts;
@@ -57,7 +59,9 @@ export function buildToday(data: CloudData | null, opts: { now: Date; signedIn: 
     const current = items.find(i => i.state === 'now') ?? null;
     const next = items.find(i => i.state === 'next') ?? null;
     const tally = tallyDay(habits, done, skipped, tasks, day);
+    const listed = [...new Map(items.map(i => [`${i.kind}:${i.id}`, i])).values()];
+    const listedTasks = listed.filter(i => i.kind === 'task');
     const { streak } = streakFrom(allHabits, allTasks, history, skips, day);
     const goals = allHabits.filter(h => h.isGoal && !h.isArchived).map(goal => { const input = { goal, habits: allHabits, tasks: allTasks, history, skips, today: day }; return { id: goal.id, name: goal.name, exact: goalProgress(input, false), percent: goalProgress(input), icon: goal.icon, color: goal.color }; }).sort((a, b) => b.exact - a.exact);
-    return { day, items, current, next, done: tally.done, total: tally.total, streak, goals: goals.map(({ exact: _exact, ...g }) => g), goalsDone: goals.filter(g => g.exact >= 100).length, goalsTotal: goals.length, signedIn: true };
+    return { day, items, current, next, done: tally.done, total: tally.total, tasksDone: listedTasks.filter(i => i.done).length, tasksTotal: listedTasks.length, listedDone: listed.filter(i => i.done).length, listedTotal: listed.length, streak, goals: goals.map(({ exact: _exact, ...g }) => g), goalsDone: goals.filter(g => g.exact >= 100).length, goalsTotal: goals.length, signedIn: true };
 }
