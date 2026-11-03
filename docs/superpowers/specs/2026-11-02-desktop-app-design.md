@@ -153,3 +153,13 @@ Habyss saves people's time. The desktop app has to be incredibly intuitive, powe
 - Chart rendering, using the existing DOM/SVG approach, with no heavy chart library.
 - The starter host-to-category list.
 - How the Safari private-window signal is detected, as long as it fails closed.
+
+## Carried over from Plan 2a (for 2b and 2c)
+
+- **Tasks counts (ruling P6):** "Tasks" counts listed tasks on both the panel and the Dashboard (Today). The "Due Today" header counts listed rows.
+- **2b:** close stale `paused_at` on sessions ended by an older build.
+- **2b:** fold the load of a 7-day snapshot plus a 400-day `cloud_data` reload per edit per window into a lighter query.
+- **2c:** Settings > Account should use the durable `account` flag, not `state === 'signed_out'`.
+- **2c:** read the daily target and wake/sleep window from the cached `personal_backups`. Until then, the phone's defaults (3 tasks, 07:00–23:00) apply.
+- **2c:** real app icons in Activity, a target glyph for Goals, `lucide-react` removed from the older screens, and font-size tokens.
+- **Rare paths:** the account flag can be wrong after a Keychain clear fails, and can flicker during an in-flight pass.
