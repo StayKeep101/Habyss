@@ -221,7 +221,7 @@ describe('Echo Alive native scheduling and actions', () => {
     it('replaces the regular timed reminder with encouragement and a follow-up', async () => {
         await NotificationService.refreshReminders();
         const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request)
-            .filter(item => item.content.data.kind !== 'keep-alive');
+            .filter(item => !['keep-alive', 'echo-energy', 'day-review'].includes(item.content.data.kind));
         expect(calls).toHaveLength(14);
         expect(calls.every(item => item.content.data.kind === 'echo-alive')).toBe(true);
         expect(calls[0].trigger.date).toEqual(new Date(2026, 8, 16, 7, 50));
@@ -236,7 +236,7 @@ describe('Echo Alive native scheduling and actions', () => {
         await NotificationService.refreshReminders();
         expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('old-followup');
         const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request)
-            .filter(item => item.content.data.kind !== 'keep-alive');
+            .filter(item => !['keep-alive', 'echo-energy', 'day-review'].includes(item.content.data.kind));
         expect(calls).toHaveLength(12);
         expect(calls.every(item => item.content.data.scheduledDate !== '2026-09-16')).toBe(true);
     });
@@ -247,7 +247,23 @@ describe('Echo Alive native scheduling and actions', () => {
         await AsyncStorage.removeItem('app_settings');
         await AsyncStorage.setItem('notif_habits', 'false');
         await NotificationService.refreshReminders();
-        expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+        // Nothing about a habit; Echo's own energy question and evening review are not habit reminders.
+        const kinds = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request.content.data.kind);
+        expect(kinds.filter(kind => !['keep-alive', 'echo-energy', 'day-review'].includes(kind))).toEqual([]);
+    });
+    it('asks about energy once a day', async () => {
+        await NotificationService.refreshReminders();
+        const requests = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request);
+        const energy = requests.find(item => item.content.data.kind === 'echo-energy');
+        expect(energy.content.categoryIdentifier).toBe('ECHO_ENERGY');
+        expect(energy.trigger.date.getHours()).toBeGreaterThanOrEqual(9);
+        expect(requests.some(item => item.content.data.kind === 'day-review')).toBe(false);
+    });
+    it('answers energy from the notification without opening anything', async () => {
+        const { currentCheckIns } = require('../checkIns');
+        await NotificationService.handleEchoResponse({ actionIdentifier: 'ECHO_ENERGY_HIGH', notification: { date: Date.now(), request: {
+            identifier: 'echo-energy:2026-09-16', content: { data: { kind: 'echo-energy' } } } } } as any);
+        expect(currentCheckIns().entries.at(-1)).toMatchObject({ kind: 'energy', value: 5 });
     });
     it('marks the original date complete using the fractional measurement target', async () => {
         (getHabits as jest.Mock).mockResolvedValue([{ ...habit, goalValue: 0.5, unit: 'km', trackingMethod: 'numeric' }]);

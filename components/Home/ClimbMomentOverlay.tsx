@@ -11,12 +11,13 @@ import { AppButton } from '@/components/ui/AppButton';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing } from '@/theme/designSystem';
-import { textOn } from '@/theme/tokens';
+import { rankTone, textOn } from '@/theme/tokens';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { RANKS } from '@/lib/marks';
 import { RANK_ICONS, echoLineFor, type ClimbMoment } from '@/lib/climbMoments';
+import { RankGem } from '@/components/ui/RankGem';
 
 const RM = ReduceMotion.System;
 const EMBLEM = 132;
@@ -137,6 +138,8 @@ export function ClimbMomentOverlay({ moment, onDone }: { moment: ClimbMoment | n
     if (!moment) return null;
     const rankName = isRank ? moment.rank : 'Out of the dark';
     const icon = isRank ? RANK_ICONS[moment.rank] ?? 'star' : 'footsteps';
+    // The light of the moment is the new rank's own colour.
+    const shade = isRank ? rankTone(moment.rank).color : primary;
 
     return (
         <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={onDone}>
@@ -152,12 +155,19 @@ export function ClimbMomentOverlay({ moment, onDone }: { moment: ClimbMoment | n
                                     <Text style={[styles.oldRank, { color: colors.textTertiary }]}>{previous}</Text>
                                 </Animated.View>
                             ) : null}
-                            <Animated.View pointerEvents="none" style={[styles.abs, raysStyle]}><Rays color={primary} /></Animated.View>
-                            {Array.from({ length: PARTICLES }, (_, i) => <Particle key={i} index={i} burst={burst} color={i % 2 ? primary : gradient[1]} />)}
-                            <Animated.View style={[styles.emblem, { shadowColor: primary }, emblemStyle]}>
-                                <LinearGradient colors={[gradient[0], gradient[1]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.emblemFill]} />
-                                <AppIcon name={icon as never} filled size={60} color={textOn(primary)} />
-                            </Animated.View>
+                            <Animated.View pointerEvents="none" style={[styles.abs, raysStyle]}><Rays color={shade} /></Animated.View>
+                            {Array.from({ length: PARTICLES }, (_, i) => <Particle key={i} index={i} burst={burst} color={i % 2 ? shade : gradient[1]} />)}
+                            {/* A new rank lands as its gem, in its own colour; the first foothold keeps its emblem. */}
+                            {isRank ? (
+                                <Animated.View style={emblemStyle}>
+                                    <RankGem rank={moment.rank} size={EMBLEM * 1.4} />
+                                </Animated.View>
+                            ) : (
+                                <Animated.View style={[styles.emblem, { shadowColor: primary }, emblemStyle]}>
+                                    <LinearGradient colors={[gradient[0], gradient[1]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.emblemFill]} />
+                                    <AppIcon name={icon as never} filled size={60} color={textOn(primary)} />
+                                </Animated.View>
+                            )}
                         </View>
 
                         <Animated.Text entering={FadeIn.delay(1300).duration(400)} style={[styles.kicker, { color: primary }]}>

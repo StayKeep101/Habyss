@@ -3,10 +3,10 @@
     "name": "Habyss",
     "slug": "Habyss",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/app-icon.png",
     "scheme": "habyss",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.habyss.app",
@@ -19,6 +19,8 @@
         "NSPhotoLibraryUsageDescription": "Habyss uses your photos when you choose a profile picture or a goal background.",
         "NSFaceIDUsageDescription": "Habyss uses Face ID to unlock the app when App Lock is on.",
         "NSCalendarsUsageDescription": "Habyss uses calendar access to schedule habit reminders and sync with your calendar events.",
+        "NSRemindersFullAccessUsageDescription": "Habyss shows your reminders that are due at a time on your timeline, beside your habits, tasks and events.",
+        "NSRemindersUsageDescription": "Habyss shows your reminders that are due at a time on your timeline, beside your habits, tasks and events.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Habyss needs your location to send reminders when you arrive at specific places like Home or Work.",
         "NSLocationWhenInUseUsageDescription": "Habyss needs your location to send reminders when you arrive at specific places like Home or Work.",
         "NSMicrophoneUsageDescription": "Habyss uses the microphone when you choose to speak, such as holding the create button to add a habit, task or goal by voice, or talking to Echo.",
@@ -40,6 +42,7 @@
         ],
         "com.apple.developer.family-controls": true,
         "com.apple.developer.kernel.increased-memory-limit": true,
+        "com.apple.developer.usernotifications.time-sensitive": true,
         "com.apple.developer.applesignin": [
           "Default"
         ]
@@ -144,7 +147,7 @@
         "projectId": "9ce82041-a728-43a6-8b9a-1ffa254fbfb6"
       }
     },
-    "runtimeVersion": "1.0.2",
+    "runtimeVersion": "1.0.4",
     "updates": {
       "url": "https://u.expo.dev/9ce82041-a728-43a6-8b9a-1ffa254fbfb6"
     }

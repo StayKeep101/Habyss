@@ -8,7 +8,6 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { PERSONALITY_MODES, PersonalityModeId } from '@/constants/AIPersonalities';
-import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { router } from 'expo-router';
 import { styles } from '@/styles/screens/ai-config.styles';
 
@@ -18,7 +17,6 @@ export default function AIConfigScreen() {
     const isLight = theme === 'light';
     const { selectionFeedback, mediumFeedback, lightFeedback } = useHaptics();
     const { aiPersonality, setAIPersonality, greetingStyle, setGreetingStyle } = useAppSettings();
-    const { isPremium } = usePremiumStatus();
     const { primary: accentColor } = useAccentGradient();
 
     const handleSelectPersonality = (id: PersonalityModeId) => {
@@ -46,21 +44,14 @@ export default function AIConfigScreen() {
                     <View style={styles.list}>
                         {PERSONALITY_MODES.map((mode) => {
                             const isActive = aiPersonality === mode.id;
-                            const isLocked = mode.premiumOnly && !isPremium;
 
                             return (
                                 <TouchableOpacity
                                     key={mode.id}
-                                    onPress={() => {
-                                        if (isLocked) {
-                                            Alert.alert("Premium Feature", "Upgrade to Pro to unlock this personality.");
-                                            return;
-                                        }
-                                        handleSelectPersonality(mode.id as PersonalityModeId);
-                                    }}
+                                    onPress={() => handleSelectPersonality(mode.id as PersonalityModeId)}
                                     activeOpacity={0.8}
                                     accessibilityRole="radio"
-                                    accessibilityState={{ selected: isActive, disabled: isLocked }}
+                                    accessibilityState={{ selected: isActive }}
                                     style={[
                                         styles.row,
                                         {
@@ -68,7 +59,6 @@ export default function AIConfigScreen() {
                                                 ? (isLight ? accentColor + '15' : accentColor + '20')
                                                 : colors.surface,
                                             borderColor: isActive ? accentColor : colors.border,
-                                            opacity: isLocked ? 0.6 : 1,
                                         },
                                     ]}
                                 >
@@ -79,7 +69,6 @@ export default function AIConfigScreen() {
                                     <View style={{ flex: 1 }}>
                                         <View style={styles.rowTitleLine}>
                                             <Text style={[styles.modeName, { color: colors.textPrimary }]}>{mode.name}</Text>
-                                            {isLocked ? <Ionicons name="lock-closed" size={12} color={colors.textTertiary} /> : null}
                                         </View>
                                         {isActive ? (
                                             <Text style={[styles.modeDesc, { color: colors.textSecondary }]} numberOfLines={2}>

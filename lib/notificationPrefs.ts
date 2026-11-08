@@ -22,6 +22,10 @@ export interface NotificationPrefs {
     reactions: boolean;
     /** Friend requests, and their answers. */
     friendRequests: boolean;
+    /** Guided through the day: what is on now, what is next, meals and events (lib/dayGuide.ts). */
+    dayGuide: boolean;
+    /** Leave now and Start now ring as alarms, through Silent and on the Watch (iOS 26+). */
+    alarms: boolean;
 }
 
 export const DEFAULT_PREFS: NotificationPrefs = {
@@ -29,9 +33,11 @@ export const DEFAULT_PREFS: NotificationPrefs = {
     shareOffers: true,
     reactions: true,
     friendRequests: true,
+    dayGuide: true,
+    alarms: true,
 };
 
-export const PREF_LABELS: { id: keyof NotificationPrefs; label: string; detail: string }[] = [
+export const PREF_LABELS: { id: Exclude<keyof NotificationPrefs, 'dayGuide' | 'alarms'>; label: string; detail: string }[] = [
     { id: 'sharedDone', label: 'A friend finishes', detail: 'When somebody completes their half of something you share' },
     { id: 'shareOffers', label: 'Shared with you', detail: 'When a friend offers you a habit, task or goal' },
     { id: 'reactions', label: 'Reactions and notes', detail: 'When somebody responds to your day' },

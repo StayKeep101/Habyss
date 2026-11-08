@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /**
  * What the + does on each tab, the fastest way from a thought to the thing.
  *
- * - Home: how you are (mood, energy), one tap each;
- * - Roadmap: make something (goal, habit, task, thought);
+ * - Home and Roadmap: make something (goal, habit, task, thought). Mood and
+ *   energy are no longer logged by hand: Echo asks;
  * - Community: put Shards on a goal, or duel a friend;
  * - Settings: the + is a search lens, not a menu (see settings.tsx).
  *
@@ -14,12 +14,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  */
 
 export type PlusTab = 'home' | 'roadmap' | 'community';
-export type PlusActionId = 'mood' | 'energy' | 'goal' | 'habit' | 'task' | 'thought' | 'focus' | 'bet' | 'duel';
+export type PlusActionId = 'goal' | 'habit' | 'task' | 'thought' | 'focus' | 'bet' | 'duel';
 
 /** Every action the + can offer, with the token colour its icon wears. */
 export const PLUS_ACTIONS: Record<PlusActionId, { label: string; icon: string; tone: 'accent' | 'success' | 'warning' | 'danger' }> = {
-    mood: { label: 'Mood', icon: 'happy-outline', tone: 'warning' },
-    energy: { label: 'Energy', icon: 'flash-outline', tone: 'success' },
     goal: { label: 'Goal', icon: 'flag-outline', tone: 'accent' },
     habit: { label: 'Habit', icon: 'repeat', tone: 'success' },
     task: { label: 'Task', icon: 'checkmark-circle-outline', tone: 'warning' },
@@ -36,7 +34,7 @@ export const PLUS_TABS: { id: PlusTab; label: string; icon: string }[] = [
 ];
 
 export const DEFAULT_PLUS: Record<PlusTab, PlusActionId[]> = {
-    home: ['mood', 'energy'],
+    home: ['goal', 'habit', 'task', 'thought'],
     roadmap: ['goal', 'habit', 'task', 'thought'],
     community: ['bet', 'duel'],
 };
@@ -98,17 +96,18 @@ export async function savePlus(next: Record<PlusTab, PlusActionId[]>): Promise<v
 export const plusTabOf = (route: string | undefined): PlusTab | 'settings' =>
     route === 'settings' ? 'settings' : route === 'community' ? 'community' : route === 'roadmap' ? 'roadmap' : 'home';
 
-/** Does what the action is for: opens the one-tap question, the sheet, or the page. */
+/** Does what the action is for: opens the sheet or the page. */
 export function runPlus(id: PlusActionId): void {
     const { emit } = require('./appEvents') as typeof import('./appEvents');
     const go = (path: string) => (require('expo-router') as typeof import('expo-router')).router.push(path as never);
-    if (id === 'mood' || id === 'energy') emit('show_check_in', { kind: id });
     // Creating a habit opens quick add; the full form is for editing, reachable from quick add's More options.
-    else if (id === 'habit') emit('show_quick_add');
+    if (id === 'habit') emit('show_quick_add');
     else if (id === 'goal') emit('show_goal_quick_add');
     else if (id === 'task') emit('show_task_form');
     else if (id === 'thought') go('/brain-dump');
-    else if (id === 'focus') go('/(root)/focus');
+    // Focus starts on what is on now on today's timeline (then what is next), not on a blank timer:
+    // the same Focus as every other way in (lib/openFocus.ts).
+    else if (id === 'focus') void (require('./openFocus') as typeof import('./openFocus')).openFocus();
     else if (id === 'bet') emit('show_open_bet');
     else if (id === 'duel') emit('show_duel');
 }

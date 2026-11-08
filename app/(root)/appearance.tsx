@@ -6,17 +6,15 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 import { useAppSettings, type RoadMapCardSize } from '@/context/AppSettingsContext';
 import { useAccent, ACCENT_GRADIENTS } from '@/context/AccentContext';
 import { styles } from '@/styles/screens/appearance.styles';
 
 /**
- * How the app looks and feels, on one screen: theme, card size, sound and
+ * How the app looks and feels, on one screen (always dark): card size, sound and
  * touch as rows you can change in place, and the colour as a row of circles.
  */
 export default function Appearance() {
-    const { mode, setTheme } = useTheme();
     const { cardSize, setCardSize, soundsEnabled, setSoundsEnabled, hapticsEnabled, setHapticsEnabled } = useAppSettings();
     const { accentGradient, setAccentGradientId } = useAccent();
     const { selectionFeedback } = useHaptics();
@@ -25,9 +23,6 @@ export default function Appearance() {
         <SheetScreen title="Appearance" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <SettingsGroup>
-                    <SettingsRow icon="contrast" color="#5B5BD6" label="Theme"
-                        choices={[{ id: 'light', label: 'Light' }, { id: 'abyss', label: 'Dark' }, { id: 'system', label: 'Auto' }]}
-                        chosen={mode === 'trueDark' ? 'abyss' : mode} onChoose={id => setTheme(id as ThemeMode)} />
                     <SettingsRow icon="albums" color="#FF9F0A" label="Cards"
                         choices={[{ id: 'small', label: 'S' }, { id: 'standard', label: 'M' }, { id: 'big', label: 'L' }]}
                         chosen={cardSize} onChoose={id => setCardSize(id as RoadMapCardSize)} />

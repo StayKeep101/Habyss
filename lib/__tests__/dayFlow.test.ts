@@ -60,16 +60,6 @@ describe('the line', () => {
         expect(slot(items, 'bugs')).toEqual([570, 630]);
         expect(slot(items, 'jobs')).toEqual([630, 750]);
     });
-    it('is the same whenever you look: opening late never moves a start', () => {
-        const items = [meal('breakfast', 480, 60), task('mom'), habit('bugs')];
-        expect(slot(items, 'mom', 552)).toEqual([540, 570]);
-        expect(slot(items, 'mom', 900)).toEqual([540, 570]);
-        expect(slot(items, 'mom', null)).toEqual([540, 570]);
-    });
-    it('does not move anything when something is ticked', () => {
-        const items = [task('mom'), habit('bugs')];
-        expect(slot(items.map(item => ({ ...item, done: item.id === 'mom' })), 'bugs', 500)).toEqual(slot(items, 'bugs', 500));
-    });
     it('gives something with no length its kind\'s default: a task 90 minutes, a habit 30', () => {
         expect(slot([task('call', { minutes: 0 })], 'call')).toEqual([480, 570]);
         expect(slot([habit('stretch', { minutes: 0 })], 'stretch')).toEqual([480, 510]);
@@ -80,11 +70,19 @@ describe('the line', () => {
         const at = (id: string) => { const row = off.timeline.find(item => item.id === id)!; return [row.start, row.end]; };
         expect(at('report')).toEqual([600, 660]);
         expect(at('run')).toEqual([540, 570]);
-        // What has no time is placed once, in the free time.
-        expect(at('loose')).toEqual([480, 510]);
-        // On, the same day moves: the reschedule lays the run out again from 11:40.
+        // What has no time is not placed: it waits in Anytime.
+        expect(off.timeline.some(item => item.id === 'loose')).toBe(false);
+        expect(off.anytime.map(item => item.id)).toEqual(['loose']);
+        // Like a calendar: nothing wears the lock, and a tick before the end changes nothing.
+        expect(off.timeline.every(item => !item.locked)).toBe(true);
+        const ticked = flowDay(items.map(item => item.id === 'report' ? { ...item, done: true, doneAt: 610 } : item), 720, day, { auto: false });
+        expect(ticked.timeline.find(item => item.id === 'report')!.end).toBe(660);
+        // On, today: the day was planned from waking, so the run had its place this morning
+        // and the clock has passed it; made just now, it lines up from now instead.
         const on = flowDay(items, 720, day);
-        expect(on.timeline.find(item => item.id === 'run')!.start).toBe(700);
+        expect(on.timeline.find(item => item.id === 'run')!.start).toBeLessThan(720);
+        const made = flowDay(items.map(item => item.id === 'run' ? { ...item, notBefore: 719 } : item), 720, day);
+        expect(made.timeline.find(item => item.id === 'run')!.start).toBeGreaterThanOrEqual(720);
     });
     it('says what is on now and what is next, and nothing else', () => {
         const flow = flowDay([meal('breakfast', 480, 60), task('mom'), habit('bugs')], 552, day);
@@ -165,48 +163,190 @@ describe('rule 4: too long for the time before a meal, it splits around it', () 
     });
 });
 
-describe('rule 5: a swipe reschedules from that moment, by priority', () => {
-    // 8:00 mom (task), 8:30 bugs (hard habit), 9:30 jobs (habit).
-    const items = [task('mom'), habit('bugs', { difficulty: 3 }), habit('jobs', { minutes: 120 })];
-    it('puts a missed habit back after the moment, in order with what is still to come', () => {
-        // At 9:40 bugs (8:30–9:30) was missed; jobs is on 9:30–11:30. Swiping bugs at 9:40:
-        // jobs started before 9:40 and stays; bugs goes after it.
-        const flow = flowDay(items.map(item => item.id === 'bugs' ? { ...item, rescheduledAt: 580 } : item), 580, day);
-        expect(flow.timeline.find(row => row.id === 'jobs')).toMatchObject({ start: 570, end: 690 });
-        expect(flow.timeline.find(row => row.id === 'bugs')).toMatchObject({ start: 690, end: 750 });
-        expect(flow.timeline.find(row => row.id === 'mom')!.start).toBe(480);
+describe('bedtime is the end of the line (rule 7)', () => {
+    // Free from 20:35, booked 21:00–23:30, bed at 23:30.
+    const evening = { wake: 1235, sleep: 1410 };
+    const booked = { id: 'event', kind: 'event' as const, title: 'event', start: 1260, minutes: 150, done: false, fixed: true };
+
+    it('cuts the last free thing short to fit, instead of running past bedtime', () => {
+        const flow = flowDay([booked, habit('sales', { minutes: 30 })], null, evening);
+        const parts = flow.timeline.filter(row => row.id === 'sales');
+        expect(parts).toHaveLength(1);
+        expect([parts[0].start, parts[0].end]).toEqual([1235, 1260]);
+        expect(parts[0].cutFrom).toBe(30);
+        expect(flow.unfit).toEqual([]);
     });
-    it('lets a more important one go first: everything open after the moment is ordered again', () => {
-        // Swiping mom (a task) at 8:30: it goes first from 8:30, bugs and jobs after it.
-        const flow = flowDay(items.map(item => item.id === 'mom' ? { ...item, rescheduledAt: 510 } : item), 515, day);
-        expect(['mom', 'bugs', 'jobs'].map(id => flow.timeline.find(row => row.id === id)!.start)).toEqual([510, 540, 600]);
+
+    it('puts what has no room at all under the line', () => {
+        const flow = flowDay([booked, habit('a', { minutes: 30 }), habit('b', { minutes: 30 })], null, evening);
+        expect(flow.timeline.some(row => row.id === 'b')).toBe(false);
+        expect(flow.unfit.map(item => item.id)).toEqual(['b']);
+        expect(flow.timeline.every(row => row.fixed || row.end <= 1410)).toBe(true);
     });
-    it('never moves what is done', () => {
-        const done = items.map(item => item.id === 'jobs' ? { ...item, done: true } : item.id === 'bugs' ? { ...item, rescheduledAt: 480 } : item);
-        const flow = flowDay(done, 485, day);
-        expect(flow.timeline.find(row => row.id === 'jobs')).toMatchObject({ start: 570, end: 690 });
+
+    it('reads a bedtime after midnight as that night', () => {
+        const flow = flowDay([habit('late', { minutes: 60 })], null, { wake: 1380, sleep: 30 });
+        const late = flow.timeline.find(row => row.id === 'late')!;
+        expect([late.start, late.end, late.cutFrom]).toEqual([1380, 1440, undefined]);
     });
 });
 
-describe('rule 6: ticked before its end, the next one starts', () => {
-    // 8:00 mom (task, 30 min), 8:30 bugs (habit, 60 min), 9:30 jobs (habit, 2 hr).
-    const items = [task('mom'), habit('bugs', { difficulty: 3 }), habit('jobs', { minutes: 120 })];
-    it('ends it at the tick, and what is open after it starts then', () => {
-        const flow = flowDay(items.map(item => item.id === 'mom' ? { ...item, done: true, doneAt: 495 } : item), 496, day);
-        expect(flow.timeline.find(row => row.id === 'mom')).toMatchObject({ start: 480, end: 495, state: 'done' });
-        expect(flow.timeline.find(row => row.id === 'bugs')).toMatchObject({ start: 495, end: 555, state: 'now' });
-        expect(flow.timeline.find(row => row.id === 'jobs')).toMatchObject({ start: 555, end: 675 });
-    });
-    it('takes no time when ticked before it began, and the next one starts then', () => {
-        // bugs (8:30) ticked at 8:10, while mom is still on: bugs takes no time; jobs starts at 8:30.
-        const flow = flowDay(items.map(item => item.id === 'bugs' ? { ...item, done: true, doneAt: 490 } : item), 491, day);
-        expect(flow.timeline.find(row => row.id === 'bugs')).toMatchObject({ start: 510, end: 510 });
-        expect(flow.timeline.find(row => row.id === 'jobs')).toMatchObject({ start: 510, end: 630 });
-        expect(flow.timeline.find(row => row.id === 'mom')).toMatchObject({ start: 480, end: 510 });
-    });
-    it('does nothing when it was ticked at or after its end', () => {
-        const flow = flowDay(items.map(item => item.id === 'mom' ? { ...item, done: true, doneAt: 520 } : item), 521, day);
-        expect(flow.timeline.find(row => row.id === 'mom')).toMatchObject({ start: 480, end: 510 });
-        expect(flow.timeline.find(row => row.id === 'bugs')).toMatchObject({ start: 510, end: 570 });
+describe('travel either side of an event', () => {
+    it('is told apart from the event itself', () => {
+        const { isTravel } = require('../dayFlow') as typeof import('../dayFlow');
+        expect(isTravel('event:abc:to')).toBe(true);
+        expect(isTravel('event:abc:back')).toBe(true);
+        expect(isTravel('event:abc')).toBe(false);
+        expect(isTravel('task:to')).toBe(false);
     });
 });
+
+describe('free time', () => {
+    it('is the waking day less what is planned, overlaps counted once', () => {
+        const { freeTime: free } = require('../dayFlow') as typeof import('../dayFlow');
+        const flow = { timeline: [{ start: 480, end: 540 }, { start: 520, end: 600 }, { start: 1380, end: 1500 }] as never[] };
+        // 8:00–23:30 awake (930 min); busy 8:00–10:00 (120) and 23:00–23:30 (30).
+        expect(free(flow, day)).toMatchObject({ free: 780, awake: 930 });
+    });
+});
+
+describe('a meal or event that finished early', () => {
+    it('ticked, it keeps its whole place: fixed things never move', () => {
+        const items = [
+            { id: 'event:class', kind: 'event' as const, title: 'Class', start: 600, minutes: 120, done: true, doneAt: 650, fixed: true },
+            task('essay', { minutes: 60, notBefore: 650 }),
+        ];
+        const flow = flowDay(items, 652, day);
+        expect(flow.timeline.find(row => row.id === 'event:class')).toMatchObject({ start: 600, end: 720, state: 'done' });
+        expect(flow.timeline.find(row => row.id === 'essay')!.start).toBe(720);
+    });
+    it('an exact-time habit ticked before its time stays at its time, whole', () => {
+        const gym = { id: 'gym', kind: 'habit' as const, title: 'Gym', start: 840, minutes: 60, done: true, doneAt: 610, locked: true };
+        expect(flowDay([gym, task('work', { minutes: 90 })], 610, day).timeline.find(row => row.id === 'gym')).toMatchObject({ start: 840, end: 900, state: 'done' });
+    });
+    it('is read from what was ended early', () => {
+        const { flowInputs } = require('../dayFlow') as typeof import('../dayFlow');
+        const items = flowInputs({ habits: [], tasks: [], done: {}, meals: [{ id: 'supper', name: 'Supper', start: 1110, minutes: 45 }], ended: { 'meal:supper': 1130 } });
+        expect(items[0]).toMatchObject({ done: true, doneAt: 1130 });
+    });
+});
+
+describe('today: done stays where it was done, what you are on stays, the rest from now', () => {
+    it('what you are on keeps the place you saw it in', () => {
+        const items = [meal('breakfast', 480, 60), task('mom', { kept: { start: 540, end: 570 } }), habit('bugs', { kept: { start: 570, end: 630 } })];
+        expect(slot(items, 'mom', 552)).toEqual([540, 570]);
+        expect(slot(items, 'bugs', 552)).toEqual([570, 630]);
+    });
+    it('the one you were on ends at the tick, and what is open after it starts then', () => {
+        const items = [task('mom', { done: true, doneAt: 495, planned: { start: 480, end: 510 } }), habit('bugs', { difficulty: 3, kept: { start: 510, end: 570 } }), habit('jobs', { minutes: 120, kept: { start: 570, end: 690 } })];
+        const flow = flowDay(items, 496, day);
+        expect(flow.timeline.find(row => row.id === 'mom')).toMatchObject({ start: 480, end: 495, state: 'done' });
+        expect(flow.timeline.find(row => row.id === 'bugs')).toMatchObject({ start: 496, end: 556, state: 'now' });
+    });
+    it('keeps a ticked task where it was on the line (Study Spanish 8:09–8:39, ticked 8:11)', () => {
+        const items = [habit('walk', { minutes: 30 }), task('spanish', { minutes: 30, done: true, doneAt: 1211, planned: { start: 1209, end: 1239 } })];
+        expect(flowDay(items, 1212, day).timeline.find(row => row.id === 'spanish')).toMatchObject({ start: 1209, end: 1211, state: 'done' });
+    });
+    it('ticked ahead of its turn: at its tick, above what you are on, in the order ticked', () => {
+        const ahead = (id: string, at: number, stamp: number) => task(id, { minutes: 30, done: true, doneAt: at, doneStamp: stamp, planned: { start: 540, end: 570 } });
+        const items = [task('now', { minutes: 30, kept: { start: 480, end: 510 } }), ahead('b', 490, 2000), ahead('a', 490, 1000), habit('c', { minutes: 30, kept: { start: 570, end: 600 } })];
+        expect(flowDay(items, 491, day).timeline.map(row => row.id)).toEqual(['a', 'b', 'now', 'c']);
+    });
+    it('puts an urgent task added in the evening now, not at the start of the day', () => {
+        const items = [task('urgent', { priority: 1, minutes: 60, notBefore: 1178 }), habit('read'), habit('walk', { done: true, doneAt: 600 })];
+        expect(slot(items, 'urgent', 1178)).toEqual([1178, 1238]);
+    });
+    it('time up and not done: the next one takes over, and it stays where it was, unticked', () => {
+        const items = [task('read', { minutes: 30, kept: { start: 480, end: 510 } }), habit('gym', { minutes: 60, kept: { start: 510, end: 570 } }), task('call', { minutes: 30, kept: { start: 570, end: 600 } })];
+        const flow = flowDay(items, 511, day);
+        expect(flow.current?.id).toBe('gym');
+        expect(flow.timeline.find(row => row.id === 'read')).toMatchObject({ start: 480, end: 510, done: false });
+    });
+    it('nothing ticked all along: the clock walks down the line, one thing after the next', () => {
+        const { remember, emptyMemory } = require('../dayMemory') as typeof import('../dayMemory');
+        const base = [task('a', { minutes: 1, priority: 1, difficulty: 3 }), task('b', { minutes: 1, priority: 1, difficulty: 3 }), habit('c', { minutes: 2 }), habit('d', { minutes: 30 })].map(item => ({ ...item, notBefore: 1329 }));
+        let memory = emptyMemory('2026-11-06');
+        const look = (minute: number) => {
+            const flow = flowDay(base.map(item => ({ ...item, kept: memory.slots[item.id], lapsed: !!memory.lapsed?.[item.id] })), minute, day);
+            memory = remember(memory, '2026-11-06', flow, minute);
+            return flow;
+        };
+        const on = [1329, 1330, 1331, 1332, 1333, 1334, 1340].map(minute => look(minute).current?.id);
+        expect(on).toEqual(['a', 'b', 'c', 'c', 'd', 'd', 'd']);
+        const final = look(1341).timeline;
+        expect(final.find(row => row.id === 'a')).toMatchObject({ start: 1329, end: 1330, done: false });
+        expect(final.find(row => row.id === 'b')).toMatchObject({ start: 1330, end: 1331, done: false });
+    });
+    it('split around a meal, the one on now keeps its place minute after minute, then the day moves on', () => {
+        const { remember, emptyMemory } = require('../dayMemory') as typeof import('../dayMemory');
+        const dinner: FlowInput = { id: 'meal:dinner', kind: 'meal', title: 'Dinner', start: 1110, minutes: 30, done: false, fixed: true };
+        const base = [task('study', { minutes: 90, priority: 1, difficulty: 3, notBefore: 1095 }), dinner, habit('read', { minutes: 30, notBefore: 1095 })];
+        let memory = emptyMemory('2026-11-07');
+        const look = (minute: number) => {
+            const flow = flowDay(base.map(item => ({ ...item, kept: memory.slots[item.id], lapsed: !!memory.lapsed?.[item.id] })), minute, day);
+            memory = remember(memory, '2026-11-07', flow, minute);
+            return flow;
+        };
+        look(1095);
+        for (const minute of [1096, 1100, 1109]) {
+            const flow = look(minute);
+            expect(flow.current?.id).toBe('study');
+            expect(flow.timeline.filter(row => row.id === 'study').map(row => [row.start, row.end])).toEqual([[1095, 1110], [1140, 1215]]);
+        }
+        expect(look(1150).current?.id).toBe('study');
+        const later = look(1220);
+        expect(later.current?.id).toBe('read');
+        expect(later.timeline.find(row => row.id === 'study')).toMatchObject({ start: 1095, end: 1110, done: false });
+    });
+    it('planned from waking, app open or not: a 2-hour study at 9:00 hands over at 11:00', () => {
+        const { remember, emptyMemory } = require('../dayMemory') as typeof import('../dayMemory');
+        const morning = { wake: 540, sleep: 1410 };
+        const base = [task('study', { minutes: 120, priority: 1, difficulty: 3 }), habit('read', { minutes: 30 }), task('email', { minutes: 20 })];
+        let memory = emptyMemory('2026-11-07');
+        const look = (minute: number) => {
+            const flow = flowDay(base.map(item => ({ ...item, kept: memory.slots[item.id], lapsed: !!memory.lapsed?.[item.id] })), minute, morning);
+            memory = remember(memory, '2026-11-07', flow, minute);
+            return flow;
+        };
+        // First opened at 10:59: Study has been on since 9:00.
+        expect(look(659)).toMatchObject({ current: { id: 'study', start: 540, end: 660 } });
+        // 11:00, not ticked: the next one is on, Study stays at 9:00–11:00.
+        const eleven = look(660);
+        expect(eleven.current?.id).toBe('email');
+        expect(eleven.timeline.find(row => row.id === 'study')).toMatchObject({ start: 540, end: 660, done: false });
+        // First opened at 1:00 PM instead: the whole morning has gone by on the clock.
+        const late = flowDay(base, 780, morning);
+        expect(late.timeline.find(row => row.id === 'study')).toMatchObject({ start: 540, end: 660 });
+        expect(late.current).toBeNull();
+    });
+    it('a missed one ticked hours later is ticked in its own place, not at the tick', () => {
+        const items = [task('emails', { minutes: 30, done: true, doneAt: 760, planned: { start: 605, end: 635 } }), habit('read', { minutes: 30, kept: { start: 755, end: 785 } })];
+        expect(flowDay(items, 761, day).timeline.find(row => row.id === 'emails')).toMatchObject({ start: 605, end: 635, done: true });
+    });
+    it('ticked across a meal, it is drawn around the meal, never over it', () => {
+        const breakfast: FlowInput = { id: 'meal:breakfast', kind: 'meal', title: 'Breakfast', start: 480, minutes: 30, done: false, fixed: true };
+        const items = [breakfast, task('study', { minutes: 150, done: true, doneAt: 560, planned: { start: 420, end: 570 } })];
+        const rows = flowDay(items, 561, { wake: 420, sleep: 1410 }).timeline.filter(row => row.id === 'study');
+        expect(rows.map(row => [row.start, row.end])).toEqual([[420, 480], [510, 560]]);
+    });
+    it('ticked after its time had passed: ticked where it was, nothing else moves', () => {
+        const items = [task('read', { minutes: 30, done: true, doneAt: 530, planned: { start: 480, end: 510 } }), habit('gym', { minutes: 60, kept: { start: 510, end: 570 } })];
+        const flow = flowDay(items, 531, day);
+        expect(flow.timeline.find(row => row.id === 'read')).toMatchObject({ start: 480, end: 510 });
+        expect(flow.timeline.find(row => row.id === 'gym')).toMatchObject({ start: 510, end: 570, state: 'now' });
+    });
+    it('a 1-minute task whose time is up does not come back to the front on the next look', () => {
+        const { remember, emptyMemory } = require('../dayMemory') as typeof import('../dayMemory');
+        const base = [task('quick', { minutes: 1, notBefore: 1200 }), habit('gym', { minutes: 60, notBefore: 1200 })];
+        let memory = emptyMemory('2026-11-06');
+        const look = (minute: number) => {
+            const items = base.map(item => ({ ...item, kept: memory.slots[item.id], lapsed: !!memory.lapsed?.[item.id] }));
+            const flow = flowDay(items, minute, day);
+            memory = remember(memory, '2026-11-06', flow, minute);
+            return flow;
+        };
+        expect(look(1200).current?.id).toBe('quick');
+        for (const minute of [1201, 1202, 1205, 1230]) expect(look(minute).current?.id).toBe('gym');
+    });
+});
+

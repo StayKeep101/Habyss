@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { emit } from '@/lib/appEvents';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus, Alert, Platform, Vibration } from 'react-native';
 
@@ -105,6 +106,16 @@ export const peekFocusTimeLeft = () => latestTimeLeft;
 let latestEnd: number | null = null;
 /** When the running countdown ends (ms), to the millisecond; null when paused, stopped or a stopwatch. */
 export const peekFocusEnd = () => latestEnd;
+let latestActiveId: string | null = null;
+/** The habit or task being focused on now, running or paused; null when none. */
+export const peekFocusActiveId = () => latestActiveId;
+/**
+ * Whether a session carries on as a stopwatch once its time is up ("Just 5
+ * minutes", a friend's session). Otherwise it ends at its time, wherever you
+ * are, and the day moves on (set by the Focus page).
+ */
+let keepCounting = false;
+export const keepFocusCounting = (on: boolean) => { keepCounting = on; };
 
 // AsyncStorage keys for local cache
 const STORAGE_KEY_FOCUS_TODAY = 'focus_time_today';
@@ -553,10 +564,22 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return () => { if (timer) clearTimeout(timer); };
     }, [isRunning, isPaused, activeMode]);
 
-    /** The countdown reached zero: carry on as a stopwatch, nothing saved or ticked yet. */
+    /**
+     * The countdown reached zero. The day moves on: the session ends here, its
+     * minutes kept and nothing ticked, whether or not the Focus page is open (it
+     * used to carry on as a stopwatch, so with the page closed a 1-minute task
+     * stayed "on" for as long as you did not come back). Only "Just 5 minutes"
+     * and a friend's session carry on counting.
+     */
     const goOverTime = useCallback(() => {
         const session = currentSessionRef.current;
         if (!session) return;
+        if (!keepCounting) {
+            Vibration.vibrate([0, 300, 150, 300]);
+            emit('focus_time_up', { id: session.habitId });
+            stopRef.current();
+            return;
+        }
         const now = Date.now();
         const elapsed = session.actualDuration + (focusStartRef.current ? Math.floor((now - focusStartRef.current) / 1000) : 0);
         endTimeRef.current = null;
@@ -580,6 +603,12 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         AsyncStorage.getItem(STORAGE_KEY_ACTIVE_SESSION).then(raw => {
             if (!raw) return;
             const saved: ActiveSnapshot = JSON.parse(raw);
+            // Left running over time by an older build (a countdown that became a stopwatch):
+            // its time is long up, so it ends instead of holding the day on it.
+            if (saved.mode === 'flow' && saved.totalDuration > 0) {
+                void AsyncStorage.removeItem(STORAGE_KEY_ACTIVE_SESSION).catch(() => undefined);
+                return;
+            }
             currentSessionRef.current = {
                 habitId: saved.habitId,
                 habitName: saved.habitName,
@@ -613,13 +642,14 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const startTimer = useCallback((habitId: string, habitName: string, durationSeconds: number, requested: FocusMode = 'pomodoro', since?: number): boolean => {
         if (isRunning || isPaused) return false;
 
-        // Begun earlier on the timeline: the clock counts from then. Already
-        // past its length: straight onto the stopwatch (lib/focusLength.ts).
+        // Focus begins now, always: only time spent focusing counts. Inside its
+        // slot on the timeline, the timer runs to the slot's end; past it,
+        // it gets its whole length again (lib/focusLength.ts).
         const { focusClock } = require('@/lib/focusLength') as typeof import('@/lib/focusLength');
         const clockNow = focusClock(requested === 'flow' ? Infinity : durationSeconds, since, Date.now());
         const { began } = clockNow;
         const mode: FocusMode = requested === 'flow' || clockNow.stopwatch ? 'flow' : requested;
-        const elapsed = Math.floor((Date.now() - began) / 1000);
+        const elapsed = 0;
 
         setActiveHabitId(habitId);
         setActiveHabitName(habitName);
@@ -630,7 +660,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setIsPaused(false);
 
         focusStartRef.current = began;
-        endTimeRef.current = mode !== 'flow' ? began + durationSeconds * 1000 : null;
+        endTimeRef.current = mode !== 'flow' ? began + clockNow.seconds * 1000 : null;
 
         // Create session record
         currentSessionRef.current = {
@@ -645,7 +675,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         persistActive({
             habitId, habitName, mode, totalDuration: durationSeconds, paused: false,
             endTime: endTimeRef.current, focusStart: began,
-            timeLeft: mode === 'flow' ? elapsed : durationSeconds - elapsed,
+            timeLeft: mode === 'flow' ? elapsed : clockNow.seconds,
             startedAt: new Date(began).toISOString(), actualDuration: 0,
         });
 
@@ -654,6 +684,9 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // from one thing to the next must not be interrupted.
         if (Platform.OS === 'ios') void ScreenTimeService.armShieldIfPossible().catch(() => undefined);
 
+        // A long one gets Echo's break, partway through (lib/focusBreak.ts).
+        if (mode !== 'flow') void (require('@/lib/focusBreak') as typeof import('@/lib/focusBreak')).bookFocusBreak(began, clockNow.seconds);
+
         // LIVE ACTIVITY START
         const { LiveActivityService } = require('@/lib/liveActivityService');
         LiveActivityService.startDailyProgress({
@@ -661,7 +694,8 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             total: 0,
             activeHabitName: habitName,
             targetDate: endTimeRef.current ?? undefined,
-            // We could pass current habit ID to show icon if needed
+            // Its whole length: the Lock Screen ring stands where the app's does.
+            totalSeconds: mode !== 'flow' ? durationSeconds : undefined,
         });
 
         return true;
@@ -750,7 +784,9 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // ============================================
     // Stop Timer (early termination)
     // ============================================
+    const stopRef = useRef<() => void>(() => undefined);
     const stopTimer = useCallback(() => {
+        void (require('@/lib/focusBreak') as typeof import('@/lib/focusBreak')).cancelFocusBreak();
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
         }
@@ -803,6 +839,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         finishingRef.current = false;
 
     }, [updateStats, saveFocusSession, persistActive]);
+    stopRef.current = stopTimer;
 
     const discardTimer = useCallback(() => {
         discardingRef.current = true;
@@ -853,6 +890,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }, []);
 
     latestTimeLeft = timeLeft;
+    latestActiveId = isRunning || isPaused ? activeHabitId : null;
     latestEnd = isRunning && !isPaused && activeMode !== 'flow' ? endTimeRef.current : null;
     const session = useMemo<FocusSessionState>(() => ({
         activeHabitId,

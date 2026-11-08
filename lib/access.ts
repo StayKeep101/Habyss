@@ -1,168 +1,99 @@
 /**
- * Whether Habyss is open to you: the 14-day challenge (a free trial), then
- * one payment of $10 to keep it for good, no subscription. Motivation carries
- * the first two weeks; what is left after is the system, and the proof. Invites make it half price for
- * everybody in them: each friend who joins with your invite pays $5, and so do
- * you once one has joined. Invite three and all four of you pay half.
+ * What Habyss costs: nothing. Every part of the phone app is free, for good,
+ * and so is the desktop app on its own.
  *
- * The trial is Apple's way for an app with no subscription: a free
- * "14-day Trial" purchase (App Store Review Guideline 3.1.1), so the day it
- * started is kept by the App Store and survives a reinstall. If that product
- * cannot be reached the trial starts on this phone alone.
+ * Habyss Pro is the one thing for sale: your phone and the desktop app kept
+ * in sync, $4.99 a month, an auto-renewing subscription through the App Store
+ * (cancel any time in Settings → Apple ID → Subscriptions). Nothing on the
+ * phone is ever locked behind it; whether you have it is read here and shown
+ * on its page (components/Paywall/Paywall.tsx).
  *
- * Nothing is ever locked when there is no way to pay (the paywall switched
- * off, or no store key on this build): a lock you cannot open is a bug.
+ * The desktop app checks the same entitlement for the same account
+ * (RevenueCat's app user id is the Supabase account id, app/_layout.tsx).
  */
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PAYWALL_ENABLED } from '@/constants/features';
 
-export const TRIAL_DAYS = 14;
-/** Friends who must join with your invite before your own price halves. */
-export const FRIENDS_NEEDED = 1;
-export const PRODUCTS = {
-    /** $9.99, non-consumable. */
-    full: 'habyss_lifetime',
-    /** $4.99, non-consumable: the friend price, half. */
-    friend: 'habyss_lifetime_friend',
-    /** $0, non-consumable, named "14-day Trial". */
-    trial: 'habyss_trial_14day',
-    /** The earlier "7-day Trial": still honoured, so nobody who started with it is cut off. */
-    legacyTrial: 'habyss_trial_7day',
+export const PRO = {
+    /** $4.99, auto-renewing, one month. */
+    product: 'habyss_pro_monthly',
+    /** Shown before the store answers; the store's own price, in the person's currency, replaces it. */
+    fallbackPrice: '$4.99',
 } as const;
 
-const DAY = 24 * 60 * 60 * 1000;
-const TRIAL_KEY = 'habyss_trial_started';
+/** Older purchases: Habyss bought for life before it went free counts as Pro, for good. */
+export const LEGACY_LIFETIME = ['habyss_lifetime', 'habyss_lifetime_friend'] as const;
 
-export type Access =
+export type Pro =
     | { kind: 'loading' }
-    | { kind: 'owned' }
-    | { kind: 'not_started' }
-    | { kind: 'trial'; daysLeft: number; endsAt: number }
-    | { kind: 'ended' };
+    | { kind: 'free' }
+    /** `until` is null for a lifetime purchase; `renews` false once cancelled (it runs to `until`). */
+    | { kind: 'pro'; until: number | null; renews: boolean };
 
-export interface Referral { invitedBy: string | null; joined: number }
+export interface ProInfo { active: boolean; until: number | null; renews: boolean }
 
-/** Where you stand, from what is known. Pure, so it is tested. */
-export function accessFrom({ billing, owned, trialStart, now }: { billing: boolean; owned: boolean; trialStart: number | null; now: number }): Access {
-    if (!billing || owned) return { kind: 'owned' };
-    if (trialStart === null) return { kind: 'not_started' };
-    const endsAt = trialStart + TRIAL_DAYS * DAY;
-    if (now >= endsAt) return { kind: 'ended' };
-    return { kind: 'trial', daysLeft: Math.max(1, Math.ceil((endsAt - now) / DAY)), endsAt };
+/** Where you stand, from what the store says. Pure, so it is tested. */
+export function proFrom(info: ProInfo | null): Pro {
+    if (!info || !info.active) return { kind: 'free' };
+    return { kind: 'pro', until: info.until, renews: info.renews };
 }
 
-/** Half price: you were invited, or someone you invited has joined. */
-export const friendPrice = (referral: Referral | null) => !!referral && (!!referral.invitedBy || referral.joined >= FRIENDS_NEEDED);
+const day = (ms: number) => new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
 
-/** Which day of the challenge it is, 1 to 14, while it runs. */
-export const challengeDay = (access: Access): number | null =>
-    access.kind === 'trial' ? Math.min(TRIAL_DAYS, Math.max(1, TRIAL_DAYS - access.daysLeft + 1)) : null;
-
-/** You can use the app: it is yours or the trial is running. */
-export const isOpen = (access: Access) => access.kind === 'owned' || access.kind === 'trial' || access.kind === 'loading';
+/** What the line under the price says once Pro is on. */
+export function proStatusLine(pro: Pro): string | null {
+    if (pro.kind !== 'pro') return null;
+    if (pro.until === null) return 'Pro is yours for good.';
+    return pro.renews ? `Pro is on. Renews ${day(pro.until)}.` : `Pro is on until ${day(pro.until)}. It won’t renew.`;
+}
 
 /* ------------------------------------------------------------- the store */
 
-type State = { access: Access; referral: Referral | null };
-let state: State = { access: { kind: 'loading' }, referral: null };
+let state: Pro = { kind: 'loading' };
 const listeners = new Set<() => void>();
-const set = (next: Partial<State>) => { state = { ...state, ...next }; listeners.forEach(listener => listener()); };
+const set = (next: Pro) => { state = next; listeners.forEach(listener => listener()); };
 
-export const getAccess = () => state;
-export function subscribeAccess(listener: () => void): () => void {
+export const getPro = () => state;
+export function onProChange(listener: () => void): () => void {
     listeners.add(listener);
     return () => { listeners.delete(listener); };
 }
 
 const revenueCat = () => (require('@/lib/RevenueCat') as typeof import('@/lib/RevenueCat')).default;
-const billingAvailable = () => PAYWALL_ENABLED && revenueCat().isConfigured();
+/** Whether Pro can be bought on this build: the store switched on and a key present. */
+export const canBuyPro = () => PAYWALL_ENABLED && revenueCat().isConfigured();
 
-async function localTrialStart(): Promise<number | null> {
-    try {
-        const saved = await AsyncStorage.getItem(TRIAL_KEY);
-        return saved ? Number(saved) || null : null;
-    } catch { return null; }
+let cleared = false;
+/** Asks the store again whether Pro is active. */
+export async function refreshPro(): Promise<Pro> {
+    if (!cleared) {
+        cleared = true;
+        // The old free-trial reminder, scheduled by earlier versions: there is no trial now.
+        try {
+            const Notifications = require('expo-notifications') as typeof import('expo-notifications');
+            void Notifications.cancelScheduledNotificationAsync('habyss-trial-ending').catch(() => undefined);
+        } catch { /* nothing to clear */ }
+    }
+    const pro = proFrom(canBuyPro() ? await revenueCat().proInfo() : null);
+    set(pro);
+    return pro;
 }
 
-/** Asks the store again: is it bought, when did the trial start, who invited whom. */
-export async function refreshAccess(): Promise<Access> {
-    const billing = billingAvailable();
-    let owned = false;
-    let trialStart = await localTrialStart();
-    if (billing) {
-        const info = await revenueCat().customerInfo();
-        if (info) {
-            owned = info.owned;
-            // The App Store's date wins: it is the same on every phone.
-            if (info.trialStart !== null) trialStart = trialStart === null ? info.trialStart : Math.min(trialStart, info.trialStart);
-        }
-    }
-    const access = accessFrom({ billing, owned, trialStart, now: Date.now() });
-    set({ access });
-    if (billing && access.kind !== 'owned') {
-        const { referralStatus } = require('@/lib/referrals') as typeof import('@/lib/referrals');
-        void referralStatus().then(referral => set({ referral })).catch(() => undefined);
-    }
-    return access;
-}
-
-/** Starts the 14-day challenge (Apple's free trial purchase where there is one). */
-export async function startTrial(): Promise<'started' | 'cancelled'> {
-    if (billingAvailable()) {
-        const service = revenueCat();
-        const product = await service.getOneOff(PRODUCTS.trial);
-        if (product) {
-            const result = await service.buyOneOff(product);
-            if (result === 'cancelled') return 'cancelled';
-        }
-    }
-    const start = Date.now();
-    try { await AsyncStorage.setItem(TRIAL_KEY, String(start)); } catch { /* the store's date still holds */ }
-    void remindBeforeTheEnd(start);
-    await refreshAccess();
-    return 'started';
-}
-
-/** Buys Habyss for good, at full or friend price. */
-export async function buy(price: 'full' | 'friend'): Promise<'bought' | 'cancelled' | 'failed'> {
+/** Subscribes to Pro: Apple's sheet shows the price and the renewal before anything is charged. */
+export async function buyPro(): Promise<'bought' | 'cancelled' | 'failed'> {
     const service = revenueCat();
-    const product = await service.getOneOff(PRODUCTS[price]);
+    const product = await service.getSubscription(PRO.product);
     if (!product) return 'failed';
     const result = await service.buyOneOff(product);
-    if (result === 'bought') {
-        await refreshAccess();
-        (require('@/lib/appEvents') as typeof import('@/lib/appEvents')).emit('premium_status_updated');
-    }
+    if (result === 'bought') await refreshPro();
     return result;
 }
 
-export async function restore(): Promise<boolean> {
+export async function restorePro(): Promise<boolean> {
     try { await revenueCat().restorePurchases(); } catch { return false; }
-    const access = await refreshAccess();
-    return access.kind === 'owned';
+    return (await refreshPro()).kind === 'pro';
 }
 
-/** A day before the trial ends, a quiet note (only if notifications are already allowed). */
-async function remindBeforeTheEnd(start: number) {
-    try {
-        const Notifications = require('expo-notifications') as typeof import('expo-notifications');
-        const { status } = await Notifications.getPermissionsAsync();
-        if (status !== 'granted') return;
-        const at = new Date(start + (TRIAL_DAYS - 1) * DAY);
-        await Notifications.scheduleNotificationAsync({
-            identifier: 'habyss-trial-ending',
-            content: { title: 'Your 14-day challenge ends tomorrow', body: 'See what you built, then keep Habyss for life with one payment.' },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at },
-        });
-    } catch { /* a reminder is a kindness, not a requirement */ }
+/** Apple's own subscription page: change or cancel, in two taps. */
+export async function manageSubscription(): Promise<void> {
+    await revenueCat().manageSubscriptions();
 }
-
-/** Developer tools: test the end of the challenge without waiting two weeks. */
-export async function setTrialStartForTesting(start: number | null) {
-    try {
-        if (start === null) await AsyncStorage.removeItem(TRIAL_KEY);
-        else await AsyncStorage.setItem(TRIAL_KEY, String(start));
-    } catch { /* nothing */ }
-    await refreshAccess();
-}
-export const TRIAL_LENGTH_MS = TRIAL_DAYS * DAY;

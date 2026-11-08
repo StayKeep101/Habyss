@@ -1,3 +1,4 @@
+import { goalCompletedOn } from '@/lib/goalInsights';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAutoReschedule } from '@/context/AppSettingsContext';
 import { DEFAULT_LENGTH } from '@/lib/dayFlow';
@@ -10,7 +11,8 @@ import { useShareDraft } from '@/hooks/useShareDraft';
 import { ModalHeader } from '@/components/ui/ModalHeader';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
-import { DIFFICULTIES, difficultyLabel, type Difficulty } from '@/lib/difficulty';
+import { type Difficulty } from '@/lib/difficulty';
+import { ImportancePicker, importanceLabel } from '@/components/Create/ImportancePicker';
 import { CreationTextInput } from '@/components/Create/CreationTextInput';
 import { DictateField } from '@/components/Create/DictateField';
 import { TypingPlaceholder } from '@/components/ui/TypingPlaceholder';
@@ -47,7 +49,7 @@ const DAYS: { id: string; label: string }[] = [
     { id: 'thu', label: 'T' }, { id: 'fri', label: 'F' }, { id: 'sat', label: 'S' }, { id: 'sun', label: 'S' },
 ];
 const EVERY_DAY = DAYS.map(day => day.id);
-type Row = 'repeat' | 'time' | 'target' | 'reminder' | 'priority' | 'difficulty' | 'goal' | 'look' | 'notes' | null;
+type Row = 'repeat' | 'time' | 'target' | 'reminder' | 'importance' | 'goal' | 'look' | 'notes' | null;
 
 interface Draft {
     name: string;
@@ -90,11 +92,6 @@ const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
     { id: 'exact', label: 'Exact time' },
 ];
 
-const PRIORITIES: { id: 1 | 2 | 3; label: string }[] = [
-    { id: 1, label: 'Urgent' },
-    { id: 2, label: 'Normal' },
-    { id: 3, label: 'Not urgent' },
-];
 
 const blank = (): Draft => ({ name: '', days: EVERY_DAY, icon: 'ellipse-outline', color: '#6B8AF5', rule: DAILY, places: [], durationMinutes: DEFAULT_LENGTH.habit });
 
@@ -221,7 +218,8 @@ export const HabitSheet: React.FC<{
 
     useEffect(() => {
         if (!isOpen) return;
-        getGoals().then(all => setGoals(all.filter(goal => !goal.isArchived))).catch(() => setGoals([]));
+        // Goals still being worked on; one already reached is done and not offered (the one linked stays).
+        getGoals().then(all => setGoals(all.filter(goal => !goal.isArchived && (!goalCompletedOn(goal) || goal.id === (habit?.goalId ?? goalId))))).catch(() => setGoals([]));
     }, [isOpen]);
 
     // What the sentence says, read by rules at once and by the model a moment
@@ -437,17 +435,13 @@ export const HabitSheet: React.FC<{
                 />
             ),
         },
-        // Urgency and difficulty only order what the timeline moves: not asked when nothing moves.
-        ...(autoReschedule ? [{
-            // Where the timeline fits it in when it has no set time.
-            id: 'priority' as const, icon: 'flame-outline' as const, label: 'Urgency',
-            value: !draft.priority || draft.priority === 2 ? undefined : PRIORITIES.find(item => item.id === draft.priority)?.label,
-            content: <Choices options={PRIORITIES} value={draft.priority ?? 2} accent={accent} onChange={priority => change({ priority })} />,
-        },
+        // Importance: urgency and difficulty, one slider each. They order what the
+        // timeline moves, and always show on the card.
         {
-            id: 'difficulty' as const, icon: 'barbell-outline' as const, label: 'Difficulty', value: difficultyLabel(draft.difficulty),
-            content: <Choices options={DIFFICULTIES} value={draft.difficulty ?? 2} accent={accent} onChange={difficulty => change({ difficulty })} />,
-        }] : []),
+            id: 'importance' as const, icon: 'speedometer-outline' as const, label: 'Importance',
+            value: importanceLabel(draft.priority, draft.difficulty),
+            content: <ImportancePicker priority={draft.priority} difficulty={draft.difficulty} onChange={change} />,
+        },
         ...(goals.length > 0 ? [{
             id: 'goal', icon: 'flag-outline' as const, label: 'Goal', value: goalName,
             content: (

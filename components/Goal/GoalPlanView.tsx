@@ -1,3 +1,4 @@
+import { useRemoveTask } from '@/hooks/useRemoveTask';
 import React, { useState } from 'react';
 import {ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import { ListItem } from '@/components/ui/Motion';
@@ -15,7 +16,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
 import { addDays } from '@/lib/goalInsights';
 import { toggleCompletion, type Habit } from '@/lib/habitsSQLite';
-import { deleteTask, setTaskStatus, updateTask, type Task } from '@/lib/tasks';
+import { setTaskStatus, updateTask, type Task } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
 import { GoalMilestones } from '@/components/Goal/GoalMilestones';
 import { MilestoneSheet } from '@/components/Goal/MilestoneSheet';
@@ -95,15 +96,9 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readO
             emit('tasks_changed');
         } catch { Alert.alert('Could not save task', 'Please try again.'); }
     };
-    const removeTask = (task: Task) => {
-        Alert.alert('Delete task', `Delete "${task.title}"?`, [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: async () => {
-                try { await deleteTask(task.id); emit('tasks_changed'); }
-                catch { Alert.alert('Could not delete task', 'Your task is still saved. Please try again.'); }
-            } },
-        ]);
-    };
+    // The same question as everywhere a task is deleted (hooks/useRemoveTask.ts).
+    const askRemoveTask = useRemoveTask();
+    const removeTask = (task: Task) => askRemoveTask(task);
     const toggleHabit = (habit: Habit, done: boolean) => {
         // A tap ticks anything; a second tap takes it back.
         selectionFeedback();

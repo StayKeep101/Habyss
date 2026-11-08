@@ -259,17 +259,6 @@ export const SCENES: Scene[] = [
                 { kind: 'line', text: 'So let’s look at yours. When does your day start and end?', mood: 'listen', stage: 'clock', step: 1 },
                 { kind: 'day', mood: 'listen' },
                 { kind: 'line', text: `${awake} hours awake. That’s what you get to spend, every day.`, mood: 'encourage', stage: 'clock', step: 2 },
-                { kind: 'line', text: 'Are you a morning person or a night owl?', mood: 'curious' },
-                { kind: 'choice', field: 'chronotype', mood: 'listen', options: options(CHRONOTYPES) },
-                { kind: 'line', mood: 'encourage', text:
-                    answers.chronotype === 'early_bird' ? 'Mornings. Nice, we’ll put the hard things early.'
-                        : answers.chronotype === 'night_owl' ? 'A night owl. I’ll keep your mornings gentle.'
-                            : 'Depends on the day? Then we’ll follow your energy.' },
-                { kind: 'line', text: 'And honestly, how much do you sleep?', mood: 'listen' },
-                { kind: 'choice', field: 'sleepAmount', mood: 'listen', options: options(SLEEP_AMOUNTS) },
-                answers.sleepAmount === 'under_six'
-                    ? { kind: 'line', text: 'We’ll work on that together. Everything’s harder tired.', mood: 'empathetic' }
-                    : { kind: 'line', text: 'Good. That’s half the battle already won.', mood: 'encourage' },
             ];
         },
     },
@@ -324,23 +313,6 @@ export const SCENES: Scene[] = [
                             : 'Then we pick one thing. The rest can wait.' },
             { kind: 'line', text: 'And small adds up faster than you’d think.', mood: 'speak', stage: 'compound', step: 0 },
             { kind: 'line', text: `1% better each day. After a year, that’s ${COMPOUND.better} times better.`, mood: 'excited', stage: 'compound', step: 1 },
-            { kind: 'line', text: 'So tell me, when does your work actually get done?', mood: 'curious' },
-            { kind: 'choice', field: 'timing', mood: 'listen', options: options(TIMINGS) },
-            { kind: 'line', mood: 'speak', text:
-                answers.timing === 'last_minute' ? 'Deadlines work for you. I’ll quietly set earlier ones.'
-                    : answers.timing === 'straight_away' ? 'Love that. I’ll keep up with you.'
-                        : answers.timing === 'planned' ? 'A planner. We’re going to get along.'
-                            : 'Thanks for being honest. We’ll start small.' },
-        ],
-    },
-    {
-        id: 'life', label: 'What they are carrying.',
-        beats: answers => [
-            { kind: 'line', text: 'Tell me what’s on your plate right now.', mood: 'listen' },
-            { kind: 'multi', field: 'juggling', options: options(JUGGLES), mood: 'listen' },
-            (answers.juggling?.length ?? 0) >= 3
-                ? { kind: 'line', text: 'That’s a lot to carry. I’ll guard time for what matters.', mood: 'empathetic' }
-                : { kind: 'line', text: 'Good. That leaves room to go deep.', mood: 'encourage' },
         ],
     },
     {
@@ -370,15 +342,14 @@ export const SCENES: Scene[] = [
         ],
     },
     {
-        id: 'allies', label: 'Someone to come along.',
+        // How the app works, said once: you never need to open it, unless you
+        // want to, or at the end of the day.
+        id: 'how', label: 'How your day runs.',
         beats: () => [
-            { kind: 'line', text: 'Climbing’s easier with someone in your corner. Bring a friend?', mood: 'encourage' },
-            { kind: 'choice', field: 'invite', mood: 'listen', options: [
-                { id: 'yes', label: 'Invite a friend' },
-                { id: 'later', label: 'Maybe later' },
-            ] },
-            { kind: 'line', text: 'Last thing, I’m curious: how did you find me?', mood: 'curious' },
-            { kind: 'choice', field: 'source', mood: 'listen', options: options(SOURCES) },
+            { kind: 'line', text: 'Time to start, or to leave? Your phone and Watch tell you. Out loud.', mood: 'speak' },
+            { kind: 'line', text: 'Time’s up? I ask: done, or more time? I learn how long things take you.', mood: 'think' },
+            { kind: 'line', text: 'At night, one look: your score, what ran over, what changes tomorrow.', mood: 'encourage' },
+            { kind: 'line', text: 'You never have to open me. Unless you want to.', mood: 'excited' },
         ],
     },
     {

@@ -220,7 +220,12 @@ export async function reactToComment(id: string, emoji: CommentEmoji | null): Pr
     const ctx = await client();
     if (!ctx) throw new Error('Sign in first.');
     const { error } = emoji
-        ? await ctx.sb.from('feed_comment_reactions').upsert({ comment_id: id, user_id: ctx.me, emoji }, { onConflict: 'comment_id,user_id' })
+        ? await (async () => {
+            // Insert, then change it: only `emoji` may be updated.
+            const made = await ctx.sb.from('feed_comment_reactions').insert({ comment_id: id, user_id: ctx.me, emoji });
+            if (made.error?.code !== '23505') return made;
+            return ctx.sb.from('feed_comment_reactions').update({ emoji }).eq('comment_id', id).eq('user_id', ctx.me);
+        })()
         : await ctx.sb.from('feed_comment_reactions').delete().eq('comment_id', id).eq('user_id', ctx.me);
     if (error) throw new Error('That reaction didn’t save.');
 }

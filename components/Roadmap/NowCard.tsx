@@ -1,7 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { router } from 'expo-router';
+import { openFocus } from '@/lib/openFocus';
+import { useTasks } from '@/hooks/useTasks';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { IconTile } from '@/components/ui/IconTile';
 import { MatteSurface } from '@/components/ui/MatteSurface';
@@ -27,16 +28,17 @@ export function NowCard({ item, accent, now }: { item: NowItem | null; accent: s
     const colors = Colors[theme];
     const { mediumFeedback, lightFeedback } = useHaptics();
     const focus = useFocusTime();
+    const tasks = useTasks();
     const live = !!focus.activeHabitId && (focus.isRunning || focus.isPaused);
 
     if (!item && !live) return null;
-    const open = (target: { kind: string; id: string; title: string }, seconds?: number) =>
-        router.push({ pathname: '/(root)/focus' as never, params: { ...target, ...(seconds ? { seconds: String(seconds) } : {}) } });
+    // The same Focus as every other way in (lib/openFocus.ts).
+    const open = (target: { kind: string; id: string; title: string }) => { void openFocus(target); };
 
     if (live) {
         return (
             <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)}>
-                <Pressable accessibilityRole="button" onPress={() => { lightFeedback(); open({ kind: 'habit', id: focus.activeHabitId!, title: focus.activeHabitName ?? 'Focus' }); }}>
+                <Pressable accessibilityRole="button" onPress={() => { lightFeedback(); open({ kind: tasks.some(task => task.id === focus.activeHabitId) ? 'task' : 'habit', id: focus.activeHabitId!, title: focus.activeHabitName ?? 'Focus' }); }}>
                     <VoidCard style={styles.card}>
                         <IconTile icon="timer" color={accent} size={36} />
                         <View style={styles.text}>
@@ -69,7 +71,7 @@ export function NowCard({ item, accent, now }: { item: NowItem | null; accent: s
                     <Text numberOfLines={1} style={[styles.title, { color: colors.textPrimary }]}>{it.title}</Text>
                 </View>
                 <Pressable accessibilityRole="button" accessibilityLabel={`${isNow ? 'Start focus' : 'Start early'}: ${it.title}`}
-                    onPress={() => { mediumFeedback(); open({ kind: it.kind, id: it.id, title: it.title }, isNow ? left * 60 : (it.end - it.start) * 60); }}>
+                    onPress={() => { mediumFeedback(); open({ kind: it.kind, id: it.id, title: it.title }); }}>
                     <MatteSurface radius={Radius.pill} level="control" tint={isNow ? accent : undefined} style={styles.start}>
                         <AppIcon name="play" size={12} color={isNow ? textOn(accent) : colors.textPrimary} />
                         <Text style={[styles.startText, { color: isNow ? textOn(accent) : colors.textPrimary }]}>{isNow ? 'Focus' : 'Early'}</Text>

@@ -95,6 +95,25 @@ function quotaState(habit: Habit, quota: Quota, key: string, doneOn: (key: strin
 }
 
 /**
+ * How far a "3 times a week" habit is through its period on a day: the ticks
+ * so far (that day included) against the times it asks for. Null for any
+ * other habit. The row says it, so which days counted is never a guess.
+ */
+export function quotaProgress(habit: Habit, key: string, doneOn: (key: string) => boolean = historyDone(habit.id)): { done: number; times: number; period: 'week' | 'month' } | null {
+    const quota = quotaOf(habit);
+    const date = parseHabitDate(key);
+    const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
+    if (!quota || !date || !start) return null;
+    const day = calendarDay(date);
+    const from = Math.max(calendarDay(start), quota.period === 'week'
+        ? day - ((date.getDay() + 6) % 7)
+        : calendarDay(new Date(date.getFullYear(), date.getMonth(), 1, 12)));
+    let done = 0;
+    for (let at = from; at <= day; at++) if (doneOn(keyAt(at))) done++;
+    return { done, times: quota.times, period: quota.period };
+}
+
+/**
  * Whether a habit was due on a day, for everything that counts kept and
  * missed (streaks, Marks, perfect days, goal progress). The calendar's answer
  * for every habit except a quota one, which is due only once it cannot wait

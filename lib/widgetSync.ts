@@ -238,7 +238,7 @@ async function drain(): Promise<{ habits: number; tasks: number }> {
                 // A tap ticks anything, timed habits included.
                 if (found) {
                     const done = completions[event.day] ?? await getCompletions(event.day);
-                    if (!!done[id] !== event.done) { await toggleCompletion(id, event.day); applied.habits++; }
+                    if (!!done[id] !== event.done) { await toggleCompletion(id, event.day, event.done && event.timestamp > 0 ? new Date(event.timestamp).toISOString() : undefined); applied.habits++; }
                     completions[event.day] = { ...done, [id]: event.done };
                 }
             } else {

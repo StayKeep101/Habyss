@@ -1,18 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View, useWindowDimensions } from 'react-native';
-import Svg from 'react-native-svg';
-import Animated, { Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { router, useLocalSearchParams } from 'expo-router';
+import Animated, { Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
+import { allowAnyOrientation, applyDefaultOrientation } from '@/lib/orientation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { IconButton } from '@/components/ui/IconButton';
 import { AppIcon } from '@/components/ui/AppIcon';
-import { MorphMenu, type MorphMenuHandle } from '@/components/ui/MorphMenu';
 import { FocusClock, FocusDigits, FocusRing } from '@/components/Focus/FocusClock';
-import { FocusSettingsSheet, FocusSoundSheet, useFocusSoundChoice } from '@/components/Focus/FocusSheets';
-import { playFocusSound, stopFocusSound } from '@/lib/focusSounds';
-import { AnimatedCircle } from '@/components/ui/Motion';
-import { useFocusTime } from '@/context/FocusTimeContext';
+import { FocusTopBar } from '@/components/Focus/FocusTopBar';
+import { keepFocusCounting, useFocusTime } from '@/context/FocusTimeContext';
 import { useFocusPlan } from '@/hooks/useFocusPlan';
 import { useFocusDay } from '@/hooks/useFocusDay';
 import { on } from '@/lib/appEvents';
@@ -21,43 +17,78 @@ import { FocusCrew } from '@/components/Focus/FocusCrew';
 import { FocusSummary } from '@/components/Focus/FocusSummary';
 import { MARKS } from '@/lib/marks';
 import { FocusNearby } from '@/components/Focus/FocusNearby';
+import { FocusPortal, usePortalArrival } from '@/components/Focus/FocusPortal';
 import { announceChange } from '@/lib/livePulse';
 import { useFocusCrew } from '@/hooks/useFocusCrew';
 import { FeedService } from '@/lib/feedService';
-import { MIN_JOIN_SECONDS, hostOf, inviteFriendsToFocus, linkTo, linkedHost, secondsLeft, setFocusWith, togetherId } from '@/lib/focusTogether';
+import { MIN_JOIN_SECONDS, hostOf, linkTo, linkedHost, secondsLeft, setFocusWith, togetherId } from '@/lib/focusTogether';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useClockStyle } from '@/hooks/useClockStyle';
 import { useTasks } from '@/hooks/useTasks';
-import { getHabits, type Habit } from '@/lib/habitsSQLite';
+import { getHabits, setSkipped, type Habit } from '@/lib/habitsSQLite';
+import { localDateKey } from '@/lib/habitSchedule';
+import { lengthLabel } from '@/lib/dayFlow';
 import { styles } from '@/styles/screens/focus.styles';
 
 /** Holding the × this long ends a session, its ring filling as you hold. */
-const HOLD_MS = 700;
-const HOLD_SIZE = 44;
-const HOLD_R = 20;
-const HOLD_C = 2 * Math.PI * HOLD_R;
 
 /**
  * Focus mode, for any habit or task. It starts the moment it opens, nothing
- * to choose: a timer for as long as the thing lasts, counted from when it
- * begins on today's timeline (a 5:00–5:30 task opened at 5:10 has 20 minutes
- * left). When the time is up it carries on as a stopwatch, counting the whole
- * time since it began (at 6:00 that task shows 1:00:00), until it is done.
+ * to choose: a timer that ends when the thing's slot on today's timeline
+ * ends (a 5:00–5:30 task opened at 5:10 has 20 minutes left), or for its whole
+ * length when its slot is already over. Only time spent here counts as focus,
+ * from the moment it opens. When the time is up it carries on as a
+ * stopwatch only for "Just 5 minutes"; otherwise the day moves on.
  * Full screen and pure black, awake while it runs, with app blocking on
  * (where Screen Time is set up).
  *
  * While it runs there is nothing on screen but the clock and a faint ×. Tap
  * anywhere to pause or carry on, like a video. A long press (or the ×) grows
  * the × into a small window: Finished saves the time and counts the habit or
- * task as done and closes; Exit leaves without saving anything. Nothing
- * moves on by itself: focus is chosen.
+ * task as done and closes; Exit leaves without saving anything. When its
+ * time is up, the next thing on the timeline takes its place.
  *
  * Done · Next is the routine: it counts this one done and the next thing in
  * the day takes its place straight away, its clock already running, no
  * closing, no "done" screen in between.
  */
 export default function FocusRoute() {
+    // Every way into Focus passes through the portal once, as the page opens;
+    // the day's next steps redraw this same page, so it does not play again.
+    // Every way out (the ×, Finished, Exit, the clock running out) goes back
+    // through the same sand: the page is held until it has gathered.
+    const navigation = useNavigation();
+    const [portal, setPortal] = useState<'enter' | 'leave' | null>('enter');
+    const arrive = useSharedValue(0);
+    const arrival = usePortalArrival(arrive);
+    const leaving = useRef<{ action: Parameters<typeof navigation.dispatch>[0] } | null>(null);
+    const released = useRef(false);
+    useEffect(() => navigation.addListener('beforeRemove', event => {
+        if (released.current) return;
+        event.preventDefault();
+        if (leaving.current) return;
+        leaving.current = { action: event.data.action };
+        // Left before the entrance finished: the page stands where it would have arrived.
+        arrive.set(1);
+        setPortal('leave');
+    }), [navigation, arrive]);
+    const done = () => {
+        if (portal !== 'leave' || !leaving.current) { setPortal(null); return; }
+        released.current = true;
+        navigation.dispatch(leaving.current.action);
+    };
+    return (
+        <View style={styles.screen}>
+            <Animated.View style={[styles.screen, arrival]}><FocusStep /></Animated.View>
+            {/* In: the hourglass, the sand, the sand falling away. Out: the sand gathering (components/Focus/FocusPortal). */}
+            {portal ? <FocusPortal key={portal} mode={portal} arrive={arrive} onDone={done} /> : null}
+        </View>
+    );
+}
+
+/** What Focus shows now: the day's step, a block of time, or the clock. */
+function FocusStep() {
     const { id, kind, day, end, title, from, until, nextKind } = useLocalSearchParams<{
         id?: string; kind?: string; day?: string; end?: string; title?: string; from?: string; until?: string; nextKind?: string;
     }>();
@@ -80,7 +111,9 @@ function FocusDayStart() {
 }
 
 function FocusScreen() {
-    const { kind, id, title, banked: bankedParam, day: dayParam } = useLocalSearchParams<{ kind?: string; id?: string; title?: string; banked?: string; start?: string; day?: string }>();
+    const { kind, id, title, banked: bankedParam, day: dayParam, minutes: minutesParam } = useLocalSearchParams<{ kind?: string; id?: string; title?: string; banked?: string; start?: string; day?: string; minutes?: string }>();
+    // "Just 5 minutes" from Echo's nudge: a short clock that keeps counting if it takes.
+    const starter = Number(minutesParam) > 0 ? Number(minutesParam) : null;
     void dayParam;
     const proceed = useFocusDay();
     const insets = useSafeAreaInsets();
@@ -88,6 +121,8 @@ function FocusScreen() {
     const { selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
     const clock = useClockStyle();
     const screen = useWindowDimensions();
+    // Any way round while Focus is open (its clock goes sideways); portrait again on leaving.
+    useFocusEffect(React.useCallback(() => { allowAnyOrientation(); return applyDefaultOrientation; }, []));
     const focus = useFocusTime();
     const tasks = useTasks();
     const [habit, setHabit] = useState<Habit | null>(null);
@@ -98,17 +133,17 @@ function FocusScreen() {
     const host = kind === 'together' ? hostOf(id) : null;
     // Their end as a moment, not a number of seconds read earlier: the clock
     // is started from it, so it is right however long the page took to open.
-    const [joinPlan, setJoinPlan] = useState<{ endsAt: number; open: boolean; label: string; first: string } | null>(null);
+    const [joinPlan, setJoinPlan] = useState<{ endsAt: number; since: number | null; open: boolean; label: string; first: string } | null>(null);
     useEffect(() => {
         if (!host) return;
-        void FeedService.friendStatuses().catch(() => []).then(friends => {
+        void Promise.all([FeedService.friendStatuses().catch(() => []), FeedService.focusSince(host).catch(() => null)]).then(([friends, since]) => {
             const friend = friends.find(item => item.userId === host);
             // They joined someone else you know: join that session itself.
             const theirHost = friend?.focusWith ? friends.find(item => item.userId === friend.focusWith && secondsLeft(item.focusUntil) > 0) : undefined;
             if (theirHost) { router.setParams({ id: togetherId(theirHost.userId) }); return; }
             const first = friend?.name.split(' ')[0] || 'your friend';
             const endsAt = friend?.focusUntil ? new Date(friend.focusUntil).getTime() : 0;
-            setJoinPlan({ endsAt: Number.isFinite(endsAt) ? endsAt : 0, open: !!friend?.focusOpen && secondsLeft(friend.focusUntil) > 0, label: friend?.focusLabel?.trim() || `Focus with ${first}`, first });
+            setJoinPlan({ endsAt: Number.isFinite(endsAt) ? endsAt : 0, since: since !== null && since < endsAt ? since : null, open: !!friend?.focusOpen && secondsLeft(friend.focusUntil) > 0, label: friend?.focusLabel?.trim() || `Focus with ${first}`, first });
         });
     }, [host]);
 
@@ -198,15 +233,21 @@ function FocusScreen() {
                 return;
             }
             mediumFeedback();
-            // Begun a hair before now, so the countdown ends on their exact millisecond.
-            focus.startTimer(id, title ?? joinPlan.label, seconds, 'deep_focus', joinPlan.endsAt - seconds * 1000);
+            // Their ring's whole length, from when it began: yours stands where
+            // theirs does (half way there, half way round) and ends on their
+            // millisecond. Only your own time from now counts as your focus.
+            const length = joinPlan.since !== null ? Math.ceil((joinPlan.endsAt - joinPlan.since) / 1000) : seconds;
+            focus.startTimer(id, title ?? joinPlan.label, length, 'deep_focus', joinPlan.since ?? joinPlan.endsAt - seconds * 1000);
             return;
         }
         mediumFeedback();
         const name = title ?? habit?.name ?? task?.title ?? 'Focus';
-        if (plan.seconds === null) focus.startTimer(id, name, 3600 * 12, 'flow');
-        else focus.startTimer(id, name, plan.seconds, 'deep_focus', plan.since ?? undefined);
+        if (starter) focus.startTimer(id, name, starter * 60, 'deep_focus');
+        else if (plan.seconds === null) focus.startTimer(id, name, 3600 * 12, 'flow');
+        else { focus.startTimer(id, name, plan.seconds, 'deep_focus', plan.since ?? undefined); countdown.current = true; }
     };
+    /** Started as a countdown here, so its turning into a stopwatch means this part's time is up. */
+    const countdown = useRef(false);
     const started = useRef(false);
     useEffect(() => {
         // Opened on a session already running (from the bar over the tab bar,
@@ -219,39 +260,6 @@ function FocusScreen() {
         start();
     });
     const close = () => router.back();
-    // Only the pause button pauses; a tap anywhere else just brings the controls back.
-    const toggle = () => {
-        wake();
-        if (!active) return;
-        selectionFeedback();
-        if (focus.isPaused) focus.resumeTimer();
-        else focus.pauseTimer();
-    };
-    // Ending takes a hold on the ×, so a stray touch never ends a session: the
-    // ring round it fills, then the × grows into the app's own small window —
-    // Finished keeps the session and counts it done; Exit throws it away.
-    const endMenu = useRef<MorphMenuHandle>(null);
-    const askEnd = () => {
-        if (!active) { close(); return; }
-        mediumFeedback();
-        endMenu.current?.open();
-    };
-    const [holdHint, setHoldHint] = useState(false);
-    const hold = useSharedValue(0);
-    const holdRing = useAnimatedProps(() => ({ strokeDashoffset: HOLD_C * (1 - hold.get()) }));
-    const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const tappedEnd = () => {
-        wake();
-        selectionFeedback();
-        setHoldHint(true);
-        if (hintTimer.current) clearTimeout(hintTimer.current);
-        hintTimer.current = setTimeout(() => setHoldHint(false), 1800);
-    };
-    // Sounds to focus to, and the page's own settings, from the top corner.
-    const sound = useFocusSoundChoice();
-    const [sheet, setSheet] = useState<'settings' | 'sound' | null>(null);
-    useEffect(() => { void playFocusSound(sound, active && focus.isRunning && !focus.isPaused); }, [sound, active, focus.isRunning, focus.isPaused]);
-    useEffect(() => () => stopFocusSound(), []);
     // Start over: the same thing, its clock from the top, this run not saved.
     const restart = () => {
         if (!active) return;
@@ -276,7 +284,16 @@ function FocusScreen() {
         focus.finishTimer();
     };
     const finishNow = () => finishWith(false);
-    const nextNow = () => finishWith(true);
+    // The checkmark: counted done, the Marks and Shards fly from it (the
+    // overlay over the whole app, components/Marks/MarksOrbs), and the next
+    // thing in the day starts at once, with no summary in between.
+    const nextNow = () => {
+        if (!active) return;
+        leaving.current = true;
+        successFeedback();
+        focus.finishTimer();
+        void proceed(id);
+    };
     // Next from the wrist does the same.
     const nextRef = useRef(nextNow);
     nextRef.current = nextNow;
@@ -285,6 +302,33 @@ function FocusScreen() {
         return () => sub.remove();
     }, [id]);
     const exitNow = () => { leaving.current = true; focus.discardTimer(); close(); };
+    // Its time is up: the day moves on to what comes next on the timeline, not
+    // into over time. Its minutes are kept, and it stays open (the Time's up
+    // notification asks whether it is done, or needs more time). Split around
+    // something fixed (study 30, lunch, study 30), that is what split it, and
+    // focus comes back here for the rest after it. "Just 5 minutes" and a
+    // friend's session keep counting, as they always did.
+    // The session itself ends at its time (context/FocusTimeContext.tsx); here the page moves on with it.
+    useEffect(() => {
+        keepFocusCounting(!!starter || !!host);
+        const sub = on('focus_time_up', ({ id: ended }) => {
+            if (ended !== id || leaving.current) return;
+            leaving.current = true;
+            void proceed(id);
+        });
+        return () => { sub.remove(); keepFocusCounting(false); };
+    }, [id, starter, host, proceed]);
+    // Skip: not today. A habit is set aside for today (a skip neither counts
+    // nor breaks the run); a task stays open for later. The time already spent
+    // focusing is kept. Then the next thing in the day.
+    const skipNow = () => {
+        if (!active) return;
+        leaving.current = true;
+        selectionFeedback();
+        focus.stopTimer();
+        if (!isTask && !host && id) void setSkipped(id, true, localDateKey(new Date())).catch(() => undefined);
+        void proceed(id);
+    };
 
     // Who is in it with you, and "Join me?" to every friend who is awake.
     // Focusing at the same time by chance: Together links the two sessions,
@@ -308,24 +352,8 @@ function FocusScreen() {
         if (row && !row.focusOpen && Number.isFinite(endsAt) && endsAt > Date.now()) focus.alignEnd(endsAt);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [crew, host, active]);
-    const [canInvite, setCanInvite] = useState(false);
-    useEffect(() => { void FeedService.me().then(me => setCanInvite(!!me)).catch(() => undefined); }, []);
-    const [note, setNote] = useState<string | null>(null);
-    const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    useEffect(() => () => { if (noteTimer.current) clearTimeout(noteTimer.current); }, []);
-    const invite = async () => {
-        wake();
-        selectionFeedback();
-        const result = await inviteFriendsToFocus();
-        if ('sent' in result) successFeedback();
-        setNote('sent' in result ? `Invited ${result.sent} ${result.sent === 1 ? 'friend' : 'friends'}`
-            : result.error === 'too_soon' ? 'Already invited. Try again in a bit'
-            : result.error === 'nobody' ? 'No friends around right now'
-            : result.error === 'not_focusing' ? 'Carry on first, then invite'
-            : 'Could not invite. Check your connection');
-        if (noteTimer.current) clearTimeout(noteTimer.current);
-        noteTimer.current = setTimeout(() => setNote(null), 4000);
-    };
+    // No invite button here: friends join from Community, where they see you focusing.
+    const note: string | null = null;
 
     const name = title ?? joinPlan?.label ?? habit?.name ?? task?.title ?? 'Focus';
     const stopwatch = focus.activeMode === 'flow';
@@ -345,7 +373,11 @@ function FocusScreen() {
     const usable = screen.height - insets.top - insets.bottom - extras - (landscape ? 56 : 0);
     const ringSize = landscape ? Math.min(usable * 0.62, screen.width * 0.34) : Math.min(screen.width * 0.6, usable * 0.32);
     const digitSize = landscape ? Math.min(usable * 0.2, screen.width * 0.11) : Math.min(screen.width * 0.18, usable * 0.095);
-    const label = focus.isPaused ? undefined : endsAt ? `Ends at ${endsAt}` : undefined;
+    // Split around something fixed (lunch, an event): this part ends at its end,
+    // and the rest comes after it, said so the clock is never a surprise.
+    // "Ends at 12:00 · Lunch, then 30 min more": what comes between, and the rest after it.
+    const then = !host && plan.then ? `${plan.then.after ? `${plan.then.after}, then` : 'then'} ${lengthLabel(plan.then.minutes)} more` : null;
+    const label = focus.isPaused ? undefined : endsAt ? `Ends at ${endsAt}${then ? ` · ${then}` : ''}` : then ?? undefined;
     const controls = calm ? null : (
         <Animated.View entering={FadeIn.duration(220).reduceMotion(ReduceMotion.System)} exiting={FadeOut.duration(400).reduceMotion(ReduceMotion.System)} style={styles.controls}>
             {/* A joined session keeps your friend's clock: no starting over. */}
@@ -354,11 +386,12 @@ function FocusScreen() {
                     <AppIcon name="refresh" size={22} color="#FFFFFF" />
                 </Pressable>
             )}
-            <Pressable onPress={toggle} style={styles.play} accessibilityRole="button" accessibilityLabel={focus.isPaused ? 'Carry on' : 'Pause'}>
-                <AppIcon name={focus.isPaused ? 'play' : 'pause'} filled size={28} color="#000000" />
+            {/* Done: count it, then the next thing in the day. */}
+            <Pressable onPress={nextNow} style={styles.play} accessibilityRole="button" accessibilityLabel="Done, go to the next thing">
+                <AppIcon name="checkmark" size={30} color="#000000" />
             </Pressable>
-            {/* Done with it: count it and go to the next thing in the day. */}
-            <Pressable onPress={nextNow} style={styles.side} accessibilityRole="button" accessibilityLabel="Done, go to the next thing" hitSlop={6}>
+            {/* Not today: skip it, keep the time spent, go to the next thing. */}
+            <Pressable onPress={skipNow} style={styles.side} accessibilityRole="button" accessibilityLabel={isTask ? 'Skip for now, go to the next thing' : 'Skip today, go to the next thing'} hitSlop={6}>
                 <AppIcon name="play-skip-forward" filled size={22} color="#FFFFFF" />
             </Pressable>
         </Animated.View>
@@ -378,40 +411,12 @@ function FocusScreen() {
             {/* A glow of your colour at the top, settling into black: the
                 screen stays mostly black, which an OLED screen spends nothing on. */}
             <LinearGradient pointerEvents="none" colors={[`${primary}38`, `${primary}0F`, '#00000000']} locations={[0, 0.35, 0.7]} style={styles.glow} />
-            <Animated.View style={[styles.top, chromeStyle]}>
-                {active ? (
-                    <View>
-                        <MorphMenu menuRef={endMenu} icon="close" iconColor="#FFFFFF" label="End focus" title="End focus?" titleIcon="timer" items={[
-                            { label: 'Finished', icon: 'checkmark-circle', onPress: finishNow },
-                            { label: 'Exit without saving', icon: 'close-circle', destructive: true, onPress: exitNow },
-                        ]} />
-                        {/* Over the ×: a tap says to hold; holding fills the ring, then opens the menu. */}
-                        <Pressable style={styles.holdLayer} onPress={tappedEnd} delayLongPress={HOLD_MS} onLongPress={() => { hold.set(0); askEnd(); }}
-                            onPressIn={() => { hold.set(withTiming(1, { duration: HOLD_MS, easing: Easing.linear })); }}
-                            onPressOut={() => { hold.set(withTiming(0, { duration: 150 })); }}
-                            accessibilityRole="button" accessibilityLabel="End focus" accessibilityHint="Touch and hold to finish or exit"
-                            onAccessibilityTap={askEnd}>
-                            <Svg width={HOLD_SIZE} height={HOLD_SIZE} pointerEvents="none">
-                                <AnimatedCircle cx={HOLD_SIZE / 2} cy={HOLD_SIZE / 2} r={HOLD_R} stroke="#FFFFFF" strokeWidth={2.5} fill="none" strokeLinecap="round"
-                                    strokeDasharray={`${HOLD_C} ${HOLD_C}`} animatedProps={holdRing} rotation={-90} origin={`${HOLD_SIZE / 2}, ${HOLD_SIZE / 2}`} />
-                            </Svg>
-                        </Pressable>
-                        {holdHint ? <Text style={styles.holdHint}>Hold to end</Text> : null}
-                    </View>
-                ) : (
-                    <IconButton icon="close" label="Close" onPress={close} size={18} color="#FFFFFF" />
-                )}
-                <View style={styles.topRight}>
-                    {active && canInvite ? (
-                        // Says what it does before it does it: everyone awake gets "Join?".
-                        <MorphMenu icon="person-add" iconColor="#FFFFFF" label="Focus with friends" title="Focus with friends" titleIcon="people" items={[
-                            { label: 'Invite friends who are awake', icon: 'paper-plane', onPress: () => { void invite(); } },
-                        ]} />
-                    ) : null}
-                    <IconButton icon={sound === 'off' ? 'musical-notes-outline' : 'musical-notes'} label="Focus sound" onPress={() => { wake(); setSheet('sound'); }} size={18} color="#FFFFFF" />
-                    <IconButton icon="settings-outline" label="Focus settings" onPress={() => { wake(); setSheet('settings'); }} size={18} color="#FFFFFF" />
-                </View>
-            </Animated.View>
+            {/* The same top as a step of the day opened from the + (FocusBlock): hold the × to end, sound, settings. */}
+            <FocusTopBar style={chromeStyle} active={active} playing={active && focus.isRunning && !focus.isPaused} onClose={close} onWake={wake}
+                endItems={[
+                    { label: 'Finished', icon: 'checkmark-circle', onPress: finishNow },
+                    { label: 'Exit without saving', icon: 'close-circle', destructive: true, onPress: exitNow },
+                ]} />
 
             {active ? (
                 landscape ? (
@@ -460,8 +465,6 @@ function FocusScreen() {
                     onNext={summary.next ? () => { setSummary(null); void proceed(id); } : undefined}
                     onClose={() => { setSummary(null); close(); }} />
             ) : null}
-            <FocusSettingsSheet visible={sheet === 'settings'} onClose={() => setSheet(null)} />
-            <FocusSoundSheet visible={sheet === 'sound'} onClose={() => setSheet(null)} />
         </Pressable>
     );
 }

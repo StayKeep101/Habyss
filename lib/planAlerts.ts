@@ -20,8 +20,8 @@ export function planAlert(items: FlowInput[], flow: DayFlow, now: number, window
     if (!target) return null;
     const at = target.end + GRACE;
     if (at >= 24 * 60) return null;
-    // By then it will have been started, and holds its slot as it runs on.
-    const then = items.map(item => (item.id === target.id && !item.locked ? { ...item, kept: { start: target.start, end: target.end } } : item));
+    // By then it will have been started, and holds its place as it runs on (rule 2 of today's line).
+    const then = items.map(item => (item.id === target.id && !item.locked ? { ...item, kept: { start: target.start, end: at + 1 } } : item));
     const later = flowDay(then, at, window);
     const running = `${target.title} is taking longer than planned`;
     for (const before of flow.timeline) {

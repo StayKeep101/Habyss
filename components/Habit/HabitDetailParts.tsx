@@ -68,19 +68,21 @@ export function HabitHero({ icon, name, schedule, color, weekShare, goalName, on
 }
 
 /** Today, one big button: done, or not yet; skip and focus beside it. */
-export function HabitToday({ done, skipped, scheduled, color, onDone, onSkip, onFocus }: {
+export function HabitToday({ done, skipped, scheduled, color, onDone, onSkip, onFocus, waiting }: {
     done: boolean; skipped: boolean; scheduled: boolean; color: string;
+    /** Shared and done by you, not yet by everyone: what it is waiting on (lib/shared.ts). */
+    waiting?: string | null;
     onDone: () => void; onSkip: () => void; onFocus: () => void;
 }) {
     const t = useTokens();
     return (
         <View style={styles.today}>
             <Pressable onPress={onDone} accessibilityRole="button" accessibilityState={{ checked: done }}
-                accessibilityLabel={done ? 'Done today. Tap to undo' : 'Mark done for today'} style={styles.flex}>
+                accessibilityLabel={done ? `${waiting ? `Your part is done, ${waiting}` : 'Done today'}. Tap to undo` : 'Mark done for today'} style={styles.flex}>
                 <MatteSurface radius={Radius.pill} level="control" tint={done ? undefined : color} style={styles.doneButton}>
-                    <AppIcon name={done ? 'checkmark-circle' : 'checkmark'} filled size={20} color={done ? color : textOn(color)} />
+                    <AppIcon name={done ? (waiting ? 'remove-circle' : 'checkmark-circle') : 'checkmark'} filled size={20} color={done ? color : textOn(color)} />
                     <Text style={[styles.doneText, { color: done ? t.color.textPrimary : textOn(color) }]}>
-                        {done ? 'Done today' : skipped ? 'Skipped · mark done' : scheduled ? 'Mark done' : 'Do it anyway'}
+                        {done ? (waiting ? 'Your part is done' : 'Done today') : skipped ? 'Skipped · mark done' : scheduled ? 'Mark done' : 'Do it anyway'}
                     </Text>
                 </MatteSurface>
             </Pressable>

@@ -5,12 +5,15 @@
  */
 export type Reaction = 'proud' | 'fire' | 'comeback' | 'again';
 
-export const REACTIONS: { id: Reaction; label: string; icon: string }[] = [
-    { id: 'proud', label: 'Proud of you', icon: 'heart' },
-    { id: 'fire', label: 'On fire', icon: 'flame' },
-    { id: 'comeback', label: 'The comeback', icon: 'rocket' },
-    { id: 'again', label: 'Again tomorrow?', icon: 'repeat' },
+export const REACTIONS: { id: Reaction; label: string; icon: string; emoji: string }[] = [
+    { id: 'proud', label: 'Proud of you', icon: 'heart', emoji: '❤️' },
+    { id: 'fire', label: 'On fire', icon: 'flame', emoji: '🔥' },
+    { id: 'comeback', label: 'The comeback', icon: 'rocket', emoji: '🚀' },
+    { id: 'again', label: 'Again tomorrow?', icon: 'repeat', emoji: '💪' },
 ];
+
+/** The emoji a reaction is drawn with. */
+export const reactionEmoji = (id: Reaction): string => REACTIONS.find(item => item.id === id)?.emoji ?? '❤️';
 
 export const reactionLabel = (id: Reaction): string => REACTIONS.find(item => item.id === id)?.label ?? 'Proud of you';
 

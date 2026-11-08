@@ -15,6 +15,8 @@ export interface DailyProgress {
     // New fields for timer
     activeHabitName?: string;
     targetDate?: number; // timestamp in ms
+    /** A focus timer's whole length in seconds, so its ring starts as full as the app's (half way through, half way). */
+    totalSeconds?: number;
     profilePicture?: string; // local file path or base64
     habits?: { id: string; name: string; isCompleted: boolean }[];
 }
@@ -95,7 +97,8 @@ export const LiveActivityService = {
             const activityId = LiveActivity.startActivity(
                 {
                     name: 'Habyss Live Activity',
-                    totalDurationSeconds: stats.targetDate ? (stats.targetDate - Date.now()) / 1000 : null,
+                    // The whole length, not what is left: opened half way through its slot, the ring starts half full.
+                    totalDurationSeconds: stats.totalSeconds ?? (stats.targetDate ? (stats.targetDate - Date.now()) / 1000 : null),
                 },
                 {
                     title,

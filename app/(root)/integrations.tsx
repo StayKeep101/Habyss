@@ -26,7 +26,8 @@ export default function IntegrationsScreen() {
     const colors = Colors[theme];
     const { lightFeedback, successFeedback } = useHaptics();
 
-    const [connected, setConnected] = useState(false);
+    // Opens already showing whether Health is connected (kept once read), then checks again behind it.
+    const [connected, setConnected] = useState(() => HealthKitService.known ?? false);
     const [busy, setBusy] = useState(false);
     const [filled, setFilled] = useState<number | null>(null);
 
@@ -40,8 +41,6 @@ export default function IntegrationsScreen() {
         for (const item of calendars) groups.set(item.source, [...(groups.get(item.source) ?? []), item]);
         return [...groups.entries()];
     }, [calendars]);
-    /** The account whose calendars are open in the list, if any. */
-    const [openAccount, setOpenAccount] = useState<string | null>(null);
     const toggleCalendar = async (next: boolean) => {
         lightFeedback();
         const done = await setCalendarOn(next);
@@ -128,37 +127,32 @@ export default function IntegrationsScreen() {
         <SheetScreen title="Connected apps" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* Your calendars' events, as fixed blocks the day is planned around:
-                    one switch, then each account folded into one row that opens to
-                    its calendars, so a phone with five accounts stays one short card. */}
+                    one switch, then every account open with its calendars, each one in
+                    its own colour, so choosing what reaches the timeline is one look. */}
                 <SettingsGroup title="Calendar">
                     <SettingsRow icon="calendar" color={colors.error} label="Apple & Google Calendar"
                         toggle={calendar} onToggle={value => void toggleCalendar(value)} />
-                    {calendar ? accounts.flatMap(([account, list]) => {
-                        const on = list.filter(item => shown(item.id)).length;
-                        const open = openAccount === account;
-                        return [
-                            <SettingsRow key={account} icon={open ? 'chevron-down' : 'person-circle'} color={colors.textTertiary}
-                                label={account} value={`${on} of ${list.length}`}
-                                onPress={() => { lightFeedback(); setOpenAccount(open ? null : account); }} />,
-                            ...(open ? list.map(item => (
-                                <SettingsRow key={item.id} icon="calendar" color={item.color || colors.error} label={item.title}
-                                    toggle={shown(item.id)} onToggle={value => { lightFeedback(); setShown(item.id, value); }} />
-                            )) : []),
-                        ];
-                    }) : null}
                 </SettingsGroup>
+                {calendar ? accounts.map(([account, list]) => (
+                    <SettingsGroup key={account} title={account}>
+                        {list.map(item => (
+                            <SettingsRow key={item.id} icon="ellipse" color={item.color || colors.error} label={item.title}
+                                toggle={shown(item.id)} onToggle={value => { lightFeedback(); setShown(item.id, value); }} />
+                        ))}
+                    </SettingsGroup>
+                )) : null}
                 <Text style={[styles.note, { color: colors.textTertiary }]}>
                     {calendar
-                        ? `${todayEvents.length} ${todayEvents.length === 1 ? 'event' : 'events'} on your timeline today. Tap an account to choose its calendars.`
+                        ? `${todayEvents.length} ${todayEvents.length === 1 ? 'event' : 'events'} on your timeline today, from the calendars switched on above.`
                         : 'Events show on your timeline as fixed blocks, and habits and tasks are planned around them. Google Calendar comes in through the Google account on this iPhone.'}
                 </Text>
 
                 {/* One switch. Everything that writes to Health — watches,
                     rings, gyms — comes through it. */}
-                {/* Sleep only. Apple Watch, Garmin, Oura, Whoop and the rest all
-                    write their sleep into Apple Health, so this covers them. */}
-                <SettingsGroup title="Sleep">
-                    <SettingsRow icon="moon" color="#5E5CE6" label="Sleep from Apple Health"
+                {/* Sleep and activity. Apple Watch, Garmin, Oura, Whoop and the rest all
+                    write into Apple Health, so this covers them. */}
+                <SettingsGroup title="Apple Health">
+                    <SettingsRow icon="heart" color="#FF375F" label="Sleep, exercise and steps"
                         toggle={connected} disabled={busy} onToggle={value => { lightFeedback(); void connect(value); }} />
                 </SettingsGroup>
                 {/* Claude, ChatGPT and other assistants, through MCP: one key each. */}
@@ -173,7 +167,7 @@ export default function IntegrationsScreen() {
                 <Text style={[styles.note, { color: colors.textTertiary }]}>
                     {canMcp === false
                         ? 'Sign in to Habyss to connect an assistant: it works with your account.'
-                        : 'Let Claude, ChatGPT or any MCP app see your plan for today, add tasks and tick off habits and tasks. Tap a key to disconnect it.'}
+                        : 'Connect an MCP assistant to create tasks, habits, goals and full roadmaps. Tap a key to disconnect it.'}
                 </Text>
 
                 {/* Habyss already answers Siri and Shortcuts (log a habit, add a

@@ -3,8 +3,8 @@ import { Platform } from 'react-native';
 /**
  * Which way up the app may be.
  *
- * An iPhone stays upright (Focus turns sideways for its clock and puts it
- * back). An iPad turns freely, as every iPad app is expected to, and has to
+ * An iPhone stays portrait, either way up (Focus turns any way round for its
+ * clock and puts it back). Info.plist allows all four; this narrows it. An iPad turns freely, as every iPad app is expected to, and has to
  * for Split View and Stage Manager. Needs a build with the module; without
  * it nothing changes.
  */
@@ -21,12 +21,12 @@ function module(): typeof import('expo-screen-orientation') | null {
 
 export const isTablet = () => Platform.OS === 'ios' && Platform.isPad;
 
-/** The app's normal rule: free on an iPad, upright on a phone. */
+/** The app's normal rule: free on an iPad, portrait (either way up) on a phone. */
 export function applyDefaultOrientation(): void {
     const rotate = module();
     if (!rotate) return;
     if (isTablet()) void rotate.unlockAsync().catch(() => undefined);
-    else void rotate.lockAsync(rotate.OrientationLock.PORTRAIT_UP).catch(() => undefined);
+    else void rotate.lockAsync(rotate.OrientationLock.PORTRAIT).catch(() => undefined);
 }
 
 /** Any way round, for as long as a screen needs it (Focus's sideways clock). */

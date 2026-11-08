@@ -21,7 +21,6 @@ import { LOCAL_MODEL } from '@/lib/localModelDownload';
 import type { ModelDownloadState } from '@/lib/LocalLLMService';
 import { coachHello, coachReminder } from '@/lib/coachMessages';
 import { NotificationService } from '@/lib/notificationService';
-import { PAYWALL_ENABLED } from '@/constants/features';
 import {
     DEFAULT_DAY, DEFAULT_ECHO, eveningCheckIn, getDayWindow, getEchoConfig, getName,
     morningCheckIn, updateEchoConfig, cachedDayWindow, cachedEchoConfig, type DayWindow, type EchoConfig,

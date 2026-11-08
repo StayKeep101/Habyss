@@ -1,4 +1,4 @@
-import { MARKS } from './marks';
+import { MARKS, MARKS_LIMITS } from './marks';
 
 /**
  * The Marks orbs: when something earns Marks, one little orb per Mark flies
@@ -85,17 +85,19 @@ export const orbCount = (marks: number) => Math.max(1, Math.min(MAX_ORBS, Math.r
 const burst = new Set<string>();
 export function habitDone(habitId: string, date: string, completed: boolean): number {
     const key = `${habitId}:${date}`;
-    if (!completed) { burst.delete(key); return 0; }
+    if (!completed) { burst.delete(key); takeBack(MARKS.complete.habit); return 0; }
     if (burst.has(key)) return 0;
     burst.add(key);
-    return MARKS.complete.habit;
+    // Past the day's full habits each tick earns one (MARKS_LIMITS, lib/marks.ts).
+    const kept = [...burst].filter(entry => entry.endsWith(`:${date}`)).length;
+    return kept > MARKS_LIMITS.fullHabitsPerDay ? MARKS_LIMITS.extraHabit : MARKS.complete.habit;
 }
 export const taskDone = () => MARKS.complete.task;
 /** The same for a task: one burst per finish, again after it is reopened. */
 const tasksBurst = new Set<string>();
 export function taskEarned(taskId: string, date: string, completed: boolean): number {
     const key = `${taskId}:${date}`;
-    if (!completed) { tasksBurst.delete(key); return 0; }
+    if (!completed) { tasksBurst.delete(key); takeBack(MARKS.complete.task); return 0; }
     if (tasksBurst.has(key)) return 0;
     tasksBurst.add(key);
     return MARKS.complete.task;
@@ -126,6 +128,21 @@ export function noteMarksTotal(value: number, at = Date.now()) {
     total = value;
     changedAt = at;
     claimed = false;
+}
+
+/**
+ * Unticked: what it earned leaves the total shown too. Home reports the real
+ * total only while it is on screen (tabs you are not on do not re-render), so
+ * without this the pill on the timeline counted +5 for every tick and never
+ * took it back, and ticking and unticking looked like endless Marks. The real
+ * total (lib/marks.ts) was never affected; this keeps what is shown honest,
+ * and Home's next report corrects any rounding (the day's multiplier).
+ */
+function takeBack(marks: number) {
+    if (total === null) return;
+    total = Math.max(0, total - marks);
+    before = null;
+    claimed = true;
 }
 
 /** From and to, for counting the total up by `marks`; null before Home has said what it is. */

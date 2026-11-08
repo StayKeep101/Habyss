@@ -17,7 +17,7 @@ export function McpKeySheet({ address, onClose }: { address: string | null; onCl
     const close = () => { setCopied(false); onClose(); };
     return (
         <VoidSheet visible={!!address} onClose={close} title="Connect your assistant"
-            caption="Shown once. Anyone with this address can see and change your habits and tasks, so keep it to yourself.">
+            caption="Shown once. Anyone with this address can read your plan and create tasks, habits, goals and roadmaps, so keep it to yourself.">
             <View style={{ gap: t.space.md }}>
                 <MatteSurface radius={t.radius.md} level="control" style={{ padding: t.space.md }}>
                     <Text selectable style={[t.type.caption, styles.mono, { color: t.color.textPrimary }]}>{address}</Text>
@@ -30,10 +30,10 @@ export function McpKeySheet({ address, onClose }: { address: string | null; onCl
                 </View>
                 <View style={{ gap: t.space.xs }}>
                     <Text style={[t.type.bodySmall, styles.strong, { color: t.color.textPrimary }]}>Where to paste it</Text>
-                    <Text style={[t.type.caption, { color: t.color.textMuted }]}>Claude: Settings → Connectors → Add custom connector.</Text>
-                    <Text style={[t.type.caption, { color: t.color.textMuted }]}>ChatGPT: Settings → Connectors → Create (developer mode).</Text>
+                    <Text style={[t.type.caption, { color: t.color.textMuted }]}>Use a remote MCP connection (Streamable HTTP) and paste this address.</Text>
+                    <Text style={[t.type.caption, { color: t.color.textMuted }]}>Choose no additional authentication: the address includes your personal key.</Text>
                     <Text style={[t.type.caption, { color: t.color.textMuted }]}>Claude Code: claude mcp add --transport http habyss followed by the address.</Text>
-                    <Text style={[t.type.caption, { color: t.color.textSubtle }]}>Then ask things like "What's on my plan today?" or "Add a task to call the dentist tomorrow at 10".</Text>
+                    <Text style={[t.type.caption, { color: t.color.textSubtle }]}>Ask: "Build a roadmap to launch my project, with milestones, tasks and daily habits."</Text>
                 </View>
             </View>
         </VoidSheet>

@@ -1,3 +1,4 @@
+import { useRemoveTask } from '@/hooks/useRemoveTask';
 import { DeadlineCountdown } from '@/components/Goal/DeadlineCountdown';
 import { GoalHabitRow } from '@/components/Goal/GoalRows';
 import { FontFamily } from '@/theme/designSystem';
@@ -36,7 +37,7 @@ import { addMilestones, splitIntoMilestones, updateMilestone, type Milestone } f
 import { GoalStatsView } from '@/components/Goal/GoalStatsView';
 import { GoalPace } from '@/components/Goal/GoalPace';
 import { addDays, dateAt } from '@/lib/goalInsights';
-import { setTaskStatus, deleteTask, updateTask, type Task } from '@/lib/tasks';
+import { setTaskStatus, updateTask, type Task } from '@/lib/tasks';
 import { useTasks } from '@/hooks/useTasks';
 import { DragDropProvider } from '@/components/ui/DragDrop';
 import { GoalTodoList, startNewSection } from '@/components/Goal/GoalTodoList';
@@ -269,17 +270,9 @@ const GoalDetail = () => {
     } catch { Alert.alert('Could not save task', 'Please try again.'); }
   };
 
-  const removeTask = (task: Task) => {
-    Alert.alert('Delete task', `Delete "${task.title}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive', onPress: async () => {
-          try { await deleteTask(task.id); emit('tasks_changed'); }
-          catch { Alert.alert('Could not delete task', 'Your task is still saved. Please try again.'); }
-        },
-      },
-    ]);
-  };
+  // The same question as everywhere a task is deleted (hooks/useRemoveTask.ts).
+  const askRemoveTask = useRemoveTask();
+  const removeTask = (task: Task) => askRemoveTask(task);
 
   /**
    * The task sheet, mounted on this page. Asking the copy at the root for it

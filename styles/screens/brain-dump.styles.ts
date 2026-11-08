@@ -3,6 +3,8 @@ import { FontFamily, Spacing } from '@/theme/designSystem';
 
 /** The look of app/(root)/brain-dump.tsx: a page to write on, nothing more. */
 export const styles = StyleSheet.create({
+    /** Export and Select, side by side in the header. */
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     flex: { flex: 1 },
     content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: Spacing.xl },
     /** Room below the last thought while one is reworded, so even the last can scroll up above the keyboard. */

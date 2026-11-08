@@ -1,6 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type LayoutRectangle } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
+import { ChoicePill } from '@/components/ui/ChoicePill';
+import { ChoiceSheet } from '@/components/ui/ChoiceSheet';
 import { AnimatedCircle, CountUp, MOTION, useProgress } from '@/components/ui/Motion';
 import { router } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -48,8 +50,15 @@ export default function ProgressScreen() {
     const { primary: accent } = useAccentGradient();
     const { lightFeedback, selectionFeedback } = useHaptics();
 
-    const { habits, completions, skippedToday, today } = useGoalsInsights();
-    const tasks = useTasks();
+    const { habits: allHabits, completions, skippedToday, today } = useGoalsInsights();
+    const allTasks = useTasks();
+    // One habit's streak, or the whole day's (tasks included). The same streakFrom
+    // either way: given one habit and no tasks, it is that habit's run.
+    const [only, setOnly] = useState<string | null>(null);
+    const [choosing, setChoosing] = useState(false);
+    const picked = only ? allHabits.find(habit => habit.id === only) ?? null : null;
+    const habits = useMemo(() => (picked ? [picked] : allHabits), [picked, allHabits]);
+    const tasks = useMemo(() => (picked ? [] : allTasks), [picked, allTasks]);
     const { history, skips } = useHistory(400);
     const dailyTarget = useDailyTarget();
 
@@ -181,9 +190,14 @@ export default function ProgressScreen() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!selected}>
                 {/* The answer first, centred and large, with a small flame over it
                     and your best run under it; then the month in four numbers. */}
+                {/* Whose streak: every habit and task together, or one habit. */}
+                <View style={styles.pickerRow}>
+                    <ChoicePill label={picked ? picked.name : 'All habits'} icon="chevron-down" on={false} color={accent} role="button" onPress={() => { selectionFeedback(); setChoosing(true); }}
+                        accessibilityLabel={`Streak for ${picked ? picked.name : 'all habits and tasks'}. Change`} />
+                </View>
                 <View style={[styles.hero, { marginTop: Math.round(12 * fit), marginBottom: Math.round(20 * fit) }]} accessible accessibilityLabel={`${streak} ${streak === 1 ? 'day' : 'days'} in a row. Best ${best}.`}>
                     <Ionicons name="flame" filled size={22} color={colors.warning} />
-                    <CountUp style={[styles.heroValue, { fontSize: heroSize, lineHeight: Math.round(heroSize * 1.08), letterSpacing: -heroSize / 24, color: colors.textPrimary }]} value={streak} />
+                    <CountUp style={[styles.heroValue, { fontSize: heroSize, lineHeight: Math.round(heroSize * 1.08), letterSpacing: -heroSize / 24, color: colors.textPrimary }]} value={streak} replay={only} />
                     <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{streak === 1 ? 'day in a row' : 'days in a row'}</Text>
                     {best > streak ? (
                         <Text style={[styles.heroBest, { color: colors.textTertiary }]}>{`Best ${best} ${best === 1 ? 'day' : 'days'}`}</Text>
@@ -252,6 +266,13 @@ export default function ProgressScreen() {
                     onClose={closeDay}
                 />
             ) : null}
+            <ChoiceSheet visible={choosing} title="Streak for" onClose={() => setChoosing(false)}
+                choices={[
+                    { label: 'All habits', icon: only === null ? 'checkmark' : 'layers', onPress: () => setOnly(null) },
+                    ...allHabits.filter(habit => !habit.isGoal && !habit.isArchived).map(habit => ({
+                        label: habit.name, icon: only === habit.id ? 'checkmark' : habit.icon || 'repeat', onPress: () => setOnly(habit.id),
+                    })),
+                ]} />
         </SheetScreen>
     );
 }

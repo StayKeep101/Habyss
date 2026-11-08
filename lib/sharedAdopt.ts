@@ -92,6 +92,8 @@ export async function adoptShared(kind: Kind, itemId: string): Promise<boolean> 
         ...columns.map(name => (local as Record<string, unknown>)[name] ?? null),
     );
 
+    // Remembered as somebody else's row, so deleting it later stays on this phone (lib/shareEnding.ts).
+    if (kind !== 'goal') await (require('./shareEnding') as typeof import('./shareEnding')).rememberAdopted(kind, itemId);
     await announce(kind);
     // A goal is its plan: its habits and tasks come with it, now rather than
     // on the next backup, so the goal is not empty the moment it is accepted.

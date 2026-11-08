@@ -3,6 +3,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { DeviceEventEmitter } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CreationModal } from '@/components/Create/CreationModal';
+import { savePlus, DEFAULT_PLUS } from '@/lib/plusActions';
 
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
 jest.mock('@/context/AccentContext', () => ({
@@ -10,6 +11,9 @@ jest.mock('@/context/AccentContext', () => ({
 }));
 jest.mock('@/hooks/useResponsiveLayout', () => ({ useResponsiveLayout: () => ({ horizontalPadding: 20, floatingButtonSize: 60, tabBarBottomOffset: 24 }) }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
+
+// Someone who chose each kind for Roadmap's + in Settings → Plus button.
+beforeEach(() => { void savePlus({ ...DEFAULT_PLUS, roadmap: ['goal', 'habit', 'task', 'thought'] }); });
 
 describe('floating creation actions', () => {
     beforeEach(() => jest.useFakeTimers());
@@ -73,14 +77,13 @@ describe('the plus button and the menu are one object', () => {
         subscription.remove();
         screen.unmount();
     });
-    it('offers this tab’s actions: mood and energy on Home', () => {
+    it('offers this tab’s actions: each kind on Home too', () => {
         const asked = jest.fn();
-        const subscription = DeviceEventEmitter.addListener('show_check_in', asked);
+        const subscription = DeviceEventEmitter.addListener('show_task_form', asked);
         const screen = render(<CreationModal />);
         act(() => { DeviceEventEmitter.emit('show_creation_modal', { x: 300, y: 700, size: 60, tab: 'home' }); });
-        expect(screen.queryByLabelText('Create goal')).toBeNull();
-        fireEvent.press(screen.getByLabelText('Mood'));
-        expect(asked).toHaveBeenCalledWith({ kind: 'mood' });
+        fireEvent.press(screen.getByLabelText('Create task'));
+        expect(asked).toHaveBeenCalled();
         subscription.remove();
         screen.unmount();
     });

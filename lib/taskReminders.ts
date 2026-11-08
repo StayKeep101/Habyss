@@ -21,7 +21,7 @@ export function buildTaskReminderPlan(
     defaultTime = '09:00',
     limit = 16,
     /** Today's timeline: a task on it is reminded when it starts there. */
-    todayStarts: Record<string, { start: number }> = {},
+    todayStarts?: Record<string, { start: number }>,
 ): TaskReminder[] {
     const fallback = TIME.test(defaultTime) ? defaultTime : '09:00';
     const plan: TaskReminder[] = [];
@@ -31,7 +31,10 @@ export function buildTaskReminderPlan(
         const [year, month, day] = task.dueDate.split('-').map(Number);
         if (!year || !month || !day) continue;
 
-        const placed = task.dueDate === localDateKey(now) ? todayStarts[task.id] : undefined;
+        const isToday = task.dueDate === localDateKey(now);
+        const placed = isToday ? todayStarts?.[task.id] : undefined;
+        // Today, only a task that is on today's timeline gets a reminder: one it could not fit gets none.
+        if (isToday && todayStarts && !placed) continue;
         const time = task.dueTime && TIME.test(task.dueTime) ? task.dueTime : fallback;
         const [hour, minute] = time.split(':').map(Number);
         const date = placed ? new Date(year, month - 1, day, 0, placed.start, 0, 0) : new Date(year, month - 1, day, hour, minute, 0, 0);

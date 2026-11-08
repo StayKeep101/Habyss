@@ -1,10 +1,15 @@
+import { waitingLabel, waitingOnOthers } from '@/lib/shared';
+import { samePropsBy } from '@/lib/sameProps';
+import { useInstantToggle } from '@/hooks/useInstantToggle';
+import { LevelTags } from '@/components/ui/LevelTags';
 import { FontFamily } from '@/theme/designSystem';
 import { formatClock, formatDuration, measurementFor } from '@/lib/habitMeasurement';
+import { localDateKey, quotaProgress } from '@/lib/habitSchedule';
 import React, { useRef } from 'react';
 import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
 import { textOn } from '@/theme/tokens';
 import { CountUp } from '@/components/ui/Motion';
-import { TouchableOpacity, Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { TouchableOpacity, GestureDetector } from 'react-native-gesture-handler';
 import { SwipeRow } from '@/components/ui/SwipeRow';
 import { CheckPop } from '@/components/ui/CheckPop';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -20,7 +25,7 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { Radius } from '@/theme/designSystem';
 import { useHaptics } from '@/hooks/useHaptics';
-import { runOnJS } from 'react-native-reanimated';
+import { useHoldDrag } from '@/hooks/useHoldDrag';
 import { HOLD_MS, STILL } from '@/components/ui/DragDrop';
 import { useFocusTimeLeft } from '@/context/FocusTimeContext';
 
@@ -61,6 +66,8 @@ interface SwipeableHabitItemProps {
   /** Stand down for today, on purpose: neither done nor missed. */
   onSkip?: (habit: ExtendedHabit) => void;
   skipped?: boolean;
+  /** Shown on a day it cannot be ticked (habits are ticked on their day only). */
+  locked?: boolean;
 }
 
 const { width } = Dimensions.get('window');
@@ -69,12 +76,12 @@ const ACTION_WIDTH = 70; // Slightly larger for better touch targets
 const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   habit, onPress, onToggle, onEdit, onDelete, onShare, size, completed, goalName, isActive, timeLeft, totalDuration,
   canFocusNow, onFocusPress,
-  onDragStart, onDragMove, onDragEnd, isDragging = false, onSkip, skipped = false, shared = null
+  onDragStart, onDragMove, onDragEnd, isDragging = false, onSkip, skipped = false, shared = null, locked = false
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
   const router = useRouter();
-  const { lightFeedback, selectionFeedback, mediumFeedback } = useHaptics();
+  const { lightFeedback, selectionFeedback, mediumFeedback, errorFeedback } = useHaptics();
   const { primary: accentColor } = useAccentGradient();
 
   // Measure card for SVG Border
@@ -82,6 +89,9 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
 
   // Prefer dedicated prop, fallback to object property
   const doneByMe = completed !== undefined ? completed : habit.completed;
+  // The tick fills the moment it is tapped; the page catches up a frame later.
+  // Habits are ticked on their own day: on another, a tap says no and never shows a tick.
+  const [tick, pressTick] = useInstantToggle(!!doneByMe, () => onToggle?.(habit), locked ? errorFeedback : undefined);
   /**
    * A shared habit is not done until everybody on it is done.
    *
@@ -91,6 +101,8 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
    * which is the whole reason for sharing it.
    */
   const isCompleted = shared ? shared.complete : doneByMe;
+  // A "3 times a week" habit says how far its week is, so which days counted is never a guess.
+  const quota = quotaProgress(habit, localDateKey(new Date()));
 
   // Dynamic Sizing (Habits must be smaller than Goals)
   const isSmall = size === 'small';
@@ -119,25 +131,14 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
 
   // A still hold lifts it; moving first is a scroll. Only a drag that really
   // began ends in a drop (onEnd): a tap, a scroll or the tick never does.
-  const dragGesture = Gesture.Pan()
-    .enabled(!!onDragStart)
-    .activateAfterLongPress(HOLD_MS)
-    .failOffsetX([-STILL, STILL]).failOffsetY([-STILL, STILL])
-    .onStart((event) => {
-      if (onDragStart) {
-        runOnJS(onDragStart)(habit, event.absoluteX, event.absoluteY);
-      }
-    })
-    .onUpdate((event) => {
-      if (onDragMove) {
-        runOnJS(onDragMove)(habit, event.absoluteX, event.absoluteY);
-      }
-    })
-    .onEnd((event) => {
-      if (onDragEnd) {
-        runOnJS(onDragEnd)(habit, event.absoluteX, event.absoluteY);
-      }
-    });
+  const dragGesture = useHoldDrag({
+    enabled: !!onDragStart, holdMs: HOLD_MS, still: STILL,
+    onPhase: (phase, x, y) => {
+      if (phase === 'start') onDragStart?.(habit, x, y);
+      else if (phase === 'move') onDragMove?.(habit, x, y);
+      else if (phase === 'end') onDragEnd?.(habit, x, y);
+    },
+  });
 
   return (
     <GestureDetector gesture={dragGesture}>
@@ -176,23 +177,23 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
               activeOpacity={0.6}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: !!doneByMe }}
-              accessibilityLabel={skipped ? `${habit.name}, skipped today` : isCompleted ? `Undo ${habit.name}` : `Mark ${habit.name} done`}
-              onPress={() => onToggle && onToggle(habit)}
+              accessibilityLabel={skipped ? `${habit.name}, skipped today` : shared && waitingOnOthers(shared, tick) ? `${habit.name}, ${waitingLabel(shared)}. Tap to undo` : isCompleted ? `Undo ${habit.name}` : `Mark ${habit.name} done`}
+              onPress={pressTick}
               hitSlop={Math.max(10, (44 - checkboxSize) / 2)}
             >
-              <CheckPop active={!!doneByMe} color={accentColor} size={checkboxSize}>
+              <CheckPop active={tick} color={accentColor} size={checkboxSize}>
                 <View style={[
                   styles.checkbox,
                   { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 },
                   // Done: a solid disc of the habit's colour with a tick, the
                   // way every chosen thing is drawn. Running: a ring, no fill.
-                  doneByMe && { backgroundColor: habit.color || accentColor, borderColor: habit.color || accentColor },
+                  tick && { backgroundColor: habit.color || accentColor, borderColor: habit.color || accentColor },
                   isActive && { borderColor: habit.color || accentColor },
                   // A skipped day is drawn as set aside, not as failed.
-                  skipped && !doneByMe && { borderStyle: 'dashed', borderColor: colors.textTertiary },
+                  skipped && !tick && { borderStyle: 'dashed', borderColor: colors.textTertiary },
                 ]}>
-                  {isCompleted || isActive ? (
-                    <Ionicons name={isCompleted ? 'checkmark' : 'play'} size={checkboxSize * 0.7} color={isCompleted ? textOn(habit.color || accentColor) : (habit.color || accentColor)} />
+                  {tick || isActive ? (
+                    <Ionicons name={tick ? (waitingOnOthers(shared, tick) ? 'remove' : 'checkmark') : 'play'} size={checkboxSize * 0.7} color={tick ? textOn(habit.color || accentColor) : (habit.color || accentColor)} />
                   ) : skipped ? (
                     <Ionicons name="remove" size={checkboxSize * 0.7} color={colors.textTertiary} />
                   ) : null}
@@ -222,11 +223,17 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
                 </View>
               ) : skipped && !isCompleted && !isSmall ? (
                 <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.medium, marginTop: 2 }}>Skipped today</Text>
+              ) : quota && !isSmall ? (
+                <Text style={{ fontSize: 11, color: quota.done >= quota.times ? colors.success : colors.textTertiary, fontFamily: FontFamily.medium, marginTop: 2 }} numberOfLines={1}>
+                  <CountUp value={quota.done} /> of {quota.times} this {quota.period}
+                </Text>
               ) : goalName && !isSmall ? (
                 <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, marginTop: 2 }} numberOfLines={1}>{goalName}</Text>
               ) : ((habit.streak ?? 0) > 0 && !isSmall) ? (
                 <Text style={[styles.streakText, { color: '#F59E0B' }]}><Ionicons name="flame-outline" size={12} color="#F59E0B" /> <CountUp value={habit.streak ?? 0} /></Text>
               ) : null}
+              {/* How urgent and how hard, when it is not the ordinary case. */}
+              {!isSmall ? <View style={styles.levels}><LevelTags priority={habit.priority} difficulty={habit.difficulty} dim={isCompleted} /></View> : null}
             </View>
 
             {/* The right edge, the same on every card: when (with the bell if
@@ -271,7 +278,9 @@ const FocusedHabitItem: React.FC<SwipeableHabitItemProps> = (props) => {
 };
 
 export const SwipeableHabitItem = React.memo((props: SwipeableHabitItemProps) =>
-  props.followFocus ? <FocusedHabitItem {...props} /> : <SwipeableHabitItemComponent {...props} />);
+  props.followFocus ? <FocusedHabitItem {...props} /> : <SwipeableHabitItemComponent {...props} />,
+  // Re-renders only when what it shows changed; the page's handlers are stable (useLatestCallback).
+  samePropsBy<SwipeableHabitItemProps>(['habit', 'shared']));
 
 const styles = StyleSheet.create({
   swipeableContainer: {
@@ -317,6 +326,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     marginTop: 1,
   },
+  levels: { marginTop: 2 },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',

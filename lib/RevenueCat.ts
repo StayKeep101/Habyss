@@ -182,18 +182,37 @@ class RevenueCatService {
         }
     }
 
-    /** Whether Habyss is bought, and when the free trial purchase was made (ms), or null if unreachable. */
-    async customerInfo(): Promise<{ owned: boolean; trialStart: number | null } | null> {
+    /** A subscription (Habyss Pro), or null when the store or key is not set up. */
+    async getSubscription(productId: string): Promise<PurchasesStoreProduct | null> {
         if (!(await this.ensureInitialized())) return null;
         try {
-            const info = await Purchases.getCustomerInfo();
-            const { PRODUCTS } = require('@/lib/access') as typeof import('@/lib/access');
-            const trial = info.nonSubscriptionTransactions.find(transaction => transaction.productIdentifier === PRODUCTS.trial || transaction.productIdentifier === PRODUCTS.legacyTrial);
-            const trialStart = trial ? new Date(trial.purchaseDate).getTime() : null;
-            return { owned: this.checkProEntitlement(info), trialStart: Number.isFinite(trialStart) ? trialStart : null };
+            const [product] = await Purchases.getProducts([productId], PRODUCT_CATEGORY.SUBSCRIPTION);
+            return product ?? null;
         } catch {
             return null;
         }
+    }
+
+    /** Whether Habyss Pro is active, until when and whether it renews, or null if the store is unreachable. */
+    async proInfo(): Promise<{ active: boolean; until: number | null; renews: boolean } | null> {
+        if (!(await this.ensureInitialized())) return null;
+        try {
+            const info = await Purchases.getCustomerInfo();
+            const entitlement = ENTITLEMENT_IDS.map(id => info.entitlements.active[id]).find(Boolean);
+            if (entitlement) return { active: true, until: entitlement.expirationDateMillis ?? null, renews: entitlement.willRenew };
+            // Bought for life before Habyss went free: Pro for good.
+            const { LEGACY_LIFETIME } = require('@/lib/access') as typeof import('@/lib/access');
+            const lifetime = info.nonSubscriptionTransactions.some(transaction => (LEGACY_LIFETIME as readonly string[]).includes(transaction.productIdentifier));
+            return { active: lifetime, until: null, renews: false };
+        } catch {
+            return null;
+        }
+    }
+
+    /** Apple's subscription page for this app. */
+    async manageSubscriptions(): Promise<void> {
+        if (!(await this.ensureInitialized())) return;
+        try { await Purchases.showManageSubscriptions(); } catch { /* Settings still has it */ }
     }
 
     async restorePurchases(): Promise<boolean> {
@@ -222,18 +241,8 @@ class RevenueCatService {
         }
     }
 
-    /**
-     * Bought: the Pro entitlement is active, or, should the entitlement not be
-     * attached to the products in RevenueCat, the store shows a finished
-     * purchase of either price. A payment must never leave the app locked.
-     */
     private checkProEntitlement(customerInfo: CustomerInfo): boolean {
-        if (ENTITLEMENT_IDS.some(id => customerInfo.entitlements.active[id] !== undefined)) return true;
-        const { PRODUCTS } = require('@/lib/access') as typeof import('@/lib/access');
-        const bought = customerInfo.nonSubscriptionTransactions.some(transaction =>
-            transaction.productIdentifier === PRODUCTS.full || transaction.productIdentifier === PRODUCTS.friend);
-        if (__DEV__) console.log(`[RevenueCat] ${bought ? 'Bought (no entitlement attached)' : 'Not bought'}`);
-        return bought;
+        return ENTITLEMENT_IDS.some(id => customerInfo.entitlements.active[id] !== undefined);
     }
 }
 

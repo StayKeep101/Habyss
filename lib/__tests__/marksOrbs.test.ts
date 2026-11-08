@@ -65,3 +65,18 @@ it('does not treat restored totals as a new reward, and expires the action windo
     expect(recentRewardAction()).toBe(false);
     jest.useRealTimers();
 });
+
+describe('ticking and unticking over and over', () => {
+    it('never grows the total shown: an untick takes back what the tick added', () => {
+        const { noteMarksTotal, marksRange, habitDone, taskEarned } = require('../marksOrbs') as typeof import('../marksOrbs');
+        noteMarksTotal(100, 0);
+        for (let round = 0; round < 5; round++) {
+            const earned = habitDone('loop-habit', '2026-11-03', true);
+            expect(marksRange(earned, 10_000 + round * 10_000)).toEqual({ from: 100, to: 105 });
+            habitDone('loop-habit', '2026-11-03', false);
+            const task = taskEarned('loop-task', '2026-11-03', true);
+            expect(marksRange(task, 15_000 + round * 10_000)).toEqual({ from: 100, to: 110 });
+            taskEarned('loop-task', '2026-11-03', false);
+        }
+    });
+});

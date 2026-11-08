@@ -10,6 +10,7 @@ import { useAppSettings } from '@/context/AppSettingsContext';
 import { deleteAllLocalData, restartAfterDeletion } from '@/lib/accountDeletion';
 import { currentAccount, deleteAccount } from '@/lib/account';
 import { styles } from '@/styles/screens/privacy.styles';
+import { exportMyData } from '@/lib/dataExport';
 
 const Privacy = () => {
   // const colorScheme = useColorScheme();
@@ -18,6 +19,17 @@ const Privacy = () => {
 
   const [deleting, setDeleting] = useState(false);
   const [changingLock, setChangingLock] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  // Everything you did, as a spreadsheet, wherever you want it.
+  const exportData = async () => {
+    if (exporting) return;
+    lightFeedback();
+    setExporting(true);
+    const result = await exportMyData();
+    setExporting(false);
+    if (result === 'failed') Alert.alert('Export didn’t finish', 'Your data couldn’t be gathered just now. Nothing changed. Try again in a moment.');
+  };
 
   const changeAppLock = async (enabled: boolean) => {
     if (changingLock) return;
@@ -82,6 +94,10 @@ const Privacy = () => {
         <SettingsGroup>
           <SettingsRow icon="scan" color="#30D158" label="Face ID lock" toggle={isAppLockEnabled} disabled={changingLock}
             onToggle={value => void changeAppLock(value)} />
+        </SettingsGroup>
+        <SettingsGroup>
+          <SettingsRow icon="download" color="#0A84FF" label={exporting ? 'Preparing…' : 'Export my data'} value="CSV" disabled={exporting}
+            onPress={() => void exportData()} />
         </SettingsGroup>
         <SettingsGroup>
           <SettingsRow icon="trash" color="#FF453A" label={deleting ? 'Deleting…' : 'Delete account'} destructive disabled={deleting}

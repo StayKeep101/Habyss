@@ -13,7 +13,7 @@ export function rememberShardEarnings(ledger: MarkEvent[]): Promise<MarkEvent[]>
         const previous: MarkEvent[] = raw ? JSON.parse(raw) : [];
         const events = new Map(previous.map(event => [shardEventKey(event), event]));
         for (const event of ledger) {
-            if (event.points <= 0 || event.item === 'mission') continue;
+            if (event.points <= 0 || (event.item as string) === 'mission') continue;
             const old = events.get(shardEventKey(event));
             if (!old || event.points > old.points) events.set(shardEventKey(event), event);
         }

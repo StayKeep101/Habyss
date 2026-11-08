@@ -43,7 +43,7 @@ export interface BuiltEcho {
  * - a morning nudge with what the day asks, for everyone;
  * - an evening check for people who lose the thread (consistency, overwhelm,
  *   or work that slides to the last minute or never);
- * - a heads-up before each step for people who struggle to start or get pulled away;
+ * - Echo through the day for everyone: start, leave, time's up, the evening review;
  * - demon mode stays off for anyone Echo is gentle with.
  */
 export function buildEcho(answers: Answers): BuiltEcho {
@@ -56,7 +56,9 @@ export function buildEcho(answers: Answers): BuiltEcho {
     const day = { wake: answers.wake ?? fallback.wake, sleep: answers.sleep ?? fallback.sleep };
     const evening = answers.obstacle === 'consistency' || answers.obstacle === 'overwhelm'
         || answers.timing === 'last_minute' || answers.timing === 'rarely';
-    const alive = answers.obstacle === 'starting' || answers.obstacle === 'distraction' || answers.timing === 'rarely';
+    // Echo through the day (now, leave, time's up, energy, the evening review) is how
+    // Habyss works without being opened, so it is on for everyone.
+    const alive = true;
     const config: Partial<EchoConfig> = { morning: true, evening, alive, demonMode: voice !== 'friendly', useName: !!answers.name?.trim() };
 
     const nudges = ['a plan each morning', evening ? 'a check each evening' : null, alive ? 'a heads-up before each step' : null].filter(Boolean);

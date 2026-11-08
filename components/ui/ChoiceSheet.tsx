@@ -21,7 +21,7 @@ export function ChoiceSheet({ visible, title, caption, choices = [], ask, onClos
     caption?: string;
     choices?: Choice[];
     /** Asks for a short piece of text instead: a field and a Save button. */
-    ask?: { placeholder: string; initial?: string; save: string; onSave: (text: string) => void };
+    ask?: { placeholder: string; /** What VoiceOver calls the field, when the placeholder is an example rather than a name. */ label?: string; initial?: string; save: string; onSave: (text: string) => void };
     onClose: () => void;
 }) {
     const t = useTokens();
@@ -35,11 +35,11 @@ export function ChoiceSheet({ visible, title, caption, choices = [], ask, onClos
         // Asking: the field and its button sit in a list that lets a tap through
         // while the keyboard is up, so one tap on the button saves (it took two:
         // the first only put the keyboard away).
-        <VoidSheet visible={visible} onClose={onClose} title={title} caption={caption} scrollable={!!ask}>
+        <VoidSheet visible={visible} onClose={onClose} title={title} caption={caption} scrollable={!!ask || choices.length > 6}>
             {ask ? (
                 <View style={styles.ask}>
                     <MatteInput value={text} onChangeText={setText} placeholder={ask.placeholder} autoFocus returnKeyType="done"
-                        onSubmitEditing={save} textContentType="none" autoComplete="off" accessibilityLabel={ask.placeholder} />
+                        onSubmitEditing={save} textContentType="none" autoComplete="off" accessibilityLabel={ask.label ?? ask.placeholder} />
                     <AppButton label={ask.save} disabled={!text.trim()} onPress={save} />
                 </View>
             ) : (

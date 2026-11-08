@@ -37,9 +37,12 @@ describe('what goes in the personal backup', () => {
             ['habyss_local_user_id', ME],
             ['cloud_pull_cursor_account-1', '2026-10-20'],
             ['habyss_calendar_hidden', '["cal-1"]'],
+            ['habyss_calendar_on', '1'],
+            ['habyss_health_connected', '1'],
         ]);
         const doc = await collectPersonal(ME);
-        expect(Object.keys(doc.stores).sort()).toEqual(['focus_session_2026-10-20', 'habyss_echo_memory']);
+        // Integrations you switched on come back after signing in again.
+        expect(Object.keys(doc.stores).sort()).toEqual(['focus_session_2026-10-20', 'habyss_calendar_on', 'habyss_echo_memory', 'habyss_health_connected']);
         expect(doc.measurements).toHaveLength(1);
     });
 });

@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
-import { Paywall } from '@/components/Paywall/Paywall';
+import { ProPage } from '@/components/Pro/ProPage';
 
-export default function PaywallScreen() {
-    return <Paywall mode="open" onClose={() => router.back()} />;
+/** Habyss Pro: desktop sync, the one thing for sale (components/Pro/ProPage). */
+export default function ProScreen() {
+    return <ProPage onClose={() => router.back()} />;
 }

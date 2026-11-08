@@ -1,30 +1,94 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown, ReduceMotion } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { ProgressRing } from '@/components/ui/ProgressRing';
-import { IconButton } from '@/components/ui/IconButton';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useTasks } from '@/hooks/useTasks';
+import { useNowStep } from '@/hooks/useNowStep';
 import { useFocusSession, useFocusTimeLeft } from '@/context/FocusTimeContext';
-import { formatClock, formatDuration } from '@/lib/habitMeasurement';
+import { formatClock } from '@/lib/habitMeasurement';
+import { clockLabel } from '@/lib/dayFlow';
+import { openFocusOn } from '@/lib/openFocus';
+import { bringBack } from '@/lib/dayMemory';
 import { FontFamily } from '@/theme/designSystem';
 
 /**
- * The session you left running, on top of the tab bar on every tab, like the
- * mini player of a music app: a ring of how far it has got, what you are
- * focusing on and for how long, the clock, and pause or resume right there.
- * Tapping it goes back to the focus page. Gone when no session is on.
+ * Over the tab bar on every tab, always: what to be doing right now, like a
+ * music app's mini player. Focusing: the session (its ring, its clock).
+ * Not focusing: what the timeline has now, or next, with its time, and one tap
+ * into Focus on it. No pause: time does not pause. Gone only when the day has
+ * nothing left.
  */
 export function FocusMiniBar() {
     const focus = useFocusSession();
-    if (!focus.activeHabitId || !(focus.isRunning || focus.isPaused)) return null;
-    return <Bar />;
+    const step = useNowStep();
+    if (focus.activeHabitId && (focus.isRunning || focus.isPaused)) return <SessionBar />;
+    if (!step) return null;
+    return <StepBar step={step} />;
 }
 
-function Bar() {
+/** Minutes as a clock: 1:05:00 over an hour, 24:30 under it. */
+const clockOf = (minutes: number) => formatClock(Math.max(0, Math.round(minutes * 60)));
+
+function useMinute() {
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
+    const date = new Date(now);
+    return date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
+}
+
+function StepBar({ step }: { step: NonNullable<ReturnType<typeof useNowStep>> }) {
+    const t = useTokens();
+    const { selectionFeedback } = useHaptics();
+    const minute = useMinute();
+    const { item } = step;
+    const on = item.start <= minute && minute < item.end;
+    const ahead = item.start > minute;
+    // Missed ones (their time went by unticked) while nothing is on: one tap fits them in from now.
+    const missed = !on ? step.missed ?? [] : [];
+    // A gap before the next thing: free time, counted down to it, the ring filling across the gap.
+    // Nothing left ahead but missed ones: free time too, never an old one shown as next.
+    const free = !on && ((ahead && step.freeFrom !== undefined) || (!ahead && missed.length > 0));
+    const span = Math.max(1, item.end - item.start);
+    const gap = free && ahead ? Math.max(1, item.start - step.freeFrom!) : 1;
+    const progress = on ? (minute - item.start) / span : free && ahead ? Math.min(1, Math.max(0, (minute - step.freeFrom!) / gap)) : 0;
+    const title = free ? 'Free time' : item.title;
+    const fit = missed.length ? `fit in ${missed.length} missed` : null;
+    const when = on ? `Now · until ${clockLabel(item.end)}`
+        : free && fit ? (ahead ? `Until ${clockLabel(item.start)} · ${fit}` : `Tap to ${fit}`)
+        : free ? `Until ${item.title} · ${clockLabel(item.start)}` : `Next · ${clockLabel(item.start)}`;
+    const left = on ? Math.max(1, Math.round(item.end - minute)) : Math.max(0, Math.round(item.start - minute));
+    const spoken = on ? `Now: ${item.title}, ${left} minutes left. Focus on it`
+        : free && fit ? `Free time${ahead ? `, ${left} minutes until ${item.title} at ${clockLabel(item.start)}` : ''}. ${missed.length} missed: fit them in now`
+        : free ? `Free time, ${left} minutes until ${item.title} at ${clockLabel(item.start)}. Focus on ${item.title}`
+        : `Next: ${item.title}, at ${clockLabel(item.start)}. Focus on it`;
+    const open = () => {
+        selectionFeedback();
+        if (free && missed.length) { bringBack(missed); return; }
+        openFocusOn(item);
+    };
+    return (
+        <Animated.View entering={FadeInDown.duration(240).reduceMotion(ReduceMotion.System)} exiting={FadeOutDown.duration(180).reduceMotion(ReduceMotion.System)}>
+            <MatteSurface radius={t.radius.full} elevation="floating" style={styles.bar}>
+                <Pressable onPress={open} style={styles.main} accessibilityRole="button"
+                    accessibilityLabel={spoken}>
+                    <ProgressRing progress={progress} size="sm" />
+                    <View style={styles.words}>
+                        <Text numberOfLines={1} style={[styles.title, { color: t.color.textPrimary }]}>{title}</Text>
+                        <Text numberOfLines={1} style={[styles.meta, { color: t.color.textMuted }]}>{when}</Text>
+                    </View>
+                    {/* Time left while it is on; time until it starts while it is next. */}
+                    {on || ahead ? <Text style={[styles.clock, { color: t.color.textPrimary }]}>{clockOf(on ? item.end - minute : item.start - minute)}</Text> : null}
+                </Pressable>
+            </MatteSurface>
+        </Animated.View>
+    );
+}
+
+function SessionBar() {
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
     const focus = useFocusSession();
@@ -35,44 +99,37 @@ function Bar() {
     // Flow counts up with no end, so its ring stays whole.
     const stopwatch = focus.activeMode === 'flow' || !focus.totalDuration;
     const progress = stopwatch ? 1 : (focus.totalDuration - left) / focus.totalDuration;
-    const length = stopwatch ? null : formatDuration(focus.totalDuration, true);
     const clock = formatClock(left);
-
     const open = () => {
         selectionFeedback();
         const kind = tasks.some(task => task.id === id) ? 'task' : 'habit';
-        router.push({ pathname: '/(root)/focus', params: { kind, id, title: name } });
+        router.push({ pathname: '/(root)/focus', params: { day: '1', kind, id, title: name } } as never);
     };
-    const pauseOrResume = () => {
-        selectionFeedback();
-        if (focus.isPaused) focus.resumeTimer(); else focus.pauseTimer();
-    };
-
     return (
         <Animated.View entering={FadeInDown.duration(240).reduceMotion(ReduceMotion.System)} exiting={FadeOutDown.duration(180).reduceMotion(ReduceMotion.System)}>
             <MatteSurface radius={t.radius.full} elevation="floating" style={styles.bar}>
                 <Pressable onPress={open} style={styles.main} accessibilityRole="button"
-                    accessibilityLabel={`Focusing on ${name}${focus.isPaused ? ', paused' : ''}, ${clock} ${stopwatch ? 'so far' : 'left'}. Open focus`}>
+                    accessibilityLabel={`Focusing on ${name}, ${clock} ${stopwatch ? 'so far' : 'left'}. Open focus`}>
                     <ProgressRing progress={progress} size="sm" />
                     <View style={styles.words}>
-                        <Text numberOfLines={1} style={[styles.title, { color: t.color.textMuted }]}>
-                            {length ? `${name} · ${length}` : name}
-                        </Text>
-                        <Text style={[styles.clock, { color: t.color.textPrimary }]}>
-                            {focus.isPaused ? `${clock} · Paused` : clock}
-                        </Text>
+                        <Text numberOfLines={1} style={[styles.title, { color: t.color.textPrimary }]}>{name}</Text>
+                        <Text numberOfLines={1} style={[styles.meta, { color: t.color.textMuted }]}>Focusing</Text>
                     </View>
+                    <Text style={[styles.clock, { color: t.color.textPrimary }]}>{clock}</Text>
                 </Pressable>
-                <IconButton icon={focus.isPaused ? 'play' : 'pause'} label={focus.isPaused ? 'Resume focus' : 'Pause focus'} onPress={pauseOrResume} />
             </MatteSurface>
         </Animated.View>
     );
 }
 
+/** How much room the bar takes over the tab bar, for pages to clear it (hooks/useResponsiveLayout). */
+export const NOW_BAR_ROOM = 64;
+
 const styles = StyleSheet.create({
-    bar: { flexDirection: 'row', alignItems: 'center', paddingLeft: 10, paddingRight: 6, paddingVertical: 6 },
+    bar: { flexDirection: 'row', alignItems: 'center', paddingLeft: 10, paddingRight: 8, paddingVertical: 6 },
     main: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
     words: { flex: 1 },
-    title: { fontSize: 13, fontFamily: FontFamily.medium },
-    clock: { fontSize: 20, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
+    title: { fontSize: 15, fontFamily: FontFamily.semibold },
+    meta: { fontSize: 12, fontFamily: FontFamily.medium },
+    clock: { fontSize: 20, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'], paddingRight: 6 },
 });

@@ -85,8 +85,8 @@ export function shardMoves(
     const liveKeys = new Set(ledger.map(shardEventKey));
     const removed = previouslyEarned.filter(event => event.points > 0 && !liveKeys.has(shardEventKey(event)));
     const timed = [...ledger, ...removed]
-        // Missions earn Marks (XP), not Shards.
-        .filter(event => event.points !== 0 && event.item !== 'mission')
+        // Secret missions (since removed) only ever earned Marks: one still in an older saved ledger moves no Shards.
+        .filter(event => event.points !== 0 && (event.item as string) !== 'mission')
         .map(event => {
             const from = startOf(event.date);
             const tick = event.item === 'habit' && event.id ? ticks[`${event.id}:${event.date}`] : undefined;

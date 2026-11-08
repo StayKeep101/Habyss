@@ -6,9 +6,13 @@ import {
     AnimatedFill, AppButton, AppIcon, AppTextField, Badge, ChartCard, CheckPop, ChipPicker, CountUp, Divider, EmptyState,
     GrowBar, HabitRow, HalfCircleProgress, IconButton, ModalHeader, PopIn, ProgressRing, Reveal, ChoiceRow, SheetScreen,
     SheetSection, StatTile, SwipeRow, Text, TimeRow, Toggle, ViewSwitcher, VoidCard, VoidModal, VoidSheet, Wheel,
+    Avatar, CardRail, ChoicePill, ChoiceSheet, Confetti, DateWheels, DemonEdge, Echo, FaceStack, FocusPill, GameCard, HoldButton,
+    IconTile, LevelTags, ListItem, MatteInput, MatteSurface, MicButton, MorphMenu, PageDots, PeopleFilter, PopupCard, PostCard,
+    Receipt, SectionTitle, SegmentBar, SettingsGroup, SettingsRow, StepSlider, TimeWheels, TypingPlaceholder, VersusBar,
 } from '@/components/ui';
+import { BottomFade } from '@/components/ui/BottomFade';
+import { useSharedValue } from 'react-native-reanimated';
 import { CatalogSection, Specimen, Swatch, Variant } from '@/components/Catalog/Specimen';
-import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 import { useTokens } from '@/hooks/useTokens';
 import type { TypeToken } from '@/theme/tokens';
 import type { GoalPoint } from '@/lib/goalInsights';
@@ -44,7 +48,6 @@ const SAMPLE_SERIES: GoalPoint[] = Array.from({ length: 14 }, (_, index) => ({
  */
 export default function UICatalog() {
     const t = useTokens();
-    const { mode, setTheme } = useTheme();
     const [on, setOn] = useState(true);
     const [segment, setSegment] = useState<'day' | 'week' | 'month'>('week');
     const [chip, setChip] = useState<'easy' | 'normal' | 'hard'>('normal');
@@ -62,12 +65,29 @@ export default function UICatalog() {
     // The goal-reached ceremony, played here for show (no goal, no Marks).
     const [ceremony, setCeremony] = useState(0);
     const [level, setLevel] = useState(0.62);
+    // The pieces added later (#42 on): their own little bits of state.
+    const [birthday, setBirthday] = useState(() => new Date(2000, 0, 15));
+    const [days, setDays] = useState<3 | 7 | 14>(7);
+    const [pill, setPill] = useState(true);
+    const [person, setPerson] = useState('all');
+    const [choices, setChoices] = useState(false);
+    const [popup, setPopup] = useState(false);
+    const [receipt, setReceipt] = useState(false);
+    const [confetti, setConfetti] = useState(0);
+    const [demon, setDemon] = useState(false);
+    const [listening, setListening] = useState(false);
+    const [rows, setRows] = useState(['Morning run', 'Read 10 pages', 'Deep work']);
+    const dots = useSharedValue(0);
+    const [dot, setDot] = useState(0);
+    const faces = [
+        { userId: 'a', name: 'Sam' }, { userId: 'b', name: 'Lea' }, { userId: 'c', name: 'Noah' }, { userId: 'd', name: 'Ava' }, { userId: 'e', name: 'Kai' },
+    ];
 
     const colors = [
         ['background', t.color.background], ['surface', t.color.surface], ['surfaceRaised', t.color.surfaceRaised],
         ['border', t.color.border], ['textPrimary', t.color.textPrimary], ['textMuted', t.color.textMuted],
         ['textSubtle', t.color.textSubtle], ['accent', t.color.accent], ['success', t.color.success],
-        ['warning', t.color.warning], ['danger', t.color.danger],
+        ['warning', t.color.warning], ['danger', t.color.danger], ['cobalt', t.color.cobalt], ['silver', t.color.silver],
     ] as const;
 
     return (
@@ -75,14 +95,8 @@ export default function UICatalog() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <View style={styles.intro}>
                     <Text variant="body" tone="muted">
-                        Every building block in the app, numbered. Tell Claude the number and what to change. Every screen using that piece changes with it.
+                        Every building block in the app, numbered, from #1 to #73. Tell Claude the number and what to change. Every screen using that piece changes with it.
                     </Text>
-                    <ChoiceRow<ThemeMode>
-                        accessibilityLabel="Theme"
-                        options={[{ id: 'light', label: 'Light' }, { id: 'abyss', label: 'Dark' }]}
-                        value={mode === 'system' ? 'abyss' : mode}
-                        onChange={setTheme}
-                    />
                 </View>
 
                 {/* ───────────────────────── Foundations ───────────────────────── */}
@@ -360,8 +374,210 @@ export default function UICatalog() {
                         </View>
                     </Specimen>
                 </View>
+
+                {/* ───────────────────────── People ───────────────────────── */}
+                <CatalogSection title="People and headings" description="Faces, icon tiles and the heading over every section." />
+
+                <Specimen number={42} name="Face" file="components/ui/Avatar.tsx" note="a photo or a first letter; a ring, a badge, dimmed">
+                    <View style={styles.row}>
+                        <Avatar name="Sam" size={t.space['4xl'] + t.space.md} />
+                        <Avatar name="Lea" size={t.space['4xl'] + t.space.md} ring={t.color.accent} />
+                        <Avatar name="Noah" size={t.space['4xl'] + t.space.md} badge={<View style={{ width: t.space.md, height: t.space.md, borderRadius: t.radius.full, backgroundColor: t.color.success }} />} />
+                        <Avatar name="Ava" size={t.space['4xl'] + t.space.md} dim />
+                    </View>
+                </Specimen>
+
+                <Specimen number={43} name="Faces together" file="components/ui/FaceStack.tsx" note="who is with you">
+                    <FaceStack faces={faces} size={t.space['3xl']} ring={t.color.accent} />
+                </Specimen>
+
+                <Specimen number={44} name="Icon tile" file="components/ui/IconTile.tsx">
+                    <View style={styles.row}>
+                        <IconTile icon="flame" color={t.color.accent} />
+                        <IconTile icon="book" color={t.color.cobalt} shape="square" />
+                        <IconTile icon="checkmark" color={t.color.success} muted />
+                    </View>
+                </Specimen>
+
+                <Specimen number={45} name="Section heading" file="components/ui/SectionTitle.tsx" note="with something on the right">
+                    <SectionTitle first right={<Badge label="3 new" />}>This week</SectionTitle>
+                </Specimen>
+
+                <Specimen number={46} name="Whose progress" file="components/ui/PeopleFilter.tsx">
+                    <PeopleFilter allColor={t.color.accent} value={person} onChange={setPerson}
+                        people={[{ id: 'me', name: 'You', color: t.color.accent }, { id: 'sam', name: 'Sam', color: t.color.cobalt }, { id: 'lea', name: 'Lea', color: t.color.success }]} />
+                </Specimen>
+
+                {/* ───────────────────────── More controls ───────────────────────── */}
+                <CatalogSection title="More controls" description="Surfaces, fields, pickers, sliders and menus." />
+
+                <Specimen number={47} name="Matte surface" file="components/ui/MatteSurface.tsx" note="what every card, button, field and chip is made of">
+                    <Variant letter="a" label="Flat"><MatteSurface radius={t.radius.lg} style={styles.cardBody}><Text>On the page</Text></MatteSurface></Variant>
+                    <Variant letter="b" label="Floating"><MatteSurface radius={t.radius.lg} elevation="floating" style={styles.cardBody}><Text>Over the page</Text></MatteSurface></Variant>
+                    <Variant letter="c" label="Tinted"><MatteSurface radius={t.radius.lg} tint={t.tint('subtle')} style={styles.cardBody}><Text>Chosen</Text></MatteSurface></Variant>
+                </Specimen>
+
+                <Specimen number={48} name="Input" file="components/ui/MatteInput.tsx" note="a field with no label">
+                    <Variant letter="a" label="Field"><MatteInput placeholder="Search habits" value={text} onChangeText={setText} /></Variant>
+                    <Variant letter="b" label="Invalid"><MatteInput placeholder="Name" invalid value="" onChangeText={() => undefined} /></Variant>
+                </Specimen>
+
+                <Specimen number={49} name="Choice pill" file="components/ui/ChoicePill.tsx">
+                    <View style={styles.row}>
+                        <ChoicePill label="On" icon="checkmark" on={pill} color={t.color.accent} onPress={() => setPill(true)} />
+                        <ChoicePill label="Off" on={!pill} color={t.color.accent} onPress={() => setPill(false)} />
+                    </View>
+                </Specimen>
+
+                <Specimen number={50} name="Choice sheet" file="components/ui/ChoiceSheet.tsx" note="a few choices in the app's own sheet">
+                    <AppButton label="Open choices" onPress={() => setChoices(true)} />
+                </Specimen>
+
+                <Specimen number={51} name="Time wheels" file="components/ui/TimeWheels.tsx">
+                    <TimeWheels value={time} onChange={setTime} />
+                </Specimen>
+
+                <Specimen number={52} name="Date wheels" file="components/ui/DateWheels.tsx">
+                    <DateWheels value={birthday} onChange={setBirthday} />
+                </Specimen>
+
+                <Specimen number={53} name="Step slider" file="components/ui/StepSlider.tsx" note="drag or tap; a tick at each step">
+                    <Variant letter="a" label="Slider"><StepSlider label="Length" values={[3, 7, 14] as const} value={days} onChange={setDays} say={value => `${value} days`} /></Variant>
+                    <Variant letter="b" label="Compact"><StepSlider compact label="Importance" values={[3, 7, 14] as const} value={days} onChange={setDays} say={value => `${value}`} /></Variant>
+                </Specimen>
+
+                <Specimen number={54} name="Hold button" file="components/ui/HoldButton.tsx" note="touch and hold to confirm">
+                    <HoldButton label="Hold to stake 25 Shards" icon="flash" onComplete={() => setReceipt(true)} />
+                </Specimen>
+
+                <Specimen number={55} name="Menu" file="components/ui/MorphMenu.tsx" note="the ⋯ grows into the menu">
+                    <MorphMenu title="Morning run" titleIcon="flame" items={[
+                        { label: 'Edit', icon: 'create-outline', onPress: () => undefined },
+                        { label: 'Delete', icon: 'trash-outline', destructive: true, onPress: () => undefined },
+                    ]} />
+                </Specimen>
+
+                <Specimen number={56} name="Settings rows" file="components/ui/SettingsList.tsx">
+                    <SettingsGroup title="Focus">
+                        <SettingsRow icon="timer" color={t.color.cobalt} label="Clock" choices={[{ id: 'ring', label: 'Ring' }, { id: 'digits', label: 'Digits' }]} chosen="ring" onChoose={() => undefined} />
+                        <SettingsRow icon="hand-left" color={t.color.danger} label="Block apps" toggle={on} onToggle={setOn} />
+                        <SettingsRow icon="musical-notes" color={t.color.success} label="Sound" value="Rain" onPress={() => undefined} />
+                    </SettingsGroup>
+                </Specimen>
+
+                <Specimen number={57} name="Page dots" file="components/ui/PageDots.tsx" note="pages you swipe between (Community)">
+                    <PageDots progress={dots} current={dot} labels={['Accountability', 'Challenges']} fresh={[false, true]}
+                        onPick={index => { setDot(index); dots.set(index); }} />
+                </Specimen>
+
+                <Specimen number={58} name="Microphone" file="components/ui/MicButton.tsx">
+                    <MicButton listening={listening} onPress={() => setListening(value => !value)} />
+                </Specimen>
+
+                <Specimen number={59} name="Focus pill" file="components/ui/FocusPill.tsx">
+                    <Variant letter="a" label="Pill"><FocusPill color={t.color.accent} label="25 min" onPress={() => undefined} /></Variant>
+                    <Variant letter="b" label="Compact"><FocusPill color={t.color.accent} label="25 min" compact onPress={() => undefined} /></Variant>
+                </Specimen>
+
+                <Specimen number={60} name="Typing placeholder" file="components/ui/TypingPlaceholder.tsx" note="examples typed out in an empty field">
+                    <TypingPlaceholder examples={['Read 10 pages', 'Call mum on Sunday', 'Run 5 km']}>
+                        {placeholder => <MatteInput placeholder={placeholder} value="" onChangeText={() => undefined} />}
+                    </TypingPlaceholder>
+                </Specimen>
+
+                {/* ───────────────────────── Community and games ───────────────────────── */}
+                <CatalogSection title="Community and games" description="Posts, contests, receipts and the pieces they are made of." />
+
+                <Specimen number={61} name="Bar in pieces" file="components/ui/SegmentBar.tsx">
+                    <SegmentBar done={3} total={5} />
+                </Specimen>
+
+                <Specimen number={62} name="Versus bar" file="components/ui/VersusBar.tsx" note="a tug of war">
+                    <VersusBar left={{ label: 'You', percent: 72, color: t.color.cobalt }} right={{ label: 'Sam', percent: 58, color: t.color.silver }} />
+                </Specimen>
+
+                <Specimen number={63} name="Game card" file="components/ui/GameCard.tsx">
+                    <GameCard lead={<Avatar name="Sam" size={t.space['4xl']} />} title="Duel with Sam" subtitle="7 days · 25 Shards" badge={{ label: 'Live', tone: 'cobalt', dot: true }}>
+                        <VersusBar left={{ label: 'You', percent: 72, color: t.color.cobalt }} right={{ label: 'Sam', percent: 58, color: t.color.silver }} />
+                    </GameCard>
+                </Specimen>
+
+                <Specimen number={64} name="Card rail" file="components/ui/CardRail.tsx" note="swipe through cards">
+                    <CardRail>
+                        {['Read 24 books', 'Run a marathon', 'Learn Spanish'].map(title => (
+                            <GameCard key={title} lead={<IconTile icon="flag" color={t.color.accent} />} title={title} subtitle="Open to bets" />
+                        ))}
+                    </CardRail>
+                </Specimen>
+
+                <Specimen number={65} name="Post" file="components/ui/PostCard.tsx" note="one post in the feed">
+                    <PostCard lead={<Avatar name="Sam" size={t.space['4xl']} />} name="Sam" rank={2} kind={{ icon: 'calendar', label: 'Daily' }} when="Yesterday 9:00 PM" score={0.6}
+                        hero={<Text variant="title">3 of 5 done</Text>} stats={[{ icon: 'flame', value: '2', label: 'day streak' }, { icon: 'flag', value: '1', label: 'goal' }]}>
+                        <SegmentBar done={3} total={5} />
+                    </PostCard>
+                </Specimen>
+
+                <Specimen number={66} name="Receipt" file="components/ui/Receipt.tsx" note="after spending Shards">
+                    <AppButton label="Show a receipt" onPress={() => setReceipt(true)} />
+                </Specimen>
+
+                <Specimen number={67} name="Pop-up card" file="components/ui/PopupCard.tsx">
+                    <AppButton label="Open pop-up" onPress={() => setPopup(true)} />
+                </Specimen>
+
+                <Specimen number={68} name="Level tags" file="components/ui/LevelTags.tsx" note="urgent, hard, easy">
+                    <LevelTags priority={1} difficulty={3} />
+                    <LevelTags priority={3} difficulty={1} />
+                </Specimen>
+
+                <Specimen number={69} name="List row motion" file="components/ui/Motion.tsx" note="ListItem: adding, removing and reordering fade and slide">
+                    {rows.map((row, index) => (
+                        <ListItem key={row} index={index}>
+                            <VoidCard><View style={styles.swipeBody}><Text>{row}</Text></View></VoidCard>
+                        </ListItem>
+                    ))}
+                    <View style={styles.row}>
+                        <View style={{ flex: 1 }}><AppButton label="Shuffle" icon="shuffle" onPress={() => setRows(list => [...list.slice(1), list[0]])} /></View>
+                        <View style={{ flex: 1 }}><AppButton label={rows.length > 2 ? 'Remove' : 'Add'} icon={rows.length > 2 ? 'remove' : 'add'}
+                            onPress={() => setRows(list => (list.length > 2 ? list.slice(0, -1) : [...list, 'Deep work']))} /></View>
+                    </View>
+                </Specimen>
+
+                {/* ───────────────────────── Moments ───────────────────────── */}
+                <CatalogSection title="Moments" description="Echo, celebrations and the edges of the screen." />
+
+                <Specimen number={70} name="Echo" file="components/ui/Echo.tsx" note="the guide's light">
+                    <View style={[styles.row, { height: t.space['4xl'] * 4, justifyContent: 'space-around' }]}>
+                        <Echo size="small" mood="speak" />
+                        <Echo size="small" mood="celebrate" />
+                    </View>
+                </Specimen>
+
+                <Specimen number={71} name="Confetti" file="components/ui/Confetti.tsx" note="once, for a perfect day">
+                    <AppButton label="Throw confetti" icon="sparkles" onPress={() => setConfetti(value => value + 1)} />
+                </Specimen>
+
+                <Specimen number={72} name="Red edge" file="components/ui/DemonEdge.tsx" note="the screen's edge when something is badly behind">
+                    <View style={{ height: t.space['4xl'] * 3, borderRadius: t.radius.lg, overflow: 'hidden', backgroundColor: t.color.surface }}>
+                        <DemonEdge on={demon} />
+                    </View>
+                    <Toggle label="Show it" value={demon} onChange={setDemon} />
+                </Specimen>
+
+                <Specimen number={73} name="Bottom fade" file="components/ui/BottomFade.tsx" note="where a list runs under the tab bar">
+                    <View style={{ height: t.space['4xl'] * 3, borderRadius: t.radius.lg, overflow: 'hidden', backgroundColor: t.color.accent }}>
+                        <BottomFade height={t.space['4xl'] * 2} />
+                    </View>
+                </Specimen>
             </ScrollView>
 
+            {confetti ? <View pointerEvents="none" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}><Confetti key={confetti} colors={[t.color.accent, t.color.success, t.color.cobalt, t.color.textPrimary]} /></View> : null}
+            <ChoiceSheet visible={choices} onClose={() => setChoices(false)} title="Morning run" caption="What should happen?" choices={[
+                { label: 'Edit', icon: 'create-outline', onPress: () => undefined },
+                { label: 'Delete', icon: 'trash-outline', destructive: true, onPress: () => undefined },
+            ]} />
+            <PopupCard visible={popup} onClose={() => setPopup(false)} icon="trophy" iconColor={t.color.accent} title="Seven in a row" body="A week of perfect days. Your Marks now count double." />
+            {receipt ? <Receipt title="Duel with Sam" amount={-25} line="Staked for 7 days" onDone={() => setReceipt(false)} /> : null}
             {ceremony ? <GoalCompleteSequence key={ceremony} goal={{ name: 'Read 24 books', color: t.color.accent, icon: 'book', count: 3 }} onDone={() => setCeremony(0)} /> : null}
             <VoidModal visible={modal} onClose={() => setModal(false)}>
                 <View style={{ gap: t.space.md }}>

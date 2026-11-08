@@ -19,10 +19,12 @@ interface IconButtonProps {
     color?: string;
     /** A count waiting behind the button (unread, requests), shown as a red badge. */
     badge?: number;
+    /** Floating over content that scrolls under it (a page's buttons over its cards): a shadow lifts it off. */
+    floating?: boolean;
     style?: StyleProp<ViewStyle>;
 }
 
-export function IconButton({ icon, label, onPress, disabled, loading, size = Control.icon, diameter = Control.hitTarget, color, badge, style }: IconButtonProps) {
+export function IconButton({ icon, label, onPress, disabled, loading, size = Control.icon, diameter = Control.hitTarget, color, badge, floating, style }: IconButtonProps) {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const tint = color ?? colors.textPrimary;
@@ -31,7 +33,7 @@ export function IconButton({ icon, label, onPress, disabled, loading, size = Con
             accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!disabled || !!loading, busy: !!loading }}
             hitSlop={diameter < Control.hitTarget ? (Control.hitTarget - diameter) / 2 : undefined}
             style={[{ opacity: disabled ? 0.5 : 1 }, style]}>
-            <MatteSurface radius={diameter / 2} level="control" style={{ width: diameter, height: diameter }}>
+            <MatteSurface radius={diameter / 2} level="control" elevation={floating ? 'floating' : undefined} style={{ width: diameter, height: diameter }}>
                 {/* Centred on the disc itself, not on a line of text: a glyph's
                     line height is taller than the glyph and pushed it down. */}
                 <View pointerEvents="none" style={styles.centre}>

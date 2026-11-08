@@ -190,8 +190,10 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
                     {/* Where the line ends, always. The scrubbing dot fades in
                         over it rather than replacing it, so the chart never has
                         a moment with no marker at all. */}
+                    {/* Drawn again when the colour turns (a week going from up to down
+                        as its history loads), so the dot always matches its line. */}
                     <PopIn
-                        key={shown}
+                        key={`${shown}-${color}`}
                         index={MOTION.intro / (MOTION.stagger / 2)}
                         style={[styles.end, {
                             pointerEvents: 'none',

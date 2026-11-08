@@ -31,6 +31,7 @@ const HELD: Record<NonNullable<ShardMove['held']>, string> = {
 const meta = (move: ShardMove) => {
     const what = move.item === 'sleep' ? (move.kind === 'miss' ? 'Slept short of your goal' : 'Slept your goal')
         : move.item === 'focus' ? 'Finished the day’s tasks'
+        : move.item === 'exercise' ? 'Moved your goal'
         : move.item ? `${VERB[move.kind]} ${move.item}` : VERB[move.kind];
     return `${what} · ${move.held ? HELD[move.held] : shortDay(move.date)}`;
 };
@@ -179,6 +180,7 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
                                     ['Sleep goal reached', rules.complete.sleep],
                                     ['Sleep goal missed', rules.miss.sleep],
                                     ['Milestone reached', rules.complete.milestone],
+                                    ['Exercise goal reached', rules.complete.exercise],
                                 ] as const).map(([label, points]) => (
                                     <View key={label} style={styles.tableRow}>
                                         <View style={styles.grow}><Text variant="bodySmall" tone="muted">{label}</Text></View>

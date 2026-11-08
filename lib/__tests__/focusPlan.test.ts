@@ -32,12 +32,17 @@ describe('where the clock stands when focus opens', () => {
     const at = (h: number, m: number) => new Date(2026, 9, 25, h, m).getTime();
     const fivePm = at(17, 0);
 
-    it('counts down what is left of a 5:00–5:30 task opened at 5:10', () => {
-        expect(focusClock(30 * 60, fivePm, at(17, 10))).toEqual({ began: fivePm, stopwatch: false, seconds: 20 * 60 });
+    it('counts down what is left of a 5:00–5:30 task opened at 5:10, but focus begins at 5:10', () => {
+        expect(focusClock(30 * 60, fivePm, at(17, 10))).toEqual({ began: at(17, 10), stopwatch: false, seconds: 20 * 60 });
     });
 
-    it('is a stopwatch at 1:00:00 when that task is opened at 6:00', () => {
-        expect(focusClock(30 * 60, fivePm, at(18, 0))).toEqual({ began: fivePm, stopwatch: true, seconds: 3600 });
+    it('opened after its slot is over, gets its whole length from now, never the time it sat waiting', () => {
+        // A 9:00 task reached at 11:00 after something else: not a stopwatch already at 2 hours.
+        expect(focusClock(30 * 60, fivePm, at(18, 0))).toEqual({ began: at(18, 0), stopwatch: false, seconds: 30 * 60 });
+    });
+
+    it('a stopwatch starts at zero, now', () => {
+        expect(focusClock(Infinity, fivePm, at(18, 0))).toEqual({ began: at(18, 0), stopwatch: true, seconds: 0 });
     });
 
     it('runs the full length from now when it has not begun yet', () => {

@@ -457,11 +457,18 @@ export async function removeHabitEverywhere(habitId: string): Promise<void> {
         try {
             const db = await getDatabase();
             if (db) {
-                // Soft delete in SQLite
+                // Shared: deleting it ends the share for both of you. Shared
+                // with you, the row on the server is the owner's, so the delete
+                // stays on this phone (marked synced); uploading it would delete
+                // their habit too (lib/shareEnding.ts).
+                const ending = require('./shareEnding') as typeof import('./shareEnding');
+                const guest = await ending.isAdopted('habit', habitId);
                 await db.runAsync(
-                    'UPDATE habits SET deleted = 1, synced = 0, updated_at = ? WHERE id = ?',
-                    now, habitId
+                    'UPDATE habits SET deleted = 1, synced = ?, updated_at = ? WHERE id = ?',
+                    guest ? 1 : 0, now, habitId
                 );
+                const { FriendsService } = require('./friendsService') as typeof import('./friendsService');
+                if (guest || (await FriendsService.sharedIds().catch(() => new Set<string>())).has(habitId)) void ending.endShares('habit', habitId);
 
 
                 await NotificationService.cancelHabitReminder(habitId);
@@ -599,8 +606,9 @@ async function progressStorage() {
 function progressSaved(habitId: string, date: string, completed: boolean, skipped = false) {
     delete completionsCache[date];
     delete skippedCache[date];
+    // Reminders follow from this event (NotificationService listens, a beat
+    // later, once a run of ticks is over), not from a second refresh here.
     emit('habit_completion_updated', { habitId, date, completed, skipped });
-    void NotificationService.refreshHabitReminders().catch(() => undefined);
 
 }
 
@@ -687,10 +695,16 @@ export function setSkipped(habitId: string, skipped: boolean, dateISO = todayStr
 }
 
 
-export function toggleCompletion(habitId: string, dateISO = todayString()): Promise<Record<string, boolean>> {
+/**
+ * `at`: when the tick was really made, for a tick recorded elsewhere first (a
+ * widget, the Live Activity) and applied when the app next runs. That time is
+ * how long the habit took (lib/learnedLength.ts), so it must not become "now".
+ */
+export function toggleCompletion(habitId: string, dateISO = todayString(), at?: string): Promise<Record<string, boolean>> {
     return writeProgress(async () => {
         const { uid, db } = await progressStorage();
         const now = new Date().toISOString();
+        const tickedAt = at ?? now;
         let completed = false;
         await progressTransaction(db, async (tx: any) => {
             const existing = await tx.getFirstAsync(
@@ -705,12 +719,16 @@ export function toggleCompletion(habitId: string, dateISO = todayString()): Prom
                     now, habitId, dateISO, uid,
                 );
             } else {
+                // Ticked again after being unticked (or skipped): the row comes
+                // back with this moment as its tick time. Keeping the first
+                // tick's time put the habit back where it was first ticked on
+                // the timeline (9:30–9:30 for a tick made at 10:18).
                 await tx.runAsync(
                     `INSERT INTO completions (id, user_id, habit_id, date, value, skipped, created_at, updated_at, synced, deleted)
                      VALUES (?, ?, ?, ?, 1, 0, ?, ?, 0, 0)
                      ON CONFLICT(habit_id, date) DO UPDATE SET
-                     value = 1, skipped = 0, updated_at = excluded.updated_at, deleted = 0, synced = 0`,
-                    `${habitId}_${dateISO}`, uid, habitId, dateISO, now, now,
+                     value = 1, skipped = 0, created_at = excluded.created_at, updated_at = excluded.updated_at, deleted = 0, synced = 0`,
+                    `${habitId}_${dateISO}`, uid, habitId, dateISO, tickedAt, now,
                 );
             }
         });
@@ -775,6 +793,23 @@ export async function getCompletionStamps(days: number): Promise<Record<string, 
         return out;
     } catch {
         return {};
+    }
+}
+
+/** Every check-in this account has, oldest first: for "Export my data" (lib/dataExport.ts). */
+export async function getAllCompletionRows(): Promise<{ habitId: string; date: string; value: number; skipped: boolean }[]> {
+    if (!isSQLiteAvailable()) return [];
+    try {
+        const uid = await getUserId();
+        const db = await getDatabase();
+        if (!db || !uid) return [];
+        const rows = await db.getAllAsync(
+            'SELECT habit_id, date, value, COALESCE(skipped, 0) AS skipped FROM completions WHERE user_id = ? AND deleted = 0 ORDER BY date',
+            uid,
+        );
+        return (rows ?? []).map((row: any) => ({ habitId: row.habit_id as string, date: row.date as string, value: Number(row.value ?? 1), skipped: !!row.skipped }));
+    } catch {
+        return [];
     }
 }
 

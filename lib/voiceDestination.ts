@@ -19,15 +19,20 @@ export const VOICE_DESTINATIONS: { id: VoiceDestination; label: string }[] = [
     { id: 'goal', label: 'Goal' },
 ];
 
+/** The choice as last read or set, so Settings opens already showing it. */
+let known: VoiceDestination | undefined;
+export const knownVoiceDestination = (): VoiceDestination | undefined => known;
+
 export async function getVoiceDestination(): Promise<VoiceDestination> {
     try {
         const stored = await AsyncStorage.getItem(KEY);
-        return VOICE_DESTINATIONS.some(option => option.id === stored) ? (stored as VoiceDestination) : DEFAULT_VOICE_DESTINATION;
+        return (known = VOICE_DESTINATIONS.some(option => option.id === stored) ? (stored as VoiceDestination) : DEFAULT_VOICE_DESTINATION);
     } catch {
-        return DEFAULT_VOICE_DESTINATION;
+        return known ?? DEFAULT_VOICE_DESTINATION;
     }
 }
 
 export async function setVoiceDestination(destination: VoiceDestination): Promise<void> {
+    known = destination;
     await AsyncStorage.setItem(KEY, destination).catch(() => undefined);
 }

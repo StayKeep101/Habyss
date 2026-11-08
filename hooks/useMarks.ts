@@ -1,12 +1,13 @@
-import { useMemo, useSyncExternalStore } from 'react';
+import { useDeferredValue, useMemo } from 'react';
 import { useSleep } from '@/hooks/useSleep';
 import { goodNights, shortNights } from '@/lib/sleepLog';
+import { useActivity } from '@/hooks/useActivity';
+import { activeDays } from '@/lib/activityLog';
 import type { GoalsData } from '@/hooks/useGoalInsights';
 import { computeMarks, rankFor, type MarksResult } from '@/lib/marks';
 import { useMarksKept } from '@/hooks/useMarksKept';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { useReachedMilestones } from '@/hooks/useMilestones';
-import { currentMissionsDone, subscribeMissionsDone } from '@/lib/weekly';
 
 export type Marks = MarksResult & ReturnType<typeof rankFor>;
 
@@ -15,26 +16,35 @@ export type Marks = MarksResult & ReturnType<typeof rankFor>;
  * and the number moves the instant something is ticked.
  */
 export function useMarks(data: Pick<GoalsData, 'habits' | 'tasks' | 'history' | 'skips' | 'insightsById' | 'today'>): Marks {
-    const { habits, tasks, history, skips, insightsById, today } = data;
+    // Marks read the whole history (about 20 ms on a laptop, several times that
+    // on a phone), so they follow a tick in a low-priority render: the tick is
+    // drawn first and the number catches up a moment later, never in its way.
+    const habits = useDeferredValue(data.habits);
+    const tasks = useDeferredValue(data.tasks);
+    const history = useDeferredValue(data.history);
+    const skips = useDeferredValue(data.skips);
+    const insightsById = useDeferredValue(data.insightsById);
+    const today = data.today;
     // Sleep counts too: +5 for a night at your goal, −5 for one short of it (lib/sleepLog.ts).
     const sleep = useSleep();
     const nights = goodNights(sleep).sort().join(',');
     const short = shortNights(sleep).sort().join(',');
+    // Days you reached your exercise goal: +20 each (lib/activityLog.ts).
+    const activity = useActivity();
+    const moved = activeDays(activity).sort().join(',');
     // Misses of deleted things still count: deleting is break-even, not a way up.
     const kept = useMarksKept();
     // Today's 3 (or 5): +10 a day for finishing them, times the run multiplier.
     const dailyTarget = useDailyTarget();
     // Milestones reached: +30 each.
     const milestones = useReachedMilestones();
-    // Secret missions accomplished: +50 each.
-    const missions = useSyncExternalStore(subscribeMissionsDone, currentMissionsDone, currentMissionsDone);
     return useMemo(() => {
         // The day each goal first reached 100%, read off its own line.
         const goalsCompletedOn: Record<string, string | null> = {};
         for (const [id, insights] of Object.entries(insightsById)) {
             goalsCompletedOn[id] = insights.series.find(point => point.actual >= 100)?.date ?? null;
         }
-        const result = computeMarks({ habits, tasks, history, skips, goalsCompletedOn, goodNights: nights ? nights.split(',') : [], shortNights: short ? short.split(',') : [], kept, dailyTarget, milestones, missions, today });
+        const result = computeMarks({ habits, tasks, history, skips, goalsCompletedOn, goodNights: nights ? nights.split(',') : [], shortNights: short ? short.split(',') : [], activeDays: moved ? moved.split(',') : [], kept, dailyTarget, milestones, today });
         return { ...result, ...rankFor(result.total) };
-    }, [habits, tasks, history, skips, insightsById, today, nights, short, kept, dailyTarget, milestones, missions]);
+    }, [habits, tasks, history, skips, insightsById, today, nights, short, moved, kept, dailyTarget, milestones]);
 }

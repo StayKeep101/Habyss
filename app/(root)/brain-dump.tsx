@@ -13,6 +13,7 @@ import { ThoughtRow } from '@/components/BrainDump/ThoughtRow';
 import { ThoughtActions, type ThoughtAction } from '@/components/BrainDump/ThoughtActions';
 import { ThoughtDock, type DockTarget, type ThoughtDockHandle } from '@/components/BrainDump/ThoughtDock';
 import { MorphMenu } from '@/components/ui/MorphMenu';
+import { shareThoughts } from '@/lib/thoughtExport';
 import { Colors } from '@/theme/colors';
 import { textOn } from '@/theme/tokens';
 import { useTheme } from '@/context/ThemeContext';
@@ -231,6 +232,7 @@ export default function BrainDumpScreen() {
         setActing(null);
         const one = list.length === 1 ? list[0] : null;
         if (action === 'copy') { void copy(list); return; }
+        if (action === 'share') { void shareThoughts(list); return; }
         if (action === 'sort') { if (one) setTimeout(() => setSorting(one), 250); return; }
         if (one && !selecting) { setTimeout(() => turnInto(one, action), 250); return; }
         if (action === 'task') void intoTasks(list);
@@ -323,8 +325,12 @@ export default function BrainDumpScreen() {
     return (
         <SheetScreen title="Brain dump" onBack={() => router.back()}
             rightSlot={thoughts.length ? (
-                <IconButton icon={selecting ? 'close' : 'checkmark-circle-outline'} label={selecting ? 'Stop selecting' : 'Select'}
-                    onPress={() => { lightFeedback(); if (selecting) stopSelecting(); else { input.current?.blur(); setSelecting(true); } }} />
+                <View style={styles.headerActions}>
+                    {/* Everything, by day, out to Notion, Notes, Obsidian or anywhere. */}
+                    {selecting ? null : <IconButton icon="share-outline" label="Export all thoughts" onPress={() => { lightFeedback(); void shareThoughts(thoughts); }} />}
+                    <IconButton icon={selecting ? 'close' : 'checkmark-circle-outline'} label={selecting ? 'Stop selecting' : 'Select'}
+                        onPress={() => { lightFeedback(); if (selecting) stopSelecting(); else { input.current?.blur(); setSelecting(true); } }} />
+                </View>
             ) : undefined}>
             <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}>
                 <ScrollView ref={scroller} contentContainerStyle={[styles.content, editingId !== null && styles.contentEditing]} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>

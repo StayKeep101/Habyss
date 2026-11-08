@@ -158,3 +158,16 @@ describe('a task finished in the evening', () => {
         expect(doneOnDay(task as never, '2026-10-08')).toBe(true);
     });
 });
+
+describe("Today's 3 by importance", () => {
+    const base = { status: 'open' as const, source: 'app' as const, dueDate: '2026-09-23', createdAt: '2026-09-01T09:00:00.000Z', updatedAt: '2026-09-01T09:00:00.000Z' };
+    it('puts the most urgent first, then the hardest', () => {
+        const rows = dailyFocus([
+            { ...base, id: 'a', title: 'Easy normal', priority: 2, difficulty: 1 },
+            { ...base, id: 'b', title: 'Hard normal', priority: 2, difficulty: 3 },
+            { ...base, id: 'c', title: 'Urgent', priority: 1 },
+            { ...base, id: 'd', title: 'Not urgent', priority: 3 },
+        ], 3, '2026-09-23', '2026-09-23').rows.map(task => task.title);
+        expect(rows).toEqual(['Urgent', 'Hard normal', 'Easy normal']);
+    });
+});

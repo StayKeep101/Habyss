@@ -99,6 +99,20 @@ yesterday's flame passes the light to today's. Uses the streak card's existing s
 - **The Drop:** cards flip open one after another (built), 140 ms apart.
 - **Crown taken:** the crown lifts off the old holder's face and settles on the new one, about 1.2 s, Tier 3.
 
+### 4.6 Stepping into Focus, and out (Tier 4, built)
+
+A threshold, not a transition: slow on purpose, one cinematic curve (bezier 0.65, 0, 0.35, 1) on every beat, and the camera never stops moving (`components/Focus/FocusPortal.tsx`, `SandField.tsx`; beats in `FOCUS_ENTRY` and `FOCUS_EXIT`, theme/motion.ts). Monochrome: the void, a pale glass, silver sand, a faint white aura. No accent. About 5.8 s in, 1.3 s out.
+
+- **Appear (1.1 s):** pitch dark (the route fades in, not up). The hourglass rises a breath into place out of it, sand at rest in the lower bulb; the aura gathers behind and breathes. The camera starts a slow push in (to 112 %) that lasts until the plunge. A light tap.
+- **Hold (0.35 s):** it hangs there.
+- **Flip (1.3 s):** it turns over, half a revolution, like a hand doing it; the aura swells. A medium tap as it lands.
+- **Settle (0.45 s):** a thread of sand runs through the neck.
+- **Zoom (1.1 s):** drawn into the sand, hesitant, then all at once (bezier 0.7, 0, 0.84, 0), until it is the whole screen.
+- **Dissolve (1.5 s):** the sand crumbles strip by strip from the top: each strip's sheet thins away while its grains (about 1,500, in four speeds per strip) drop under gravity, drift apart and fade. Focus settles from 106 % to 100 % underneath. A light tap as it lets go.
+- **Out (1.3 s):** whatever closes Focus (the ×, Finished, Exit, the clock running out) is held while the grains rise and gather back into a sheet over the page, bottom strip last; then the page fades away with it.
+- **Once a day:** focusing happens several times a day, so the whole ritual plays for the first session of the day only (`lib/focusRitual.ts`). Every session after starts already in the sand: it falls away in 700 ms (`DURATION.reward`) with one light tap, and leaving gathers in 420 ms (`DURATION.emphasis`).
+- **Skip:** a tap anywhere ends either. **Reduce Motion:** in, the dark fades over 260 ms; out, it closes at once.
+
 ## 5. The Core (design brief)
 
 An evolving visual object that grows with real progress: the emotional

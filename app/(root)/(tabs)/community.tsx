@@ -1,11 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import Animated, { FadeIn, FlipInEasyY, ReduceMotion } from 'react-native-reanimated';
+import {
+    ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions,
+    type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent,
+} from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+    FadeIn, FlipInEasyY, ReduceMotion, interpolate, runOnJS, useAnimatedRef, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue,
+} from 'react-native-reanimated';
 import { IconTile } from '@/components/ui/IconTile';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import { afterPaint } from '@/lib/afterPaint';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { IconButton } from '@/components/ui/IconButton';
+import { AppButton } from '@/components/ui/AppButton';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { AppIcon } from '@/components/ui/AppIcon';
@@ -13,7 +22,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { ListItem } from '@/components/ui/Motion';
 import { FriendsGate } from '@/components/Community/FriendsGate';
 import { AddFriendModal } from '@/components/Community/AddFriendModal';
-import { FriendsRail, type RailFriend } from '@/components/Community/FriendsRail';
+import type { RailFriend } from '@/components/Community/FriendsRail';
 import { StreamPostCard, type StreamContext } from '@/components/Community/StreamPostCard';
 import { buildStream } from '@/lib/communityStream';
 import { listenToComments, loadThreads, threadKey, type Comment } from '@/lib/comments';
@@ -33,24 +42,21 @@ import { withMyReaction, type Reaction } from '@/lib/reactions';
 import { Confetti } from '@/components/ui/Confetti';
 import { Overlay } from '@/components/ui/Overlay';
 import { SealedDayCard } from '@/components/Community/SealedDayCard';
-import { CrewQuest } from '@/components/Community/CrewQuest';
 import { MarketSection } from '@/components/Market/MarketSection';
-import { ExposedSection } from '@/components/Market/ExposedSection';
 import { DuelSection } from '@/components/Duel/DuelSection';
 import { WalletHero } from '@/components/Market/WalletHero';
-import { WeekView } from '@/components/Community/WeekView';
-import { CrownMoment } from '@/components/Community/CrownMoment';
-import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
-import { useCrewWeek } from '@/hooks/useCrewWeek';
+import { PageDots } from '@/components/ui/PageDots';
+import { MarksRace } from '@/components/Community/MarksRace';
+import { faceAt, type RaceFace, type Racer } from '@/lib/marksRace';
+import { localMarks } from '@/lib/marksSync';
+import { useTokens } from '@/hooks/useTokens';
 import { marketFeed } from '@/lib/market';
 import { MARKET_ENABLED } from '@/constants/features';
-import { questStanding, questWeek, type CrewMember } from '@/lib/crewQuest';
-import { useWeekStart } from '@/hooks/useWeekStart';
 import { hasDropped, isSealed, minuteOf } from '@/lib/theDrop';
 import { clockLabel } from '@/lib/dayFlow';
 import { localDateKey } from '@/lib/habitSchedule';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { statusOf } from '@/lib/presence';
+import { STATUS_LABEL, statusOf } from '@/lib/presence';
 import { listenToFriends, announceChange } from '@/lib/livePulse';
 import { onAccountChange } from '@/lib/account';
 import { on } from '@/lib/appEvents';
@@ -60,34 +66,36 @@ import { useMyProfile } from '@/hooks/useMyProfile';
 import { styles } from '@/styles/screens/tabs/community.styles';
 
 const PAGE = 15;
+
+/** A fresh page of the feed, keeping who reacted with what from the copy already shown. */
+const withReactors = (fresh: FeedPost[], shown: FeedPost[]): FeedPost[] => fresh.map(post => {
+    const before = shown.find(item => item.userId === post.userId && item.day === post.day)?.byUser;
+    return before ? { ...post, byUser: before } : post;
+});
 /** The day the drop's cards last flipped open on this phone. */
 const DROP_SEEN = 'habyss_drop_seen';
-/** The week whose crew quest was last celebrated on this phone. */
-const QUEST_CHEERED = 'habyss_crew_quest_cheered';
 
 /**
  * Community: what your friends are doing right now, and how their days went.
  *
- * In three views, each with a dot when something there is new. Today: every
- * friend's face and status (the crown on whoever holds it), who is focusing,
- * and the feed of everyone's day. This week: King of the Week and the race
- * for the next crown, the king's challenge, your secret mission and last
- * week's secrets, the crew quest. Bets: friends' goals open to Shards. The
+ * In two views. Today: every friend's face and status, who is focusing, and
+ * the feed of everyone's day (accountability only). Challenges: your Shards,
+ * duels and bets, with a dot when a friend's goal is open to a bet. The
  * leaderboard is one tap away in the header.
  */
 export default function CommunityScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
-    const { thud, lightFeedback, mediumFeedback, selectionFeedback, successFeedback } = useHaptics();
+    const { thud, lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
     const router = useRouter();
     const { horizontalPadding, topSpacing, tabBarClearance } = useResponsiveLayout();
 
     const [gate, setGate] = useState<'signed_out' | 'needs_username' | null | undefined>(undefined);
-    // Community in three: today (who's around, their days), this week (the crown,
-    // your mission, the crew quest), and bets. Each says when something there is new.
-    const [view, setView] = useState<'today' | 'week' | 'bets'>('today');
-    const week = useCrewWeek(gate === null);
+    // Community in two pages you swipe between: today (who's around, their days) and challenges (Shards, duels, bets).
+    const [page, setPage] = useState(0);
+    // Everyone's Marks over the last month: the race drawn behind the pages.
+    const [racers, setRacers] = useState<Racer[]>([]);
     const [betsNew, setBetsNew] = useState(false);
     const [me, setMe] = useState<{ id: string; name: string } | null>(null);
     // Your own name and photo come from the one profile store, not the server's copy.
@@ -117,11 +125,6 @@ export default function CommunityScreen() {
     // Status depends on the clock (bedtime, a focus session ending), so it is
     // recomputed every minute without fetching anything.
     const [clock, setClock] = useState(() => new Date());
-    // This week's crew quest (lib/crewQuest.ts), and the week it is for.
-    const [crew, setCrew] = useState<CrewMember[]>([]);
-    const [questFrom, setQuestFrom] = useState('');
-    const mondayFirst = useRef(true);
-    mondayFirst.current = useWeekStart() === 'monday';
     // The drop (lib/theDrop.ts): friends' cards from today stay sealed until
     // your day goes up at your time, then flip open one by one, once a day.
     const today = localDateKey(clock);
@@ -155,8 +158,7 @@ export default function CommunityScreen() {
             if (!username) return;
             await FriendsService.repairFriendshipsFromAcceptedRequests().catch(() => undefined);
             void FriendsService.refreshSharedIds().catch(() => undefined);
-            const week = questWeek(localDateKey(new Date()), mondayFirst.current);
-            const [current, requestList, statusList, feed, board, settings, unreadCount, quest] = await Promise.all([
+            const [current, requestList, statusList, feed, board, settings, unreadCount] = await Promise.all([
                 FriendsService.getCurrentUser(),
                 FriendsService.getFriendRequests(),
                 FeedService.friendStatuses(),
@@ -164,15 +166,25 @@ export default function CommunityScreen() {
                 FeedService.leaderboard('friends'),
                 FeedService.shareSettings(),
                 FriendsService.unreadCount(),
-                FeedService.crewQuest(week.from, week.to),
             ]);
             setRanks(new Map(board.map(row => [row.userId, row.rank])));
-            setCrew(quest);
-            setQuestFrom(week.from);
+            // The race: everyone's published history, and your own total as this phone knows it.
+            void Promise.all([FriendsService.marksSeriesFor(board.map(row => row.userId)), localMarks()]).then(([series, mine]) => {
+                setRacers(board.map(row => ({
+                    id: row.userId, name: row.name, avatarUrl: row.avatarUrl, me: row.isMe,
+                    marks: row.isMe && mine !== null ? Math.max(mine, row.marks) : row.marks,
+                    series: series.get(row.userId),
+                })));
+            }).catch(() => undefined);
             if (current) setMe({ id: current.id, name: current.displayName || current.username });
             setRequests(requestList);
             setStatuses(statusList);
-            setPosts(feed);
+            // Who gave which reaction: kept from before while the fresh answer comes, so faces never lose their emoji.
+            setPosts(prev => withReactors(feed, prev));
+            void FeedService.reactionsBy(feed).then(by => setPosts(current => current.map(post => {
+                const found = by[`day:${post.userId}:${post.day}`];
+                return found ? { ...post, byUser: found } : post;
+            }))).catch(() => undefined);
             setEndReached(feed.length < PAGE);
             setRank(board.find(row => row.isMe)?.rank ?? null);
             setShareTime(settings?.enabled ? settings.time : null);
@@ -182,7 +194,8 @@ export default function CommunityScreen() {
         }
     }, []);
 
-    useFocusEffect(useCallback(() => { void load(); }, [load]));
+    // Fetched once the tab is on screen, so the switch to it is not held up.
+    useFocusEffect(useCallback(() => { const later = afterPaint(() => { void load(); }); return () => later.cancel(); }, [load]));
     // Back online: catch up at once.
     useEffect(() => { if (online) void load(); }, [online, load]);
     useEffect(() => {
@@ -202,9 +215,85 @@ export default function CommunityScreen() {
     const onRefresh = async () => {
         thud();
         setRefreshing(true);
-        if (online) { week.reload(); await load(); }
+        if (online) await load();
         setRefreshing(false);
         if (!online) setTimeout(() => setJoke(value => value + 1), 350);
+    };
+
+    // The stage: the race fills the top of the screen behind one page, which slides up over it (as on a goal).
+    const t = useTokens();
+    const insets = useSafeAreaInsets();
+    const screen = useWindowDimensions();
+    const stage = Math.round(screen.height * 0.46);
+    const pageWidth = screen.width;
+    const pager = useAnimatedRef<Animated.ScrollView>();
+    const pagePosition = useSharedValue(0);
+    const lift = useSharedValue(0);
+    // The race plays through the month once, the first time Community opens after
+    // the app starts. Pressing the tab while here slides the page back down to it.
+    const navigation = useNavigation();
+    const sheetScroll = useAnimatedRef<Animated.ScrollView>();
+    useEffect(() => navigation.addListener('tabPress' as never, () => {
+        if (navigation.isFocused()) sheetScroll.current?.scrollTo({ y: 0, animated: true });
+    }), [navigation, sheetScroll]);
+    // The finger on the race, or −1: it reads that day (components/Community/MarksRace.tsx).
+    const scrub = useSharedValue(-1);
+    const onPager = useAnimatedScrollHandler(event => { pagePosition.set(event.contentOffset.x / Math.max(1, pageWidth)); });
+    const onLift = useAnimatedScrollHandler(event => { lift.set(event.contentOffset.y); });
+    // The race stays put, like a map under its panel: as the page is lifted over it, it only dims.
+    const raceStyle = useAnimatedStyle(() => ({
+        opacity: 1 - interpolate(lift.get(), [0, stage], [0, 0.85], 'clamp'),
+    }));
+    // The buttons sit on the race's level: as the page is lifted, its top edge
+    // passes over them and covers them, the way it covers the race.
+    // Room around them inside the clip, so their shadows are not cut off.
+    // One step below the status bar, level with the race's heading rather than pressed against the top.
+    const actionsTop = insets.top + t.space.sm;
+    const actionsHeight = useSharedValue(0);
+    const actionsStyle = useAnimatedStyle(() => ({
+        height: Math.min(actionsHeight.get(), Math.max(0, stage - lift.get() - actionsTop)),
+    }));
+    // The faces on the race, where they are drawn: a tap on one opens that person.
+    const [faceList, setFaceList] = useState<RaceFace[]>([]);
+    const openRacer = useCallback((id: string, mine: boolean) => {
+        lightFeedback();
+        if (mine) router.push('/(root)/profile'); else router.push({ pathname: '/(root)/friend' as never, params: { id } });
+    }, [lightFeedback, router]);
+    const pick = useCallback((x: number, y: number) => {
+        const hit = faceAt(faceList, x, y);
+        if (hit) openRacer(hit.id, hit.me);
+    }, [faceList, openRacer]);
+    // Over the race: a drag sideways reads it day by day (up and down still moves the
+    // page), and a tap on a face opens them. The race stays put while the page moves,
+    // so a tap is placed on it by taking off how far the page has been lifted.
+    const reader = useMemo(() => Gesture.Race(
+        Gesture.Pan()
+            .activeOffsetX([-8, 8]).failOffsetY([-12, 12])
+            .onStart(event => { scrub.set(event.x); })
+            .onUpdate(event => { scrub.set(event.x); })
+            .onFinalize(() => { scrub.set(-1); }),
+        Gesture.Tap().onEnd(event => { runOnJS(pick)(event.x, event.y - lift.get()); }),
+    ), [scrub, lift, pick]);
+    // Each page's height, so the one page is as tall as what it is showing.
+    const [heights, setHeights] = useState<[number, number]>([0, 0]);
+    const measure = (index: 0 | 1) => (event: LayoutChangeEvent) => {
+        const next = Math.ceil(event.nativeEvent.layout.height);
+        setHeights(prev => (prev[index] === next ? prev : (index === 0 ? [next, prev[1]] : [prev[0], next])));
+    };
+    const settle = (index: number) => {
+        if (index === page) return;
+        selectionFeedback();
+        setPage(index);
+        if (index === 1) setBetsNew(false);
+    };
+    const goTo = (index: number) => {
+        pager.current?.scrollTo({ x: index * pageWidth, animated: true });
+        settle(index);
+    };
+    // Near the end of the feed, the next days.
+    const nearEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+        if (page === 0 && contentOffset.y + layoutMeasurement.height > contentSize.height - screen.height * 0.6) void loadMore();
     };
 
     const loadMore = async () => {
@@ -212,25 +301,23 @@ export default function CommunityScreen() {
         setLoadingMore(true);
         const next = await FeedService.feed(posts[posts.length - 1].postedAt, PAGE);
         setPosts(prev => [...prev, ...next.filter(post => !prev.some(item => item.userId === post.userId && item.day === post.day))]);
+        void FeedService.reactionsBy(next).then(by => setPosts(current => current.map(post => {
+            const found = by[`day:${post.userId}:${post.day}`];
+            return found ? { ...post, byUser: found } : post;
+        }))).catch(() => undefined);
         setEndReached(next.length < PAGE);
         setLoadingMore(false);
     };
 
-    const kingId = week.king?.userId ?? null;
     const rail = useMemo<RailFriend[]>(() => statuses.map(row => ({
-        userId: row.userId, name: row.name, avatarUrl: row.avatarUrl, status: statusOf(row, clock), crowned: row.userId === kingId,
-    })), [statuses, clock, kingId]);
+        userId: row.userId, name: row.name, avatarUrl: row.avatarUrl, status: statusOf(row, clock),
+    })), [statuses, clock]);
 
     // Bets: new when a friend's goal is open and you have nothing on it yet.
     useFocusEffect(useCallback(() => {
         if (!MARKET_ENABLED || gate !== null) return;
         marketFeed().then(markets => setBetsNew(markets.some(market => market.status === 'open' && !market.mine && !market.myStake))).catch(() => undefined);
     }, [gate]));
-    const choose = (next: 'today' | 'week' | 'bets') => {
-        setView(next);
-        if (next === 'week') week.markSeen();
-        if (next === 'bets') setBetsNew(false);
-    };
 
     /** Names and faces for the people who acknowledged a post. */
     const people = useMemo(() => {
@@ -240,6 +327,8 @@ export default function CommunityScreen() {
     }, [statuses, me, myProfile.name, myProfile.avatar]);
     /** Each friend's status now, for the mark on their photo in the feed. */
     const statusById = useMemo(() => new Map(rail.map(friend => [friend.userId, friend.status])), [rail]);
+    // The race, each friend wearing what they are doing now (focusing, live, asleep).
+    const racersNow = useMemo(() => racers.map(racer => (racer.me ? racer : { ...racer, status: statusById.get(racer.id) })), [racers, statusById]);
 
     // A perfect day reacted to: confetti over the feed, once.
     const [cheer, setCheer] = useState(0);
@@ -248,17 +337,6 @@ export default function CommunityScreen() {
         const timer = setTimeout(() => setCheer(0), 2600);
         return () => clearTimeout(timer);
     }, [cheer]);
-    // The crew quest reached: confetti once that week, on this phone.
-    const questReached = questStanding(crew).reached && crew.length >= 2;
-    useEffect(() => {
-        if (!questReached || !questFrom) return;
-        void AsyncStorage.getItem(QUEST_CHEERED).then(week => {
-            if (week === questFrom) return;
-            setCheer(Date.now());
-            successFeedback();
-            void AsyncStorage.setItem(QUEST_CHEERED, questFrom).catch(() => undefined);
-        }).catch(() => undefined);
-    }, [questReached, questFrom, successFeedback]);
     // Today's accountability cards, each as the kind of day it was (lib/communityStream.ts).
     const stream = useMemo(() => buildStream(posts), [posts]);
 
@@ -293,6 +371,12 @@ export default function CommunityScreen() {
                 reactions: withMyReaction(item.reactions, from, to),
                 ackCount: item.ackCount + (to ? 1 : 0) - (from ? 1 : 0),
                 ackUsers: to ? [...item.ackUsers.filter(id => id !== me?.id), me?.id ?? ''] : item.ackUsers.filter(id => id !== me?.id),
+                // Your face wears what you picked, at once.
+                byUser: (() => {
+                    const next = { ...(item.byUser ?? {}) };
+                    if (me?.id) { if (to) next[me.id] = to; else delete next[me.id]; }
+                    return next;
+                })(),
             }
             : item));
         show(before, reaction);
@@ -328,17 +412,16 @@ export default function CommunityScreen() {
         meId: me?.id ?? null,
         myName: myProfile.name || me?.name || 'You',
         myAvatar: myProfile.avatar ?? undefined,
-        kingId,
         rankOf: userId => ranks.get(userId) ?? null,
         statusOf: userId => statusById.get(userId),
-        facesOf: ids => ids.flatMap(id => { const face = people.get(id); return face ? [face] : []; }),
+        facesOf: ids => ids.flatMap(id => { const face = people.get(id); return face ? [{ ...face, id }] : []; }),
         onReact: (post, reaction) => void react(post, reaction),
         onReport: reportPost,
         commentsOf: key => comments[key] ?? [],
-        onOpenComments: post => {
+        onOpenComments: (post, write) => {
             selectionFeedback();
             setTalking({
-                toUser: post.userId, day: post.day, name: post.mine ? 'You' : post.name, mine: post.mine,
+                toUser: post.userId, day: post.day, name: post.mine ? 'You' : post.name, mine: post.mine, focus: !!write,
                 done: post.card.habitsDone + post.card.tasksDone, total: post.card.habitsTotal + post.card.tasksTotal,
             });
         },
@@ -353,43 +436,30 @@ export default function CommunityScreen() {
         void load();
     };
 
-    const header = (
-        <View>
-            <View style={styles.header}>
-                <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Community</Text>
-                {gate === null ? (
-                    <View style={styles.headerActions}>
-                        {/* Your place among friends; the world board is inside. */}
-                        <Pressable onPress={() => { lightFeedback(); router.push('/(root)/leaderboard' as never); }}
-                            accessibilityRole="button" accessibilityLabel={rank ? `Leaderboard, you are number ${rank}` : 'Leaderboard'}>
-                            <MatteSurface radius={Radius.pill} level="control" style={styles.rank}>
-                                <AppIcon name="trophy" size={15} color={primary} />
-                                <Text style={[styles.rankText, { color: colors.textPrimary }]}>{rank ? `#${rank}` : '—'}</Text>
-                            </MatteSurface>
-                        </Pressable>
-                        <IconButton icon={unread > 0 ? 'notifications' : 'notifications-outline'}
-                            label={unread > 0 ? `Inbox, ${unread} waiting` : 'Inbox'}
-                            onPress={() => { lightFeedback(); router.push('/(root)/inbox'); }} diameter={40} size={20} badge={unread} />
-                        <View ref={addFriendTarget} collapsable={false}>
-                            <IconButton icon="person-add" label="Add a friend" onPress={() => { mediumFeedback(); setShowAddFriend(true); }} diameter={40} size={20} />
-                        </View>
-                    </View>
-                ) : null}
+    const actions = (
+        <View style={styles.headerActions}>
+            {/* Your place among friends; the world board is inside. */}
+            <Pressable onPress={() => { lightFeedback(); router.push('/(root)/leaderboard' as never); }}
+                accessibilityRole="button" accessibilityLabel={rank ? `Leaderboard, you are number ${rank}` : 'Leaderboard'}>
+                <MatteSurface radius={Radius.pill} level="control" elevation="floating" style={styles.rank}>
+                    <AppIcon name="trophy" size={15} color={primary} />
+                    <Text style={[styles.rankText, { color: colors.textPrimary }]}>{rank ? `#${rank}` : '—'}</Text>
+                </MatteSurface>
+            </Pressable>
+            <IconButton icon={unread > 0 ? 'notifications' : 'notifications-outline'}
+                label={unread > 0 ? `Inbox, ${unread} waiting` : 'Inbox'}
+                onPress={() => { lightFeedback(); router.push('/(root)/inbox'); }} diameter={40} size={20} badge={unread} floating />
+            <View ref={addFriendTarget} collapsable={false}>
+                <IconButton icon="person-add" label="Add a friend" onPress={() => { mediumFeedback(); setShowAddFriend(true); }} diameter={40} size={20} floating />
             </View>
+        </View>
+    );
 
-            {gate ? <FriendsGate needsUsername={gate === 'needs_username'} onReady={() => { void load(); }} /> : null}
-
-            {gate === null ? (
-                <View style={styles.block}>
-                    <ViewSwitcher accent={primary} value={view} onChange={choose} options={[
-                        { id: 'today', label: 'Today', icon: 'sunny' },
-                        { id: 'week', label: 'This week', icon: 'calendar', dot: week.fresh },
-                        ...(MARKET_ENABLED ? [{ id: 'bets' as const, label: 'Challenges', icon: 'flash' as const, dot: betsNew }] : []),
-                    ]} />
-                </View>
-            ) : null}
-
-            {gate === null && view === 'today' && requests.length > 0 ? (
+    // The two pages, side by side in the one page: Today (the feed) and Challenges, swiped between.
+    const PAGES = ['Accountability', 'Challenges'];
+    const todayPage = (
+        <View onLayout={measure(0)} style={{ width: pageWidth, paddingHorizontal: horizontalPadding }}>
+            {requests.length > 0 ? (
                 <View style={styles.block}>
                     <SectionTitle first>Requests</SectionTitle>
                     <VoidCard style={styles.requests}>
@@ -407,37 +477,55 @@ export default function CommunityScreen() {
                     </VoidCard>
                 </View>
             ) : null}
-
-            {gate === null && view === 'today' && rail.length > 0 ? (
-                <View style={styles.block}>
-                    <FriendsRail friends={rail} onOpen={friend => openFriend(friend.userId)} />
+            {/* Friends locked in right now: one tap to focus beside them. */}
+            <FocusingNow style={styles.block} friends={statuses} now={clock.getTime()} joinedHost={joinedHost}
+                onOpen={openFriend}
+                onJoin={host => {
+                    mediumFeedback();
+                    router.push({ pathname: '/(root)/focus', params: { id: togetherId(host), kind: 'together' } });
+                }} />
+            {/* Adding a friend, on the page itself too (the header's button can be under the race). */}
+            <View style={styles.block}>
+                <AppButton label="Add friends" icon="person-add" onPress={() => { mediumFeedback(); setShowAddFriend(true); }} />
+            </View>
+            {/* Today is accountability only: each friend's day. The games are on the next page. */}
+            {stream.map((item, index) => {
+                const day = item.post;
+                return (
+                    <ListItem key={item.key} index={index}>
+                        {isSealed(day, today, shareTime, nowMinutes) ? (
+                            <SealedDayCard key="sealed" name={day.name} avatarUrl={day.avatarUrl} opensAt={opensAt} />
+                        ) : (
+                            <Animated.View key="open" entering={flipping && !day.mine && day.day === today ? FlipInEasyY.duration(520).delay(index * 140).reduceMotion(ReduceMotion.System) : undefined}>
+                                <StreamPostCard item={item} ctx={streamContext} />
+                            </Animated.View>
+                        )}
+                    </ListItem>
+                );
+            })}
+            {stream.length === 0 ? (
+                <View style={styles.empty}>
+                    <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
+                        {shareTime ? `Your day posts here at ${shareTime}. Your friends' days show up at the times they choose.` : "Your friends' days show up here at the times they choose."}
+                    </Text>
+                    <Pressable onPress={() => router.push('/(root)/sharing')} accessibilityRole="button">
+                        <Text style={[styles.emptyLink, { color: primary }]}>{shareTime ? 'Change the time' : 'Turn on daily posts'}</Text>
+                    </Pressable>
                 </View>
             ) : null}
-
-            {/* Friends locked in right now: one tap to focus beside them. */}
-            {gate === null && view === 'today' ? (
-                <FocusingNow style={styles.block} friends={statuses} now={clock.getTime()} joinedHost={joinedHost}
-                    onOpen={openFriend}
-                    onJoin={host => {
-                        mediumFeedback();
-                        router.push({ pathname: '/(root)/focus', params: { id: togetherId(host), kind: 'together' } });
-                    }} />
-            ) : null}
-
-            {/* This week: the crown and its race, the king's challenge, your secret mission, the crew quest. */}
-            {gate === null && view === 'week' ? (
-                <WeekView style={styles.block} week={week} meId={me?.id ?? null} quest={<CrewQuest members={crew} />} />
-            ) : null}
-
-            {/* Challenges: your Shards, duels, bets on goals, and Exposed. */}
-            {gate === null && view === 'bets' && MARKET_ENABLED ? <WalletHero style={styles.block} /> : null}
-            {gate === null && view === 'bets' ? <DuelSection style={styles.block} /> : null}
-            {gate === null && view === 'bets' && MARKET_ENABLED ? <MarketSection style={styles.block} /> : null}
-            {gate === null && view === 'bets' ? <ExposedSection /> : null}
-
-            {gate === null && view === 'today' ? <SectionTitle first>Feed</SectionTitle> : null}
+            {loadingMore ? <ActivityIndicator style={styles.more} color={colors.textTertiary} /> : null}
         </View>
     );
+    const challengesPage = (
+        <View onLayout={measure(1)} style={{ width: pageWidth, paddingHorizontal: horizontalPadding }}>
+            {/* Challenges: your Shards, duels and bets on goals. */}
+            {MARKET_ENABLED ? <WalletHero style={styles.block} /> : null}
+            <DuelSection style={styles.block} />
+            {MARKET_ENABLED ? <MarketSection style={styles.block} /> : null}
+        </View>
+    );
+    // The page is as tall as the side showing (the other is clipped while you swipe).
+    const pageHeight = heights[page] || undefined;
 
     if (!online) {
         return (
@@ -463,53 +551,62 @@ export default function CommunityScreen() {
         return <VoidShell><View style={styles.loader}><ActivityIndicator color={colors.textTertiary} /></View></VoidShell>;
     }
 
+    if (gate !== null) {
+        return (
+            <VoidShell>
+                <ScrollView contentContainerStyle={{ paddingTop: topSpacing + 36, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance }}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textTertiary} progressViewOffset={topSpacing} />}>
+                    <Text style={[styles.headerTitle, styles.header, { color: colors.textPrimary }]}>Community</Text>
+                    <FriendsGate needsUsername={gate === 'needs_username'} onReady={() => { void load(); }} />
+                </ScrollView>
+            </VoidShell>
+        );
+    }
+
     return (
         <VoidShell>
-            <FlatList
-                // Today is accountability only: each friend's day. The games live under This week and Challenges.
-                data={gate === null && view === 'today' ? stream : []}
-                keyExtractor={item => item.key}
-                ListHeaderComponent={header}
-                contentContainerStyle={{ paddingTop: topSpacing + 36, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance }}
-                showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textTertiary} progressViewOffset={topSpacing} />}
-                onEndReached={() => { void loadMore(); }}
-                onEndReachedThreshold={0.6}
-                renderItem={({ item, index }) => {
-                    const day = item.post;
-                    return (
-                        <ListItem index={index}>
-                            {isSealed(day, today, shareTime, nowMinutes) ? (
-                                <SealedDayCard key="sealed" name={day.name} avatarUrl={day.avatarUrl} opensAt={opensAt} />
-                            ) : (
-                                <Animated.View key="open" entering={flipping && !day.mine && day.day === today ? FlipInEasyY.duration(520).delay(index * 140).reduceMotion(ReduceMotion.System) : undefined}>
-                                    <StreamPostCard item={item} ctx={streamContext} />
-                                </Animated.View>
-                            )}
-                        </ListItem>
-                    );
-                }}
-                ListEmptyComponent={gate === null && view === 'today' ? (
-                    <View style={styles.empty}>
-                        <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-                            {shareTime ? `Your day posts here at ${shareTime}. Your friends' days show up at the times they choose.` : "Your friends' days show up here at the times they choose."}
-                        </Text>
-                        <Pressable onPress={() => router.push('/(root)/sharing')} accessibilityRole="button">
-                            <Text style={[styles.emptyLink, { color: primary }]}>{shareTime ? 'Change the time' : 'Turn on daily posts'}</Text>
-                        </Pressable>
-                    </View>
-                ) : null}
-                ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.more} color={colors.textTertiary} /> : null}
-            />
+            {/* The race is the background: it fills the top, and steps back as the page slides over it. */}
+            <Animated.View style={[styles.race, raceStyle]}>
+                <MarksRace racers={racersNow} onFaces={setFaceList} width={screen.width} height={stage} top={insets.top + t.space.sm} scrub={scrub} replay={racers.length > 0} />
+            </Animated.View>
+            <Animated.ScrollView ref={sheetScroll} showsVerticalScrollIndicator={false} onScroll={onLift} scrollEventThrottle={16}
+                onScrollEndDrag={nearEnd} onMomentumScrollEnd={nearEnd}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textTertiary} progressViewOffset={insets.top} />}>
+                {/* Over the race: a drag sideways reads it, day by day. */}
+                <GestureDetector gesture={reader}>
+                    <View style={{ height: stage }}
+                        accessible={faceList.length > 0} accessibilityLabel="Friends on the race" accessibilityHint="Swipe up or down to choose whose profile to open"
+                        accessibilityActions={racersNow.filter(racer => faceList.some(face => face.id === racer.id)).map(racer => ({
+                            name: racer.id, label: racer.me ? 'Your profile' : `${racer.name}, ${racer.status ? STATUS_LABEL[racer.status] : ''}`,
+                        }))}
+                        onAccessibilityAction={event => {
+                            const face = faceList.find(item => item.id === event.nativeEvent.actionName);
+                            if (face) openRacer(face.id, face.me);
+                        }} />
+                </GestureDetector>
+                <View style={[styles.sheetTop, { backgroundColor: colors.background, borderColor: t.color.border, paddingHorizontal: horizontalPadding }]}>
+                    <View style={[styles.grabber, { backgroundColor: t.color.border }]} />
+                    <SectionTitle first right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
+                </View>
+                <View style={{ backgroundColor: colors.background, minHeight: screen.height - insets.top, paddingBottom: tabBarClearance }}>
+                    <Animated.ScrollView ref={pager} horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={{ height: pageHeight }}
+                        onScroll={onPager} scrollEventThrottle={16} onMomentumScrollEnd={event => settle(Math.round(event.nativeEvent.contentOffset.x / pageWidth))}>
+                        <View style={styles.pages}>
+                            {todayPage}
+                            {challengesPage}
+                        </View>
+                    </Animated.ScrollView>
+                </View>
+            </Animated.ScrollView>
+            {/* On the race's level: they stay where they are, and the page slides over them as it does over the race. */}
+            <Animated.View style={[styles.actions, { top: actionsTop, right: horizontalPadding - t.space.sm }, actionsStyle]}>
+                <View style={{ padding: t.space.sm }} onLayout={event => actionsHeight.set(event.nativeEvent.layout.height)}>{actions}</View>
+            </Animated.View>
 
             {cheer ? (
                 <Overlay>
                     <View pointerEvents="none" style={styles.cheer}><Confetti key={cheer} colors={[primary, colors.success, colors.warning, colors.textPrimary]} /></View>
                 </Overlay>
-            ) : null}
-            {/* The crown changed hands: everyone in the crew sees it once that week. */}
-            {gate === null && week.dethroned && week.king && week.previousKing ? (
-                <CrownMoment king={week.king} previous={week.previousKing} meId={me?.id ?? null} onDone={week.markCrownSeen} />
             ) : null}
             <CommentSheet target={talking} onClose={() => setTalking(null)} onChanged={loadComments} />
             <AddFriendModal visible={showAddFriend} onClose={() => setShowAddFriend(false)} userCode={userCode} onFriendAdded={() => { void load(); }} />

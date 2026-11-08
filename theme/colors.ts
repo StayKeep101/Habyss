@@ -143,6 +143,28 @@ export const Colors = {
   }
 };
 
+/**
+ * Each rank's colour (lib/marks.ts RANKS), "into the light": the deeper you
+ * climb, the brighter the gem. Only ever the gem and its glow, never text;
+ * the rank's name stays in the text colours. Eternal is white light, broken
+ * into an iridescent sweep (EternalIridescence).
+ */
+export const RankColors = {
+  Lost: '#4B5563',
+  Beginner: '#5B5F97',
+  Growing: '#4F46E5',
+  Consistent: '#2563EB',
+  Disciplined: '#06B6D4',
+  Focused: '#10B981',
+  Master: '#F59E0B',
+  Unbreakable: '#F97316',
+  Timekeeper: '#FDE68A',
+  Eternal: '#FFFFFF',
+} as const;
+
+/** Eternal's light, split as it passes through the gem. */
+export const EternalIridescence = ['#FFFFFF', '#C7F9FF', '#E9D5FF', '#FDE68A'] as const;
+
 // Backwards compatibility alias
 // @ts-ignore
 Colors.dark = Colors.abyss;

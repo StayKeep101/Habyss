@@ -1,6 +1,10 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { FadeOut, ReduceMotion, ZoomIn, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { ListItem } from '@/components/ui/Motion';
+import { CheckPop } from '@/components/ui/CheckPop';
+import { StruckTitle } from '@/components/ui/StruckTitle';
+import { DURATION, EASE } from '@/theme/motion';
 import { ValuePill } from '@/components/Goal/GoalRows';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
@@ -28,7 +32,7 @@ export const DailyFocusCard: React.FC<{
 }> = ({ focus, onToggle, onOpen, onAdd, multiplier = 1 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { selectionFeedback, lightFeedback } = useHaptics();
+    const { lightFeedback } = useHaptics();
     // The run of days this target was hit, and the app-wide perfect-day multiplier.
     const streak = focus.streak ?? 0;
 
@@ -59,39 +63,52 @@ export const DailyFocusCard: React.FC<{
                     <Text style={[styles.rowText, { color: colors.textTertiary }]}>Add a task</Text>
                 </TouchableOpacity>
             ) : (
-                focus.rows.map(task => {
-                    const done = task.status === 'done';
-                    return (
-                        <ListItem key={task.id}><TouchableOpacity
-                            accessibilityRole="checkbox"
-                            accessibilityState={{ checked: done }}
-                            accessibilityLabel={task.title}
-                            activeOpacity={0.7}
-                            onPress={() => { selectionFeedback(); onToggle(task); }}
-                            style={styles.row}
-                        >
-                            <View style={[styles.box, {
-                                backgroundColor: done ? colors.success : 'transparent',
-                                borderColor: done ? colors.success : colors.textTertiary,
-                            }]}>
-                                {done ? <Ionicons name="checkmark" size={s(13)} color={colors.background} /> : null}
-                            </View>
-                            <Text numberOfLines={1} style={[styles.rowText, {
-                                color: done ? colors.textTertiary : colors.textPrimary,
-                                textDecorationLine: done ? 'line-through' : 'none',
-                            }]}>
-                                {task.title}
-                            </Text>
-                            {task.dueTime && !done ? (
-                                <Text style={[styles.time, { color: colors.textTertiary }]}>{task.dueTime}</Text>
-                            ) : null}
-                        </TouchableOpacity></ListItem>
-                    );
-                })
+                focus.rows.map(task => (
+                    <ListItem key={task.id}><FocusTaskRow task={task} onToggle={onToggle} /></ListItem>
+                ))
             )}
         </VoidCard>
     );
 };
+
+/** One of the day's tasks: tick it and the box fills, swells and rings once, the mark lands, the name dims and is struck through. */
+function FocusTaskRow({ task, onToggle }: { task: Task; onToggle: (task: Task) => void }) {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const { selectionFeedback } = useHaptics();
+    const done = task.status === 'done';
+    const box = useAnimatedStyle(() => ({
+        backgroundColor: withTiming(done ? colors.success : 'transparent', { duration: DURATION.quick, easing: EASE.enter, reduceMotion: ReduceMotion.System }),
+        borderColor: withTiming(done ? colors.success : colors.textTertiary, { duration: DURATION.quick, easing: EASE.enter, reduceMotion: ReduceMotion.System }),
+    }));
+    return (
+        <TouchableOpacity
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: done }}
+            accessibilityLabel={task.title}
+            activeOpacity={0.7}
+            onPress={() => { selectionFeedback(); onToggle(task); }}
+            style={styles.row}
+        >
+            <CheckPop active={done} color={colors.success} size={s(22)}>
+                <Animated.View style={[styles.box, box]}>
+                    {done ? (
+                        <Animated.View entering={ZoomIn.duration(DURATION.quick).easing(EASE.enter).reduceMotion(ReduceMotion.System)}
+                            exiting={FadeOut.duration(DURATION.tap).reduceMotion(ReduceMotion.System)}>
+                            <Ionicons name="checkmark" size={s(13)} color={colors.background} />
+                        </Animated.View>
+                    ) : null}
+                </Animated.View>
+            </CheckPop>
+            <View style={styles.rowTitleBox}>
+                <StruckTitle title={task.title} done={done} style={styles.rowTitle} />
+            </View>
+            {task.dueTime && !done ? (
+                <Text style={[styles.time, { color: colors.textTertiary }]}>{task.dueTime}</Text>
+            ) : null}
+        </TouchableOpacity>
+    );
+}
 
 const styles = StyleSheet.create({
     container: { paddingHorizontal: s(18), paddingTop: s(16), paddingBottom: s(8) },
@@ -103,5 +120,8 @@ const styles = StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'center', gap: s(12), paddingVertical: vs(10) },
     box: { width: s(22), height: s(22), borderRadius: s(7), borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
     rowText: { flex: 1, fontSize: ms(15), fontFamily: FontFamily.medium },
+    rowTitle: { fontSize: ms(15), fontFamily: FontFamily.medium },
+    /** Hugs the name, so the strike line ends where the words do. */
+    rowTitleBox: { flex: 1, alignItems: 'flex-start' },
     time: { fontSize: ms(12), fontFamily: FontFamily.regular, fontVariant: ['tabular-nums'] },
 });

@@ -41,10 +41,10 @@ const rememberedConnected = () => AsyncStorage.getItem(CONNECTED_KEY).then(value
 const permission = (key: string): string | null => Permissions[key] ?? null;
 
 /**
- * The one thing the app asks Health for: sleep. Read-only — Habyss writes
- * nothing into Health.
+ * What the app reads from Health: sleep, and the day's activity (exercise
+ * minutes, steps). Read-only — Habyss writes nothing into Health.
  */
-const READ = ['SleepAnalysis'];
+const READ = ['SleepAnalysis', 'AppleExerciseTime', 'StepCount'];
 const WRITE: string[] = [];
 
 const buildPermissions = () => ({
@@ -85,7 +85,16 @@ export class HealthKitService {
      * A settings screen that opens a permission sheet just for being looked at
      * is a settings screen people stop opening.
      */
+    /** The last answer of `authorised`, so a screen opens already showing it; undefined before the first. */
+    static known: boolean | undefined;
+
     static async authorised(): Promise<boolean> {
+        const answer = await this.askAuthorised();
+        HealthKitService.known = answer;
+        return answer;
+    }
+
+    private static async askAuthorised(): Promise<boolean> {
         if (!has('getAuthStatus')) return false;
         // iOS never says whether *reading* was allowed — for privacy, a refused
         // read looks the same as one never asked. So the app remembers that the
@@ -110,7 +119,7 @@ export class HealthKitService {
         return new Promise(resolve => {
             AppleHealthKit.initHealthKit(buildPermissions(), (error: string | null) => {
                 if (error) console.warn('HealthKit init error:', error);
-                else void AsyncStorage.setItem(CONNECTED_KEY, '1').catch(() => undefined);
+                else { HealthKitService.known = true; void AsyncStorage.setItem(CONNECTED_KEY, '1').catch(() => undefined); }
                 resolve(!error);
             });
         });
@@ -125,6 +134,24 @@ export class HealthKitService {
      */
     static async read(metric: HealthMetric, date = new Date()): Promise<number | null> {
         return metric === 'sleep' ? this.sleep(date) : null;
+    }
+
+    /**
+     * Exercise minutes on `date` (Apple's own count: the green ring, from the
+     * Watch and from workouts other apps save). Null when Health did not answer.
+     */
+    static async exerciseMinutes(date: Date): Promise<number | null> {
+        const start = new Date(date); start.setHours(0, 0, 0, 0);
+        const end = new Date(start); end.setDate(start.getDate() + 1);
+        return ask('getAppleExerciseTime', { startDate: start.toISOString(), endDate: end.toISOString(), period: 1440 },
+            (rows: { value: number }[]) => Math.round((rows ?? []).reduce((sum, row) => sum + (Number(row.value) || 0), 0) / 60));
+    }
+
+    /** Steps on `date`, from every source Health merges; null when it did not answer. */
+    static async steps(date: Date): Promise<number | null> {
+        const day = new Date(date); day.setHours(12, 0, 0, 0);
+        return ask('getStepCount', { date: day.toISOString(), includeManuallyAdded: true },
+            (result: { value: number }) => Math.round(Number(result?.value) || 0));
     }
 
     /**

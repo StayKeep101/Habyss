@@ -180,13 +180,25 @@ export function GrowBar({ x, width, floor, height, rx, fill, opacity, delay = 0,
 export const LIST_LAYOUT = LinearTransition.duration(MOTION.duration).easing(MOTION.easing).reduceMotion(ReduceMotion.System);
 
 /**
+ * Rows coming and going under a moving finger: a card fades in over 120 ms and
+ * one left behind goes at once, so a fast drag never shows two cards on top of
+ * each other.
+ */
+const SCRUB_IN = FadeIn.duration(DURATION.tap).easing(EASE.enter).reduceMotion(ReduceMotion.System);
+const SCRUB_LAYOUT = LinearTransition.duration(DURATION.tap).easing(EASE.move).reduceMotion(ReduceMotion.System);
+
+/**
  * A row in a list of habits, tasks or goals. It fades in when it is added,
  * fades out when it is removed or finished away, and when its neighbours come
  * and go it slides to its new place instead of jumping there.
  */
 export function ListItem({ children, style, index = 0, rise = false, still = false }: {
     children: React.ReactNode; style?: StyleProp<ViewStyle>; index?: number;
-    /** Rows that come and go as fast as a finger moves (scrubbing the day): they switch, with no fade or slide. */
+    /**
+     * Rows that come and go as fast as a finger moves (scrubbing the day): a
+     * 120 ms fade in, gone at once, no stagger (Tier 1), so each card arrives
+     * smoothly and the list never falls behind the finger.
+     */
     still?: boolean;
     /**
      * Rows arrive one after another, each rising a little into place, at an
@@ -197,11 +209,11 @@ export function ListItem({ children, style, index = 0, rise = false, still = fal
     const delay = Math.min(index, 14) * (rise ? MOTION.stagger * 2 : MOTION.stagger);
     return (
         <Animated.View
-            entering={still ? undefined : rise
+            entering={still ? SCRUB_IN : rise
                 ? FadeInDown.delay(delay).duration(MOTION.duration).easing(MOTION.easing).reduceMotion(ReduceMotion.System)
                 : FadeIn.delay(delay).duration(MOTION.duration).reduceMotion(ReduceMotion.System)}
             exiting={still ? undefined : FadeOut.duration(MOTION.duration / 2).reduceMotion(ReduceMotion.System)}
-            layout={still ? undefined : LIST_LAYOUT}
+            layout={still ? SCRUB_LAYOUT : LIST_LAYOUT}
             style={style}
         >
             {children}

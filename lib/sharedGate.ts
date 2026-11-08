@@ -34,6 +34,9 @@ export function setGate(next: GateData) {
     tasksCache = null;
 }
 
+/** Who else is on this item (user ids), for "with Sam" on the day card. */
+export const othersOn = (itemId: string): string[] => gate.items[itemId]?.others ?? [];
+
 /** Whether what was done on this item on this day counts yet. */
 export function counts(itemId: string, day: string): boolean {
     const item = gate.items[itemId];

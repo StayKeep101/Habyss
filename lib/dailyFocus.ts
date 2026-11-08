@@ -15,8 +15,9 @@ import { countedTasks } from './sharedGate';
  * So the target is a count of tasks finished today, not a set of particular
  * tasks. Finishing three things that were not the three shown still counts —
  * the day's promise was three, and three got done. The rows on the card are
- * only a suggestion of where to start, taken in the order the roadmap already
- * ranks work: late first, then due today, then whatever has no date.
+ * the day's most important tasks, by the Importance sliders each task is
+ * given: the most urgent first, then the hardest (the one that moves the
+ * needle), then the order the roadmap ranks work (late, due today, no date).
  */
 
 export type DailyTarget = 3 | 5;
@@ -73,6 +74,9 @@ export interface DailyFocus {
     extra: number;
 }
 
+/** The Importance sliders: more urgent first (1 is Urgent), then harder first. */
+const importance = (a: Task, b: Task) => (a.priority ?? 2) - (b.priority ?? 2) || (b.difficulty ?? 2) - (a.difficulty ?? 2);
+
 export function dailyFocus(
     tasks: Task[],
     target: DailyTarget = DEFAULT_TARGET,
@@ -85,7 +89,7 @@ export function dailyFocus(
 
     const open = tasksForDay(tasks, day, today)
         .filter(task => task.status === 'open')
-        .sort((a, b) => taskRank(a, day) - taskRank(b, day) || a.createdAt.localeCompare(b.createdAt));
+        .sort((a, b) => importance(a, b) || taskRank(a, day) - taskRank(b, day) || a.createdAt.localeCompare(b.createdAt));
 
     const done = finished.length;
     // The card always offers somewhere to start, even once the day is won.

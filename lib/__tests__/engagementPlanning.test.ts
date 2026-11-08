@@ -83,14 +83,19 @@ describe('Live Activity planning', () => {
         expect(activityPlan(slots, new Date(at(8, 40)), true).map(item => item.title)).toEqual(['Email']);
         expect(activityPlan(slots, new Date(at(10)), true)).toEqual([]);
     });
+    it('carries what comes next, so the card moves on by itself, and what Done ticks', () => {
+        const [card] = activityPlan(slots, new Date(at(8, 5)), false);
+        expect(card).toMatchObject({ itemId: 'habit:run', nextTitle: 'Email', nextStart: at(9), nextEnd: at(9, 20), nextItemId: 'task:mail' });
+        expect(activityPlan(slots, new Date(at(9, 5)), false)[0].nextTitle).toBeUndefined();
+    });
     it('comes from the timeline, auto-placed things, meals and events included', () => {
         const flow = flowDay([
             { id: 'meal:lunch', kind: 'meal', title: 'Lunch', start: 720, minutes: 30, done: false, fixed: true },
-            { id: 'read', kind: 'habit', title: 'Read', start: null, minutes: 20, done: false },
+            { id: 'read', kind: 'habit', title: 'Read', start: null, minutes: 20, done: false, notBefore: 599 },
         ], 600, { wake: 420, sleep: 1380 });
         const made = slotsFromFlow(flow, '2026-09-26');
         expect(made.map(slot => slot.key)).toEqual(['habit:read:2026-09-26', 'meal:meal:lunch:2026-09-26']);
-        // From waking, by the line's rules (lib/dayFlow.ts): 7:00.
-        expect(made[0].start).toBe(new Date(2026, 8, 26, 7, 0).getTime());
+        // Made at 9:59: not from waking (7:00), from now (lib/dayFlow.ts).
+        expect(made[0].start).toBe(new Date(2026, 8, 26, 10, 0).getTime());
     });
 });

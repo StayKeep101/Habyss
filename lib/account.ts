@@ -26,11 +26,15 @@ export interface Account {
 const toAccount = (session: Session | null): Account | null =>
     session?.user ? { id: session.user.id, email: session.user.email ?? null } : null;
 
+/** The account as last read, so a screen opens already knowing it; undefined before the first read. */
+let known: Account | null | undefined;
+export const knownAccount = (): Account | null | undefined => known;
+
 export async function currentAccount(): Promise<Account | null> {
     const sb = getSupabase();
-    if (!sb) return null;
+    if (!sb) return (known = null);
     const { data } = await sb.auth.getSession();
-    return toAccount(data.session);
+    return (known = toAccount(data.session));
 }
 
 /** Calls back whenever someone signs in or out. Returns the unsubscribe. */
@@ -44,7 +48,8 @@ export function onAccountChange(callback: (account: Account | null) => void): ()
     const { data } = sb.auth.onAuthStateChange((_event, session) => {
         const timer = setTimeout(() => {
             timers.delete(timer);
-            if (active) callback(toAccount(session));
+            known = toAccount(session);
+            if (active) callback(known);
         }, 0);
         timers.add(timer);
     });

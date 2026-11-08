@@ -69,8 +69,6 @@ describe('the Ascent story', () => {
         expect(currentBeat(answered)).toMatchObject({ text: '16 hours awake. That’s what you get to spend, every day.' });
         expect(stageOf(answered)).toEqual({ stage: 'clock', step: 2 });
         expect(awakeHours({ wake: '09:00', sleep: '01:00' })).toBe(16);
-        const owl = answer(toWait(answered), { chronotype: 'night_owl' });
-        expect(currentBeat(owl)).toMatchObject({ text: 'A night owl. I’ll keep your mornings gentle.' });
     });
 
     it('works out the time a screen has taken and will take, from their own hours and age', () => {
@@ -154,7 +152,12 @@ describe('the Ascent story', () => {
         const end = play(everyone);
         expect(SCENES[end.scene].id).toBe('your-echo');
         expect(currentBeat(end)?.kind).toBe('begin');
-        expect(end.answers).toMatchObject({ source: 'friend', juggling: ['job', 'school'], wake: '06:30' });
+        expect(end.answers).toMatchObject({ wake: '06:30' });
+        // Only the questions that shape the plan are asked.
+        expect(end.answers).not.toHaveProperty('juggling');
+        expect(end.answers).not.toHaveProperty('source');
+        // And before Echo is built, how the day runs without opening the app.
+        expect(SCENES.map(scene => scene.id)).toContain('how');
         expect(end.created).toEqual({ goalId: 'g', stepId: 's', stepKind: 'task' });
         expect(progressOf(ascentReducer(end, { type: 'finish' }))).toBe(1);
     });
@@ -169,7 +172,8 @@ describe('their Echo', () => {
     });
 
     it('turns on the nudges that answer what they said, and keeps demon mode away from the gentle', () => {
-        expect(buildEcho({ obstacle: 'consistency', timing: 'planned' }).config).toMatchObject({ morning: true, evening: true, alive: false });
+        // Echo through the day is how Habyss works without being opened: on for everyone.
+        expect(buildEcho({ obstacle: 'consistency', timing: 'planned' }).config).toMatchObject({ morning: true, evening: true, alive: true });
         expect(buildEcho({ obstacle: 'distraction', timing: 'planned' }).config).toMatchObject({ evening: false, alive: true });
         expect(buildEcho({ obstacle: 'overwhelm' }).config.demonMode).toBe(false);
         expect(buildEcho({ obstacle: 'starting', timing: 'last_minute' }).config.demonMode).toBe(true);

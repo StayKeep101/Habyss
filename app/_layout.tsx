@@ -19,7 +19,7 @@ import { DarkTheme, LightTheme } from "@/theme/navigation";
 import React from "react";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import {View, AppState, Alert} from 'react-native';
+import {View, AppState, Alert, InteractionManager} from 'react-native';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
 import { ensureData } from '@/lib/dataStore';
@@ -168,7 +168,11 @@ export default function MobileLayout() {
     syncBrainDumpReview();
     const { syncWeeklyReviewNotice } = require('@/lib/weeklyReviewNotice') as typeof import('@/lib/weeklyReviewNotice');
     void syncWeeklyReviewNotice();
-    const subscription = AppState.addEventListener('change', state => { if (state === 'active') { syncBrainDumpReview(); void syncWeeklyReviewNotice(); } });
+    // How long things really take, learnt quietly (lib/learnedLength.ts): one sample per thing done today,
+    // collected each time the app comes back. Nothing is changed for you; it is only measured.
+    const learn = () => { void (require('@/lib/dayReviewRun') as typeof import('@/lib/dayReviewRun')).runDayReview(new Date(), { adapt: false }).catch(() => undefined); };
+    learn();
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') { syncBrainDumpReview(); void syncWeeklyReviewNotice(); learn(); } });
     return () => subscription.remove();
   }, []);
 
@@ -183,7 +187,8 @@ export default function MobileLayout() {
         // Every tap goes to its place (navigate): a tab is switched to, a page
         // opened, never a second copy of the app pushed over the first.
         const url = data?.url;
-        if (typeof url === 'string' && url.startsWith('/')) {
+        // A button (Done, Start focus, …) does its own job; only a tap on the notification opens its place.
+        if (typeof url === 'string' && url.startsWith('/') && response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
           setTimeout(() => { require('expo-router').router.navigate(url); }, 500);
         }
         // Your day dropped, a friend reacted to it, or a bet opened or settled: the tap opens Community.
@@ -198,7 +203,7 @@ export default function MobileLayout() {
         }
       } catch (error) {
         console.warn('Could not apply notification action', error);
-        if (['ECHO_DONE', 'ECHO_SNOOZE'].includes(response.actionIdentifier)) {
+        if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) {
           Alert.alert('Action could not finish', 'Open the item in Habyss and try again.');
         }
       }
@@ -406,9 +411,12 @@ function InnerLayout() {
       } catch (error) { console.warn('Could not refresh widgets or scheduled activities', error); }
       finally { running = false; }
     };
+    // After a run of ticks has settled and any animation has finished: the
+    // widgets and Live Activities read the whole day back, and doing that 150
+    // ms after a tick landed in the middle of its animation.
     const enqueue = () => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => { void refresh(); }, 150);
+      timer = setTimeout(() => { InteractionManager.runAfterInteractions(() => { void refresh(); }); }, 600);
     };
     const stop = onAny(['habit_completion_updated', 'habit_created', 'habit_updated', 'habit_deleted',
       'goal_deleted', 'tasks_changed', 'cloud_restored', 'engagement_settings_changed', 'daily_focus_target_changed'], enqueue);

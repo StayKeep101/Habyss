@@ -7,9 +7,9 @@ const window = { wake: 7 * 60, sleep: 23 * 60 };
 const task = (id: string, start: number | null, minutes: number): FlowInput => ({ id, kind: 'task', title: id, start, minutes, done: false });
 
 describe('Echo, when the plan moves', () => {
-    it('has nothing to say when something runs over: the line never moves', () => {
+    it('says what moves when the thing you are on runs over', () => {
         const items = [task('Workout', null, 45), task('Email', null, 30)];
-        expect(planAlert(items, flowDay(items, 430, window), 430, window)).toBeNull();
+        expect(planAlert(items, flowDay(items, 430, window), 430, window)?.body).toMatch(/is taking longer than planned, so \w+ now starts at /);
     });
 
     it('has nothing to say when everything is done', () => {

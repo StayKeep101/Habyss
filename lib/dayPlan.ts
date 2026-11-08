@@ -13,7 +13,10 @@ import { measurementFor } from './habitMeasurement';
 
 export interface PlanBlock {
     id: string;
-    kind: 'habit' | 'task';
+    /** A habit, a task, or something from the calendar (an event, a reminder, the travel either side of an event). */
+    kind: 'habit' | 'task' | 'event';
+    /** Getting to or back from an event: drawn as a dotted line, not a bar. */
+    travel?: boolean;
     title: string;
     /** Minutes from midnight. */
     start: number;

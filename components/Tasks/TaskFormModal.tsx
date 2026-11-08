@@ -1,3 +1,4 @@
+import { goalCompletedOn } from '@/lib/goalInsights';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAutoReschedule } from '@/context/AppSettingsContext';
 import { DEFAULT_LENGTH } from '@/lib/dayFlow';
@@ -25,7 +26,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSmartParse } from '@/hooks/useSmartParse';
 import { smartParseTask } from '@/lib/smartParse';
 import { describeParsedTask, parseTaskText } from '@/lib/taskParser';
-import { DIFFICULTIES, difficultyLabel, type Difficulty } from '@/lib/difficulty';
+import { type Difficulty } from '@/lib/difficulty';
+import { ImportancePicker, importanceLabel } from '@/components/Create/ImportancePicker';
 import { createTask, updateTask, type Subtask, type Task, type TaskMeasure, type TaskPriority } from '@/lib/tasks';
 import { SubtaskEditor } from '@/components/Tasks/SubtaskEditor';
 import { localDateKey } from '@/lib/habitSchedule';
@@ -56,11 +58,6 @@ const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
     { id: 'exact', label: 'Exact time' },
 ];
 
-const PRIORITIES: { id: TaskPriority; label: string }[] = [
-    { id: 1, label: 'Urgent' },
-    { id: 2, label: 'Normal' },
-    { id: 3, label: 'Not urgent' },
-];
 
 interface Draft {
     title: string;
@@ -186,7 +183,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
 
     useEffect(() => {
         if (!isOpen) return;
-        getGoals().then(list => setGoals(list.filter(goal => !goal.isArchived))).catch(() => setGoals([]));
+        // Goals still being worked on; one already reached is done and not offered (the one linked stays).
+        getGoals().then(list => setGoals(list.filter(goal => !goal.isArchived && (!goalCompletedOn(goal) || goal.id === (task?.goalId ?? goalId))))).catch(() => setGoals([]));
     }, [isOpen]);
 
     // Rules read the sentence instantly; the model's reading replaces theirs
@@ -355,18 +353,13 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             value: draft.subtasks?.length ? `${draft.subtasks.length}` : undefined,
             content: <SubtaskEditor steps={draft.subtasks ?? []} onChange={subtasks => change({ subtasks })} color={accent} />,
         },
-        // Urgency and difficulty only order what the timeline moves: not asked when nothing moves.
-        ...(autoReschedule ? [{
-            id: 'priority' as const, icon: 'flag-outline' as const, label: 'Urgency',
-            value: draft.priority === 2 ? undefined : PRIORITIES.find(item => item.id === draft.priority)?.label,
-            content: (
-                <Choices options={PRIORITIES} value={draft.priority} accent={accent} onChange={priority => change({ priority })} />
-            ),
-        },
+        // Importance: urgency and difficulty, one slider each. They order what the
+        // timeline moves, and always show on the card.
         {
-            id: 'difficulty' as const, icon: 'barbell-outline' as const, label: 'Difficulty', value: difficultyLabel(draft.difficulty),
-            content: <Choices options={DIFFICULTIES} value={draft.difficulty ?? 2} accent={accent} onChange={difficulty => change({ difficulty })} />,
-        }] : []),
+            id: 'importance' as const, icon: 'speedometer-outline' as const, label: 'Importance',
+            value: importanceLabel(draft.priority, draft.difficulty),
+            content: <ImportancePicker priority={draft.priority} difficulty={draft.difficulty} onChange={change} />,
+        },
         ...(goals.length > 0 ? [{
             id: 'goal', icon: 'trophy-outline' as const, label: 'Goal', value: goalName,
             content: (

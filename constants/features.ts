@@ -1,9 +1,9 @@
 /**
  * Product switches.
  *
- * PAYWALL_ENABLED: the free week, then one payment of $10 (half for everyone in an invite),
- * lib/access.ts. It only ever locks when the store is reachable: with no
- * RevenueCat key on the build, everyone has everything, as when this is false.
+ * PAYWALL_ENABLED: whether Habyss Pro (desktop sync, $4.99 a month) can be
+ * bought (lib/access.ts). The app itself is free and never locks; with this
+ * off, or no RevenueCat key on the build, Pro is simply not offered.
  */
 export const PAYWALL_ENABLED = true;
 
@@ -13,3 +13,11 @@ export const PAYWALL_ENABLED = true;
  * gambling; false hides every way in, and nothing else changes.
  */
 export const MARKET_ENABLED = true;
+
+/**
+ * REMINDERS_ENABLED: Apple Reminders with a due time on the timeline, beside
+ * calendar events (lib/calendarEvents.ts). Needs a build carrying
+ * NSRemindersFullAccessUsageDescription in Info.plist (runtime 1.0.3 on):
+ * asking iOS for reminders without it closes the app.
+ */
+export const REMINDERS_ENABLED = true;

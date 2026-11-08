@@ -50,11 +50,17 @@ export function activityPlan(slots: FlowSlot[], now: Date, _supportsScheduling: 
     const at = now.getTime();
     const slot = slots.find(item => item.start <= at && at < item.end)
         ?? slots.filter(item => item.start > at).sort((a, b) => a.start - b.start)[0];
-    return slot ? [{
-        key: slot.key, title: slot.title, start: slot.start, end: slot.end,
-        url: slot.kind === 'habit' ? `habyss://habit-detail?habitId=${encodeURIComponent(slot.id)}` : 'habyss://roadmap',
-        color: slot.color,
-    }] : [];
+    if (!slot) return [];
+    const urlOf = (item: FlowSlot) => item.kind === 'habit' ? `habyss://habit-detail?habitId=${encodeURIComponent(item.id)}` : 'habyss://roadmap';
+    const doable = (item: FlowSlot) => item.kind === 'habit' || item.kind === 'task';
+    // What follows it: the card shows it once this one's time is up (and its
+    // Done button moves straight to it), so it never sits on a finished thing.
+    const next = slots.filter(item => item.key !== slot.key && item.start >= slot.end - 1).sort((a, b) => a.start - b.start)[0];
+    return [{
+        key: slot.key, title: slot.title, start: slot.start, end: slot.end, url: urlOf(slot), color: slot.color,
+        itemId: doable(slot) ? `${slot.kind}:${slot.id}` : null,
+        ...(next ? { nextTitle: next.title, nextStart: next.start, nextEnd: next.end, nextItemId: doable(next) ? `${next.kind}:${next.id}` : null, nextUrl: urlOf(next) } : null),
+    }];
 }
 
 /** The Roadmap's own timeline, the freshest truth, while it is from today. */

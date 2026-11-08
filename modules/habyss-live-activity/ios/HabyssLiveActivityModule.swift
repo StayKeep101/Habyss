@@ -18,6 +18,15 @@ struct WidgetAttributes: ActivityAttributes {
     var scheduledEndDateInMilliseconds: Double?
     var url: String?
     var accentHex: String?
+    /// The habit or task on the card ("habit:<id>", "task:<id>"), for its Done button.
+    var itemId: String?
+    /// What comes after it on the timeline: shown once this one's time is up,
+    /// so the card moves on by itself instead of going stale.
+    var nextTitle: String?
+    var nextStartMs: Double?
+    var nextEndMs: Double?
+    var nextItemId: String?
+    var nextUrl: String?
   }
 
   var name: String
@@ -76,6 +85,18 @@ struct ScheduledActivityPlan: Record {
   @Field var end: Double = 0
   @Field var url: String = "habyss://roadmap"
   @Field var accentHex: String = "#6B8AF5"
+  @Field var itemId: String? = nil
+  @Field var nextTitle: String? = nil
+  @Field var nextStart: Double? = nil
+  @Field var nextEnd: Double? = nil
+  @Field var nextItemId: String? = nil
+  @Field var nextUrl: String? = nil
+}
+
+/// A moment that rings as an alarm (AlarmKit): Leave now, Start now.
+struct AlarmMoment: Record {
+  @Field var at: Double = 0
+  @Field var title: String = ""
 }
 
 #if canImport(AlarmKit)
@@ -86,6 +107,8 @@ struct EchoAlarmMetadata: AlarmMetadata {}
 
 /// Where the morning alarm's id is kept, so a new time replaces it rather than adding one.
 private let morningAlarmKey = "habyss_morning_alarm_id"
+/// Today's Leave now and Start now alarms, replaced together.
+private let momentAlarmsKey = "habyss_moment_alarm_ids"
 
 public class HabyssLiveActivityModule: Module {
   public func definition() -> ModuleDefinition {
@@ -138,6 +161,49 @@ public class HabyssLiveActivityModule: Module {
       #endif
     }
 
+    // Leave now and Start now as real alarms (AlarmKit, iOS 26+): they ring
+    // through Silent and Focus and on a paired Apple Watch, so nobody needs
+    // the phone in hand to know it is time. Today's are replaced as a set.
+    AsyncFunction("scheduleMomentAlarms") { (moments: [AlarmMoment]) async -> String in
+      #if canImport(AlarmKit)
+      guard #available(iOS 26.0, *) else { return "unavailable" }
+      let manager = AlarmManager.shared
+      do {
+        var state = manager.authorizationState
+        if state == .notDetermined { state = try await manager.requestAuthorization() }
+        guard state == .authorized else { return "denied" }
+        for old in UserDefaults.standard.stringArray(forKey: momentAlarmsKey) ?? [] {
+          if let id = UUID(uuidString: old) { try? manager.cancel(id: id) }
+        }
+        var ids: [String] = []
+        for moment in moments {
+          let date = Date(timeIntervalSince1970: moment.at / 1000)
+          guard date > Date() else { continue }
+          let alert: AlarmPresentation.Alert
+          if #available(iOS 26.1, *) {
+            alert = AlarmPresentation.Alert(title: LocalizedStringResource(stringLiteral: moment.title))
+          } else {
+            alert = AlarmPresentation.Alert(title: LocalizedStringResource(stringLiteral: moment.title),
+              stopButton: AlarmButton(text: "OK", textColor: .white, systemImageName: "checkmark.circle"))
+          }
+          let attributes = AlarmAttributes<EchoAlarmMetadata>(
+            presentation: AlarmPresentation(alert: alert), metadata: nil, tintColor: .indigo)
+          let configuration = AlarmManager.AlarmConfiguration(
+            countdownDuration: nil, schedule: .fixed(date), attributes: attributes, sound: .default)
+          let id = UUID()
+          _ = try await manager.schedule(id: id, configuration: configuration)
+          ids.append(id.uuidString)
+        }
+        UserDefaults.standard.set(ids, forKey: momentAlarmsKey)
+        return "scheduled"
+      } catch {
+        return "failed"
+      }
+      #else
+      return "unavailable"
+      #endif
+    }
+
     AsyncFunction("cancelMorningAlarm") { () async -> Void in
       #if canImport(AlarmKit)
       guard #available(iOS 26.0, *) else { return }
@@ -146,6 +212,11 @@ public class HabyssLiveActivityModule: Module {
       }
       UserDefaults.standard.removeObject(forKey: morningAlarmKey)
       #endif
+    }
+
+    // Low Power Mode: the app calms its own motion while it is on (lib/lowPower.ts).
+    Function("isLowPowerMode") { () -> Bool in
+      return ProcessInfo.processInfo.isLowPowerModeEnabled
     }
 
     Function("areActivitiesEnabled") { () -> Bool in
@@ -182,7 +253,10 @@ public class HabyssLiveActivityModule: Module {
         let state = WidgetAttributes.ContentState(
           title: plan.title, subtitle: "", timerEndDateInMilliseconds: nil,
           progress: 0, profileImagePath: nil, scheduledStartDateInMilliseconds: plan.start,
-          scheduledEndDateInMilliseconds: plan.end, url: plan.url, accentHex: plan.accentHex)
+          scheduledEndDateInMilliseconds: plan.end, url: plan.url, accentHex: plan.accentHex,
+          itemId: plan.itemId, nextTitle: plan.nextTitle, nextStartMs: plan.nextStart, nextEndMs: plan.nextEnd,
+          nextItemId: plan.nextItemId, nextUrl: plan.nextUrl)
+        // Stale at its end: the card then shows what comes next (ios/Widget/WidgetLiveActivity.swift).
         let content = ActivityContent(state: state, staleDate: end)
         if let existing = Activity<WidgetAttributes>.activities.first(where: { $0.attributes.name == name }) {
           if existing.content.state != state { await existing.update(content) }

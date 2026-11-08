@@ -1,3 +1,6 @@
+import { waitingLabel, waitingOnOthers } from '@/lib/shared';
+import { samePropsBy } from '@/lib/sameProps';
+import { useInstantToggle } from '@/hooks/useInstantToggle';
 import { FontFamily } from '@/theme/designSystem';
 import { formatDuration } from '@/lib/habitMeasurement';
 import React from 'react';
@@ -5,11 +8,12 @@ import { SubtaskList, SubtaskToggle } from '@/components/Tasks/SubtaskDropdown';
 import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
 import { AnimatedFill } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import { Gesture, GestureDetector, TouchableOpacity } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
+import { GestureDetector, TouchableOpacity } from 'react-native-gesture-handler';
+import { useHoldDrag } from '@/hooks/useHoldDrag';
 import { HOLD_MS, STILL } from '@/components/ui/DragDrop';
 import { SwipeRow } from '@/components/ui/SwipeRow';
-import { BadgeRow, PriorityFlag, ReminderBadge } from '@/components/Common/CardBadges';
+import { BadgeRow, ReminderBadge } from '@/components/Common/CardBadges';
+import { LevelTags } from '@/components/ui/LevelTags';
 import { SharedFaces } from '@/components/Common/SharedFaces';
 import type { SharedState } from '@/lib/shared';
 import { CheckPop } from '@/components/ui/CheckPop';
@@ -96,6 +100,8 @@ const TaskItemComponent: React.FC<Props> = ({
     const boxSize = isSmall ? 14 : (isBig ? 20 : 18);
 
     const doneByMe = task.status === 'done';
+    // The box ticks the moment it is tapped; the page catches up a frame later.
+    const [tick, pressTick] = useInstantToggle(doneByMe, () => onToggle(task));
     // A shared task is not finished until everybody on it is, the same rule the
     // habit rows follow. Your own tick still fills your own box.
     const done = shared ? shared.complete : doneByMe;
@@ -132,7 +138,7 @@ const TaskItemComponent: React.FC<Props> = ({
      * Finish right there.
      */
     const toggle = () => {
-        if (!amountLabel || doneByMe || task.measure === 'time' || Platform.OS !== 'ios') { onToggle(task); return; }
+        if (!amountLabel || doneByMe || task.measure === 'time' || Platform.OS !== 'ios') { pressTick(); return; }
         Alert.prompt(
             task.title,
             `${amountLabel} so far. How many to add?`,
@@ -159,13 +165,14 @@ const TaskItemComponent: React.FC<Props> = ({
 
     // A still hold lifts it; moving first is a scroll. Only a drag that really
     // began ends in a drop (onEnd): a tap, a scroll or the tick never does.
-    const drag = Gesture.Pan()
-        .enabled(!!onDragStart)
-        .activateAfterLongPress(HOLD_MS)
-        .failOffsetX([-STILL, STILL]).failOffsetY([-STILL, STILL])
-        .onStart(event => { if (onDragStart) runOnJS(onDragStart)(task, event.absoluteX, event.absoluteY); })
-        .onUpdate(event => { if (onDragMove) runOnJS(onDragMove)(task, event.absoluteX, event.absoluteY); })
-        .onEnd(event => { if (onDragEnd) runOnJS(onDragEnd)(task, event.absoluteX, event.absoluteY); });
+    const drag = useHoldDrag({
+        enabled: !!onDragStart, holdMs: HOLD_MS, still: STILL,
+        onPhase: (phase, x, y) => {
+            if (phase === 'start') onDragStart?.(task, x, y);
+            else if (phase === 'move') onDragMove?.(task, x, y);
+            else if (phase === 'end') onDragEnd?.(task, x, y);
+        },
+    });
 
     return (
         <GestureDetector gesture={drag}>
@@ -182,7 +189,7 @@ const TaskItemComponent: React.FC<Props> = ({
                     onPress: () => onToggle(task),
                 } : {
                     icon: 'timer', label: 'Focus', color: TASK_COLOR,
-                    onPress: () => { selectionFeedback(); require('expo-router').router.push({ pathname: '/(root)/focus', params: { kind: 'task', id: task.id, title: task.title } }); },
+                    onPress: () => { selectionFeedback(); void (require('@/lib/openFocus') as typeof import('@/lib/openFocus')).openFocus({ kind: 'task', id: task.id, title: task.title }); },
                 }}
             right={actions === 'reschedule'
                 ? [
@@ -211,18 +218,19 @@ const TaskItemComponent: React.FC<Props> = ({
                         accessible={actions !== 'reschedule'}
                         activeOpacity={0.6}
                         accessibilityRole="checkbox"
-                        accessibilityState={{ checked: doneByMe }}
-                        accessibilityLabel={done ? `Reopen ${task.title}` : `Mark ${task.title} done`}
+                        accessibilityState={{ checked: tick }}
+                        accessibilityLabel={shared && waitingOnOthers(shared, tick) ? `${task.title}, ${waitingLabel(shared)}. Tap to undo` : done ? `Reopen ${task.title}` : `Mark ${task.title} done`}
                         onPress={toggle}
                         hitSlop={Math.max(10, (44 - boxSize) / 2)}
                     >
-                        <CheckPop active={doneByMe} color={TASK_COLOR} size={boxSize}>
+                        <CheckPop active={tick} color={TASK_COLOR} size={boxSize}>
                             <View style={[styles.box, {
                                 width: boxSize, height: boxSize, borderRadius: isSmall ? 4 : 5,
-                                borderColor: doneByMe ? TASK_COLOR : overdue ? colors.error : 'rgba(128,128,128,0.4)',
-                                backgroundColor: doneByMe ? TASK_COLOR + '30' : 'transparent',
+                                borderColor: tick ? TASK_COLOR : overdue ? colors.error : 'rgba(128,128,128,0.4)',
+                                backgroundColor: tick ? TASK_COLOR + '30' : 'transparent',
                             }]}>
-                                {doneByMe ? <Ionicons name="checkmark" size={boxSize * 0.7} color={TASK_COLOR} /> : null}
+                                {/* Shared, and only your part done: a minus until everyone is (lib/shared.ts). */}
+                                {tick ? <Ionicons name={waitingOnOthers(shared, tick) ? 'remove' : 'checkmark'} size={boxSize * 0.7} color={TASK_COLOR} /> : null}
                             </View>
                         </CheckPop>
                     </TouchableOpacity>
@@ -247,7 +255,7 @@ const TaskItemComponent: React.FC<Props> = ({
                         </Text>
                         <View style={styles.metaRow}>
                             <BadgeRow>
-                                <PriorityFlag priority={task.priority} size={isSmall ? 10 : undefined} />
+                                <LevelTags priority={task.priority} difficulty={task.difficulty} dim={done} />
                                 {/* A dated task is one the reminder can reach. */}
                                 <ReminderBadge on={!done && !!task.dueDate} size={isSmall ? 10 : undefined} />
                             </BadgeRow>
@@ -277,7 +285,7 @@ const TaskItemComponent: React.FC<Props> = ({
                     <View style={{ alignItems: 'flex-end' }}>
                         {canFocusNow && !done && actions === 'all' ? (
                             <FocusPill color={TASK_COLOR} label={task.title} compact={isSmall}
-                                onPress={() => { selectionFeedback(); require('expo-router').router.push({ pathname: '/(root)/focus', params: { kind: 'task', id: task.id, title: task.title } }); }} />
+                                onPress={() => { selectionFeedback(); void (require('@/lib/openFocus') as typeof import('@/lib/openFocus')).openFocus({ kind: 'task', id: task.id, title: task.title }); }} />
                         ) : null}
                         {canFocusNow && !done ? null : task.estimatedMinutes && !isSmall ? (
                             <Text style={[styles.estimate, { color: colors.textTertiary }]}>{shortLength(task.estimatedMinutes)}</Text>
@@ -295,7 +303,8 @@ const TaskItemComponent: React.FC<Props> = ({
     );
 };
 
-export const TaskItem = React.memo(TaskItemComponent);
+// Re-renders only when what it shows changed; the page's handlers are stable (useLatestCallback).
+export const TaskItem = React.memo(TaskItemComponent, samePropsBy<React.ComponentProps<typeof TaskItemComponent>>(['task', 'shared']));
 
 const styles = StyleSheet.create({
     dragging: { opacity: 0.25 },

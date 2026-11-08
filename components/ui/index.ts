@@ -18,7 +18,7 @@
  * Controls
  *   AppButton, HoldButton (hold to mean it: fills, buzz builds, lands with a thud), IconButton, AppTextField, ChoiceRow, ChipPicker, Toggle,
  *   StepSlider (a value chosen by sliding: gradient fill, snaps you feel, VoiceOver adjustable),
- *   TimeRow, Wheel, TimeWheels (a clock time on wheels), DateWheels (a date on wheels), ViewSwitcher, SwipeRow, TypingPlaceholder,
+ *   TimeRow, Wheel, TimeWheels (a clock time on wheels), DateWheels (a date on wheels), ViewSwitcher, PageDots (pages you swipe between), SwipeRow, TypingPlaceholder,
  *   MorphMenu (a ⋯ button that grows into its own menu), MicButton (talk instead of typing),
  *   FocusPill (the solid "Focus" pill on whatever is on right now)
  *   DemonEdge (the red glow round the screen in Echo's demon mode)
@@ -28,13 +28,14 @@
  *
  * Content
  *   Echo (Echo, drawn: the one look it has everywhere, in a mood; a Rive Echo would replace this file),
- *   Crown (King of the Week's crown, drawn: beside the name of whoever holds it),
  *   Avatar (a face: photo or initial, optional ring and badge), FaceStack (a few friends' faces, overlapping), IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
- *   StatTile, ChartCard, HabitRow, ProgressRing, HalfCircleProgress, CheckPop,
+ *   StatTile, ChartCard, HabitRow, ProgressRing, HalfCircleProgress, CheckPop, RankGem (a rank as a gem in its own colour, a band of light crossing it once), StruckTitle (a name dimmed and struck through as it is done, the line drawing across),
  *   GameCard (a bet, duel or challenge: face, name, a pill for how it stands, then the contest),
  *   VersusBar (two sides on one line, "22% Long ━━ 78% Short": the split glides, the leader in full colour),
  *   CardRail (cards swiped side by side, the next peeking in),
  *   PostCard (a Community post of any kind: face, name, rank, kind; one big figure; a visual; stats; details on demand),
+ *   PeopleFilter (whose progress to show on something shared: all together, or one person, each in their own colour),
+ *   LevelTags (how urgent and how hard a habit or task is, on its card: "Urgent · Hard"; nothing when ordinary),
  *   SegmentBar (a bar in pieces, one per thing to do, lit in cobalt as it arrives),
  *   Receipt (the moment something is paid for: a ring closes, the tick lands with haptics and sound, the amount counts in),
  *   Confetti (falls once from the top, for the biggest moments; none with Reduce Motion)
@@ -65,7 +66,6 @@ export { IconTile } from './IconTile';
 export { Avatar } from './Avatar';
 export { FaceStack, type Face } from './FaceStack';
 export { Overlay } from './Overlay';
-export { Crown } from './Crown';
 export { Echo, type EchoMood } from './Echo';
 export { ChoicePill } from './ChoicePill';
 export { SettingsGroup, SettingsRow } from './SettingsList';
@@ -90,12 +90,15 @@ export { Wheel } from './Wheel';
 export { MorphMenu, type MorphMenuItem } from './MorphMenu';
 export { MicButton } from './MicButton';
 export { ViewSwitcher } from './ViewSwitcher';
+export { PageDots } from './PageDots';
 export { SwipeRow } from './SwipeRow';
 export { TypingPlaceholder } from './TypingPlaceholder';
 
 export { AppIcon, type IconName } from './AppIcon';
 export { Text, type UITextProps, type TextTone } from './Text';
 export { Badge, type BadgeProps } from './Badge';
+export { LevelTags } from './LevelTags';
+export { PeopleFilter, type FilterPerson } from './PeopleFilter';
 export { Divider } from './Divider';
 export { GameCard } from './GameCard';
 export { VersusBar, type VersusSide } from './VersusBar';
@@ -110,6 +113,8 @@ export { HabitRow, type HabitRowProps } from './HabitRow';
 export { ProgressRing, type ProgressRingProps } from './ProgressRing';
 export { HalfCircleProgress } from './HalfCircleProgress';
 export { CheckPop } from './CheckPop';
+export { StruckTitle } from './StruckTitle';
+export { RankGem } from './RankGem';
 export { MOTION, LIST_LAYOUT, ListItem, CountUp, AnimatedFill, GrowBar, Reveal, PopIn, useProgress, useCountUp, AnimatedRect, AnimatedCircle, AnimatedPath } from './Motion';
 export { TimeWheels } from './TimeWheels';
 export { DateWheels } from './DateWheels';

@@ -52,6 +52,18 @@ export interface SharedState {
     line: string;
 }
 
+/**
+ * You have done your part of a shared habit or task, and somebody else on it
+ * has not yet: drawn with a minus in its circle, not a tick, and counted
+ * nowhere (Marks, Shards, streaks, goals) until the last of you is done.
+ */
+export const waitingOnOthers = (shared: SharedState | null | undefined, doneByMe: boolean): boolean =>
+    !!shared && doneByMe && !shared.complete && shared.total > 1;
+
+/** What the circle says to VoiceOver while it waits: "done, waiting on Sam". */
+export const waitingLabel = (shared: SharedState): string =>
+    `you did your part, waiting on ${nameList(shared.waitingOn.filter(person => !person.isYou)) || 'the others'}`;
+
 /** Names, written the way a person would say them. */
 export function nameList(people: Participant[]): string {
     const names = people.map(person => (person.isYou ? 'you' : person.username));

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sqliteAdapter } from './support/realSQLite';
 import { closeDatabase, getDatabase } from '../database';
-import { getHabitMeasurement, getHabitStats, getLastNDaysCompletions, saveHabitMeasurement, toggleCompletion, getCompletions, setSkipped, getSkipped, getHabits, clearHabitsCache } from '../habitsSQLite';
+import { getHabitMeasurement, getHabitStats, getLastNDaysCompletions, saveHabitMeasurement, toggleCompletion, getCompletions, getCompletionTimes, setSkipped, getSkipped, getHabits, clearHabitsCache } from '../habitsSQLite';
 import { createTask, deleteTask, getTasks, updateTask, setTaskStatus } from '../tasks';
 import { addDays, buildGoalInsights, summarizeHabit } from '../goalInsights';
 import { monthDays, monthTotals } from '../progressMonth';
@@ -104,6 +104,17 @@ it('toggles persisted completion correctly without warming the cache', async () 
     const date = dates[0];
     await toggleCompletion('h3', date);
     expect((await getCompletions(date)).h3).toBeUndefined();
+});
+it('ticked again after an untick, a habit keeps the new tick time, not the first one', async () => {
+    const day = '2026-01-04';
+    await toggleCompletion('h9', day);
+    expect(new Date((await getCompletionTimes(day)).h9).getHours()).toBe(12);
+    await toggleCompletion('h9', day);
+    jest.setSystemTime(new Date(2026, 0, 4, 13, 5));
+    await toggleCompletion('h9', day);
+    const at = new Date((await getCompletionTimes(day)).h9);
+    expect([at.getHours(), at.getMinutes()]).toEqual([13, 5]);
+    jest.setSystemTime(new Date(2026, 0, 4, 12));
 });
 it('never reports a failed completion or skip as saved', async () => {
     mockAdapter.failSQL = 'INSERT INTO completions';

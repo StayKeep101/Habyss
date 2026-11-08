@@ -18,14 +18,16 @@ export interface ScheduledMoment {
 export function scheduledMoments(habits: Habit[], tasks: Task[], now = new Date(),
     completed: Record<string, boolean> = {}, skipped: Record<string, boolean> = {}, days = 7,
     /** Today's timeline: what is on it is timed from where it sits there. */
-    todayTimes: Record<string, { start: number; end: number }> = {}): ScheduledMoment[] {
+    todayTimes?: Record<string, { start: number; end: number }>): ScheduledMoment[] {
     const today = localDateKey(now);
     const moments: ScheduledMoment[] = [];
     const add = (kind: 'habit' | 'task', id: string, title: string, date: Date, time: string | undefined, minutes?: number) => {
         if (!time || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return;
         const day = localDateKey(date);
         const [hour, minute] = time.split(':').map(Number);
-        const placed = day === today ? todayTimes[id] : undefined;
+        const placed = day === today ? todayTimes?.[id] : undefined;
+        // Today, only what is on today's timeline is reminded of (at its place there): nothing that is not planned.
+        if (day === today && todayTimes && !placed) return;
         const start = new Date(date);
         if (placed) start.setHours(0, placed.start, 0, 0); else start.setHours(hour, minute, 0, 0);
         const duration = placed ? placed.end - placed.start : Number.isFinite(minutes) && minutes! > 0 ? Math.min(480, minutes!) : 30;

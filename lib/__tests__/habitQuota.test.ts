@@ -1,4 +1,4 @@
-import { createHabitRequirement, isQuotaHabit } from '../habitSchedule';
+import { createHabitRequirement, isQuotaHabit, quotaProgress } from '../habitSchedule';
 import { describe as describeRule, parseRecurrence } from '../recurrence';
 import { computeMarks } from '../marks';
 import type { Habit } from '../habitsSQLite';
@@ -35,5 +35,13 @@ describe('a "3 times a week" habit', () => {
         const marks = computeMarks({ habits: [gym], tasks: [], history: { '2026-10-26': ['gym'], '2026-10-27': ['gym'] }, today: '2026-11-02' });
         const misses = marks.ledger.filter(event => event.kind === 'miss' && event.date >= '2026-10-26');
         expect(misses.map(event => event.date)).toEqual(['2026-11-01']);
+    });
+
+    it('counts the week so far, that day included, and nothing for other habits', () => {
+        const done = new Set(['2026-10-25', '2026-10-26', '2026-10-28']);
+        const doneOn = (key: string) => done.has(key);
+        expect(quotaProgress(gym, '2026-10-27', doneOn)).toEqual({ done: 1, times: 3, period: 'week' });
+        expect(quotaProgress(gym, '2026-10-28', doneOn)).toEqual({ done: 2, times: 3, period: 'week' });
+        expect(quotaProgress({ ...gym, recurrence: undefined } as Habit, '2026-10-28', doneOn)).toBeNull();
     });
 });

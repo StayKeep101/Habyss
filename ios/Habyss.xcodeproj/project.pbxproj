@@ -10,13 +10,24 @@
 		0176F505AE1047D0D411BF65 /* libPods-Habyss.a in Frameworks */ = {isa = PBXBuildFile; fileRef = BEEC303B5179A474C6A73405 /* libPods-Habyss.a */; };
 		0F64715E561999ACB00955C1 /* SharedDefaults.m in Sources */ = {isa = PBXBuildFile; fileRef = DE54580FC86AA4EE1F54AF25 /* SharedDefaults.m */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		274EA239A3B61C052D5B0BC8 /* echo_leave_normal.caf in Resources */ = {isa = PBXBuildFile; fileRef = 7022C67BF3B293ED5D6D7130 /* echo_leave_normal.caf */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		415271EDADD4FFE567C21614 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */; };
 		447218F98F3D5057AC00D262 /* Habyss Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AE7DC6E52F41116000F32E02 /* Habyss Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		47E4C61E66A4E565C540FA53 /* echo_start_dad_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = 7A3C02114F686B68FBBBDD6D /* echo_start_dad_mode.caf */; };
+		4A7E548329734E7FAAA55969 /* echo_leave_dad_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = 32181FE7F28CBF3D1FA8114B /* echo_leave_dad_mode.caf */; };
+		5414CFB229EBB80450B41754 /* echo_start_friendly.caf in Resources */ = {isa = PBXBuildFile; fileRef = 52BA9FD8DC81D4A2786985A8 /* echo_start_friendly.caf */; };
+		563946F3A84EE3D08008511D /* echo_review_friendly.caf in Resources */ = {isa = PBXBuildFile; fileRef = CA4CD48F2359B8B6DC742DD8 /* echo_review_friendly.caf */; };
 		5B7CDDA3420C829B536A9342 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */; };
 		6B108C6361DA61CE7F98C7AD /* ScreenTimePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DC916925CA14220E2C514D4 /* ScreenTimePickerView.swift */; };
 		71115719B805A76A1332FCD8 /* ScreenTimeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76DA85DC67D58196B9C62E28 /* ScreenTimeManager.swift */; };
+		84CA476B2B80C810E47F3D54 /* echo_end_friendly.caf in Resources */ = {isa = PBXBuildFile; fileRef = E14ED73BE280272F57796406 /* echo_end_friendly.caf */; };
+		861FAA29B2346D3627FA5619 /* LiveActivityShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 335B4BB0978F232C833454DF /* LiveActivityShared.swift */; };
+		8783AE296FE4C9EA78640C37 /* echo_review_bully_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = AB45CEF4F178A64B25AF5436 /* echo_review_bully_mode.caf */; };
+		88228CC7829B697844A4E570 /* echo_end_bully_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = F9EECA2F9C22BE571C3E8BB6 /* echo_end_bully_mode.caf */; };
 		961105958615E986AF44B725 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E43594A9D6C422E0D552E996 /* ExpoModulesProvider.swift */; };
+		9B52A62CEDA2DAC5E89531EE /* echo_review_normal.caf in Resources */ = {isa = PBXBuildFile; fileRef = D3BB9A1D67C9CDE1FF6862CB /* echo_review_normal.caf */; };
+		A8F33024CA33986B776F30E1 /* echo_end_dad_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = D908AE0AA1CD44E96FAB45E2 /* echo_end_dad_mode.caf */; };
 		AE7DC5292F40FA2500F32E02 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AE7DC5282F40FA2500F32E02 /* AppIntents.framework */; };
 		AE7DC6F82F41118A00F32E02 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AE96A5F12F3E3CAE00681BAF /* WidgetKit.framework */; };
 		AE7DC6F92F41118A00F32E02 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AE96A5F32F3E3CAE00681BAF /* SwiftUI.framework */; };
@@ -27,11 +38,18 @@
 		AE96A6242F3E412000681BAF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */; };
 		BA84A58A49474D71957AE493 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = D975BC3A3D79467886582ADD /* noop-file.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		C59D848C2431CE604B0CD0AA /* echo_start_bully_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = 374B2A5B75FEDB72BE26156B /* echo_start_bully_mode.caf */; };
+		C5E8C659EAF96CAF9249B264 /* LiveActivityShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 335B4BB0978F232C833454DF /* LiveActivityShared.swift */; };
 		D34EB9618A114640AED3E701 /* WidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = D34EB9618A114640AED3E702 /* WidgetShared.swift */; };
+		D3E60B1B0D31AC6EEECAE446 /* echo_leave_friendly.caf in Resources */ = {isa = PBXBuildFile; fileRef = 6A7A63DEF1FF86CD2EB4D12B /* echo_leave_friendly.caf */; };
 		DD0FD4B8068B26E08FAE9E9D /* ScreenTimeModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E089807AF9CC20BFEF42E57 /* ScreenTimeModule.m */; };
+		E587D955AB45B956543A0DF1 /* echo_start_normal.caf in Resources */ = {isa = PBXBuildFile; fileRef = F5C268E35D9FFC89BCDB2E87 /* echo_start_normal.caf */; };
+		E631A01411A0909C9E750A2B /* echo_review_dad_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = 15D0E84CA5816128117F419F /* echo_review_dad_mode.caf */; };
+		EAA7526BD5DC27B3F612DC01 /* echo_leave_bully_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = 46A43E3BBB6EEE9A03429279 /* echo_leave_bully_mode.caf */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 		F58C228D66577EC94A1681A3 /* SharedDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4D352A872465CB1F4C53483 /* SharedDefaults.swift */; };
 		FB409C2E3BEEA019059C82C9 /* ScreenTimeModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E7BCBC66B78AA89F94FBAE /* ScreenTimeModule.swift */; };
+		FBB4C9B2D545F84CBE6CB2FC /* echo_end_normal.caf in Resources */ = {isa = PBXBuildFile; fileRef = 116C3B85C384919296AE838A /* echo_end_normal.caf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,17 +96,28 @@
 
 /* Begin PBXFileReference section */
 		07A0C1260F1AA0116F253559 /* WidgetExtension.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = WidgetExtension.entitlements; sourceTree = "<group>"; };
+		116C3B85C384919296AE838A /* echo_end_normal.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_end_normal.caf; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* Habyss.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Habyss.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Habyss/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Habyss/Info.plist; sourceTree = "<group>"; };
+		15D0E84CA5816128117F419F /* echo_review_dad_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_review_dad_mode.caf; sourceTree = "<group>"; };
 		1E089807AF9CC20BFEF42E57 /* ScreenTimeModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = ScreenTimeModule.m; sourceTree = "<group>"; };
 		2C5FEC4998F7FA502BBAF875 /* Pods-Habyss.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Habyss.release.xcconfig"; path = "Target Support Files/Pods-Habyss/Pods-Habyss.release.xcconfig"; sourceTree = "<group>"; };
 		2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Habyss/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		32181FE7F28CBF3D1FA8114B /* echo_leave_dad_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_leave_dad_mode.caf; sourceTree = "<group>"; };
+		335B4BB0978F232C833454DF /* LiveActivityShared.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LiveActivityShared.swift; path = Widget/LiveActivityShared.swift; sourceTree = "<group>"; };
+		374B2A5B75FEDB72BE26156B /* echo_start_bully_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_start_bully_mode.caf; sourceTree = "<group>"; };
+		46A43E3BBB6EEE9A03429279 /* echo_leave_bully_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_leave_bully_mode.caf; sourceTree = "<group>"; };
+		52BA9FD8DC81D4A2786985A8 /* echo_start_friendly.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_start_friendly.caf; sourceTree = "<group>"; };
+		6A7A63DEF1FF86CD2EB4D12B /* echo_leave_friendly.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_leave_friendly.caf; sourceTree = "<group>"; };
 		6DC916925CA14220E2C514D4 /* ScreenTimePickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ScreenTimePickerView.swift; path = Views/ScreenTimePickerView.swift; sourceTree = "<group>"; };
+		7022C67BF3B293ED5D6D7130 /* echo_leave_normal.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_leave_normal.caf; sourceTree = "<group>"; };
 		76DA85DC67D58196B9C62E28 /* ScreenTimeManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ScreenTimeManager.swift; path = Managers/ScreenTimeManager.swift; sourceTree = "<group>"; };
+		7A3C02114F686B68FBBBDD6D /* echo_start_dad_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_start_dad_mode.caf; sourceTree = "<group>"; };
 		A4D352A872465CB1F4C53483 /* SharedDefaults.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SharedDefaults.swift; path = Habyss/SharedDefaults.swift; sourceTree = "<group>"; };
 		A4E7BCBC66B78AA89F94FBAE /* ScreenTimeModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenTimeModule.swift; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Habyss/SplashScreen.storyboard; sourceTree = "<group>"; };
+		AB45CEF4F178A64B25AF5436 /* echo_review_bully_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_review_bully_mode.caf; sourceTree = "<group>"; };
 		AE7DC5282F40FA2500F32E02 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		AE7DC6E52F41116000F32E02 /* Habyss Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Habyss Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AE7DC6F72F41118A00F32E02 /* WidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -101,14 +130,20 @@
 		B9E5A1344AAF6929B4699F1D /* Pods-Habyss.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Habyss.debug.xcconfig"; path = "Target Support Files/Pods-Habyss/Pods-Habyss.debug.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		BEEC303B5179A474C6A73405 /* libPods-Habyss.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Habyss.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA4CD48F2359B8B6DC742DD8 /* echo_review_friendly.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_review_friendly.caf; sourceTree = "<group>"; };
 		D34EB9618A114640AED3E702 /* WidgetShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WidgetShared.swift; path = Widget/WidgetShared.swift; sourceTree = "<group>"; };
+		D3BB9A1D67C9CDE1FF6862CB /* echo_review_normal.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_review_normal.caf; sourceTree = "<group>"; };
+		D908AE0AA1CD44E96FAB45E2 /* echo_end_dad_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_end_dad_mode.caf; sourceTree = "<group>"; };
 		D975BC3A3D79467886582ADD /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "Habyss/noop-file.swift"; sourceTree = "<group>"; };
 		DE54580FC86AA4EE1F54AF25 /* SharedDefaults.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = SharedDefaults.m; path = Habyss/SharedDefaults.m; sourceTree = "<group>"; };
+		E14ED73BE280272F57796406 /* echo_end_friendly.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_end_friendly.caf; sourceTree = "<group>"; };
 		E43594A9D6C422E0D552E996 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Habyss/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		E7ABF6C194AA28D356857C00 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Habyss/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Habyss-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Habyss-Bridging-Header.h"; path = "Habyss/Habyss-Bridging-Header.h"; sourceTree = "<group>"; };
+		F5C268E35D9FFC89BCDB2E87 /* echo_start_normal.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_start_normal.caf; sourceTree = "<group>"; };
+		F9EECA2F9C22BE571C3E8BB6 /* echo_end_bully_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_end_bully_mode.caf; sourceTree = "<group>"; };
 		WDG00004E5F6789012345678 /* Assets.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -207,6 +242,8 @@
 				A4D352A872465CB1F4C53483 /* SharedDefaults.swift */,
 				D34EB9618A114640AED3E702 /* WidgetShared.swift */,
 				DE54580FC86AA4EE1F54AF25 /* SharedDefaults.m */,
+				335B4BB0978F232C833454DF /* LiveActivityShared.swift */,
+				A93A724771B2F37C31991BFC /* Sounds */,
 			);
 			name = Habyss;
 			sourceTree = "<group>";
@@ -282,6 +319,30 @@
 				AE7DC6F72F41118A00F32E02 /* WidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A93A724771B2F37C31991BFC /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				F9EECA2F9C22BE571C3E8BB6 /* echo_end_bully_mode.caf */,
+				D908AE0AA1CD44E96FAB45E2 /* echo_end_dad_mode.caf */,
+				E14ED73BE280272F57796406 /* echo_end_friendly.caf */,
+				116C3B85C384919296AE838A /* echo_end_normal.caf */,
+				46A43E3BBB6EEE9A03429279 /* echo_leave_bully_mode.caf */,
+				32181FE7F28CBF3D1FA8114B /* echo_leave_dad_mode.caf */,
+				6A7A63DEF1FF86CD2EB4D12B /* echo_leave_friendly.caf */,
+				7022C67BF3B293ED5D6D7130 /* echo_leave_normal.caf */,
+				AB45CEF4F178A64B25AF5436 /* echo_review_bully_mode.caf */,
+				15D0E84CA5816128117F419F /* echo_review_dad_mode.caf */,
+				CA4CD48F2359B8B6DC742DD8 /* echo_review_friendly.caf */,
+				D3BB9A1D67C9CDE1FF6862CB /* echo_review_normal.caf */,
+				374B2A5B75FEDB72BE26156B /* echo_start_bully_mode.caf */,
+				7A3C02114F686B68FBBBDD6D /* echo_start_dad_mode.caf */,
+				52BA9FD8DC81D4A2786985A8 /* echo_start_friendly.caf */,
+				F5C268E35D9FFC89BCDB2E87 /* echo_start_normal.caf */,
+			);
+			name = Sounds;
+			path = Habyss/Sounds;
 			sourceTree = "<group>";
 		};
 		AE7DC66A2F41095B00F32E02 /* Recovered References */ = {
@@ -458,6 +519,22 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				415271EDADD4FFE567C21614 /* PrivacyInfo.xcprivacy in Resources */,
+				88228CC7829B697844A4E570 /* echo_end_bully_mode.caf in Resources */,
+				A8F33024CA33986B776F30E1 /* echo_end_dad_mode.caf in Resources */,
+				84CA476B2B80C810E47F3D54 /* echo_end_friendly.caf in Resources */,
+				FBB4C9B2D545F84CBE6CB2FC /* echo_end_normal.caf in Resources */,
+				EAA7526BD5DC27B3F612DC01 /* echo_leave_bully_mode.caf in Resources */,
+				4A7E548329734E7FAAA55969 /* echo_leave_dad_mode.caf in Resources */,
+				D3E60B1B0D31AC6EEECAE446 /* echo_leave_friendly.caf in Resources */,
+				274EA239A3B61C052D5B0BC8 /* echo_leave_normal.caf in Resources */,
+				8783AE296FE4C9EA78640C37 /* echo_review_bully_mode.caf in Resources */,
+				E631A01411A0909C9E750A2B /* echo_review_dad_mode.caf in Resources */,
+				563946F3A84EE3D08008511D /* echo_review_friendly.caf in Resources */,
+				9B52A62CEDA2DAC5E89531EE /* echo_review_normal.caf in Resources */,
+				C59D848C2431CE604B0CD0AA /* echo_start_bully_mode.caf in Resources */,
+				47E4C61E66A4E565C540FA53 /* echo_start_dad_mode.caf in Resources */,
+				5414CFB229EBB80450B41754 /* echo_start_friendly.caf in Resources */,
+				E587D955AB45B956543A0DF1 /* echo_start_normal.caf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -663,6 +740,7 @@
 				F58C228D66577EC94A1681A3 /* SharedDefaults.swift in Sources */,
 				D34EB9618A114640AED3E701 /* WidgetShared.swift in Sources */,
 				0F64715E561999ACB00955C1 /* SharedDefaults.m in Sources */,
+				C5E8C659EAF96CAF9249B264 /* LiveActivityShared.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -677,6 +755,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				861FAA29B2346D3627FA5619 /* LiveActivityShared.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

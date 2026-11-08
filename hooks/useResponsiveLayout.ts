@@ -31,7 +31,8 @@ export function useResponsiveLayout() {
         const railed = width >= RAIL_FROM;
         const tabBarClearance = railed
             ? insets.bottom + Spacing.xl
-            : tabBarBottomOffset + Math.max(tabBarHeight, floatingButtonSize) + (isCompactHeight ? 20 : 28);
+            // Plus the Now bar that sits over the tab bar (components/Focus/FocusMiniBar.tsx).
+            : tabBarBottomOffset + Math.max(tabBarHeight, floatingButtonSize) + (isCompactHeight ? 20 : 28) + 64;
         const isTablet = Platform.OS === 'ios' && Platform.isPad;
 
         return {

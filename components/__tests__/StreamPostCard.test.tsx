@@ -8,7 +8,7 @@ jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'abyss' }
 jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#6B8AF5', foreground: '#6B8AF5', buttonColors: ['#6B8AF5', '#6B8AF5'] }) }));
 
 const ctx = (extra: Partial<StreamContext> = {}): StreamContext => ({
-    meId: 'me', myName: 'Me', kingId: null, rankOf: () => 2, statusOf: () => undefined, facesOf: () => [],
+    meId: 'me', myName: 'Me', rankOf: () => 2, statusOf: () => undefined, facesOf: () => [],
     onReact: jest.fn(), onReport: jest.fn(), openPerson: jest.fn(), commentsOf: () => [], onOpenComments: jest.fn(), ...extra,
 });
 const post = (card = {}): FeedPost => ({
@@ -24,10 +24,11 @@ it('draws a day with its share, rank, what was done, details on demand, and reac
     const context = ctx();
     const screen = render(<StreamPostCard item={day('daily')} ctx={context} />);
     expect(screen.getByText('#2')).toBeTruthy();
-    expect(screen.getByText('3 of 4 done')).toBeTruthy();
+    expect(screen.getByText('done')).toBeTruthy();
+    expect(screen.getByLabelText('Day score 75 percent')).toBeTruthy();
     expect(screen.getByText('Run, Read, Stretch')).toBeTruthy();
     expect(screen.queryByText('Journal')).toBeNull();
-    fireEvent.press(screen.getByLabelText('Show details'));
+    fireEvent.press(screen.getByLabelText('Show All 4'));
     expect(screen.getByText('Journal')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('On fire, 2'));
     expect(context.onReact).toHaveBeenCalledWith(expect.objectContaining({ userId: 'ana' }), 'fire');
@@ -51,5 +52,14 @@ it('shows the best comments on the card and opens the conversation', () => {
     expect(screen.getByText('@ana')).toBeTruthy();
     expect(screen.getByText('View all 3')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('3 comments'));
-    expect(context.onOpenComments).toHaveBeenCalledWith(expect.objectContaining({ userId: 'ana' }));
+    expect(context.onOpenComments).toHaveBeenCalledWith(expect.objectContaining({ userId: 'ana' }), true);
+});
+
+it("shows Today's top tasks with how long each took", () => {
+    const top = [{ name: 'Ship it', done: true, minutes: 90 }, { name: 'Gym', done: false, waiting: true, with: ['Sam'] }, { name: 'Read', done: false }];
+    const screen = render(<StreamPostCard item={day('daily', { top })} ctx={ctx()} />);
+    expect(screen.getByText("Today's 3")).toBeTruthy();
+    expect(screen.getByText('1 of 3')).toBeTruthy();
+    expect(screen.getByText('1h 30m')).toBeTruthy();
+    expect(screen.getByText('with Sam · waiting on them')).toBeTruthy();
 });

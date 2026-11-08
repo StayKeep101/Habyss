@@ -59,6 +59,10 @@
 	<string>Habyss shows your calendar events on your timeline, so habits and tasks are planned around them.</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>Habyss shows your calendar events on your timeline, so habits and tasks are planned around them.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Habyss shows your reminders that are due at a time on your timeline, beside your habits, tasks and events.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Habyss shows your reminders that are due at a time on your timeline, beside your habits, tasks and events.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Habyss uses the camera to take your profile picture or a goal background, and to scan a friend's QR code to add them.</string>
 	<key>NSFaceIDUsageDescription</key>
@@ -126,6 +130,9 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
@@ -135,7 +142,7 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
 	<key>UIUserInterfaceStyle</key>
-	<string>Automatic</string>
+	<string>Dark</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 </dict>

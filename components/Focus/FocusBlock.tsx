@@ -3,7 +3,7 @@ import { Text, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
-import { IconButton } from '@/components/ui/IconButton';
+import { FocusTopBar } from '@/components/Focus/FocusTopBar';
 import { FocusClock, FocusDigits } from '@/components/Focus/FocusClock';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useClockStyle } from '@/hooks/useClockStyle';
@@ -61,17 +61,24 @@ export function FocusBlock({ kind, id, title, from, until, nextKind }: { kind: s
         else void proceed(id);
     };
     nextRef.current = next;
+    const stop = () => { pushFocusToWatch(null); router.back(); };
     const line = waitingFor ? `Until ${clockLabel(Math.round(until))}, then ${title}`
         : before ? `${title} at ${clockLabel(Math.round(from))}` : `${title} until ${clockLabel(Math.round(until))}`;
     return (
         <View style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom }]}>
-            <View style={styles.top}>
-                <IconButton icon="close" label="Stop focusing the day" onPress={() => { pushFocusToWatch(null); router.back(); }} diameter={40} size={18} color="#FFFFFF" />
-                {/* Free time says so in big in the middle; nothing to repeat up here. */}
-                <Text numberOfLines={1} style={styles.title}>{waitingFor ? '' : title}</Text>
-                <View style={{ width: 40 }} />
-            </View>
+            {/* The same top as Focus on a habit or task: hold the × to end, the sound, the settings. */}
+            <FocusTopBar active playing onClose={stop} endItems={[
+                { label: waitingFor ? `Start ${title} now` : 'Done: next', icon: 'checkmark-circle', onPress: next },
+                { label: 'Stop focusing the day', icon: 'close-circle', destructive: true, onPress: stop },
+            ]} />
             <View style={styles.center}>
+                {/* What this step is, set out as Focus on a habit or task sets out its name. */}
+                {waitingFor ? null : (
+                    <View style={styles.heading}>
+                        <Text style={[styles.eyebrow, { color: primary }]}>{kind === 'meal' ? 'Meal' : kind === 'event' ? 'Event' : 'Focus'}</Text>
+                        <Text numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75} style={styles.name} accessibilityRole="header">{title}</Text>
+                    </View>
+                )}
                 {waitingFor ? (
                     // Free time: just the words and how long it lasts. No ring, no mark.
                     <>

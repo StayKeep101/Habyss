@@ -418,6 +418,9 @@ const PERSONAL_TASK_FIELDS = ['status', 'completed_at', 'amount'];
 
 async function pullShared(db: any, sb: any, userId: string): Promise<number> {
     const mine = `owner_id.eq.${userId},shared_with_id.eq.${userId}`;
+    // Shares closed by a delete made offline go first, so nothing deleted is pulled back in.
+    const ending = require('./shareEnding') as typeof import('./shareEnding');
+    await ending.flushShareEndings().catch(() => false);
     const [goals, habits, tasks] = await Promise.all([
         sb.from('shared_goals').select('goal_id').eq('status', 'accepted').is('deleted_at', null).or(mine),
         sb.from('shared_habits').select('habit_id').eq('status', 'accepted').is('deleted_at', null).eq('shared_with_id', userId),
@@ -428,7 +431,20 @@ async function pullShared(db: any, sb: any, userId: string): Promise<number> {
     const goalIds = ids(goals, 'goal_id');
     const habitIds = ids(habits, 'habit_id');
     const taskIds = ids(tasks, 'task_id');
-    if (!goalIds.length && !habitIds.length && !taskIds.length) return 0;
+    // A share that has ended (the other person deleted it): your copy becomes
+    // your own, under an id of its own. Only when the server answered both lists.
+    let rekeyed = 0;
+    if (!habits?.error && !tasks?.error) {
+        const moved = await ending.keepEndedCopies({ habit: habitIds, task: taskIds }, userId).catch(() => ({}));
+        rekeyed = Object.keys(moved).length;
+        if (rekeyed) {
+            const { reloadHabitsFromStorage } = require('./habitsSQLite') as typeof import('./habitsSQLite');
+            await reloadHabitsFromStorage().catch(() => undefined);
+            const { emit } = require('./appEvents') as typeof import('./appEvents');
+            emit('tasks_changed');
+        }
+    }
+    if (!goalIds.length && !habitIds.length && !taskIds.length) return rekeyed;
 
     const list = (values: string[]) => `(${values.join(',')})`;
     const habitFilter = [

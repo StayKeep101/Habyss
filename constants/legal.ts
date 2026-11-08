@@ -3,7 +3,7 @@
  * kept word for word with the website's copies. Written from what the app
  * actually does; change it whenever that changes.
  */
-export const LEGAL_UPDATED = 'October 27, 2026';
+export const LEGAL_UPDATED = 'November 5, 2026';
 
 export type LegalDoc = 'privacy' | 'terms';
 export interface LegalSection { title: string; body: string }
@@ -11,7 +11,7 @@ export interface LegalSection { title: string; body: string }
 export const LEGAL: Record<LegalDoc, { title: string; intro: string; sections: LegalSection[] }> = {
     privacy: {
         title: 'Privacy policy',
-        intro: 'Habyss is built to keep your life on your phone. This is everything it collects, why, and what you can do about it. Updated 26 October 2026.',
+        intro: 'Habyss is built to keep your life on your phone. This is everything it collects, why, and what you can do about it. Updated 5 November 2026.',
         sections: [
             { title: 'On your phone only', body: 'Your habits, tasks, goals, check-ins, brain dump, focus sessions and settings are stored on your device. Sleep read from Apple Health is used only to fill in your sleep habits. Places you save for a reminder (such as Home or Work) are kept with that habit. Calendar events are read on your device to plan around them and are never uploaded. Echo, the coach, runs on your device; nothing you write is sent to an AI service. When you speak to add something, Apple’s speech recognition turns it into text, which may be processed by Apple.' },
             { title: 'When you sign in', body: 'If you create an account, we store your email address, display name, @username, profile photo and bio, and a backup of your habits, tasks, goals and check-ins (including a sleep habit’s progress and the places saved for reminders) so you can restore them and use Habyss on another device. This is kept with Supabase, our database provider.' },
@@ -19,8 +19,7 @@ export const LEGAL: Record<LegalDoc, { title: string; intro: string; sections: L
             { title: 'Notifications', body: 'To send you reminders and nudges from friends, we store your device’s push notification token.' },
             { title: 'Feedback', body: 'If you send feedback, we store your message with the screen you were on, the app version and your phone’s system version, and email it to the developer so it is read.' },
             { title: 'Crash reports', body: 'If Habyss crashes, a crash report (what went wrong in the code, the app and system version, and your account id if you are signed in) is sent so the bug can be fixed. It never includes what you wrote.' },
-            { title: 'Purchases', body: 'Purchases are handled by Apple, through RevenueCat. We never see your card details. RevenueCat receives an anonymous id or your account id so a purchase belongs to you, and the date your free week began.' },
-            { title: 'Invites', body: 'If you join through a friend’s invite, we store who invited you, so you both get the friend price. Your friend sees only that someone joined, not who.' },
+            { title: 'Purchases', body: 'Habyss Pro is bought through Apple, with RevenueCat. We never see your card details. RevenueCat receives your account id so your subscription belongs to you, and so the desktop app can tell that Pro is on for the same account.' },
             { title: 'What we never do', body: 'No ads. No tracking across apps or websites. No selling or sharing your data with anyone for marketing. No analytics tools.' },
             { title: 'Deleting your data', body: 'Settings → Privacy → Delete account removes your account, profile, photo, backup, friends and posts from the server, and everything on this device. Feedback you sent is kept without your name. It cannot be undone.' },
             { title: 'Children', body: 'Habyss is not meant for children under 13, and we do not knowingly collect their data.' },
@@ -29,13 +28,13 @@ export const LEGAL: Record<LegalDoc, { title: string; intro: string; sections: L
     },
     terms: {
         title: 'Terms',
-        intro: 'By using Habyss you agree to these terms. They are short on purpose. Updated 27 October 2026.',
+        intro: 'By using Habyss you agree to these terms. They are short on purpose. Updated 5 November 2026.',
         sections: [
             { title: 'The app', body: 'Habyss helps you build habits, finish tasks and reach goals. It is provided as is, and features may change or be removed as the app improves.' },
             { title: 'Your account', body: 'Keep your sign-in details to yourself; you are responsible for what is done with your account. Your @username must be yours to use and not impersonate anyone.' },
             { title: 'Be decent', body: 'Do not use Habyss to harass, threaten or spam anyone, or to post anything illegal, hateful or sexual. We may remove content or accounts that break this, and you can report or block anyone.' },
             { title: 'Marks and leaderboards', body: 'Marks and ranks are for motivation and have no money value. We may correct Marks that were earned by cheating or by mistake.' },
-            { title: 'Free week and purchase', body: 'Habyss is free for 7 days. After that it is one payment (shown in the app before you buy, in your currency), not a subscription, and nothing renews. If you do not buy it, the app locks after the free week and your data stays on your device and in your backup until you do. Someone who joins through a friend’s invite pays half, and so does the person who invited them once one friend has joined; an invite counts once, for a new account. Purchases are processed by Apple under Apple’s terms; for refunds, contact Apple. A coffee is a one-off tip and unlocks nothing.' },
+            { title: 'Price and Habyss Pro', body: 'Habyss is free: the phone app, and the desktop app on its own. Habyss Pro keeps your phone and the desktop app in sync. It is an auto-renewing subscription of $4.99 a month (shown in the app before you buy, in your currency), charged to your Apple ID when you confirm. It renews every month unless you cancel at least 24 hours before the end of the current month; cancel in Settings → your name → Subscriptions, and Pro stays on until the month you paid for ends. Nothing on the phone is locked without it. Anyone who bought Habyss for life before it became free keeps Pro for good. Purchases are processed by Apple under Apple’s terms, including its standard licence agreement; for refunds, contact Apple. A coffee is a one-off tip and unlocks nothing.' },
             { title: 'Health', body: 'Habyss is not medical advice. Sleep figures come from Apple Health and are only as accurate as the device that recorded them. Talk to a professional about your health.' },
             { title: 'Liability', body: 'To the extent the law allows, Habyss and its developer are not liable for indirect or consequential losses, or for data lost from your device. Keep a backup by signing in.' },
             { title: 'Ending', body: 'You can stop using Habyss and delete your account at any time. We may suspend accounts that break these terms.' },

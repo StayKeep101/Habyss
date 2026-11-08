@@ -322,7 +322,13 @@ export async function deleteTask(id: string): Promise<void> {
     if (!db) throw new Error('Task storage is unavailable. Your changes were not saved.');
     // What it cost in misses stays on the record (lib/marksLedger.ts).
     await (require('./marksLedger') as typeof import('./marksLedger')).keepPenaltiesOf({ tasks: [id] });
-    await db.runAsync('UPDATE tasks SET deleted = 1, updated_at = ?, synced = 0 WHERE id = ?', nowISO(), id);
+    // Shared: deleting it ends the share for both of you; shared with you, the
+    // delete stays on this phone so the owner's task is untouched (lib/shareEnding.ts).
+    const ending = require('./shareEnding') as typeof import('./shareEnding');
+    const guest = await ending.isAdopted('task', id);
+    await db.runAsync('UPDATE tasks SET deleted = 1, updated_at = ?, synced = ? WHERE id = ?', nowISO(), guest ? 1 : 0, id);
+    const { FriendsService } = require('./friendsService') as typeof import('./friendsService');
+    if (guest || (await FriendsService.sharedIds().catch(() => new Set<string>())).has(id)) void ending.endShares('task', id);
 }
 
 /** A goal's tasks go with it, the same way its habits do. */

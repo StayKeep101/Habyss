@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { router } from 'expo-router';
-import { nextStep, todayFlow } from '@/lib/todayFlow';
+import { currentTodayFlow, nextStep } from '@/lib/todayFlow';
 
 /**
  * Focusing all day: moves the focus page on to whatever comes next on today's
@@ -18,9 +18,9 @@ let moving = false;
  * the page, which iOS animates as the page closing and another opening.
  * Every param is given, so nothing from the last step lingers.
  */
-type FocusParams = { day?: string; end?: string; kind?: string; id?: string; title?: string; from?: string; until?: string; nextKind?: string; start?: string; banked?: string };
+type FocusParams = { day?: string; end?: string; kind?: string; id?: string; title?: string; from?: string; until?: string; nextKind?: string; start?: string; banked?: string; minutes?: string };
 export function showFocusStep(params: FocusParams): void {
-    const all: FocusParams = { day: undefined, end: undefined, kind: undefined, id: undefined, title: undefined, from: undefined, until: undefined, nextKind: undefined, start: undefined, banked: undefined, ...params };
+    const all: FocusParams = { day: undefined, end: undefined, kind: undefined, id: undefined, title: undefined, from: undefined, until: undefined, nextKind: undefined, start: undefined, banked: undefined, minutes: undefined, ...params };
     router.setParams(all as never);
 }
 
@@ -30,7 +30,8 @@ export function useFocusDay() {
         moving = true;
         setTimeout(() => { moving = false; }, 1500);
         const now = new Date();
-        const flow = await todayFlow(now).catch(() => null);
+        // The timeline you see (lib/todayFlow.ts), so Focus opens on what it shows as now.
+        const flow = await currentTodayFlow(now).catch(() => null);
         const step = nextStep(flow, now.getHours() * 60 + now.getMinutes(), skip);
         if (!step) { showFocusStep({ day: '1', end: '1' }); return; }
         const { item, wait } = step;

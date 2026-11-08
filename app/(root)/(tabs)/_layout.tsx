@@ -34,6 +34,11 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
+        // A tab you are not looking at does not re-render: ticking on the
+        // timeline used to redraw Home behind it, Marks and goal maths included
+        // (about 20 ms on a laptop, several times that on a phone). It catches
+        // up once, with the latest data, when you come back to it.
+        freezeOnBlur: true,
         tabBarPosition: railed ? 'left' : 'bottom',
         sceneStyle: railed ? { width: '100%', maxWidth: READABLE_WIDTH, alignSelf: 'center', backgroundColor: colors.background } : undefined,
         tabBarStyle: {

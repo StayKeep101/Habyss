@@ -6,9 +6,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
-import { Control, Radius, Spacing } from '@/theme/designSystem';
+import { Control, Elevation, Radius, Spacing } from '@/theme/designSystem';
+import { Colors } from '@/theme/colors';
 import { DURATION, EASE, timingFor } from '@/theme/motion';
-import { MatteSurface } from './MatteSurface';
 import { Text } from './Text';
 
 const SETTLE = timingFor(DURATION.quick, EASE.move);
@@ -29,7 +29,7 @@ function nearest(x: number, width: number, count: number): number {
  * adjusts it a step at a time. For any choice among a few ordered values
  * (a length, an amount), where a row of chips would be a form.
  */
-export function StepSlider<T extends number>({ label, values, value, onChange, say }: {
+export function StepSlider<T extends number>({ label, values, value, onChange, say, compact }: {
     /** What is being chosen, said small over the value. */
     label: string;
     values: readonly T[];
@@ -37,6 +37,8 @@ export function StepSlider<T extends number>({ label, values, value, onChange, s
     onChange: (value: T) => void;
     /** The value as said: "7 days", "No stake". */
     say: (value: T) => string;
+    /** One of several stacked (Importance): the label and value on one quiet line. */
+    compact?: boolean;
 }) {
     const t = useTokens();
     const { buttonColors } = useAccentGradient();
@@ -83,8 +85,17 @@ export function StepSlider<T extends number>({ label, values, value, onChange, s
     return (
         <View style={styles.wrap}>
             <View style={styles.head}>
-                <Text variant="caption" tone="muted">{label}</Text>
-                <Text variant="title">{say(value)}</Text>
+                {compact ? (
+                    <>
+                        <Text variant="body">{label}</Text>
+                        <Text variant="bodySmall" tone="muted">{say(value)}</Text>
+                    </>
+                ) : (
+                    <>
+                        <Text variant="caption" tone="muted">{label}</Text>
+                        <Text variant="title">{say(value)}</Text>
+                    </>
+                )}
             </View>
             <GestureDetector gesture={pan}>
                 <View onLayout={onLayout} style={styles.area}
@@ -104,7 +115,9 @@ export function StepSlider<T extends number>({ label, values, value, onChange, s
                         {values.map((item, at) => <View key={item} style={[styles.notch, { backgroundColor: at <= index ? t.color.onAccent : t.color.textSubtle }]} />)}
                     </View>
                     <Animated.View style={[styles.thumb, thumb]} pointerEvents="none">
-                        <MatteSurface radius={Radius.pill} level="control" style={styles.thumbFace} />
+                        {/* A white knob ringed in the accent, lifted by a control's shadow:
+                            seen on any card in any theme, like the system's own sliders. */}
+                        <View style={[styles.thumbFace, { backgroundColor: Colors.common.white, borderColor: buttonColors[1] }]} />
                     </Animated.View>
                 </View>
             </GestureDetector>
@@ -121,5 +134,5 @@ const styles = StyleSheet.create({
     notches: { position: 'absolute', left: THUMB / 2, right: THUMB / 2, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     notch: { width: Spacing.xs, height: Spacing.xs, borderRadius: Radius.pill },
     thumb: { position: 'absolute', left: 0, width: THUMB, height: THUMB },
-    thumbFace: { flex: 1 },
+    thumbFace: { flex: 1, borderRadius: Radius.pill, borderWidth: Spacing.xs / 2, ...Elevation.control },
 });

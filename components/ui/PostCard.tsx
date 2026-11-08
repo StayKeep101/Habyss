@@ -9,6 +9,7 @@ import { MatteSurface } from './MatteSurface';
 import { AppIcon } from './AppIcon';
 import { Divider } from './Divider';
 import { Text } from './Text';
+import { ProgressRing } from './ProgressRing';
 
 export interface PostStat { icon: string; value: string; label: string }
 
@@ -16,7 +17,8 @@ export interface PostStat { icon: string; value: string; label: string }
  * One post in Community's feed, of any kind. The same frame every time, so
  * the feed reads calmly, with the middle telling the kinds apart:
  *
- *   header   a face (with status), a name, a rank, and the kind with its icon
+ *   header   a face (with status), a name, a rank, the kind with its icon,
+ *            and the score, top right: how much of the day got done
  *   hero     the one number that matters, large
  *   visual   the contest, bar or chart that shows it
  *   stats    a few small figures (streak, focus, goals)
@@ -25,10 +27,10 @@ export interface PostStat { icon: string; value: string; label: string }
  *
  * A long press reports someone else's post; VoiceOver gets it as an action.
  */
-export function PostCard({ lead, name, badge, rank, kind, when, live, hero, children, stats, details, footer, onOpenAuthor, onReport }: {
+export function PostCard({ lead, name, badge, rank, kind, when, live, score, hero, children, stats, details, detailsLabel, footer, onOpenAuthor, onReport }: {
     lead: React.ReactNode;
     name: string;
-    /** Beside the name: the crown. */
+    /** Beside the name: a small mark of who they are. */
     badge?: React.ReactNode;
     /** Their place among friends this week. */
     rank?: number | null;
@@ -36,10 +38,14 @@ export function PostCard({ lead, name, badge, rank, kind, when, live, hero, chil
     when?: string;
     /** A contest still running: a cobalt dot and "Live". */
     live?: boolean;
+    /** The day's score, 0 to 1: a ring with the percentage, top right. */
+    score?: number;
     hero?: React.ReactNode;
     children?: React.ReactNode;
     stats?: PostStat[];
     details?: React.ReactNode;
+    /** What the details are, said beside the chevron ("12 more"), so it is clear what opens. */
+    detailsLabel?: string;
     footer?: React.ReactNode;
     onOpenAuthor?: () => void;
     onReport?: () => void;
@@ -74,6 +80,10 @@ export function PostCard({ lead, name, badge, rank, kind, when, live, hero, chil
                             <RNText style={[t.type.caption, { color: t.color.cobalt }]}>Live</RNText>
                         </View>
                     ) : null}
+                    {score !== undefined ? (
+                        <ProgressRing size="sm" progress={score} label={`${Math.round(Math.max(0, Math.min(1, score)) * 100)}%`}
+                            accessibilityLabel={`Day score ${Math.round(Math.max(0, Math.min(1, score)) * 100)} percent`} />
+                    ) : null}
                 </View>
 
                 {hero}
@@ -91,7 +101,8 @@ export function PostCard({ lead, name, badge, rank, kind, when, live, hero, chil
                         {details ? (
                             <Pressable onPress={() => { selectionFeedback(); setOpen(value => !value); }} hitSlop={Spacing.md}
                                 style={styles.more} accessibilityRole="button" accessibilityState={{ expanded: open }}
-                                accessibilityLabel={open ? 'Hide details' : 'Show details'}>
+                                accessibilityLabel={open ? `Hide ${detailsLabel ?? 'details'}` : `Show ${detailsLabel ?? 'details'}`}>
+                                {detailsLabel ? <Text variant="caption" tone="muted">{detailsLabel}</Text> : null}
                                 <AppIcon name={open ? 'chevron-up' : 'chevron-down'} size={Control.icon - 2} color={t.color.textMuted} />
                             </Pressable>
                         ) : null}
@@ -121,6 +132,6 @@ const styles = StyleSheet.create({
     dot: { width: Spacing.xs + 2, height: Spacing.xs + 2, borderRadius: Radius.pill },
     stats: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg },
     stat: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.xs },
-    more: { marginLeft: 'auto', width: Control.hitTarget - Spacing.md, height: Control.hitTarget - Spacing.md, alignItems: 'center', justifyContent: 'center' },
+    more: { marginLeft: 'auto', minWidth: Control.hitTarget - Spacing.md, height: Control.hitTarget - Spacing.md, flexDirection: 'row', gap: Spacing.xs, alignItems: 'center', justifyContent: 'center' },
     details: { gap: Spacing.sm },
 });

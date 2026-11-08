@@ -9,7 +9,6 @@ import { coverYesterdayIfMissed, loadFreezes } from '@/lib/streakFreeze';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ClimbMomentOverlay } from '@/components/Home/ClimbMomentOverlay';
 import { AscentArrival } from '@/components/Ascent/AscentArrival';
-import { SleepCard } from '@/components/Home/SleepCard';
 import { loadClimbState, nextMoment, saveClimbState, type ClimbMoment } from '@/lib/climbMoments';
 import { afterPaint } from '@/lib/afterPaint';
 import { s, ms } from '@/theme/scale';
@@ -43,7 +42,6 @@ import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
-import { ChallengePill } from '@/components/Home/ChallengePill';
 import { ShardsWallet } from '@/components/Shards/ShardsWallet';
 import { useWallet } from '@/hooks/useWallet';
 import { useMarks } from '@/hooks/useMarks';
@@ -56,7 +54,6 @@ import { setTaskStatus, type Task } from '@/lib/tasks';
 import { StreakCard } from '@/components/Home/StreakCard';
 import { useCoachTarget } from '@/hooks/useCoachTarget';
 import { startTour } from '@/lib/coachMarks';
-import { useAccess } from '@/hooks/useAccess';
 import { FocusCard } from '@/components/Home/FocusCard';
 import { localDateKey } from '@/lib/habitSchedule';
 import { echoWeek } from '@/lib/echoInsights';
@@ -101,6 +98,9 @@ const Home = () => {
   const { avatar: profileAvatar } = useMyProfile();
   const [refreshing, setRefreshing] = useState(false);
   const [motivationalQuote, setMotivationalQuote] = useState('');
+  // The line on screen, and a count of lines said, so each one types itself out afresh.
+  const quoteRef = useRef('');
+  const [lineTurn, setLineTurn] = useState(0);
   // One of Echo's quick questions, asked now and then after a pull down.
   const [question, setQuestion] = useState<CheckInKind | null>(null);
   /** The question waiting for Echo's line to finish typing. */
@@ -129,15 +129,22 @@ const Home = () => {
     const stats = echoStatsRef.current;
     // Behind on tasks: that comes before any stat, more worried
     // the further behind, up to demon mode (lib/taskPressure.ts).
+    // Every refresh says something new: never the line already showing (the
+    // worried lines are only a few, and the same one again read as no refresh).
+    const shown = quoteRef.current;
+    const say = (line: string) => { quoteRef.current = line; setLineTurn(turn => turn + 1); setMotivationalQuote(line); };
     const pressure = pressureRef.current;
     if (pressureSpeaks(pressure)) {
-      const line = pressureLine(pressure.level === 4 && !pressure.demonAllowed ? { ...pressure, level: 3 } : pressure, personality);
-      if (line) { setMotivationalQuote(line); return; }
+      const level = pressure.level === 4 && !pressure.demonAllowed ? { ...pressure, level: 3 as const } : pressure;
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const line = pressureLine(level, personality);
+        if (line && line !== shown) { say(line); return; }
+      }
     }
     // Now and then, something Echo found in your record instead.
     const found = nextPatternLine(echoPatternsRef.current);
-    if (found) { setMotivationalQuote(found); return; }
-    setMotivationalQuote(await nextEchoLine(personality, { ...stats, name, patterns: echoPatternsRef.current.map(pattern => pattern.text) }, greetingStyle));
+    if (found && found !== shown) { say(found); return; }
+    say(await nextEchoLine(personality, { ...stats, name, patterns: echoPatternsRef.current.map(pattern => pattern.text) }, greetingStyle));
   }, [aiPersonality, greetingStyle]);
   const showEchoLineRef = useRef(showEchoLine);
   useEffect(() => { showEchoLineRef.current = showEchoLine; }, [showEchoLine]);
@@ -179,8 +186,10 @@ const Home = () => {
   // Load initial data & Sync on Focus
   useFocusEffect(
     useCallback(() => {
-      // A new line from Echo every time Home comes into view.
-      showEchoLine();
+      // A new line from Echo every time Home comes into view, once the tab has
+      // been drawn: changing it re-renders Home, which held up the switch.
+      const later = afterPaint(() => { void showEchoLine(); });
+      return () => later.cancel();
     }, [showEchoLine])
   );
 
@@ -192,11 +201,7 @@ const Home = () => {
   const focusRef = useCoachTarget<View>('focus-today');
   const missedRef = useCoachTarget<View>('missed');
   const goalsRef = useCoachTarget<View>('goals');
-  // Only once the app is open to you: not under the free-week screen.
-  const { access } = useAccess();
-  const open = access.kind === 'owned' || access.kind === 'trial';
   useEffect(() => {
-    if (!open) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const { takeTutorialDue } = require('@/lib/tutorial') as typeof import('@/lib/tutorial');
     void takeTutorialDue().then(due => {
@@ -205,7 +210,7 @@ const Home = () => {
     // Asked for again from Settings → How Habyss works.
     const again = on('start_walkthrough', startTour);
     return () => { if (timer) clearTimeout(timer); again.remove(); };
-  }, [open]);
+  }, []);
 
   // Subscribe to habits
   useEffect(() => {
@@ -374,6 +379,7 @@ const Home = () => {
     };
   }, [habits, historyData, completions, goalsData.goals, avgGoalProgress, streak]);
 
+
   useEffect(() => { echoStatsRef.current = echoStats; }, [echoStats]);
 
   // Quick habits (non-goal habits for today)
@@ -466,12 +472,9 @@ const Home = () => {
             <ShardsCard wallet={wallet} onPress={() => setShowWallet(true)} />
           </View>
 
-          {/* The 14-day challenge, while it runs: which day, and what comes after it. */}
-          <ChallengePill style={{ marginTop: sectionGap }} />
-
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
-          {motivationalQuote ? <EchoLine text={motivationalQuote} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)} style={{ marginTop: sectionGap }}
+          {motivationalQuote ? <EchoLine key={lineTurn} text={motivationalQuote} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)} style={{ marginTop: sectionGap }}
             onDone={() => { const kind = pendingQuestion.current; if (kind) { pendingQuestion.current = null; setTimeout(() => setQuestion(kind), 400); } }} /> : null}
 
           {/* Spacer after header */}
@@ -524,10 +527,7 @@ const Home = () => {
             </View>
           </Animated.View>
 
-          {/* Under the three numbers: last night's sleep; good nights earn Marks. */}
-          <View style={{ marginTop: sectionGap }}>
-            <SleepCard />
-          </View>
+
 
 
         </ScrollView>

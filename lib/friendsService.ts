@@ -451,9 +451,6 @@ export async function addFriendByUsername(input: string): Promise<AddFriendResul
 
     const sent = await FriendsService.sendFriendRequest(target.id);
     if (!sent) return { ok: false, error: 'Could not send the request. Try again.' };
-    // Adding the friend who invited you is how an invite counts toward the
-    // friend price (only for a new account, once; the server decides).
-    void (require('@/lib/referrals') as typeof import('@/lib/referrals')).claimReferral(username);
     const nowFriends = (await friendIds(ctx)).includes(target.id);
     return { ok: true, username, nowFriends };
 }
@@ -487,6 +484,22 @@ export class FriendsService {
         const ctx = await signedIn();
         if (!ctx) return new Map();
         return marksOf(ctx, [...ids, ctx.me]);
+    }
+
+    /**
+     * Each person's last 60 days of Marks (the running total, oldest first), as
+     * they published it with their total (lib/marksSync.ts). Missing for anyone
+     * who hides their progress or has not opened the app since it was added.
+     */
+    static async marksSeriesFor(ids: string[]): Promise<Map<string, number[]>> {
+        const ctx = await signedIn();
+        if (!ctx) return new Map();
+        const unique = [...new Set([...ids, ctx.me].filter(Boolean))];
+        const { data, error } = await ctx.sb.from('profiles').select('id, marks_series').in('id', unique);
+        if (error) return new Map();
+        return new Map((data ?? [])
+            .filter((row: any) => Array.isArray(row.marks_series))
+            .map((row: any) => [row.id as string, (row.marks_series as number[]).map(Number)]));
     }
 
     static async getFriendsWithProgress(): Promise<Friend[]> {
@@ -1124,6 +1137,33 @@ export class FriendsService {
         await this.announceShare(ctx, friendId, 'habit', habitId);
         void this.refreshSharedIds();
         return true;
+    }
+
+    /**
+     * Closes every share of this habit or task you are on: all of them if it
+     * is yours, your own if it was shared with you (lib/shareEnding.ts). True
+     * when the server took it, nothing to close included.
+     */
+    /** Who ticked a shared item on which days, by user id (everyone on the share may read it). */
+    static async sharedCompletions(itemId: string): Promise<Record<string, Set<string>>> {
+        const ctx = await signedIn();
+        if (!ctx) return {};
+        const { data, error } = await ctx.sb.from('shared_completions').select('user_id, day').eq('item_id', itemId);
+        if (error) return {};
+        const out: Record<string, Set<string>> = {};
+        for (const row of (data as { user_id: string; day: string }[]) ?? []) (out[row.user_id] ??= new Set()).add(String(row.day).slice(0, 10));
+        return out;
+    }
+
+    static async closeShares(kind: 'habit' | 'task', itemId: string): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const table = kind === 'task' ? 'shared_tasks' : 'shared_habits';
+        const column = kind === 'task' ? 'task_id' : 'habit_id';
+        const { error } = await ctx.sb.from(table).update({ deleted_at: new Date().toISOString() })
+            .eq(column, itemId).is('deleted_at', null).or(`owner_id.eq.${ctx.me},shared_with_id.eq.${ctx.me}`);
+        if (!error) void this.refreshSharedIds();
+        return !error;
     }
 
     static async unshareHabit(habitId: string, friendId: string): Promise<boolean> {

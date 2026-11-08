@@ -1,82 +1,32 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { useColorScheme as useNativeColorScheme } from "react-native";
+import React, { createContext, useContext, useEffect } from "react";
+import { Appearance } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export type ThemeMode = 'light' | 'abyss' | 'trueDark' | 'system';
+export type ThemeMode = 'abyss';
 export type VisualTheme = 'light' | 'abyss' | 'trueDark';
 
 type ThemeContextType = {
-  theme: VisualTheme; // The actual visual theme to render
-  mode: ThemeMode;    // The user's selected preference
-  setTheme: (mode: ThemeMode) => void;
+  /** The visual theme: always the dark Habyss look. */
+  theme: VisualTheme;
+  mode: ThemeMode;
   isDarkMode: boolean;
-  toggleTheme: () => void;
 };
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+const VALUE: ThemeContextType = { theme: 'abyss', mode: 'abyss', isDarkMode: true };
+const ThemeContext = createContext<ThemeContextType>(VALUE);
 
+/**
+ * Habyss is dark, always: one look, the Abyss. The system's own pieces
+ * (alerts, sheets, the keyboard, the status bar) are asked to be dark too,
+ * whatever the phone is set to (ios/Habyss/Info.plist says the same from launch).
+ */
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const systemColorScheme = useNativeColorScheme(); // 'light' | 'dark'
-  const [mode, setModeState] = useState<ThemeMode>('abyss'); // Default preference
-  const [theme, setThemeState] = useState<VisualTheme>('abyss'); // Actual visual theme
-
-  // Effect to update visual theme whenever mode or system scheme changes
   useEffect(() => {
-    if (mode === 'system') {
-      // Map system 'dark' to 'abyss' as the default dark theme
-      setThemeState(systemColorScheme === 'dark' ? 'abyss' : 'light');
-    } else {
-      // Two themes: light, and dark (the Habyss look). True Dark was retired,
-      // so anything that is not light is dark.
-      setThemeState(mode === 'light' ? 'light' : 'abyss');
-    }
-  }, [mode, systemColorScheme]);
-
-  useEffect(() => {
-    const loadTheme = async () => {
-      try {
-        const storedTheme = await AsyncStorage.getItem("theme");
-        if (storedTheme) {
-          // Someone who had chosen True Dark lands on Dark.
-          const known: ThemeMode = storedTheme === 'light' || storedTheme === 'system' ? storedTheme : 'abyss';
-          setModeState(known);
-          if (known !== storedTheme) await AsyncStorage.setItem("theme", known);
-        } else {
-          await AsyncStorage.setItem("theme", "abyss");
-          setModeState('abyss');
-        }
-      } catch (error) {
-        console.error('Error loading theme:', error);
-        setModeState('abyss');
-      }
-    };
-    loadTheme();
+    try { Appearance.setColorScheme('dark'); } catch { /* the plist still holds it */ }
+    // The old Light / Auto choice is gone with the setting.
+    void AsyncStorage.removeItem('theme').catch(() => undefined);
   }, []);
-
-  const setTheme = async (newMode: ThemeMode) => {
-    const known: ThemeMode = newMode === 'trueDark' ? 'abyss' : newMode;
-    setModeState(known);
-    await AsyncStorage.setItem("theme", known);
-  };
-
-  const toggleTheme = async () => {
-    // Legacy toggle mainly for dev or simple switch
-    const newMode = mode === 'light' ? 'abyss' : 'light';
-    setTheme(newMode);
-  };
-
-  const isDarkMode = theme === 'abyss' || theme === 'trueDark';
-
-  return (
-    <ThemeContext.Provider value={{ theme, mode, setTheme, isDarkMode, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={VALUE}>{children}</ThemeContext.Provider>;
 };
 
-export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (!context) throw new Error("useTheme must be used within a ThemeProvider");
-  return context;
-};
-
+export const useTheme = () => useContext(ThemeContext);

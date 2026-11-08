@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, Text as RNText, StyleSheet, View } from 'react-native';
+import { useTokens } from '@/hooks/useTokens';
 import Animated, { Easing, ReduceMotion, cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { MatteSurface } from './MatteSurface';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useAccentGradient } from '@/context/AccentContext';
+import { Colors } from '@/theme/colors';
 import { Text } from './Text';
 import { AppIcon } from './AppIcon';
-import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
-import { Control, Radius, Spacing } from '@/theme/designSystem';
+import { Control, Elevation, Radius, Spacing } from '@/theme/designSystem';
 import { DURATION, EASE } from '@/theme/motion';
 
 /** How long the hold takes. Long enough to mean it, short enough not to wait. */
@@ -26,6 +28,7 @@ export function HoldButton({ label, hint = 'Touch and hold', icon, onComplete, d
     label: string; hint?: string; icon?: string; onComplete: () => void; disabled?: boolean; loading?: boolean;
 }) {
     const t = useTokens();
+    const { buttonColors } = useAccentGradient();
     const { lightFeedback, mediumFeedback, heavyFeedback } = useHaptics();
     const fill = useSharedValue(0);
     const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -64,11 +67,14 @@ export function HoldButton({ label, hint = 'Touch and hold', icon, onComplete, d
                 accessibilityRole="button" accessibilityLabel={label} accessibilityHint="Double-tap to confirm"
                 accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
                 accessibilityActions={[{ name: 'activate' }]} onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'activate' && !disabled && !loading) complete(); }}>
-                <MatteSurface radius={Radius.control} level="control" style={[styles.button, (disabled || loading) && styles.dim]}>
-                    <Animated.View pointerEvents="none" style={[styles.fill, { backgroundColor: t.tint('soft') }, width]} />
-                    {icon ? <AppIcon name={icon} filled size={Control.icon} color={t.color.textPrimary} /> : null}
-                    <Text variant="heading">{loading ? 'One moment…' : label}</Text>
-                </MatteSurface>
+                {/* A primary action: solid in the accent, the words in white; holding
+                    sweeps a lighter band across it from the left. */}
+                <View style={[styles.button, styles.raised, (disabled || loading) && styles.dim]}>
+                    <LinearGradient colors={buttonColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                    <Animated.View pointerEvents="none" style={[styles.fill, { backgroundColor: Colors.common.white }, width]} />
+                    {icon ? <AppIcon name={icon} filled size={Control.icon} color={Colors.common.white} /> : null}
+                    <RNText style={[t.type.heading, { color: Colors.common.white }]}>{loading ? 'One moment…' : label}</RNText>
+                </View>
             </Pressable>
             <Text variant="caption" tone="muted" align="center">{hint}</Text>
         </View>
@@ -78,6 +84,7 @@ export function HoldButton({ label, hint = 'Touch and hold', icon, onComplete, d
 const styles = StyleSheet.create({
     wrap: { gap: Spacing.sm },
     button: { minHeight: Control.height + Spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.lg, overflow: 'hidden' },
-    fill: { position: 'absolute', left: 0, top: 0, bottom: 0 },
+    fill: { position: 'absolute', left: 0, top: 0, bottom: 0, opacity: 0.25 },
+    raised: { borderRadius: Radius.control, ...Elevation.control },
     dim: { opacity: 0.5 },
 });

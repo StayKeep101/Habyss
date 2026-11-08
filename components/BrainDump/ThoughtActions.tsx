@@ -8,7 +8,7 @@ import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { FontFamily } from '@/theme/designSystem';
 
-export type ThoughtAction = 'sort' | 'task' | 'habit' | 'goal' | 'copy';
+export type ThoughtAction = 'sort' | 'task' | 'habit' | 'goal' | 'copy' | 'share';
 
 /**
  * What a held thought (or several selected ones) can become, as a small sheet
@@ -41,6 +41,8 @@ export function ThoughtActions({ visible, count, caption, goals, startWithGoals,
         { id: 'habit', label: many ? `${count} habits` : 'Habit', icon: 'repeat', color: t.color.accent },
         { id: 'goal', label: many ? `${count} goals` : 'Goal', icon: 'flag', color: t.color.success },
         { id: 'copy', label: 'Copy', icon: 'copy', color: t.color.textMuted },
+        // Out to Notion, Notes, Obsidian or anywhere, through the share sheet.
+        { id: 'share', label: 'Share', icon: 'share', color: t.color.textMuted },
     ];
 
     return (
@@ -63,7 +65,7 @@ export function ThoughtActions({ visible, count, caption, goals, startWithGoals,
                 <View style={{ gap: t.space.md }}>
                     <View style={[styles.tiles, { gap: t.space.sm }]}>
                         {tiles.map(tile => (
-                            <Pressable key={tile.id} style={styles.flex} accessibilityRole="button" accessibilityLabel={tile.id === 'copy' ? 'Copy' : `Make ${tile.label.toLowerCase()}`}
+                            <Pressable key={tile.id} style={styles.tileCell} accessibilityRole="button" accessibilityLabel={tile.id === 'copy' ? 'Copy' : tile.id === 'share' ? 'Share to another app' : `Make ${tile.label.toLowerCase()}`}
                                 onPress={() => { selectionFeedback(); onAction(tile.id); }}>
                                 <MatteSurface radius={t.radius.lg} level="control" style={[styles.tile, { gap: t.space.sm, paddingVertical: t.space.md }]}>
                                     <IconTile icon={tile.icon} color={tile.color} size={36} />
@@ -87,7 +89,9 @@ export function ThoughtActions({ visible, count, caption, goals, startWithGoals,
 
 const styles = StyleSheet.create({
     flex: { flex: 1 },
-    tiles: { flexDirection: 'row' },
+    /** Three to a row, so every name fits. */
+    tiles: { flexDirection: 'row', flexWrap: 'wrap' },
+    tileCell: { flexBasis: '30%', flexGrow: 1 },
     tile: { alignItems: 'center' },
     tileLabel: { fontFamily: FontFamily.semibold },
     goals: { maxHeight: 360 },

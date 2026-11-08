@@ -29,12 +29,16 @@ export const SharedFaces: React.FC<{
     size?: number;
     /** How many to draw before the rest become "+2". */
     limit?: number;
-}> = ({ people, tint, size = 22, limit = 4 }) => {
+    /** Only the others on it, not you: where it is already clearly yours (a habit's own page). */
+    othersOnly?: boolean;
+}> = ({ people: everyone, tint, size = 22, limit = 4, othersOnly }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const tone = surfaceFor(theme);
 
-    if (people.length < 2) return null;
+    if (everyone.length < 2) return null;
+    const people = othersOnly ? everyone.filter(person => !person.isYou) : everyone;
+    if (!people.length) return null;
     const shown = people.slice(0, limit);
     const extra = people.length - shown.length;
 
@@ -42,7 +46,7 @@ export const SharedFaces: React.FC<{
         <View
             style={styles.row}
             accessible
-            accessibilityLabel={label(people)}
+            accessibilityLabel={othersOnly ? people.map(person => `${person.username}, ${person.pending ? 'invited' : person.done ? 'done today' : 'not done yet'}`).join('; ') : label(people)}
         >
             {shown.map((person, index) => {
                 const ring = person.pending ? colors.textTertiary : person.done ? tint : tone.fill;

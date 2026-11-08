@@ -24,7 +24,7 @@ export function FocusPill({ color, onPress, label, compact, word = 'Focus', icon
     const t = useTokens();
     const ink = textOn(color);
     return (
-        <Pressable onPress={onPress} hitSlop={t.space.sm} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? `Focus on ${label}`}>
+        <Pressable onPress={onPress} hitSlop={compact ? t.space.md : t.space.sm} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? `Focus on ${label}`}>
             <MatteSurface radius={t.radius.full} level="control" tint={color} style={[styles.pill, compact && styles.compact]}>
                 <AppIcon name={icon} filled size={compact ? s(12) : s(14)} color={ink} />
                 <Text style={[t.type.caption, styles.text, { color: ink }]}>{word}</Text>

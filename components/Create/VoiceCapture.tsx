@@ -43,6 +43,7 @@ function speech(): Speech | null {
  */
 export function VoiceCapture() {
     const [heard, setHeard] = useState<VoiceItem[] | null>(null);
+
     // Habits and goals still to open, one sheet at a time.
     const queue = useRef<VoiceItem[]>([]);
     const { mediumFeedback, lightFeedback } = useHaptics();
@@ -51,6 +52,25 @@ export function VoiceCapture() {
     const active = useRef(false);
     /** Let go before the microphone was even ready: stop as soon as it is. */
     const releasedEarly = useRef(false);
+
+    /**
+     * Words, typed or said, worked out into what they are: a thought (an idea,
+     * nothing to do yet) goes to the brain dump; one thing opens its own sheet
+     * filled in; several are shown together. Typing and speaking agree because
+     * they are the same path.
+     */
+    const route = async (raw: string) => {
+        if (isThought(raw)) {
+            await addThought(cleanSpeech(raw) || raw);
+            return;
+        }
+        const items = await planFromSpeech(raw);
+        if (!items.length) { await addThought(raw); return; }
+        setTimeout(() => { if (items.length === 1) openItem(items[0]); else setHeard(items); }, 220);
+    };
+    const routeRef = useRef(route);
+    routeRef.current = route;
+
 
     useEffect(() => {
         const module = speech();
@@ -68,13 +88,7 @@ export function VoiceCapture() {
             // where it goes is the person's choice in Settings (Brain dump by
             // default). "Create a task to…" is still tidied off the front.
             void getVoiceDestination().then(async destination => {
-                if (destination === 'auto') {
-                    const items = await planFromSpeech(raw);
-                    if (!items.length) return;
-                    // One thing: straight to its own sheet, as before. Several: shown together.
-                    setTimeout(() => { if (items.length === 1) openItem(items[0]); else setHeard(items); }, 220);
-                    return;
-                }
+                if (destination === 'auto') { await routeRef.current(raw); return; }
                 const spoken = await tidySpeech(raw);
                 if (!spoken) return;
                 const text = readVoice(spoken)?.text ?? spoken;
@@ -160,6 +174,10 @@ export function VoiceCapture() {
 
     return heard ? <VoicePlanSheet items={heard} onAdd={addAll} onKeep={keep} /> : null;
 }
+
+/** An idea rather than something to do: kept as a thought. */
+const THOUGHT = /^(?:idea|thought|note|maybe|what if|i wonder|i think|i feel|remember that)\b/i;
+export const isThought = (text: string): boolean => THOUGHT.test(text.trim());
 
 /** One thing heard, in its own sheet with the words already in it. */
 function openItem(item: VoiceItem) {

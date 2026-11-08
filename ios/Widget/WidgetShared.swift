@@ -11,24 +11,8 @@ func widgetDayKey(_ date: Date = Date()) -> String {
     return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
 }
 
-struct WidgetAttributes: ActivityAttributes {
-    public struct ContentState: Codable, Hashable {
-        // Dynamic stateful properties
-        var title: String
-        var subtitle: String
-        var timerEndDateInMilliseconds: Double?
-        var progress: Double
-        var profileImagePath: String?
-        var scheduledStartDateInMilliseconds: Double?
-        var scheduledEndDateInMilliseconds: Double?
-        var url: String?
-        var accentHex: String?
-    }
-
-    // Fixed non-changing properties
-    var name: String
-    var totalDurationSeconds: Double?
-}
+// WidgetAttributes and the Live Activity's Done button: ios/Widget/LiveActivityShared.swift
+// (in both the app and the widget, because the button runs in the app).
 
 struct DashboardTask: Codable, Identifiable {
     let id: String

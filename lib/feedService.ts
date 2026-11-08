@@ -2,7 +2,6 @@ import { getSupabase } from './supabase';
 import type { DayCardData } from './dayCard';
 import type { PresenceFacts } from './presence';
 import { asReaction, type Reaction } from './reactions';
-import type { CrewMember } from './crewQuest';
 
 /**
  * The Community feed, friends' status and the leaderboard, on the server.
@@ -41,6 +40,8 @@ export interface FeedPost {
     myReaction: Reaction | null;
     /** How many of each reaction it got. */
     reactions: Partial<Record<Reaction, number>>;
+    /** Who gave which, by their id: read apart from the feed (FeedService.reactionsBy). */
+    byUser?: Record<string, Reaction>;
     mine: boolean;
 }
 
@@ -104,17 +105,42 @@ export class FeedService {
         return userId ? posts : posts.filter(post => Date.now() - new Date(post.postedAt).getTime() < FEED_LIFETIME_MS);
     }
 
+    /**
+     * Who gave which reaction to each of these days, by post: `day:<user>:<day>`
+     * (the stream's key) → reacting user → reaction. Read from the reactions
+     * themselves (friends may read them), so community_feed keeps its shape
+     * for the desktop app.
+     */
+    static async reactionsBy(posts: Pick<FeedPost, 'userId' | 'day'>[]): Promise<Record<string, Record<string, Reaction>>> {
+        const ctx = await signedIn();
+        if (!ctx || !posts.length) return {};
+        const users = [...new Set(posts.map(post => post.userId))];
+        const days = [...new Set(posts.map(post => post.day))];
+        const { data, error } = await ctx.sb.from('post_acknowledgements').select('post_user, post_day, from_user, reaction')
+            .in('post_user', users).in('post_day', days);
+        if (error) return {};
+        const out: Record<string, Record<string, Reaction>> = {};
+        for (const row of (data as { post_user: string; post_day: string; from_user: string; reaction: string | null }[]) ?? []) {
+            const key = `day:${row.post_user}:${row.post_day}`;
+            (out[key] ??= {})[row.from_user] = asReaction(row.reaction);
+        }
+        return out;
+    }
+
     /** Reacts to a friend's day, or changes your reaction to it. */
     static async acknowledge(post: Pick<FeedPost, 'userId' | 'day'>, reaction: Reaction = 'proud'): Promise<boolean> {
         const ctx = await signedIn();
         if (!ctx) return false;
         const row = { post_user: post.userId, post_day: post.day, from_user: ctx.me };
-        const { error } = await ctx.sb.from('post_acknowledgements')
-            .upsert({ ...row, reaction }, { onConflict: 'post_user,post_day,from_user' });
-        if (!error) return true;
-        // A server without reactions yet: the plain acknowledgement.
-        const plain = await ctx.sb.from('post_acknowledgements').insert(row);
-        return !plain.error || plain.error.code === '23505';
+        // Insert, then change it if one is there: only `reaction` may be updated
+        // (column grant), so an upsert, which updates every column, was refused
+        // and every reaction used to land as the plain one.
+        const made = await ctx.sb.from('post_acknowledgements').insert({ ...row, reaction });
+        if (!made.error) return true;
+        if (made.error.code !== '23505') return false;
+        const changed = await ctx.sb.from('post_acknowledgements').update({ reaction })
+            .eq('post_user', post.userId).eq('post_day', post.day).eq('from_user', ctx.me);
+        return !changed.error;
     }
 
     static async unacknowledge(post: Pick<FeedPost, 'userId' | 'day'>): Promise<boolean> {
@@ -159,22 +185,6 @@ export class FeedService {
         }));
     }
 
-    /** You and your friends this week, for the crew quest (lib/crewQuest.ts). */
-    static async crewQuest(from: string, to: string): Promise<CrewMember[]> {
-        const ctx = await signedIn();
-        if (!ctx) return [];
-        const { data, error } = await ctx.sb.rpc('crew_quest', { p_from: from, p_to: to });
-        if (error) return [];
-        return ((data as any[]) ?? []).map(row => ({
-            userId: row.user_id,
-            name: nameOf(row),
-            avatarUrl: row.avatar_url ?? undefined,
-            showUps: Number(row.show_ups) || 0,
-            active: !!row.active,
-            mine: row.user_id === ctx.me,
-        }));
-    }
-
     static async friendStatuses(): Promise<FriendStatusRow[]> {
         const ctx = await signedIn();
         if (!ctx) return [];
@@ -201,6 +211,8 @@ export class FeedService {
     static async setStatus(patch: {
         presence?: 'live' | 'away';
         focusUntil?: string | null;
+        /** When the running session's ring began (its end less its length), so a friend who joins starts their ring there too. */
+        focusSince?: string | null;
         focusLabel?: string | null;
         timezone?: string;
         wakeTime?: string;
@@ -215,8 +227,18 @@ export class FeedService {
         if (patch.timezone) row.timezone = patch.timezone;
         if (patch.wakeTime) row.wake_time = patch.wakeTime;
         if (patch.sleepTime) row.sleep_time = patch.sleepTime;
-        if (Object.keys(row).length === 0) return;
-        await ctx.sb.from('profiles').update(row).eq('id', ctx.me);
+        if (Object.keys(row).length) await ctx.sb.from('profiles').update(row).eq('id', ctx.me);
+        // Apart, so a server without the column yet still gets the rest.
+        if (patch.focusSince !== undefined) await ctx.sb.from('profiles').update({ focus_since: patch.focusSince }).eq('id', ctx.me).then(() => undefined, () => undefined);
+    }
+
+    /** When a friend's running session began (see setStatus), or null when it is not known. */
+    static async focusSince(userId: string): Promise<number | null> {
+        const ctx = await signedIn();
+        if (!ctx) return null;
+        const { data, error } = await ctx.sb.from('profiles').select('focus_since').eq('id', userId).maybeSingle();
+        const at = !error && data?.focus_since ? new Date(data.focus_since).getTime() : NaN;
+        return Number.isFinite(at) ? at : null;
     }
 
     static async shareSettings(): Promise<{ time: string; enabled: boolean } | null> {

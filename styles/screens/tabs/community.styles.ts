@@ -1,14 +1,27 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily, Spacing, Typography } from '@/theme/designSystem';
+import { FontFamily, Radius, Spacing, Typography } from '@/theme/designSystem';
 
 /** The look of app/(root)/(tabs)/community.tsx. */
 export const styles = StyleSheet.create({
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xl },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
     headerTitle: Typography.screenTitle,
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     rank: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs + 2, height: 40, paddingHorizontal: Spacing.md },
     rankText: { fontFamily: FontFamily.bold, fontSize: 14, fontVariant: ['tabular-nums'] },
     block: { marginBottom: Spacing.xxl },
+    /** The race behind everything, from the top of the screen. */
+    race: { position: 'absolute', top: 0, left: 0, right: 0 },
+    /** The buttons, over the race and the page. */
+    /** The top-right buttons, cut off by the page's edge as it slides over them (overflow hidden). */
+    actions: { position: 'absolute', zIndex: 10, overflow: 'hidden' },
+    /** Today and Challenges side by side, each as tall as itself. */
+    pages: { flexDirection: 'row', alignItems: 'flex-start' },
+    /** The top of a page resting over the race: rounded, with a grabber. */
+    sheetTop: {
+        borderTopLeftRadius: Radius.sheet, borderTopRightRadius: Radius.sheet, borderTopWidth: StyleSheet.hairlineWidth,
+        paddingTop: Spacing.sm,
+    },
+    grabber: { alignSelf: 'center', width: Spacing.xxl + Spacing.md, height: Spacing.xs + 1, borderRadius: Radius.pill },
     /** Confetti over the feed when a perfect day is cheered. */
     cheer: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
     requests: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xs },

@@ -52,3 +52,20 @@ describe('week by week', () => {
         expect(weeks[10].share).toBeNull();
     });
 });
+
+describe('consistency, a rolling week', () => {
+    const dates = (from: string, n: number) => Array.from({ length: n }, (_, i) => { const d = new Date(`${from}T12:00:00`); d.setDate(d.getDate() + i); return d.toISOString().slice(0, 10); });
+    it('is the share of due days kept in the seven days ending on each day', () => {
+        const days = dates('2026-10-21', 14).map((date, i) => day(date, i >= 7 || i % 2 === 0));
+        const record = habitRecord(days, '2026-11-03');
+        const last = record.consistency[record.consistency.length - 1];
+        expect(last.date).toBe('2026-11-03');
+        expect(last.share).toBe(1);
+        expect(record.consistency.find(point => point.date === '2026-10-27')!.share).toBeCloseTo(4 / 7);
+    });
+    it('leaves a gap, not a zero, where nothing was due', () => {
+        const record = habitRecord([day('2026-11-03', true)], '2026-11-03', '2026-11-03');
+        expect(record.consistency[0].share).toBeNull();
+        expect(record.consistency).toHaveLength(56);
+    });
+});

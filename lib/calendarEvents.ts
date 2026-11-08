@@ -10,7 +10,7 @@ import { Alert, Linking, Platform } from 'react-native';
  * access. All-day events and ones marked "free" do not block time. Read on
  * the phone; nothing is sent anywhere.
  */
-export interface CalendarSlot { id: string; title: string; start: number; minutes: number; color?: string }
+export interface CalendarSlot { id: string; title: string; start: number; minutes: number; color?: string; /** A reminder's alarm, where it is not an event. */ icon?: string }
 
 const KEY = 'habyss_calendar_on';
 let on: boolean | null = null;
@@ -58,7 +58,11 @@ export async function listCalendars(): Promise<CalendarInfo[]> {
         const { status } = await api.getCalendarPermissionsAsync();
         if (status !== 'granted') return [];
         const calendars = await api.getCalendarsAsync(api.EntityTypes.EVENT);
-        return calendars
+        // Reminder lists too, under their account, on a build that may read them.
+        const { REMINDERS_ENABLED } = require('@/constants/features') as typeof import('@/constants/features');
+        const lists = REMINDERS_ENABLED && (await api.getRemindersPermissionsAsync().catch(() => null))?.status === 'granted'
+            ? await api.getCalendarsAsync(api.EntityTypes.REMINDER).catch(() => []) : [];
+        return [...calendars, ...lists]
             .map(item => ({ id: item.id, title: item.title || 'Calendar', color: item.color, source: item.source?.name || 'Other' }))
             .sort((a, b) => a.source.localeCompare(b.source) || a.title.localeCompare(b.title));
     } catch {
@@ -104,6 +108,9 @@ export async function setCalendarOn(next: boolean): Promise<boolean> {
         if (!api) return false;
         const { status } = await api.requestCalendarPermissionsAsync().catch(() => ({ status: 'denied' as const }));
         if (status !== 'granted') return false;
+        // Reminders ride along on a build that can ask for them; saying no keeps the calendar.
+        const { REMINDERS_ENABLED } = require('@/constants/features') as typeof import('@/constants/features');
+        if (REMINDERS_ENABLED) await api.requestRemindersPermissionsAsync().catch(() => undefined);
     }
     on = next;
     cache.clear();
@@ -160,6 +167,39 @@ export function toSlot(event: { id: string; title?: string; startDate: string | 
     return { id: event.id, title: event.title?.trim() || 'Busy', start: Math.round(start), minutes: Math.round(end - start), color };
 }
 
+/** How long a reminder with a due time takes on the line: a short block at that time. */
+const REMINDER_MINUTES = 15;
+
+/**
+ * Apple Reminders due at a time on `day`, not done yet, as short blocks like
+ * events (with an alarm icon), from the reminder lists left on. Only on a
+ * build that can ask for reminders (REMINDERS_ENABLED); otherwise none.
+ */
+async function remindersFor(day: string, off: Set<string>): Promise<CalendarSlot[]> {
+    const { REMINDERS_ENABLED } = require('@/constants/features') as typeof import('@/constants/features');
+    const api = calendar();
+    if (!REMINDERS_ENABLED || !api) return [];
+    try {
+        const { status } = await api.getRemindersPermissionsAsync();
+        if (status !== 'granted') return [];
+        const lists = (await api.getCalendarsAsync(api.EntityTypes.REMINDER)).filter(item => !off.has(item.id));
+        if (!lists.length) return [];
+        const colors = new Map(lists.map(item => [item.id, item.color]));
+        const from = new Date(`${day}T00:00:00`);
+        const to = new Date(`${day}T23:59:59`);
+        const reminders = await api.getRemindersAsync(lists.map(item => item.id), api.ReminderStatus.INCOMPLETE, from, to);
+        return reminders.flatMap(reminder => {
+            const due = reminder.dueDate ? new Date(reminder.dueDate) : null;
+            if (!due || !Number.isFinite(due.getTime()) || reminder.completed) return [];
+            const start = Math.round((due.getTime() - from.getTime()) / 60000);
+            if (start < 0 || start >= 1440) return [];
+            return [{ id: `reminder-${reminder.id}`, title: reminder.title?.trim() || 'Reminder', start, minutes: REMINDER_MINUTES, color: colors.get(reminder.calendarId ?? ''), icon: 'alarm' }];
+        });
+    } catch {
+        return [];
+    }
+}
+
 /** The day's events, once read; cached until the setting changes or `fresh` is asked for. */
 export async function eventsFor(day: string, fresh = false): Promise<CalendarSlot[]> {
     if (!(await loadCalendarSetting())) return [];
@@ -177,9 +217,9 @@ export async function eventsFor(day: string, fresh = false): Promise<CalendarSlo
         const from = new Date(`${day}T00:00:00`);
         const to = new Date(`${day}T23:59:59`);
         const events = await api.getEventsAsync(calendars.map(item => item.id), from, to);
-        const slots = events
+        const slots = [...events
             .map(event => toSlot(event as never, day, colors.get((event as { calendarId?: string }).calendarId ?? '')))
-            .filter((slot): slot is CalendarSlot => !!slot)
+            .filter((slot): slot is CalendarSlot => !!slot), ...(await remindersFor(day, off))]
             .sort((a, b) => a.start - b.start);
         cache.set(day, slots);
         changed();

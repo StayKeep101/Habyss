@@ -14,6 +14,7 @@ jest.mock('@/components/ui/SheetScreen', () => {
 jest.mock('@/components/Auth/SignInOptions', () => ({ SignInOptions: () => null }));
 jest.mock('@/lib/account', () => ({
     currentAccount: jest.fn(async () => ({ id: 'user', email: 'signed-in@example.com' })),
+    knownAccount: () => undefined,
     onAccountChange: () => () => undefined,
 }));
 jest.mock('@/lib/cloudSync', () => ({ lastSyncedAt: jest.fn(async () => null) }));

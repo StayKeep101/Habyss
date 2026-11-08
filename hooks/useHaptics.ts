@@ -24,6 +24,9 @@ const fire = (run: () => Promise<unknown>): void => {
   }
 };
 
+/** The one strength every haptic in the app uses. */
+const STRENGTH = Haptics.ImpactFeedbackStyle.Medium;
+
 export const useHaptics = () => {
   // Try to get global settings, fallback to always enabled if context not available
   let hapticsEnabled = true;
@@ -35,53 +38,33 @@ export const useHaptics = () => {
   }
 
   return useMemo(() => {
-  const lightFeedback = () => {
-    if (hapticsEnabled) fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
+  // One strength everywhere: every buzz in the app is the same tap, so none
+  // feels louder or weaker than another. What tells them apart is rhythm, not
+  // force: a choice is one tap, done is two, a problem is three quick ones,
+  // a goal reached is three slow ones.
+  const tap = () => {
+    if (hapticsEnabled) fire(() => Haptics.impactAsync(STRENGTH));
   };
-
-  const mediumFeedback = () => {
-    if (hapticsEnabled) fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium));
-  };
-
-  const thud = () => {
-    if (hapticsEnabled) fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy));
-  };
-
-  /**
-   * The long one, for a goal reached.
-   *
-   * Not `await`ed any more: it used to hold the caller until the first buzz
-   * came back, and a rejection there propagated into whatever had awaited it.
-   * The two later taps are timers, so they were never awaited anyway.
-   */
-  const resonance = async () => {
+  const taps = (count: number, gap: number) => {
     if (!hapticsEnabled) return;
-    fire(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success));
-    setTimeout(() => fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)), 100);
-    setTimeout(() => fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)), 250);
+    for (let index = 0; index < count; index += 1) {
+      if (index === 0) tap(); else setTimeout(tap, index * gap);
+    }
   };
 
-  const successFeedback = () => {
-    if (hapticsEnabled) fire(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success));
-  };
+  const lightFeedback = tap;
+  const mediumFeedback = tap;
+  const thud = tap;
+  const selectionFeedback = tap;
+  /** A finger landing on a chart. */
+  const softFeedback = tap;
+  /** The high, the low or the end of a chart under the finger. */
+  const rigidFeedback = tap;
 
-  const errorFeedback = () => {
-    if (hapticsEnabled) fire(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error));
-  };
-
-  const selectionFeedback = () => {
-    if (hapticsEnabled) fire(() => Haptics.selectionAsync());
-  };
-
-  /** A cushioned tap: a finger landing on a chart. */
-  const softFeedback = () => {
-    if (hapticsEnabled) fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft));
-  };
-
-  /** A crisp, firm tap: the high, the low or the end of a chart under the finger. */
-  const rigidFeedback = () => {
-    if (hapticsEnabled) fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid));
-  };
+  /** The long one, for a goal reached: three slow taps. Never awaited by anything. */
+  const resonance = async () => { taps(3, 150); };
+  const successFeedback = () => taps(2, 90);
+  const errorFeedback = () => taps(3, 70);
 
   return {
     enabled: hapticsEnabled,

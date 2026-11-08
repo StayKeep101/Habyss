@@ -11,7 +11,7 @@ export interface HabitReminder { habit: Habit; date: Date; scheduledDate: string
  * with no timeline yet, use the time it was given.
  */
 export function buildHabitReminderPlan(habits: Habit[], now = new Date(), completedToday: Record<string, boolean> = {}, limit = 48,
-    todayStarts: Record<string, { start: number }> = {}): HabitReminder[] {
+    todayStarts?: Record<string, { start: number }>): HabitReminder[] {
     const plan: HabitReminder[] = [];
     const today = localDateKey(now);
     for (const habit of habits) {
@@ -20,7 +20,9 @@ export function buildHabitReminderPlan(habits: Habit[], now = new Date(), comple
             const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12);
             const scheduledDate = localDateKey(day);
             if (!isHabitScheduledForDate(habit, day) || (scheduledDate === today && completedToday[habit.id])) continue;
-            const placed = scheduledDate === today ? todayStarts[habit.id] : undefined;
+            const placed = scheduledDate === today ? todayStarts?.[habit.id] : undefined;
+            // Today, a habit not on today's timeline (no room before bedtime) is not reminded of.
+            if (scheduledDate === today && todayStarts && !placed) continue;
             if (placed) {
                 const date = new Date(day); date.setHours(0, placed.start - Math.max(0, habit.reminderOffset || 0), 0, 0);
                 if (date.getTime() > now.getTime()) plan.push({ habit, date, scheduledDate });

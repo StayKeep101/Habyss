@@ -62,7 +62,9 @@ export function useFocusStatus() {
         // ends on the same second; a stopwatch has none, so two hours from now.
         const exact = focus.activeMode === 'flow' ? null : peekFocusEnd();
         const until = running ? new Date(exact ?? Date.now() + Math.max(60, seconds) * 1000).toISOString() : null;
-        void FeedService.setStatus({ focusUntil: until, focusLabel: running ? focus.activeHabitName ?? null : null })
+        // Where the ring began: its end less its whole length, so a friend's ring starts as full as yours.
+        const since = running && exact && focus.totalDuration ? new Date(exact - focus.totalDuration * 1000).toISOString() : null;
+        void FeedService.setStatus({ focusUntil: until, focusSince: since, focusLabel: running ? focus.activeHabitName ?? null : null })
             // Whose session this is, when you joined a friend's (lib/focusTogether.ts).
             // or whose you said you are in with, focusing at the same time by chance.
             .then(() => setFocusWith(running ? hostOf(focus.activeHabitId) ?? linkedHost() : null, running && focus.activeMode === 'flow').catch(() => undefined))

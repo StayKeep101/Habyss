@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {View, TouchableOpacity, StyleSheet} from 'react-native';
+import { readableAccent } from '@/lib/colorContrast';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -75,7 +76,11 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const { theme } = useTheme();
     // A barely-there edge so the bar lifts off the page; never a white outline.
     const dockEdge = theme === 'light' ? 'rgba(15,23,42,0.07)' : 'rgba(255,255,255,0.08)';
-    const { colors: accentColors, shadowColor, foreground, buttonColors } = useAccentGradient();
+    const { colors: accentColors, shadowColor, foreground } = useAccentGradient();
+    // The plus is a large icon, not text: it needs 3:1 against its white glyph,
+    // not text's 4.5:1, so it keeps the accent's own colour instead of the
+    // darkened one buttons with words use (which read as greyed out on warm accents).
+    const orbColors = useMemo(() => accentColors.map(color => readableAccent(color, '#ffffff', 3)) as [string, string], [accentColors]);
     const palette = Colors[theme];
     const { mediumFeedback } = useHaptics();
     const { horizontalPadding, tabBarHeight, floatingButtonSize, tabBarBottomOffset, isCompactWidth, railed, insets } = useResponsiveLayout();
@@ -214,7 +219,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     React.useEffect(() => { void loadPlus(); }, []);
     const plusLabel = plusTab === 'settings' ? 'Search settings'
         : plus[plusTab].length === 1 ? PLUS_ACTIONS[plus[plusTab][0]].label
-            : plusTab === 'home' ? 'Check in' : plusTab === 'community' ? 'Bet or challenge' : 'Create a habit, goal, or task';
+            : plusTab === 'community' ? 'Bet or challenge' : 'Create a habit, goal, or task';
 
     const orb = (
             <Animated.View style={orbScale}>
@@ -261,7 +266,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
             >
                 <Animated.View style={[StyleSheet.absoluteFill, plusLayer]}>
                     <LinearGradient
-                        colors={buttonColors}
+                        colors={orbColors}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={[styles.orbGradient, { borderRadius: floatingButtonSize / 2 }]}
@@ -338,10 +343,10 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
             {/* Holding the plus stretches it into a listening pill over the dock. */}
             <View pointerEvents="none" style={[StyleSheet.absoluteFill, { left: horizontalPadding, right: horizontalPadding }]}>
                 <VoiceOrb size={floatingButtonSize} maxWidth={Math.max(floatingButtonSize, screenWidth - horizontalPadding * 2)}
-                    colors={buttonColors} ink="#fff" />
+                    colors={orbColors} ink="#fff" />
             </View>
         </View>
-        {/* A focus session left running sits on top of the dock, on every tab.
+        {/* What to be doing now (or the focus session running) sits on top of the dock, on every tab.
             Beside the dock rather than inside it: iOS gives no touches to a
             view drawn outside its parent. After it, so the dock's fade never
             shades it. */}
@@ -396,12 +401,12 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         marginTop: 4,
     },
-    // The plus floats like the dock beside it, on a glow of its own colour.
+    // The plus floats like the dock beside it, on a close, soft glow of its own colour.
     orbContainer: {
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.55,
-        shadowRadius: 20,
-        elevation: 14,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 8,
     },
     orbCenter: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
     removeLabel: { position: 'absolute', right: 0, width: 160, textAlign: 'right', fontSize: 13, fontFamily: FontFamily.medium },

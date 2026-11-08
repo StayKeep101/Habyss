@@ -7,7 +7,11 @@ export const styles = StyleSheet.create({
     swapped: { gap: 18 },
     /** The focus button, in the bottom-right corner. */
     focusCorner: { position: 'absolute', right: 20, bottom: 28 },
-    headerActions: { flexDirection: 'row', gap: 4 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    /** The friends on a shared habit, a little apart from the buttons. */
+    faces: { marginRight: 4 },
+    /** Whose progress, on a shared habit: just under the section title. */
+    people: { marginBottom: 12 },
     content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 64, gap: 24 },
     danger: { marginTop: 16 },
     empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },

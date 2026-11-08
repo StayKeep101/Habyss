@@ -1,6 +1,6 @@
 import type { TextStyle } from 'react-native';
 import { contrastRatio } from '@/lib/colorContrast';
-import { Colors } from '@/theme/colors';
+import { Colors, EternalIridescence, RankColors } from '@/theme/colors';
 import { Elevation, FontFamily, Radius, Typography, Surfaces } from '@/theme/designSystem';
 
 /**
@@ -74,6 +74,19 @@ export const colorRoles: Record<ThemeName, ColorRoles> = {
 /** Resolves any theme name the app has used (including the old `dark`). */
 export const rolesFor = (theme: string): ColorRoles =>
     colorRoles[(theme === 'dark' ? 'abyss' : theme) as ThemeName] ?? colorRoles.abyss;
+
+/* -------------------------------------------------------------------------- */
+/*  Rank tones — each rank's gem (components/ui/RankGem.tsx).                  */
+/* -------------------------------------------------------------------------- */
+
+export type RankName = keyof typeof RankColors;
+export interface RankTone { color: string; iridescent: readonly string[] | null }
+
+/** A rank's gem colour, and Eternal's split light. Unknown names read as Lost. */
+export const rankTone = (name: string): RankTone => ({
+    color: RankColors[name as RankName] ?? RankColors.Lost,
+    iridescent: name === 'Eternal' ? EternalIridescence : null,
+});
 
 /* -------------------------------------------------------------------------- */
 /*  Accent tints — three strengths of any colour over a surface.              */

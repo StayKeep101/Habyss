@@ -3,6 +3,8 @@ import { FontFamily } from '@/theme/designSystem';
 
 /** The look of app/(root)/progress.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
+    /** Whose streak: centred over it. */
+    pickerRow: { alignItems: 'center' },
     content: { paddingHorizontal: 20, paddingBottom: 40 },
     monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, marginTop: 20 },
     month: { fontSize: 17, fontFamily: FontFamily.semibold },

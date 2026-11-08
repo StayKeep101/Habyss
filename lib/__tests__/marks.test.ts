@@ -1,4 +1,4 @@
-import { computeMarks, multiplierFor, penaltiesOf, rankBand, rankFor, RANKS } from '../marks';
+import { computeMarks, MARKS, MARKS_LIMITS, multiplierFor, penaltiesOf, rankBand, rankFor, RANKS } from '../marks';
 import type { Habit } from '../habitsSQLite';
 import type { Task } from '../tasks';
 
@@ -179,5 +179,22 @@ describe('milestones', () => {
         });
         expect(result.total).toBe(30);
         expect(result.events[0]).toMatchObject({ date: '2026-10-25', points: 30, kind: 'complete', item: 'milestone', title: 'Finish Book 1' });
+    });
+});
+
+describe('marks reward a real day, not a long list', () => {
+    it('pays the first habits of a day in full and one for each after', () => {
+        // Twenty habits made on Sep 1 (adds there), all kept on Oct 4.
+        const many = Array.from({ length: 20 }, (_, index) => habit({ id: `h${index}`, name: `Tiny ${index}`, createdAt: '2026-09-01T09:00:00', startDate: '2026-10-04' }));
+        const result = computeMarks({ habits: many, tasks: [], history: { '2026-10-04': many.map(item => item.id) }, today: TODAY });
+        const kept = result.series.find(point => point.date === '2026-10-04')!.value - result.series.find(point => point.date === '2026-10-03')!.value;
+        expect(kept).toBe(MARKS_LIMITS.fullHabitsPerDay * MARKS.complete.habit + (20 - MARKS_LIMITS.fullHabitsPerDay) * MARKS_LIMITS.extraHabit);
+    });
+
+    it('counts at most the daily ceiling for adding things, and keeps the rest on the record', () => {
+        const many = Array.from({ length: 20 }, (_, index) => habit({ id: `h${index}`, name: `Tiny ${index}`, createdAt: '2026-10-04T09:00:00', startDate: '2026-10-06' }));
+        const result = computeMarks({ habits: many, tasks: [], history: {}, today: TODAY });
+        expect(result.total).toBe(MARKS_LIMITS.addsPerDay);
+        expect(result.ledger.filter(event => event.kind === 'add')).toHaveLength(20);
     });
 });

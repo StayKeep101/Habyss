@@ -55,3 +55,25 @@ export const CEREMONY = {
 } as const;
 
 export const timingFor = timing;
+
+/**
+ * Stepping into Focus and out of it (docs/motion-system.md §4.6): slow on
+ * purpose, a ritual, not a transition. Each beat in milliseconds, in order.
+ */
+export const FOCUS_ENTRY = {
+    /** The hourglass comes out of the dark. */
+    appear: 1100,
+    /** It hangs there, breathing. */
+    hold: 350,
+    /** It turns over. */
+    flip: 1300,
+    /** The sand starts to run. */
+    settle: 450,
+    /** Into the sand, until it is all there is. */
+    zoom: 1100,
+    /** The sand comes apart, grain by grain, and Focus is underneath. */
+    dissolve: 1500,
+} as const;
+
+/** Leaving Focus: the same sand, gathering back into a sheet before the page fades. */
+export const FOCUS_EXIT = { gather: 1300 } as const;

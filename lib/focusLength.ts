@@ -79,16 +79,21 @@ export function focusPlan(input: {
 }
 
 /**
- * Where the clock stands when focus opens, counted from when the thing began
- * on today's timeline (`since`, ms): a timer with what is left of its length,
- * or, once that is used up, a stopwatch at the whole time since it began.
- * A 5:00–5:30 task opened at 5:10 has 20 minutes left; at 6:00 it is a
- * stopwatch at 1:00:00. Not begun yet (or no `since`): the full timer from now.
+ * Where the clock stands when focus opens. Focus always begins now: only time
+ * actually spent focusing is counted, never time that passed before you
+ * started (opening a 9:00 task at 11:00 used to start a stopwatch at two
+ * hours, and finishing it banked them as focus).
+ *
+ * The timer still keeps to today's timeline where it can: opened inside its
+ * slot (`since`, ms, is when the slot began), it runs to the slot's end, so a
+ * 5:00–5:30 task opened at 5:10 has 20 minutes. Opened after its slot is
+ * over, it gets its whole length again, from now. Not begun yet (or no
+ * `since`): the full timer from now. A stopwatch (an endless length) starts
+ * at zero.
  */
 export function focusClock(lengthSeconds: number, since: number | null | undefined, now: number): { began: number; stopwatch: boolean; seconds: number } {
-    const began = since && since < now ? since : now;
-    const elapsed = Math.floor((now - began) / 1000);
-    return elapsed >= lengthSeconds
-        ? { began, stopwatch: true, seconds: elapsed }
-        : { began, stopwatch: false, seconds: lengthSeconds - elapsed };
+    if (!Number.isFinite(lengthSeconds)) return { began: now, stopwatch: true, seconds: 0 };
+    const intoSlot = since && since < now ? Math.floor((now - since) / 1000) : 0;
+    const left = intoSlot > 0 && intoSlot < lengthSeconds ? lengthSeconds - intoSlot : lengthSeconds;
+    return { began: now, stopwatch: false, seconds: Math.max(60, left) };
 }

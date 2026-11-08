@@ -45,6 +45,8 @@ export interface AppEvents {
     task_reopened: { taskId: string };
     /** "Next" pressed on the watch during a focus session: finish this one, go to the next. */
     focus_next: { id?: string };
+    /** A focus session's time ran out: it has ended (its minutes kept); the Focus page, if open, moves on. */
+    focus_time_up: { id: string };
     /** Settings → Focus → Turn sideways to focus changed. */
     engagement_settings_changed: void;
     /** Every task and habit for the day is done. */

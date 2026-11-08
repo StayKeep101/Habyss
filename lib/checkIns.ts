@@ -152,4 +152,27 @@ export function todays(current: CheckInState, kind: CheckInKind, now = new Date(
     return found ? found.value : null;
 }
 
+/**
+ * When Echo asks about energy by notification today, in minutes from midnight,
+ * or null. Once a day, between two hours after waking and two before bed, at
+ * the hour with the fewest answers so far (the curve learns the whole day),
+ * the earliest of those still ahead. Not when today already has an answer
+ * in that part of the day, and not at all once the curve is sure
+ * (`confident`): then asking is only noise.
+ */
+export function energyAskAt(current: CheckInState, now: Date, wake: number, sleep: number, confident: boolean): number | null {
+    if (confident) return null;
+    const today = dayOf(now.toISOString());
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const answered = current.entries.filter(entry => entry.kind === 'energy' && dayOf(entry.at) === today).map(entry => partOf(new Date(entry.at).getHours()));
+    const first = Math.ceil((wake + 120) / 60);
+    const last = Math.floor((sleep - 120) / 60);
+    let best: number | null = null;
+    for (let hour = first; hour <= last; hour++) {
+        if (hour * 60 <= nowMinutes || answered.includes(partOf(hour))) continue;
+        if (best === null || current.stats.energy.hours[hour] < current.stats.energy.hours[best]) best = hour;
+    }
+    return best === null ? null : best * 60;
+}
+
 export { dayOf as checkInDay };

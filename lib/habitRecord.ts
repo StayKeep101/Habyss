@@ -7,7 +7,11 @@
  * A day counts when the habit was due on it and not skipped; today does not
  * break a run until it is over.
  */
-export interface RecordDay { date: string; completed: boolean; skipped: boolean; scheduled: boolean }
+export interface RecordDay {
+    date: string; completed: boolean; skipped: boolean; scheduled: boolean;
+    /** Several people on a shared habit, together: the share of them who did it that day (0–1). */
+    share?: number;
+}
 export type DayState = 'done' | 'missed' | 'skipped' | 'off' | 'today' | 'future';
 
 export interface HabitRecord {
@@ -26,6 +30,12 @@ export interface HabitRecord {
     bestWeekday: number | null;
     /** The last twelve weeks, oldest first: due days kept, by the same count as everything above. */
     weeks: { from: string; done: number; due: number; share: number | null }[];
+    /**
+     * Consistency, day by day for the last eight weeks, oldest first: the share
+     * of due days kept in the seven days ending on each day (null while
+     * nothing was due in them). A rolling week reads as a trend, not as noise.
+     */
+    consistency: { date: string; share: number | null }[];
 }
 
 const shift = (day: string, by: number) => {
@@ -36,6 +46,9 @@ const shift = (day: string, by: number) => {
 const pct = (done: number, due: number) => (due ? Math.round((done / due) * 100) : null);
 /** How many weeks the habit's graph looks back. */
 const WEEKS = 12;
+/** How many days the consistency line covers, and the window each point looks back over. */
+export const CONSISTENCY_DAYS = 56;
+const ROLLING = 7;
 
 export function habitRecord(history: RecordDay[], today: string, startDate?: string, weekStartsMonday = true): HabitRecord {
     const byDate = new Map(history.map(day => [day.date, day]));
@@ -100,5 +113,51 @@ export function habitRecord(history: RecordDay[], today: string, startDate?: str
         }
         return { from, done: weekDone, due: weekDue, share: weekDue ? weekDone / weekDue : null };
     });
-    return { streak: run, best, done, rate: pct(doneDue, due), rate30: window(0, 30), ratePrev30: window(30, 60), week, bestWeekday: bestShare > 0 ? bestWeekday : null, weeks };
+    // Rolling seven days, counted as above, ending on each of the last eight weeks' days.
+    const counted = (date: string): { due: boolean; kept: boolean } => {
+        const day = byDate.get(date);
+        if (!day || date > today || (startDate && date < startDate) || !day.scheduled || day.skipped) return { due: false, kept: false };
+        if (date === today && !day.completed) return { due: false, kept: false };
+        return { due: true, kept: day.completed };
+    };
+    const consistency = Array.from({ length: CONSISTENCY_DAYS }, (_, index) => {
+        const date = shift(today, -(CONSISTENCY_DAYS - 1 - index));
+        let rollingDue = 0; let rollingKept = 0;
+        for (let back = 0; back < ROLLING; back++) {
+            const day = counted(shift(date, -back));
+            if (!day.due) continue;
+            rollingDue++;
+            if (day.kept) rollingKept++;
+        }
+        return { date, share: rollingDue ? rollingKept / rollingDue : null };
+    });
+    return { streak: run, best, done, rate: pct(doneDue, due), rate30: window(0, 30), ratePrev30: window(30, 60), week, bestWeekday: bestShare > 0 ? bestWeekday : null, weeks, consistency };
+}
+
+/**
+ * Consistency over the habit's whole life, oldest first: each day, the share
+ * of due days kept in the seven days ending on it (null while nothing was
+ * due). From the day it began (or its first recorded day) to today, so two
+ * people on a shared habit start from the same place on the left.
+ */
+export function consistencyFrom(history: RecordDay[], today: string, startDate?: string, minDays = CONSISTENCY_DAYS): { date: string; share: number | null }[] {
+    const byDate = new Map(history.map(day => [day.date, day]));
+    const first = startDate ?? [...history].map(day => day.date).sort()[0] ?? today;
+    const span = Math.max(minDays, Math.round((new Date(`${today}T12:00:00`).getTime() - new Date(`${first}T12:00:00`).getTime()) / 86_400_000) + 1);
+    const counted = (date: string) => {
+        const day = byDate.get(date);
+        if (!day || date > today || (startDate && date < startDate) || !day.scheduled || day.skipped) return null;
+        if (date === today && !day.completed && day.share === undefined) return null;
+        return day.share ?? (day.completed ? 1 : 0);
+    };
+    return Array.from({ length: span }, (_, index) => {
+        const date = shift(today, -(span - 1 - index));
+        let due = 0; let kept = 0;
+        for (let back = 0; back < 7; back++) {
+            const value = counted(shift(date, -back));
+            if (value === null) continue;
+            due++; kept += value;
+        }
+        return { date, share: due ? kept / due : null };
+    });
 }

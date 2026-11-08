@@ -8,7 +8,7 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { currentAccount, onAccountChange, signOut, type Account } from '@/lib/account';
+import { currentAccount, knownAccount, onAccountChange, signOut, type Account } from '@/lib/account';
 import { lastSyncedAt, syncNow } from '@/lib/cloudSync';
 import { isCloudConfigured } from '@/lib/supabase';
 import { SignInOptions } from '@/components/Auth/SignInOptions';
@@ -48,8 +48,9 @@ export default function AccountScreen() {
         else router.replace(restoring ? '/(auth)/onboarding' : '/(root)/(tabs)/home');
     };
 
-    const [account, setAccount] = useState<Account | null>(null);
-    const [loading, setLoading] = useState(true);
+    // Opens already knowing who is signed in (kept once read), then refreshes behind it.
+    const [account, setAccount] = useState<Account | null>(() => knownAccount() ?? null);
+    const [loading, setLoading] = useState(() => knownAccount() === undefined);
     const [busy, setBusy] = useState<null | 'send' | 'verify' | 'sync' | 'signout' | 'delete'>(null);
     const [leaving, setLeaving] = useState(false);
     const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);

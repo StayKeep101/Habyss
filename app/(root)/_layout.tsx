@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { AccessGate } from '@/components/Paywall/AccessGate';
 import { Stack } from 'expo-router';
 import { Dimensions } from 'react-native';
 import { DemonEdge } from '@/components/ui/DemonEdge';
@@ -50,7 +49,8 @@ export default function RootLayout() {
         <Stack.Screen name="ai-config" options={{ presentation: 'modal' }} />
         <Stack.Screen name="guide" options={{ headerShown: false, presentation: 'modal' }} />
         {/* Focus mode: the whole screen, no swipe away (leaving is the × , which pauses). */}
-        <Stack.Screen name="focus" options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }} />
+        {/* Fades in, not up: the page becomes the void Focus opens from (components/Focus/FocusPortal). */}
+        <Stack.Screen name="focus" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="goals-overview" options={{ presentation: 'modal' }} />
         <Stack.Screen
           name="notifications"
@@ -99,6 +99,13 @@ export default function RootLayout() {
 
         <Stack.Screen
           name="appearance"
+          options={{
+            headerShown: false,
+            presentation: 'modal'
+          }}
+        />
+        <Stack.Screen
+          name="plus-button"
           options={{
             headerShown: false,
             presentation: 'modal'
@@ -183,8 +190,6 @@ export default function RootLayout() {
         />
 
       </Stack>
-      {/* The 14-day challenge, and the lock after it until Habyss is bought. */}
-      <AccessGate />
       {/* Demon mode: far behind on tasks, the edge of the screen glows red (lib/taskPressure.ts). */}
       <DemonEdge on={demon} />
       {/* Phone on its side: focus on what is due now. */}

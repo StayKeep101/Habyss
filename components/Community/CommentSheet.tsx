@@ -40,6 +40,8 @@ export interface CommentTarget {
     total: number;
     /** It is your own day: you may remove anything said on it. */
     mine: boolean;
+    /** Opened to write: the keyboard comes up with the sheet. */
+    focus?: boolean;
 }
 
 /** A comment's words, with @mentions in cobalt. */
@@ -173,6 +175,13 @@ export function CommentSheet({ target, onClose, onChanged }: { target: CommentTa
         });
         return () => { stop(); if (pending) clearTimeout(pending); };
     }, [target, load]);
+
+    // Opened from the message icon: ready to type as the sheet arrives.
+    useEffect(() => {
+        if (!target?.focus) return;
+        const timer = setTimeout(() => input.current?.focus(), DURATION.tap);
+        return () => clearTimeout(timer);
+    }, [target]);
 
     const threads = useMemo(() => threadsOf(comments ?? []), [comments]);
     const mention = mentionAt(text, cursor);

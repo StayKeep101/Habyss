@@ -1,41 +1,18 @@
-jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
-import { accessFrom, challengeDay, friendPrice, isOpen, TRIAL_DAYS } from '../access';
+jest.mock('@/lib/RevenueCat', () => ({ __esModule: true, default: { isConfigured: () => false } }));
+import { proFrom, proStatusLine } from '../access';
 
-const DAY = 24 * 60 * 60 * 1000;
-const start = new Date(2026, 9, 1, 9).getTime();
-
-describe('access: the 14-day challenge, then one payment', () => {
-    it('never locks when there is no way to pay', () => {
-        expect(accessFrom({ billing: false, owned: false, trialStart: start, now: start + 30 * DAY })).toEqual({ kind: 'owned' });
+describe('Habyss Pro', () => {
+    it('is free unless the store says Pro is active', () => {
+        expect(proFrom(null)).toEqual({ kind: 'free' });
+        expect(proFrom({ active: false, until: null, renews: false })).toEqual({ kind: 'free' });
+        expect(proFrom({ active: true, until: 1000, renews: true })).toEqual({ kind: 'pro', until: 1000, renews: true });
     });
 
-    it('is yours once bought, whatever the trial says', () => {
-        expect(accessFrom({ billing: true, owned: true, trialStart: start, now: start + 30 * DAY })).toEqual({ kind: 'owned' });
-    });
-
-    it('asks to start the challenge before anything', () => {
-        expect(accessFrom({ billing: true, owned: false, trialStart: null, now: start }).kind).toBe('not_started');
-    });
-
-    it('counts the days, and locks the whole app when the fourteen are up', () => {
-        expect(TRIAL_DAYS).toBe(14);
-        const first = accessFrom({ billing: true, owned: false, trialStart: start, now: start + DAY / 2 });
-        expect(first).toMatchObject({ kind: 'trial', daysLeft: 14 });
-        expect(challengeDay(first)).toBe(1);
-        const last = accessFrom({ billing: true, owned: false, trialStart: start, now: start + 13.5 * DAY });
-        expect(last).toMatchObject({ kind: 'trial', daysLeft: 1 });
-        expect(challengeDay(last)).toBe(14);
-        expect(accessFrom({ billing: true, owned: false, trialStart: start, now: start + TRIAL_DAYS * DAY }).kind).toBe('ended');
-        expect(isOpen({ kind: 'ended' })).toBe(false);
-        expect(isOpen({ kind: 'trial', daysLeft: 3, endsAt: 0 })).toBe(true);
-    });
-
-    it('is half price when invited, or once three invited friends have joined', () => {
-        expect(friendPrice(null)).toBe(false);
-        expect(friendPrice({ invitedBy: null, joined: 0 })).toBe(false);
-        // One friend joining is enough: whoever invites pays half too.
-        expect(friendPrice({ invitedBy: null, joined: 1 })).toBe(true);
-        expect(friendPrice({ invitedBy: null, joined: 3 })).toBe(true);
-        expect(friendPrice({ invitedBy: 'milo', joined: 0 })).toBe(true);
+    it('says when it renews, when a cancelled one ends, and a lifetime purchase is for good', () => {
+        const at = new Date(2026, 11, 5).getTime();
+        expect(proStatusLine({ kind: 'free' })).toBeNull();
+        expect(proStatusLine({ kind: 'pro', until: null, renews: false })).toBe('Pro is yours for good.');
+        expect(proStatusLine({ kind: 'pro', until: at, renews: true })).toMatch(/^Pro is on\. Renews .+\.$/);
+        expect(proStatusLine({ kind: 'pro', until: at, renews: false })).toMatch(/won’t renew\.$/);
     });
 });

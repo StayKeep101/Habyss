@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getNotificationPrefs, setNotificationPrefs } from '@/lib/notificationPrefs';
 import { ScrollView, View, Text, Alert, Linking } from 'react-native';
 import { AppSwitch as Switch } from '@/components/ui/AppSwitch';
 import { IconTile } from '@/components/ui/IconTile';
@@ -7,13 +8,15 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { planAlertsOn, setPlanAlertsOn } from '@/lib/planAlerts';
 
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import * as Notifs from 'expo-notifications';
+import { morningAlarmAvailable } from '@/lib/morningAlarm';
+import { planAlertsOn, setPlanAlertsOn } from '@/lib/planAlerts';
+import HabyssLiveActivity from '@/modules/habyss-live-activity';
 import { NotificationService } from '@/lib/notificationService';
 import { TimeRow } from '@/components/ui/TimeRow';
 import { cachedDayWindow, DEFAULT_DAY, getDayWindow, updateDayWindow, type DayWindow } from '@/lib/echo';
@@ -100,9 +103,15 @@ const Notifications = () => {
   };
 
   const [habitReminders, setHabitReminders] = useState(true);
-  // Echo, when the timeline moves something you did not get to in time.
+  // Guided through the day: now, next, a heads-up, meals, events (lib/dayGuide.ts).
   const [planChanges, setPlanChanges] = useState(true);
   useEffect(() => { void planAlertsOn().then(setPlanChanges); }, []);
+  const [dayGuide, setDayGuide] = useState(true);
+  // Leave now and Start now as alarms (iOS 26+): ring through Silent, buzz the Watch.
+  const [alarms, setAlarms] = useState(true);
+  const alarmsAvailable = morningAlarmAvailable() && !!HabyssLiveActivity?.scheduleMomentAlarms;
+  useEffect(() => { void getNotificationPrefs().then(prefs => { setDayGuide(prefs.dayGuide); setAlarms(prefs.alarms); }).catch(() => undefined); }, []);
+  // Echo, when the timeline moves something you did not get to in time.
 
 
   // Load saved preferences
@@ -132,6 +141,14 @@ const Notifications = () => {
             <SettingRow icon="notifications" color={accentColor} label="Notifications"
               value={notificationsEnabled} disabled={asking}
               onChange={v => { lightFeedback(); void toggleAll(v); }} />
+            <SettingRow icon="navigate" color={colors.success} label="Guide me through the day"
+              value={dayGuide && notificationsEnabled} disabled={!notificationsEnabled}
+              onChange={v => { lightFeedback(); setDayGuide(v); void setNotificationPrefs({ dayGuide: v }).then(() => NotificationService.refreshReminders()); }} />
+            {alarmsAvailable ? (
+              <SettingRow icon="watch" color={colors.error} label="Leave and start as alarms"
+                value={alarms && dayGuide && notificationsEnabled} disabled={!notificationsEnabled || !dayGuide}
+                onChange={v => { lightFeedback(); setAlarms(v); void setNotificationPrefs({ alarms: v }).then(() => NotificationService.refreshReminders()); }} />
+            ) : null}
             <SettingRow icon="alarm" color={colors.warning} label="Habit reminders"
               value={habitReminders && notificationsEnabled} disabled={!notificationsEnabled}
               onChange={v => toggleSetting('notif_habits', v, setHabitReminders)} />

@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { SettingsGroup, SettingsRow, SettingsSearch } from '@/components/ui/SettingsList';
 import { AppTextField } from '@/components/ui/AppTextField';
-import { PlusButtonSheet } from '@/components/Settings/PlusButtonSheet';
 import { searchDeep } from '@/lib/settingsSearch';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,28 +12,24 @@ import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
 import { emit, on } from '@/lib/appEvents';
 import { useMyProfile } from '@/hooks/useMyProfile';
-import { useSleep } from '@/hooks/useSleep';
-import { setSleepCardVisible, setSleepTarget } from '@/lib/sleepLog';
 import { CLOCK_STYLES, setClockStyle, type ClockStyle } from '@/lib/focusClock';
 import { useClockStyle } from '@/hooks/useClockStyle';
 import { setFocusBlocking, useFocusBlocking } from '@/lib/focusBlocking';
 import { ScreenTimeService } from '@/lib/ScreenTimeService';
-import { DEFAULT_WEEK_START, getWeekStart, setWeekStart, type WeekStart } from '@/lib/weekStart';
+import { setWeekStart, type WeekStart } from '@/lib/weekStart';
+import { useWeekStart } from '@/hooks/useWeekStart';
 import { syncBrainDumpReview } from '@/lib/brainDumpReview';
-import { DEFAULT_VOICE_DESTINATION, VOICE_DESTINATIONS, getVoiceDestination, setVoiceDestination, type VoiceDestination } from '@/lib/voiceDestination';
 
 /** Sleep goals offered, in hours. */
-const SLEEP_GOALS = [6, 7, 8, 9];
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { saveDailyTarget } from '@/lib/dailyFocus';
 
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
-import { PAYWALL_ENABLED } from '@/constants/features';
-import { useAccess } from '@/hooks/useAccess';
+import { usePro } from '@/hooks/usePro';
 import { hasAnyIntegration } from '@/lib/integrationAvailability';
 import { APP_SLOGAN } from '@/constants/brand';
-import { currentAccount, onAccountChange } from '@/lib/account';
+import { currentAccount, knownAccount, onAccountChange } from '@/lib/account';
 import Constants from 'expo-constants';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -52,7 +47,7 @@ const showDeveloper = (() => {
 })();
 
 export default function ProfileScreen() {
-    const { access } = useAccess();
+    const pro = usePro();
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { horizontalPadding, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
@@ -62,17 +57,13 @@ export default function ProfileScreen() {
     const dailyTarget = useDailyTarget();
     // You, from the one profile store (lib/profile.ts).
     const me = useMyProfile();
-    const sleep = useSleep();
     const clockStyle = useClockStyle();
     const blocking = useFocusBlocking();
-    const [voiceDestination, setVoiceDestinationState] = useState<VoiceDestination>(DEFAULT_VOICE_DESTINATION);
-    const [weekStart, setWeekStartState] = useState<WeekStart>(DEFAULT_WEEK_START);
-    useEffect(() => { void getWeekStart().then(setWeekStartState); }, []);
-    useEffect(() => { void getVoiceDestination().then(setVoiceDestinationState); }, []);
+    // Opens already showing what was chosen (kept in memory once read).
+    const weekStart = useWeekStart();
     // The + on this tab is a search lens: it opens the field, and the rows filter as you type.
     const [searching, setSearching] = useState(false);
     const [query, setQuery] = useState('');
-    const [plusSheet, setPlusSheet] = useState(false);
     const scroll = useRef<ScrollView>(null);
     useEffect(() => {
         const sub = on('show_settings_search', () => { setSearching(true); scroll.current?.scrollTo({ y: 0, animated: true }); });
@@ -96,7 +87,7 @@ export default function ProfileScreen() {
     // Signed-in state for the Account row. Signing out lives on the Account
     // screen, where it backs up first; the old button here cleared storage with
     // no confirmation and left every habit orphaned under a discarded id.
-    const [accountEmail, setAccountEmail] = useState<string | null>(null);
+    const [accountEmail, setAccountEmail] = useState<string | null>(() => knownAccount()?.email ?? null);
     useEffect(() => {
         currentAccount().then(account => setAccountEmail(account?.email ?? null)).catch(() => undefined);
         return onAccountChange(account => setAccountEmail(account?.email ?? null));
@@ -163,22 +154,13 @@ export default function ProfileScreen() {
                         <SettingsRow icon="calendar" color="#64D2FF" label="Week starts"
                             choices={[{ id: 'monday', label: 'Mon' }, { id: 'sunday', label: 'Sun' }]} chosen={weekStart}
                             onChoose={id => {
-                                setWeekStartState(id as WeekStart);
                                 void setWeekStart(id as WeekStart).then(() => syncBrainDumpReview());
                             }} />
-                        {/* Whether the timeline moves things for you. Off, everything stays at its
-                            time, and Exact, Urgency and Difficulty leave the task and habit forms. */}
+                        {/* Whether the timeline moves things for you. Off, it is a plain calendar:
+                            everything stays at its time, Exact/Flexible leaves the forms, and what has
+                            no time waits in Anytime. Urgency and difficulty stay, on the cards. */}
                         <SettingsRow icon="shuffle" color="#30D158" label="Auto-reschedule"
                             toggle={autoReschedule} onToggle={value => { lightFeedback(); setAutoReschedule(value); }} />
-                        {/* Sleep: one switch for Home's sleep card; while it is on, the goal a
-                            night has to reach to earn Marks sits right under it. */}
-                        <SettingsRow icon="moon" color="#5E5CE6" label="Sleep"
-                            toggle={sleep.showCard !== false} onToggle={value => void setSleepCardVisible(value)} />
-                        {sleep.showCard !== false ? (
-                            <SettingsRow icon="bed" color="#5E5CE6" label="Sleep goal"
-                                choices={SLEEP_GOALS.map(hours => ({ id: String(hours), label: `${hours}h` }))}
-                                chosen={String(sleep.target / 60)} onChoose={id => void setSleepTarget(Number(id) * 60)} />
-                        ) : null}
                     </SettingsGroup>
 
                     <SettingsGroup title="Focus">
@@ -214,11 +196,7 @@ export default function ProfileScreen() {
 
                     <SettingsGroup title="App">
                         <SettingsRow icon="color-palette" color="#0A84FF" label="Appearance" keywords="theme dark light accent sound vibration" onPress={() => router.push('/(root)/appearance')} />
-                        <SettingsRow icon="add-circle" color="#0A84FF" label="Plus button" keywords="+ create menu shortcut mood energy bet" onPress={() => setPlusSheet(true)} />
-                        {/* Hold + and speak: where the words go. */}
-                        <SettingsRow icon="mic" color="#0A84FF" label="Hold + to say"
-                            choices={VOICE_DESTINATIONS} chosen={voiceDestination}
-                            onChoose={id => { setVoiceDestinationState(id as VoiceDestination); void setVoiceDestination(id as VoiceDestination); }} />
+                        <SettingsRow icon="add-circle" color="#0A84FF" label="Plus button" keywords="+ create menu shortcut mood energy bet hold say voice speak" onPress={() => router.push('/(root)/plus-button' as never)} />
                         {hasAnyIntegration() ? (
                             <SettingsRow icon="extension-puzzle" color="#0A84FF" label="Connected apps" onPress={() => router.push('/(root)/integrations')} />
                         ) : null}
@@ -229,11 +207,10 @@ export default function ProfileScreen() {
                             value={accountEmail ? 'Signed in' : 'Sign in'} onPress={() => router.push('/(root)/account')} />
                         <SettingsRow icon="people" color="#30D158" label="Friends & sharing" onPress={() => router.push('/(root)/sharing')} />
                         <SettingsRow icon="lock-closed" color="#8A8A94" label="Privacy" onPress={() => router.push('/(root)/privacy')} />
-                        {PAYWALL_ENABLED ? (
-                            <SettingsRow icon="star" color="#FFB020" label="Habyss"
-                                value={access.kind === 'owned' ? 'Yours for good' : access.kind === 'trial' ? `Free · ${access.daysLeft} ${access.daysLeft === 1 ? 'day' : 'days'} left` : undefined}
-                                onPress={() => router.push('/(root)/paywall')} />
-                        ) : null}
+                        {/* Everything is free; Pro is desktop sync (lib/access.ts). */}
+                        <SettingsRow icon="sync" color="#FFB020" label="Habyss Pro"
+                            value={pro.kind === 'pro' ? 'On' : undefined}
+                            onPress={() => router.push('/(root)/paywall')} />
                     </SettingsGroup>
 
                     <SettingsGroup title="Help">
@@ -268,7 +245,6 @@ export default function ProfileScreen() {
                     )}
 
                 </ScrollView>
-                <PlusButtonSheet visible={plusSheet} onClose={() => setPlusSheet(false)} />
             </SafeAreaView>
         </VoidShell>
     );

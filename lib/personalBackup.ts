@@ -28,13 +28,17 @@ export const BACKED_UP_KEYS = [
     'habyss_daily_focus_target', 'habyss_onboarding_complete', 'habyss_focus_blocking',
     'habyss_echo_config', 'habyss_echo_memory', 'habyss_echo_patterns', 'habyss_echo_experiments',
     'habyss_echo_written_lines', 'echo_recent_lines',
-    'habyss_check_ins', 'habyss_brain_dump', 'habyss_day_memory', 'habyss_sleep_log',
+    'habyss_check_ins', 'habyss_brain_dump', 'habyss_day_memory', 'habyss_sleep_log', 'habyss_activity_log',
     'habyss_meals', 'habyss_meals_flexible', 'habyss_event_travel', 'habyss_goal_logs', 'habyss_moved_tasks', 'habyss_peak_targets',
     'habyss_marks_kept', 'marks_local_total', 'habyss_climb_state',
     'habyss_day_celebrated', 'habyss_goal_celebrated', 'habyss_focus_celebrated',
     'focus_all_time_best', 'focus_week_start', 'focus_weekly_total', 'focus_total_sessions_week',
     'focus_completed_sessions_week', 'focus_active_days_week', 'focus_month_start',
     'focus_monthly_total', 'focus_year_start', 'focus_yearly_total',
+    // Integrations switched on stay on after signing out and back in. iOS keeps
+    // its own permission per phone; these are only whether you wanted them
+    // (which calendars are hidden stays device-only: their ids are this phone's).
+    'habyss_calendar_on', 'habyss_health_connected',
 ] as const;
 
 /** Stores whose keys share a prefix (one per day or per session). */
@@ -162,7 +166,7 @@ export async function syncPersonal(userId: string): Promise<number> {
 }
 
 /** Caches of the signed-in person's friends and shares, not worth backing up. */
-const SOCIAL_CACHE_KEYS = ['habyss_shared_gate', 'habyss_shared_item_ids', 'habyss_shared_people', 'habyss_inbox_notifications'];
+const SOCIAL_CACHE_KEYS = ['habyss_shared_gate', 'habyss_shared_item_ids', 'habyss_shared_people', 'habyss_inbox_notifications', 'habyss_habit_owner'];
 
 /** Everything personal on this phone, cleared when a different account takes it over. */
 export async function clearPersonal(): Promise<void> {

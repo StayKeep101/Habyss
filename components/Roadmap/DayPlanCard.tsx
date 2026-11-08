@@ -129,14 +129,20 @@ export const DayPlanCard: React.FC<{
                 {width > 0 ? ticks.map(minutes => (
                     <View key={minutes} style={[styles.tick, { left: x(minutes), backgroundColor: track }]} />
                 )) : null}
-                {width > 0 ? plan.blocks.map(block => (
-                    <View key={`${block.kind}:${block.id}`} style={[styles.block, {
-                        left: x(block.start), width: Math.max(3, x(block.end) - x(block.start)),
-                        // Its own colour, the same as its card on the timeline.
-                        backgroundColor: block.color || (block.kind === 'task' ? TASK_COLOR : accent),
-                        opacity: block.done ? 0.35 : 0.85,
-                    }]} />
-                )) : null}
+                {width > 0 ? plan.blocks.map(block => {
+                    const tone = block.color || (block.kind === 'task' ? TASK_COLOR : block.kind === 'event' ? colors.textSecondary : accent);
+                    const frame = { left: x(block.start), width: Math.max(3, x(block.end) - x(block.start)) };
+                    // Getting to or back from an event: a dotted line in its colour, not a block.
+                    return block.travel ? (
+                        <View key={`${block.kind}:${block.id}`} style={[styles.travel, frame, { borderColor: tone }]} />
+                    ) : (
+                        <View key={`${block.kind}:${block.id}`} style={[styles.block, frame, {
+                            // Its own colour, the same as its card on the timeline.
+                            backgroundColor: tone,
+                            opacity: block.done ? 0.35 : 0.85,
+                        }]} />
+                    );
+                }) : null}
                 {width > 0 && marker !== null ? (
                     <Animated.View pointerEvents="none" style={[styles.cursor, { backgroundColor: accent }, markerStyle]} />
                 ) : null}
@@ -162,6 +168,7 @@ const styles = StyleSheet.create({
     track: { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2 },
     tick: { position: 'absolute', width: StyleSheet.hairlineWidth * 2, height: 10 },
     block: { position: 'absolute', height: 4, borderRadius: 2 },
+    travel: { position: 'absolute', height: 0, borderTopWidth: 2, borderStyle: 'dotted' },
     lived: { position: 'absolute', left: 0, height: 4, borderRadius: 2, opacity: 0.3 },
     cursor: { position: 'absolute', left: 0, width: 3, height: 22, top: -4, borderRadius: 1.5 },
     axis: { height: 14, marginTop: 4 },

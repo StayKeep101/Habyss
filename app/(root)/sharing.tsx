@@ -108,7 +108,7 @@ const SEE_ICON: Record<keyof Sharing, { icon: string; color: string }> = {
     habits: { icon: 'repeat', color: '#FF9F0A' },
     tasks: { icon: 'checkmark-done', color: '#FF453A' },
 };
-const TELL_ICON: Record<keyof NotificationPrefs, { icon: string; color: string }> = {
+const TELL_ICON: Record<Exclude<keyof NotificationPrefs, 'dayGuide' | 'alarms'>, { icon: string; color: string }> = {
     sharedDone: { icon: 'checkmark-circle', color: '#30D158' },
     shareOffers: { icon: 'gift', color: '#BF5AF2' },
     reactions: { icon: 'heart', color: '#FF375F' },

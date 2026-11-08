@@ -11,8 +11,8 @@ import type { DayCardData } from './dayCard';
  *   chronos    a day card with an hour or more of focus
  *   comeback   a day card after three or more empty days
  *
- * The games (King of the Week, crew quest, missions, duels, bets, Exposed)
- * have their own places under This week and Challenges, not in this feed.
+ * The games (duels, bets) have their own place under Challenges, not in
+ * this feed.
  * The facts come from the poster's phone (lib/dayMoments.ts), so the server
  * and the desktop app read community_feed exactly as before.
  */

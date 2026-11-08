@@ -6,6 +6,7 @@
 //
 
 import ActivityKit
+import AppIntents
 import WidgetKit
 import SwiftUI
 
@@ -15,19 +16,23 @@ struct HabyssLiveActivity: Widget {
             // Lock Screen: the focus page, smaller. The ring with the Habyss
             // mark filling as the time goes, then the name and the digits,
             // centred in the room beside it. No "Focus" word: the ring says it.
-            let accent = Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo
+            // Once its time is up the card shows what comes next, so it never
+            // sits on a finished item until the app is opened.
+            let state = context.state.current(stale: context.isStale)
+            let stale = context.isStale && context.state.nextTitle == nil
+            let accent = Color(habyssHex: state.accentHex) ?? Habyss.fallbackTo
             HStack(alignment: .center, spacing: 16) {
-                FocusRing(state: context.state, total: context.attributes.totalDurationSeconds, accent: accent, size: 64, mark: 26)
+                FocusRing(state: state, total: context.attributes.totalDurationSeconds, accent: accent, size: 64, mark: 26)
                 VStack(alignment: .center, spacing: 0) {
-                    StatusLine(state: context.state, stale: context.isStale)
+                    StatusLine(state: state, stale: stale)
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(accent)
                         .lineLimit(1)
-                    Text(context.state.title)
+                    Text(state.title)
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.85))
                         .lineLimit(1)
-                    TimeLeft(state: context.state, stale: context.isStale)
+                    TimeLeft(state: state, stale: stale)
                         .font(.system(size: 36, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .multilineTextAlignment(.center)
@@ -36,6 +41,7 @@ struct HabyssLiveActivity: Widget {
                         .minimumScaleFactor(0.7)
                 }
                 .frame(maxWidth: .infinity)
+                DoneButton(state: state, activityName: context.attributes.name, accent: accent)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 18)
@@ -43,22 +49,24 @@ struct HabyssLiveActivity: Widget {
             .background(LinearGradient(colors: [Habyss.night, .black], startPoint: .top, endPoint: .bottom))
             .activityBackgroundTint(.black)
             .activitySystemActionForegroundColor(.white)
-            .widgetURL(URL(string: context.state.url ?? "habyss://home"))
+            .widgetURL(URL(string: state.url ?? "habyss://home"))
 
         } dynamicIsland: { context in
-            let accent = Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo
+            let state = context.state.current(stale: context.isStale)
+            let stale = context.isStale && context.state.nextTitle == nil
+            let accent = Color(habyssHex: state.accentHex) ?? Habyss.fallbackTo
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    FocusRing(state: context.state, total: context.attributes.totalDurationSeconds, accent: accent, size: 52, mark: 20)
+                    FocusRing(state: state, total: context.attributes.totalDurationSeconds, accent: accent, size: 52, mark: 20)
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     VStack(alignment: .trailing, spacing: 0) {
-                        StatusLine(state: context.state, stale: context.isStale)
+                        StatusLine(state: state, stale: stale)
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
                             .foregroundStyle(accent)
                             .lineLimit(1)
-                        TimeLeft(state: context.state, stale: context.isStale)
+                        TimeLeft(state: state, stale: stale)
                             .font(.system(size: 30, weight: .bold, design: .rounded))
                             .monospacedDigit()
                             .multilineTextAlignment(.trailing)
@@ -67,26 +75,29 @@ struct HabyssLiveActivity: Widget {
                     .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text(context.state.title)
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Habyss.dim)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 6)
+                    HStack {
+                        Text(state.title)
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Habyss.dim)
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        DoneButton(state: state, activityName: context.attributes.name, accent: accent)
+                    }
+                    .padding(.horizontal, 6)
                 }
             } compactLeading: {
                 HabyssMark(size: 18)
             } compactTrailing: {
-                TimeLeft(state: context.state, stale: context.isStale)
+                TimeLeft(state: state, stale: stale)
                     .monospacedDigit()
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(accent)
                     .frame(maxWidth: 56)
                     .minimumScaleFactor(0.8)
             } minimal: {
-                FocusRing(state: context.state, total: context.attributes.totalDurationSeconds, accent: accent, size: 22, mark: 10)
+                FocusRing(state: state, total: context.attributes.totalDurationSeconds, accent: accent, size: 22, mark: 10)
             }
-            .widgetURL(URL(string: context.state.url ?? "habyss://home"))
+            .widgetURL(URL(string: state.url ?? "habyss://home"))
             .keylineTint(accent)
         }
     }
@@ -147,6 +158,28 @@ private struct FocusRing: View {
             return Date(timeIntervalSince1970: start / 1000)...Date(timeIntervalSince1970: end / 1000)
         }
         return nil
+    }
+}
+
+/// Done, without opening anything: ticks the habit or task on the card and moves the card on.
+private struct DoneButton: View {
+    let state: WidgetAttributes.ContentState
+    let activityName: String
+    let accent: Color
+    var body: some View {
+        if #available(iOS 17.0, *), let item = state.itemId, state.timerEndDateInMilliseconds == nil {
+            Button(intent: CompleteNowIntent(itemId: item, activityName: activityName)) {
+                // Black on white whatever the accent (21:1); the accent rings it.
+                Image(systemName: "checkmark")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.black)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(.white))
+                    .overlay(Circle().stroke(accent, lineWidth: 2))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Done: \(state.title)")
+        }
     }
 }
 

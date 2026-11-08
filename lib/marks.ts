@@ -23,8 +23,22 @@ import { countedHistory, countedTasks } from './sharedGate';
 
 export const MARKS = {
     add: { habit: 1, task: 2, goal: 5 },
-    complete: { habit: 5, task: 10, goal: 50, sleep: 20, milestone: 30, mission: 50 },
+    complete: { habit: 5, task: 10, goal: 50, sleep: 20, milestone: 30, exercise: 20 },
     miss: { habit: -2, task: -4, goal: -15, sleep: -20 },
+} as const;
+
+/**
+ * Marks reward a real day, not a long list. The first habits kept in a day
+ * earn in full; past that each tick earns one, so twenty tiny habits are not
+ * a way up the leaderboard. Adding things earns at most ten a day (the same
+ * ceiling Shards keep). Kept apart from MARKS, which is what each thing is worth.
+ */
+export const MARKS_LIMITS = {
+    /** Habits a day that earn their full Marks; each one after earns this many. */
+    fullHabitsPerDay: 8,
+    extraHabit: 1,
+    /** The most adding habits, tasks and goals can earn in a day. */
+    addsPerDay: 10,
 } as const;
 
 /** The most the perfect-day multiplier can reach. */
@@ -109,7 +123,7 @@ export function rankFor(marks: number): { rank: Rank; next: Rank | null; progres
 }
 
 export type MarkKind = 'add' | 'complete' | 'miss';
-export type MarkItem = 'habit' | 'task' | 'goal' | 'sleep' | 'focus' | 'milestone' | 'mission';
+export type MarkItem = 'habit' | 'task' | 'goal' | 'sleep' | 'focus' | 'milestone' | 'exercise';
 
 export interface MarkEvent {
     date: string;
@@ -139,8 +153,8 @@ export interface MarksInput {
     goalsCompletedOn?: Record<string, string | null | undefined>;
     /** Milestones reached on a goal: +30 each, on the day reached (lib/goalMilestones.ts). */
     milestones?: { title: string; doneAt: string }[];
-    /** Secret missions accomplished: +50 Marks each, on the day (lib/weekly.ts). XP only: Shards leave them out. */
-    missions?: { title: string; doneAt: string }[];
+    /** Days the exercise goal was reached (Apple Health): +20 each. Missing it costs nothing. */
+    activeDays?: string[];
     /** Mornings after a night that reached the sleep goal: +20 each (sleep matters that much). */
     goodNights?: string[];
     /** Mornings after a recorded night that fell short of it: −20 each. A night with no data counts for nothing. */
@@ -190,13 +204,32 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     // The multiplier each day carried, from the perfect days before it.
     const runs = input.dailyTarget ? perfectRuns(input, input.dailyTarget) : new Map<string, number>();
     const multiplierOn = (date: string) => multiplierFor(runs.get(addDays(date, -1)) ?? 0);
+    // What each day has already earned from adding things, and how many habits it has kept.
+    const addedOn = new Map<string, number>();
+    const keptOn = new Map<string, number>();
+    // Events past a daily ceiling: in the record, not in the Marks you are shown.
+    const beyond = new Set<number>();
     const record = (date: string | null, points: number, kind: MarkKind, item: MarkItem, title: string, more: { since?: string | null; at?: string | null; id?: string } = {}) => {
         if (!date || date > today) return;
+        // Adding past the day's ceiling stays on the record (Shards say why
+        // they paid nothing for it) but adds nothing to your Marks.
+        let xp = true;
+        if (kind === 'add') {
+            const before = addedOn.get(date) ?? 0;
+            xp = before + points <= MARKS_LIMITS.addsPerDay;
+            if (xp) addedOn.set(date, before + points);
+        }
+        if (kind === 'complete' && item === 'habit') {
+            const kept = (keptOn.get(date) ?? 0) + 1;
+            keptOn.set(date, kept);
+            if (kept > MARKS_LIMITS.fullHabitsPerDay) points = MARKS_LIMITS.extraHabit;
+        }
         const times = kind === 'complete' && points > 0 ? multiplierOn(date) : 1;
         const earned = points * times;
         // XP only ever goes up: a miss is on the record (it costs Shards) but not in your Marks.
-        if (earned > 0) byDay.set(date, (byDay.get(date) ?? 0) + earned);
+        if (earned > 0 && xp) byDay.set(date, (byDay.get(date) ?? 0) + earned);
         const at = more.at ? new Date(more.at).getTime() : NaN;
+        if (!xp) beyond.add(events.length);
         events.push({
             date, points: earned, kind, item, title: times > 1 ? `${title} · ×${times}` : title,
             ...(Number.isFinite(at) ? { at } : null), ...(more.id ? { id: more.id } : null),
@@ -273,8 +306,8 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
         record(dayOf(milestone.doneAt), MARKS.complete.milestone, 'complete', 'milestone', milestone.title, { at: milestone.doneAt });
     }
 
-    for (const mission of input.missions ?? []) {
-        record(dayOf(mission.doneAt), MARKS.complete.mission, 'complete', 'mission', mission.title, { at: mission.doneAt });
+    for (const day of input.activeDays ?? []) {
+        if (day >= floor) record(day, MARKS.complete.exercise, 'complete', 'exercise', 'Exercise goal reached');
     }
 
     for (const night of input.goodNights ?? []) {
@@ -303,8 +336,9 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     }
     if (!series.length || series[series.length - 1].date !== today) series.push({ date: today, value: total });
 
+    const counted = events.filter((_, index) => !beyond.has(index));
     const ledger = [...events].sort((a, b) => a.date.localeCompare(b.date) || (a.at ?? 0) - (b.at ?? 0));
-    events.sort((a, b) => b.date.localeCompare(a.date) || b.points - a.points);
+    counted.sort((a, b) => b.date.localeCompare(a.date) || b.points - a.points);
     const perfectRun = runs.get(addDays(today, -1)) ?? 0;
     return {
         total,
@@ -312,7 +346,7 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
         perfectRun: runs.has(today) ? (runs.get(today) ?? 0) : perfectRun,
         todayChange: total - (series.length > 1 ? yesterday : 0),
         series,
-        events: events.filter(event => event.points > 0).slice(0, recent),
+        events: counted.filter(event => event.points > 0).slice(0, recent),
         ledger,
     };
 }

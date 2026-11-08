@@ -1,3 +1,4 @@
+import { useRemoveTask } from '@/hooks/useRemoveTask';
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChoiceSheet, type Choice } from '@/components/ui/ChoiceSheet';
@@ -10,7 +11,7 @@ import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { emit } from '@/lib/appEvents';
-import { createTask, deleteTask, updateTask, type Task } from '@/lib/tasks';
+import { createTask, updateTask, type Task } from '@/lib/tasks';
 import { cachedSections, loadSections, saveSections, sectionName, subscribeSections, todoGroups } from '@/lib/goalTodo';
 
 const dayLabel = (key: string, today: string) => {
@@ -87,9 +88,11 @@ export function GoalTodoList({ goalId, tasks, today, color, readOnly, onOpenTask
         await Promise.all(tasks.filter(task => task.section === name).map(task => updateTask(task.id, { section: null }))).catch(() => undefined);
         emit('tasks_changed');
     };
+    // Asks first, like every task delete (hooks/useRemoveTask.ts).
+    const askRemoveTask = useRemoveTask();
     const remove = (task: Task) => {
         mediumFeedback();
-        void deleteTask(task.id).then(() => emit('tasks_changed')).catch(() => undefined);
+        askRemoveTask(task);
     };
     const moveTo = (task: Task, section: string | null) => { void updateTask(task.id, { section }).then(() => emit('tasks_changed')); };
 

@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import Animated, {
     cancelAnimation, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withTiming,
 } from 'react-native-reanimated';
+import { useLowPower } from '@/lib/lowPower';
 import { useTokens } from '@/hooks/useTokens';
 import { s } from '@/theme/scale';
 import { EASE, timingFor } from '@/theme/motion';
@@ -44,7 +45,9 @@ const BURST = timingFor(1400, EASE.enter);
  */
 export function Echo({ mood = 'idle', speaking, size = 'large', color }: { mood?: EchoMood; speaking?: boolean; size?: keyof typeof SIZES; color?: string }) {
     const t = useTokens();
-    const reduced = useReducedMotion();
+    // Low Power Mode calms it like Reduce Motion: no looping breath on a throttled phone.
+    const lowPower = useLowPower();
+    const reduced = useReducedMotion() || lowPower;
     const ink = color ?? t.color.accent;
     const core = SIZES[size];
     const look = MOODS[mood];
