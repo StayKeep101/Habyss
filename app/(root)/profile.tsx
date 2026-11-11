@@ -5,12 +5,7 @@ import { VoidShell } from '@/components/ui/VoidShell';
 import { IconButton } from '@/components/ui/IconButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useTasks } from '@/hooks/useTasks';
-import { useData } from '@/hooks/useData';
-import { subscribeToHabits, type Habit } from '@/lib/habitsSQLite';
-import { bestStreakFrom, streakFrom } from '@/lib/dayComplete';
-import { localDateKey } from '@/lib/habitSchedule';
-import { useDailyTarget } from '@/hooks/useDailyFocus';
+import { useStreak } from '@/hooks/useStreak';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { useMarks } from '@/hooks/useMarks';
 import { seriesForProfile } from '@/lib/marksSync';
@@ -56,28 +51,12 @@ export default function ProfileScreen() {
     }, []);
 
     const insets = useSafeAreaInsets();
-    const [habits, setHabits] = useState<Habit[]>([]);
-    useEffect(() => {
-        let stop: (() => void) | undefined;
-        subscribeToHabits(setHabits).then(unsubscribe => { stop = unsubscribe; }).catch(() => undefined);
-        return () => stop?.();
-    }, []);
-
-    const tasks = useTasks();
-    const target = useDailyTarget();
-    const data = useData();
-    // The same streak the home screen and the day card show — one definition,
-    // over the whole shared history.
-    const run = React.useMemo(
-        () => streakFrom(habits, tasks, data.history, data.skips, localDateKey(new Date()), undefined, target),
-        [habits, tasks, data.history, data.skips, target],
-    );
-    const streak = run.streak;
-    const bestStreak = React.useMemo(() => bestStreakFrom(run.completedDates), [run.completedDates]);
 
     // The same Marks Home shows and friends see, as your level.
     const goalsData = useGoalsInsights();
     const marks = useMarks(goalsData);
+    // The same streak Home and the Streak page show (hooks/useStreak.ts).
+    const { streak, bestStreak } = useStreak(goalsData);
     // Goals finished: the trophies.
     const goalsCompleted = goalsData.finished.length;
     const [goalsOpen, setGoalsOpen] = useState(false);
@@ -119,7 +98,7 @@ export default function ProfileScreen() {
 
     return (
         <VoidShell>
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
                 {/* The same component a friend's profile uses. What you see
                     of yourself should be what they see of you, or the page is
                     quietly lying about one of the two. */}

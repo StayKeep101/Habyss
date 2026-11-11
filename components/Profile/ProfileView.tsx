@@ -10,11 +10,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useCachedImage } from '@/hooks/useCachedImage';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import { Colors } from '@/theme/colors';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, Radius } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
+
+/** A bio is a line or two, not an essay. */
+const BIO_MAX = 120;
 
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 
@@ -80,6 +84,7 @@ export const ProfileView: React.FC<{
     const coverHeight = topInset + vs(150) + s(48);
     // The photo from the phone's own copy, at once (lib/imageCache.ts).
     const avatarShown = useCachedImage(avatar);
+    const [bioFocused, setBioFocused] = React.useState(false);
 
 
     return (
@@ -169,16 +174,33 @@ export const ProfileView: React.FC<{
                     {subline}
 
                     {edit ? (
-                        <TextInput
-                            value={bio}
-                            onChangeText={edit.onBio}
-                            onEndEditing={edit.onBioDone}
-                            placeholder="A line about what you are working on"
-                            placeholderTextColor={colors.textTertiary}
-                            multiline
-                            accessibilityLabel="About you"
-                            style={[styles.bio, { color: colors.textSecondary }]}
-                        />
+                        // A sentence while you read it; a soft field behind it while
+                        // you write it (drawn beside it, so the text never loses focus).
+                        <View style={styles.bioWrap}>
+                            {bioFocused ? (
+                                <Animated.View entering={FadeIn.duration(150)} pointerEvents="none" style={StyleSheet.absoluteFill}>
+                                    <MatteSurface radius={Radius.control} level="control" edge={primary} style={StyleSheet.absoluteFill} />
+                                </Animated.View>
+                            ) : null}
+                            <TextInput
+                                value={bio}
+                                onChangeText={edit.onBio}
+                                onFocus={() => setBioFocused(true)}
+                                onBlur={() => setBioFocused(false)}
+                                onEndEditing={edit.onBioDone}
+                                placeholder="A line about what you are working on"
+                                placeholderTextColor={colors.textTertiary}
+                                multiline
+                                maxLength={BIO_MAX}
+                                returnKeyType="done"
+                                submitBehavior="blurAndSubmit"
+                                accessibilityLabel="About you"
+                                style={[styles.bio, styles.bioInput, { color: bioFocused ? colors.textPrimary : colors.textSecondary }]}
+                            />
+                            {bioFocused ? (
+                                <Text style={[styles.bioCount, { color: colors.textTertiary }]}>{`${bio.length}/${BIO_MAX}`}</Text>
+                            ) : null}
+                        </View>
                     ) : bio ? (
                         <Text style={[styles.bio, { color: colors.textSecondary }]}>{bio}</Text>
                     ) : null}
@@ -246,6 +268,9 @@ const styles = StyleSheet.create({
     meta: { fontSize: ms(12), fontFamily: FontFamily.regular },
     // No box: a bio reads as a sentence about someone, not as a filled field.
     bio: { alignSelf: 'stretch', fontSize: ms(14), lineHeight: ms(20), fontFamily: FontFamily.regular, textAlign: 'center', paddingTop: vs(6) },
+    bioWrap: { alignSelf: 'stretch', marginTop: vs(6) },
+    bioInput: { paddingTop: vs(10), paddingBottom: vs(10), paddingHorizontal: s(14) },
+    bioCount: { position: 'absolute', right: s(12), bottom: -vs(18), fontSize: ms(11), fontFamily: FontFamily.regular, fontVariant: ['tabular-nums'] },
     statsBlock: { marginHorizontal: s(20), marginTop: vs(16), gap: vs(12) },
     card: { padding: s(20), gap: vs(16) },
     rule: { height: StyleSheet.hairlineWidth },

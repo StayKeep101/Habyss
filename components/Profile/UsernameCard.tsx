@@ -6,7 +6,6 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { AppTextField } from '@/components/ui/AppTextField';
 import { MatteInput } from '@/components/ui/MatteInput';
-import { IconButton } from '@/components/ui/IconButton';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
@@ -39,8 +38,10 @@ export function UsernamePill({ username, onEdit }: { username: string; onEdit: (
 }
 
 /**
- * Changing your @username, in place of the pill: the same shape, now a field,
- * with a tick to save and a cross to cancel. The error, if any, under it.
+ * Changing your @username, in place of the pill: the very same pill, the
+ * name now typeable and the pencil turned into a tick. Leaving the field
+ * saves (unchanged, it simply closes), like every other field on the page.
+ * The error, if any, under it.
  */
 export function UsernameInline({ current, onSaved, onCancel }: { current: string; onSaved: (username: string) => void; onCancel: () => void }) {
     const { theme } = useTheme();
@@ -52,6 +53,7 @@ export function UsernameInline({ current, onSaved, onCancel }: { current: string
     const [saving, setSaving] = useState(false);
 
     const save = async () => {
+        if (saving) return;
         const wanted = value.trim().replace(/^@/, '').toLowerCase();
         if (!wanted || wanted === current) { onCancel(); return; }
         setSaving(true);
@@ -64,23 +66,25 @@ export function UsernameInline({ current, onSaved, onCancel }: { current: string
 
     return (
         <Animated.View entering={FadeIn.duration(150)} style={styles.inlineWrap}>
-            <MatteSurface radius={Radius.pill} level="control" edge={error ? colors.error : undefined} style={styles.inline}>
+            <MatteSurface radius={Radius.pill} level="control" edge={error ? colors.error : primary} style={styles.pill}>
                 <AppIcon name="at" size={14} color={primary} />
                 <MatteInput
                     bare
                     autoFocus
                     value={value}
                     onChangeText={next => { setValue(next); setError(undefined); }}
+                    onEndEditing={() => void save()}
                     autoCapitalize="none"
                     autoCorrect={false}
                     maxLength={21}
                     returnKeyType="done"
-                    onSubmitEditing={() => void save()}
-                    style={[styles.inlineInput, { color: colors.textPrimary }]}
+                    selectTextOnFocus
+                    style={[styles.pillText, styles.inlineInput, { color: colors.textPrimary }]}
                     accessibilityLabel="Your username"
                 />
-                <IconButton icon="close" label="Cancel" onPress={onCancel} diameter={26} size={14} color={colors.textTertiary} />
-                <IconButton icon="checkmark" label="Save username" onPress={() => void save()} loading={saving} diameter={26} size={14} color={primary} />
+                <Pressable onPress={() => void save()} hitSlop={14} accessibilityRole="button" accessibilityLabel="Save username">
+                    <AppIcon name="checkmark" size={14} color={primary} />
+                </Pressable>
             </MatteSurface>
             {error ? <Text style={[styles.inlineError, { color: colors.error }]}>{error}</Text> : null}
         </Animated.View>
@@ -169,8 +173,8 @@ const styles = StyleSheet.create({
     pill: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs + 2, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs + 2 },
     pillText: { fontFamily: FontFamily.semibold, fontSize: 14 },
     inlineWrap: { alignSelf: 'center', alignItems: 'center', marginTop: Spacing.xs, gap: Spacing.xs },
-    inline: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs + 2, paddingLeft: Spacing.md, paddingRight: Spacing.xs, paddingVertical: 2, minWidth: 200 },
-    inlineInput: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 14, paddingVertical: Spacing.xs + 2 },
+    // Sized to the name, like the pill it replaces; no padding of its own so the two match exactly.
+    inlineInput: { minWidth: Spacing.xl * 3, paddingVertical: 0, paddingHorizontal: 0 },
     inlineError: { fontFamily: FontFamily.regular, fontSize: 12 },
     wrap: { marginHorizontal: Spacing.xl, marginTop: Spacing.lg },
     flush: { alignSelf: 'stretch', marginTop: Spacing.md },
