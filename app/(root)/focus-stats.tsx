@@ -18,7 +18,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useFocusRecords } from '@/hooks/useFocusRecords';
 import { useWeekStart } from '@/hooks/useWeekStart';
 import { useHaptics } from '@/hooks/useHaptics';
-import { focusDuration, focusSummary, shiftDay, weekSoFar } from '@/lib/focusStats';
+import { focusDuration, focusSummary, shiftDay } from '@/lib/focusStats';
 import { localDateKey } from '@/lib/habitSchedule';
 import { startOfWeek } from '@/lib/weekStart';
 import { getHabits, type Habit } from '@/lib/habitsSQLite';
@@ -33,9 +33,9 @@ const shortDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateStri
 /**
  * Where your focus time goes.
  *
- * The big number is this week's focus so far (the week starting on the day
- * set in Settings), and beside it the change against the same days of last
- * week. Underneath, a bar per day: the week, Monday (or Sunday) to its end, or
+ * The big number is the average day across the days shown (this week, a
+ * week gone by, or 30 days), and beside it the change against the same days
+ * of the window before. Underneath, a bar per day: the week, Monday (or Sunday) to its end, or
  * the last 30 days. Drag a finger along the bars and the big number follows
  * it, day by day, like a stock chart; the arrows go back in time. Under it,
  * only what the time went to, most first (for the picked day, when one is).
@@ -55,7 +55,6 @@ export default function FocusStatsScreen() {
     const summary = useMemo(() => focusSummary(records, today, range), [records, today, range]);
     const weekStart = useWeekStart();
     const weekFrom = useMemo(() => localDateKey(startOfWeek(new Date(`${today}T12:00:00`), weekStart)), [today, weekStart]);
-    const soFar = useMemo(() => weekSoFar(records, today, weekFrom), [records, today, weekFrom]);
     // The arrows page back through time, a week (or 30 days) at a time.
     const [page, setPage] = useState(0);
     const [picked, setPicked] = useState<string | null>(null);
@@ -100,8 +99,20 @@ export default function FocusStatsScreen() {
     const listReplay = `${replay}-${picked ?? ''}`;
     const nameOf = (id: string) => habits.find(habit => habit.id === id)?.name ?? tasks.find(task => task.id === id)?.title ?? 'Removed';
 
-    const up = soFar.change > 0;
-    const down = soFar.change < 0;
+    // With no day picked: the average day across the days shown (up to today),
+    // against the average of the same days in the window before.
+    const before = useMemo(() => focusSummary(records, shiftDay(end, -range), range), [records, end, range]);
+    const average = useMemo(() => {
+        const elapsed = shown.days.filter(day => day.date <= today);
+        const count = Math.max(1, elapsed.length);
+        const mean = (days: { seconds: number }[]) => Math.round(days.reduce((sum, day) => sum + day.seconds, 0) / count);
+        const now = mean(elapsed);
+        return { now, change: now - mean(before.days.slice(0, count)) };
+    }, [shown, before, today]);
+    const windowName = page === 0 ? (range === 7 ? 'this week' : 'last 30 days') : range === 7 ? 'that week' : 'those 30 days';
+
+    const up = average.change > 0;
+    const down = average.change < 0;
     const trendColor = up ? colors.success : down ? colors.error : colors.textTertiary;
     const ceiling = Math.max(1, ...shown.days.map(day => day.seconds));
     const topItem = listed[0]?.seconds ?? 1;
@@ -114,17 +125,17 @@ export default function FocusStatsScreen() {
                     {pickedDay ? (
                         <Text style={[styles.heroValue, { color: colors.textPrimary }]}>{focusDuration(pickedDay.seconds)}</Text>
                     ) : (
-                        <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={focusDuration(soFar.week)} />
+                        <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={focusDuration(average.now)} replay={replay} />
                     )}
                     <View style={styles.trendRow}>
-                        <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{pickedDay ? longDay(pickedDay.date) : 'this week'}</Text>
+                        <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{pickedDay ? longDay(pickedDay.date) : `daily avg · ${windowName}`}</Text>
                         {pickedDay ? null : (
-                            <View style={styles.trend} accessible accessibilityLabel={soFar.change === 0 ? 'Same as last week' : `${up ? 'Up' : 'Down'} ${focusDuration(Math.abs(soFar.change))} on last week`}>
+                            <View style={styles.trend} accessible accessibilityLabel={average.change === 0 ? `Same as the ${range === 7 ? 'week' : '30 days'} before` : `${up ? 'Up' : 'Down'} ${focusDuration(Math.abs(average.change))} a day on the ${range === 7 ? 'week' : '30 days'} before`}>
                                 <AppIcon name={up ? 'caret-up' : down ? 'caret-down' : 'remove'} size={11} color={trendColor} />
                                 <Text style={[styles.trendValue, { color: trendColor }]}>
-                                    {soFar.change === 0 ? '0m' : `${up ? '+' : '−'}${focusDuration(Math.abs(soFar.change))}`}
+                                    {average.change === 0 ? '0m' : `${up ? '+' : '−'}${focusDuration(Math.abs(average.change))}`}
                                 </Text>
-                                <Text style={[styles.trendText, { color: colors.textTertiary }]}>vs last week</Text>
+                                <Text style={[styles.trendText, { color: colors.textTertiary }]}>{range === 7 ? 'vs week before' : 'vs 30 days before'}</Text>
                             </View>
                         )}
                     </View>
