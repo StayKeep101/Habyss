@@ -58,6 +58,23 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
         ? <IconButton icon={actionIcon} label={actionLabel ?? (actionIcon === 'person-add-outline' ? 'Add friend' : 'Share')} onPress={onAction} />
         : shareSummary ? <ShareButton summary={shareSummary} /> : null);
 
+    // A habit's page: its mark and name read from the left, as they always have,
+    // with the actions on the right and no balancing space to squeeze the name.
+    if (leading) {
+        return (
+            <View style={[styles.header, styles.headerLeading]}>
+                <Animated.View style={[styles.lead, styles.leadStart, titleStyle]}>
+                    {leading}
+                    <View style={styles.copyStart}>
+                        <Text accessibilityRole="header" numberOfLines={1} style={[Typography.sheetTitle, { color: colors.textPrimary }]}>{title}</Text>
+                        {subtitle ? <Text numberOfLines={1} style={[Typography.caption, styles.subtitle, { color: colors.textTertiary }]}>{subtitle}</Text> : null}
+                    </View>
+                </Animated.View>
+                {right ? <View style={styles.sideRight}>{right}</View> : null}
+            </View>
+        );
+    }
+
     return (
         <View style={styles.header}>
             <View style={[styles.side, { minWidth: side }]}>
@@ -102,4 +119,7 @@ const styles = StyleSheet.create({
     alt: { justifyContent: 'center' },
     centered: { textAlign: 'center' },
     subtitle: { marginTop: 2 },
+    headerLeading: { paddingHorizontal: Spacing.md, paddingTop: Spacing.lg },
+    leadStart: { flex: 1, justifyContent: 'flex-start', minHeight: Control.hitTarget, paddingLeft: Spacing.xs },
+    copyStart: { flex: 1 },
 });
