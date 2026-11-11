@@ -8,7 +8,6 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { ScreenTimeService } from '@/lib/ScreenTimeService';
 import { setGateOn, useAppGate } from '@/lib/appGate';
 import { nightBlockSupported, setBedtimeLock, useBedtimeLock } from '@/lib/bedtimeLock';
-import { useFocusBlocking } from '@/lib/focusBlocking';
 import { currentLock, type LockState } from '@/lib/gateLock';
 import { lockLabel, throughLock } from '@/lib/gateLockPrompt';
 import { cachedDayWindow, DEFAULT_DAY, getDayWindow, minutesOf } from '@/lib/echo';
@@ -27,7 +26,6 @@ export default function AppBlockingScreen() {
     const { lightFeedback } = useHaptics();
     const gate = useAppGate();
     const bedtimeLock = useBedtimeLock();
-    const focusBlocking = useFocusBlocking();
     const [day, setDay] = useState(() => cachedDayWindow() ?? DEFAULT_DAY);
     useEffect(() => { void getDayWindow().then(setDay); }, []);
     const [lock, setLock] = useState<LockState>({ kind: 'locked' });
@@ -82,8 +80,8 @@ export default function AppBlockingScreen() {
                     {/* The hours come from Day & calendar: shown here, changed there. */}
                     <SettingsRow icon="time" color={t.color.accent} label="Bedtime hours"
                         value={`${clockLabel(minutesOf(day.sleep))} – ${clockLabel(minutesOf(day.wake))}`} onPress={() => router.push('/(root)/meals' as never)} />
-                    <SettingsRow icon="hand-left" color={t.color.danger} label="While focusing" value={focusBlocking ? 'On' : 'Off'}
-                        onPress={() => router.push('/(root)/focus-settings' as never)} />
+                    {/* Focus always blocks these apps, until it ends or is paused. */}
+                    <SettingsRow icon="hand-left" color={t.color.danger} label="While focusing" value="Always" />
                 </SettingsGroup>
 
                 {/* Turning a hard lock off, or changing the apps, waits a day after asking. */}

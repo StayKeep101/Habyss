@@ -14,9 +14,6 @@ import { emit, on } from '@/lib/appEvents';
 import { useMyProfile } from '@/hooks/useMyProfile';
 
 import { useAppSettings } from '@/context/AppSettingsContext';
-import { useFocusBlocking } from '@/lib/focusBlocking';
-import { useAppGate } from '@/lib/appGate';
-import { useBedtimeLock } from '@/lib/bedtimeLock';
 import { cachedDayWindow, DEFAULT_DAY, getDayWindow, minutesOf } from '@/lib/echo';
 import { clockLabel } from '@/lib/dayFlow';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
@@ -50,11 +47,6 @@ export default function ProfileScreen() {
     const { selectionFeedback } = useHaptics();
     // You, from the one profile store (lib/profile.ts).
     const me = useMyProfile();
-    // What the pages below are set to, shown on their rows.
-    const blocking = useFocusBlocking();
-    const bedtimeLock = useBedtimeLock();
-    const gate = useAppGate();
-    const blockingOn = blocking || gate.on || bedtimeLock;
     const [day, setDay] = useState(() => cachedDayWindow() ?? DEFAULT_DAY);
     useEffect(() => { void getDayWindow().then(setDay).catch(() => undefined); }, []);
     const dayHours = `${clockLabel(minutesOf(day.wake))} – ${clockLabel(minutesOf(day.sleep))}`;
@@ -145,7 +137,7 @@ export default function ProfileScreen() {
                         <SettingsRow icon="timer" color="#FF375F" label="Focus" keywords="clock style ring digital block"
                             onPress={() => router.push('/(root)/focus-settings' as never)} />
                         <SettingsRow icon="lock-closed" color="#FF375F" label="App blocking" keywords="screen time earn your scroll bedtime lock top 3 apps to block hard lock"
-                            value={blockingOn ? 'On' : 'Off'} onPress={() => router.push('/(root)/app-blocking' as never)} />
+                            onPress={() => router.push('/(root)/app-blocking' as never)} />
                     </SettingsGroup>
 
                     <SettingsGroup title="Echo & alerts">
