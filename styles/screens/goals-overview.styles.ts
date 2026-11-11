@@ -4,7 +4,7 @@ import { FontFamily } from '@/theme/designSystem';
 /** The look of app/(root)/goals-overview.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
     content: { paddingHorizontal: 20, paddingBottom: 40 },
-    numberRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10, marginTop: 10 },
+    numberRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
     big: { fontSize: 44, fontFamily: FontFamily.bold, letterSpacing: -1.2, fontVariant: ['tabular-nums'] },
     bigLabel: { fontSize: 14, fontFamily: FontFamily.medium },
     chart: { marginTop: 20 },

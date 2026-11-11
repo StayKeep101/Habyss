@@ -51,7 +51,7 @@ export default function GoalsOverview() {
     const track = light ? 'rgba(15,23,42,0.07)' : 'rgba(255,255,255,0.08)';
 
     return (
-        <SheetScreen title="Goals" onBack={() => router.back()}>
+        <SheetScreen title="Goals" align="leading">
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {!loaded ? <ActivityIndicator color={accent} style={{ marginTop: 40 }} /> : goals.length === 0 ? (
                     <VoidCard style={styles.emptyCard}>
