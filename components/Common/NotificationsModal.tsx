@@ -178,7 +178,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                 <ModalHeader
                     title="Notifications"
                     subtitle={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
-                    onBack={onClose}
                     rightSlot={
                         <View style={{ flexDirection: 'row', gap: 8 }}>
                             {unreadCount > 0 && (

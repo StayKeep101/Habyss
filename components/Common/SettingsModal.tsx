@@ -13,7 +13,7 @@ interface SettingsModalProps {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose, title, children }) => (
     <VoidModal visible={visible} onClose={onClose}>
-        <ModalHeader title={title} onBack={onClose} backIcon="close" />
+        <ModalHeader title={title} />
         <ScrollView contentContainerStyle={UIStyles.screenContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {children}
         </ScrollView>

@@ -50,7 +50,7 @@ export const MomentumModal: React.FC<{
 
     return (
         <VoidModal visible={visible} onClose={onClose}>
-            <ModalHeader title="Habits kept" onBack={onClose} />
+            <ModalHeader title="Habits kept" />
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <View style={styles.hero}>
                     <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={`${trend.rate}%`} replay={visible} />

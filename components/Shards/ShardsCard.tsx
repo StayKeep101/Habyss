@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { useFocusEffect } from 'expo-router';
-import { AppIcon, Text } from '@/components/ui';
+import { AppIcon } from '@/components/ui';
 import { CountUp } from '@/components/ui/Motion';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
 import { useTokens } from '@/hooks/useTokens';
@@ -15,8 +15,8 @@ import { Control, Spacing } from '@/theme/designSystem';
 import { DURATION } from '@/theme/motion';
 
 /**
- * Your wallet on Home, beside your picture: the Shards balance with its gem,
- * today's change, and the week's line in green or red, like a stock in a watchlist. Shards you
+ * Your wallet on Home, beside your picture: the Shards balance with its gem
+ * at its foot, and the week's line in green or red, like a stock in a watchlist. Shards you
  * earn fly here as gems (lib/marksOrbs.ts), counted from what the balance
  * really gained, so the animation never shows Shards that did not count.
  */
@@ -57,17 +57,12 @@ export function ShardsCard({ wallet, onPress }: { wallet: Wallet; onPress: () =>
         // change, and the week's line filling the rest, like a holding in a portfolio app.
         <Pressable onPress={() => { lightFeedback(); onPress(); }} accessibilityRole="button" style={styles.wrap}
             accessibilityLabel={`Wallet: ${wallet.balance} Shards. ${wallet.today ? `${wallet.today > 0 ? 'Up' : 'Down'} ${Math.abs(wallet.today)} today.` : ''} Open your wallet.`}>
-            <View style={styles.text}>
-                <View style={styles.caption}>
-                    <AppIcon name="diamond" filled size={Spacing.md} color={t.color.accent} />
-                    <Text variant="caption" tone="muted">Shards</Text>
-                </View>
+            {/* The balance alone, its gem tucked at the foot of the last digit. */}
+            <View style={styles.balance}>
                 <Animated.View ref={balanceRef} collapsable={false} style={bumpStyle}>
                     <CountUp style={[t.type.screenTitle, { color: t.color.textPrimary }]} value={wallet.balance.toLocaleString()} />
                 </Animated.View>
-                <Text variant="caption" numeric tone={wallet.today > 0 ? 'success' : wallet.today < 0 ? 'danger' : 'muted'}>
-                    {wallet.today ? `${wallet.today > 0 ? '+' : '−'}${Math.abs(wallet.today)} today` : 'Nothing yet today'}
-                </Text>
+                <AppIcon name="diamond" filled size={Spacing.md} color={t.color.accent} />
             </View>
             {week.length > 1 ? (
                 <View style={styles.spark} pointerEvents="none">
@@ -80,7 +75,6 @@ export function ShardsCard({ wallet, onPress }: { wallet: Wallet; onPress: () =>
 
 const styles = StyleSheet.create({
     wrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-    text: { gap: Spacing.xs / 2 },
-    caption: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+    balance: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.xs / 2 },
     spark: { flex: 1, height: Control.height },
 });

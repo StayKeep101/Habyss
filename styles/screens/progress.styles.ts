@@ -3,8 +3,6 @@ import { FontFamily } from '@/theme/designSystem';
 
 /** The look of app/(root)/progress.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
-    /** Whose streak: centred over it. */
-    pickerRow: { alignItems: 'center' },
     content: { paddingHorizontal: 20, paddingBottom: 40 },
     monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, marginTop: 20 },
     month: { fontSize: 17, fontFamily: FontFamily.semibold },
@@ -21,8 +19,9 @@ export const styles = StyleSheet.create({
     ringSvg: { position: 'absolute', top: 0, left: 0 },
     dayNumber: { fontSize: 14, fontVariant: ['tabular-nums'] },
     /** The streak, centred: flame, the figure, what it means, your best. */
-    hero: { alignItems: 'center', marginTop: 12, marginBottom: 24 },
-    heroValue: { fontSize: 96, lineHeight: 104, fontFamily: FontFamily.bold, letterSpacing: -4, fontVariant: ['tabular-nums'], marginTop: 4 },
+    hero: { alignItems: 'center', marginBottom: 24 },
+    heroRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    heroValue: { fontSize: 96, lineHeight: 104, fontFamily: FontFamily.bold, letterSpacing: -4, fontVariant: ['tabular-nums'] },
     heroLabel: { fontSize: 17, fontFamily: FontFamily.medium, marginTop: -2 },
     heroBest: { fontSize: 13, fontFamily: FontFamily.medium, marginTop: 6 },
     stats: { flexDirection: 'row', paddingVertical: 16, paddingHorizontal: 6, marginTop: 0, marginBottom: 6 },

@@ -51,7 +51,7 @@ export const MissedModal: React.FC<{ visible: boolean; onClose: () => void; miss
 
     return (
         <VoidModal visible={visible} onClose={onClose}>
-            <ModalHeader title="Missed" onBack={onClose} />
+            <ModalHeader title="Missed" />
             <ScrollView contentContainerStyle={{ paddingHorizontal: t.space.xl, paddingBottom: Spacing.bottom }} showsVerticalScrollIndicator={false}>
                 <View style={[styles.hero, { gap: t.space.xs, paddingVertical: t.space.lg }]}>
                     <CountUp style={[styles.heroValue, { color: t.color.textPrimary }]} value={total} replay={visible} />

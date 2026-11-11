@@ -6,12 +6,16 @@ import { ModalHeader } from '@/components/ui/ModalHeader';
 
 type SheetScreenProps = React.ComponentProps<typeof ModalHeader> & { children: React.ReactNode };
 
-/** Routed page sheets and native modals share the same header and safe edges. */
-export function SheetScreen({ children, ...header }: SheetScreenProps) {
+/**
+ * Routed page sheets and native modals share the same header and safe edges.
+ * On iOS every one of them closes by swiping down, so the header carries no
+ * back button: the title alone, still centred.
+ */
+export function SheetScreen({ children, onBack, ...header }: SheetScreenProps) {
     return (
         <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={Platform.OS === 'ios' ? ['left', 'right', 'bottom'] : ['top', 'left', 'right', 'bottom']}>
-                <ModalHeader {...header} />
+                <ModalHeader {...header} onBack={Platform.OS === 'ios' ? undefined : onBack} />
                 {children}
             </SafeAreaView>
         </VoidShell>

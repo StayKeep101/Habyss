@@ -29,12 +29,14 @@ interface ModalHeaderProps {
      * closes by swiping down), and the mark fades in with the title.
      */
     leading?: React.ReactNode;
+    /** 'leading': the title reads from the left (no back button), with its action on the right. */
+    align?: 'center' | 'leading';
 }
 
 /** Equal side columns keep the heading centered, including with multiple actions. */
 export const ModalHeader: React.FC<ModalHeaderProps> = ({
     title, subtitle, onBack, onAction, actionIcon = 'share-outline', actionLabel,
-    shareSummary, backIcon = 'chevron-back', rightSlot, titleStyle, leading,
+    shareSummary, backIcon = 'chevron-back', rightSlot, titleStyle, leading, align = 'center',
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -43,10 +45,10 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
         ? <IconButton icon={actionIcon} label={actionLabel ?? (actionIcon === 'person-add-outline' ? 'Add friend' : 'Share')} onPress={onAction} />
         : shareSummary ? <ShareButton summary={shareSummary} /> : null);
 
-    if (leading) {
+    if (leading || align === 'leading') {
         return (
             // Room under a sheet's grabber, so the title never sits jammed against the top.
-            <View style={[styles.header, styles.headerSheet]}>
+            <View style={[styles.header, leading ? styles.headerSheet : null]}>
                 <Animated.View style={[styles.lead, titleStyle]}>
                     {leading}
                     <View style={styles.leadCopy}>

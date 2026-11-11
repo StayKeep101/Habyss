@@ -76,13 +76,16 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
 
     return (
         <VoidModal visible={visible} onClose={onClose}>
-            <ModalHeader title="WALLET" onBack={onClose} onAction={() => setInfo(true)} actionIcon="information-circle-outline" actionLabel="How Shards work" />
+            <ModalHeader title="Wallet" onAction={() => setInfo(true)} actionIcon="information-circle-outline" actionLabel="How Shards work" />
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <View style={styles.label}>
-                    <AppIcon name="diamond" filled size={Control.icon} color={t.color.accent} />
-                    <Text variant="heading" tone="muted">Shards balance</Text>
+                {/* The balance, and what it is counted in beside it. */}
+                <View style={styles.balance}>
+                    <CountUp style={[t.type.display, { color: t.color.textPrimary }]} value={end.toLocaleString()} />
+                    <View style={styles.label}>
+                        <AppIcon name="diamond" filled size={Control.icon} color={t.color.accent} />
+                        <Text variant="heading" tone="muted">Shards</Text>
+                    </View>
                 </View>
-                <CountUp style={[t.type.display, { color: t.color.textPrimary }]} value={end.toLocaleString()} />
                 <View style={styles.change}>
                     {scrub ? (
                         <Text variant="bodySmall" tone="muted">{momentLabel(scrub.date, range)}</Text>
@@ -216,7 +219,8 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
 
 const styles = StyleSheet.create({
     content: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.section + Spacing.lg, gap: Spacing.lg },
-    label: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    balance: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+    label: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
     change: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: -Spacing.sm },
     chart: { marginTop: Spacing.sm },
     stats: { flexDirection: 'row', paddingVertical: Spacing.lg },

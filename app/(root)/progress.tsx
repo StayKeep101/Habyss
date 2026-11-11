@@ -4,7 +4,6 @@ import { IconButton } from '@/components/ui/IconButton';
 import { ChoicePill } from '@/components/ui/ChoicePill';
 import { ChoiceSheet } from '@/components/ui/ChoiceSheet';
 import { AnimatedCircle, CountUp, MOTION, useProgress } from '@/components/ui/Motion';
-import { router } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     Easing, interpolate, runOnJS, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue,
@@ -186,18 +185,20 @@ export default function ProgressScreen() {
     const gap = Math.round(5 * fit);
 
     return (
-        <SheetScreen title="Streak" onBack={() => router.back()} backIcon="close">
+        <SheetScreen title="Streak" align="leading"
+            rightSlot={
+                // Whose streak: every habit and task together, or one habit.
+                <ChoicePill label={picked ? picked.name : 'All habits'} icon="chevron-down" on={false} color={accent} role="button" onPress={() => { selectionFeedback(); setChoosing(true); }}
+                    accessibilityLabel={`Streak for ${picked ? picked.name : 'all habits and tasks'}. Change`} />
+            }>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!selected}>
-                {/* The answer first, centred and large, with a small flame over it
-                    and your best run under it; then the month in four numbers. */}
-                {/* Whose streak: every habit and task together, or one habit. */}
-                <View style={styles.pickerRow}>
-                    <ChoicePill label={picked ? picked.name : 'All habits'} icon="chevron-down" on={false} color={accent} role="button" onPress={() => { selectionFeedback(); setChoosing(true); }}
-                        accessibilityLabel={`Streak for ${picked ? picked.name : 'all habits and tasks'}. Change`} />
-                </View>
-                <View style={[styles.hero, { marginTop: Math.round(12 * fit), marginBottom: Math.round(20 * fit) }]} accessible accessibilityLabel={`${streak} ${streak === 1 ? 'day' : 'days'} in a row. Best ${best}.`}>
-                    <Ionicons name="flame" filled size={22} color={colors.warning} />
-                    <CountUp style={[styles.heroValue, { fontSize: heroSize, lineHeight: Math.round(heroSize * 1.08), letterSpacing: -heroSize / 24, color: colors.textPrimary }]} value={streak} replay={only} />
+                {/* The answer first, centred and large, the flame beside it and
+                    your best run under it; then the month in four numbers. */}
+                <View style={[styles.hero, { marginBottom: Math.round(20 * fit) }]} accessible accessibilityLabel={`${streak} ${streak === 1 ? 'day' : 'days'} in a row. Best ${best}.`}>
+                    <View style={styles.heroRow}>
+                        <CountUp style={[styles.heroValue, { fontSize: heroSize, lineHeight: Math.round(heroSize * 1.08), letterSpacing: -heroSize / 24, color: colors.textPrimary }]} value={streak} replay={only} />
+                        <Ionicons name="flame" filled size={Math.round(heroSize * 0.42)} color={colors.warning} />
+                    </View>
                     <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{streak === 1 ? 'day in a row' : 'days in a row'}</Text>
                     {best > streak ? (
                         <Text style={[styles.heroBest, { color: colors.textTertiary }]}>{`Best ${best} ${best === 1 ? 'day' : 'days'}`}</Text>

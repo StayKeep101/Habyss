@@ -78,7 +78,7 @@ export default function AddFriendScreen() {
     return (
         <VoidShell>
             <SafeAreaView style={{ flex: 1 }}>
-                <ModalHeader title="Add friend" onBack={close} backIcon="close" />
+                <ModalHeader title="Add friend" />
                 <View style={styles.safe}><VoidCard style={styles.card}>
                     <IconTile icon="person-add" color={accent} size={56} />
                     <Text style={[styles.title, { color: colors.textPrimary }]}>
