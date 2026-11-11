@@ -64,6 +64,16 @@ for (const file of [...files('app'), ...files('components'), ...files('styles')]
     }
     visit(ast);
 }
+// A SheetScreen page leaves the top inset to the iOS sheet, so it must be
+// declared as a modal in app/(root)/_layout.tsx, or its header sits under the
+// Dynamic Island when it opens as a full-screen push.
+const rootLayout = fs.readFileSync('app/(root)/_layout.tsx', 'utf8');
+for (const file of fs.readdirSync('app/(root)').filter(name => name.endsWith('.tsx') && name !== '_layout.tsx')) {
+    const route = file.replace(/\.tsx$/, '');
+    if (fs.readFileSync(path.join('app/(root)', file), 'utf8').includes('<SheetScreen') && !rootLayout.includes(`name="${route}"`)) {
+        problems.push(`app/(root)/${file} SheetScreen page not declared: add <Stack.Screen name="${route}" presentation: 'modal'> to app/(root)/_layout.tsx.`);
+    }
+}
 if (problems.length) {
     console.error(problems.join('\n'));
     process.exitCode = 1;
