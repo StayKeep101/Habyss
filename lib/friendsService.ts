@@ -774,8 +774,9 @@ export class FriendsService {
         if (!ctx) return false;
         const me = await myName(ctx);
         const sent = await this.notify(ctx, friendId, 'nudge', {
-            title: `${me} nudged you`,
-            body: `${username ? `${username}, ` : ''}keep your streak going today.`,
+            // Read in a second: who, and that it is your move.
+            title: `👊 ${me} nudged you`,
+            body: 'Your move today.',
         });
         if (sent) await AsyncStorage.setItem(`habyss_nudged_${friendId}`, localDateKey(new Date())).catch(() => undefined);
         return sent;

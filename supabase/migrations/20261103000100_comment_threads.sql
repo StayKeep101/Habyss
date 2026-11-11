@@ -113,14 +113,14 @@ begin
         select author into target from public.feed_comments where id = new.parent_id;
         if target is not null and not target = any (told) then
             insert into public.notifications (user_id, from_user_id, type, title, body)
-            values (target, new.author, 'comment', who || ' replied to you', snippet);
+            values (target, new.author, 'comment', '↩️ ' || who || ' replied to you', snippet);
             told := told || target;
         end if;
     end if;
 
     if not new.to_user = any (told) then
         insert into public.notifications (user_id, from_user_id, type, title, body)
-        values (new.to_user, new.author, 'comment', who || ' commented on your day', snippet);
+        values (new.to_user, new.author, 'comment', '💬 ' || who || ' commented', snippet);
         told := told || new.to_user;
     end if;
 
@@ -137,7 +137,7 @@ begin
               and ((f.user_id = target and f.friend_id = new.to_user) or (f.friend_id = target and f.user_id = new.to_user))));
         continue when public.blocked_between(target, new.author);
         insert into public.notifications (user_id, from_user_id, type, title, body)
-        values (target, new.author, 'comment', who || ' mentioned you', snippet);
+        values (target, new.author, 'comment', '📣 ' || who || ' mentioned you', snippet);
         told := told || target;
     end loop;
     return new;

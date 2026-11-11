@@ -24,20 +24,19 @@ export interface NotificationSample {
 export function notificationSamples(name?: string): NotificationSample[] {
     const you = name ? `${name}, ` : '';
     return [
-        { id: 'now', label: 'Now: a task starts', title: 'Now: Study midterm', body: 'Until 11:00 AM', clip: 'start', urgent: true },
-        { id: 'handover', label: 'Handover, with Last one done', title: 'Now: Emails', body: 'Until 11:30 AM', clip: 'start', category: 'HABYSS_HANDOVER', urgent: true },
-        { id: 'end', label: "Time's up before a gap, with Done", title: "Time's up: Emails", body: 'Free until 12:00 PM · then Lunch', clip: 'end', category: 'HABYSS_DONE', urgent: true },
-        { id: 'leave', label: 'Leave now for an event', title: 'Leave now for Class', body: 'It starts at 2:00 PM.', clip: 'leave', urgent: true },
-        { id: 'meal', label: 'A meal starts', title: 'Now: Lunch', body: 'Until 1:00 PM', clip: 'start', urgent: true },
-        { id: 'before', label: 'A reminder before (10 min)', title: 'Gym in 10 min', body: 'At 5:00 PM.', urgent: true },
-        { id: 'bedtime', label: 'Bedtime', title: 'Bedtime', body: 'Time to wind down.', urgent: true },
+        { id: 'now', label: 'A task or habit starts', title: 'Study midterm', body: '', clip: 'start', urgent: true },
+        { id: 'end', label: "Time's up, with free time after", title: "⏰ Time's up: Emails", body: 'Free until 12:00 PM · then Lunch', clip: 'end', category: 'HABYSS_DONE', urgent: true },
+        { id: 'leave', label: 'Leave now for an event', title: '🚶 Leave now for Class', body: 'Starts at 2:00 PM', clip: 'leave', urgent: true },
+        { id: 'meal', label: 'A meal starts', title: '🥗 Lunch time', body: '', clip: 'start', urgent: true },
+        { id: 'before', label: 'A reminder before (10 min)', title: '⏳ Gym in 10 min', body: 'At 5:00 PM', urgent: true },
+        { id: 'bedtime', label: 'Bedtime', title: '😴 Bedtime', body: 'Time to wind down.', urgent: true },
         { id: 'scroll', label: 'Echo: 30 minutes of scrolling', title: 'Echo', body: `${you}30 minutes of brainrot today. That's 30 minutes further from your goals. Study midterm. Now.`, urgent: true },
-        { id: 'earned', label: 'Top 3 done: you earned it', title: 'You earned it', body: 'Your top 3 are done. Your apps are open for the rest of today.' },
-        { id: 'gate-open', label: 'Apps open for an hour', title: 'Your apps are open', body: 'Until 3:14 PM. Then they lock again. 100 Shards spent.' },
-        { id: 'nudge', label: 'Community: a nudge', title: 'Alex nudged you', body: "Alex is waiting on you. Today's not done yet." },
-        { id: 'comment', label: 'Community: a comment', title: 'Mia commented on your day', body: '"8 of 15 before noon?? who are you"' },
-        { id: 'duel', label: 'Community: a duel challenge', title: 'Sam challenged you', body: '7 days, 50 Shards each. Accept?' },
-        { id: 'passed', label: 'Community: a friend passed you', title: 'Alex passed you', body: "You're #3 on the leaderboard now." },
+        { id: 'earned', label: 'Top 3 done: you earned it', title: '🎉 You earned it', body: 'Your top 3 are done. Your apps are open for the rest of today.' },
+        { id: 'gate-open', label: 'Apps open for an hour', title: '🔓 Your apps are open', body: 'Until 3:14 PM. Then they lock again. 100 Shards spent.' },
+        { id: 'nudge', label: 'Community: a nudge', title: '👊 Alex nudged you', body: 'Your move today.' },
+        { id: 'comment', label: 'Community: a comment', title: '💬 Mia commented', body: '"8 of 15 before noon?? who are you"' },
+        { id: 'duel', label: 'Community: a duel challenge', title: '⚔️ Sam challenged you', body: '7 days · 50 Shards each' },
+        { id: 'passed', label: 'Community: a friend passed you', title: '🏁 Alex passed you', body: "You're #3. Take it back." },
     ];
 }
 

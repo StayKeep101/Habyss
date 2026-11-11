@@ -129,8 +129,8 @@ begin
     if p_stake > 0 then insert into public.shards_ledger (user_id, amount, reason, duel_id) values (me, -p_stake, 'stake', made); end if;
     insert into public.notifications (user_id, from_user_id, type, title, body)
         values (p_friend, me, 'duel',
-                coalesce((select coalesce(nullif(btrim(display_name), ''), username) from public.profiles where id = me), 'A friend') || ' challenged you to a duel',
-                p_days || ' days, who keeps their plan better' || case when p_stake > 0 then ', for ' || p_stake || ' Shards each.' else '.' end);
+                '⚔️ ' || coalesce((select coalesce(nullif(btrim(display_name), ''), username) from public.profiles where id = me), 'A friend') || ' challenged you',
+                p_days || ' days' || case when p_stake > 0 then ' · ' || p_stake || ' Shards each' else ' · who keeps their plan best' end);
     return made;
 end;
 $$;

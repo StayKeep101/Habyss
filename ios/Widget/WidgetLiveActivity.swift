@@ -183,7 +183,7 @@ private struct DoneButton: View {
     }
 }
 
-/// When it is: "Now · until 6:07 PM", "Next · 6:30 PM", nothing for a focus session, or "Check in" once its time is over.
+/// When it is: "Next · 6:30 PM" while it is up next; nothing once it is on or for a focus session; or "Check in" once its time is over.
 private struct StatusLine: View {
     let state: WidgetAttributes.ContentState
     let stale: Bool
@@ -194,10 +194,9 @@ private struct StatusLine: View {
             let begins = Date(timeIntervalSince1970: start / 1000)
             if begins > Date() {
                 Text("Next · ") + Text(begins, style: .time)
-            } else if let end = state.scheduledEndDateInMilliseconds {
-                Text("Now · until ") + Text(Date(timeIntervalSince1970: end / 1000), style: .time)
             } else {
-                Text("Now")
+                // On now: the clock below already says how long is left.
+                EmptyView()
             }
         } else if state.timerEndDateInMilliseconds != nil {
             // A focus session: the ring already says so, no word needed.

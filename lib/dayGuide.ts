@@ -7,12 +7,13 @@ import { clockLabel, isTravel, lengthLabel, type DayFlow, type FlowItem } from '
  * books it and replaces it on every change. Pure, so it is tested without a phone.
  *
  * The base, for everything on the line:
- *   - as a habit, task, meal, event or the trip to one begins: "Now: Emails",
- *     until when ("Leave now for Class" for the trip);
+ *   - as a habit, task or event begins: just its name, "Emails" (the moment
+ *     says it is now); a meal: "🥗 Lunch time"; the trip to an event:
+ *     "🚶 Leave now for Class", "Starts at 2:00 PM";
  *   - when one ends just as the next begins, one notification for both:
- *     "Now: Emails", whose button ("Last one done") ticks Study;
- *   - when one ends with free time after it: "Time's up: Study", with Done;
- *   - at bedtime: "Bedtime".
+ *     "Emails", whose button ("Last one done") ticks Study;
+ *   - when one ends with free time after it: "⏰ Time's up: Study", with Done;
+ *   - at bedtime: "😴 Bedtime".
  * More only when a habit or task asks for it: "Study in 10 min" (its reminders).
  * Nothing else: no check-ins, no "more time" (the next thing simply starts).
  */
@@ -29,6 +30,10 @@ export interface GuideMoment {
     /** What the notification's Done ticks: the habit or task whose time just ended. */
     done?: { id: string; kind: 'habit' | 'task' };
 }
+
+/** A meal reads as its time of day, with something to eat on it. */
+const MEAL_EMOJI: Record<string, string> = { breakfast: '🥐', lunch: '🥗', supper: '🍝' };
+const mealTitle = (item: FlowItem) => `${MEAL_EMOJI[item.id.replace(/^meal:/, '')] ?? '🍽️'} ${item.title} time`;
 
 const open = (item: FlowItem) => !item.done && item.state !== 'done';
 const doable = (item: FlowItem) => (item.kind === 'habit' || item.kind === 'task') && open(item);
@@ -60,26 +65,26 @@ export function guideMoments(flow: DayFlow, now: number, options: GuideOptions =
         if (startAt(item.end) && startAt(item.end)!.id !== item.id) { handovers.set(item.end, item); continue; }
         const next = nextAfter(item.end);
         out.push({ id: `guide:end:${item.id}:${item.end}`, at: item.end, kind: 'end', ...ref(item)!, done: { id: item.id, kind: item.kind as 'habit' | 'task' },
-            title: `Time's up: ${item.title}`,
+            title: `⏰ Time's up: ${item.title}`,
             body: next ? `Free until ${clockLabel(next.start)} · then ${next.title}` : 'Nothing else planned.' });
     }
 
     for (const item of starts) {
         const ended = handovers.get(item.start);
-        const until = `Until ${clockLabel(item.end)}`;
         if (item.kind === 'event' && isTravel(item.id)) {
             const event = item.title.replace(/^To /, '');
             out.push({ id: `guide:leave:${item.id}:${item.start}`, at: item.start, kind: 'leave',
-                title: `Leave now for ${event}`, body: `It starts at ${clockLabel(item.end)}.`,
+                title: `🚶 Leave now for ${event}`, body: `Starts at ${clockLabel(item.end)}`,
                 ...(ended ? { done: { id: ended.id, kind: ended.kind as 'habit' | 'task' } } : null) });
             continue;
         }
         out.push({
             id: `guide:${ended ? 'handover' : 'now'}:${item.id}:${item.start}`, at: item.start, kind: ended ? 'handover' : 'now',
             ...ref(item),
-            title: `Now: ${item.title}`,
-            // Only what starts: that the last one's time is up goes without saying. Its button still ticks it.
-            body: until,
+            // Only its name: arriving as it starts already says "now", and the
+            // Live Activity shows how long is left. Its button still ticks the last one.
+            title: item.kind === 'meal' ? mealTitle(item) : item.title,
+            body: '',
             ...(ended ? { done: { id: ended.id, kind: ended.kind as 'habit' | 'task' } } : null),
         });
     }
@@ -91,12 +96,12 @@ export function guideMoments(flow: DayFlow, now: number, options: GuideOptions =
             const at = item.start - minutes;
             if (at <= now) continue;
             out.push({ id: `guide:before:${item.id}:${minutes}:${item.start}`, at, kind: 'before', ...ref(item)!,
-                title: `${item.title} in ${lengthLabel(minutes)}`, body: `At ${clockLabel(item.start)}.` });
+                title: `⏳ ${item.title} in ${lengthLabel(minutes)}`, body: `At ${clockLabel(item.start)}` });
         }
     }
 
     if (options.sleep !== undefined && options.sleep > now) {
-        out.push({ id: `guide:bedtime:${options.sleep}`, at: options.sleep, kind: 'bedtime', title: 'Bedtime', body: 'Time to wind down.' });
+        out.push({ id: `guide:bedtime:${options.sleep}`, at: options.sleep, kind: 'bedtime', title: '😴 Bedtime', body: 'Time to wind down.' });
     }
     return out.sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
 }

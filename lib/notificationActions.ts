@@ -26,7 +26,7 @@ export const NUDGE_CATEGORY = 'ECHO_NUDGE';
 export const TIMES_UP_CATEGORY = 'ECHO_TIMES_UP';
 /** The day as it happens (lib/dayGuide.ts): one button, Done, ticking the habit or task whose time just ended. */
 export const DONE_CATEGORY = 'HABYSS_DONE';
-/** A handover ("Now: Emails"): its button ticks the one whose time just ended, so it says so. */
+/** A handover ("Emails" starts as Study ends): its button ticks the one whose time just ended, so it says so. */
 export const HANDOVER_CATEGORY = 'HABYSS_HANDOVER';
 /** Echo asking how your energy is, answered on the notification. */
 export const ENERGY_CATEGORY = 'ECHO_ENERGY';
