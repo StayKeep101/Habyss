@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import Animated, { Easing, LinearTransition, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -12,6 +12,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { localDateKey } from '@/lib/habitSchedule';
 import { usePanelRoom } from '@/components/Create/DetailBar';
+import { DURATION, EASE, timingFor } from '@/theme/motion';
 
 /** Timed, never sprung: a sprung height overshoots and the grid bounces. */
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
@@ -52,15 +53,19 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
         selectionFeedback();
         setMonth(next < minimumMonth ? minimumMonth : next);
     };
-    // Swipe left for the next month, right for the one before: the grid follows
-    // the finger, slides out, and the new month slides in from the other side.
+    // Swipe left for the next month, right for the one before. The months on
+    // either side are laid out beside this one, as on the calendar strip, so
+    // the finger pulls the next month in rather than an empty gap: it slides
+    // across, and only then becomes the month shown.
     const [width, setWidth] = useState(0);
     const slide = useSharedValue(0);
+    const commit = (direction: 1 | -1) => showMonth(shiftMonth(month, direction));
+    // The new month is drawn in the middle by the time the strip is put back.
+    useLayoutEffect(() => { slide.value = 0; }, [month, slide]);
     const step = (direction: 1 | -1) => {
         if (direction === -1 && !canGoBack) return;
-        showMonth(shiftMonth(month, direction));
-        slide.value = direction * (width || 320);
-        slide.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) });
+        if (!width) { commit(direction); return; }
+        slide.value = withTiming(-direction * width, timingFor(DURATION.base, EASE.move), done => { if (done) runOnJS(commit)(direction); });
     };
     const swipe = Gesture.Pan()
         .activeOffsetX([-14, 14])
@@ -72,10 +77,10 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
         .onEnd(event => {
             const go = event.translationX < -50 || event.velocityX < -500 ? 1
                 : (event.translationX > 50 || event.velocityX > 500) && canGoBack ? -1 : 0;
-            if (!go) { slide.value = withSpring(0, { damping: 20, stiffness: 240 }); return; }
-            slide.value = withTiming(-go * (width || 320), { duration: 140 }, done => { if (done) runOnJS(step)(go as 1 | -1); });
+            if (!go || !width) { slide.value = withSpring(0, { damping: 20, stiffness: 240 }); return; }
+            slide.value = withTiming(-go * width, timingFor(DURATION.quick, EASE.enter), done => { if (done) runOnJS(commit)(go as 1 | -1); });
         });
-    const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slide.value }] }));
+    const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slide.value - width }] }));
     const validYear = /^\d{4}$/.test(year) && Number(year) >= minimumMonth.getFullYear() && Number(year) <= 9999;
 
     const days = (page: Date) => {
@@ -158,7 +163,14 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
                     layout={MORPH}
                     style={{ height: monthRows(month) * cell, overflow: 'hidden' }}
                 >
-                    <Animated.View style={slideStyle}>{days(month)}</Animated.View>
+                    {width ? (
+                        <Animated.View style={[styles.strip, { width: width * 3 }, slideStyle]}>
+                            {/* Only to be seen while swiping: VoiceOver reads the month shown. */}
+                            <View style={{ width }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{canGoBack ? days(shiftMonth(month, -1)) : null}</View>
+                            <View style={{ width }}>{days(month)}</View>
+                            <View style={{ width }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{days(shiftMonth(month, 1))}</View>
+                        </Animated.View>
+                    ) : days(month)}
                 </Animated.View>
             </GestureDetector>
         </>}
@@ -171,6 +183,7 @@ const styles = StyleSheet.create({
     month: { fontSize: 16, fontFamily: FontFamily.medium },
     arrow: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
     grid: { flexDirection: 'row', flexWrap: 'wrap' },
+    strip: { flexDirection: 'row', alignItems: 'flex-start' },
     weekday: { width: '14.285714%', textAlign: 'center', fontSize: 11, fontFamily: FontFamily.medium, paddingVertical: 4 },
     cell: { width: '14.285714%', height: CELL, alignItems: 'center', justifyContent: 'center' },
     day: { width: 32, height: 32, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
