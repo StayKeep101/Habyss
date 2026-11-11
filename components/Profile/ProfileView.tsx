@@ -228,7 +228,7 @@ export const ProfileView: React.FC<{
                             { key: 'goals', label: 'Goals done', value: numbers.goalsCompleted, icon: 'flag', color: colors.success, lit: numbers.goalsCompleted > 0, onPress: onGoalsDone },
                         ].map((stat, index) => (
                             <PopIn key={stat.key} index={index} style={styles.tileSlot}>
-                                <Pressable disabled={!stat.onPress} onPress={stat.onPress} style={({ pressed }) => [styles.tilePress, pressed && styles.pressed]}
+                                <Pressable disabled={!stat.onPress} onPress={stat.onPress} style={styles.tilePress}
                                     accessibilityRole={stat.onPress ? 'button' : undefined}
                                     accessibilityLabel={`${stat.value} ${stat.label.toLowerCase()}${stat.note ? `, ${stat.note.toLowerCase()}` : ''}`}>
                                     <MatteSurface radius={Radius.card} tint={stat.key === 'streak' && stat.lit ? tint(stat.color, 'subtle') : undefined} style={styles.tile}>
@@ -288,7 +288,6 @@ const styles = StyleSheet.create({
     tiles: { flexDirection: 'row', gap: s(10) },
     tileSlot: { flex: 1 },
     tilePress: { flex: 1 },
-    pressed: { opacity: 0.7 },
     tile: { flex: 1, padding: s(14), gap: vs(6), minHeight: 44 },
     tileValue: { fontSize: ms(28), lineHeight: ms(34), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'], marginTop: vs(4) },
     statLabel: { fontSize: ms(12), fontFamily: FontFamily.medium, flexShrink: 1 },
