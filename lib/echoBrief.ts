@@ -156,6 +156,7 @@ const Sc = (b: EchoBrief) => capital(sc(b));
 /** Time left on what is on now, rounded ("about twenty minutes"). */
 const left = (b: EchoBrief) => roughMinutes(b.onNow?.minutesLeft ?? 0);
 const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const capitalNumber = (count: number) => capital(numberWord(count));
 const daysWord = (days: number) => (days <= 0 ? 'today' : days === 1 ? 'one day' : `${numberWord(days)} days`);
 
 /** What Echo calls you: your first name when it has it, else a word that fits the voice. */
@@ -179,7 +180,7 @@ const LINES: Record<PointKind, Record<PersonalityModeId, Lines>> = {
             `${Sc(b)} scrolled. Try this: phone face down, timer for ten, start ${waiting(b, 'one small thing')} 💙`,
         ],
         normal: b => [
-            `${Sc(b)} of scrolling today. That's ${sc(b)} not spent on ${waiting(b, 'your goals')}.`,
+            `${Sc(b)} of scrolling today. That's time not spent on ${waiting(b, 'your goals')}.`,
             `${Sc(b)} in your blocked apps. Close this, put the phone across the room, start ${waiting(b, 'your plan')}.`,
             `You've given your apps ${sc(b)} today. Give ${waiting(b, 'your plan')} the next fifteen.`,
         ],
@@ -189,7 +190,7 @@ const LINES: Record<PointKind, Record<PersonalityModeId, Lines>> = {
             `${Sc(b)}, ${you(b, 'kid')}. That's time you don't get back. ${waiting(b, 'Your work')}, now.`,
         ],
         bully_mode: b => [
-            `${Sc(b)} of brainrot today. That's ${sc(b)} further from your goals, loser. ${waiting(b, 'Your work')}. Now.`,
+            `${Sc(b)} of brainrot today. Every minute of it further from your goals, loser. ${waiting(b, 'Your work')}. Now.`,
             `${Sc(b)} of scrolling while ${waiting(b, 'your work')} sits there. Put the damn phone down.`,
             `${Sc(b)} feeding the algorithm. It's getting rich off you. ${waiting(b, 'Your work')}. Go.`,
         ],
@@ -279,12 +280,12 @@ const LINES: Record<PointKind, Record<PersonalityModeId, Lines>> = {
         ],
         normal: b => [
             `${b.onNow!.title}: ${left(b)} left.${b.next ? ` Then ${b.next.title}.` : ''}`,
-            `You're on your phone during ${b.onNow!.title}. ${left(b)} left. Close the app.`,
+            `You're on your phone during ${b.onNow!.title}. ${capital(left(b))} left. Close the app.`,
             `${b.onNow!.title} is running. If you're reading this, you're not doing it.`,
             `${b.onNow!.title}, ${left(b)} to go. Put the phone out of reach. It's the one trick that works.`,
         ],
         dad_mode: b => [
-            `${b.onNow!.title}. ${left(b)} left. Eyes on it.`,
+            `${b.onNow!.title}. ${capital(left(b))} left. Eyes on it.`,
             `${you(b, 'Kid')}, what are you doing? ${b.onNow!.title} is on. Phone away.`,
             `It's ${b.onNow!.title} time and you're on your phone. We both know that's not how this works.`,
             `${b.onNow!.title}. ${capital(left(b))}. I'm not asking twice.`,
@@ -316,7 +317,7 @@ const LINES: Record<PointKind, Record<PersonalityModeId, Lines>> = {
             `${d.t}, due ${d.when}${d.pct}. Don't make me remind you again.`,
         ]; },
         bully_mode: b => { const d = dueLine(b); return [
-            `${d.t} is due ${d.when}${d.pct} and you're on your phone. Bold. Stupid, but bold.`,
+            `${d.t} is due ${d.when}${d.pct}, and you're on your phone. Bold. Stupid, but bold.`,
             `${d.t} is due ${d.when}. Last-minute you is going to hate current you. Start.`,
         ]; },
         goofball: b => { const d = dueLine(b); return [
@@ -327,11 +328,11 @@ const LINES: Record<PointKind, Record<PersonalityModeId, Lines>> = {
     friendDone: {
         friendly: b => [
             `${b.friendsDone[0].name} already finished their whole day! You've got ${numberWord(b.total - b.done)} left, you can do it too 💙`,
-            `${b.friendsDone[0].name} wrapped up their day. ${numberWord(b.total - b.done)} to go for you, let's knock out the next one 💙`,
+            `${b.friendsDone[0].name} wrapped up their day. ${capitalNumber(b.total - b.done)} to go for you, let's knock out the next one 💙`,
         ],
         normal: b => [
             `${b.friendsDone[0].name} finished everything today. You have ${numberWord(b.total - b.done)} left.`,
-            `${b.friendsDone[0].name} is done for today. ${numberWord(b.total - b.done)} left on yours. Next one, now.`,
+            `${b.friendsDone[0].name} is done for today. ${capitalNumber(b.total - b.done)} left on yours. Next one, now.`,
         ],
         dad_mode: b => [
             `${b.friendsDone[0].name} is done for the day. You still have ${numberWord(b.total - b.done)}. Get moving.`,
@@ -425,11 +426,11 @@ const LINES: Record<PointKind, Record<PersonalityModeId, Lines>> = {
             `${capital(numberWord(b.total))} things planned and none started. The smallest one first, two minutes, go 💙`,
         ],
         normal: b => [
-            `Past noon and nothing done yet. ${numberWord(b.total)} planned. Start with one.`,
+            `Past noon and nothing done yet. ${capitalNumber(b.total)} planned. Start with one.`,
             `None of ${numberWord(b.total)} done and it's past noon. Pick the easiest and finish it in the next twenty minutes.`,
         ],
         dad_mode: b => [
-            `Half the day gone and nothing done. ${numberWord(b.total)} things. Start now.`,
+            `Half the day gone and nothing done. ${capitalNumber(b.total)} things. Start now.`,
             `${capital(numberWord(b.total))} things, nothing done. Sit down and start. Now.`,
         ],
         bully_mode: b => [

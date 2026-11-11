@@ -150,6 +150,13 @@ export interface EchoConfig {
     demonMode?: boolean;
     /** A real alarm at wake time with Echo's line (AlarmKit, iOS 26+; lib/morningAlarm.ts). Off unless turned on. */
     morningAlarm?: boolean;
+    /**
+     * Smarter Echo: a few times a day (opening Habyss in the morning and
+     * evening, and replying to your answer), Echo's line is written by Claude
+     * on Habyss's server from a short summary of today (lib/echoCloud.ts).
+     * Off unless turned on, after being told what is sent.
+     */
+    cloudVoice?: boolean;
 }
 
 export const DEFAULT_ECHO: EchoConfig = { morning: false, evening: false, useName: true, writeReminders: false, alive: false, aliveFollowUp: true, weeklyReview: true };

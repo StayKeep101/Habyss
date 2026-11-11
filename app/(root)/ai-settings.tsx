@@ -274,6 +274,14 @@ const AISettings = () => {
                     {/* Far behind on tasks: the screen's edge goes red and Echo goes at you, in its own voice. */}
                     <SettingsRow icon="flame" color="#FF453A" label="Demon mode" toggle={echo.demonMode !== false}
                         onToggle={value => saveEcho({ ...echo, demonMode: value })} />
+                    {/* Smarter Echo: the few lines a day that matter, written by Claude. Opt-in, after saying what is sent. */}
+                    <SettingsRow icon="sparkles" color={accentSolid} label="Smarter Echo" toggle={echo.cloudVoice === true}
+                        onToggle={value => {
+                            if (!value) { saveEcho({ ...echo, cloudVoice: false }); return; }
+                            Alert.alert('Smarter Echo',
+                                'A few times a day, Echo’s line is written by Claude (Anthropic) from a short summary of today: what is on, what slipped, and a few things you told Echo. Nothing else from your account is sent, and nothing is kept.',
+                                [{ text: 'Not now', style: 'cancel' }, { text: 'Turn on', onPress: () => saveEcho({ ...echo, cloudVoice: true }) }]);
+                        }} />
                     <SettingsRow icon="bookmark" color="#FF9F0A" label="What Echo remembers" onPress={() => router.push('/(root)/echo-memory' as never)} />
                 </Group>
 

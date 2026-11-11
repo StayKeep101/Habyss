@@ -38,7 +38,8 @@ export function roughMinutes(minutes: number): string {
     if (m < 18) return 'about fifteen minutes';
     if (m < 25) return 'about twenty minutes';
     if (m < 38) return 'half an hour';
-    if (m < 52) return 'the best part of an hour';
+    if (m < 46) return 'about forty minutes';
+    if (m < 52) return 'nearly an hour';
     if (m < 70) return 'an hour';
     if (m < 100) return 'over an hour';
     if (m < 150) return 'a couple of hours';

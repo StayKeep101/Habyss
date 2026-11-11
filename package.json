@@ -18,7 +18,8 @@
     "check:ui": "node scripts/check-ui-consistency.cjs",
     "check:supabase": "node scripts/check-supabase.mjs",
     "check:auth": "node scripts/check-auth.mjs",
-    "apply:migration": "node scripts/apply-migration.mjs"
+    "apply:migration": "node scripts/apply-migration.mjs",
+    "echo:sample": "jest --testMatch '**/scripts/echo-sample.blind.ts' --silent=false --coverage=false"
   },
   "dependencies": {
     "@expo-google-fonts/lexend": "^0.4.1",

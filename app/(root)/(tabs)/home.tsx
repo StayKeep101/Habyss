@@ -197,6 +197,26 @@ const Home = () => {
       }
     }
 
+    // Smarter Echo (opt-in): opening Habyss in the morning or evening, Claude writes the line
+    // from a short summary of today and what you told Echo (lib/echoCloud.ts).
+    const hour = new Date().getHours();
+    if (brief && (hour < 12 || hour >= 17)) {
+      const { getEchoConfig } = require('@/lib/echo') as typeof import('@/lib/echo');
+      const config = await getEchoConfig().catch(() => null);
+      if (config?.cloudVoice) {
+        const { talkingPoints } = require('@/lib/echoBrief') as typeof import('@/lib/echoBrief');
+        const { currentMemory } = require('@/lib/echoMemory') as typeof import('@/lib/echoMemory');
+        const points = talkingPoints(brief);
+        const line = await (require('@/lib/echoCloud') as typeof import('@/lib/echoCloud')).cloudOpeningLine(true, today, {
+          voice: personality, name: name ?? undefined,
+          facts: [...points.slice(0, 4).map(point => point.facts), hour < 12 ? 'It is morning.' : 'It is evening.'],
+          remembered: currentMemory().notes.filter(note => note.source === 'you').slice(0, 4).map(note => note.text),
+          said: said.slice(0, 5).map(item => item.line),
+        }).catch(() => null);
+        if (line) { say(line, `cloud:${points[0]?.kind ?? 'open'}`); return; }
+      }
+    }
+
     const specific = brief ? await echoSays(personality, brief, said).catch(() => null) : null;
     if (specific) {
       // Not every reaction is a full sentence: now and then just a word or a nudge.
@@ -634,8 +654,17 @@ const Home = () => {
           ask={talk ? { placeholder: talk.placeholder, label: talk.text, save: 'Tell Echo', onSave: answer => {
             const asked = talk; setTalk(null); successFeedback();
             void (require('@/lib/echoConversation') as typeof import('@/lib/echoConversation')).saveAnswer(localDateKey(new Date()), asked, answer);
-            const reply = (require('@/lib/echoHuman') as typeof import('@/lib/echoHuman')).heardLine(normalizeAIPersonality(aiPersonality || 'friendly'), asked.id);
+            const voice = normalizeAIPersonality(aiPersonality || 'friendly');
+            const reply = (require('@/lib/echoHuman') as typeof import('@/lib/echoHuman')).heardLine(voice, asked.id);
             quoteRef.current = reply; setLineTurn(turn => turn + 1); setMotivationalQuote(reply);
+            // Smarter Echo answers what you actually said, when it is on and quick enough.
+            void (async () => {
+              const config = await (require('@/lib/echo') as typeof import('@/lib/echo')).getEchoConfig().catch(() => null);
+              const better = await (require('@/lib/echoCloud') as typeof import('@/lib/echoCloud')).cloudReply(!!config?.cloudVoice, {
+                voice, name: (await getName()) ?? undefined, facts: [], remembered: [], said: [reply], reply: { question: asked.text, answer },
+              }).catch(() => null);
+              if (better && quoteRef.current === reply) { quoteRef.current = better; setLineTurn(turn => turn + 1); setMotivationalQuote(better); }
+            })();
           } } : undefined} />
         <CheckInPopup kind={question} onClose={() => setQuestion(null)}
           onAnswer={(kind, value) => { void answerCheckIn(kind, value); setQuestion(null); successFeedback(); }} />
