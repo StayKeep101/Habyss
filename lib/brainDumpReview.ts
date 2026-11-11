@@ -29,7 +29,10 @@ async function run(): Promise<void> {
         if (count === 0) return;
         const { status } = await Notifications.getPermissionsAsync();
         if (status !== 'granted') return;
-        const when = reviewTime(now, start);
+        const { getDayWindow } = require('./echo') as typeof import('./echo');
+        const { whenAwake } = require('./sleepWindow') as typeof import('./sleepWindow');
+        // It can wait: inside your sleep, it comes when you wake.
+        const when = whenAwake(reviewTime(now, start), await getDayWindow());
         if (when.getTime() <= now.getTime()) return;
         await Notifications.scheduleNotificationAsync({
             identifier: ID,

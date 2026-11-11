@@ -1,4 +1,5 @@
--- Community notifications, each kind on (pushed) or off (inbox only):
+-- Community notifications, each kind on (pushed) or off (inbox only), and
+-- never pushed while the person sleeps (it waits in the inbox):
 -- Settings → Notifications (lib/pushPrefs.ts). The phone writes the types it
 -- wants kept to the inbox; the push trigger skips them. The row is still saved,
 -- so the inbox has everything either way.
@@ -16,9 +17,13 @@ declare
     token text;
     focusing boolean;
     muted text[];
+    zone text;
+    wakes time;
+    sleeps time;
+    clock time;
 begin
-    select p.push_token, coalesce(p.focus_until > now(), false), coalesce(p.push_muted, '{}')
-      into token, focusing, muted
+    select p.push_token, coalesce(p.focus_until > now(), false), coalesce(p.push_muted, '{}'), p.timezone, p.wake_time, p.sleep_time
+      into token, focusing, muted, zone, wakes, sleeps
       from public.profiles p where p.id = new.user_id;
     if token is null or token not like 'ExponentPushToken%' then
         return new;
@@ -26,6 +31,19 @@ begin
     -- Focusing: it waits in the inbox instead of buzzing the phone.
     if focusing then
         return new;
+    end if;
+    -- Asleep (their own bedtime to wake-up, in their own time zone, from Day &
+    -- calendar): it waits in the inbox. Bedtime itself still counts as awake.
+    if wakes is not null and sleeps is not null and wakes <> sleeps then
+        begin
+            clock := (now() at time zone coalesce(zone, 'UTC'))::time;
+        exception when others then
+            clock := (now() at time zone 'UTC')::time;
+        end;
+        if (sleeps > wakes and (clock > sleeps or clock < wakes))
+           or (sleeps < wakes and clock > sleeps and clock < wakes) then
+            return new;
+        end if;
     end if;
     -- A kind switched off in Settings: inbox only.
     if new.type = any(muted) then

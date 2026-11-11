@@ -43,7 +43,7 @@ export default function TimelineSettingsScreen() {
     // The same saved day as Notifications: one copy (lib/echo.ts), never the default first.
     const [day, setDay] = useState<DayWindow>(() => cachedDayWindow() ?? DEFAULT_DAY);
     useEffect(() => { void getDayWindow().then(setDay); }, []);
-    // Quiet hours follow the same day, so reminders are rescheduled with it.
+    // Nothing rings while you sleep (lib/sleepWindow.ts), so reminders are rescheduled with it.
     // Only the end that was changed is saved; the other stays as it was saved.
     const saveDay = (patch: Partial<DayWindow>) => { setDay(current => ({ ...current, ...patch })); void updateDayWindow(patch).then(saved => { setDay(saved); return NotificationService.refreshReminders(); }).catch(() => undefined); };
 

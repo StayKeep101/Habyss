@@ -18,6 +18,7 @@ import { localDateKey } from './habitSchedule';
 import { emit, onAny } from './appEvents';
 import { engagementLifecycle } from './engagementLifecycle';
 import { focusQuiet, quietUntil } from './focusQuiet';
+import { isAsleep } from './sleepWindow';
 import { KEEP_ALIVE_CONTENT, KEEP_ALIVE_ID, keepAliveAt } from './reminderKeepAlive';
 let reminderQueue: Promise<void> = Promise.resolve();
 let refreshPromise: Promise<void> | null = null;
@@ -284,6 +285,7 @@ export class NotificationService {
             const ringing = prefs.alarms && alarmCall && morningAlarmAvailable();
             for (const moment of guideMoments(flow, now.getHours() * 60 + now.getMinutes(), { sleep, before })) {
               const date = new Date(midnight.getTime() + moment.at * 60000);
+              if (isAsleep(date, dayWindow)) continue;
               if (ringing && (moment.kind === 'now' || moment.kind === 'leave') && !moment.done) {
                 alarmMoments.push({ at: date.getTime(), title: moment.title });
                 continue;
@@ -318,6 +320,8 @@ export class NotificationService {
           // refresh would deliver it again. Focusing: nothing may fire before
           // the session ends (lib/focusQuiet.ts).
           .filter(item => item.date.getTime() > Math.max(now.getTime(), quietUntil()))
+          // Never while you sleep (Day & calendar): bedtime rings, nothing after it until you wake.
+          .filter(item => !isAsleep(item.date, dayWindow))
           // One place kept for the note after the last of them.
           .slice(0, Math.max(0, budget - 1));
         const pauseAt = keepAliveAt(desired);

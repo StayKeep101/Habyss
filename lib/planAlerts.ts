@@ -71,6 +71,10 @@ export async function schedulePlanAlert(alert: PlanAlert | null): Promise<void> 
         const date = new Date();
         date.setHours(0, alert.at, 0, 0);
         if (date.getTime() <= Date.now()) return;
+        // Never while you sleep: the timeline shows the change in the morning.
+        const { getDayWindow } = require('./echo') as typeof import('./echo');
+        const { isAsleep } = require('./sleepWindow') as typeof import('./sleepWindow');
+        if (isAsleep(date, await getDayWindow())) return;
         await Notifications.scheduleNotificationAsync({
             identifier: ID,
             content: { title: 'Echo', body: alert.body, sound: 'default', data: { kind: 'plan-moved', url: '/(root)/(tabs)/roadmap' } },

@@ -19,6 +19,11 @@ export async function syncWeeklyReviewNotice(): Promise<void> {
         if (status !== 'granted') return;
         const when = reviewTime(new Date(), await getWeekStart());
         when.setMinutes(when.getMinutes() + 30);
+        // It can wait: inside your sleep, it comes when you wake.
+        const { getDayWindow } = require('./echo') as typeof import('./echo');
+        const { whenAwake } = require('./sleepWindow') as typeof import('./sleepWindow');
+        const at = whenAwake(when, await getDayWindow());
+        when.setTime(at.getTime());
         if (when.getTime() <= Date.now()) return;
         await Notifications.scheduleNotificationAsync({
             identifier: ID,

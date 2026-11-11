@@ -19,8 +19,7 @@ import { PUSH_KINDS, pushOff, setPushKind } from '@/lib/pushPrefs';
 import HabyssLiveActivity from '@/modules/habyss-live-activity';
 import { NotificationService } from '@/lib/notificationService';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
-import { cachedDayWindow, cachedEchoConfig, DEFAULT_DAY, DEFAULT_ECHO, getDayWindow, getEchoConfig, minutesOf, updateEchoConfig, type EchoConfig } from '@/lib/echo';
-import { clockLabel } from '@/lib/dayFlow';
+import { cachedEchoConfig, DEFAULT_ECHO, getEchoConfig, updateEchoConfig, type EchoConfig } from '@/lib/echo';
 import { scheduledActivitiesEnabled, setScheduledActivitiesEnabled, scheduledActivitiesCapability } from '@/lib/scheduledActivities';
 import { styles } from '@/styles/screens/notifications.styles';
 
@@ -33,8 +32,6 @@ const Notifications = () => {
 
   const [asking, setAsking] = useState(false);
 
-  // Your saved day from the start, never the default first (lib/echo.ts).
-  const [day, setDay] = useState(() => cachedDayWindow() ?? DEFAULT_DAY);
   // Echo's check-ins and the morning alarm: when they reach you lives here, how Echo words them on Echo's page.
   const [echo, setEcho] = useState<EchoConfig>(() => cachedEchoConfig() ?? DEFAULT_ECHO);
   useEffect(() => { void getEchoConfig().then(setEcho).catch(() => undefined); }, []);
@@ -48,8 +45,8 @@ const Notifications = () => {
   const capability = scheduledActivitiesCapability();
   useEffect(() => {
     let alive = true;
-    Promise.all([getDayWindow(), scheduledActivitiesEnabled()]).then(([window, enabled]) => {
-      if (alive) { setDay(window); setActivities(enabled); setReady(true); }
+    scheduledActivitiesEnabled().then(enabled => {
+      if (alive) { setActivities(enabled); setReady(true); }
     }).catch(() => { if (alive) setReady(true); });
     return () => { alive = false; };
   }, []);
@@ -203,12 +200,6 @@ const Notifications = () => {
               onToggle={value => { saveEcho({ weeklyReview: value }); setTimeout(() => { void (require('@/lib/weeklyReviewNotice') as typeof import('@/lib/weeklyReviewNotice')).syncWeeklyReviewNotice(); }, 300); }} />
           </SettingsGroup>
 
-          {/* Nothing reaches you outside your day: its hours are set once, in Day & calendar. */}
-          <SettingsGroup title="Quiet hours">
-            <SettingsRow icon="moon" color={accentColor} label="Quiet from"
-              value={`${clockLabel(minutesOf(day.sleep))} – ${clockLabel(minutesOf(day.wake))}`}
-              onPress={() => router.push('/(root)/meals' as never)} />
-          </SettingsGroup>
         </ScrollView>
       </SheetScreen>
   );
