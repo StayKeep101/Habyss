@@ -301,7 +301,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             id: 'due', icon: 'calendar-outline', label: 'Do it on', value: shortDate(draft.dueDate),
             content: (
                 <>
-                    {/* The shortcuts first, so they are in view without
+                    {/* Never a day gone by, like the deadline. The shortcuts first, so they are in view without
                         scrolling; the month underneath for anything else. */}
                     <Choices
                         options={[
@@ -315,7 +315,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                         oneLine
                         onChange={id => change({ dueDate: id || undefined })}
                     />
-                    <GoalCalendar allowPast showToday={false} reserve={50} value={draft.dueDate} accent={accentText} onChange={dueDate => change({ dueDate })} />
+                    <GoalCalendar showToday={false} reserve={50} value={draft.dueDate} accent={accentText} onChange={dueDate => change({ dueDate })} />
                 </>
             ),
         },

@@ -14,13 +14,27 @@ jest.mock('@/lib/tasks', () => ({ createTask: jest.fn().mockResolvedValue({ id: 
 const saved = { id: 't1', title: 'Call tomorrow', dueDate: '2026-09-24', dueTime: '00:00', priority: 2, flexible: false } as Task;
 beforeEach(() => jest.clearAllMocks());
 
+// Days of the month after today's, so they are always choosable (and never next month's).
+const key = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+const now = new Date();
+const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 12);
+const thisMonth = { ...saved, dueDate: key(new Date(now.getFullYear(), now.getMonth(), 1, 12)) } as Task;
+
 it('opens the calendar directly and saves the selected date', async () => {
-    const screen = render(<TaskFormModal visible task={saved} />);
+    const screen = render(<TaskFormModal visible task={thisMonth} />);
     fireEvent.press(screen.getByLabelText(/^Do it on,/));
     expect(screen.getByTestId('goal-calendar')).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Choose 2026-09-25'));
+    fireEvent.press(screen.getByLabelText(`Choose ${key(lastDay)}`));
     await act(async () => { fireEvent.press(screen.getByText('Save changes')); });
-    expect(updateTask).toHaveBeenCalledWith('t1', expect.objectContaining({ title: saved.title, dueDate: '2026-09-25' }));
+    expect(updateTask).toHaveBeenCalledWith('t1', expect.objectContaining({ title: saved.title, dueDate: key(lastDay) }));
+});
+
+it('never offers a day gone by', () => {
+    const screen = render(<TaskFormModal visible task={thisMonth} />);
+    fireEvent.press(screen.getByLabelText(/^Do it on,/));
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12);
+    if (yesterday.getMonth() !== now.getMonth()) return; // the 1st: nothing earlier in this month to check
+    expect(screen.getByLabelText(`Choose ${key(yesterday)}`).props.accessibilityState).toMatchObject({ disabled: true });
 });
 
 it('preserves midnight when editing', async () => {
