@@ -55,8 +55,10 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
     if (leading || align === 'leading') {
         return (
             // Room under a sheet's grabber, so the title never sits jammed against the top.
-            <View style={[styles.header, leading ? styles.headerSheet : null]}>
-                <Animated.View style={[styles.lead, titleStyle]}>
+            // Title from the left: on the page's own side margins (the content's 20 pt),
+            // with room under the sheet's top edge, as iOS sheets set it.
+            <View style={[styles.header, leading ? styles.headerSheet : styles.headerLeading]}>
+                <Animated.View style={[styles.lead, !leading && styles.leadBare, titleStyle]}>
                     {leading}
                     <View style={styles.leadCopy}>
                         <Text accessibilityRole="header" numberOfLines={1} style={[Typography.title, { color: colors.textPrimary }]}>{title}</Text>
@@ -98,6 +100,8 @@ const styles = StyleSheet.create({
     centered: { textAlign: 'center' },
     subtitle: { marginTop: Spacing.xs, textAlign: 'center' },
     headerSheet: { paddingTop: Spacing.lg },
+    headerLeading: { paddingTop: Spacing.lg, paddingHorizontal: Spacing.xl },
+    leadBare: { paddingLeft: 0 },
     lead: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + Spacing.xs, minHeight: Control.hitTarget, paddingLeft: Spacing.xs },
     leadCopy: { flex: 1 },
     leadSubtitle: { marginTop: 2 },
