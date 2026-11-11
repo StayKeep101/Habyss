@@ -190,14 +190,15 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
                   styles.checkbox,
                   { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 },
                   // Done: a solid disc of the habit's colour with a tick, the
-                  // way every chosen thing is drawn. Running: a ring, no fill.
+                  // way every chosen thing is drawn. Running: a ring of its colour, empty.
                   tick && { backgroundColor: habit.color || accentColor, borderColor: habit.color || accentColor },
                   isActive && { borderColor: habit.color || accentColor },
                   // A skipped day is drawn as set aside, not as failed.
                   skipped && !tick && { borderStyle: 'dashed', borderColor: colors.textTertiary },
                 ]}>
-                  {tick || isActive ? (
-                    <Ionicons name={tick ? (waitingOnOthers(shared, tick) ? 'remove' : 'checkmark') : 'play'} size={checkboxSize * 0.7} color={tick ? textOn(habit.color || accentColor) : (habit.color || accentColor)} />
+                  {/* Running: only the ring in its colour; the coloured name and the clock already say so. */}
+                  {tick ? (
+                    <Ionicons name={waitingOnOthers(shared, tick) ? 'remove' : 'checkmark'} size={checkboxSize * 0.7} color={textOn(habit.color || accentColor)} />
                   ) : skipped ? (
                     <Ionicons name="remove" size={checkboxSize * 0.7} color={colors.textTertiary} />
                   ) : null}

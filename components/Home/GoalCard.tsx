@@ -60,7 +60,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
     const arc = useAnimatedProps(() => ({ strokeDashoffset: circumference * (1 - shown.get()) }));
 
     const due = days === null ? 'No deadline'
-        : days < 0 ? `${-days === 1 ? '1 day' : `${-days} days`} past the deadline`
+        : days < 0 ? `${-days === 1 ? '1 day' : `${-days} days`} overdue`
         : days === 0 ? 'Due today'
         : days === 1 ? 'Due tomorrow'
         : `${days} days left`;
@@ -90,8 +90,8 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                     <Text numberOfLines={1} style={[styles.name, { color: t.color.textPrimary, fontSize: isSmall ? 15 : isBig ? 18 : 16 }]}>{goal.name}</Text>
                     <View style={styles.meta}>
                         {urgent ? <Ionicons name="flag" filled size={11} color={t.color.warning} /> : null}
-                        <Text numberOfLines={1} style={[styles.metaText, { color: urgent ? t.color.warning : t.color.textMuted }]}>{due}</Text>
-                        {linkedHabitsCount ? <Text style={[styles.metaText, { color: t.color.textSubtle }]}>{`· ${holds}`}</Text> : null}
+                        <Text numberOfLines={1} style={[styles.metaText, styles.due, { color: urgent ? t.color.warning : t.color.textMuted }]}>{due}</Text>
+                        {linkedHabitsCount ? <Text numberOfLines={1} style={[styles.metaText, { color: t.color.textSubtle }]}>{`· ${holds}`}</Text> : null}
                     </View>
                 </View>
 
@@ -111,10 +111,12 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 const styles = StyleSheet.create({
     card: { flexDirection: 'row', alignItems: 'center', paddingLeft: Spacing.md },
     main: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-    text: { flex: 1, gap: 2 },
+    // Its words stay in their column: the percent and chevron never sit on them.
+    text: { flex: 1, minWidth: 0, gap: 2 },
     name: { fontFamily: FontFamily.semibold },
     meta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     metaText: { fontSize: 13, fontFamily: FontFamily.medium },
+    due: { flexShrink: 1 },
     percent: { fontSize: 15, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
     chevron: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: Spacing.xs },
 });
