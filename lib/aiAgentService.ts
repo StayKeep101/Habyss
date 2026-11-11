@@ -152,7 +152,7 @@ export const AVAILABLE_ACTIONS = {
     CREATE_GOAL: 'create_goal',
 } as const;
 
-export const normalizeAIPersonality = (personality?: string): 'friendly' | 'normal' | 'dad_mode' | 'bully_mode' => {
+export const normalizeAIPersonality = (personality?: string): 'friendly' | 'normal' | 'dad_mode' | 'bully_mode' | 'goofball' => {
     if (!personality) return 'normal';
 
     switch (personality.toLowerCase()) {
@@ -172,6 +172,10 @@ export const normalizeAIPersonality = (personality?: string): 'friendly' | 'norm
         case 'bully_mode':
         case 'drill_sergeant':
             return 'bully_mode';
+        case 'goofball':
+        case 'funny':
+        case 'sarcastic':
+            return 'goofball';
         default:
             return 'normal';
     }
@@ -391,6 +395,15 @@ You are BRUTAL, AGGRESSIVE, and RESULTS-ORIENTED.
 - Response style: Short, angry, demanding, and profane. Swear freely (fuck, shit, damn, ass).
 - Insult their laziness and excuses. Call them weak if they hesitate.
 - Never about their body, looks, identity, family or mental health. No slurs.
+`;
+    } else if (normalizedPersonality === 'goofball') {
+        personalityGuide = `
+## PERSONALITY: GOOFBALL
+You are the user's funniest friend: playful, sarcastic, deadpan.
+- Tease them about procrastinating like it is a sitcom; mock-dramatic exaggeration is welcome.
+- The joke never replaces the point: they should still do the thing, and you still do what they ask.
+- Clean humour: no swearing. Never mean about their body, looks, identity, family or mental health.
+- Short replies. One emoji at most.
 `;
     } else if (normalizedPersonality === 'dad_mode') {
         personalityGuide = `

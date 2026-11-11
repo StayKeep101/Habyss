@@ -8,7 +8,7 @@ jest.mock('@react-native-ai/apple', () => ({
     apple: Object.assign(() => 'apple-model', { isAvailable: () => mockAppleAvailable() }),
 }));
 jest.mock('../LocalLLMService', () => ({ __esModule: true, default: {
-    isReady: () => true, getModelId: () => 'gemma-3n-E2B-it', getLanguageModel: () => 'gemma-model',
+    isAvailable: () => true, getModelId: () => 'qwen', use: (work: (model: unknown) => Promise<unknown>) => work('qwen-model'),
 } }));
 jest.mock('ai', () => ({ generateObject: jest.fn(), generateText: jest.fn() }));
 
@@ -18,17 +18,23 @@ beforeEach(() => {
 });
 afterEach(() => jest.useRealTimers());
 
-it('passes the field schema to Gemma instead of asking for arbitrary JSON', async () => {
+it('passes the field schema to the offline model instead of asking for arbitrary JSON', async () => {
     const schema = z.object({ name: z.string() });
     jest.mocked(generateObject).mockResolvedValue({ object: { name: 'Run' } } as any);
     expect(await askForObject(schema, 'Read a habit', 'Run')).toEqual({ name: 'Run' });
     expect(generateObject).toHaveBeenCalledWith(expect.objectContaining({ schema, maxOutputTokens: 512, maxRetries: 0 }));
 });
 
-it('rechecks Apple availability when system assets become ready', () => {
-    expect(currentEngine()).toBe('llama');
+it('rechecks Apple availability when system assets become ready, for reading what is typed', () => {
+    expect(currentEngine('parse')).toBe('llama');
     mockAppleAvailable.mockReturnValue(true);
-    expect(currentEngine()).toBe('apple');
+    expect(currentEngine('parse')).toBe('apple');
+});
+
+it("Echo's voice is Qwen once it is on the phone, even with Apple Intelligence", () => {
+    mockAppleAvailable.mockReturnValue(true);
+    expect(currentEngine('voice')).toBe('llama');
+    expect(currentEngine()).toBe('llama');
 });
 
 it('does not start another native generation after the UI timeout', async () => {
@@ -44,4 +50,10 @@ it('does not start another native generation after the UI timeout', async () => 
     await jest.advanceTimersByTimeAsync(0);
     jest.mocked(generateText).mockResolvedValue({ text: 'New response' } as any);
     expect(await askForLine('One sentence', 'Again', 100)).toBe('New response');
+});
+
+it('a line asks for little: one or two sentences, not a page', async () => {
+    jest.mocked(generateText).mockResolvedValue({ text: 'Go.' } as any);
+    await askForLine('One sentence', 'Hello');
+    expect(generateText).toHaveBeenCalledWith(expect.objectContaining({ model: 'qwen-model', maxOutputTokens: 64 }));
 });

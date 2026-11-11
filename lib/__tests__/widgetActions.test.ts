@@ -13,7 +13,7 @@ jest.mock('../SharedDefaults', () => ({ __esModule: true, default: {
     remove: jest.fn(async (key: string) => { mockEvents.delete(key); return true; }),
     reloadTimelines: jest.fn(async () => true),
 } }));
-jest.mock('../widgetService', () => ({ WidgetService: { write: jest.fn(async () => {}), writeEcho: jest.fn(async () => {}) } }));
+jest.mock('../widgetService', () => ({ WidgetService: { write: jest.fn(async () => {}), writeDay: jest.fn(async () => {}), writeShards: jest.fn(async () => {}) } }));
 jest.mock('../dailyFocus', () => ({ ...jest.requireActual('../dailyFocus'), getDailyTarget: jest.fn(async () => 3) }));
 jest.mock('../habitsSQLite', () => ({
     getHabits: jest.fn(async () => [{ id: 'habit' }]),

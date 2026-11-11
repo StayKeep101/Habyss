@@ -65,6 +65,17 @@ export function activityPlan(slots: FlowSlot[], now: Date, _supportsScheduling: 
 
 /** The Roadmap's own timeline, the freshest truth, while it is from today. */
 let latest: { day: string; slots: FlowSlot[] } | null = null;
+/**
+ * Something changed (a tick, an edit, a new task): the copy the Roadmap last drew is out of
+ * date. A tick from a notification or the Lock Screen happens with the Roadmap not drawing, so
+ * the card was rebuilt from that old copy and stayed on the finished thing until the app opened.
+ * Now the day is read again instead.
+ */
+export function forgetTodayFlow() { latest = null; }
+try {
+    (require('./appEvents') as typeof import('./appEvents')).onAny(
+        ['habit_completion_updated', 'tasks_changed', 'habit_created', 'habit_updated', 'habit_deleted'], forgetTodayFlow);
+} catch { /* no events in this environment */ }
 let reminderTimer: ReturnType<typeof setTimeout> | null = null;
 export function setTodayFlow(day: string, flow: DayFlow) {
     (require('./todayFlow') as typeof import('./todayFlow')).rememberTodayFlow(day, flow);

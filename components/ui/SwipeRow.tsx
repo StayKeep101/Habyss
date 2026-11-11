@@ -71,6 +71,10 @@ const claimOpen = (next: SwipeableMethods | null) => {
     if (openRow && openRow !== next) openRow.close();
     openRow = next;
 };
+/** Closes whichever row is pulled open, before what holds it is hidden (the Roadmap changing view). */
+export function closeOpenRow(): void {
+    if (openRow) { openRow.close(); openRow = null; }
+}
 
 /** Circles sit inside the row, never taller than it. */
 // Always a little shorter than the row, so a slim one-line row never clips
@@ -322,7 +326,9 @@ const Drop: React.FC<{
 
 const styles = StyleSheet.create({
     // Clipped: a dragged row must never slide out past its own card bounds.
-    container: { overflow: 'hidden', marginBottom: 4 },
+    // Not clipped: pulled aside, the card itself slides away, past the screen's margin and off its
+    // edge, like a row in Mail, rather than moving inside a frame the shape of the card.
+    container: { overflow: 'visible', marginBottom: 4 },
     side: { flexDirection: 'row', alignItems: 'center' },
     band: { paddingVertical: 4, paddingRight: GAP },
     bandFill: { flex: 1, borderRadius: 18, overflow: 'hidden' },

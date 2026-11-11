@@ -16,16 +16,18 @@ describe('the + on each tab', () => {
         expect(cleanPlus({ home: ['task', 'goal', 'mood', 'nonsense'] }).home).toEqual(['goal', 'task']);
         expect(cleanPlus({ home: [] }).home).toEqual(DEFAULT_PLUS.home);
         expect(cleanPlus(null)).toEqual(DEFAULT_PLUS);
-        expect(cleanPlus({ roadmap: ['goal', 'habit', 'task', 'thought', 'focus', 'bet'] }).roadmap).toHaveLength(MAX_PLUS);
+        expect(cleanPlus({ roadmap: ['goal', 'habit', 'task', 'thought', 'bet', 'duel'] }).roadmap).toHaveLength(MAX_PLUS);
+        // Focus was once a choice; a menu saved with it opens without it (it is the bar over the tab bar now).
+        expect(cleanPlus({ home: ['goal', 'focus'] }).home).toEqual(['goal']);
     });
 
     it('switches actions on and off, but never the last one off, nor a sixth on', () => {
-        const added = togglePlus(DEFAULT_PLUS, 'home', 'focus');
-        expect(added.home).toEqual(['goal', 'habit', 'task', 'thought', 'focus']);
+        const added = togglePlus(DEFAULT_PLUS, 'home', 'bet');
+        expect(added.home).toEqual(['goal', 'habit', 'task', 'thought', 'bet']);
         const one = { ...DEFAULT_PLUS, community: ['bet' as const] };
         expect(togglePlus(one, 'community', 'bet')).toBe(one);
-        const full = cleanPlus({ roadmap: ['goal', 'habit', 'task', 'thought', 'focus'] });
-        expect(togglePlus(full, 'roadmap', 'bet')).toBe(full);
+        const full = cleanPlus({ roadmap: ['goal', 'habit', 'task', 'thought', 'bet'] });
+        expect(togglePlus(full, 'roadmap', 'duel')).toBe(full);
     });
 
     it('opens the sheet for what was chosen', () => {

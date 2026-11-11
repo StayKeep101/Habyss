@@ -95,14 +95,9 @@ export default function MobileLayout() {
   // The launch animation, once per cold start.
   const [showIntro, setShowIntro] = React.useState(true);
   const endIntro = React.useCallback(() => { setShowIntro(false); (require('@/lib/introGate') as typeof import('@/lib/introGate')).releaseIntro(); }, []);
-  // Opened from a widget, a notification's link or a shared link: straight to
-  // what was tapped. The launch animation played over a page already open.
-  useEffect(() => {
-    const { Linking } = require('react-native') as typeof import('react-native');
-    void Linking.getInitialURL().then(url => {
-      if (url && /^habyss:\/\/[^/?#]/.test(url)) endIntro();
-    }).catch(() => undefined);
-  }, [endIntro]);
+  // Opened cold from a widget, a Live Activity or a link: the launch animation
+  // still plays, over the page that was tapped, which is there when it lifts.
+  // (Ending it early here made a first open from a widget skip the intro.)
 
   useEffect(() => {
     async function prepare() {
@@ -174,6 +169,19 @@ export default function MobileLayout() {
     learn();
     const subscription = AppState.addEventListener('change', state => { if (state === 'active') { syncBrainDumpReview(); void syncWeeklyReviewNotice(); learn(); } });
     return () => subscription.remove();
+  }, []);
+
+  // Earn your scroll (lib/appGate.ts): the block screen always knows today's top 3,
+  // and lifts the moment the third is ticked.
+  useEffect(() => {
+    const { syncGate } = require('@/lib/appGate') as typeof import('@/lib/appGate');
+    const { onAny } = require('@/lib/appEvents') as typeof import('@/lib/appEvents');
+    void syncGate();
+    // The night's hours to iOS (the Bedtime lock), so tonight's block is set even if Habyss stays closed.
+    void (require('@/lib/bedtimeLock') as typeof import('@/lib/bedtimeLock')).syncBedtime();
+    const off = onAny(['tasks_changed', 'habit_completion_updated', 'habit_updated', 'habit_created', 'habit_deleted'], () => { void syncGate(); });
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') void syncGate(); });
+    return () => { off(); subscription.remove(); };
   }, []);
 
   // --- Notification Deep Linking ---

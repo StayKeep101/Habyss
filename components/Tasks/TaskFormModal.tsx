@@ -6,7 +6,8 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
-import { TimeRange, endTime } from '@/components/Create/TimeRange';
+import { TimeRange, endTime, nextHour } from '@/components/Create/TimeRange';
+import { lengthLabel } from '@/lib/dayFlow';
 import { ModalHeader } from '@/components/ui/ModalHeader';
 import { ShareButton } from '@/components/Common/ShareButton';
 import { ShareParticipantsSheet } from '@/components/Social/ShareParticipantsSheet';
@@ -19,7 +20,7 @@ import { DictateField } from '@/components/Create/DictateField';
 import { TypingPlaceholder } from '@/components/ui/TypingPlaceholder';
 import { taskTextSegments } from '@/lib/creationTextHighlight';
 import { Colors } from '@/theme/colors';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -29,6 +30,10 @@ import { describeParsedTask, parseTaskText } from '@/lib/taskParser';
 import { type Difficulty } from '@/lib/difficulty';
 import { ImportancePicker, importanceLabel } from '@/components/Create/ImportancePicker';
 import { createTask, updateTask, type Subtask, type Task, type TaskMeasure, type TaskPriority } from '@/lib/tasks';
+import { BeforeReminders } from '@/components/Create/BeforeReminders';
+import { ReminderPicker } from '@/components/Create/ReminderPicker';
+import type { LocationReminder } from '@/lib/habitsSQLite';
+import { describeAlerts } from '@/lib/itemAlerts';
 import { SubtaskEditor } from '@/components/Tasks/SubtaskEditor';
 import { localDateKey } from '@/lib/habitSchedule';
 import { getGoals, type Habit } from '@/lib/habitsSQLite';
@@ -80,6 +85,11 @@ interface Draft {
     unit?: string;
     /** The steps it is made of. */
     subtasks?: Subtask[];
+    /** Its own reminders before it begins, in minutes (lib/itemAlerts.ts), as habits have. */
+    alerts?: number[];
+    /** Reminded at a time on its day, or at places: the same choices as a habit (ReminderPicker). */
+    reminder?: string;
+    places: LocationReminder[];
 }
 
 
@@ -91,6 +101,9 @@ const fromTask = (task: Task): Draft => ({
     deadline: task.deadline,
     dueTime: task.dueTime,
     flexible: task.flexible,
+    alerts: task.alerts,
+    reminder: task.reminder,
+    places: task.locationReminders ?? [],
     estimate: task.estimatedMinutes,
     priority: task.priority,
     difficulty: task.difficulty,
@@ -201,7 +214,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         // in Reminders — but only a brand new one.
         const start: Draft = current
             ? fromTask(current)
-            : { title: '', priority: 2, dueDate: startDay ?? localDateKey(new Date()), goalId: eventGoal, measure: 'done', estimate: DEFAULT_LENGTH.task };
+            : { title: '', priority: 2, dueDate: startDay ?? localDateKey(new Date()), goalId: eventGoal, measure: 'done', estimate: DEFAULT_LENGTH.task, places: [] };
         const read: Draft = parsed ? {
             ...start,
             title: parsed.title || start.title,
@@ -214,7 +227,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             // Read by the rules alone: "due by Friday", "hard", "at 3 sharp".
             deadline: rules?.deadline ?? start.deadline,
             difficulty: rules?.difficulty ?? start.difficulty,
-            flexible: rules?.flexible ?? start.flexible,
+            // A time said in the words ("Gym at 6") is a time to keep, unless the words say it can move.
+            flexible: rules?.flexible ?? (parsed.dueTime ? false : start.flexible),
         } : start;
         return { ...read, ...edits };
     }, [current, eventGoal, parsed, edits, rules, startDay]);
@@ -235,7 +249,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 dueDate: draft.dueDate,
                 // A deadline before the planned day means nothing: the day is the deadline.
                 deadline: draft.deadline && draft.dueDate && draft.deadline > draft.dueDate ? draft.deadline : undefined,
-                dueTime: draft.dueTime,
+                // Flexible has no time of day: the timeline places it, so a time it once had is cleared.
+                dueTime: exact ? draft.dueTime : undefined,
                 // Only means something with a time of day.
                 flexible: draft.dueTime ? draft.flexible !== false : undefined,
                 estimatedMinutes: draft.estimate,
@@ -243,6 +258,9 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 difficulty: draft.difficulty,
                 goalId: draft.goalId,
                 subtasks: draft.subtasks,
+                alerts: draft.alerts ?? [],
+                reminder: draft.reminder,
+                locationReminders: draft.places,
             };
             if (current) await updateTask(current.id, input);
             else {
@@ -275,9 +293,12 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const goalName = chosenGoal?.name;
     // A task is done or it is not: no counts or timers to fill in first.
     const canSave = !!text.trim();
+    // At an exact time (it stays there), or flexible (the timeline places it; no time of day).
+    // With Auto-reschedule off the day is a plain calendar: every time is kept.
+    const exact = !autoReschedule || draft.flexible === false;
     const items: DetailItem[] = [
         {
-            id: 'due', icon: 'calendar-outline', label: 'Do on', value: shortDate(draft.dueDate),
+            id: 'due', icon: 'calendar-outline', label: 'Do it on', value: shortDate(draft.dueDate),
             content: (
                 <>
                     {/* The shortcuts first, so they are in view without
@@ -322,29 +343,51 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         },
         {
             id: 'time', icon: 'time-outline', label: 'Time',
-            value: draft.dueTime
-                ? `${draft.estimate ? `${draft.dueTime} → ${endTime(draft.dueTime, draft.estimate)}` : draft.dueTime}${draft.flexible === false && autoReschedule ? ' · exact' : ''}`
-                : undefined,
+            value: exact
+                ? (draft.dueTime ? `${draft.estimate ? `${draft.dueTime} → ${endTime(draft.dueTime, draft.estimate)}` : draft.dueTime}` : undefined)
+                : draft.estimate ? `Flexible · ${lengthLabel(draft.estimate)}` : undefined,
             content: (
                 <>
+                    {/* First: may the timeline move it, or does it stay at its time? Flexible has no time of day,
+                        only how long it takes. Not asked when nothing moves (Auto-reschedule off). */}
+                    {autoReschedule ? (
+                    <>
+                    <Choices options={TIMING} value={exact ? 'exact' : 'flexible'} accent={accent}
+                        onChange={id => change(id === 'exact' ? { flexible: false, dueTime: draft.dueTime ?? nextHour() } : { flexible: true, dueTime: undefined })} />
+                    <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                        {exact ? 'Stays at this time.' : 'Moves with your day. Just say how long it takes.'}
+                    </Text>
+                    </>
+                    ) : null}
                     <TimeRange
+                        lengthOnly={!exact}
                         start={draft.dueTime}
                         minutes={draft.estimate}
                         accent={accent}
                         startLabel="Due at"
                         onChange={next => change({ dueTime: next.start, estimate: next.minutes })}
                     />
-                    {/* Under the wheels: may the timeline move it, or does it stay at its time? Not asked when nothing moves (Auto-reschedule off). */}
-                    {autoReschedule ? (
-                    <>
-                    <Choices options={TIMING} value={draft.flexible === false ? 'exact' : 'flexible'} accent={accent}
-                        onChange={id => change({ flexible: id !== 'exact' })} />
-                    <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                        {draft.flexible === false ? 'Stays at this time.' : 'Moves with your day.'}
-                    </Text>
-                    </>
-                    ) : null}
                 </>
+            ),
+        },
+        {
+            // The same reminders a habit has: told as it starts, and before it when chosen.
+            id: 'reminder', icon: 'notifications-outline', label: 'Reminder',
+            value: [draft.alerts?.length ? describeAlerts(draft.alerts) : null, draft.reminder ?? null, draft.places.length ? draft.places[0].name : null].filter(Boolean).join(' · ') || undefined,
+            content: (
+                <View style={{ gap: Spacing.lg }}>
+                    <BeforeReminders value={draft.alerts} accent={accent} onChange={alerts => change({ alerts })} />
+                    <ReminderPicker
+                        startTime={draft.dueTime}
+                        value={{ reminder: draft.reminder, places: draft.places }}
+                        accent={accent}
+                        onError={setError}
+                        onChange={patch => change({
+                            ...('reminder' in patch ? { reminder: patch.reminder } : null),
+                            ...(patch.places ? { places: patch.places } : null),
+                        })}
+                    />
+                </View>
             ),
         },
         {

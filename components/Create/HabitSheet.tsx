@@ -17,18 +17,23 @@ import { CreationTextInput } from '@/components/Create/CreationTextInput';
 import { DictateField } from '@/components/Create/DictateField';
 import { TypingPlaceholder } from '@/components/ui/TypingPlaceholder';
 import { RepeatPicker } from '@/components/Create/RepeatPicker';
-import { TimeRange, endTime } from '@/components/Create/TimeRange';
+import { TimeRange, endTime, nextHour } from '@/components/Create/TimeRange';
+import { lengthLabel } from '@/lib/dayFlow';
 import { DAILY, describe as describeRule, parseRecurrence, serialiseRecurrence, type Recurrence, type Weekday } from '@/lib/recurrence';
 import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
 import { LookButton } from '@/components/Create/LookButton';
 import { ReminderPicker } from '@/components/Create/ReminderPicker';
+import { BeforeReminders } from '@/components/Create/BeforeReminders';
+import { AnchorPicker } from '@/components/Create/AnchorPicker';
+import { anchorLabel, parseAnchor, type HabitAnchor } from '@/lib/habitAnchor';
+import { describeAlerts } from '@/lib/itemAlerts';
 import { MeasureField } from '@/components/Create/MeasureField';
 import { habitTextSegments } from '@/lib/creationTextHighlight';
 import { readableAccent } from '@/lib/colorContrast';
 import { healthLabel, metricsForUnit, type HealthMetric } from '@/lib/healthMetrics';
 import { shortLead } from '@/lib/leadTime';
 import { Colors } from '@/theme/colors';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -49,7 +54,7 @@ const DAYS: { id: string; label: string }[] = [
     { id: 'thu', label: 'T' }, { id: 'fri', label: 'F' }, { id: 'sat', label: 'S' }, { id: 'sun', label: 'S' },
 ];
 const EVERY_DAY = DAYS.map(day => day.id);
-type Row = 'repeat' | 'time' | 'target' | 'reminder' | 'importance' | 'goal' | 'look' | 'notes' | null;
+type Row = 'repeat' | 'time' | 'anchor' | 'target' | 'reminder' | 'importance' | 'goal' | 'look' | 'notes' | null;
 
 interface Draft {
     name: string;
@@ -67,6 +72,8 @@ interface Draft {
     description?: string;
     /** Minutes before the start time, when the reminder should lead it. */
     reminderOffset?: number;
+    /** Its own reminders before it begins, in minutes (lib/itemAlerts.ts). */
+    alerts?: number[];
     /** One sentence for this habit; Echo writes it when this is empty. */
     reminderMessage?: string;
     /** Apple Health answers for this habit, when its unit lets it. */
@@ -81,6 +88,8 @@ interface Draft {
     difficulty?: Difficulty;
     /** At its time: false keeps it exactly there; otherwise the timeline may move it. */
     flexible?: boolean;
+    /** Held before or after a class or meal by name (lib/habitAnchor.ts). */
+    anchor?: HabitAnchor | null;
     /** YYYY-MM-DD it stops, when it has an end ("until Dec 1"). */
     endDate?: string;
     /** YYYY-MM-DD it begins; today when not said. */
@@ -101,6 +110,7 @@ const fromHabit = (from: Habit): Draft => ({
     priority: from.priority,
     difficulty: from.difficulty,
     flexible: from.flexible,
+    anchor: from.anchor ?? null,
     endDate: from.endDate,
     days: from.taskDays?.length ? from.taskDays : EVERY_DAY,
     startTime: from.startTime,
@@ -116,6 +126,7 @@ const fromHabit = (from: Habit): Draft => ({
     // it does have, so editing it does not silently change its schedule.
     rule: parseRecurrence(from.recurrence) ?? ruleFromColumns(from),
     reminderOffset: from.reminderOffset,
+    alerts: from.alerts ?? (from.reminderOffset ? [from.reminderOffset] : undefined),
     reminderMessage: from.reminderMessage,
     health: from.healthKitMetric,
     places: from.locationReminders ?? [],
@@ -133,6 +144,7 @@ function ruleFromColumns(from: Habit): Recurrence {
 /** What the Reminder chip says when it is closed. */
 const describeReminder = (draft: Draft): string | undefined => {
     const parts: string[] = [];
+    if (draft.alerts?.length) parts.push(describeAlerts(draft.alerts));
     if (draft.reminder) {
         parts.push(draft.reminderOffset ? `${shortLead(draft.reminderOffset)} ${draft.reminder}` : draft.reminder);
     }
@@ -262,7 +274,8 @@ export const HabitSheet: React.FC<{
             startDate: rules?.startDate ?? start.startDate,
             priority: rules?.priority ?? start.priority,
             difficulty: rules?.difficulty ?? start.difficulty,
-            flexible: rules?.flexible ?? start.flexible,
+            // A time said in the words ("Gym at 6") is a time to keep, unless the words say it can move.
+            flexible: rules?.flexible ?? (parsed.startTime ? false : start.flexible),
         } : start;
         return { ...read, ...edits };
     }, [current, eventGoal, parsed, edits, rules]);
@@ -294,7 +307,8 @@ export const HabitSheet: React.FC<{
                 name,
                 description: draft.description,
                 taskDays: draft.days.length === 7 ? [] : draft.days,
-                startTime: draft.startTime,
+                // Flexible has no time of day: the timeline places it, so a time it once had is cleared.
+                startTime: exact ? draft.startTime : undefined,
                 durationMinutes: draft.durationMinutes,
                 endDate: draft.endDate,
                 goalValue: draft.amount ?? 1,
@@ -311,11 +325,14 @@ export const HabitSheet: React.FC<{
                 frequency: draft.rule.kind === 'monthly' ? 'monthly' : draft.rule.kind === 'yearly' ? 'yearly' : 'daily',
                 weekInterval: draft.rule.kind === 'weekly' ? draft.rule.every : 1,
                 reminderOffset: draft.reminderOffset,
+                alerts: draft.alerts ?? [],
                 reminderMessage: draft.reminderMessage?.trim() || undefined,
                 priority: draft.priority ?? 2,
                 difficulty: draft.difficulty,
                 // Only means something with a time of day.
                 flexible: draft.startTime ? draft.flexible !== false : undefined,
+                // Held to a class or meal; an empty name holds it to nothing.
+                anchor: parseAnchor(draft.anchor ?? null) ?? null,
                 locationReminders: draft.places,
                 // Dropped when the unit no longer measures what Health does, so
                 // an edit cannot leave a step count answering for pages.
@@ -353,6 +370,9 @@ export const HabitSheet: React.FC<{
     const goalName = goals.find(goal => goal.id === linkedGoal)?.name;
     const canSave = !!text.trim();
 
+    // At an exact time (it stays there), or flexible (the timeline places it; no time of day).
+    // With Auto-reschedule off the day is a plain calendar: every time is kept.
+    const exact = !autoReschedule || draft.flexible === false;
     const items: DetailItem[] = [
         {
             id: 'repeat', icon: 'repeat', label: 'Repeat',
@@ -361,30 +381,38 @@ export const HabitSheet: React.FC<{
         },
         {
             id: 'time', icon: 'time-outline', label: 'Time',
-            value: draft.startTime
-                ? `${draft.durationMinutes ? `${draft.startTime} → ${endTime(draft.startTime, draft.durationMinutes)}` : draft.startTime}${draft.flexible === false && autoReschedule ? ' · exact' : ''}`
-                : undefined,
+            value: exact
+                ? (draft.startTime ? `${draft.durationMinutes ? `${draft.startTime} → ${endTime(draft.startTime, draft.durationMinutes)}` : draft.startTime}` : undefined)
+                : draft.durationMinutes ? `Flexible · ${lengthLabel(draft.durationMinutes)}` : undefined,
             content: (
                 <>
+                    {/* First: may the timeline move it, or does it stay at its time? Flexible has no time of day,
+                        only how long it takes. Not asked when nothing moves (Auto-reschedule off). */}
+                    {autoReschedule ? (
+                    <>
+                    <Choices options={TIMING} value={exact ? 'exact' : 'flexible'} accent={accent}
+                        onChange={id => change(id === 'exact' ? { flexible: false, startTime: draft.startTime ?? nextHour() } : { flexible: true, startTime: undefined })} />
+                    <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                        {exact ? 'Stays at this time.' : 'Moves with your day. Just say how long it takes.'}
+                    </Text>
+                    </>
+                    ) : null}
                     <TimeRange
+                        lengthOnly={!exact}
                         start={draft.startTime}
                         minutes={draft.durationMinutes}
                         accent={accent}
                         onChange={next => change({ startTime: next.start, durationMinutes: next.minutes })}
                     />
-                    {/* Under the wheels: may the timeline move it, or does it stay at its time? Not asked when nothing moves (Auto-reschedule off). */}
-                    {autoReschedule ? (
-                    <>
-                    <Choices options={TIMING} value={draft.flexible === false ? 'exact' : 'flexible'} accent={accent}
-                        onChange={id => change({ flexible: id !== 'exact' })} />
-                    <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                        {draft.flexible === false ? 'Stays at this time.' : 'Moves with your day.'}
-                    </Text>
-                    </>
-                    ) : null}
                 </>
             ),
         },
+        // Before or after a class or a meal, wherever it falls that day (lib/habitAnchor.ts).
+        ...(autoReschedule ? [{
+            id: 'anchor', icon: 'link-outline' as const, label: 'Link',
+            value: draft.anchor?.to.trim() ? anchorLabel(draft.anchor) : undefined,
+            content: <AnchorPicker value={draft.anchor} accent={accent} onChange={anchor => change({ anchor })} />,
+        }] : []),
         {
             id: 'target', icon: 'stats-chart-outline', label: 'Measure',
             value: draft.amount ? `${draft.amount} ${draft.unit ?? 'times'}` : undefined,
@@ -426,6 +454,8 @@ export const HabitSheet: React.FC<{
         {
             id: 'reminder', icon: 'notifications-outline', label: 'Reminder', value: describeReminder(draft),
             content: (
+                <View style={{ gap: Spacing.lg }}>
+                <BeforeReminders value={draft.alerts} accent={accent} onChange={alerts => change({ alerts })} />
                 <ReminderPicker
                     startTime={draft.startTime}
                     value={{ reminder: draft.reminder, reminderOffset: draft.reminderOffset, places: draft.places }}
@@ -433,6 +463,7 @@ export const HabitSheet: React.FC<{
                     onError={setError}
                     onChange={patch => change(patch)}
                 />
+                </View>
             ),
         },
         // Importance: urgency and difficulty, one slider each. They order what the

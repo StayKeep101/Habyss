@@ -350,3 +350,35 @@ describe('today: done stays where it was done, what you are on stays, the rest f
     });
 });
 
+
+describe('remembered places never overlap', () => {
+    // A habit away from the list for a moment came back with its old place (11:00–12:30),
+    // over a task's (10:30–12:00): it took "now" from the one really on, and two rows overlapped.
+    const at = (h: number, m = 0) => h * 60 + m;
+    const items = [
+        task('repair', { minutes: 90, kept: { start: at(10, 30), end: at(12) } }),
+        habit('engineer', { minutes: 90, kept: { start: at(11), end: at(12, 30) } }),
+        habit('sales', { minutes: 60, kept: { start: at(12), end: at(13) } }),
+        meal('lunch', at(13), 30),
+    ];
+
+    it('keeps the one really on now', () => {
+        expect(flowDay(items, at(12, 11), day).current?.id).toBe('sales');
+    });
+
+    it('lines the stale one up again, after what is on', () => {
+        const rows = flowDay(items, at(12, 11), day).timeline.filter(row => !row.fixed);
+        const engineer = rows.filter(row => row.id === 'engineer');
+        expect(Math.min(...engineer.map(row => row.start))).toBeGreaterThanOrEqual(at(13));
+    });
+
+    it('never draws two open things over each other', () => {
+        for (const now of [at(9), at(11, 15), at(12, 11), at(14)]) {
+            const rows = flowDay(items, now, day).timeline.filter(row => !row.done && row.end > row.start);
+            for (const a of rows) for (const b of rows) {
+                if (a === b) continue;
+                expect(a.start < b.end && b.start < a.end).toBe(false);
+            }
+        }
+    });
+});

@@ -39,8 +39,14 @@ const SETTING = 'notif_plan_changes';
 let last: string | null = null;
 
 /** On unless switched off. */
+/**
+ * Off for good: the day no longer waits for what you are on (lib/dayFlow.ts runs like a
+ * clock, and the next thing takes over), so there is no "the plan moved" to tell. What
+ * is on and what is next is told as it happens instead (lib/dayGuide.ts). Kept so a
+ * booked one is cancelled; the switch is gone from Settings.
+ */
 export async function planAlertsOn(): Promise<boolean> {
-    return (await AsyncStorage.getItem(SETTING).catch(() => null)) !== 'false';
+    return false;
 }
 
 export async function setPlanAlertsOn(on: boolean): Promise<void> {

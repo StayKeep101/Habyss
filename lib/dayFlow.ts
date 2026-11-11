@@ -1,6 +1,7 @@
 import type { Habit } from './habitsSQLite';
 import type { Subtask, Task } from './tasks';
 import { habitMinutes, toMinutes } from './dayPlan';
+import { anchoredStart, anchorLabel, type AnchorBlock } from './habitAnchor';
 
 /**
  * The day as one line, built from these rules and nothing else
@@ -28,8 +29,8 @@ import { habitMinutes, toMinutes } from './dayPlan';
  *      Whatever was added after waking (or unticked) is laid out from now, with everything open after
  *      it, in the order of rule 2: an urgent task added at 7:38 PM goes now,
  *      not at the 9:00 AM it would have had if the day had started with it.
- *      What is on now (its place runs across this minute) keeps it, unless
- *      something urgent is waiting: then it gives way and goes back in line.
+ *      What is on now (its place runs across this minute) keeps it; something
+ *      urgent added meanwhile goes straight after it, ahead of what was next.
  *      Done things, meals, events and exact-time things stay where they are.
  *      Something ticked after its place was over is ticked in that place.
  *   7. Nothing that moves goes past bedtime. When the day is too full, the
@@ -83,6 +84,8 @@ export interface FlowInput {
     subtasks?: Subtask[];
     /** Rule 3: at its exact time, it stays there (with a lock). */
     locked?: boolean;
+    /** Held to an event or meal today (lib/habitAnchor.ts): "Right before Accounting". Placed and locked like rule 3. */
+    anchoredTo?: string;
     /** Rule 5: rescheduled at this minute, by a swipe. */
     rescheduledAt?: number;
     /** Kept for older callers; the line no longer uses these, except `kept` (today: where it was last shown) and `planned`. */
@@ -264,8 +267,20 @@ function layoutToday(moving: FlowInput[], fixedBlocks: Span[], now: number, wind
         const was = plan.get(part.id);
         plan.set(part.id, was ? { start: Math.min(was.start, part.start), end: Math.max(was.end, part.end) } : { start: part.start, end: part.end });
     }
-    const open = moving.filter(item => !item.done)
+    const placedOpen = moving.filter(item => !item.done)
         .map(item => (item.kept || item.lapsed || isNew(item) || !plan.has(item.id) ? item : { ...item, kept: plan.get(item.id) }));
+    // Places kept from different moments can disagree: one away from the list for a moment
+    // (still loading) comes back with where it was, while the rest moved on. Two open things
+    // never share a minute: earliest first, a place over one already taken is given up, and
+    // that one lines up again like anything new. (It took "now" from the one really on.)
+    const taken: Span[] = [];
+    const stale = new Set<string>();
+    for (const item of placedOpen.filter(entry => entry.kept).sort((a, b) => a.kept!.start - b.kept!.start || lineOrder(a, b))) {
+        const parts = around(item.kept!.start, item.kept!.end, fixedBlocks);
+        if (parts.some(part => taken.some(span => part.start < span.end && span.start < part.end))) { stale.add(item.id); continue; }
+        taken.push(...parts);
+    }
+    const open = placedOpen.map(item => (stale.has(item.id) ? { ...item, kept: undefined } : item));
     const from = Math.max(now, window.wake);
     // A kept place, cut around meals, events and exact-time things again (rule 4), in parts.
     const kept = (item: FlowInput, start: number, end: number): FlowItem[] => {
@@ -280,15 +295,13 @@ function layoutToday(moving: FlowInput[], fixedBlocks: Span[], now: number, wind
     // Had its turn but has no place to keep (an old record): it waits at the back of the line.
     const lapsedLoose = (item: FlowInput) => !item.kept && !!item.lapsed;
     const overdue = (item: FlowInput) => past(item) || lapsedLoose(item);
-    // Only something urgent that has just come in (added, unticked or brought back: no place yet)
-    // takes over from what is on; what was already planned waits its turn.
-    const urgentWaiting = (except?: string) => open.some(item => item.id !== except && item.priority === 1 && !item.kept && !overdue(item));
     const onNow = open
         .filter(item => item.kept && item.kept.start <= now && item.kept.end > now)
         .sort((a, b) => a.kept!.start - b.kept!.start)[0];
     let queueFrom = from;
     let current: FlowInput | undefined;
-    if (onNow && (onNow.priority === 1 || !urgentWaiting(onNow.id))) {
+    // What is on keeps its place, always: something urgent that comes in goes next, never on top of it.
+    if (onNow) {
         // Not before the last thing that was actually done (something you ran over into it).
         const start = Math.max(onNow.kept!.start, lastTick === -Infinity ? onNow.kept!.start : Math.min(lastTick, now));
         if (start < onNow.kept!.end) {
@@ -302,8 +315,8 @@ function layoutToday(moving: FlowInput[], fixedBlocks: Span[], now: number, wind
     // 3. Past and not ticked: where it was.
     for (const item of open.filter(past)) out.push(...kept(item, item.kept!.start, item.kept!.end).map(part => ({ ...part, lapsed: true })));
     // The rest, in line from now; one with no place that already had its turn goes after all of it.
-    // The near future holds still: what was next (the first one already planned, or the one
-    // that just gave way) stays first; only something urgent just come in goes before it.
+    // The near future holds still: what was next (the first one already planned) stays first;
+    // only something urgent just come in goes before it.
     const waiting = open.filter(item => item !== current && !overdue(item));
     const nextUp = waiting.filter(item => item.kept).sort((a, b) => a.kept!.start - b.kept!.start)[0];
     const cutsIn = waiting.filter(item => item !== nextUp && !item.kept && item.priority === 1).sort(lineOrder);
@@ -513,9 +526,22 @@ export function flowInputs(input: {
         if (travel?.before) items.push({ id: `event:${event.id}:to`, kind: 'event', title: `To ${event.title}`, start: Math.max(0, event.start - travel.before), minutes: Math.min(travel.before, event.start), done: false, icon: 'car', color: event.color, fixed: true });
         if (travel?.after) items.push({ id: `event:${event.id}:back`, kind: 'event', title: `Back from ${event.title}`, start: event.start + event.minutes, minutes: travel.after, done: false, icon: 'car', color: event.color, fixed: true });
     }
+    // What a habit can be held to today (lib/habitAnchor.ts): the events, with their travel, and the meals.
+    const anchors: AnchorBlock[] = [
+        ...(input.events ?? []).map(event => {
+            const travel = input.travel?.[event.title.trim().toLowerCase().replace(/\s+/g, ' ')];
+            return { title: event.title, start: event.start, minutes: event.minutes, before: travel?.before, after: travel?.after };
+        }),
+        ...(input.meals ?? []).map(meal => ({ title: meal.name, start: meal.start, minutes: meal.minutes })),
+    ];
     for (const habit of input.habits) {
+        // Pinned at an exact time wins; else, held to today's class or meal when there is one.
+        const pinned = !!habit.startTime && habit.flexible === false;
+        const anchorAt = !pinned && habit.anchor ? anchoredStart(habit.anchor, habitMinutes(habit) || DEFAULT_LENGTH.habit, anchors) : null;
         items.push({
-            id: habit.id, kind: 'habit', title: habit.name, start: toMinutes(habit.startTime), locked: !!habit.startTime && habit.flexible === false,
+            id: habit.id, kind: 'habit', title: habit.name,
+            start: anchorAt ?? toMinutes(habit.startTime), locked: pinned || anchorAt !== null,
+            anchoredTo: anchorAt !== null && habit.anchor ? anchorLabel(habit.anchor) : undefined,
             rescheduledAt: input.rescheduled?.[habit.id],
             minutes: habitMinutes(habit), done: !!input.done[habit.id], icon: habit.icon, color: habit.color, repeats: true,
             priority: level(habit.priority), difficulty: habit.difficulty,

@@ -1,3 +1,6 @@
+import { parsePlaces, parseReminderTime, storePlaces } from './places';
+import type { LocationReminder } from './habitsSQLite';
+import { parseAlerts, storeAlerts } from './itemAlerts';
 import { generateId, getDatabase, isSQLiteAvailable, nowISO } from './database';
 import { formatDuration } from './habitMeasurement';
 import { localDateKey } from './habitSchedule';
@@ -61,6 +64,12 @@ export interface Task {
     deadline?: string;
     /** At its set time: false keeps it exactly there; otherwise the timeline may move it. Kept on this phone. */
     flexible?: boolean;
+    /** Its own reminders before it begins, in minutes (lib/itemAlerts.ts). */
+    alerts?: number[];
+    /** Reminded at this time on its day, "HH:MM", like a habit's reminder. */
+    reminder?: string;
+    /** Reminded on arriving at or leaving a place, like a habit's (lib/LocationService.ts). */
+    locationReminders?: LocationReminder[];
     /** The heading it sits under in its goal's to-do list ("Research"). Kept on this phone. */
     section?: string;
     createdAt: string;
@@ -102,6 +111,10 @@ export interface TaskInput {
     difficulty?: TaskDifficulty;
     deadline?: string;
     flexible?: boolean;
+    /** Its own reminders before it begins, in minutes (lib/itemAlerts.ts). */
+    alerts?: number[];
+    reminder?: string;
+    locationReminders?: LocationReminder[];
     subtasks?: Subtask[];
     section?: string;
 }
@@ -122,6 +135,9 @@ const rowToTask = (row: any): Task => ({
     measure: row.measure === 'count' || row.measure === 'time' ? row.measure : undefined,
     target: Number.isFinite(row.target) && row.target > 0 ? row.target : undefined,
     unit: row.unit ?? undefined,
+    alerts: parseAlerts(row.alerts),
+    reminder: parseReminderTime(row.reminder),
+    locationReminders: (() => { const places = parsePlaces(row.location_reminders); return places.length ? places : undefined; })(),
     amount: Number.isFinite(row.amount) ? row.amount : undefined,
     milestoneId: row.milestone_id ?? undefined,
     difficulty: row.difficulty === 1 || row.difficulty === 2 || row.difficulty === 3 ? row.difficulty : undefined,
@@ -170,7 +186,7 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
         ['dueTime', 'due_time'], ['estimatedMinutes', 'estimated_minutes'],
         ['priority', 'priority'], ['goalId', 'goal_id'], ['source', 'source'],
         ['measure', 'measure'], ['target', 'target'], ['unit', 'unit'], ['milestoneId', 'milestone_id'],
-        ['difficulty', 'difficulty'], ['deadline', 'deadline'], ['flexible', 'flexible'], ['subtasks', 'subtasks'], ['section', 'section'],
+        ['difficulty', 'difficulty'], ['deadline', 'deadline'], ['flexible', 'flexible'], ['subtasks', 'subtasks'], ['section', 'section'], ['alerts', 'alerts'],
     ];
     const updates = importedColumns.filter(([key]) => Object.prototype.hasOwnProperty.call(input, key))
         .map(([, column]) => `${column} = excluded.${column}`);
@@ -180,16 +196,16 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
     await db.runAsync(
         `INSERT INTO tasks (
             id, user_id, title, description, due_date, due_time, estimated_minutes,
-            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id, difficulty, deadline, flexible, subtasks, section,
+            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id, difficulty, deadline, flexible, subtasks, section, alerts, reminder, location_reminders,
             created_at, updated_at, deleted, synced
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
         id, uid, title, input.description ?? null, input.dueDate ?? null, input.dueTime ?? null,
         input.estimatedMinutes ?? null, input.priority ?? 2, input.goalId ?? null,
         input.source ?? 'app', input.externalId ?? null,
         input.measure && input.measure !== 'done' ? input.measure : null,
         input.measure && input.measure !== 'done' ? input.target ?? null : null,
         input.unit?.trim() || null, input.milestoneId ?? null, input.difficulty ?? null, input.deadline ?? null, input.flexible === undefined ? null : input.flexible ? 1 : 0,
-        input.subtasks?.length ? JSON.stringify(input.subtasks) : null, input.section?.trim() || null, now, now,
+        input.subtasks?.length ? JSON.stringify(input.subtasks) : null, input.section?.trim() || null, storeAlerts(input.alerts), parseReminderTime(input.reminder) ?? null, storePlaces(input.locationReminders), now, now,
     );
 
     const row = input.externalId
@@ -212,7 +228,8 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
         estimatedMinutes: 'estimated_minutes', priority: 'priority', goalId: 'goal_id',
         source: 'source', externalId: 'external_id',
         measure: 'measure', target: 'target', unit: 'unit', amount: 'amount', milestoneId: 'milestone_id',
-        difficulty: 'difficulty', deadline: 'deadline', flexible: 'flexible', subtasks: 'subtasks', section: 'section',
+        difficulty: 'difficulty', deadline: 'deadline', flexible: 'flexible', subtasks: 'subtasks', section: 'section', alerts: 'alerts',
+        reminder: 'reminder', locationReminders: 'location_reminders',
     };
 
     const sets: string[] = [];
@@ -222,6 +239,9 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
         const raw = patch[key] ?? null;
         const value = key === 'subtasks'
             ? (Array.isArray(raw) && raw.length ? JSON.stringify(raw) : null)
+            : key === 'alerts' ? storeAlerts(raw as number[] | null)
+            : key === 'locationReminders' ? storePlaces(raw as LocationReminder[] | null)
+            : key === 'reminder' ? parseReminderTime(raw) ?? null
             : typeof raw === 'boolean' ? (raw ? 1 : 0) : raw;
         // Clearing a due date or notes must stick; clearing the title cannot.
         if (value === null && REQUIRED.includes(key)) continue;

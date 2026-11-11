@@ -22,13 +22,28 @@ import { FontFamily } from '@/theme/designSystem';
  * into Focus on it. No pause: time does not pause. Gone only when the day has
  * nothing left.
  */
-export function FocusMiniBar() {
+export function FocusMiniBar({ docked = false, onShown }: {
+    /** Inside the dock's row (Roadmap): fills the row's height, with a smaller clock for the narrower room. */
+    docked?: boolean;
+    /** Says whether there is a bar at all, so the dock only makes room for one that is there. */
+    onShown?: (shown: boolean) => void;
+} = {}) {
     const focus = useFocusSession();
     const step = useNowStep();
-    if (focus.activeHabitId && (focus.isRunning || focus.isPaused)) return <SessionBar />;
+    const session = !!focus.activeHabitId && (focus.isRunning || focus.isPaused);
+    const shown = session || !!step;
+    useEffect(() => { onShown?.(shown); }, [shown, onShown]);
+    if (session) return <SessionBar docked={docked} />;
     if (!step) return null;
-    return <StepBar step={step} />;
+    return <StepBar step={step} docked={docked} />;
 }
+
+/**
+ * The ring moves only when the change shows: half a percent at a time. Moved every second,
+ * each move started a fresh glide of the ring, so it was redrawing about a third of every
+ * second on every screen, all day, and kept the phone warm.
+ */
+const ringStep = (progress: number) => Math.round(Math.max(0, Math.min(1, progress)) * 200) / 200;
 
 /** Minutes as a clock: 1:05:00 over an hour, 24:30 under it. */
 const clockOf = (minutes: number) => formatClock(Math.max(0, Math.round(minutes * 60)));
@@ -40,7 +55,7 @@ function useMinute() {
     return date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
 }
 
-function StepBar({ step }: { step: NonNullable<ReturnType<typeof useNowStep>> }) {
+function StepBar({ step, docked }: { step: NonNullable<ReturnType<typeof useNowStep>>; docked: boolean }) {
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
     const minute = useMinute();
@@ -57,38 +72,42 @@ function StepBar({ step }: { step: NonNullable<ReturnType<typeof useNowStep>> })
     const progress = on ? (minute - item.start) / span : free && ahead ? Math.min(1, Math.max(0, (minute - step.freeFrom!) / gap)) : 0;
     const title = free ? 'Free time' : item.title;
     const fit = missed.length ? `fit in ${missed.length} missed` : null;
-    const when = on ? `Now · until ${clockLabel(item.end)}`
+    // Docked beside the Roadmap disc the room is narrow: "Until 1:33 PM" says it.
+    const when = on ? (docked ? `Until ${clockLabel(item.end)}` : `Now · until ${clockLabel(item.end)}`)
         : free && fit ? (ahead ? `Until ${clockLabel(item.start)} · ${fit}` : `Tap to ${fit}`)
         : free ? `Until ${item.title} · ${clockLabel(item.start)}` : `Next · ${clockLabel(item.start)}`;
     const left = on ? Math.max(1, Math.round(item.end - minute)) : Math.max(0, Math.round(item.start - minute));
     const spoken = on ? `Now: ${item.title}, ${left} minutes left. Focus on it`
         : free && fit ? `Free time${ahead ? `, ${left} minutes until ${item.title} at ${clockLabel(item.start)}` : ''}. ${missed.length} missed: fit them in now`
-        : free ? `Free time, ${left} minutes until ${item.title} at ${clockLabel(item.start)}. Focus on ${item.title}`
+        : free ? `Free time, ${left} minutes until ${item.title} at ${clockLabel(item.start)}`
         : `Next: ${item.title}, at ${clockLabel(item.start)}. Focus on it`;
+    // Free time is free: a tap does nothing, unless missed ones are waiting to be fitted in.
+    const acts = !free || missed.length > 0;
     const open = () => {
+        if (!acts) return;
         selectionFeedback();
-        if (free && missed.length) { bringBack(missed); return; }
+        if (free) { bringBack(missed); return; }
         openFocusOn(item);
     };
     return (
-        <Animated.View entering={FadeInDown.duration(240).reduceMotion(ReduceMotion.System)} exiting={FadeOutDown.duration(180).reduceMotion(ReduceMotion.System)}>
-            <MatteSurface radius={t.radius.full} elevation="floating" style={styles.bar}>
-                <Pressable onPress={open} style={styles.main} accessibilityRole="button"
+        <Animated.View entering={FadeInDown.duration(240).reduceMotion(ReduceMotion.System)} exiting={FadeOutDown.duration(180).reduceMotion(ReduceMotion.System)} style={docked ? styles.fill : null}>
+            <MatteSurface radius={t.radius.full} elevation="floating" style={[styles.bar, docked ? styles.fill : null]}>
+                <Pressable onPress={open} disabled={!acts} style={styles.main} accessibilityRole={acts ? 'button' : 'text'}
                     accessibilityLabel={spoken}>
-                    <ProgressRing progress={progress} size="sm" />
+                    <ProgressRing progress={ringStep(progress)} size="sm" />
                     <View style={styles.words}>
                         <Text numberOfLines={1} style={[styles.title, { color: t.color.textPrimary }]}>{title}</Text>
                         <Text numberOfLines={1} style={[styles.meta, { color: t.color.textMuted }]}>{when}</Text>
                     </View>
                     {/* Time left while it is on; time until it starts while it is next. */}
-                    {on || ahead ? <Text style={[styles.clock, { color: t.color.textPrimary }]}>{clockOf(on ? item.end - minute : item.start - minute)}</Text> : null}
+                    {on || ahead ? <Text style={[styles.clock, docked ? styles.clockDocked : null, { color: t.color.textPrimary }]}>{clockOf(on ? item.end - minute : item.start - minute)}</Text> : null}
                 </Pressable>
             </MatteSurface>
         </Animated.View>
     );
 }
 
-function SessionBar() {
+function SessionBar({ docked }: { docked: boolean }) {
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
     const focus = useFocusSession();
@@ -106,16 +125,16 @@ function SessionBar() {
         router.push({ pathname: '/(root)/focus', params: { day: '1', kind, id, title: name } } as never);
     };
     return (
-        <Animated.View entering={FadeInDown.duration(240).reduceMotion(ReduceMotion.System)} exiting={FadeOutDown.duration(180).reduceMotion(ReduceMotion.System)}>
-            <MatteSurface radius={t.radius.full} elevation="floating" style={styles.bar}>
+        <Animated.View entering={FadeInDown.duration(240).reduceMotion(ReduceMotion.System)} exiting={FadeOutDown.duration(180).reduceMotion(ReduceMotion.System)} style={docked ? styles.fill : null}>
+            <MatteSurface radius={t.radius.full} elevation="floating" style={[styles.bar, docked ? styles.fill : null]}>
                 <Pressable onPress={open} style={styles.main} accessibilityRole="button"
                     accessibilityLabel={`Focusing on ${name}, ${clock} ${stopwatch ? 'so far' : 'left'}. Open focus`}>
-                    <ProgressRing progress={progress} size="sm" />
+                    <ProgressRing progress={ringStep(progress)} size="sm" />
                     <View style={styles.words}>
                         <Text numberOfLines={1} style={[styles.title, { color: t.color.textPrimary }]}>{name}</Text>
                         <Text numberOfLines={1} style={[styles.meta, { color: t.color.textMuted }]}>Focusing</Text>
                     </View>
-                    <Text style={[styles.clock, { color: t.color.textPrimary }]}>{clock}</Text>
+                    <Text style={[styles.clock, docked ? styles.clockDocked : null, { color: t.color.textPrimary }]}>{clock}</Text>
                 </Pressable>
             </MatteSurface>
         </Animated.View>
@@ -132,4 +151,6 @@ const styles = StyleSheet.create({
     title: { fontSize: 15, fontFamily: FontFamily.semibold },
     meta: { fontSize: 12, fontFamily: FontFamily.medium },
     clock: { fontSize: 20, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'], paddingRight: 6 },
+    clockDocked: { fontSize: 16 },
+    fill: { flex: 1 },
 });

@@ -1,0 +1,71 @@
+diff --git a/node_modules/@react-native-ai/llama/lib/commonjs/ai-sdk.js b/node_modules/@react-native-ai/llama/lib/commonjs/ai-sdk.js
+index 65383f9..dd08729 100644
+--- a/node_modules/@react-native-ai/llama/lib/commonjs/ai-sdk.js
++++ b/node_modules/@react-native-ai/llama/lib/commonjs/ai-sdk.js
+@@ -307,7 +307,9 @@ class LlamaLanguageModel {
+       penalty_freq: options.frequencyPenalty,
+       stop: options.stopSequences,
+       seed: options.seed,
+-      reasoning_format: 'auto'
++      reasoning_format: 'auto',
++      // Habyss: answer straight away (Qwen3.5 would otherwise think first and spend the tokens).
++      enable_thinking: false
+     };
+     if (options.responseFormat?.type === 'json') {
+       completionOptions.response_format = {
+@@ -396,7 +398,8 @@ class LlamaLanguageModel {
+       penalty_present: options.presencePenalty,
+       penalty_freq: options.frequencyPenalty,
+       stop: options.stopSequences,
+-      seed: options.seed
++      seed: options.seed,
++      enable_thinking: false
+     };
+     if (options.tools) {
+       completionOptions.tools = options.tools.map(({
+diff --git a/node_modules/@react-native-ai/llama/lib/module/ai-sdk.js b/node_modules/@react-native-ai/llama/lib/module/ai-sdk.js
+index c099cca..a7067dc 100644
+--- a/node_modules/@react-native-ai/llama/lib/module/ai-sdk.js
++++ b/node_modules/@react-native-ai/llama/lib/module/ai-sdk.js
+@@ -302,7 +302,9 @@ export class LlamaLanguageModel {
+       penalty_freq: options.frequencyPenalty,
+       stop: options.stopSequences,
+       seed: options.seed,
+-      reasoning_format: 'auto'
++      reasoning_format: 'auto',
++      // Habyss: answer straight away (Qwen3.5 would otherwise think first and spend the tokens).
++      enable_thinking: false
+     };
+     if (options.responseFormat?.type === 'json') {
+       completionOptions.response_format = {
+@@ -391,7 +393,8 @@ export class LlamaLanguageModel {
+       penalty_present: options.presencePenalty,
+       penalty_freq: options.frequencyPenalty,
+       stop: options.stopSequences,
+-      seed: options.seed
++      seed: options.seed,
++      enable_thinking: false
+     };
+     if (options.tools) {
+       completionOptions.tools = options.tools.map(({
+diff --git a/node_modules/@react-native-ai/llama/src/ai-sdk.ts b/node_modules/@react-native-ai/llama/src/ai-sdk.ts
+index 621c363..8cebeab 100644
+--- a/node_modules/@react-native-ai/llama/src/ai-sdk.ts
++++ b/node_modules/@react-native-ai/llama/src/ai-sdk.ts
+@@ -397,6 +397,8 @@ export class LlamaLanguageModel implements LanguageModelV3 {
+       stop: options.stopSequences,
+       seed: options.seed,
+       reasoning_format: 'auto',
++      // Habyss: answer straight away (Qwen3.5 would otherwise think first and spend the tokens).
++      enable_thinking: false
+     }
+ 
+     if (options.responseFormat?.type === 'json') {
+@@ -500,6 +502,7 @@ export class LlamaLanguageModel implements LanguageModelV3 {
+       penalty_freq: options.frequencyPenalty,
+       stop: options.stopSequences,
+       seed: options.seed,
++      enable_thinking: false,
+     }
+ 
+     if (options.tools) {

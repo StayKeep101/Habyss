@@ -14,12 +14,13 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import * as Notifs from 'expo-notifications';
-import { morningAlarmAvailable } from '@/lib/morningAlarm';
-import { planAlertsOn, setPlanAlertsOn } from '@/lib/planAlerts';
+import { morningAlarmAvailable, syncMorningAlarm } from '@/lib/morningAlarm';
+import { PUSH_KINDS, pushOff, setPushKind } from '@/lib/pushPrefs';
 import HabyssLiveActivity from '@/modules/habyss-live-activity';
 import { NotificationService } from '@/lib/notificationService';
-import { TimeRow } from '@/components/ui/TimeRow';
-import { cachedDayWindow, DEFAULT_DAY, getDayWindow, updateDayWindow, type DayWindow } from '@/lib/echo';
+import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
+import { cachedDayWindow, cachedEchoConfig, DEFAULT_DAY, DEFAULT_ECHO, getDayWindow, getEchoConfig, minutesOf, updateEchoConfig, type EchoConfig } from '@/lib/echo';
+import { clockLabel } from '@/lib/dayFlow';
 import { scheduledActivitiesEnabled, setScheduledActivitiesEnabled, scheduledActivitiesCapability } from '@/lib/scheduledActivities';
 import { styles } from '@/styles/screens/notifications.styles';
 
@@ -32,17 +33,16 @@ const Notifications = () => {
 
   const [asking, setAsking] = useState(false);
 
-  // When not to be interrupted. This lived on the Echo page, which is about
-  // how Echo talks rather than when anything is allowed to reach you at all.
-  // Only the end that was changed is saved; the other stays as it was saved.
-  const saveDay = (patch: Partial<DayWindow>) => {
-    setDay(current => ({ ...current, ...patch }));
-    updateDayWindow(patch)
-      .then(saved => { setDay(saved); return NotificationService.refreshReminders(); })
-      .catch(() => undefined);
-  };
   // Your saved day from the start, never the default first (lib/echo.ts).
   const [day, setDay] = useState(() => cachedDayWindow() ?? DEFAULT_DAY);
+  // Echo's check-ins and the morning alarm: when they reach you lives here, how Echo words them on Echo's page.
+  const [echo, setEcho] = useState<EchoConfig>(() => cachedEchoConfig() ?? DEFAULT_ECHO);
+  useEffect(() => { void getEchoConfig().then(setEcho).catch(() => undefined); }, []);
+  const saveEcho = (patch: Partial<EchoConfig>) => {
+    lightFeedback();
+    setEcho(current => ({ ...current, ...patch }));
+    void updateEchoConfig(patch).then(stored => { setEcho(stored); return NotificationService.refreshReminders(); }).catch(() => undefined);
+  };
   const [activities, setActivities] = useState(true);
   const [ready, setReady] = useState(false);
   const capability = scheduledActivitiesCapability();
@@ -103,14 +103,22 @@ const Notifications = () => {
   };
 
   const [habitReminders, setHabitReminders] = useState(true);
-  // Guided through the day: now, next, a heads-up, meals, events (lib/dayGuide.ts).
-  const [planChanges, setPlanChanges] = useState(true);
-  useEffect(() => { void planAlertsOn().then(setPlanChanges); }, []);
+  // The day as it happens: each thing as it starts, time's up, bedtime (lib/dayGuide.ts).
   const [dayGuide, setDayGuide] = useState(true);
+  // Said in Echo's voice, or the plain sound.
+  const [echoVoice, setEchoVoice] = useState(true);
+  // Community: each kind pushed, or kept to the inbox (lib/pushPrefs.ts).
+  const [off, setOff] = useState<Set<string>>(new Set());
+  useEffect(() => { void pushOff().then(setOff); }, []);
+  const togglePush = (id: string, on: boolean) => {
+    lightFeedback();
+    setOff(current => { const next = new Set(current); if (on) next.delete(id); else next.add(id); return next; });
+    void setPushKind(id, on).catch(() => Alert.alert('Not saved', 'Could not reach Habyss. Check your connection and try again.'));
+  };
   // Leave now and Start now as alarms (iOS 26+): ring through Silent, buzz the Watch.
   const [alarms, setAlarms] = useState(true);
   const alarmsAvailable = morningAlarmAvailable() && !!HabyssLiveActivity?.scheduleMomentAlarms;
-  useEffect(() => { void getNotificationPrefs().then(prefs => { setDayGuide(prefs.dayGuide); setAlarms(prefs.alarms); }).catch(() => undefined); }, []);
+  useEffect(() => { void getNotificationPrefs().then(prefs => { setDayGuide(prefs.dayGuide); setAlarms(prefs.alarms); setEchoVoice(prefs.echoVoice); }).catch(() => undefined); }, []);
   // Echo, when the timeline moves something you did not get to in time.
 
 
@@ -144,6 +152,9 @@ const Notifications = () => {
             <SettingRow icon="navigate" color={colors.success} label="Guide me through the day"
               value={dayGuide && notificationsEnabled} disabled={!notificationsEnabled}
               onChange={v => { lightFeedback(); setDayGuide(v); void setNotificationPrefs({ dayGuide: v }).then(() => NotificationService.refreshReminders()); }} />
+            <SettingRow icon="mic" color={accentColor} label="Echo announces"
+              value={echoVoice && dayGuide && notificationsEnabled} disabled={!notificationsEnabled || !dayGuide}
+              onChange={v => { lightFeedback(); setEchoVoice(v); void setNotificationPrefs({ echoVoice: v }).then(() => NotificationService.refreshReminders()); }} />
             {alarmsAvailable ? (
               <SettingRow icon="watch" color={colors.error} label="Leave and start as alarms"
                 value={alarms && dayGuide && notificationsEnabled} disabled={!notificationsEnabled || !dayGuide}
@@ -152,19 +163,52 @@ const Notifications = () => {
             <SettingRow icon="alarm" color={colors.warning} label="Habit reminders"
               value={habitReminders && notificationsEnabled} disabled={!notificationsEnabled}
               onChange={v => toggleSetting('notif_habits', v, setHabitReminders)} />
-            <SettingRow icon="git-compare" color={accentColor} label="Echo: plan changes"
-              value={planChanges && notificationsEnabled} disabled={!notificationsEnabled}
-              onChange={v => { lightFeedback(); setPlanChanges(v); void setPlanAlertsOn(v); }} />
             <SettingRow icon="phone-portrait" color={colors.success} label="Live Activities"
               value={activities && capability !== 'unavailable'} disabled={!ready || asking || capability === 'unavailable'}
               onChange={wanted => void toggleActivities(wanted)} />
           </VoidCard>
 
-          {/* Nothing reaches you outside these hours. */}
+          {/* Community: on, a notification; off, it waits quietly in the inbox. */}
+          <View>
+          <Text style={[styles.detail, { color: colors.textSecondary }]}>Community · off keeps it in your inbox</Text>
           <VoidCard style={[styles.card, { opacity: notificationsEnabled ? 1 : 0.5 }]}>
-            <TimeRow icon="sunny-outline" label="Wake up" value={day.wake} accent={accentColor} onChange={time => saveDay({ wake: time })} />
-            <TimeRow icon="moon-outline" label="Sleep" value={day.sleep} accent={accentColor} onChange={time => saveDay({ sleep: time })} />
+            {PUSH_KINDS.map(kind => (
+              <SettingRow key={kind.id} icon={kind.icon} color={accentColor} label={kind.label}
+                value={!off.has(kind.id) && notificationsEnabled} disabled={!notificationsEnabled}
+                onChange={v => togglePush(kind.id, v)} />
+            ))}
           </VoidCard>
+          </View>
+
+          {/* Echo's own times: the alarm at wake, a word in the morning and before bed, the week's review. */}
+          <SettingsGroup title="Wake up & check-ins">
+            <SettingsRow icon="alarm" color={colors.warning} label="Morning alarm"
+              value={morningAlarmAvailable() ? undefined : 'iOS 26'}
+              toggle={echo.morningAlarm === true} disabled={!morningAlarmAvailable()}
+              onToggle={value => {
+                saveEcho({ morningAlarm: value });
+                setTimeout(() => {
+                  void syncMorningAlarm().then(result => {
+                    if (result === 'denied') Alert.alert('Alarms are off for Habyss', 'Allow alarms for Habyss in Settings → Apps → Habyss, then turn this on again.');
+                    if (result === 'failed') Alert.alert('Could not set the alarm', 'Please try again.');
+                  });
+                }, 300);
+              }} />
+            <SettingsRow icon="sunny" color={colors.warning} label="Morning check-in" toggle={echo.morning}
+              disabled={!notificationsEnabled} onToggle={value => saveEcho({ morning: value })} />
+            <SettingsRow icon="moon" color={accentColor} label="Before bed" toggle={echo.evening}
+              disabled={!notificationsEnabled} onToggle={value => saveEcho({ evening: value })} />
+            <SettingsRow icon="calendar" color={colors.error} label="Weekly review" toggle={echo.weeklyReview !== false}
+              disabled={!notificationsEnabled}
+              onToggle={value => { saveEcho({ weeklyReview: value }); setTimeout(() => { void (require('@/lib/weeklyReviewNotice') as typeof import('@/lib/weeklyReviewNotice')).syncWeeklyReviewNotice(); }, 300); }} />
+          </SettingsGroup>
+
+          {/* Nothing reaches you outside your day: its hours are set once, in Day & calendar. */}
+          <SettingsGroup title="Quiet hours">
+            <SettingsRow icon="moon" color={accentColor} label="Quiet from"
+              value={`${clockLabel(minutesOf(day.sleep))} – ${clockLabel(minutesOf(day.wake))}`}
+              onPress={() => router.push('/(root)/meals' as never)} />
+          </SettingsGroup>
         </ScrollView>
       </SheetScreen>
   );

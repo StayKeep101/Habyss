@@ -4,9 +4,11 @@ import { readableAccent } from '@/lib/colorContrast';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import Animated, { Easing, useAnimatedStyle, withSpring, withTiming, useSharedValue, interpolate } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, withTiming, useSharedValue, interpolate, runOnJS, runOnUI } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { DURATION, EASE, timingFor } from '@/theme/motion';
 import { Colors } from '@/theme/colors';
-import { FontFamily, Spacing } from '@/theme/designSystem';
+import { Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -18,6 +20,9 @@ import { AppState } from 'react-native';
 import { FriendsService } from '@/lib/friendsService';
 import { getRemoveDrag, setOrbRect, subscribeRemoveDrag, type RemoveDrag } from '@/lib/dragBridge';
 import { VoiceOrb } from './VoiceOrb';
+
+/** The dock gathering or spreading: worked out once, so the UI thread only reads it. */
+const MERGE_TIMING = timingFor(DURATION.emphasis, EASE.move);
 import { FocusMiniBar } from '@/components/Focus/FocusMiniBar';
 import { useWindowDimensions } from 'react-native';
 
@@ -30,15 +35,8 @@ interface TabIconProps {
 }
 
 const TabIcon = ({ routeName, focused, colors, isDark, foreground, unread, background }: TabIconProps & { unread?: boolean; background: string }) => {
-    const scale = useSharedValue(focused ? 1 : 1);
-
-    React.useEffect(() => {
-        scale.value = withSpring(focused ? 1.15 : 1);
-    }, [focused]);
-
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
-    }));
+    // No scale on the chosen tab: an icon drawn and then enlarged is soft at rest, and it sprang.
+    // The filled glyph in the accent says which tab it is, as the system tab bar does.
 
     // Get Ionicons name based on route
     const getIconName = (): keyof typeof Ionicons.glyphMap => {
@@ -62,7 +60,7 @@ const TabIcon = ({ routeName, focused, colors, isDark, foreground, unread, backg
         : (isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)');
 
     return (
-        <Animated.View style={[animatedStyle, styles.iconContainer]}>
+        <Animated.View style={styles.iconContainer}>
             <Ionicons name={getIconName()} size={24} color={iconColor} />
             {/* Something has happened and nobody has looked at it. A dot rather
                 than a number: on a tab bar the question is only ever whether to
@@ -134,7 +132,6 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const plusLayer = useAnimatedStyle(() => ({ opacity: 1 - morph.value, transform: [{ rotate: `${morph.value * 90}deg` }] }));
     const removeLayer = useAnimatedStyle(() => ({ opacity: morph.value, transform: [{ scale: interpolate(morph.value, [0, 1], [0.6, 1]) }] }));
     const removeFill = useAnimatedStyle(() => ({ opacity: hover.value }));
-    const removeLabel = useAnimatedStyle(() => ({ opacity: morph.value, transform: [{ translateY: (1 - morph.value) * 6 }] }));
 
     /**
      * Whether anything is waiting, for the dot on Community.
@@ -157,11 +154,59 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
         return () => { alive = false; stop.remove(); app.remove(); };
     }, []);
 
+    const current = state.routes[state.index]?.name;
+    const [barShown, setBarShown] = React.useState(false);
+    const [expanded, setExpanded] = React.useState(false);
+    const merged = !railed && current === 'roadmap' && barShown && !expanded;
+    const merge = useSharedValue(merged ? 1 : 0);
+    // One animation per change, on the UI thread: started when the tab is touched, and only
+    // corrected (never restarted) once the navigation lands, so no frame runs in JavaScript.
+    // Where the dock is heading, kept on the UI thread: the tab's touch starts the move there,
+    // before any JavaScript runs (which may be busy with the tab it is leaving), and the
+    // catch-up below only corrects it, never restarting a move already under way.
+    const mergeTo = useSharedValue(merged ? 1 : 0);
+    // Whether the dock may gather at all (no rail, a now bar, not opened out), for the UI thread.
+    const mergeable = useSharedValue(!railed && barShown && !expanded);
+    React.useEffect(() => { mergeable.set(!railed && barShown && !expanded); }, [railed, barShown, expanded, mergeable]);
+    React.useEffect(() => {
+        const to = merged ? 1 : 0;
+        runOnUI(() => {
+            'worklet';
+            if (mergeTo.value === to) return;
+            mergeTo.value = to;
+            merge.value = withTiming(to, MERGE_TIMING);
+        })();
+    }, [merged, merge, mergeTo]);
+    /** A touch on a tab, on the UI thread: gather on the Roadmap, spread anywhere else. */
+    const touchTab = (name: string) => Gesture.Manual().onTouchesDown(() => {
+        'worklet';
+        if (!mergeable.value) return;
+        const to = name === 'roadmap' ? 1 : 0;
+        if (mergeTo.value === to) return;
+        mergeTo.value = to;
+        merge.value = withTiming(to, MERGE_TIMING);
+    })
+        // Only watches the touch: never takes it over, so the tab's own press runs as before.
+        .onTouchesUp((_event, manager) => { 'worklet'; manager.fail(); })
+        .onTouchesCancelled((_event, manager) => { 'worklet'; manager.fail(); });
+    // A tab switched on touch down: its press, when the finger lifts, is already done.
+    const switchedOnDown = React.useRef<string | null>(null);
     const tabs = state.routes.map((route: any, index: number) => {
                         const { options } = descriptors[route.key];
                         const isFocused = state.index === index;
 
+                        // On touch down, like the system tab bar: the switch starts while the finger is
+                        // still on the glass, not after it lifts. The press that follows does nothing more.
+                        const onPressIn = () => {
+                            if (isFocused) return;
+                            switchedOnDown.current = route.key;
+                            go();
+                        };
                         const onPress = () => {
+                            if (switchedOnDown.current === route.key) { switchedOnDown.current = null; return; }
+                            go();
+                        };
+                        const go = () => {
                             const event = navigation.emit({
                                 type: 'tabPress',
                                 target: route.key,
@@ -176,14 +221,15 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                         };
 
                         return (
+                            <GestureDetector key={route.key} gesture={touchTab(route.name)}>
                             <TouchableOpacity
-                                key={route.key}
                                 ref={(view: any) => { tabRefs.current[route.name] = view; }}
                                 accessibilityRole="tab"
                                 accessibilityLabel={options.title ?? route.name}
                                 accessibilityHint={route.name === 'settings' ? 'Hold to send feedback' : undefined}
                                 accessibilityState={{ selected: isFocused }}
                                 activeOpacity={0.7}
+                                onPressIn={onPressIn}
                                 onPress={onPress}
                                 // Holding the last tab opens the feedback box.
                                 // It costs no room on any screen, and the row in
@@ -210,6 +256,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                                     background={palette.background}
                                 />
                             </TouchableOpacity>
+                            </GestureDetector>
                         );
                     });
 
@@ -221,14 +268,53 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
         : plus[plusTab].length === 1 ? PLUS_ACTIONS[plus[plusTab][0]].label
             : plusTab === 'community' ? 'Bet or challenge' : 'Create a habit, goal, or task';
 
+    /**
+     * On the Roadmap the dock gathers into one row, like a music app's: the tab pill
+     * shrinks to a Roadmap disc on the left, the now bar slides down between it and
+     * the +, and the page gets its room back. Swipe the disc to go to Home or
+     * Community; tap it for every tab. Any other tab, or no now bar: the usual dock.
+     */
+    // Opened for every tab: gathers again after a few seconds if none was chosen.
+    React.useEffect(() => {
+        if (!expanded) return;
+        const timer = setTimeout(() => setExpanded(false), 5000);
+        return () => clearTimeout(timer);
+    }, [expanded]);
+    const dockGap = isCompactWidth ? 10 : 12;
+    const pillMax = isCompactWidth ? 236 : 260;
+    const pillWidth = Math.max(tabBarHeight, Math.min(pillMax, screenWidth - horizontalPadding * 2 - dockGap - floatingButtonSize));
+    const rowHeight = Math.max(tabBarHeight, floatingButtonSize);
+    // The usual dock is centred; gathered, the disc and the + go out to the edges.
+    const slide = Math.max(0, (screenWidth - (pillWidth + dockGap + floatingButtonSize)) / 2 - horizontalPadding);
+    const pillBox = useAnimatedStyle(() => ({
+        width: interpolate(merge.value, [0, 1], [pillWidth, tabBarHeight]),
+        transform: [{ translateX: -merge.value * slide }],
+    }));
+    const tabsFade = useAnimatedStyle(() => ({ opacity: 1 - merge.value }));
+    const discFade = useAnimatedStyle(() => ({ opacity: merge.value }));
+    const orbSlide = useAnimatedStyle(() => ({ transform: [{ translateX: merge.value * slide }] }));
+    const barAbove = tabBarBottomOffset + rowHeight + Spacing.sm;
+    const barPlace = useAnimatedStyle(() => ({
+        left: interpolate(merge.value, [0, 1], [horizontalPadding, horizontalPadding + tabBarHeight + dockGap]),
+        right: interpolate(merge.value, [0, 1], [horizontalPadding, horizontalPadding + floatingButtonSize + dockGap]),
+        bottom: interpolate(merge.value, [0, 1], [barAbove, tabBarBottomOffset + (rowHeight - tabBarHeight) / 2]),
+    }));
+    const goTab = React.useCallback((name: string) => {
+        mediumFeedback();
+        emit('tab_selected', name);
+        navigation.navigate(name);
+    }, [mediumFeedback, navigation]);
+    const disc = useMemo(() => {
+        const swipe = Gesture.Pan().activeOffsetX([-14, 14]).failOffsetY([-24, 24]).onEnd(event => {
+            if (event.translationX <= -32) runOnJS(goTab)('community');
+            else if (event.translationX >= 32) runOnJS(goTab)('home');
+        });
+        const tap = Gesture.Tap().onEnd(() => { runOnJS(setExpanded)(true); });
+        return Gesture.Exclusive(swipe, tap);
+    }, [goTab]);
+
     const orb = (
             <Animated.View style={orbScale}>
-            {removeDrag.active ? (
-                <Animated.Text pointerEvents="none" numberOfLines={1}
-                    style={[styles.removeLabel, { bottom: floatingButtonSize + 10, color: removeDrag.over ? palette.error : palette.textPrimary }, removeLabel]}>
-                    {removeDrag.label ?? 'Remove from goal'}
-                </Animated.Text>
-            ) : null}
             <TouchableOpacity
                 ref={orbRef}
                 onLayout={measureOrb}
@@ -321,24 +407,40 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 style={[styles.fade, { bottom: -tabBarBottomOffset, height: tabBarBottomOffset + tabBarHeight + 56 }]}
             />
 
-            {/* The matte card surface as a pill, floating on its shadow. */}
-            <MatteSurface radius={tabBarHeight / 2} elevation="floating" edge={dockEdge} hairline style={[
-                styles.navPill,
-                {
-                    height: tabBarHeight,
-                    paddingHorizontal: isCompactWidth ? 12 : 16,
-                    maxWidth: isCompactWidth ? 236 : 260,
-                },
-            ]}>
-
-                <View style={styles.tabsRow}>
-                    {tabs}
+            {/* The matte card surface as a pill, floating on its shadow. Its place in the row keeps
+                its full width, so the + never moves when it gathers into the Roadmap disc. */}
+            <View style={{ width: pillWidth, height: tabBarHeight }}>
+            <Animated.View style={[styles.pillBox, { height: tabBarHeight }, pillBox]}>
+            <MatteSurface radius={tabBarHeight / 2} elevation="floating" edge={dockEdge} hairline style={styles.fill}>
+                <View style={[styles.clip, { borderRadius: tabBarHeight / 2 }]}>
+                    <Animated.View pointerEvents={merged ? 'none' : 'auto'} accessibilityElementsHidden={merged} importantForAccessibility={merged ? 'no-hide-descendants' : 'auto'}
+                        style={[styles.tabsRow, { width: pillWidth, paddingHorizontal: isCompactWidth ? 12 : 16 }, tabsFade]}>
+                        {tabs}
+                    </Animated.View>
+                    {/* Gathered: the Roadmap alone. Swipe it to Home or Community; tap for every tab. */}
+                    <GestureDetector gesture={disc}>
+                        <Animated.View pointerEvents={merged ? 'auto' : 'none'} accessibilityElementsHidden={!merged} importantForAccessibility={merged ? 'yes' : 'no-hide-descendants'}
+                            accessible={merged} accessibilityRole="adjustable" accessibilityLabel="Roadmap"
+                            accessibilityHint="Swipe up for Community, down for Home. Double-tap for every tab"
+                            accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }, { name: 'activate' }]}
+                            onAccessibilityAction={event => {
+                                const name = event.nativeEvent.actionName;
+                                if (name === 'increment') goTab('community');
+                                else if (name === 'decrement') goTab('home');
+                                else setExpanded(true);
+                            }}
+                            style={[styles.disc, { width: tabBarHeight, height: tabBarHeight }, discFade]}>
+                            <TabIcon routeName="roadmap" focused colors={accentColors} isDark={theme !== 'light'} foreground={foreground} background={palette.background} />
+                        </Animated.View>
+                    </GestureDetector>
                 </View>
             </MatteSurface>
+            </Animated.View>
+            </View>
 
             {/* 2. Creation Orb (Plus Button) - Uses accent gradient. While an
                 item in a goal is dragged it becomes the "Remove from goal" target. */}
-            {orb}
+            <Animated.View style={orbSlide}>{orb}</Animated.View>
 
             {/* Holding the plus stretches it into a listening pill over the dock. */}
             <View pointerEvents="none" style={[StyleSheet.absoluteFill, { left: horizontalPadding, right: horizontalPadding }]}>
@@ -350,15 +452,19 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
             Beside the dock rather than inside it: iOS gives no touches to a
             view drawn outside its parent. After it, so the dock's fade never
             shades it. */}
-        <View pointerEvents="box-none" style={[styles.focusBar, { left: horizontalPadding, right: horizontalPadding, bottom: tabBarBottomOffset + Math.max(tabBarHeight, floatingButtonSize) + Spacing.sm }]}>
-            <FocusMiniBar />
-        </View>
+        <Animated.View pointerEvents="box-none" style={[styles.focusBar, merged ? { height: tabBarHeight } : null, barPlace]}>
+            <FocusMiniBar docked={merged} onShown={setBarShown} />
+        </Animated.View>
         </>
     );
 };
 
 const styles = StyleSheet.create({
     focusBar: { position: 'absolute' },
+    pillBox: { position: 'absolute', left: 0, top: 0 },
+    fill: { flex: 1 },
+    clip: { flex: 1, overflow: 'hidden' },
+    disc: { position: 'absolute', left: 0, top: 0, alignItems: 'center', justifyContent: 'center' },
     container: {
         position: 'absolute',
         left: 0,
@@ -377,10 +483,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     tabsRow: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
         flexDirection: 'row',
         justifyContent: 'space-evenly',
         alignItems: 'center',
-        flex: 1,
     },
     tabButton: {
         alignItems: 'center',
@@ -409,7 +518,6 @@ const styles = StyleSheet.create({
         elevation: 8,
     },
     orbCenter: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
-    removeLabel: { position: 'absolute', right: 0, width: 160, textAlign: 'right', fontSize: 13, fontFamily: FontFamily.medium },
     orbGradient: {
         flex: 1,
         borderRadius: 32,

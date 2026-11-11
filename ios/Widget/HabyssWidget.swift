@@ -39,9 +39,10 @@ enum Habyss {
     static let night = Color(.sRGB, red: 0.067, green: 0.086, blue: 0.161)
     static let faint = Color.white.opacity(0.32)
     static let done = Color(.sRGB, red: 0.06, green: 0.72, blue: 0.51)
-    /// Falls back to the default gradient when the app has not written one yet.
-    static let fallbackFrom = Color(.sRGB, red: 0.227, green: 0.353, blue: 0.549)
-    static let fallbackTo = Color(.sRGB, red: 0.545, green: 0.678, blue: 0.839)
+    /// Falls back to the app's default gradient, Habyss blue (#4268FF → #7098FF,
+    /// context/AccentContext.tsx), when the app has not written one yet.
+    static let fallbackFrom = Color(.sRGB, red: 0.259, green: 0.408, blue: 1.0)
+    static let fallbackTo = Color(.sRGB, red: 0.439, green: 0.596, blue: 1.0)
     /// The app's matte card material (theme/designSystem.ts, Surfaces.abyss):
     /// lit at the top, falling off towards the bottom. Widgets and live
     /// activities sit on it so they read as part of the app.
@@ -61,8 +62,8 @@ enum Habyss {
             guard value.count == 6, let raw = UInt32(value, radix: 16) else { return nil }
             return (Double((raw >> 16) & 0xFF) / 255, Double((raw >> 8) & 0xFF) / 255, Double(raw & 0xFF) / 255)
         }
-        let a = rgb(from) ?? (0.227, 0.353, 0.549)
-        let b = rgb(to) ?? rgb(from) ?? (0.545, 0.678, 0.839)
+        let a = rgb(from) ?? (0.259, 0.408, 1.0)
+        let b = rgb(to) ?? rgb(from) ?? (0.439, 0.596, 1.0)
         return Color(.sRGB, red: (a.0 + b.0) / 2, green: (a.1 + b.1) / 2, blue: (a.2 + b.2) / 2)
     }
 }

@@ -66,6 +66,8 @@ export async function saveDayWindow(day: DayWindow): Promise<void> {
     await AsyncStorage.setItem(DAY_KEY, JSON.stringify(dayCache));
     // The morning alarm rings at wake time, so it moves with it.
     void (require('./morningAlarm') as typeof import('./morningAlarm')).syncMorningAlarm().catch(() => undefined);
+    // So does the Bedtime lock's night.
+    void (require('./bedtimeLock') as typeof import('./bedtimeLock')).syncBedtime().catch(() => undefined);
 }
 
 export const minutesOf = (time: string): number => {

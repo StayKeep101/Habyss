@@ -1,0 +1,59 @@
+-- Community notifications, each kind on (pushed) or off (inbox only):
+-- Settings → Notifications (lib/pushPrefs.ts). The phone writes the types it
+-- wants kept to the inbox; the push trigger skips them. The row is still saved,
+-- so the inbox has everything either way.
+
+alter table public.profiles add column if not exists push_muted text[] not null default '{}';
+grant update (push_muted) on public.profiles to authenticated;
+
+create or replace function public.push_notification()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    token text;
+    focusing boolean;
+    muted text[];
+begin
+    select p.push_token, coalesce(p.focus_until > now(), false), coalesce(p.push_muted, '{}')
+      into token, focusing, muted
+      from public.profiles p where p.id = new.user_id;
+    if token is null or token not like 'ExponentPushToken%' then
+        return new;
+    end if;
+    -- Focusing: it waits in the inbox instead of buzzing the phone.
+    if focusing then
+        return new;
+    end if;
+    -- A kind switched off in Settings: inbox only.
+    if new.type = any(muted) then
+        return new;
+    end if;
+    -- The sender's own phone is never the recipient.
+    if new.from_user_id is not null and exists (
+        select 1 from public.profiles s where s.id = new.from_user_id and s.push_token = token
+    ) then
+        return new;
+    end if;
+
+    perform net.http_post(
+        url := 'https://exp.host/--/api/v2/push/send',
+        headers := jsonb_build_object('Content-Type', 'application/json'),
+        body := jsonb_build_object(
+            'to', token,
+            'title', coalesce(new.title, 'Habyss'),
+            'body', coalesce(new.body, ''),
+            'sound', 'default',
+            'data', jsonb_build_object('type', new.type, 'from', new.from_user_id),
+            'collapseId', new.type
+        )
+    );
+    return new;
+exception when others then
+    return new;
+end;
+$$;
+
+notify pgrst, 'reload schema';

@@ -1,8 +1,9 @@
 import type { Habit } from './habitsSQLite';
 import { type Task, taskRank, tasksForDay } from './tasks';
-import { createHabitSchedule, parseHabitDate } from './habitSchedule';
+import { createHabitSchedule, localDateKey as localKey, parseHabitDate } from './habitSchedule';
 import { addDays, buildGoalInsights, goalProgress } from './goalInsights';
 import { doneOnDay } from './dailyFocus';
+import { habitDays, habitRun } from './habitStreak';
 
 export interface DashboardTask { id: string; name: string; isCompleted: boolean; time?: string; dueDate?: string; }
 export interface DashboardDay { date: string; total: number; completed: number; items: DashboardTask[]; }
@@ -14,6 +15,12 @@ export interface WidgetDashboard {
     days: DashboardDay[];
     heatmap: { date: string; completed: number; total: number }[];
     streak: number;
+    /**
+     * Each habit on its own, for the streak widget set to one habit: its
+     * streak (lib/habitStreak.ts) and the heatmap's days as one character
+     * each, oldest first: "1" done, "0" due and not done, "-" not due.
+     */
+    habits: { id: string; name: string; streak: number; days: string }[];
     goals: { id: string; name: string; progress: number; color: string; taskWeights: Record<string, number>;
         points: { date: string; actual: number }[] }[];
 }
@@ -30,6 +37,20 @@ export function buildWidgetDashboard({ habits, tasks, history, skips, today, acc
         const done = new Set(history[date]);
         const due = active.filter(({ habit, scheduled }) => scheduled(new Date(`${date}T12:00:00`)) && !skipped.has(habit.id));
         return { date, completed: due.filter(({ habit }) => done.has(habit.id)).length, total: due.length };
+    });
+    const heatStart = heatmap[0].date;
+    const habitRows = active.map(({ habit, scheduled }) => {
+        const done = new Set<string>();
+        const skipped = new Set<string>();
+        for (const [date, ids] of Object.entries(history)) if (ids.includes(habit.id)) done.add(date);
+        for (const [date, ids] of Object.entries(skips)) if (ids.includes(habit.id)) skipped.add(date);
+        const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
+        const from = start ? localKey(start) : heatStart;
+        const isDue = (date: string) => date >= from && scheduled(new Date(`${date}T12:00:00`));
+        const run = habitRun(habitDays(from < heatStart ? from : heatStart, today, isDue, done, skipped), today);
+        const cells = habitDays(heatStart, heatmap[heatmap.length - 1].date, isDue, done, skipped)
+            .map(day => (!day.scheduled ? '-' : day.completed ? '1' : '0')).join('');
+        return { id: habit.id, name: habit.name, streak: run.currentStreak, days: cells };
     });
     const days = Array.from({ length: 8 }, (_, offset) => {
         const date = addDays(today, offset);
@@ -66,7 +87,7 @@ export function buildWidgetDashboard({ habits, tasks, history, skips, today, acc
                 .map(task => [`task:${task.id}`, weightOf(task)])),
         };
     });
-    return { version: 1, generatedAt: new Date().toISOString(), dayKey: today, accent, days, heatmap, goals, streak };
+    return { version: 1, generatedAt: new Date().toISOString(), dayKey: today, accent, days, heatmap, goals, streak, habits: habitRows };
 }
 
 /** Bound widget memory while retaining the start, latest value and actual dates. */

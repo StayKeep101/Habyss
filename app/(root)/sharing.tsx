@@ -7,7 +7,7 @@ import { vs } from '@/theme/scale';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { ALL_SHARED, SHARING_LABELS, getSharing, setSharing, type Sharing } from '@/lib/profileSync';
-import { PREF_LABELS, getNotificationPrefs, setNotificationPrefs, type NotificationPrefs } from '@/lib/notificationPrefs';
+import { getNotificationPrefs, type NotificationPrefs } from '@/lib/notificationPrefs';
 import { styles } from '@/styles/screens/sharing.styles';
 import { TimeRow } from '@/components/ui/TimeRow';
 import { FeedService } from '@/lib/feedService';
@@ -52,12 +52,6 @@ export default function SharingScreen() {
         setSharingState(await setSharing({ [key]: value }));
     }, [selectionFeedback]);
 
-    const tell = useCallback(async (key: keyof NotificationPrefs, value: boolean) => {
-        selectionFeedback();
-        setPrefs(current => (current ? { ...current, [key]: value } : current));
-        setPrefs(await setNotificationPrefs({ [key]: value }));
-    }, [selectionFeedback]);
-
     if (!sharing || !prefs) {
         return (
             <SheetScreen title="Friends & sharing" onBack={() => router.back()}>
@@ -85,13 +79,6 @@ export default function SharingScreen() {
                     ))}
                 </SettingsGroup>
 
-                <SettingsGroup title="Tell me when">
-                    {PREF_LABELS.map(item => (
-                        <SettingsRow key={item.id} icon={TELL_ICON[item.id].icon} color={TELL_ICON[item.id].color} label={item.label}
-                            toggle={prefs[item.id]} onToggle={value => void tell(item.id, value)} />
-                    ))}
-                </SettingsGroup>
-
                 <SettingsGroup>
                     <SettingsRow icon="hand-left" color="#8A8A94" label="Blocked" onPress={() => router.push('/(root)/blocked')} />
                 </SettingsGroup>
@@ -107,10 +94,4 @@ const SEE_ICON: Record<keyof Sharing, { icon: string; color: string }> = {
     progress: { icon: 'trending-up', color: '#30D158' },
     habits: { icon: 'repeat', color: '#FF9F0A' },
     tasks: { icon: 'checkmark-done', color: '#FF453A' },
-};
-const TELL_ICON: Record<Exclude<keyof NotificationPrefs, 'dayGuide' | 'alarms'>, { icon: string; color: string }> = {
-    sharedDone: { icon: 'checkmark-circle', color: '#30D158' },
-    shareOffers: { icon: 'gift', color: '#BF5AF2' },
-    reactions: { icon: 'heart', color: '#FF375F' },
-    friendRequests: { icon: 'person-add', color: '#5B8CFF' },
 };

@@ -20,7 +20,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { Habit } from '@/lib/habitsSQLite';
 import { useRouter } from 'expo-router';
-import { RoadMapCardSize } from '@/context/AppSettingsContext';
+import { RoadMapCardSize, useAutoReschedule } from '@/context/AppSettingsContext';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { Radius } from '@/theme/designSystem';
@@ -119,10 +119,14 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   const sideSub = isSmall ? 10 : (isBig ? 12 : 11);
   const measure = measurementFor(habit);
   const block = habit.durationMinutes ? formatDuration(habit.durationMinutes * 60, true) : null;
-  const when = habit.startTime ? (measure.kind !== 'timer' && block ? `${habit.startTime} · ${block}` : habit.startTime) : null;
+  // A time of day only when it keeps one: exact, or every time when the day is a plain calendar
+  // (Auto-reschedule off). Flexible has none: the timeline places it.
+  const autoReschedule = useAutoReschedule();
+  const startTime = habit.startTime && (habit.flexible === false || !autoReschedule) ? habit.startTime : undefined;
+  const when = startTime ? (measure.kind !== 'timer' && block ? `${startTime} · ${block}` : startTime) : null;
   const amount = measure.kind === 'timer' ? formatDuration(measure.target * measure.secondsPerUnit, true)
     : measure.kind === 'counter' ? `${measure.target} ${habit.unit}`
-    : !habit.startTime ? block : null;
+    : !startTime ? block : null;
   const remind = (habit.reminders?.length ?? 0) > 0;
 
   // Timer Progress Logic

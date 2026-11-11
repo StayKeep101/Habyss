@@ -3,12 +3,20 @@ import { FontFamily, Spacing } from '@/theme/designSystem';
 
 /** The look of app/(root)/(tabs)/roadmap.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
+    /** Links beside a List heading (Plans, Expand all, See all). */
+    headerLinks: { flexDirection: 'row', alignItems: 'center' },
+    headerLink: { padding: Spacing.sm, minHeight: 44, justifyContent: 'center' },
+    headerLinkText: { fontSize: 13, fontFamily: FontFamily.medium },
+    /** Timeline and List as two pages side by side; each page sets its own height. */
+    pager: { flexGrow: 0 },
+    pagerRow: { alignItems: 'flex-start' },
     /** Where the timeline will be, held open while it reads what it needs, so the page does not jump. */
     timelineWait: { minHeight: 400 },
     /** Timeline or List, under the day's plan. */
     // The filter icon that rises out of a pull past the top of the list.
     pullIcon: { position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center', zIndex: 5 },
     pullDisc: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+    // The two dots under the day strip: List and Timeline, a swipe apart.
     dragOverlay: {
         ...StyleSheet.absoluteFill,
         zIndex: 30,

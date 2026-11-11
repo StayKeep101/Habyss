@@ -21,6 +21,7 @@ const SAYS: Record<PersonalityModeId, string> = {
     normal: 'I’ll keep it calm, and stay out of your way.',
     dad_mode: 'I’ll keep you honest. Deadlines are my thing.',
     bully_mode: 'I won’t go easy on you.',
+    goofball: 'I’ll make jokes. You’ll do the work. Fair trade.',
 };
 
 export interface BuiltEcho {

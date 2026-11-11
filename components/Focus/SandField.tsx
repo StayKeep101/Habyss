@@ -5,11 +5,15 @@ import Animated, { interpolate, useAnimatedStyle, type SharedValue } from 'react
 import { EASE } from '@/theme/motion';
 
 /** Strips the sheet comes apart in, top to bottom. */
-const BANDS = 16;
+const BANDS = 12;
 /** Grains in each strip fall at one of these few speeds, so neighbours part. */
-const LAYERS = 4;
-/** Grains per layer of a strip: about 1,500 on the whole screen. */
-const GRAINS = 24;
+const LAYERS = 3;
+/**
+ * Grains per layer of a strip: about 500 on the whole screen, a little larger each. It was
+ * 1,500 in 64 drawings, all built at the tap that opens Focus: on an iPhone SE that held
+ * the app up for a moment every time.
+ */
+const GRAINS = 14;
 /** How long one strip's sheet takes to crumble, and its grains to fall, as shares of the whole. */
 const CRUMBLE = 0.22;
 const FALL = 0.55;
@@ -35,7 +39,7 @@ function seeded(seed: number) {
  * Run backwards (1 → 0) the grains rise and gather back into the sheet. Below
  * 0 it is not shown.
  *
- * About eighty moving layers, each a still drawing of its grains: the grains
+ * About fifty moving layers, each a still drawing of its grains: the grains
  * are drawn once, and only whole layers move, on the UI thread.
  */
 export function SandField({ fall, width, height, color }: {
@@ -53,7 +57,7 @@ export function SandField({ fall, width, height, color }: {
                 drop: band * (1.5 + layer * 0.9 + random()),
                 drift: (random() - 0.5) * band * 0.8,
                 grains: Array.from({ length: GRAINS }, () => ({
-                    x: random() * width, y: random() * band, r: 0.7 + random() * random() * 2.2,
+                    x: random() * width, y: random() * band, r: 0.9 + random() * random() * 2.6,
                 })),
             })),
         };

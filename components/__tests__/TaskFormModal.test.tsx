@@ -11,12 +11,12 @@ jest.mock('@/lib/onDeviceAI', () => ({ isOnDeviceAIReady: () => false, currentEn
 jest.mock('@/lib/habitsSQLite', () => ({ getGoals: jest.fn().mockResolvedValue([]) }));
 jest.mock('@/lib/tasks', () => ({ createTask: jest.fn().mockResolvedValue({ id: 't1' }), updateTask: jest.fn().mockResolvedValue(undefined) }));
 
-const saved = { id: 't1', title: 'Call tomorrow', dueDate: '2026-09-24', dueTime: '00:00', priority: 2 } as Task;
+const saved = { id: 't1', title: 'Call tomorrow', dueDate: '2026-09-24', dueTime: '00:00', priority: 2, flexible: false } as Task;
 beforeEach(() => jest.clearAllMocks());
 
 it('opens the calendar directly and saves the selected date', async () => {
     const screen = render(<TaskFormModal visible task={saved} />);
-    fireEvent.press(screen.getByLabelText(/^Do on,/));
+    fireEvent.press(screen.getByLabelText(/^Do it on,/));
     expect(screen.getByTestId('goal-calendar')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Choose 2026-09-25'));
     await act(async () => { fireEvent.press(screen.getByText('Save changes')); });
@@ -37,7 +37,7 @@ it('preserves midnight when editing', async () => {
 
 it('puts the date shortcuts under the calendar, and offers no "No date"', async () => {
     const screen = render(<TaskFormModal visible task={saved} />);
-    fireEvent.press(screen.getByLabelText(/^Do on,/));
+    fireEvent.press(screen.getByLabelText(/^Do it on,/));
     for (const label of ['Today', 'Tomorrow', 'Next week']) {
         expect(screen.getByText(label)).toBeTruthy();
     }

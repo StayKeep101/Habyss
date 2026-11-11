@@ -1,7 +1,7 @@
 import { GestureDetector } from 'react-native-gesture-handler';
 import { HOLD_MS } from '@/components/ui/DragDrop';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { PixelRatio, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 // The gesture handler's Pressable for every touch on a row, so the one under
 // the finger wins: Focus or the tick no longer also opens the habit behind them.
 import { Pressable } from 'react-native-gesture-handler';
@@ -10,7 +10,6 @@ import { LIST_LAYOUT, ListItem, MOTION } from '@/components/ui/Motion';
 import { StruckTitle } from '@/components/ui/StruckTitle';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { CheckPop } from '@/components/ui/CheckPop';
-import { FocusPill } from '@/components/ui/FocusPill';
 import type { Face } from '@/components/ui/FaceStack';
 import { SharedFaces } from '@/components/Common/SharedFaces';
 import type { SharedState } from '@/lib/shared';
@@ -69,8 +68,16 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const GLIDE = { duration: MOTION.duration, easing: MOTION.easing, reduceMotion: ReduceMotion.System };
 
 /** A distance down from the top that glides to its new value: centring that moves, never jumps. */
+/**
+ * On a whole screen pixel: text moved to half a pixel is drawn between two rows of pixels
+ * and reads soft, low-res. Centring ((row − text) / 2) lands on fractions all the time.
+ */
+const PIXEL = PixelRatio.get();
+const onPixel = (y: number) => Math.round(y * PIXEL) / PIXEL;
+
 function useGlideY(y: number, glide = true) {
-    return useAnimatedStyle(() => ({ transform: [{ translateY: glide ? withTiming(y, GLIDE) : y }] }));
+    const to = onPixel(y);
+    return useAnimatedStyle(() => ({ transform: [{ translateY: glide ? withTiming(to, GLIDE) : to }] }));
 }
 
 /** A colour that fades to its new value instead of switching (a pill filling, a line lived). */
@@ -97,7 +104,7 @@ const FREE_LABEL_MIN = 15;
  * marks one that moved since you last opened it. Meals and calendar events
  * sit as fixed blocks with a lock. A habit's pill is round, a task's squarer.
  */
-export function DayTimeline({ flow, onToggle, onOpen, onFocus, onPin, sharedFor, now, moved, why, scrubbing, day, wake, sleep, dueToday, company, onDrag, onDragCancel, dropRef }: {
+export function DayTimeline({ flow, onToggle, onOpen, onFocus, onPin, sharedFor, now, moved, why, scrubbing, appear = 'rise', day, wake, sleep, dueToday, company, onDrag, onDragCancel, dropRef }: {
     /** Who else is on a habit or task (lib/shared.ts): their faces beside its name, as on its list card. */
     sharedFor?: (item: FlowInput) => SharedState | null;
     /** Friends focusing with you, on the card of what you are focusing on (lib/focusTogether.ts). */
@@ -119,10 +126,12 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onPin, sharedFor,
     day?: string;
     /** Moved since last opened (lib/dayMemory.ts). */
     moved?: Record<string, true>;
-    /** Why each one moved, in a few words, shown under it until it is opened. */
+    /** Why each one moved, in a few words, said to VoiceOver until it is opened. */
     why?: Record<string, string>;
     /** Held: set it at an exact time (a habit or task). */
     onPin?: (item: FlowInput) => void;
+    /** How the day's rows first appear: rising in (the page opening), or at once (switched to another day). */
+    appear?: 'rise' | 'instant';
     /** Showing only what is on at the time under the finger. */
     scrubbing?: boolean;
     onToggle: (item: FlowInput) => void;
@@ -190,7 +199,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onPin, sharedFor,
             {flow.timeline.length ? flow.timeline.map((item, index) => {
                 const next = flow.timeline[index + 1];
                 return (
-                    <ListItem key={`${item.kind}-${item.id}${item.part ? `-${item.part.index}` : ''}`} index={arrived ? 0 : index} still={!!scrubbing}>
+                    <ListItem key={`${item.kind}-${item.id}${item.part ? `-${item.part.index}` : ''}`} index={arrived ? 0 : index} still={!!scrubbing} instant={!arrived && appear === 'instant'} noExit>
                         <TimelineDrag item={item} onDrag={onDrag ? handlers.drag : undefined} onCancel={handlers.cancel}
                             rowKey={`${item.kind}-${item.id}${item.part ? `-${item.part.index}` : ''}`} register={register}><Row size={size} item={item} color={colorOf(item)} last={index === flow.timeline.length - 1} first={index === 0}
                             nextColor={next ? colorOf(next) : undefined} nextStart={next?.start} day={day}
@@ -281,7 +290,16 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
     onPin?: (item: FlowInput) => void;
 }) {
     const t = useTokens();
-    const height = calendar !== undefined ? Math.max(2, calendar) : pillHeight(size, item.end - item.start);
+    // The text's own height, measured: placed at once the first time, glided after.
+    const [line, setLine] = useState({ height: 0, glide: false });
+    // On the line, a pill is never shorter than its text: however short the thing, its pill
+    // runs the whole height of its time and name, so each name sits plainly beside its own.
+    // Worked out from the type (one line of time, one of name, at the phone's text size), not
+    // measured: measured, every row grew after it appeared, and a new day slid into place.
+    // The calendar keeps strict scale.
+    const { fontScale } = useWindowDimensions();
+    const textHeight = Math.ceil(((t.type.caption.lineHeight ?? 18) + Math.max(t.type[size.titleType].lineHeight ?? 22, s(22))) * fontScale + vs(2));
+    const height = calendar !== undefined ? Math.max(2, calendar) : Math.max(pillHeight(size, item.end - item.start), textHeight);
     // Too short on the scale for its card: a thin bar and one line beside it. No length at all
     // (ticked ahead of its turn): a check mark at its minute, named on the right.
     const thin = calendar !== undefined && calendar < size.min;
@@ -289,7 +307,6 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
     const meal = !!item.fixed;
     const live = item.state === 'now';
     const done = item.state === 'done';
-    const left = live && now !== null ? Math.max(0, item.end - now) : null;
     // Why it is where it is, when it moved: one plain reason. Cut short to
     // fit is the scissors beside its time, not a sentence.
     const cut = !!item.cutFrom && !done;
@@ -298,7 +315,7 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
     const eta = item.kind === 'event' && now !== null
         ? now < item.start ? `in ${lengthLabel(item.start - now)}` : now < item.end ? `ends in ${lengthLabel(item.end - now)}` : null
         : null;
-    // Why it moved, in a few words, until it is opened.
+    // Why it moved, in a few words: said to VoiceOver only. Shown, it pushed the row taller and shifted the icon and text.
     const moved = done || live ? null : reason ?? null;
     // Held: set at an exact time. Habits and tasks only; meals and events are already fixed.
     const pinnable = !!onPin && (item.kind === 'habit' || item.kind === 'task') && !done;
@@ -323,9 +340,9 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
     // glide as the card, so they stay centred all the way through a resize.
     const cap = Math.min(size.pill, size.min);
     const iconAt = useGlideY((height - cap) / 2);
-    // The text's own height, measured: placed at once the first time, glided after.
-    const [line, setLine] = useState({ height: 0, glide: false });
-    const lineAt = useGlideY(Math.max(0, (height - line.height) / 2), line.glide);
+    // Until the text is measured, its height as worked out above: starting from 0 drew a new
+    // row's text half a row too low for a frame, then snapped it up (a twitch on every day switch).
+    const lineAt = useGlideY(Math.max(0, (height - (line.height || textHeight)) / 2), line.glide);
     // A task's subtasks, folded away until the chevron opens them.
     const [stepsOpen, setStepsOpen] = useState(false);
     // Where now falls in this row, if it does: inside its pill while it is on,
@@ -398,6 +415,14 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
                         </Animated.View>
                     </Animated.View>
                     )}
+                    {/* Pinned at its time (PinSheet): a badge on the pill's bottom-right corner, cut out of
+                        the page with the lock in the item's colour; held to a class or meal (lib/habitAnchor.ts), a link. */}
+                    {item.locked && !meal ? (
+                        <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+                            style={[styles.lockBadge, { width: size.pill * 0.42, height: size.pill * 0.42, borderRadius: size.pill * 0.21, right: -size.pill * 0.1, bottom: -size.pill * 0.06, backgroundColor: t.color.background }]}>
+                            <AppIcon name={item.anchoredTo ? 'link' : 'lock-closed'} filled size={size.pill * 0.24} color={color} />
+                        </View>
+                    ) : null}
                 </Pressable>
                 {/* The line to the next one, in this one's colour, filling as
                     the time between them passes. */}
@@ -410,11 +435,11 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
             <View style={[styles.bodyColumn, { paddingLeft: size.gap, paddingBottom: size.pad }]}>
             {/* The row itself keeps its place beside the pill; the subtasks open
                 under it, so opening them never moves the task. */}
-            <AnimatedPressable layout={LIST_LAYOUT} onPress={() => onOpen(item)} onLongPress={pinnable ? () => onPin!(item) : undefined} style={[styles.body, bodyStyle]} accessibilityRole="button"
+            <AnimatedPressable layout={LIST_LAYOUT} onPress={() => onOpen(item)} style={[styles.body, bodyStyle]} accessibilityRole="button"
                 // What the two lines leave out is still said to VoiceOver.
                 accessibilityLabel={[
                     item.title, whenLabel(item), live ? 'now' : item.state === 'next' ? 'up next' : null,
-                    item.part ? `part ${item.part.index} of ${item.part.of}` : null, meal || item.locked ? 'at a fixed time' : null,
+                    item.part ? `part ${item.part.index} of ${item.part.of}` : null, item.anchoredTo ? item.anchoredTo.toLowerCase() : meal || item.locked ? 'at a fixed time' : null,
                     cut ? `cut short from ${lengthLabel(item.cutFrom!)} to fit the day` : null, item.repeats ? 'repeats' : null,
                     eta, due && !done ? due : null, updated && !done ? 'rescheduled' : null, moved,
                     faces?.length ? `focusing with ${namesLine(faces.map(face => face.name))}` : null,
@@ -430,6 +455,7 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
                         <Text numberOfLines={1} style={[t.type.caption, styles.metaText, { color: t.color.textSubtle }]}>
                             {rangeLabel(item.start, item.end)}
                         </Text>
+
                         {meal ? null : <LevelTags priority={item.priority} difficulty={item.difficulty} dim={done} />}
                         {due && !done && (due === 'Due today' || due === 'Overdue') ? (
                             <Text numberOfLines={1} style={[t.type.caption, styles.nowTag, { color: t.color.warning }]}>{due}</Text>
@@ -441,15 +467,7 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
                         {shared ? <SharedFaces people={shared.people} tint={color} size={s(20)} othersOnly /> : null}
                         {item.subtasks?.length ? <SubtaskToggle steps={item.subtasks} open={stepsOpen} onToggle={() => setStepsOpen(value => !value)} color={color} /> : null}
                     </View>
-                    {moved ? <Text numberOfLines={1} style={[t.type.caption, { color: t.color.textMuted }]}>{moved}</Text> : null}
-                    {/* On now: one tap to focus, and how long it has left, under its name. */}
-                    {live && !meal ? (
-                        // Fades in; leaves at once: a fading copy left behind while the rows glide reads as a glitch.
-                        <Animated.View entering={FadeIn.duration(MOTION.duration).reduceMotion(ReduceMotion.System)} style={[styles.liveRow, { gap: t.space.sm }]}>
-                            <FocusPill compact color={color} label={item.title} onPress={() => onFocus(item)} />
-                            {left !== null ? <Text style={[t.type.caption, { color: t.color.textMuted }]}>{left ? `${lengthLabel(left)} left` : 'Over time'}</Text> : null}
-                        </Animated.View>
-                    ) : null}
+                    {/* On now: no Focus button or time left here; the bar over the tab bar says both, and VoiceOver still offers Focus. */}
                 </View>
                 {/* A meal or event: ticked only while it is on, or once ticked, to say it finished early. */}
                 {meal && !(live || (item.done && item.doneAt !== undefined)) ? null : <Check size={size} done={done} color={color} onPress={() => onToggle(item)} label={meal ? `${item.title} finished` : item.title}
@@ -474,7 +492,7 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
 }
 
 /** What a row shows of its item: a tick elsewhere leaves a row whose item did not change alone. */
-const ITEM_KEYS = ['id', 'kind', 'title', 'start', 'end', 'state', 'done', 'icon', 'color', 'repeats', 'fixed', 'locked', 'cutFrom', 'deadline', 'priority', 'difficulty', 'doneAt'] as const;
+const ITEM_KEYS = ['id', 'kind', 'title', 'start', 'end', 'state', 'done', 'icon', 'color', 'repeats', 'fixed', 'locked', 'cutFrom', 'anchoredTo', 'deadline', 'priority', 'difficulty', 'doneAt'] as const;
 const sameItem = (a: FlowItem, b: FlowItem) => ITEM_KEYS.every(key => a[key] === b[key])
     && a.part?.index === b.part?.index && a.part?.of === b.part?.of
     && JSON.stringify(a.subtasks ?? null) === JSON.stringify(b.subtasks ?? null);
@@ -576,7 +594,8 @@ function NowLine({ top, rail, color }: { top: number; rail: number; color: strin
     const text = lowPower ? `${pad(clock.getHours())}:${pad(clock.getMinutes())}` : `${pad(clock.getHours())}:${pad(clock.getMinutes())}:${pad(clock.getSeconds())}`;
     const chip = s(66);
     // Glides to its place with the rows (moved, not laid out again).
-    const slide = useAnimatedStyle(() => ({ transform: [{ translateY: withTiming(top, GLIDE) }] }));
+    const at = onPixel(top);
+    const slide = useAnimatedStyle(() => ({ transform: [{ translateY: withTiming(at, GLIDE) }] }));
     return (
         <Animated.View pointerEvents="none" entering={FadeIn.duration(MOTION.duration).reduceMotion(ReduceMotion.System)}
             style={[styles.now, { top: -s(10), left: rail / 2 - chip / 2, width: chip }, slide]} accessibilityLabel={`Now, ${text.slice(0, 5)}`}>
@@ -610,6 +629,7 @@ const styles = StyleSheet.create({
     thinLine: { position: 'absolute', right: 0, flexDirection: 'row', alignItems: 'center' },
     thinTitle: { flexShrink: 1 },
     // A check mark at the minute it was ticked: centred on its minute, named on the right.
+    lockBadge: { position: 'absolute', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
     markRow: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center' },
     markDot: { alignItems: 'center', justifyContent: 'center' },
     markLabel: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },

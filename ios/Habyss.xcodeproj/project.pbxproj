@@ -8,25 +8,42 @@
 
 /* Begin PBXBuildFile section */
 		0176F505AE1047D0D411BF65 /* libPods-Habyss.a in Frameworks */ = {isa = PBXBuildFile; fileRef = BEEC303B5179A474C6A73405 /* libPods-Habyss.a */; };
+		07E8D78136926D4051331EF4 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7ABF6C194AA28D356857C00 /* Foundation.framework */; };
+		08944AD8908BBE9CF2515E14 /* ManagedSettingsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9FCCDB3B9ED43389F3476412 /* ManagedSettingsUI.framework */; };
+		0C663048DA34F800989B8F72 /* echo_start_goofball.caf in Resources */ = {isa = PBXBuildFile; fileRef = F24D98BC9178CCB0A5447D69 /* echo_start_goofball.caf */; };
+		0F309851EB2BDF81AB3CD260 /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 62D42E88EC5845660042208F /* UserNotifications.framework */; };
 		0F64715E561999ACB00955C1 /* SharedDefaults.m in Sources */ = {isa = PBXBuildFile; fileRef = DE54580FC86AA4EE1F54AF25 /* SharedDefaults.m */; };
+		11530891DB9E4B19B6CA0D1F /* GateShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6863FF264729579CB88A877A /* GateShared.swift */; };
+		117C85D93C0DFA5C23760C09 /* ActivityMonitorExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73E8F50B86EF93B8E600BC7 /* ActivityMonitorExtension.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		1AB84B89590278B3C1089918 /* echo_leave_goofball.caf in Resources */ = {isa = PBXBuildFile; fileRef = B32320E29D92FFAC31043B0E /* echo_leave_goofball.caf */; };
+		1D75205034E024351BA8E488 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9F010AD7F3662CE05388C78E /* Assets.xcassets */; };
+		1E69ECA55A3B0F0787C8CBFA /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27ABC22CCEF4F4A574C70474 /* ManagedSettings.framework */; };
+		2480B1B098F9D9CF6C28A775 /* ActivityMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9CA2BF0F4CA87C7C3794E79B /* ActivityMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		274EA239A3B61C052D5B0BC8 /* echo_leave_normal.caf in Resources */ = {isa = PBXBuildFile; fileRef = 7022C67BF3B293ED5D6D7130 /* echo_leave_normal.caf */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
+		3E7B6B98E541968B99E98020 /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27ABC22CCEF4F4A574C70474 /* ManagedSettings.framework */; };
 		415271EDADD4FFE567C21614 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */; };
 		447218F98F3D5057AC00D262 /* Habyss Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AE7DC6E52F41116000F32E02 /* Habyss Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		47E4C61E66A4E565C540FA53 /* echo_start_dad_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = 7A3C02114F686B68FBBBDD6D /* echo_start_dad_mode.caf */; };
 		4A7E548329734E7FAAA55969 /* echo_leave_dad_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = 32181FE7F28CBF3D1FA8114B /* echo_leave_dad_mode.caf */; };
+		4BCC5AE29A336BE46D77ED44 /* DeviceActivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 399CFCF61C3233CD2B661E85 /* DeviceActivity.framework */; };
 		5414CFB229EBB80450B41754 /* echo_start_friendly.caf in Resources */ = {isa = PBXBuildFile; fileRef = 52BA9FD8DC81D4A2786985A8 /* echo_start_friendly.caf */; };
 		563946F3A84EE3D08008511D /* echo_review_friendly.caf in Resources */ = {isa = PBXBuildFile; fileRef = CA4CD48F2359B8B6DC742DD8 /* echo_review_friendly.caf */; };
 		5B7CDDA3420C829B536A9342 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */; };
+		5C54F6C71FBADFA9D979C397 /* GateShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6863FF264729579CB88A877A /* GateShared.swift */; };
 		6B108C6361DA61CE7F98C7AD /* ScreenTimePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DC916925CA14220E2C514D4 /* ScreenTimePickerView.swift */; };
 		71115719B805A76A1332FCD8 /* ScreenTimeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76DA85DC67D58196B9C62E28 /* ScreenTimeManager.swift */; };
+		82908E80FD7E43C3ECAE257B /* ShieldConfigurationExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67B839F0BAD3AF82FC559708 /* ShieldConfigurationExtension.swift */; };
+		84553F4F9A95069B194BC95B /* ShieldActionExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AF4D1E21FE215BAE329FF31 /* ShieldActionExtension.swift */; };
 		84CA476B2B80C810E47F3D54 /* echo_end_friendly.caf in Resources */ = {isa = PBXBuildFile; fileRef = E14ED73BE280272F57796406 /* echo_end_friendly.caf */; };
 		861FAA29B2346D3627FA5619 /* LiveActivityShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 335B4BB0978F232C833454DF /* LiveActivityShared.swift */; };
 		8783AE296FE4C9EA78640C37 /* echo_review_bully_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = AB45CEF4F178A64B25AF5436 /* echo_review_bully_mode.caf */; };
 		88228CC7829B697844A4E570 /* echo_end_bully_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = F9EECA2F9C22BE571C3E8BB6 /* echo_end_bully_mode.caf */; };
 		961105958615E986AF44B725 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E43594A9D6C422E0D552E996 /* ExpoModulesProvider.swift */; };
+		988B034DED08F61E4668F3BC /* GateShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6863FF264729579CB88A877A /* GateShared.swift */; };
 		9B52A62CEDA2DAC5E89531EE /* echo_review_normal.caf in Resources */ = {isa = PBXBuildFile; fileRef = D3BB9A1D67C9CDE1FF6862CB /* echo_review_normal.caf */; };
+		A6375D42873078F0FF802D90 /* ShieldAction.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 894C975C24508B66D771E868 /* ShieldAction.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A8F33024CA33986B776F30E1 /* echo_end_dad_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = D908AE0AA1CD44E96FAB45E2 /* echo_end_dad_mode.caf */; };
 		AE7DC5292F40FA2500F32E02 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AE7DC5282F40FA2500F32E02 /* AppIntents.framework */; };
 		AE7DC6F82F41118A00F32E02 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AE96A5F12F3E3CAE00681BAF /* WidgetKit.framework */; };
@@ -38,27 +55,58 @@
 		AE96A6242F3E412000681BAF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */; };
 		BA84A58A49474D71957AE493 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = D975BC3A3D79467886582ADD /* noop-file.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		BE3DE83F7C92EFD176A91BF7 /* FamilyControls.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7FF67B723CA87F0CEEE98F70 /* FamilyControls.framework */; };
+		C3C1968A8EC06A577F992CDE /* echo_end_goofball.caf in Resources */ = {isa = PBXBuildFile; fileRef = 85F71723A01C8B0C7A43909B /* echo_end_goofball.caf */; };
 		C59D848C2431CE604B0CD0AA /* echo_start_bully_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = 374B2A5B75FEDB72BE26156B /* echo_start_bully_mode.caf */; };
 		C5E8C659EAF96CAF9249B264 /* LiveActivityShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 335B4BB0978F232C833454DF /* LiveActivityShared.swift */; };
 		D34EB9618A114640AED3E701 /* WidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = D34EB9618A114640AED3E702 /* WidgetShared.swift */; };
 		D3E60B1B0D31AC6EEECAE446 /* echo_leave_friendly.caf in Resources */ = {isa = PBXBuildFile; fileRef = 6A7A63DEF1FF86CD2EB4D12B /* echo_leave_friendly.caf */; };
+		D8ABA97CAB7884A8AAF2D332 /* GateShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6863FF264729579CB88A877A /* GateShared.swift */; };
 		DD0FD4B8068B26E08FAE9E9D /* ScreenTimeModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E089807AF9CC20BFEF42E57 /* ScreenTimeModule.m */; };
+		E1A44DB337BAE42D04F3C669 /* FamilyControls.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7FF67B723CA87F0CEEE98F70 /* FamilyControls.framework */; };
 		E587D955AB45B956543A0DF1 /* echo_start_normal.caf in Resources */ = {isa = PBXBuildFile; fileRef = F5C268E35D9FFC89BCDB2E87 /* echo_start_normal.caf */; };
 		E631A01411A0909C9E750A2B /* echo_review_dad_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = 15D0E84CA5816128117F419F /* echo_review_dad_mode.caf */; };
+		E9A503CF8084F1C952B43AD5 /* FamilyControls.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7FF67B723CA87F0CEEE98F70 /* FamilyControls.framework */; };
 		EAA7526BD5DC27B3F612DC01 /* echo_leave_bully_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = 46A43E3BBB6EEE9A03429279 /* echo_leave_bully_mode.caf */; };
+		EE2A85B84410E748E461918C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7ABF6C194AA28D356857C00 /* Foundation.framework */; };
+		EE523D06A4259B544D9B49CC /* ShieldConfiguration.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0681603F77F203EA99BD91CA /* ShieldConfiguration.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F1C6B1F010D97C96C5E9A184 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7ABF6C194AA28D356857C00 /* Foundation.framework */; };
+		F3AAF7993F38EEC2077FC234 /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27ABC22CCEF4F4A574C70474 /* ManagedSettings.framework */; };
 		F58C228D66577EC94A1681A3 /* SharedDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4D352A872465CB1F4C53483 /* SharedDefaults.swift */; };
 		FB409C2E3BEEA019059C82C9 /* ScreenTimeModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E7BCBC66B78AA89F94FBAE /* ScreenTimeModule.swift */; };
 		FBB4C9B2D545F84CBE6CB2FC /* echo_end_normal.caf in Resources */ = {isa = PBXBuildFile; fileRef = 116C3B85C384919296AE838A /* echo_end_normal.caf */; };
+		FC9B44A77B0091A4CB9111E5 /* echo_review_goofball.caf in Resources */ = {isa = PBXBuildFile; fileRef = 17C12D13E6003354425E0E81 /* echo_review_goofball.caf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		64C5A4D93CDEB60F48DB6651 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0A6779FB1DA57294CEB9D6CF;
+			remoteInfo = ShieldAction;
+		};
+		6B80D05DDD02DFB98995368D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2CD5C489E691F7B79F6030A3;
+			remoteInfo = ActivityMonitor;
+		};
 		AE7DC7082F41118B00F32E02 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = AE7DC6F62F41118A00F32E02;
 			remoteInfo = WidgetExtension;
+		};
+		E572E09F19BCD834F52C0219 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 37D54C71E74A80E97776E048;
+			remoteInfo = ShieldConfiguration;
 		};
 		EE3971E8F50D945300758545 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -88,6 +136,9 @@
 			dstSubfolderSpec = 13;
 			files = (
 				AE7DC70A2F41118B00F32E02 /* WidgetExtension.appex in Embed Foundation Extensions */,
+				EE523D06A4259B544D9B49CC /* ShieldConfiguration.appex in Embed Foundation Extensions */,
+				A6375D42873078F0FF802D90 /* ShieldAction.appex in Embed Foundation Extensions */,
+				2480B1B098F9D9CF6C28A775 /* ActivityMonitor.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -95,25 +146,43 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0681603F77F203EA99BD91CA /* ShieldConfiguration.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShieldConfiguration.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		07A0C1260F1AA0116F253559 /* WidgetExtension.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = WidgetExtension.entitlements; sourceTree = "<group>"; };
+		096A1AC358DA6AED141AC1CC /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		109444F6E0F4401D028EE1CA /* ActivityMonitor.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = ActivityMonitor.entitlements; sourceTree = "<group>"; };
 		116C3B85C384919296AE838A /* echo_end_normal.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_end_normal.caf; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* Habyss.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Habyss.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Habyss/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Habyss/Info.plist; sourceTree = "<group>"; };
 		15D0E84CA5816128117F419F /* echo_review_dad_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_review_dad_mode.caf; sourceTree = "<group>"; };
+		17C12D13E6003354425E0E81 /* echo_review_goofball.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_review_goofball.caf; sourceTree = "<group>"; };
 		1E089807AF9CC20BFEF42E57 /* ScreenTimeModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = ScreenTimeModule.m; sourceTree = "<group>"; };
+		27ABC22CCEF4F4A574C70474 /* ManagedSettings.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettings.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/ManagedSettings.framework; sourceTree = DEVELOPER_DIR; };
 		2C5FEC4998F7FA502BBAF875 /* Pods-Habyss.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Habyss.release.xcconfig"; path = "Target Support Files/Pods-Habyss/Pods-Habyss.release.xcconfig"; sourceTree = "<group>"; };
 		2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Habyss/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		32181FE7F28CBF3D1FA8114B /* echo_leave_dad_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_leave_dad_mode.caf; sourceTree = "<group>"; };
 		335B4BB0978F232C833454DF /* LiveActivityShared.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LiveActivityShared.swift; path = Widget/LiveActivityShared.swift; sourceTree = "<group>"; };
 		374B2A5B75FEDB72BE26156B /* echo_start_bully_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_start_bully_mode.caf; sourceTree = "<group>"; };
+		399CFCF61C3233CD2B661E85 /* DeviceActivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DeviceActivity.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/DeviceActivity.framework; sourceTree = DEVELOPER_DIR; };
+		3AF4D1E21FE215BAE329FF31 /* ShieldActionExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShieldActionExtension.swift; sourceTree = "<group>"; };
+		3EE498404A0789C731E0033B /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		46A43E3BBB6EEE9A03429279 /* echo_leave_bully_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_leave_bully_mode.caf; sourceTree = "<group>"; };
 		52BA9FD8DC81D4A2786985A8 /* echo_start_friendly.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_start_friendly.caf; sourceTree = "<group>"; };
+		62D42E88EC5845660042208F /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/UserNotifications.framework; sourceTree = DEVELOPER_DIR; };
+		67B839F0BAD3AF82FC559708 /* ShieldConfigurationExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShieldConfigurationExtension.swift; sourceTree = "<group>"; };
+		6863FF264729579CB88A877A /* GateShared.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GateShared.swift; sourceTree = "<group>"; };
 		6A7A63DEF1FF86CD2EB4D12B /* echo_leave_friendly.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_leave_friendly.caf; sourceTree = "<group>"; };
 		6DC916925CA14220E2C514D4 /* ScreenTimePickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ScreenTimePickerView.swift; path = Views/ScreenTimePickerView.swift; sourceTree = "<group>"; };
+		6E1644FFD17280886AFF7F04 /* ShieldAction.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = ShieldAction.entitlements; sourceTree = "<group>"; };
 		7022C67BF3B293ED5D6D7130 /* echo_leave_normal.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_leave_normal.caf; sourceTree = "<group>"; };
 		76DA85DC67D58196B9C62E28 /* ScreenTimeManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ScreenTimeManager.swift; path = Managers/ScreenTimeManager.swift; sourceTree = "<group>"; };
 		7A3C02114F686B68FBBBDD6D /* echo_start_dad_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_start_dad_mode.caf; sourceTree = "<group>"; };
+		7FF67B723CA87F0CEEE98F70 /* FamilyControls.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FamilyControls.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/FamilyControls.framework; sourceTree = DEVELOPER_DIR; };
+		85F71723A01C8B0C7A43909B /* echo_end_goofball.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_end_goofball.caf; sourceTree = "<group>"; };
+		894C975C24508B66D771E868 /* ShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		9CA2BF0F4CA87C7C3794E79B /* ActivityMonitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ActivityMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		9F010AD7F3662CE05388C78E /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9FCCDB3B9ED43389F3476412 /* ManagedSettingsUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettingsUI.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/ManagedSettingsUI.framework; sourceTree = DEVELOPER_DIR; };
 		A4D352A872465CB1F4C53483 /* SharedDefaults.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SharedDefaults.swift; path = Habyss/SharedDefaults.swift; sourceTree = "<group>"; };
 		A4E7BCBC66B78AA89F94FBAE /* ScreenTimeModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenTimeModule.swift; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Habyss/SplashScreen.storyboard; sourceTree = "<group>"; };
@@ -127,9 +196,13 @@
 		AE96A61C2F3E410F00681BAF /* WatchModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WatchModule.swift; path = Habyss/WatchModule.swift; sourceTree = "<group>"; };
 		AE96A61E2F3E411700681BAF /* WatchSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WatchSessionManager.swift; path = Habyss/WatchSessionManager.swift; sourceTree = "<group>"; };
 		AE96A6222F3E412000681BAF /* WatchModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = WatchModule.m; path = Habyss/WatchModule.m; sourceTree = "<group>"; };
+		B32320E29D92FFAC31043B0E /* echo_leave_goofball.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_leave_goofball.caf; sourceTree = "<group>"; };
+		B6529EAC7B399A60C7B334D5 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B73E8F50B86EF93B8E600BC7 /* ActivityMonitorExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActivityMonitorExtension.swift; sourceTree = "<group>"; };
 		B9E5A1344AAF6929B4699F1D /* Pods-Habyss.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Habyss.debug.xcconfig"; path = "Target Support Files/Pods-Habyss/Pods-Habyss.debug.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		BEEC303B5179A474C6A73405 /* libPods-Habyss.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Habyss.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C766ABEB31C2855B6A6E19EC /* ShieldConfiguration.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = ShieldConfiguration.entitlements; sourceTree = "<group>"; };
 		CA4CD48F2359B8B6DC742DD8 /* echo_review_friendly.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_review_friendly.caf; sourceTree = "<group>"; };
 		D34EB9618A114640AED3E702 /* WidgetShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WidgetShared.swift; path = Widget/WidgetShared.swift; sourceTree = "<group>"; };
 		D3BB9A1D67C9CDE1FF6862CB /* echo_review_normal.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_review_normal.caf; sourceTree = "<group>"; };
@@ -142,6 +215,7 @@
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Habyss/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Habyss-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Habyss-Bridging-Header.h"; path = "Habyss/Habyss-Bridging-Header.h"; sourceTree = "<group>"; };
+		F24D98BC9178CCB0A5447D69 /* echo_start_goofball.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_start_goofball.caf; sourceTree = "<group>"; };
 		F5C268E35D9FFC89BCDB2E87 /* echo_start_normal.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_start_normal.caf; sourceTree = "<group>"; };
 		F9EECA2F9C22BE571C3E8BB6 /* echo_end_bully_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_end_bully_mode.caf; sourceTree = "<group>"; };
 		WDG00004E5F6789012345678 /* Assets.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -190,6 +264,39 @@
 			files = (
 				AE7DC5292F40FA2500F32E02 /* AppIntents.framework in Frameworks */,
 				0176F505AE1047D0D411BF65 /* libPods-Habyss.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		340BA458A232CB1090AAB6C9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				07E8D78136926D4051331EF4 /* Foundation.framework in Frameworks */,
+				1E69ECA55A3B0F0787C8CBFA /* ManagedSettings.framework in Frameworks */,
+				08944AD8908BBE9CF2515E14 /* ManagedSettingsUI.framework in Frameworks */,
+				E1A44DB337BAE42D04F3C669 /* FamilyControls.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3A05230FB5A9DD257D730145 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F1C6B1F010D97C96C5E9A184 /* Foundation.framework in Frameworks */,
+				4BCC5AE29A336BE46D77ED44 /* DeviceActivity.framework in Frameworks */,
+				F3AAF7993F38EEC2077FC234 /* ManagedSettings.framework in Frameworks */,
+				BE3DE83F7C92EFD176A91BF7 /* FamilyControls.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4A7D6062C8375CB15CDA3021 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE2A85B84410E748E461918C /* Foundation.framework in Frameworks */,
+				3E7B6B98E541968B99E98020 /* ManagedSettings.framework in Frameworks */,
+				E9A503CF8084F1C952B43AD5 /* FamilyControls.framework in Frameworks */,
+				0F309851EB2BDF81AB3CD260 /* UserNotifications.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -246,6 +353,15 @@
 				A93A724771B2F37C31991BFC /* Sounds */,
 			);
 			name = Habyss;
+			sourceTree = "<group>";
+		};
+		140EB44E57DE6E933B3E59E1 /* Gate */ = {
+			isa = PBXGroup;
+			children = (
+				6863FF264729579CB88A877A /* GateShared.swift */,
+			);
+			name = Gate;
+			path = Gate;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
@@ -305,6 +421,10 @@
 				C7C04B656D916215C7AF87B5 /* Pods */,
 				76EC6BA3E0F051B367BAFE16 /* ExpoModulesProviders */,
 				AE7DC66A2F41095B00F32E02 /* Recovered References */,
+				140EB44E57DE6E933B3E59E1 /* Gate */,
+				9B964DE408AA30D73B964272 /* ShieldConfiguration */,
+				C3D6AC8460CD7B822045DEDB /* ShieldAction */,
+				F21C0EFC0C75DCC3F39CCB4C /* ActivityMonitor */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -317,8 +437,23 @@
 				13B07F961A680F5B00A75B9A /* Habyss.app */,
 				AE7DC6E52F41116000F32E02 /* Habyss Watch App.app */,
 				AE7DC6F72F41118A00F32E02 /* WidgetExtension.appex */,
+				0681603F77F203EA99BD91CA /* ShieldConfiguration.appex */,
+				894C975C24508B66D771E868 /* ShieldAction.appex */,
+				9CA2BF0F4CA87C7C3794E79B /* ActivityMonitor.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		9B964DE408AA30D73B964272 /* ShieldConfiguration */ = {
+			isa = PBXGroup;
+			children = (
+				67B839F0BAD3AF82FC559708 /* ShieldConfigurationExtension.swift */,
+				B6529EAC7B399A60C7B334D5 /* Info.plist */,
+				C766ABEB31C2855B6A6E19EC /* ShieldConfiguration.entitlements */,
+				9F010AD7F3662CE05388C78E /* Assets.xcassets */,
+			);
+			name = ShieldConfiguration;
+			path = ShieldConfiguration;
 			sourceTree = "<group>";
 		};
 		A93A724771B2F37C31991BFC /* Sounds */ = {
@@ -340,6 +475,10 @@
 				7A3C02114F686B68FBBBDD6D /* echo_start_dad_mode.caf */,
 				52BA9FD8DC81D4A2786985A8 /* echo_start_friendly.caf */,
 				F5C268E35D9FFC89BCDB2E87 /* echo_start_normal.caf */,
+				B32320E29D92FFAC31043B0E /* echo_leave_goofball.caf */,
+				F24D98BC9178CCB0A5447D69 /* echo_start_goofball.caf */,
+				85F71723A01C8B0C7A43909B /* echo_end_goofball.caf */,
+				17C12D13E6003354425E0E81 /* echo_review_goofball.caf */,
 			);
 			name = Sounds;
 			path = Habyss/Sounds;
@@ -378,6 +517,17 @@
 			name = Managers;
 			sourceTree = "<group>";
 		};
+		C3D6AC8460CD7B822045DEDB /* ShieldAction */ = {
+			isa = PBXGroup;
+			children = (
+				3AF4D1E21FE215BAE329FF31 /* ShieldActionExtension.swift */,
+				3EE498404A0789C731E0033B /* Info.plist */,
+				6E1644FFD17280886AFF7F04 /* ShieldAction.entitlements */,
+			);
+			name = ShieldAction;
+			path = ShieldAction;
+			sourceTree = "<group>";
+		};
 		C7C04B656D916215C7AF87B5 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
@@ -391,13 +541,46 @@
 			isa = PBXGroup;
 			children = (
 				E7ABF6C194AA28D356857C00 /* Foundation.framework */,
+				27ABC22CCEF4F4A574C70474 /* ManagedSettings.framework */,
+				9FCCDB3B9ED43389F3476412 /* ManagedSettingsUI.framework */,
+				7FF67B723CA87F0CEEE98F70 /* FamilyControls.framework */,
+				62D42E88EC5845660042208F /* UserNotifications.framework */,
+				399CFCF61C3233CD2B661E85 /* DeviceActivity.framework */,
 			);
 			name = iOS;
+			sourceTree = "<group>";
+		};
+		F21C0EFC0C75DCC3F39CCB4C /* ActivityMonitor */ = {
+			isa = PBXGroup;
+			children = (
+				B73E8F50B86EF93B8E600BC7 /* ActivityMonitorExtension.swift */,
+				096A1AC358DA6AED141AC1CC /* Info.plist */,
+				109444F6E0F4401D028EE1CA /* ActivityMonitor.entitlements */,
+			);
+			name = ActivityMonitor;
+			path = ActivityMonitor;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		0A6779FB1DA57294CEB9D6CF /* ShieldAction */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 31DD3F1AC3B986E47720088C /* Build configuration list for PBXNativeTarget "ShieldAction" */;
+			buildPhases = (
+				961D11432A03BF55FE837CB2 /* Sources */,
+				4A7D6062C8375CB15CDA3021 /* Frameworks */,
+				B98BEA1BAB77057A70BB7B27 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ShieldAction;
+			productName = ShieldAction;
+			productReference = 894C975C24508B66D771E868 /* ShieldAction.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		13B07F861A680F5B00A75B9A /* Habyss */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Habyss" */;
@@ -418,11 +601,48 @@
 			dependencies = (
 				AE7DC7092F41118B00F32E02 /* PBXTargetDependency */,
 				A56762F90E03A2E39B80A765 /* PBXTargetDependency */,
+				C2FF904DDAED2087CF704F51 /* PBXTargetDependency */,
+				99FADEFD5F6F3B0A73A5436A /* PBXTargetDependency */,
+				2409B8842FDBDD673264C798 /* PBXTargetDependency */,
 			);
 			name = Habyss;
 			productName = Habyss;
 			productReference = 13B07F961A680F5B00A75B9A /* Habyss.app */;
 			productType = "com.apple.product-type.application";
+		};
+		2CD5C489E691F7B79F6030A3 /* ActivityMonitor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3793FFD13318349C0D7D264C /* Build configuration list for PBXNativeTarget "ActivityMonitor" */;
+			buildPhases = (
+				F20DB04FE1FB4B07C107B95A /* Sources */,
+				3A05230FB5A9DD257D730145 /* Frameworks */,
+				A596B09ADEE969718EFE96DC /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ActivityMonitor;
+			productName = ActivityMonitor;
+			productReference = 9CA2BF0F4CA87C7C3794E79B /* ActivityMonitor.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		37D54C71E74A80E97776E048 /* ShieldConfiguration */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 163F3B2089D6BF43FD70F133 /* Build configuration list for PBXNativeTarget "ShieldConfiguration" */;
+			buildPhases = (
+				4CC1F920B7466943EF245C29 /* Sources */,
+				340BA458A232CB1090AAB6C9 /* Frameworks */,
+				F2071A17C5C1D594BD76FA8E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ShieldConfiguration;
+			productName = ShieldConfiguration;
+			productReference = 0681603F77F203EA99BD91CA /* ShieldConfiguration.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		AE7DC6E42F41116000F32E02 /* Habyss Watch App */ = {
 			isa = PBXNativeTarget;
@@ -506,6 +726,9 @@
 				13B07F861A680F5B00A75B9A /* Habyss */,
 				AE7DC6E42F41116000F32E02 /* Habyss Watch App */,
 				AE7DC6F62F41118A00F32E02 /* WidgetExtension */,
+				37D54C71E74A80E97776E048 /* ShieldConfiguration */,
+				0A6779FB1DA57294CEB9D6CF /* ShieldAction */,
+				2CD5C489E691F7B79F6030A3 /* ActivityMonitor */,
 			);
 		};
 /* End PBXProject section */
@@ -535,6 +758,17 @@
 				47E4C61E66A4E565C540FA53 /* echo_start_dad_mode.caf in Resources */,
 				5414CFB229EBB80450B41754 /* echo_start_friendly.caf in Resources */,
 				E587D955AB45B956543A0DF1 /* echo_start_normal.caf in Resources */,
+				1AB84B89590278B3C1089918 /* echo_leave_goofball.caf in Resources */,
+				0C663048DA34F800989B8F72 /* echo_start_goofball.caf in Resources */,
+				C3C1968A8EC06A577F992CDE /* echo_end_goofball.caf in Resources */,
+				FC9B44A77B0091A4CB9111E5 /* echo_review_goofball.caf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A596B09ADEE969718EFE96DC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -551,6 +785,21 @@
 			buildActionMask = 2147483647;
 			files = (
 				AE96A6242F3E412000681BAF /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B98BEA1BAB77057A70BB7B27 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F2071A17C5C1D594BD76FA8E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1D75205034E024351BA8E488 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -741,6 +990,25 @@
 				D34EB9618A114640AED3E701 /* WidgetShared.swift in Sources */,
 				0F64715E561999ACB00955C1 /* SharedDefaults.m in Sources */,
 				C5E8C659EAF96CAF9249B264 /* LiveActivityShared.swift in Sources */,
+				5C54F6C71FBADFA9D979C397 /* GateShared.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CC1F920B7466943EF245C29 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				82908E80FD7E43C3ECAE257B /* ShieldConfigurationExtension.swift in Sources */,
+				11530891DB9E4B19B6CA0D1F /* GateShared.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		961D11432A03BF55FE837CB2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				84553F4F9A95069B194BC95B /* ShieldActionExtension.swift in Sources */,
+				988B034DED08F61E4668F3BC /* GateShared.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -759,9 +1027,30 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F20DB04FE1FB4B07C107B95A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				117C85D93C0DFA5C23760C09 /* ActivityMonitorExtension.swift in Sources */,
+				D8ABA97CAB7884A8AAF2D332 /* GateShared.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2409B8842FDBDD673264C798 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = ActivityMonitor;
+			target = 2CD5C489E691F7B79F6030A3 /* ActivityMonitor */;
+			targetProxy = 6B80D05DDD02DFB98995368D /* PBXContainerItemProxy */;
+		};
+		99FADEFD5F6F3B0A73A5436A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = ShieldAction;
+			target = 0A6779FB1DA57294CEB9D6CF /* ShieldAction */;
+			targetProxy = 64C5A4D93CDEB60F48DB6651 /* PBXContainerItemProxy */;
+		};
 		A56762F90E03A2E39B80A765 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = "Habyss Watch App";
@@ -772,6 +1061,12 @@
 			isa = PBXTargetDependency;
 			target = AE7DC6F62F41118A00F32E02 /* WidgetExtension */;
 			targetProxy = AE7DC7082F41118B00F32E02 /* PBXContainerItemProxy */;
+		};
+		C2FF904DDAED2087CF704F51 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = ShieldConfiguration;
+			target = 37D54C71E74A80E97776E048 /* ShieldConfiguration */;
+			targetProxy = E572E09F19BCD834F52C0219 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -848,6 +1143,140 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
+		};
+		202B7AB2E7FBB6A42FB9F851 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = ActivityMonitor/ActivityMonitor.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4JYFVLU9NW;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ActivityMonitor/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Habyss;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+				PRODUCT_BUNDLE_IDENTIFIER = com.habyss.app.ActivityMonitor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7026E2B27504C5E2EE3ADF99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = ShieldConfiguration/ShieldConfiguration.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4JYFVLU9NW;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShieldConfiguration/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Habyss;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+				PRODUCT_BUNDLE_IDENTIFIER = com.habyss.app.ShieldConfiguration;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		7D6E972981D9BAA02829EF3E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = ShieldAction/ShieldAction.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4JYFVLU9NW;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShieldAction/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Habyss;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+				PRODUCT_BUNDLE_IDENTIFIER = com.habyss.app.ShieldAction;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		8282675ECB22D87A9C78D73D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = ShieldAction/ShieldAction.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4JYFVLU9NW;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShieldAction/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Habyss;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+				PRODUCT_BUNDLE_IDENTIFIER = com.habyss.app.ShieldAction;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
 		};
 		83CBBA201A601CBA00E9B192 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -994,6 +1423,40 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A90571E063842A8F24C4A05A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = ActivityMonitor/ActivityMonitor.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4JYFVLU9NW;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ActivityMonitor/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Habyss;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+				PRODUCT_BUNDLE_IDENTIFIER = com.habyss.app.ActivityMonitor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -1189,6 +1652,39 @@
 			};
 			name = Release;
 		};
+		B0B6F6D88A8FC6B6BB110EA9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = ShieldConfiguration/ShieldConfiguration.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4JYFVLU9NW;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShieldConfiguration/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Habyss;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+				PRODUCT_BUNDLE_IDENTIFIER = com.habyss.app.ShieldConfiguration;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1197,6 +1693,33 @@
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,
 				13B07F951A680F5B00A75B9A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		163F3B2089D6BF43FD70F133 /* Build configuration list for PBXNativeTarget "ShieldConfiguration" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7026E2B27504C5E2EE3ADF99 /* Release */,
+				B0B6F6D88A8FC6B6BB110EA9 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		31DD3F1AC3B986E47720088C /* Build configuration list for PBXNativeTarget "ShieldAction" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7D6E972981D9BAA02829EF3E /* Release */,
+				8282675ECB22D87A9C78D73D /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3793FFD13318349C0D7D264C /* Build configuration list for PBXNativeTarget "ActivityMonitor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A90571E063842A8F24C4A05A /* Release */,
+				202B7AB2E7FBB6A42FB9F851 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

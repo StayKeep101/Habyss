@@ -180,6 +180,8 @@ const styles = StyleSheet.create({
     hint: { fontSize: 12, fontFamily: FontFamily.regular }, jump: { gap: 8 },
     yearRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12 },
     year: { minHeight: 44, minWidth: 90, textAlign: 'center', borderWidth: 1, borderRadius: 11, fontSize: 16, fontFamily: FontFamily.medium },
-    months: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-    monthChoice: { width: '31%', minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
+    months: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 6 },
+    // Four to a row: twelve months in three rows, no taller than the grid they stand in for,
+    // so choosing a month never needs a scroll, even on an iPhone SE.
+    monthChoice: { width: '23%', minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
 });

@@ -4,7 +4,6 @@ import { getDailyTarget, type DailyTarget } from './dailyFocus';
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
 import { buildWidgetDashboard, parseWidgetEvent, type WidgetDashboard } from './widgetDashboard';
-import { addDays } from './goalInsights';
 import { engagementLifecycle } from './engagementLifecycle';
 import { measurementFor } from './habitMeasurement';
 
@@ -92,15 +91,18 @@ export function buildWidgetPayload(options: {
 /** Reads the day out of the database and hands it to iOS. */
 /** The accent the user chose, as colours rather than an id. */
 export async function readAccent(): Promise<{ from: string; to: string }> {
-    const DEFAULT = { from: '#3A5A8C', to: '#8BADD6' };
+    // Nothing saved means the app's own default (Habyss blue, the first gradient), the
+    // colour the app, the Live Activity and every widget then share. An older dusty pair
+    // here made widgets a different blue from the app for anyone who never picked one.
+    const { ACCENT_GRADIENTS } = require('@/context/AccentContext') as typeof import('@/context/AccentContext');
+    const fallback = { from: ACCENT_GRADIENTS[0].colors[0], to: ACCENT_GRADIENTS[0].colors[1] };
     try {
         const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-        const { ACCENT_GRADIENTS } = require('@/context/AccentContext') as typeof import('@/context/AccentContext');
         const id = await AsyncStorage.getItem('habyss_accent_gradient');
         const found = ACCENT_GRADIENTS.find(item => item.id === id);
-        return found ? { from: found.colors[0], to: found.colors[1] } : DEFAULT;
+        return found ? { from: found.colors[0], to: found.colors[1] } : fallback;
     } catch {
-        return DEFAULT;
+        return fallback;
     }
 }
 
@@ -145,52 +147,17 @@ async function writeWidgets(): Promise<WidgetPayload | null> {
         const { pushToWatch } = require('./watchSync') as typeof import('./watchSync');
         const { currentTodayFlow } = require('./todayFlow') as typeof import('./todayFlow');
         const { slotsFromFlow } = require('./watchSync') as typeof import('./watchSync');
-        pushToWatch({ habits, tasks, history, today, streak, accent: payload.accent, slots: slotsFromFlow(await currentTodayFlow().catch(() => null)) });
-        // Echo's hourly lines ride along with the day: they are built from the
-        // same numbers, so writing them anywhere else would risk the lock
-        // screen quoting a streak the widget above it disagrees with.
-        await writeEchoHours(habits, payload, history, today);
+        const flow = await currentTodayFlow().catch(() => null);
+        pushToWatch({ habits, tasks, history, today, streak, accent: payload.accent, slots: slotsFromFlow(flow) });
+        // The Day widget: the same timeline the app and the watch show.
+        const { buildWidgetDay } = require('./widgetDay') as typeof import('./widgetDay');
+        const { getDayWindow, minutesOf } = require('./echo') as typeof import('./echo');
+        const window = await getDayWindow();
+        await WidgetService.writeDay(buildWidgetDay(flow, today, minutesOf(window.wake), minutesOf(window.sleep)));
         return payload;
     } catch (error) {
         console.warn('[Widget] Snapshot was not updated; keeping the last successful snapshot.', error);
         return null;
-    }
-}
-
-/**
- * What Echo will say on the lock screen for the rest of the day.
- *
- * Built from the payload the widget was just handed rather than from a second
- * read of the database, so the line and the numbers beside it always agree.
- */
-async function writeEchoHours(habits: Habit[], payload: WidgetPayload, history: Record<string, string[]>, today: string) {
-    try {
-        const { buildEchoHours } = require('./echoLockScreen') as typeof import('./echoLockScreen');
-        const { getDayWindow, getEchoPersonality, getName } = require('./echo') as typeof import('./echo');
-        const { WidgetService } = require('./widgetService') as typeof import('./widgetService');
-
-        const lastWeek = Array.from({ length: 7 }, (_, offset) => history[addDays(today, -offset)] ?? []);
-        const goals = payload.dashboard?.goals ?? [];
-        const [window, personality, name] = await Promise.all([getDayWindow(), getEchoPersonality(), getName()]);
-
-        await WidgetService.writeEcho(buildEchoHours({
-            now: new Date(), window, personality,
-            stats: {
-                name,
-                streak: payload.streak,
-                todayDone: payload.completed,
-                todayTotal: payload.total,
-                weekConsistency: Math.round((lastWeek.filter(day => day.length).length / 7) * 100),
-                nextHabit: payload.nextUp,
-                goalsCount: goals.length,
-                overallProgress: goals.length
-                    ? Math.round(goals.reduce((sum, goal) => sum + goal.progress, 0) / goals.length)
-                    : 0,
-                bestHabit: habits.find(habit => !habit.isGoal && !habit.isArchived)?.name,
-            },
-        }));
-    } catch {
-        // A lock screen without a line is yesterday's behaviour, not a failure.
     }
 }
 

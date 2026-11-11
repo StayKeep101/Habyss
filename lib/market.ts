@@ -112,7 +112,7 @@ export async function settleMarketFor(goalId: string, won: boolean): Promise<voi
     } catch { /* a goal is reached regardless */ }
 }
 
-export interface LedgerEntry { amount: number; reason: 'stake' | 'payout' | 'refund'; at: string; title: string }
+export interface LedgerEntry { amount: number; reason: 'stake' | 'payout' | 'refund' | 'unlock'; at: string; title: string }
 
 /** What bets have moved in your wallet: the total, what is in play, what the server lets you spend, and the latest entries. */
 export async function myWallet(): Promise<{ ledger: number; inPlay: number; spendable: number | null; entries: LedgerEntry[] }> {

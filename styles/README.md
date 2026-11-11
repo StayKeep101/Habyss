@@ -25,6 +25,7 @@ To bring a page in line with the design system, open its file here and swap its 
 | `app/+not-found.tsx` | `styles/screens/not-found.styles.ts` |
 | `app/(root)/notifications.tsx` | `styles/screens/notifications.styles.ts` |
 | `app/(root)/privacy.tsx` | `styles/screens/privacy.styles.ts` |
+| `app/(root)/unlock.tsx` | `styles/screens/unlock.styles.ts` |
 | `app/(root)/profile.tsx` | `styles/screens/profile.styles.ts` |
 | `app/(root)/progress.tsx` | `styles/screens/progress.styles.ts` |
 | `app/(root)/sharing.tsx` | `styles/screens/sharing.styles.ts` |
@@ -46,3 +47,5 @@ Home, Paywall, Goal stats and Goal plan have no page-level styles: they are buil
 | `app/(root)/ranks.tsx` | `styles/screens/ranks.styles.ts` |
 | `app/(root)/focus-stats.tsx` | `styles/screens/focus-stats.styles.ts` |
 | `app/(root)/meals.tsx` | `styles/screens/meals.styles.ts` |
+| `app/(root)/focus-settings.tsx` | `styles/screens/focus-settings.styles.ts` |
+| `app/(root)/app-blocking.tsx` | `styles/screens/app-blocking.styles.ts` |

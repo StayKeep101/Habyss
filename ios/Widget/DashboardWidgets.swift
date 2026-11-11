@@ -7,6 +7,8 @@ struct DashboardEntry: TimelineEntry {
     let date: Date
     let snapshot: DashboardSnapshot?
     var goalID: String? = nil
+    /// The habit the streak widget follows; nil means every habit.
+    var habitID: String? = nil
     var accent: Color { Habyss.accent(from: snapshot?.accent.from, to: snapshot?.accent.to) }
 }
 struct DashboardProvider: TimelineProvider {
@@ -18,11 +20,11 @@ struct DashboardProvider: TimelineProvider {
         completion(dashboardTimeline(snapshot: DashboardSnapshot.read()))
     }
 }
-private func dashboardTimeline(snapshot: DashboardSnapshot?, goalID: String? = nil) -> Timeline<DashboardEntry> {
+private func dashboardTimeline(snapshot: DashboardSnapshot?, goalID: String? = nil, habitID: String? = nil) -> Timeline<DashboardEntry> {
     let today = Calendar.current.startOfDay(for: .now)
     let entries = (0...8).compactMap { offset -> DashboardEntry? in
         guard let date = Calendar.current.date(byAdding: .day, value: offset, to: today) else { return nil }
-        return DashboardEntry(date: offset == 0 ? .now : date, snapshot: snapshot, goalID: goalID)
+        return DashboardEntry(date: offset == 0 ? .now : date, snapshot: snapshot, goalID: goalID, habitID: habitID)
     }
     return Timeline(entries: entries, policy: .after(Date().addingTimeInterval(30 * 60)))
 }
@@ -61,12 +63,44 @@ struct GoalWidgetProvider: AppIntentTimelineProvider {
     }
 }
 
+/// A habit to follow on the streak widget. Leaving it empty follows every habit.
+struct HabitChoice: AppEntity {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Habit"
+    static var defaultQuery = HabitChoiceQuery()
+    let id: String
+    let name: String
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
+}
+struct HabitChoiceQuery: EntityQuery {
+    func entities(for identifiers: [String]) async throws -> [HabitChoice] {
+        let habits = DashboardSnapshot.read()?.habits ?? []
+        return identifiers.compactMap { id in habits.first { $0.id == id }.map { HabitChoice(id: $0.id, name: $0.name) } }
+    }
+    func suggestedEntities() async throws -> [HabitChoice] {
+        (DashboardSnapshot.read()?.habits ?? []).map { HabitChoice(id: $0.id, name: $0.name) }
+    }
+}
+struct StreakWidgetConfiguration: WidgetConfigurationIntent {
+    static var title: LocalizedStringResource = "Choose a habit"
+    static var description = IntentDescription("Follow one habit's streak, or leave it empty for all of them.")
+    @Parameter(title: "Habit") var habit: HabitChoice?
+}
+struct StreakWidgetProvider: AppIntentTimelineProvider {
+    func placeholder(in context: Context) -> DashboardEntry { DashboardEntry(date: .now, snapshot: .preview) }
+    func snapshot(for configuration: StreakWidgetConfiguration, in context: Context) async -> DashboardEntry {
+        context.isPreview ? DashboardEntry(date: .now, snapshot: .preview)
+            : DashboardEntry(date: .now, snapshot: DashboardSnapshot.read(), habitID: configuration.habit?.id)
+    }
+    func timeline(for configuration: StreakWidgetConfiguration, in context: Context) async -> Timeline<DashboardEntry> {
+        dashboardTimeline(snapshot: DashboardSnapshot.read(), habitID: configuration.habit?.id)
+    }
+}
+
 struct DashboardBackground: View {
     let accent: Color
     var body: some View {
-        // The app's matte card: top-lit, no accent glow.
-        LinearGradient(colors: [Habyss.matteTop, Habyss.matteMid, Habyss.matteBottom],
-                       startPoint: .top, endPoint: .bottom)
+        // The Live Activity's night, so every Habyss widget reads as one family.
+        HabyssNightBackground()
     }
 }
 
@@ -75,13 +109,26 @@ struct HabitHeatmapView: View {
     @Environment(\.widgetFamily) var family
     var body: some View {
         let today = widgetDayKey(entry.date)
-        let cells = Array((entry.snapshot?.heatmap ?? []).filter { $0.date <= today })
+        // One habit when one is chosen (Edit Widget), else every habit together.
+        let habit = entry.habitID.flatMap { id in entry.snapshot?.habits?.first { $0.id == id } }
+        let heatmap: [HeatmapDay] = habit.map { habit in
+            zip(entry.snapshot?.heatmap ?? [], habit.days).map { day, mark in
+                HeatmapDay(date: day.date, completed: mark == "1" ? 1 : 0, total: mark == "-" ? 0 : 1)
+            }
+        } ?? entry.snapshot?.heatmap ?? []
+        let cells = Array(heatmap.filter { $0.date <= today })
+        let streak = habit.map(\.streak) ?? entry.snapshot?.streak
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Image(systemName: "flame.fill").font(.system(size: 15)).foregroundStyle(entry.accent)
-                Text(entry.snapshot?.streak.map(String.init) ?? "—").font(.system(size: 26, weight: .bold)).foregroundStyle(.white).monospacedDigit()
-                Text("day streak").font(.system(size: 12, weight: .medium)).foregroundStyle(Habyss.dim)
-                Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Image(systemName: "flame.fill").font(.system(size: 15)).foregroundStyle(entry.accent)
+                    Text(streak.map(String.init) ?? "—").font(.system(size: 26, weight: .bold)).foregroundStyle(.white).monospacedDigit()
+                    Text("day streak").font(.system(size: 12, weight: .medium)).foregroundStyle(Habyss.dim)
+                    Spacer(minLength: 0)
+                }
+                if let habit {
+                    Text(habit.name).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
+                }
             }
             if cells.isEmpty {
                 Spacer(minLength: 0)
@@ -196,12 +243,13 @@ struct GoalsProgressView: View {
 
 struct HabyssHeatmapWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "HabyssHeatmap", provider: DashboardProvider()) { entry in
+        // The same kind as before, so widgets already placed keep working (no habit chosen: every habit).
+        AppIntentConfiguration(kind: "HabyssHeatmap", intent: StreakWidgetConfiguration.self, provider: StreakWidgetProvider()) { entry in
             HabitHeatmapView(entry: entry).containerBackground(for: .widget) { DashboardBackground(accent: entry.accent) }
         }
         .contentMarginsDisabled()
         .configurationDisplayName("Heatmap & Streak")
-        .description("Your daily streak and the habit check-ins that built it.")
+        .description("Your daily streak and the check-ins that built it. Choose one habit with Edit Widget.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -228,7 +276,7 @@ extension DashboardSnapshot {
             GoalGraphPoint(date: widgetDayKey(Calendar.current.date(byAdding: .day, value: offset - 29, to: .now)!), actual: min(68, Double(offset * 2 + offset / 4)))
         }
         // The gallery wears the person's own accent, like the widgets they already have.
-        let accent = DashboardSnapshot.read()?.accent ?? .init(from: "#8BADD6", to: "#3A5A8C")
+        let accent = DashboardSnapshot.read()?.accent ?? .init(from: "#4268FF", to: "#7098FF")
         return DashboardSnapshot(version: 1, generatedAt: today, dayKey: today,
                                  accent: accent, days: [], heatmap: heatmap,
                                  goals: [DashboardGoal(id: "preview", name: "Build something meaningful", progress: 65, color: "", taskWeights: [:], points: points)], streak: 10)

@@ -22,7 +22,7 @@ struct HabyssLiveActivity: Widget {
             let stale = context.isStale && context.state.nextTitle == nil
             let accent = Color(habyssHex: state.accentHex) ?? Habyss.fallbackTo
             HStack(alignment: .center, spacing: 16) {
-                FocusRing(state: state, total: context.attributes.totalDurationSeconds, accent: accent, size: 64, mark: 26)
+                FocusRing(state: state, total: context.attributes.totalDurationSeconds, accent: accent, size: 70, mark: 30)
                 VStack(alignment: .center, spacing: 0) {
                     StatusLine(state: state, stale: stale)
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
@@ -57,7 +57,7 @@ struct HabyssLiveActivity: Widget {
             let accent = Color(habyssHex: state.accentHex) ?? Habyss.fallbackTo
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    FocusRing(state: state, total: context.attributes.totalDurationSeconds, accent: accent, size: 52, mark: 20)
+                    FocusRing(state: state, total: context.attributes.totalDurationSeconds, accent: accent, size: 56, mark: 23)
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {

@@ -137,6 +137,26 @@ const VOICES: Record<PersonalityModeId, Voice> = {
         reminder: c => `${c.habitName}. Now${c.name ? `, ${c.name}` : ''}. Get off your ass.`,
         hello: name => `${name ? `${name}. ` : ''}No excuses, no hand-holding. Show up or shut up.`,
     },
+
+    goofball: {
+        planIntro: c =>
+            `Ooh, ${c.habitName}${c.target ? `, ${c.target}` : ''}, ${(c.recurrence ?? 'every day').toLowerCase()}` +
+            `${c.cue ? `, right after ${c.cue.toLowerCase()}` : ''}. Ambitious. I love it. I'll be heckling from the sidelines.`,
+        completion: c => {
+            const streak = streakLine(c);
+            return streak
+                ? `${c.habitName}: done. ${streak}. Who even are you? (Someone impressive, apparently.)`
+                : `${c.habitName}: done. Look at you, being a functional adult. Wild.`;
+        },
+        notLogged: c => `${c.habitName} is not logged yet. Either you did it and forgot to tell me, or we're both pretending. Log it or do it.`,
+        home: c => {
+            const week = weekLine(c);
+            return week ? `${c.habitName} today. ${week}. The crowd goes mild.` : `${c.habitName} is on today. No pressure. (Some pressure.)`;
+        },
+        preview: name => `${name}? Bold. I'll remind you, tease you a little, and throw a tiny party when you do it.`,
+        reminder: c => `${c.name ? `${c.name}, ` : ''}${c.habitName} time. I'd do it for you, but I'm a phone.`,
+        hello: name => `${name ? `Hey ${name}. ` : 'Hey. '}I'll make jokes, you'll do the work. Deal?`,
+    },
 };
 
 const voiceFor = (id: PersonalityModeId): Voice => VOICES[id] ?? VOICES.normal;

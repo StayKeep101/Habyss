@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import SharedDefaults from './SharedDefaults';
 import type { WidgetPayload } from './widgetSync';
-import type { EchoHour } from './echoLockScreen';
+import type { WidgetDay, WidgetShards } from './widgetDay';
 
 /**
  * The app group the widget reads from (`group.com.habyss.data`).
@@ -16,7 +16,22 @@ import type { EchoHour } from './echoLockScreen';
  * snapshot is not written or redrawn again.
  */
 let lastPayload: string | null = null;
-let lastEcho: string | null = null;
+let lastDay: string | null = null;
+let lastShards: string | null = null;
+let lastShardsNumbers: string | null = null;
+
+/** Writes one shared value and redraws the widgets, unless it is what they already show. */
+async function writeOnce(key: string, value: string, last: string | null): Promise<string | null> {
+    if (Platform.OS !== 'ios' || value === last) return last;
+    try {
+        if (!(await SharedDefaults.set(key, value))) return last;
+        await SharedDefaults.reloadTimelines();
+        return value;
+    } catch (error) {
+        console.warn(`WidgetService: could not update ${key}`, error);
+        return last;
+    }
+}
 
 export const WidgetService = {
     async write(payload: WidgetPayload): Promise<void> {
@@ -51,24 +66,19 @@ export const WidgetService = {
         }
     },
 
-    /**
-     * The hourly lines the lock-screen widget reads.
-     *
-     * Written on its own rather than with the day's list, because it changes
-     * for a different reason: the list changes when something is ticked, the
-     * lines change when the hour turns.
-     */
-    async writeEcho(hours: EchoHour[]): Promise<void> {
-        if (Platform.OS !== 'ios') return;
-        const fingerprint = JSON.stringify(hours);
-        if (fingerprint === lastEcho) return;
-        try {
-            await SharedDefaults.set('echoHours', fingerprint);
-            await SharedDefaults.reloadTimelines();
-            lastEcho = fingerprint;
-        } catch (error) {
-            console.warn('WidgetService: could not update Echo', error);
-        }
+    /** Today's timeline for the Day widget (lib/widgetDay.ts). */
+    async writeDay(day: WidgetDay): Promise<void> {
+        lastDay = await writeOnce('widgetDay', JSON.stringify(day), lastDay);
+    },
+
+    /** The Shards balance for the Shards widget (lib/widgetDay.ts). */
+    async writeShards(shards: WidgetShards): Promise<void> {
+        // Its clock moves every write: only the numbers decide whether to redraw.
+        const { at: _at, ...numbers } = shards;
+        const fingerprint = JSON.stringify(numbers);
+        if (fingerprint === lastShardsNumbers) return;
+        const written = await writeOnce('widgetShards', JSON.stringify(shards), lastShards);
+        if (written !== lastShards) { lastShards = written; lastShardsNumbers = fingerprint; }
     },
 
     /** Redraws the widget without changing what it shows. */

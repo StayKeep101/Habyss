@@ -1,11 +1,17 @@
-import { ENERGY_CATEGORY, CATEGORIES, streakGuard } from '../notificationActions';
+import { DONE_CATEGORY, HANDOVER_CATEGORY, ENERGY_CATEGORY, CATEGORIES, streakGuard } from '../notificationActions';
 
 describe('notification buttons', () => {
-    it('offers Done, a start, a snooze and a skip on every item, never more than four', () => {
-        for (const category of CATEGORIES.filter(category => category.id !== ENERGY_CATEGORY)) {
-            expect(category.buttons).toHaveLength(4);
+    it('offers Done first on every item, never more than four buttons', () => {
+        for (const category of CATEGORIES.filter(category => category.id !== ENERGY_CATEGORY && category.id !== HANDOVER_CATEGORY)) {
+            expect(category.buttons.length).toBeLessThanOrEqual(4);
             expect(category.buttons[0].buttonTitle).toBe('Done');
         }
+    });
+    it('a handover names what its button ticks: the last one, not the one starting', () => {
+        expect(CATEGORIES.find(category => category.id === HANDOVER_CATEGORY)!.buttons.map(button => button.buttonTitle)).toEqual(['Last one done']);
+    });
+    it('the day as it happens has one button: Done, for the one whose time just ended', () => {
+        expect(CATEGORIES.find(category => category.id === DONE_CATEGORY)!.buttons.map(button => button.buttonTitle)).toEqual(['Done']);
     });
     it('asks energy with three answers that do not open the app', () => {
         const energy = CATEGORIES.find(category => category.id === ENERGY_CATEGORY)!;

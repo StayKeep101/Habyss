@@ -32,6 +32,11 @@ export function timeValue(time?: string): Date {
     return date;
 }
 
+/** The next full hour, "15:00": where an exact time starts when it is first chosen. */
+export function nextHour(now = new Date()): string {
+    return `${pad((now.getHours() + 1) % 24)}:00`;
+}
+
 export const asTime = (date: Date): string =>
     `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
@@ -74,7 +79,9 @@ export const TimeRange: React.FC<{
     accent: string;
     /** Named for what it is in this sheet: a habit starts, a task is due. */
     startLabel?: string;
-}> = ({ start, minutes, onChange, accent, startLabel = 'Start' }) => {
+    /** Flexible: no time of day, only how long it takes (the usual lengths). */
+    lengthOnly?: boolean;
+}> = ({ start, minutes, onChange, accent, startLabel = 'Start', lengthOnly = false }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { lightFeedback } = useHaptics();
@@ -105,6 +112,7 @@ export const TimeRange: React.FC<{
                     onPress={() => { lightFeedback(); onChange({ start, minutes: length.minutes }); }} />
             ))}
         </View>
+        {lengthOnly ? null : (
         <View style={styles.wrap}>
             <View style={styles.side}>
                 <View style={styles.head}>
@@ -133,6 +141,7 @@ export const TimeRange: React.FC<{
                 </View>
             </View>
         </View>
+        )}
         </View>
     );
 };

@@ -55,6 +55,60 @@ export const ScreenTimeService = {
     },
 
     /**
+     * Earn your scroll (lib/appGate.ts): what the block screen says and whether
+     * the chosen apps are blocked now. Kept by iOS in the App Group, so the
+     * block holds while Habyss is closed.
+     */
+    /** This build has Earn your scroll's native part (a build from before it does not: the setting stays hidden). */
+    gateSupported(): boolean {
+        return Platform.OS === 'ios' && typeof ScreenTimeModule?.setGate === 'function';
+    },
+
+    setGate(state: { on: boolean; day: string; earned: boolean; remaining: string[]; planned: number; unlockedUntil: number; title?: string; lines?: string[] }): void {
+        if (Platform.OS !== 'ios' || !ScreenTimeModule?.setGate) return;
+        ScreenTimeModule.setGate(JSON.stringify(state));
+    },
+
+    /** What the server says you can spend, kept for the block screen's "Use 100 Shards". */
+    setWallet(spendable: number): void {
+        if (Platform.OS !== 'ios' || typeof ScreenTimeModule?.setWallet !== 'function') return;
+        ScreenTimeModule.setWallet(Math.max(0, Math.round(spendable)));
+    },
+
+    /** Hours bought on the block screen and not yet charged on the server (each a moment, in seconds). */
+    async takePendingUnlocks(): Promise<number[]> {
+        if (Platform.OS !== 'ios' || typeof ScreenTimeModule?.takePendingUnlocks !== 'function') return [];
+        try { const list = await ScreenTimeModule.takePendingUnlocks(); return Array.isArray(list) ? list : []; } catch { return []; }
+    },
+
+    /** When the apps lock again after an hour bought (seconds since 1970), or 0. */
+    async gateOpenUntil(): Promise<number> {
+        if (Platform.OS !== 'ios' || typeof ScreenTimeModule?.gateOpenUntil !== 'function') return 0;
+        try { return Number(await ScreenTimeModule.gateOpenUntil()) || 0; } catch { return 0; }
+    },
+
+    /** Lifts the block for `minutes` (already paid for); returns when it closes again, in seconds. */
+    async unlockGate(minutes: number): Promise<number | null> {
+        if (Platform.OS !== 'ios' || !ScreenTimeModule?.unlockGate) return null;
+        try { return await ScreenTimeModule.unlockGate(minutes); } catch { return null; }
+    },
+
+    /**
+     * Minutes spent in the chosen apps today, as Screen Time last told the monitor
+     * extension (at 15, 30, 45, 60, 90 and 120 minutes). Null on a build without it.
+     */
+    /** Echo's lines for each scrolling threshold (lib/echoScroll.ts); also starts the daily watch. */
+    setScrollLines(json: string): void {
+        if (Platform.OS !== 'ios' || typeof ScreenTimeModule?.setScrollLines !== 'function') return;
+        ScreenTimeModule.setScrollLines(json);
+    },
+
+    async scrolledToday(): Promise<number | null> {
+        if (Platform.OS !== 'ios' || typeof ScreenTimeModule?.scrolledToday !== 'function') return null;
+        try { const minutes = await ScreenTimeModule.scrolledToday(); return typeof minutes === 'number' && minutes > 0 ? minutes : null; } catch { return null; }
+    },
+
+    /**
      * Check if user has selected any apps to block.
      */
     async hasSelectedApps(): Promise<boolean> {

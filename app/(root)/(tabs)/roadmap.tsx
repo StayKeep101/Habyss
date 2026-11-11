@@ -1,10 +1,11 @@
 import { useEndedEarly } from '@/hooks/useEndedEarly';
 import { toggleEndedEarly } from '@/lib/endedEarly';
 import { FontFamily } from '@/theme/designSystem';
-import { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue, Activity } from 'react';
-import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager, AppState } from 'react-native';
+import { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue, useLayoutEffect, memo } from 'react';
+import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager, AppState, useWindowDimensions } from 'react-native';
 import { IconTile } from '@/components/ui/IconTile';
 import { MatteSurface } from '@/components/ui/MatteSurface';
+import { Overlay } from '@/components/ui/Overlay';
 import { ListItem } from '@/components/ui/Motion';
 import Animated, {
     useAnimatedScrollHandler,
@@ -12,6 +13,7 @@ import Animated, {
     useAnimatedStyle, runOnJS, withSpring, withTiming, interpolate, Extrapolation, LayoutAnimationConfig,
 } from 'react-native-reanimated';
 import { DURATION, EASE, timingFor } from '@/theme/motion';
+import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 
 /** The pull-to-filter icon snapping to full size as the pull arms: quick, no bounce. */
 const ARM = timingFor(DURATION.quick, EASE.enter);
@@ -110,6 +112,11 @@ const getTimeCategory = (startTime?: string): TimeFilter => {
     return 'evening';
 };
 
+/** Its children as they last were while `live`: a page out of view skips every render until it is live again. */
+const Frozen = memo(function Frozen({ children }: { live: boolean; children: React.ReactNode }) {
+    return <>{children}</>;
+}, (_previous, next) => !next.live);
+
 const CalendarScreen = () => {
     const router = useRouter();
     const { theme } = useTheme();
@@ -118,7 +125,7 @@ const CalendarScreen = () => {
     const { primary: accentColor } = useAccentGradient();
     const { lightFeedback, selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
     const { cardSize, autoReschedule } = useAppSettings();
-    const { activeHabitId, activeHabitName, isRunning: isFocusRunning, isPaused: isFocusPaused, totalDuration } = useFocusSession();
+    const { activeHabitId, isRunning: isFocusRunning, isPaused: isFocusPaused, totalDuration } = useFocusSession();
     // Friends focusing with you show on the card of what you are focusing on.
     const focusingNow = isFocusRunning || isFocusPaused;
     const { crew: focusCrew } = useFocusCrew(hostOf(activeHabitId) ?? linkedHost(), focusingNow);
@@ -184,6 +191,12 @@ const CalendarScreen = () => {
     const [pickedDate, setPickedDate] = useState(new Date());
     const selectedDate = useDeferredValue(pickedDate);
     const selectedKey = localDateKey(selectedDate);
+    // Switched to another day at least once: from then on a day appears at once, without the
+    // opening's rise (components/Roadmap/DayTimeline.tsx appear). Worked out while rendering,
+    // so the very first switch is already instant.
+    const [seenDay, setSeenDay] = useState(selectedKey);
+    const [daySwitched, setDaySwitched] = useState(false);
+    if (selectedKey !== seenDay) { setSeenDay(selectedKey); setDaySwitched(true); }
     const todayKeyNow = localDateKey(new Date());
     const completions = useMemo(() => dayMap(shared.history, pending, selectedKey), [dayMap, shared.history, pending, selectedKey]);
     const todayCompletions = useMemo(() => dayMap(shared.history, pending, todayKeyNow), [dayMap, shared.history, pending, todayKeyNow]);
@@ -222,7 +235,7 @@ const CalendarScreen = () => {
     const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>('all');
     // Timeline (the day in time order, as one flow) or the lists; remembered.
     const [viewChoice, setRoadmapView] = useState<RoadmapView>(() => cachedRoadmapFilter()?.view ?? DEFAULT_ROADMAP_FILTER.view);
-    // Timeline or List. Both are kept built (see the Activity below), so the switch only reveals one.
+    // Timeline or List: two pages of one pager, both built, side by side.
     const roadmapView = viewChoice;
     const filterLoaded = useRef(false);
     // Until the saved view is known nothing is drawn, so one view never flashes before the other.
@@ -268,11 +281,14 @@ const CalendarScreen = () => {
     const measureArea = useCallback(() => {
         listAreaRef.current?.measureInWindow((x, y, width) => { areaX.set(x); areaY.set(y); areaWidth.set(width); });
     }, [areaX, areaY, areaWidth]);
+    // On iOS the pill is drawn over the whole window (above the dock and the bar over it, on
+    // its way to the bin), so it is placed in window terms; elsewhere, inside the list area.
+    const { width: windowWidth } = useWindowDimensions();
     const dragPreviewStyle = useAnimatedStyle(() => ({
         transform: [
             // Centred on the finger, a little above it so the thumb does not hide it.
-            { translateX: dragX.get() - areaX.get() - areaWidth.get() / 2 },
-            { translateY: dragY.get() - areaY.get() - 64 },
+            { translateX: WHOLE_WINDOW ? dragX.get() - windowWidth / 2 : dragX.get() - areaX.get() - areaWidth.get() / 2 },
+            { translateY: WHOLE_WINDOW ? dragY.get() - 64 : dragY.get() - areaY.get() - 64 },
             { scale: 0.86 + dragLift.get() * 0.14 },
             { rotateZ: `${dragLift.get() * 2}deg` },
         ],
@@ -559,20 +575,6 @@ const CalendarScreen = () => {
         focusWindowOpen: isHabitFocusableNow(habit),
     }), [completions, skipped, activeHabitId, isFocusRunning, isFocusPaused, isHabitFocusableNow]);
 
-    // Focus opens the focus page, as it does everywhere else; a session already
-    // running on another habit is finished first.
-    const handleFocusHabit = useCallback((habit: Habit) => {
-        if (isFocusRunning && activeHabitId && activeHabitId !== habit.id) {
-            Alert.alert(
-                'Focus Session Active',
-                `Finish "${activeHabitName || 'your current habit'}" before starting focus on another habit.`
-            );
-            return;
-        }
-        mediumFeedback();
-        void (require('@/lib/openFocus') as typeof import('@/lib/openFocus')).openFocus({ kind: 'habit', id: habit.id, title: habit.name });
-    }, [activeHabitId, activeHabitName, isFocusRunning, mediumFeedback, router]);
-
     const measureGoalDropTargets = useCallback(async (goalList: Habit[]) => {
         const entries = await Promise.all(
             goalList.map(
@@ -621,6 +623,10 @@ const CalendarScreen = () => {
     const measuredAt = useRef(0);
     /** The row being dragged right now ("habit:<id>", "task:<id>"); a drop for anything else is ignored. */
     const dragOwner = useRef<string | null>(null);
+    /** Where the hold began: let go without dragging, and it was a hold (pin it), not a drag. */
+    const dragFrom = useRef({ x: 0, y: 0 });
+    /** Pins what was held still on the timeline (set once the timeline is worked out, below). */
+    const pinOnHold = useRef<(id: string) => void>(() => undefined);
     // Timeline view: where a held habit or task would land (components/Roadmap/DayTimeline.tsx).
     const timelineDrop = useRef<TimelineDrop | null>(null);
     const dropMinute = useRef<number | null>(null);
@@ -630,6 +636,8 @@ const CalendarScreen = () => {
         if (minute !== dropMinute.current) { dropMinute.current = minute; if (minute !== null) selectionFeedback(); }
     }, [selectionFeedback]);
     const EDGE = 96;
+    /** Points the finger may move and still count as held, not dragged. */
+    const HOLD_STILL = 12;
     const MAX_STEP = 9;
     const autoScrollStep = useCallback(() => {
         const point = finger.current;
@@ -674,6 +682,7 @@ const CalendarScreen = () => {
 
     const handleHabitDragStart = useCallback(async (habit: Habit, x: number, y: number) => {
         dragOwner.current = `habit:${habit.id}`;
+        dragFrom.current = { x, y };
         selectionFeedback();
         setDraggingHabit(habit);
         dropMinute.current = null;
@@ -702,7 +711,6 @@ const CalendarScreen = () => {
         followFinger(x, y);
         const removing = isOverRemove(x, y, !!habit.goalId);
         trackRemove(removing);
-        if (roadmapView === 'timeline' && !removing) trackDropTime(habit.id, y);
         const next = removing ? null : getHoveredGoalAtPoint(x, y);
         if (next !== hoveredGoalRef.current) {
             hoveredGoalRef.current = next;
@@ -748,19 +756,10 @@ const CalendarScreen = () => {
             return;
         }
 
-        // On the line: it goes to the time where it was let go, and stays there.
+        // On the line, nothing moves by dragging (the day places everything itself): a drag
+        // is only for the bin. Held and let go where it was: it was a hold, so pin it at a time.
         if (roadmapView === 'timeline') {
-            const minute = timelineDrop.current?.timeAt(y, habit.id) ?? null;
-            if (minute === null || minute === toMinutesOf(habit.startTime)) return;
-            const startTime = clockOf(minute);
-            const patch = { startTime, ...(autoReschedule ? { flexible: false } : null) };
-            setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, ...patch } : item));
-            mediumFeedback();
-            try { await updateHabit({ id: habit.id, ...patch }); }
-            catch {
-                setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, startTime: habit.startTime, flexible: habit.flexible } : item));
-                Alert.alert('Could not move habit', 'It is still at its old time. Please try again.');
-            }
+            if (Math.hypot(x - dragFrom.current.x, y - dragFrom.current.y) < HOLD_STILL) pinOnHold.current(habit.id);
             return;
         }
 
@@ -787,6 +786,7 @@ const CalendarScreen = () => {
      */
     const handleTaskDragStart = useCallback(async (task: Task, x: number, y: number) => {
         dragOwner.current = `task:${task.id}`;
+        dragFrom.current = { x, y };
         selectionFeedback();
         setDraggingTask(task);
         dropMinute.current = null;
@@ -810,7 +810,6 @@ const CalendarScreen = () => {
         followFinger(x, y);
         const removing = isOverRemove(x, y, !!task.goalId);
         trackRemove(removing);
-        if (roadmapView === 'timeline' && !removing) trackDropTime(task.id, y);
         const next = removing ? null : getHoveredGoalAtPoint(x, y);
         if (next !== hoveredGoalRef.current) {
             hoveredGoalRef.current = next;
@@ -849,18 +848,10 @@ const CalendarScreen = () => {
             return;
         }
 
-        // On the line: it goes to the time where it was let go, and stays there.
+        // On the line, nothing moves by dragging (the day places everything itself): a drag
+        // is only for the bin. Held and let go where it was: it was a hold, so pin it at a time.
         if (roadmapView === 'timeline') {
-            const minute = timelineDrop.current?.timeAt(y, task.id) ?? null;
-            if (minute === null || minute === toMinutesOf(task.dueTime)) return;
-            const patch = { dueTime: clockOf(minute), ...(autoReschedule ? { flexible: false } : null) };
-            setTasks(items => items.map(item => item.id === task.id ? { ...item, ...patch } : item));
-            mediumFeedback();
-            try { await updateTask(task.id, patch); emit('tasks_changed'); }
-            catch {
-                setTasks(items => items.map(item => item.id === task.id ? task : item));
-                Alert.alert('Could not move task', 'It is still at its old time. Please try again.');
-            }
+            if (Math.hypot(x - dragFrom.current.x, y - dragFrom.current.y) < HOLD_STILL) pinOnHold.current(task.id);
             return;
         }
 
@@ -1101,14 +1092,13 @@ const CalendarScreen = () => {
     // The strip at the top shows the same day as the timeline: placed things included.
     const stripPlan = useMemo(() => ({
         ...dayPlan.plan,
-        // Habits, tasks and the calendar (events, reminders, the travel either side of an event).
-        blocks: flow.timeline.filter(item => item.kind === 'habit' || item.kind === 'task' || item.kind === 'event').map(item => ({
-            id: item.part ? `${item.id}#${item.part.index}` : item.id, kind: item.kind as 'habit' | 'task' | 'event', title: item.title, start: item.start, end: item.end, done: item.done, color: item.color,
+        // Everything on the line: habits, tasks, meals and the calendar (events, reminders, the travel
+        // either side of an event). Meals too, so a break shows as a break, not as a gap.
+        blocks: flow.timeline.map(item => ({
+            id: item.part ? `${item.id}#${item.part.index}` : item.id, kind: item.kind, title: item.title, start: item.start, end: item.end, done: item.done, color: item.color,
             ...(item.kind === 'event' && isTravel(item.id) ? { travel: true } : null),
         })),
     }), [dayPlan.plan, flow]);
-    // What you should be on right now: its own card carries the Focus button.
-    const nowId = flowNow !== null && flow.current && !flow.current.fixed && !flow.current.done ? flow.current.id : null;
     // Dragging along the strip in the timeline: only what is on then.
     const shownFlow = useMemo(() => scrubIds === null ? flow
         : { ...flow, timeline: flow.timeline.filter(item => scrubIds.has(`${item.kind}:${item.part ? `${item.id}#${item.part.index}` : item.id}`)) }, [flow, scrubIds]);
@@ -1156,6 +1146,7 @@ const CalendarScreen = () => {
         selectionFeedback();
         setPinning({ ...item, start: row?.start ?? flowNow ?? 9 * 60 });
     }, [flow, flowNow, selectionFeedback]);
+    useEffect(() => { pinOnHold.current = (id: string) => { const row = flow.timeline.find(entry => entry.id === id); if (row) holdFlowItem(row); }; }, [flow, holdFlowItem]);
     const openFlowItem = useCallback((item: FlowInput) => {
         lightFeedback();
         markSeen(item.id);
@@ -1181,7 +1172,6 @@ const CalendarScreen = () => {
     const rowHabitToggle = useLatestCallback((habit: Habit) => { void handleHabitPress(habit); });
     const rowHabitOpen = useLatestCallback((habit: Habit) => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } }));
     const rowHabitSkip = useLatestCallback((habit: Habit) => handleHabitSkip(habit as StoreHabit));
-    const rowHabitFocus = useLatestCallback((habit: Habit) => handleFocusHabit(habit));
     const rowHabitEdit = useLatestCallback((habit: Habit) => handleEdit(habit));
     const rowHabitDelete = useLatestCallback((habit: Habit) => { void handleDelete(habit); });
     const rowHabitDragStart = useLatestCallback((habit: Habit, x: number, y: number) => { void handleHabitDragStart(habit, x, y); });
@@ -1194,6 +1184,50 @@ const CalendarScreen = () => {
     const rowTaskDragMove = useLatestCallback((task: Task, x: number, y: number) => handleTaskDragMove(task, x, y));
     const rowTaskDragEnd = useLatestCallback((task: Task, x: number, y: number) => { void handleTaskDragEnd(task, x, y); });
     const timelineView = roadmapView === 'timeline';
+    // The two views as two pages side by side, in the order the filter shows them: Timeline
+    // on the left, List on the right. A native pager, like the week strip: iOS moves the
+    // pages under the finger (nothing in JavaScript per frame), the next one revealed as you
+    // drag, and lets go onto a page. The pager is only as tall as the page shown, so the
+    // shorter one never leaves an empty scroll below it; while dragging it is as tall as both.
+    const pageAt = timelineView ? 0 : 1;
+    const pagerRef = useRef<GHScrollView>(null);
+    const [pageHeights, setPageHeights] = useState<[number, number]>([0, 0]);
+    const [paging, setPaging] = useState(false);
+    const pagerAt = useRef(pageAt);
+    const gliding = useRef(false);
+    // Only the page you are on keeps up with every change (a new day, a tick); the other stays
+    // on screen as it was (Frozen, above the screen) and catches up the moment a drag starts, so
+    // changing day costs one view, not two. Not React's Activity: hiding and showing a page on
+    // every swipe, under animations still running in it, crashed the app (a Fabric mount on the
+    // UI thread touching a view that had just been hidden).
+    const pageLive = (index: 0 | 1) => paging || pageAt === index;
+    const measurePage = useCallback((index: 0 | 1, height: number) => {
+        setPageHeights(previous => Math.abs(previous[index] - height) < 1 ? previous : (index === 0 ? [height, previous[1]] : [previous[0], height]));
+    }, []);
+    // Chosen in the filter: the pager glides there.
+    useEffect(() => {
+        if (pagerAt.current === pageAt) return;
+        pagerAt.current = pageAt;
+        // Both pages drawn for the glide; its end (onMomentumScrollEnd) hides the one left behind.
+        gliding.current = true;
+        setPaging(true);
+        pagerRef.current?.scrollTo({ x: pageAt * windowWidth, animated: true });
+        // In case the glide's end is never reported: settle anyway.
+        const settle = setTimeout(() => { gliding.current = false; onPageSettledRef.current(pageAt * windowWidth); }, 700);
+        return () => clearTimeout(settle);
+    }, [pageAt, windowWidth]);
+    const onPageSettled = useCallback((x: number) => {
+        setPaging(false);
+        const index = Math.round(x / Math.max(1, windowWidth)) === 0 ? 0 : 1;
+        if (index === pagerAt.current) return;
+        pagerAt.current = index;
+        (require('@/components/ui/SwipeRow') as typeof import('@/components/ui/SwipeRow')).closeOpenRow();
+        selectionFeedback();
+        setRoadmapView(index === 0 ? 'timeline' : 'list');
+    }, [windowWidth, selectionFeedback]);
+    const onPageSettledRef = useRef(onPageSettled);
+    useLayoutEffect(() => { onPageSettledRef.current = onPageSettled; });
+    const pagerHeight = paging ? Math.max(pageHeights[0], pageHeights[1]) : pageHeights[pageAt];
 
     const showGoals = shown.goals && !scrubbing;
     const showHabits = shown.habits || scrubbing;
@@ -1326,8 +1360,75 @@ const CalendarScreen = () => {
                             />
 
 
-                            {/* Filter Indicator - Subtle compact pill */}
-                            {!scrubbing && !timelineView && (filtered || hasActiveFilters) && (
+
+                            {/* The "shared with you" carousel is gone. An
+                                offer waits in the inbox to be accepted or
+                                turned down, and once accepted the thing is
+                                simply in the list with the faces of whoever
+                                else is on it — which is where somebody looks
+                                for their own habits anyway. */}
+
+                            {/* Both views are pages of one pager (Timeline, then List), swiped like the week strip. */}
+                            {!filterReady ? null : (<>
+                            <GHScrollView
+                                ref={pagerRef}
+                                horizontal
+                                pagingEnabled
+                                bounces={false}
+                                directionalLockEnabled
+                                showsHorizontalScrollIndicator={false}
+                                scrollEnabled={!scrubbing && !draggingHabit && !draggingTask}
+                                contentOffset={{ x: pageAt * windowWidth, y: 0 }}
+                                onScrollBeginDrag={() => { gliding.current = false; setPaging(true); }}
+                                onMomentumScrollBegin={() => { gliding.current = true; }}
+                                // Let go with no glide (slowly, right on a page): settle here, as a glide's end would.
+                                onScrollEndDrag={event => { const x = event.nativeEvent.contentOffset.x; setTimeout(() => { if (!gliding.current) onPageSettled(x); }, 120); }}
+                                onMomentumScrollEnd={event => { gliding.current = false; onPageSettled(event.nativeEvent.contentOffset.x); }}
+                                style={[styles.pager, { marginHorizontal: -horizontalPadding, width: windowWidth }, pagerHeight > 0 ? { height: pagerHeight } : null]}
+                                contentContainerStyle={styles.pagerRow}
+                            >
+                            <View style={{ width: windowWidth, paddingHorizontal: horizontalPadding }} onLayout={event => measurePage(0, event.nativeEvent.layout.height)}>
+                            <Frozen live={pageLive(0)}>
+                                {/* Drawn once it has all it needs (the kept layout, the tick
+                                    times, the waking day): drawn before, it laid the day out
+                                    twice and the rows jumped into place in front of you. */}
+                                {/* Not remounted per day: rows on both days stay and update in place, a new
+                                    one fades in at once, so switching days mid-scroll never waits on rows
+                                    rising in from the top of the day. */}
+                                {!flowComplete && !timelineShown.current ? <View style={styles.timelineWait} /> : <LayoutAnimationConfig key={localDateKey(selectedDate)} skipExiting>
+                                <CalendarPrompt />
+                                {/* One timeline per day, keyed on the wrapper above so its skipExiting holds: the old day's rows
+                                    go at once instead of fading out over the new ones (two days on top of each other, flickering).
+                                    One timeline per day: another day replaces this one at once, with nothing fading or gliding
+                                    (rows of two days animating together read as broken). Only the first day the page opens on rises in. */}
+                                <DayTimeline appear={daySwitched ? 'instant' : 'rise'} flow={shownFlow} day={localDateKey(selectedDate)} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
+                                    wake={flowWindow.wake} sleep={flowWindow.sleep} dueToday={dueToday}
+                                    onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem}
+                                    onPin={dayPlan.isToday ? holdFlowItem : undefined} why={flowNow !== null ? memory.why : undefined}
+                                    // Held and dragged: only to the bin (the + turns into it) to delete. Held still: pin it.
+                                    onDrag={(phase, item, x, y) => {
+                                        if (item.kind === 'habit') {
+                                            const habit = habitsStore.find(h => h.id === item.id);
+                                            if (habit) void ({ start: handleHabitDragStart, move: handleHabitDragMove, end: handleHabitDragEnd }[phase])(habit, x, y);
+                                        } else if (item.kind === 'task') {
+                                            const task = tasks.find(t => t.id === item.id);
+                                            if (task) void ({ start: handleTaskDragStart, move: handleTaskDragMove, end: handleTaskDragEnd }[phase])(task, x, y);
+                                        }
+                                    }}
+                                    onDragCancel={() => {
+                                        dragOwner.current = null; stopFollowing(); dragLift.set(0);
+                                        setDraggingTask(null); setDraggingHabit(null); setRemoveDrag({ active: false });
+                                    }}
+                                    dropRef={timelineDrop}
+                                    company={focusCompany}
+                                    sharedFor={item => (item.kind === 'habit' ? sharedFor(item.id) : item.kind === 'task' ? sharedTaskFor(item.id) : null)} />
+                                </LayoutAnimationConfig>}
+                            </Frozen>
+                            </View>
+                            <View style={{ width: windowWidth, paddingHorizontal: horizontalPadding }} onLayout={event => measurePage(1, event.nativeEvent.layout.height)}>
+                            <Frozen live={pageLive(1)}>
+                            {/* What the List is filtered by: on the List's own page, so it slides with it and nothing shifts. */}
+                            {!scrubbing && (filtered || hasActiveFilters) && (
                                 <View style={{
                                     alignSelf: 'flex-start',
                                     backgroundColor: accentColor + '25', // ui-allow: decorative
@@ -1372,42 +1473,15 @@ const CalendarScreen = () => {
                                     </TouchableOpacity>
                                 </View>
                             )}
-
-                            {/* The "shared with you" carousel is gone. An
-                                offer waits in the inbox to be accepted or
-                                turned down, and once accepted the thing is
-                                simply in the list with the faces of whoever
-                                else is on it — which is where somebody looks
-                                for their own habits anyway. */}
-
-                            {/* Both views stay built (React's Activity): the one not shown is kept
-                                hidden and brought up to date in idle time, so switching only
-                                reveals it, at once, with nothing to lay out at the tap. */}
-                            {!filterReady ? null : (<>
-                            <Activity mode={timelineView ? 'visible' : 'hidden'}>
-                                {/* Drawn once it has all it needs (the kept layout, the tick
-                                    times, the waking day): drawn before, it laid the day out
-                                    twice and the rows jumped into place in front of you. */}
-                                {/* Not remounted per day: rows on both days stay and update in place, a new
-                                    one fades in at once, so switching days mid-scroll never waits on rows
-                                    rising in from the top of the day. */}
-                                {!flowComplete && !timelineShown.current ? <View style={styles.timelineWait} /> : <LayoutAnimationConfig skipExiting>
-                                <CalendarPrompt />
-                                <DayTimeline flow={shownFlow} day={localDateKey(selectedDate)} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
-                                    wake={flowWindow.wake} sleep={flowWindow.sleep} dueToday={dueToday}
-                                    onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem}
-                                    onPin={dayPlan.isToday ? holdFlowItem : undefined} why={flowNow !== null ? memory.why : undefined}
-                                    /* No drag and drop on the timeline: the day places everything itself. */
-                                    dropRef={timelineDrop}
-                                    company={focusCompany}
-                                    sharedFor={item => (item.kind === 'habit' ? sharedFor(item.id) : item.kind === 'task' ? sharedTaskFor(item.id) : null)} />
-                                </LayoutAnimationConfig>}
-                            </Activity>
-                            <Activity mode={timelineView ? 'hidden' : 'visible'}>
                             {/* GOALS SECTION */}
                             {showGoals && (
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
                                     <SectionTitle first right={
+                                        <View style={styles.headerLinks}>
+                                        {/* Every goal's whole plan (habits and tasks, how far along): was in Settings. */}
+                                        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Goal plans" onPress={() => router.push('/(root)/goal-roadmap')} style={styles.headerLink}>
+                                            <Text style={[styles.headerLinkText, { color: colors.textTertiary }]}>Plans</Text>
+                                        </TouchableOpacity>
                                         <TouchableOpacity onPress={() => {
                                             const allExpanded = sortedGoals.every(goal => expandedGoals[goal.id]);
                                             setExpandedGoals(allExpanded ? {} : Object.fromEntries(sortedGoals.map(goal => [goal.id, true])));
@@ -1415,6 +1489,7 @@ const CalendarScreen = () => {
                                             <Ionicons name={sortedGoals.every(goal => expandedGoals[goal.id]) ? 'contract-outline' : 'expand-outline'} size={14} color={colors.textSecondary} />
                                             <Text style={{ color: colors.textTertiary, fontSize: 13, fontFamily: FontFamily.medium }}>{sortedGoals.every(goal => expandedGoals[goal.id]) ? 'Collapse all' : 'Expand all'}</Text>
                                         </TouchableOpacity>
+                                        </View>
                                     }>Goals</SectionTitle>
 
                                     {sortedGoals.length > 0 ? (
@@ -1467,8 +1542,6 @@ const CalendarScreen = () => {
                                                                         isActive={isLive(statusOf(habit))}
                                                                         followFocus={isLive(statusOf(habit))}
                                                                         totalDuration={isLive(statusOf(habit)) ? totalDuration : undefined}
-                                                                        canFocusNow={statusOf(habit) === 'focus-now' || nowId === habit.id}
-                                                                        onFocusPress={rowHabitFocus}
                                                                         onDragStart={rowHabitDragStart}
                                                                         onDragMove={rowHabitDragMove}
                                                                         onDragEnd={rowHabitDragEnd}
@@ -1483,7 +1556,6 @@ const CalendarScreen = () => {
                                                             {/* A goal is reached through rhythms and one-off work alike. */}
                                                             {dayTasks.filter(task => task.goalId === goal.id).map(task => (
                                                                 <ListItem key={task.id}><TaskItem
-                                                canFocusNow={nowId === task.id}
                                                                     key={task.id}
                                                                     task={task}
                                                                     size={cardSize}
@@ -1524,7 +1596,6 @@ const CalendarScreen = () => {
                                     {listedTasks
                                         .map(task => (
                                             <ListItem key={task.id} still={scrubbing}><TaskItem
-                                                canFocusNow={nowId === task.id}
                                                 key={task.id}
                                                 task={task}
                                                 size={cardSize}
@@ -1546,7 +1617,12 @@ const CalendarScreen = () => {
                             {/* HABITS SECTION */}
                             {showHabits && listedHabits.length > 0 && (
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
-                                    {scrubbing ? null : <SectionTitle first>{looseOnly ? 'Other habits' : 'Habits'}</SectionTitle>}
+                                    {scrubbing ? null : <SectionTitle first right={
+                                        // Every habit there is, archived included: was in Settings.
+                                        <TouchableOpacity accessibilityRole="button" accessibilityLabel="All habits" onPress={() => router.push('/(root)/all-habits')} style={styles.headerLink}>
+                                            <Text style={[styles.headerLinkText, { color: colors.textTertiary }]}>See all</Text>
+                                        </TouchableOpacity>
+                                    }>{looseOnly ? 'Other habits' : 'Habits'}</SectionTitle>}
 
                                     {listedHabits.map(habit => {
                                         // Find associated goal name for habit
@@ -1562,8 +1638,6 @@ const CalendarScreen = () => {
                                                 isActive={isLive(statusOf(habit))}
                                                 followFocus={isLive(statusOf(habit))}
                                                 totalDuration={isLive(statusOf(habit)) ? totalDuration : undefined}
-                                                canFocusNow={statusOf(habit) === 'focus-now' || nowId === habit.id}
-                                                onFocusPress={rowHabitFocus}
                                                 goalName={!looseOnly && associatedGoal ? associatedGoal.name : undefined}
                                                 onDragStart={rowHabitDragStart}
                                                 onDragMove={rowHabitDragMove}
@@ -1581,7 +1655,9 @@ const CalendarScreen = () => {
                                 </View>
                             )}
 
-                            </Activity>
+                            </Frozen>
+                            </View>
+                            </GHScrollView>
                             </>)}
 
                             {/* Habits section removed - all habits must be linked to goals */}
@@ -1589,6 +1665,7 @@ const CalendarScreen = () => {
                         </Animated.ScrollView>
 
                         {draggingHabit || draggingTask ? (
+                            <Overlay>
                             <View pointerEvents="none" style={styles.dragOverlay}>
                                 {/* The thing being moved: a small matte pill under the finger. */}
                                 <Animated.View style={[styles.dragFloat, dragPreviewStyle]}>
@@ -1607,6 +1684,7 @@ const CalendarScreen = () => {
                                 </Animated.View>
 
                             </View>
+                            </Overlay>
                         ) : null}
                     </View>
 
@@ -1630,5 +1708,8 @@ const CalendarScreen = () => {
     );
 };
 
+
+/** The dragged pill draws over the whole window (components/ui/Overlay is a window layer on iOS). */
+const WHOLE_WINDOW = Platform.OS === 'ios';
 
 export default CalendarScreen;

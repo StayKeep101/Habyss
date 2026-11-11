@@ -28,7 +28,9 @@ import { useAppSettings } from '@/context/AppSettingsContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
 import { nextEchoLine, type EchoStats } from '@/lib/echoLines';
-import { pressureLine, pressureSpeaks } from '@/lib/taskPressure';
+import { pressureLines, pressureSpeaks } from '@/lib/taskPressure';
+import { loadSaid, noteSaid, pickFresh, shuffled } from '@/lib/echoRecent';
+import { upcomingDeadlines } from '@/lib/echoBrief';
 import { useTaskPressure } from '@/hooks/useTaskPressure';
 import { getName } from '@/lib/echo';
 import { nextPatternLine } from '@/lib/echoPatterns';
@@ -122,29 +124,42 @@ const Home = () => {
   }, [pressureLevel]);
   const echoPatternsRef = useRef(echoPatterns);
   useEffect(() => { echoPatternsRef.current = echoPatterns; }, [echoPatterns]);
+  // Goals as the overview has them, for what is due soon (read inside showEchoLine).
+  const goalsDataRef = useRef<ReturnType<typeof useGoalsInsights> | null>(null);
   const echoStatsRef = useRef<EchoStats>({ streak: 0, todayDone: 0, todayTotal: 0, weekConsistency: 0, goalsCount: 0, overallProgress: 0 });
   const showEchoLine = useCallback(async () => {
     const name = await getName();
     const personality = normalizeAIPersonality(aiPersonality || 'friendly');
     const stats = echoStatsRef.current;
-    // Behind on tasks: that comes before any stat, more worried
-    // the further behind, up to demon mode (lib/taskPressure.ts).
-    // Every refresh says something new: never the line already showing (the
-    // worried lines are only a few, and the same one again read as no refresh).
-    const shown = quoteRef.current;
-    const say = (line: string) => { quoteRef.current = line; setLineTurn(turn => turn + 1); setMotivationalQuote(line); };
+    // Echo talks like a person, not a loop: every line it said lately is remembered
+    // (lib/echoRecent.ts), so a refresh never brings one back and never raises the
+    // same thing twice in a row. Most pressing first: behind on tasks, then what is
+    // happening now (lib/echoSays.ts), then something from your record, then the bank.
+    const said = await loadSaid();
+    const say = (line: string, topic: string) => {
+      quoteRef.current = line; setLineTurn(turn => turn + 1); setMotivationalQuote(line);
+      void noteSaid(line, topic);
+    };
     const pressure = pressureRef.current;
     if (pressureSpeaks(pressure)) {
       const level = pressure.level === 4 && !pressure.demonAllowed ? { ...pressure, level: 3 as const } : pressure;
-      for (let attempt = 0; attempt < 6; attempt++) {
-        const line = pressureLine(level, personality);
-        if (line && line !== shown) { say(line); return; }
-      }
+      const fresh = pickFresh(shuffled(pressureLines(level, personality)).map(line => ({ topic: 'pressure', line })), said);
+      if (fresh) { say(fresh.line, fresh.topic); return; }
     }
+    const { buildBrief, echoSays } = require('@/lib/echoSays') as typeof import('@/lib/echoSays');
+    const goals = goalsDataRef.current;
+    const deadlines = !goals ? [] : upcomingDeadlines(
+      goals.goals.map(goal => ({ title: goal.name, daysLeft: goals.insightsById[goal.id]?.daysLeft ?? null, progress: goals.insightsById[goal.id]?.progress ?? 0 })),
+      getData().tasks, localDateKey(new Date()));
+    const brief = await buildBrief({ name: name ?? undefined, streak: stats.streak, deadlines }).catch(() => null);
+    // The lines Echo says when your apps have had you a while, kept current with the day (lib/echoScroll.ts).
+    if (brief) (require('@/lib/echoScroll') as typeof import('@/lib/echoScroll')).sendScrollLines(personality, brief);
+    const specific = brief ? await echoSays(personality, brief, said).catch(() => null) : null;
+    if (specific) { say(specific.line, specific.topic); return; }
     // Now and then, something Echo found in your record instead.
     const found = nextPatternLine(echoPatternsRef.current);
-    if (found && found !== shown) { say(found); return; }
-    say(await nextEchoLine(personality, { ...stats, name, patterns: echoPatternsRef.current.map(pattern => pattern.text) }, greetingStyle));
+    if (found && !said.some(item => item.line === found)) { say(found, 'pattern'); return; }
+    say(await nextEchoLine(personality, { ...stats, name, patterns: echoPatternsRef.current.map(pattern => pattern.text) }, greetingStyle), 'bank');
   }, [aiPersonality, greetingStyle]);
   const showEchoLineRef = useRef(showEchoLine);
   useEffect(() => { showEchoLineRef.current = showEchoLine; }, [showEchoLine]);
@@ -189,7 +204,14 @@ const Home = () => {
       // A new line from Echo every time Home comes into view, once the tab has
       // been drawn: changing it re-renders Home, which held up the switch.
       const later = afterPaint(() => { void showEchoLine(); });
-      return () => later.cancel();
+      // Echo keeps up with the day while you are here: when a habit or task changes (a tick,
+      // something added, an early finish), and every few minutes as the clock moves on.
+      let soon: ReturnType<typeof setTimeout> | undefined;
+      const again = () => { if (soon) clearTimeout(soon); soon = setTimeout(() => { void showEchoLineRef.current?.(); }, 2000); };
+      const { onAny } = require('@/lib/appEvents') as typeof import('@/lib/appEvents');
+      const off = onAny(['tasks_changed', 'habit_completion_updated', 'habit_created', 'habit_updated', 'habit_deleted'], again);
+      const tick = setInterval(again, 5 * 60_000);
+      return () => { later.cancel(); off(); clearInterval(tick); if (soon) clearTimeout(soon); };
     }, [showEchoLine])
   );
 
@@ -262,6 +284,7 @@ const Home = () => {
 
   // The same number as the goals overview and each goal's stats.
   const goalsData = useGoalsInsights();
+  goalsDataRef.current = goalsData;
   const { overall: avgGoalProgress, tasks: allTasks, skippedToday, today: todayKeyString } = goalsData;
   // Marks, from the same habits, tasks and history already loaded here.
   const marks = useMarks(goalsData);

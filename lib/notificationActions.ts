@@ -24,6 +24,10 @@ export const ITEM_CATEGORY = 'ECHO_ALIVE';
 export const NUDGE_CATEGORY = 'ECHO_NUDGE';
 /** At the end of something's time (lib/dayGuide.ts): done, or more time? */
 export const TIMES_UP_CATEGORY = 'ECHO_TIMES_UP';
+/** The day as it happens (lib/dayGuide.ts): one button, Done, ticking the habit or task whose time just ended. */
+export const DONE_CATEGORY = 'HABYSS_DONE';
+/** A handover ("Now: Emails"): its button ticks the one whose time just ended, so it says so. */
+export const HANDOVER_CATEGORY = 'HABYSS_HANDOVER';
 /** Echo asking how your energy is, answered on the notification. */
 export const ENERGY_CATEGORY = 'ECHO_ENERGY';
 
@@ -55,6 +59,8 @@ const button = (identifier: string, buttonTitle: string, extra: Partial<Button['
     ({ identifier, buttonTitle, options: { opensAppToForeground: true, ...extra } });
 
 export const CATEGORIES: { id: string; buttons: Button[] }[] = [
+    { id: DONE_CATEGORY, buttons: [button(ACTION.done, 'Done')] },
+    { id: HANDOVER_CATEGORY, buttons: [button(ACTION.done, 'Last one done')] },
     { id: ITEM_CATEGORY, buttons: [
         button(ACTION.done, 'Done'),
         button(ACTION.start, 'Start focus'),

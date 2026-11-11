@@ -4,6 +4,8 @@
  * Cloud sync will be re-enabled with premium subscription.
  */
 
+import { parseAnchor, storeAnchor, type HabitAnchor } from './habitAnchor';
+import { parseAlerts, storeAlerts } from './itemAlerts';
 import { getDatabase, generateId, isSQLiteAvailable } from './database';
 import { HealthKitService } from './HealthKitService';
 import { Platform } from 'react-native';
@@ -60,6 +62,10 @@ export interface Habit {
     goalSpec?: string;
     locationReminders?: LocationReminder[];
     reminderOffset?: number; // Minutes before start time
+    /** Its own reminders before it begins, in minutes (lib/itemAlerts.ts); replaces reminderOffset when set. */
+    alerts?: number[];
+    /** Held before or after an event or meal by name (lib/habitAnchor.ts); null clears it. */
+    anchor?: HabitAnchor | null;
     /** One specific sentence for this habit's reminder; Echo writes it when unset. */
     reminderMessage?: string;
     /** A lib/recurrence rule as JSON, when the schedule needs more than weekdays. */
@@ -205,6 +211,8 @@ export async function getHabits(): Promise<Habit[]> {
                             trigger: location.trigger === 'leave' ? 'leave' : 'arrive',
                         })),
                     reminderMessage: row.reminder_message || undefined,
+                    alerts: parseAlerts(row.alerts),
+                    anchor: parseAnchor(row.anchor),
                     priority: row.priority === 1 || row.priority === 3 ? row.priority : row.priority === 2 ? 2 : undefined,
                     difficulty: row.difficulty === 1 || row.difficulty === 2 || row.difficulty === 3 ? row.difficulty : undefined,
                     flexible: row.flexible === 0 ? false : row.flexible === 1 ? true : undefined,
@@ -300,6 +308,8 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     now,
                     now
                 );
+                if (habitData.alerts?.length) await db.runAsync('UPDATE habits SET alerts = ? WHERE id = ?', storeAlerts(habitData.alerts), id);
+                if (habitData.anchor) await db.runAsync('UPDATE habits SET anchor = ? WHERE id = ?', storeAnchor(habitData.anchor), id);
 
 
                 const created: Habit = {
@@ -333,6 +343,8 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     ringtone: habitData.ringtone || 'default',
                     goalSpec: habitData.goalSpec,
                     reminderOffset: habitData.reminderOffset,
+                    alerts: parseAlerts(habitData.alerts ?? []),
+                    anchor: parseAnchor(habitData.anchor ?? null),
                     locationReminders: habitData.locationReminders || [],
                     graphStyle: habitData.graphStyle,
                     trackingMethod: habitData.trackingMethod,
@@ -408,6 +420,8 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 if (updatedHabit.goalSpec !== undefined) { setClauses.push('goal_spec = ?'); params.push(updatedHabit.goalSpec); }
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'reminderOffset')) { setClauses.push('reminder_offset = ?'); params.push(updatedHabit.reminderOffset ?? null); }
                 if (updatedHabit.locationReminders !== undefined) { setClauses.push('location_reminders = ?'); params.push(JSON.stringify(updatedHabit.locationReminders)); }
+                if (updatedHabit.alerts !== undefined) { setClauses.push('alerts = ?'); params.push(storeAlerts(updatedHabit.alerts)); }
+                if (updatedHabit.anchor !== undefined) { setClauses.push('anchor = ?'); params.push(storeAnchor(updatedHabit.anchor)); }
                 if (updatedHabit.reminderMessage !== undefined) { setClauses.push('reminder_message = ?'); params.push(updatedHabit.reminderMessage?.trim() || null); }
                 if (updatedHabit.recurrence !== undefined) { setClauses.push('recurrence = ?'); params.push(updatedHabit.recurrence || null); }
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'healthKitMetric')) { setClauses.push('health_kit_metric = ?'); params.push(updatedHabit.healthKitMetric ?? null); }
@@ -915,41 +929,10 @@ export async function getHabitStats(habitId: string): Promise<{
     );
     const completed = new Set<string>(rows.filter((row: any) => !row.skipped).map((row: any) => row.date));
     const skipped = new Set<string>(rows.filter((row: any) => row.skipped).map((row: any) => row.date));
-    const habitHistory = [];
-    for (let day = trackingStartStr; day <= today; day = addDays(day, 1)) {
-        habitHistory.push({
-            date: day,
-            completed: completed.has(day),
-            scheduled: !skipped.has(day) && isHabitScheduledForDate(habit, new Date(`${day}T12:00:00`)),
-        });
-    }
-
-    const relevantHistory = habitHistory.filter((day) => day.scheduled);
-
-    let currentStreak = 0;
-    let bestStreak = 0;
-    let tempStreak = 0;
-    let totalCompletions = 0;
-
-    relevantHistory.forEach(day => {
-        if (day.completed) {
-            tempStreak++;
-            totalCompletions++;
-        } else {
-            bestStreak = Math.max(bestStreak, tempStreak);
-            tempStreak = 0;
-        }
-    });
-    bestStreak = Math.max(bestStreak, tempStreak);
-
-    // Current streak (from end, allow today to be incomplete)
-    for (let i = relevantHistory.length - 1; i >= 0; i--) {
-        if (relevantHistory[i].completed) currentStreak++;
-        else if (relevantHistory[i].date === today) continue; // only today is still pending
-        else break;
-    }
-
-    const totalDaysTracked = relevantHistory.length;
+    // Counted in lib/habitStreak.ts, the same way the streak widget counts one habit.
+    const { habitDays, habitRun } = require('./habitStreak') as typeof import('./habitStreak');
+    const days = habitDays(trackingStartStr, today, day => isHabitScheduledForDate(habit, new Date(`${day}T12:00:00`)), completed, skipped);
+    const { currentStreak, bestStreak, totalCompletions, totalDaysTracked } = habitRun(days, today);
     const completionRate = totalDaysTracked > 0 ? Math.round((totalCompletions / totalDaysTracked) * 100) : 0;
 
     return { currentStreak, bestStreak, completionRate, totalCompletions, totalDaysTracked };

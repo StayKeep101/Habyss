@@ -19,6 +19,8 @@ let crossingQueue: Promise<void> = Promise.resolve();
  */
 async function notifyCrossing(identifier: string, direction: 'arrive' | 'leave') {
     // Defer loading because habit persistence also imports the notification service.
+    // A task's place ("task:<id>::<n>"): reminded while it is still open, once a day per place and way.
+    if (identifier.startsWith('task:')) { await notifyTaskCrossing(identifier, direction); return; }
     const { getHabits, getCompletions }: typeof import('./habitsSQLite') = require('./habitsSQLite');
     const [habitId, index] = identifier.split('::');
     if (!/^\d+$/.test(index || '')) return;
@@ -41,6 +43,32 @@ async function notifyCrossing(identifier: string, direction: 'arrive' | 'leave')
             body: 'Time for ' + habit.name,
             sound: habit.ringtone === 'silent' || habit.ringtone === 'vibrate' ? false : 'default',
             data: { habitId, url: '/habit-detail?habitId=' + encodeURIComponent(habitId) },
+        },
+        trigger: null,
+    });
+    await AsyncStorage.setItem(dedupeKey, date);
+}
+
+async function notifyTaskCrossing(identifier: string, direction: 'arrive' | 'leave') {
+    const { getTasks }: typeof import('./tasks') = require('./tasks');
+    const [key, index] = identifier.split('::');
+    const taskId = key.slice('task:'.length);
+    if (!/^\d+$/.test(index || '')) return;
+    const task = (await getTasks()).find(item => item.id === taskId);
+    if (!task || task.status !== 'open') return;
+    const place = task.locationReminders?.[Number(index)];
+    if (!place || (place.trigger ?? 'arrive') !== direction) return;
+    const date = localDateKey(new Date());
+    const dedupeKey = `habyss_crossing_task_${taskId}::${index}::${direction}`;
+    if (await AsyncStorage.getItem(dedupeKey) === date) return;
+    const permission = await Notifications.getPermissionsAsync();
+    if (!permission.granted && permission.ios?.status !== Notifications.IosAuthorizationStatus.PROVISIONAL) return;
+    await Notifications.scheduleNotificationAsync({
+        content: {
+            title: (direction === 'leave' ? 'Leaving ' : 'Arrived at ') + place.name,
+            body: 'Time for ' + task.title,
+            sound: 'default',
+            data: { taskId, url: '/(root)/(tabs)/roadmap' },
         },
         trigger: null,
     });
@@ -137,6 +165,20 @@ export class LocationService {
                         });
                     });
                 }
+            }
+
+            // And open tasks' places, the same way.
+            const { getTasks }: typeof import('./tasks') = require('./tasks');
+            for (const task of await getTasks().catch(() => [])) {
+                if (task.status !== 'open') continue;
+                (task.locationReminders ?? []).forEach((loc, index) => {
+                    if (!Number.isFinite(loc.latitude) || !Number.isFinite(loc.longitude) || Math.abs(loc.latitude) > 90 || Math.abs(loc.longitude) > 180) return;
+                    regions.push({
+                        identifier: `task:${task.id}::${index}`, latitude: loc.latitude, longitude: loc.longitude,
+                        radius: Number.isFinite(loc.radius) ? Math.max(100, loc.radius!) : 150,
+                        notifyOnEnter: loc.trigger !== 'leave', notifyOnExit: loc.trigger === 'leave',
+                    });
+                });
             }
 
             const monitoredRegions = regions.slice(0, Platform.OS === 'ios' ? 20 : 100);

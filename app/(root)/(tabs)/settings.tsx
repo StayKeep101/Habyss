@@ -1,6 +1,6 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { SettingsGroup, SettingsRow, SettingsSearch } from '@/components/ui/SettingsList';
 import { AppTextField } from '@/components/ui/AppTextField';
 import { searchDeep } from '@/lib/settingsSearch';
@@ -12,19 +12,13 @@ import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
 import { emit, on } from '@/lib/appEvents';
 import { useMyProfile } from '@/hooks/useMyProfile';
-import { CLOCK_STYLES, setClockStyle, type ClockStyle } from '@/lib/focusClock';
-import { useClockStyle } from '@/hooks/useClockStyle';
-import { setFocusBlocking, useFocusBlocking } from '@/lib/focusBlocking';
-import { ScreenTimeService } from '@/lib/ScreenTimeService';
-import { setWeekStart, type WeekStart } from '@/lib/weekStart';
-import { useWeekStart } from '@/hooks/useWeekStart';
-import { syncBrainDumpReview } from '@/lib/brainDumpReview';
-
-/** Sleep goals offered, in hours. */
-import { useDailyTarget } from '@/hooks/useDailyFocus';
-import { saveDailyTarget } from '@/lib/dailyFocus';
 
 import { useAppSettings } from '@/context/AppSettingsContext';
+import { useFocusBlocking } from '@/lib/focusBlocking';
+import { useAppGate } from '@/lib/appGate';
+import { useBedtimeLock } from '@/lib/bedtimeLock';
+import { cachedDayWindow, DEFAULT_DAY, getDayWindow, minutesOf } from '@/lib/echo';
+import { clockLabel } from '@/lib/dayFlow';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { usePro } from '@/hooks/usePro';
 import { hasAnyIntegration } from '@/lib/integrationAvailability';
@@ -53,14 +47,17 @@ export default function ProfileScreen() {
     const { horizontalPadding, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
 
     // User state
-    const { selectionFeedback, lightFeedback } = useHaptics();
-    const dailyTarget = useDailyTarget();
+    const { selectionFeedback } = useHaptics();
     // You, from the one profile store (lib/profile.ts).
     const me = useMyProfile();
-    const clockStyle = useClockStyle();
+    // What the pages below are set to, shown on their rows.
     const blocking = useFocusBlocking();
-    // Opens already showing what was chosen (kept in memory once read).
-    const weekStart = useWeekStart();
+    const bedtimeLock = useBedtimeLock();
+    const gate = useAppGate();
+    const blockingOn = blocking || gate.on || bedtimeLock;
+    const [day, setDay] = useState(() => cachedDayWindow() ?? DEFAULT_DAY);
+    useEffect(() => { void getDayWindow().then(setDay).catch(() => undefined); }, []);
+    const dayHours = `${clockLabel(minutesOf(day.wake))} – ${clockLabel(minutesOf(day.sleep))}`;
     // The + on this tab is a search lens: it opens the field, and the rows filter as you type.
     const [searching, setSearching] = useState(false);
     const [query, setQuery] = useState('');
@@ -78,8 +75,6 @@ export default function ProfileScreen() {
     const {
         notificationsEnabled,
         aiPersonality,
-        autoReschedule,
-        setAutoReschedule,
     } = useAppSettings();
 
 
@@ -140,58 +135,31 @@ export default function ProfileScreen() {
                         <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                     </TouchableOpacity>}
 
-                    {/* One topic per group, in the order people reach for them:
-                        their day, focusing, Echo, their things, the app, the
-                        account, help. Plain names; nothing that is not a setting
-                        or a place only Settings leads to. */}
+                    {/* One topic per group, each setting in exactly one place, named by the question
+                        people come with: when is my day, what gets blocked, when does my phone buzz.
+                        Only pages here; what they hold is one tap away, and found by search. */}
                     <SettingsGroup title="Your day">
-                        {/* Wake and bed times, meals and calendars: what the timeline is built around. */}
-                        <SettingsRow icon="time" color="#FF9F0A" label="Day, meals & calendar" onPress={() => router.push('/(root)/meals' as never)} />
-                        <SettingsRow icon="checkmark-done" color="#FF9F0A" label="Tasks a day"
-                            choices={[{ id: '3', label: '3' }, { id: '5', label: '5' }]}
-                            chosen={String(dailyTarget)} onChoose={id => void saveDailyTarget(Number(id) as 3 | 5)} />
-                        {/* When a week ends: calendars start on it and the brain dump is reviewed then. */}
-                        <SettingsRow icon="calendar" color="#64D2FF" label="Week starts"
-                            choices={[{ id: 'monday', label: 'Mon' }, { id: 'sunday', label: 'Sun' }]} chosen={weekStart}
-                            onChoose={id => {
-                                void setWeekStart(id as WeekStart).then(() => syncBrainDumpReview());
-                            }} />
-                        {/* Whether the timeline moves things for you. Off, it is a plain calendar:
-                            everything stays at its time, Exact/Flexible leaves the forms, and what has
-                            no time waits in Anytime. Urgency and difficulty stay, on the cards. */}
-                        <SettingsRow icon="shuffle" color="#30D158" label="Auto-reschedule"
-                            toggle={autoReschedule} onToggle={value => { lightFeedback(); setAutoReschedule(value); }} />
+                        {/* Wake and bed times, planning, calendar and meals: what the timeline is built around. */}
+                        <SettingsRow icon="time" color="#FF9F0A" label="Day & calendar" keywords="wake bedtime sleep meals tasks a day week starts auto-reschedule calendar"
+                            value={dayHours} onPress={() => router.push('/(root)/meals' as never)} />
+                        <SettingsRow icon="timer" color="#FF375F" label="Focus" keywords="clock style ring digital block"
+                            onPress={() => router.push('/(root)/focus-settings' as never)} />
+                        <SettingsRow icon="lock-closed" color="#FF375F" label="App blocking" keywords="screen time earn your scroll bedtime lock top 3 apps to block hard lock"
+                            value={blockingOn ? 'On' : 'Off'} onPress={() => router.push('/(root)/app-blocking' as never)} />
                     </SettingsGroup>
 
-                    <SettingsGroup title="Focus">
-                        {/* Focus blocks the apps chosen here (Screen Time) until it ends or is paused. */}
-                        <SettingsRow icon="hand-left" color="#FF375F" label="Block apps while focusing"
-                            toggle={blocking} onToggle={value => { lightFeedback(); void setFocusBlocking(value); }} />
-                        {blocking ? (
-                            <SettingsRow icon="apps" color="#FF375F" label="Apps to block"
-                                onPress={() => {
-                                    lightFeedback();
-                                    void ScreenTimeService.chooseApps().then(ok => {
-                                        if (!ok) Alert.alert('Screen Time not available', 'Allow Habyss in Settings → Screen Time, or update to the newest version of Habyss, then try again.');
-                                    });
-                                }} />
-                        ) : null}
-                        <SettingsRow icon="timer" color="#FF375F" label="Clock style"
-                            choices={CLOCK_STYLES} chosen={clockStyle} onChoose={id => void setClockStyle(id as ClockStyle)} />
-                    </SettingsGroup>
-
-                    <SettingsGroup title="Echo & reminders">
+                    <SettingsGroup title="Echo & alerts">
+                        {/* How Echo talks: its voice, what it remembers, the on-device model. */}
                         <SettingsRow icon="sparkles" color="#5E5CE6" label="Echo"
                             value={PERSONALITY_MODES.find(mode => mode.id === aiPersonality)?.name ?? 'Friendly'}
                             onPress={() => router.push('/(root)/ai-settings')} />
-                        <SettingsRow icon="notifications" color="#FF453A" label="Notifications"
+                        {/* When your phone buzzes: every reminder, the morning alarm and check-ins. */}
+                        <SettingsRow icon="notifications" color="#FF453A" label="Notifications" keywords="alarm morning check-in weekly review reminders live activities"
                             value={notificationsEnabled ? 'On' : 'Off'} onPress={() => router.push('/(root)/notifications')} />
                     </SettingsGroup>
 
-                    <SettingsGroup title="Your habits & goals">
-                        <SettingsRow icon="repeat" color="#BF5AF2" label="All habits" onPress={() => router.push('/(root)/all-habits')} />
-                        <SettingsRow icon="flag" color="#FF453A" label="Goal plans" onPress={() => router.push('/(root)/goal-roadmap')} />
-                        <SettingsRow icon="bulb" color="#FFD60A" label="Brain dump" onPress={() => router.push('/brain-dump' as never)} />
+                    <SettingsGroup title="People">
+                        <SettingsRow icon="people" color="#30D158" label="Friends & sharing" onPress={() => router.push('/(root)/sharing')} />
                     </SettingsGroup>
 
                     <SettingsGroup title="App">
@@ -205,8 +173,7 @@ export default function ProfileScreen() {
                     <SettingsGroup title="Account">
                         <SettingsRow icon="person-circle" color="#5B8CFF" label="Account & backup"
                             value={accountEmail ? 'Signed in' : 'Sign in'} onPress={() => router.push('/(root)/account')} />
-                        <SettingsRow icon="people" color="#30D158" label="Friends & sharing" onPress={() => router.push('/(root)/sharing')} />
-                        <SettingsRow icon="lock-closed" color="#8A8A94" label="Privacy" onPress={() => router.push('/(root)/privacy')} />
+                        <SettingsRow icon="finger-print" color="#8A8A94" label="Privacy & security" keywords="face id lock" onPress={() => router.push('/(root)/privacy')} />
                         {/* Everything is free; Pro is desktop sync (lib/access.ts). */}
                         <SettingsRow icon="sync" color="#FFB020" label="Habyss Pro"
                             value={pro.kind === 'pro' ? 'On' : undefined}

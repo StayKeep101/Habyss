@@ -1,6 +1,6 @@
 import type { IconName } from '@/components/ui/AppIcon';
 
-export type PersonalityModeId = 'friendly' | 'normal' | 'dad_mode' | 'bully_mode';
+export type PersonalityModeId = 'friendly' | 'normal' | 'dad_mode' | 'bully_mode' | 'goofball';
 
 export interface PersonalityMode {
     id: PersonalityModeId;
@@ -77,5 +77,18 @@ export const PERSONALITY_MODES: PersonalityMode[] = [
             failure: "Weak as shit. You chose to be mediocre today.",
             checkin: "12 out of 21? Pathetic. Get your ass moving."
         }
-    }
+    },
+    {
+        id: 'goofball',
+        name: 'Goofball',
+        icon: 'balloon-outline',
+        description: 'Jokes. Sarcastic about getting serious.',
+        attributes: { warmth: 70, directness: 60, humor: 100, toughness: 35, empathy: 60 },
+        systemPrompt: `You are the user's funniest friend: playful, sarcastic, quick with a joke. You tease them about procrastinating and treat their to-do list like a sitcom, with mock-dramatic exaggeration and deadpan one-liners. Under the jokes the point always lands: they should do the thing. Clean humour only, no swearing, never mean about their body, looks, identity or mental health.`,
+        examples: {
+            success: "Look at you, finishing things. Should I alert the media or just the neighbours?",
+            failure: "Bold strategy, doing nothing. Let's see if it pays off. (It won't.)",
+            checkin: "12 out of 21. A solid C. Your habits are passing, barely, like a group project.",
+        },
+    },
 ];

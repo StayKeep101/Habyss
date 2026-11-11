@@ -414,7 +414,7 @@ PODS:
   - hermes-engine (250829098.0.17):
     - hermes-engine/Pre-built (= 250829098.0.17)
   - hermes-engine/Pre-built (250829098.0.17)
-  - llama-rn (0.10.1):
+  - llama-rn (0.12.9):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -3339,7 +3339,7 @@ SPEC CHECKSUMS:
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
   HabyssLiveActivity: 50db8375b58b718a36852dea8d2fca76b3dcf17f
   hermes-engine: 63c5db7d529c36335fada6582fd293ae2a105d77
-  llama-rn: bb3a912aec1daeb0e3c762ee238dd7d8dd395884
+  llama-rn: b8dd47d00ced9b813c05410bdac59dd2b7c27ca4
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
   PromisesSwift: 217dea0fd5d2ad65222a109c48698add13cc1c5b
   PurchasesHybridCommon: 5e012ecbd932092af743a8cec6bf55b605f2d89d

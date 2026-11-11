@@ -152,7 +152,7 @@ describe('opening a habit that already exists', () => {
     const saved = {
         id: 'h9', name: 'Run everyday', taskDays: ['mon', 'wed'], goalValue: 30, unit: 'min',
         color: '#10B981', icon: 'walk-outline', reminders: [], startDate: '2026-01-01',
-        category: 'personal', startTime: '07:00',
+        category: 'personal', startTime: '07:00', flexible: false,
     } as unknown as Habit;
 
     beforeEach(() => jest.clearAllMocks());
@@ -178,6 +178,13 @@ describe('opening a habit that already exists', () => {
             taskDays: ['mon', 'wed'],
             startTime: '07:00',
         });
+    });
+
+    it('flexible has no time of day: a time it once had is cleared on save', async () => {
+        const screen = render(<HabitSheet visible habit={{ ...saved, flexible: undefined } as Habit} />);
+        await act(async () => { fireEvent.press(screen.getByText('Save changes')); });
+        await waitFor(() => expect(updateHabit).toHaveBeenCalled());
+        expect((updateHabit as jest.Mock).mock.calls[0][0]).toHaveProperty('startTime', undefined);
     });
 
     it('reads the sentence again as soon as it is actually edited', async () => {

@@ -2,21 +2,19 @@ import { AppButton } from '@/components/ui/AppButton';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
-import { Alert, AppState, Linking, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useAccentGradient } from '@/context/AccentContext';
 import { textOn } from '@/theme/tokens';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
-import { morningAlarmAvailable, syncMorningAlarm } from '@/lib/morningAlarm';
 import { AlivePreview } from '@/components/Echo/AlivePreview';
-import { aliveLine } from '@/lib/echoAlive';
 import { AnimatedFill } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { useAppSettings, GreetingStyle } from '@/context/AppSettingsContext';
-import { canWriteLines, currentEngine } from '@/lib/onDeviceAI';
+import { appleReady, canWriteLines, currentEngine } from '@/lib/onDeviceAI';
 import { LOCAL_MODEL } from '@/lib/localModelDownload';
 import type { ModelDownloadState } from '@/lib/LocalLLMService';
 import { coachHello, coachReminder } from '@/lib/coachMessages';
@@ -45,7 +43,7 @@ const GREETING_STYLES: { id: GreetingStyle; label: string; icon: string; descrip
     { id: 'all', label: 'Everything', icon: 'shuffle', description: 'A bit of all of it' },
 ];
 
-/** Apple supplies its system model; the optional Gemma file comes from Hugging Face. */
+/** Apple supplies its system model; the optional offline model (Qwen3.5 0.8B) comes from Hugging Face. */
 const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
     const { primary: accentSolid } = useAccentGradient();
     const Service = localModel();
@@ -84,16 +82,16 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
     };
 
     const canDownload = !!Service;
-    const apple = engine === 'apple';
-    const onPhone = apple || downloaded === true;
-    const title = apple ? 'Apple Intelligence' : LOCAL_MODEL.name;
-    const badge = apple ? 'Built in' : transfer.phase === 'loading' ? 'Loading…'
+    // Echo's voice is Qwen once it is here, whether or not Apple Intelligence is (lib/onDeviceAI.ts):
+    // this card is always the downloadable model; Apple's is said on its own line below.
+    const hasApple = appleReady();
+    const onPhone = downloaded === true;
+    const title = LOCAL_MODEL.name;
+    const badge = transfer.phase === 'loading' ? 'Loading…'
         : isDownloading ? (transfer.totalBytes ? `${Math.floor(transfer.percentage)}%` : 'Connecting…')
             : engine === 'llama' ? 'Ready' : downloaded ? 'Downloaded' : retry ? 'Incomplete' : 'Optional';
     // Short on purpose: what it is, and whether to get it.
-    const status = apple
-        ? 'Built into this iPhone. Private.'
-        : !canDownload ? 'Comes with the next app build.'
+    const status = !canDownload ? 'Comes with the next app build.'
         : busy
             ? transfer.phase === 'loading' ? 'Loading…'
                 : `${mb(transfer.downloadedBytes)}${transfer.totalBytes ? ` of ${mb(transfer.totalBytes)}` : ''} · keep Habyss open on Wi-Fi`
@@ -101,7 +99,7 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
             : transfer.phase === 'cancelled' ? 'Stopped. Retry starts the download again.'
             : downloaded
                 ? 'On this phone. Private.'
-                : 'Recommended for the full Echo experience. Runs privately on your phone.';
+                : `Echo's voice: more varied lines${hasApple ? ' than Apple Intelligence' : ''}. Runs privately on your phone.`;
 
     return (
         <VoidCard
@@ -124,15 +122,20 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
                     <AnimatedFill progress={transfer.percentage / 100} style={{ height: '100%', backgroundColor: accentSolid }} />
                 </View>
             ) : null}
-            {!apple && !busy && canDownload && downloaded !== null && engine !== 'llama' ? (
+            {!busy && canDownload && downloaded !== null && engine !== 'llama' ? (
                 <AppButton label={retry ? 'Retry' : downloaded ? 'Load offline AI' : `Download · ${LOCAL_MODEL.sizeLabel}`}
                     icon="cloud-download-outline" onPress={() => void Service.downloadModel()} />
             ) : null}
             {isDownloading && Platform.OS === 'ios' ? (
                 <AppButton label="Cancel download" variant="ghost" onPress={() => Service?.cancelDownload()} />
             ) : null}
-            {!apple && !busy && (downloaded || retry) ? (
+            {!busy && (downloaded || retry) ? (
                 <AppButton label="Remove from this phone" variant="danger" onPress={remove} />
+            ) : null}
+            {hasApple ? (
+                <Text style={{ fontSize: 13, lineHeight: 18, color: colors.textTertiary, fontFamily: FontFamily.regular }}>
+                    {`Apple Intelligence is built in: it reads what you type${engine === 'llama' ? '' : ', and speaks for Echo until this is here'}.`}
+                </Text>
             ) : null}
         </VoidCard>
     );
@@ -147,7 +150,7 @@ const AISettings = () => {
     const isLight = theme === 'light';
     const isTrueDark = theme === 'trueDark';
     const { mediumFeedback, selectionFeedback } = useHaptics();
-    const { aiPersonality, setAIPersonality, greetingStyle, setGreetingStyle, notificationsEnabled, setNotificationsEnabled } = useAppSettings();
+    const { aiPersonality, setAIPersonality, greetingStyle, setGreetingStyle } = useAppSettings();
     // const { registerPlacement } = useSuperwall();
 
     const handleSelectPersonality = (id: PersonalityModeId) => {
@@ -196,18 +199,6 @@ const AISettings = () => {
             .catch(() => undefined);
     };
 
-    /** Echo Alive needs notifications; turning it on asks for them if needed. */
-    const setAlive = async (alive: boolean) => {
-        if (alive && !(await NotificationService.requestPermissions())) {
-            Alert.alert('Allow notifications for Echo', 'Enable Habyss notifications in iOS Settings.', [
-                { text: 'Not now', style: 'cancel' }, { text: 'Open Settings', onPress: () => void Linking.openSettings() },
-            ]);
-            return;
-        }
-        if (alive && !notificationsEnabled) await setNotificationsEnabled(true);
-        saveEcho({ ...echo, alive });
-    };
-    const sample = { key: 'habit:run:preview', kind: 'habit' as const, id: 'run', title: 'Run 5 km', day: '', start: new Date(), end: new Date(), url: '' };
     // Every notification these settings would send, in Echo's current voice.
     const who = echo.useName ? name : undefined;
     const previewLines = [
@@ -217,8 +208,6 @@ const AISettings = () => {
             key: `reminder-${index}`, title: 'Echo', body: coachReminder(aiPersonality, { habitName, name: who }), when: ['8:00', '12:30', '18:15'][index],
         })),
         ...(echo.morning ? [{ key: 'morning', title: 'Echo', body: morningCheckIn(day), when: day.wake }] : []),
-        ...(echo.alive ? [{ key: 'alive', ...aliveLine(sample, 'before', aiPersonality, who), when: '7:50' }] : []),
-        ...(echo.alive && echo.aliveFollowUp !== false ? [{ key: 'follow', ...aliveLine(sample, 'follow-up', aiPersonality, who), when: '8:45' }] : []),
         ...(echo.evening ? [{ key: 'evening', title: 'Echo', body: eveningCheckIn(day), when: day.sleep }] : []),
     ];
     // The line a setting just changed, shown at once.
@@ -254,44 +243,8 @@ const AISettings = () => {
                     onChange={handleSelectGreeting}
                 />
 
-                {/* Grouped by what each does: waking you, how it talks, and nudging
-                    around your plan. */}
-                <Group title="Wake up & check-ins">
-                    {/* A real alarm at wake time, in Echo's voice (iOS 26 and later). */}
-                    <SettingsRow icon="alarm" color="#FF9F0A" label="Morning alarm"
-                        value={morningAlarmAvailable() ? undefined : 'iOS 26'}
-                        toggle={echo.morningAlarm === true} disabled={!morningAlarmAvailable()}
-                        onToggle={value => {
-                            saveEcho({ ...echo, morningAlarm: value });
-                            setTimeout(() => {
-                                void syncMorningAlarm().then(result => {
-                                    if (result === 'denied') Alert.alert('Alarms are off for Habyss', 'Allow alarms for Habyss in Settings → Apps → Habyss, then turn this on again.');
-                                    if (result === 'failed') Alert.alert('Could not set the alarm', 'Please try again.');
-                                });
-                            }, 300);
-                        }} />
-                    <ToggleRow
-                        icon="sunny-outline"
-                        label="Morning"
-                        detail={morningCheckIn(day)}
-                        value={echo.morning}
-                        colors={colors}
-                        accent={accentSolid}
-                        onChange={(value: boolean) => saveEcho({ ...echo, morning: value })}
-                    />
-                    <ToggleRow
-                        icon="moon-outline"
-                        label="Before bed"
-                        detail={eveningCheckIn(day)}
-                        value={echo.evening}
-                        colors={colors}
-                        accent={accentSolid}
-                        onChange={(value: boolean) => saveEcho({ ...echo, evening: value })}
-                    />
-                    <SettingsRow icon="notifications" color="#FF453A" label="Weekly review reminder" toggle={echo.weeklyReview !== false}
-                        onToggle={value => { saveEcho({ ...echo, weeklyReview: value }); setTimeout(() => { void (require('@/lib/weeklyReviewNotice') as typeof import('@/lib/weeklyReviewNotice')).syncWeeklyReviewNotice(); }, 300); }} />
-                </Group>
-
+                {/* How Echo talks. When it reaches you (the morning alarm, check-ins, the
+                    weekly review) is on Notifications, with everything else that buzzes. */}
                 <Group title="How Echo talks to you">
                     <ToggleRow
                         icon="person-outline"
@@ -324,26 +277,6 @@ const AISettings = () => {
                     <SettingsRow icon="bookmark" color="#FF9F0A" label="What Echo remembers" onPress={() => router.push('/(root)/echo-memory' as never)} />
                 </Group>
 
-                {/* Echo's nudges around a planned session, shown not explained. */}
-                <Group title="Nudges around your plan">
-                    <ToggleRow
-                        icon="sparkles-outline"
-                        label="Echo Alive"
-                        value={!!echo.alive && notificationsEnabled}
-                        colors={colors}
-                        accent={accentSolid}
-                        onChange={(value: boolean) => void setAlive(value)}
-                    />
-                    <ToggleRow
-                        icon="refresh-outline"
-                        label="Follow-up"
-                        value={echo.aliveFollowUp !== false}
-                        disabled={!echo.alive}
-                        colors={colors}
-                        accent={accentSolid}
-                        onChange={(value: boolean) => saveEcho({ ...echo, aliveFollowUp: value })}
-                    />
-                </Group>
 
                 <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: 22 }]}>On-device AI</Text>
                 <OfflineStartCard colors={colors} isLight={isLight} isTrueDark={isTrueDark} />

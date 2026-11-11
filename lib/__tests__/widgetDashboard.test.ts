@@ -64,3 +64,20 @@ it('keeps habits out of Daily Tasks even when they are the only scheduled items'
     expect(snapshot.days[0].total).toBe(0);
     expect(snapshot.heatmap.find(day => day.date === today)?.total).toBe(1);
 });
+
+it('the streak widget can follow one habit: its own streak and its own days', () => {
+    const snapshot = build({ habits: [habit({ startDate: '2026-09-20', createdAt: '2026-09-20' }), habit({ id: 'read', name: 'Read', startDate: '2026-09-20', createdAt: '2026-09-20' })],
+        history: { '2026-09-23': ['habit'], '2026-09-24': ['habit'], '2026-09-25': ['habit', 'read'], [today]: ['habit'] },
+        skips: { '2026-09-24': ['read'] } });
+    const run = snapshot.habits.find(item => item.id === 'habit')!;
+    const read = snapshot.habits.find(item => item.id === 'read')!;
+    expect(run.streak).toBe(4);
+    // Read: done the 25th, skipped the 24th (not due, so not a break), missed the 23rd. Today still open.
+    expect(read.streak).toBe(1);
+    expect(run.days).toHaveLength(snapshot.heatmap.length);
+    const at = (date: string) => snapshot.heatmap.findIndex(day => day.date === date);
+    expect(read.days[at('2026-09-24')]).toBe('-');
+    expect(read.days[at('2026-09-23')]).toBe('0');
+    expect(read.days[at('2026-09-25')]).toBe('1');
+    expect(read.days[at('2026-09-10')]).toBe('-'); // before it started
+});

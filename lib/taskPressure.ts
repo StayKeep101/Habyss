@@ -116,6 +116,12 @@ const LINES: Record<PersonalityModeId, Record<1 | 2 | 3 | 4, Line[]>> = {
             p => `${behind(p)}. Lazy, soft and full of shit. That is the version of you winning today. Change it.`,
         ],
     },
+    goofball: {
+        1: [p => `${behind(p)}. Not a crisis yet. Just a tiny plot hole. ${first(p)} fixes it.`, p => `${first(p)} is waiting patiently. Unlike me.`],
+        2: [p => `${behind(p)}. The to-do list is starting to form a union. Appease it with ${first(p)}.`, p => `${behind(p)}. Bold of you to assume tomorrow-you will handle this.`],
+        3: [p => `${behind(p)}. Okay, the joke is getting less funny. ${first(p)}, now, and I'll go back to being hilarious.`, p => `${behind(p)}. This is the part of the movie where the hero finally gets up. Cue music. ${first(p)}.`],
+        4: [p => `${behind(p)}. I've run out of jokes, which has never happened. ${first(p)}. Right now. I'm serious. (I hate being serious.)`, p => `${behind(p)}. Even I can't spin this one. Open ${first(p)} and let's write a better ending.`],
+    },
 };
 
 /** Echo's line for this level and personality; null when calm. */
@@ -123,6 +129,12 @@ export function pressureLine(p: TaskPressure, personality: PersonalityModeId, ra
     if (p.level === 0) return null;
     const pool = (LINES[personality] ?? LINES.normal)[p.level];
     return pool[Math.floor(random() * pool.length)](p);
+}
+
+/** Every line for this level and voice, so Home can say one it has not said lately (lib/echoRecent.ts). */
+export function pressureLines(p: TaskPressure, personality: PersonalityModeId): string[] {
+    if (p.level === 0) return [];
+    return (LINES[personality] ?? LINES.normal)[p.level].map(line => line(p));
 }
 
 /** The pressure takes Echo's line over once it is worried or worse. */

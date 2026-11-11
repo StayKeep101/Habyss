@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { Dimensions } from 'react-native';
 import { DemonEdge } from '@/components/ui/DemonEdge';
+import { SleepCover } from '@/components/Sleep/SleepCover';
 import { useTaskPressure } from '@/hooks/useTaskPressure';
 
 /**
@@ -52,6 +53,8 @@ export default function RootLayout() {
         {/* Fades in, not up: the page becomes the void Focus opens from (components/Focus/FocusPortal). */}
         <Stack.Screen name="focus" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="goals-overview" options={{ presentation: 'modal' }} />
+        {/* Earn your scroll: an hour of your apps for Shards, opened from the block screen's notification. */}
+        <Stack.Screen name="unlock" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen
           name="notifications"
           options={{
@@ -151,6 +154,14 @@ export default function RootLayout() {
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
+          name="focus-settings"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="app-blocking"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
           name="goal-plan"
           options={{ headerShown: false, presentation: 'modal' }}
         />
@@ -192,6 +203,8 @@ export default function RootLayout() {
       </Stack>
       {/* Demon mode: far behind on tasks, the edge of the screen glows red (lib/taskPressure.ts). */}
       <DemonEdge on={demon} />
+      {/* When the day is done, Habyss sleeps until wake (the Bedtime lock). */}
+      <SleepCover />
       {/* Phone on its side: focus on what is due now. */}
     </>
   );

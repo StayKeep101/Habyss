@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /** How the focus clock looks (Settings → Focus clock). */
-export type ClockStyle = 'digital' | 'ring' | 'minimal';
+/** Two looks: the ring, or the digits alone. (Minimal, a third, was taken out.) */
+export type ClockStyle = 'digital' | 'ring';
 export const CLOCK_STYLES: { id: ClockStyle; label: string }[] = [
-    { id: 'ring', label: 'Ring' }, { id: 'digital', label: 'Digital' }, { id: 'minimal', label: 'Minimal' },
+    { id: 'ring', label: 'Ring' }, { id: 'digital', label: 'Digital' },
 ];
 
 const KEY = 'habyss_focus_clock';
@@ -21,7 +22,8 @@ export async function loadClockStyle(): Promise<ClockStyle> {
     loaded = true;
     try {
         const stored = await AsyncStorage.getItem(KEY);
-        if (stored === 'digital' || stored === 'ring' || stored === 'minimal') { style = stored; listeners.forEach(l => l()); }
+        // A Minimal chosen before it was taken out opens as the ring.
+        if (stored === 'digital' || stored === 'ring') { style = stored; listeners.forEach(l => l()); }
     } catch { /* default */ }
     return style;
 }

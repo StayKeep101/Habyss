@@ -35,7 +35,7 @@ export function useSmartParse<T>(
         latest.current = text;
     }, [text]);
     const automatic = isOnDeviceAIReady() && enabled;
-    const available = currentEngine() !== null && enabled;
+    const available = currentEngine('parse') !== null && enabled;
     useEffect(() => {
         mounted.current = true;
         return () => { mounted.current = false; };

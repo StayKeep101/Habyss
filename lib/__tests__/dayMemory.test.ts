@@ -114,14 +114,15 @@ describe('the near future holds still, missed ones come back, and moves say why'
         expect(d.at(flow, 'b')).toEqual([[570, 600]]);
         expect(d.at(flow, 'hard')).toEqual([[600, 630]]);
     });
-    it('something urgent added takes over, and the one it interrupted comes straight after', () => {
+    it('something urgent added never replaces what is on: it goes next, ahead of what was next', () => {
         const d = day([item('meditate', 15), item('read', 30)]);
         d.look(540);
         d.set([item('meditate', 15), item('read', 30), item('call', 20, { kind: 'task', priority: 1, notBefore: 545 })]);
         const flow = d.look(545);
-        expect(flow.current?.id).toBe('call');
-        expect(d.at(flow, 'meditate')).toEqual([[565, 580]]);
-        expect(d.at(flow, 'read')).toEqual([[580, 610]]);
+        expect(flow.current?.id).toBe('meditate');
+        expect(d.at(flow, 'meditate')).toEqual([[540, 555]]);
+        expect(d.at(flow, 'call')).toEqual([[555, 575]]);
+        expect(d.at(flow, 'read')).toEqual([[575, 605]]);
     });
     it('something urgent already planned later does not interrupt what is on', () => {
         const d = day([item('first', 30, { kind: 'task', due: '2026-10-19' }), item('urgent', 30, { kind: 'task', priority: 1 })]);

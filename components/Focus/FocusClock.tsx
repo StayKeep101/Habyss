@@ -6,7 +6,6 @@ import { FontFamily } from '@/theme/designSystem';
 import { clockText, type ClockStyle } from '@/lib/focusClock';
 
 const FOCUS_TEXT = '#FFFFFF';
-const FOCUS_DIM = 'rgba(255,255,255,0.35)';
 /** Words under the clock (Paused, Over time): 0.6 white on black reads at 7:1, the dim tone only 3:1. */
 const FOCUS_LABEL = 'rgba(255,255,255,0.6)';
 /** The ring's track and the disc inside it: there, but quieter than anything you read. */
@@ -39,7 +38,6 @@ export function FocusClock({ seconds, progress, style, accent, label, running = 
     const landscape = width > height;
     const text = clockText(seconds);
     const long = text.length > 5;
-    const size = Math.min(width, height) * (landscape ? 0.82 : 0.78);
     const digits = (landscape ? width * 0.2 : width * 0.21) * (long ? 0.78 : 1);
 
     if (style === 'ring') {
@@ -48,19 +46,6 @@ export function FocusClock({ seconds, progress, style, accent, label, running = 
             <View style={landscape ? styles.side : styles.center}>
                 <FocusRing size={ring} progress={progress} accent={accent} running={running} />
                 <FocusDigits seconds={seconds} size={digits * 0.92} label={label} gap={landscape ? 0 : ring * 0.08} />
-            </View>
-        );
-    }
-    if (style === 'minimal') {
-        return (
-            <View style={styles.center}>
-                <SteadyTime text={text} size={digits * 1.05} color={FOCUS_TEXT} weight="regular" />
-                {progress !== null ? (
-                    <View style={[styles.line, { width: size, backgroundColor: FOCUS_DIM }]}>
-                        <View style={[styles.lineFill, { width: `${Math.round((progress ?? 0) * 100)}%`, backgroundColor: accent }]} />
-                    </View>
-                ) : null}
-                {label ? <Text style={[styles.label, { color: FOCUS_LABEL }]}>{label}</Text> : null}
             </View>
         );
     }
@@ -153,6 +138,4 @@ const styles = StyleSheet.create({
     digits: { fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'], letterSpacing: -2 },
     thin: { fontFamily: FontFamily.regular, fontVariant: ['tabular-nums'], letterSpacing: -3 },
     label: { fontFamily: FontFamily.medium, fontSize: 15, marginTop: 6 },
-    line: { height: 2, marginTop: 18, borderRadius: 1, overflow: 'hidden' },
-    lineFill: { height: '100%' },
 });

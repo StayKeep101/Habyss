@@ -192,8 +192,20 @@ const SCRUB_LAYOUT = LinearTransition.duration(DURATION.tap).easing(EASE.move).r
  * fades out when it is removed or finished away, and when its neighbours come
  * and go it slides to its new place instead of jumping there.
  */
-export function ListItem({ children, style, index = 0, rise = false, still = false }: {
+export function ListItem({ children, style, index = 0, rise = false, still = false, instant = false, noExit = false }: {
     children: React.ReactNode; style?: StyleProp<ViewStyle>; index?: number;
+    /**
+     * Gone at once when removed, no fade. For a list whose whole set is replaced at a
+     * stroke (another day on the timeline): fading rows lingered over the new day's rows,
+     * the two days on top of each other for a moment.
+     */
+    noExit?: boolean;
+    /**
+     * Shown as it is, with no entrance at all: a whole new set of rows replacing
+     * the last (another day on the timeline), where rows fading and gliding at
+     * once read as broken. What changes after that animates as usual.
+     */
+    instant?: boolean;
     /**
      * Rows that come and go as fast as a finger moves (scrubbing the day): a
      * 120 ms fade in, gone at once, no stagger (Tier 1), so each card arrives
@@ -209,10 +221,10 @@ export function ListItem({ children, style, index = 0, rise = false, still = fal
     const delay = Math.min(index, 14) * (rise ? MOTION.stagger * 2 : MOTION.stagger);
     return (
         <Animated.View
-            entering={still ? SCRUB_IN : rise
+            entering={instant ? undefined : still ? SCRUB_IN : rise
                 ? FadeInDown.delay(delay).duration(MOTION.duration).easing(MOTION.easing).reduceMotion(ReduceMotion.System)
                 : FadeIn.delay(delay).duration(MOTION.duration).reduceMotion(ReduceMotion.System)}
-            exiting={still ? undefined : FadeOut.duration(MOTION.duration / 2).reduceMotion(ReduceMotion.System)}
+            exiting={still || noExit ? undefined : FadeOut.duration(MOTION.duration / 2).reduceMotion(ReduceMotion.System)}
             layout={still ? SCRUB_LAYOUT : LIST_LAYOUT}
             style={style}
         >

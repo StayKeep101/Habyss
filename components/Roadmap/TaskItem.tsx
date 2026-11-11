@@ -23,7 +23,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { Radius } from '@/theme/designSystem';
-import type { RoadMapCardSize } from '@/context/AppSettingsContext';
+import { useAutoReschedule, type RoadMapCardSize } from '@/context/AppSettingsContext';
 import { isLate, setTaskAmount, taskAmountLabel, taskShare, type Task } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
 import { dueLabel } from '@/lib/dayFlow';
@@ -112,18 +112,21 @@ const TaskItemComponent: React.FC<Props> = ({
     const deadline = task.deadline && task.deadline !== task.dueDate ? dueLabel(task.deadline, today) : null;
     const deadlineUrgent = deadline === 'Due today' || deadline === 'Overdue';
 
+    // A time of day only when it keeps one: exact, or every time when the day is a plain calendar.
+    const autoReschedule = useAutoReschedule();
+    const dueTime = task.dueTime && (task.flexible === false || !autoReschedule) ? task.dueTime : undefined;
     // Right-hand column, where a habit shows its time.
     const when = done
         ? 'Done'
         : overdue ? 'Overdue'
-            : dueToday ? (task.dueTime ?? 'Today')
+            : dueToday ? (dueTime ?? 'Today')
                 : task.dueDate ? shortDate(task.dueDate) : '—';
     const whenColor = overdue ? colors.error : dueToday ? TASK_COLOR : colors.textTertiary;
 
     const label = [
         overdue ? 'Overdue' : task.dueDate ? `${task.dueDate <= today ? 'Today' : shortDate(task.dueDate)}` : 'No date',
         deadline,
-        task.dueTime,
+        dueTime,
         task.estimatedMinutes ? shortLength(task.estimatedMinutes) : null,
         task.priority === 1 ? 'High priority' : null,
         goalName,
@@ -183,14 +186,11 @@ const TaskItemComponent: React.FC<Props> = ({
                     icon: 'chevron-back', label: 'Sooner', color: TASK_COLOR,
                     onPress: () => { selectionFeedback(); onMove?.(task, -1); },
                 }
-                // Focus where the check was; a done task offers its undo instead.
+                // A done task offers its undo; an open one has nothing on this side (no swipe to Focus).
                 : done ? {
                     icon: 'arrow-undo', label: 'Undo', color: colors.textTertiary,
                     onPress: () => onToggle(task),
-                } : {
-                    icon: 'timer', label: 'Focus', color: TASK_COLOR,
-                    onPress: () => { selectionFeedback(); void (require('@/lib/openFocus') as typeof import('@/lib/openFocus')).openFocus({ kind: 'task', id: task.id, title: task.title }); },
-                }}
+                } : undefined}
             right={actions === 'reschedule'
                 ? [
                     { icon: 'chevron-forward', label: 'Later', color: TASK_COLOR, onPress: () => { selectionFeedback(); onMove?.(task, 1); } },

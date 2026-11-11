@@ -13,7 +13,7 @@ import { Control, Radius, Spacing } from '@/theme/designSystem';
 import { DURATION } from '@/theme/motion';
 
 const RANGE_NAME: Record<WalletRange, string> = { '1H': 'Past hour', '24H': 'Past 24 hours', '1W': 'Past week', '1M': 'Past month', '1Y': 'Past year', ALL: 'All time' };
-const VERB: Record<ShardMove['kind'], string> = { add: 'Added', complete: 'Completed', miss: 'Missed', stake: 'Bet placed', payout: 'Bet won', refund: 'Bet refunded' };
+const VERB: Record<ShardMove['kind'], string> = { add: 'Added', complete: 'Completed', miss: 'Missed', stake: 'Bet placed', payout: 'Bet won', refund: 'Bet refunded', unlock: 'Bought an hour' };
 const shortDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 /** A moment under the finger, said as finely as the range is drawn. */
 const momentLabel = (iso: string, range: WalletRange) => {

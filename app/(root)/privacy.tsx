@@ -89,7 +89,7 @@ const Privacy = () => {
   };
 
   return (
-    <SheetScreen title="Privacy" onBack={() => router.back()}>
+    <SheetScreen title="Privacy & security" onBack={() => router.back()}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <SettingsGroup>
           <SettingsRow icon="scan" color="#30D158" label="Face ID lock" toggle={isAppLockEnabled} disabled={changingLock}

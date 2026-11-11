@@ -39,11 +39,15 @@ export interface EchoStats {
 
 type Kind = 'fact' | 'yours' | 'quote' | 'push' | 'roast';
 
+/** Off: see nextEchoLine. */
+const WRITE_FREELY = false;
+
 const MIX: Record<PersonalityModeId, Record<Kind, number>> = {
     friendly: { fact: 2, yours: 3, quote: 3, push: 3, roast: 0 },
     normal: { fact: 3, yours: 3, quote: 4, push: 1, roast: 0 },
     dad_mode: { fact: 1, yours: 3, quote: 4, push: 3, roast: 0 },
     bully_mode: { fact: 1, yours: 2, quote: 3, push: 0, roast: 5 },
+    goofball: { fact: 2, yours: 3, quote: 1, push: 5, roast: 0 },
 };
 
 /**
@@ -123,6 +127,16 @@ const PUSH: Record<PersonalityModeId, ((s: EchoStats) => string)[]> = {
         () => 'You want respect? Earn it from yourself first. Go.',
     ],
     bully_mode: [],
+    goofball: [
+        s => `${s.name ? `${s.name}, y` : 'Y'}our to-do list called. It misses you. It's being weird about it.`,
+        () => 'Procrastination is just doing nothing with extra steps. Skip the steps, do the thing.',
+        () => 'Fun fact: tasks do not finish themselves. I checked. Twice.',
+        () => 'You could do it now, or do it later with extra guilt. The guilt is not free.',
+        () => 'Your future self just sent a strongly worded letter. Mostly capital letters.',
+        () => 'Plot twist: you actually do the thing today. Critics are stunned.',
+        () => 'Motivation is overrated. Just start badly. Badly is still started.',
+        () => 'If you start now, I promise to be insufferably proud of you.',
+    ],
 };
 
 /**
@@ -189,8 +203,12 @@ function yours(s: EchoStats, personality: PersonalityModeId): string[] {
 const RECENT_KEY = 'echo_recent_lines';
 const RECENT_LIMIT = 12;
 
+/** Its own recent lines plus everything Echo said lately on Home (lib/echoRecent.ts). */
 async function recentLines(): Promise<string[]> {
-    try { return JSON.parse((await AsyncStorage.getItem(RECENT_KEY)) ?? '[]'); } catch { return []; }
+    let own: string[] = [];
+    try { own = JSON.parse((await AsyncStorage.getItem(RECENT_KEY)) ?? '[]'); } catch { own = []; }
+    const { loadSaid, saidLines } = require('./echoRecent') as typeof import('./echoRecent');
+    return [...saidLines(await loadSaid().catch(() => [])), ...own];
 }
 
 async function remember(line: string): Promise<void> {
@@ -253,6 +271,7 @@ const STYLE: Record<PersonalityModeId, string> = {
     friendly: 'warm, upbeat and supportive, like a best friend; one emoji at most',
     normal: 'intense and inspiring, like the best motivational quote they have ever read: short, absolute, about hard work and winning; no emoji',
     dad_mode: 'a stern, strict father: short clipped sentences, disappointed when they slack, reminds them that others with less are working harder, expects results, no praise for the bare minimum, no warmth, no emoji',
+    goofball: 'the user’s funniest friend: playful, sarcastic, deadpan one-liners and mock-dramatic exaggeration, teasing them about procrastinating like it is a sitcom, but the point always lands (do the thing); clean humour, no swearing, never mean about body, looks, identity or mental health; one emoji at most',
     bully_mode: 'a foul-mouthed drill sergeant who swears freely (fuck, shit, damn, ass) and cuts deep: guilt about wasting their chances, FOMO about people working right now, people in harder conditions doing more, "your mom did not raise you to be lazy"; never about their body, looks, identity or mental health; no slurs; no emoji',
 };
 
@@ -264,7 +283,9 @@ export async function nextEchoLine(personality: PersonalityModeId, stats: EchoSt
     const recent = await recentLines();
     let line: string | null = null;
 
-    if (style !== 'data' && isOnDeviceAIReady() && Math.random() < 0.4) {
+    // The model no longer writes these from a list of style phrases (a small model stirred them into
+    // sentences with no subject). Echo's specific lines come from lib/echoSays.ts; these are written.
+    if (WRITE_FREELY && style !== 'data' && isOnDeviceAIReady() && Math.random() < 0.4) {
         const facts = [
             stats.name ? `The user you are speaking to is called ${stats.name}` : null,
             `Today: ${stats.todayDone} of ${stats.todayTotal} habits logged`,

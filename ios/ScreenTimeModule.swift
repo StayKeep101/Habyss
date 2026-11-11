@@ -56,6 +56,49 @@ class ScreenTimeModule: NSObject {
         }
     }
     
+    /// Bedtime lock (lib/bedtimeLock.ts): {on, sleep, wake} in minutes from midnight.
+    @objc func setNight(_ json: String) {
+        if #available(iOS 16.0, *) {
+            guard let data = json.data(using: .utf8),
+                  let settings = try? JSONDecoder().decode(Night.Settings.self, from: data) else { return }
+            Night.set(settings)
+        }
+    }
+
+    @objc func setGate(_ json: String) {
+        if #available(iOS 16.0, *) {
+            ScreenTimeManager.shared.setGate(json)
+        }
+    }
+
+    @objc func unlockGate(_ minutes: NSNumber, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        if #available(iOS 16.0, *) {
+            resolve(ScreenTimeManager.shared.unlockGate(minutes: minutes.intValue))
+        } else {
+            reject("UNSUPPORTED", "Requires iOS 16+", nil)
+        }
+    }
+
+    @objc func setScrollLines(_ json: String) {
+        if #available(iOS 16.0, *) { ScreenTimeManager.shared.setScrollLines(json) }
+    }
+
+    @objc func scrolledToday(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        if #available(iOS 16.0, *) { resolve(Gate.scrolledToday()) } else { resolve(0) }
+    }
+
+    @objc func setWallet(_ spendable: NSNumber) {
+        if #available(iOS 16.0, *) { Gate.setSpendable(spendable.intValue) }
+    }
+
+    @objc func takePendingUnlocks(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        if #available(iOS 16.0, *) { resolve(Gate.takePendingUnlocks()) } else { resolve([]) }
+    }
+
+    @objc func gateOpenUntil(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        if #available(iOS 16.0, *) { resolve(Gate.load()?.unlockedUntil ?? 0) } else { resolve(0) }
+    }
+
     @objc func hasSelectedApps(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         if #available(iOS 16.0, *) {
             // A whole category ("Social") counts as a choice, not only single apps.

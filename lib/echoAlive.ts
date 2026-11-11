@@ -51,12 +51,14 @@ export function aliveLine(moment: ScheduledMoment, phase: AliveReminder['phase']
         normal: [`${soon}.`, `${soon}. Get set up.`],
         dad_mode: [`${soon}. Get ready.`, `${soon}. No excuses.`],
         bully_mode: [`${soon}. Get your ass up.`, `${soon}. Move it.`],
+        goofball: [`${soon}. Stretch, sip water, pretend you were ready all along.`, `${soon}. This is your dramatic entrance cue.`],
     };
     const after: Record<PersonalityModeId, string[]> = {
         friendly: [`${capital(hey + did)}? Even five minutes counts 💙`, `${capital(hey + did)}? If it's done, tick it off 🙌`],
         normal: [`${capital(hey + did)}?`, `${capital(hey + did)}? Log it when it is.`],
         dad_mode: [`${capital(hey + did)}? I expect it done today.`, `${capital(hey + did)}? You said you would.`],
         bully_mode: [`${capital(hey + did)}, or are you scrolling again?`, `${capital(hey)}why the hell is this still not done? ${capital(did)}?`],
+        goofball: [`${capital(hey + did)}? Asking for a friend. The friend is your to-do list.`, `${capital(hey + did)}? Or are we doing the thing where we pretend I didn't ask?`],
     };
     const bank = (phase === 'before' ? before : after)[voice] ?? (phase === 'before' ? before.normal : after.normal);
     const seed = [...moment.key].reduce((sum, letter) => sum + letter.charCodeAt(0), 0);

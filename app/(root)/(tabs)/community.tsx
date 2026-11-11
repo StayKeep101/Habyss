@@ -14,7 +14,6 @@ import { afterPaint } from '@/lib/afterPaint';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { IconButton } from '@/components/ui/IconButton';
-import { AppButton } from '@/components/ui/AppButton';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { AppIcon } from '@/components/ui/AppIcon';
@@ -31,7 +30,7 @@ import { FocusingNow } from '@/components/Community/FocusingNow';
 import { useFocusSession } from '@/context/FocusTimeContext';
 import { hostOf, togetherId } from '@/lib/focusTogether';
 import { Colors } from '@/theme/colors';
-import { Radius } from '@/theme/designSystem';
+import { Control, Radius } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -244,15 +243,18 @@ export default function CommunityScreen() {
     const raceStyle = useAnimatedStyle(() => ({
         opacity: 1 - interpolate(lift.get(), [0, stage], [0, 0.85], 'clamp'),
     }));
-    // The buttons sit on the race's level: as the page is lifted, its top edge
-    // passes over them and covers them, the way it covers the race.
-    // Room around them inside the clip, so their shadows are not cut off.
+    // The buttons sit on the race's level, whole: never clipped (a clip cut the badge and the
+    // discs). As the page's top edge rises to them they fade out, then step out of the way so
+    // nothing hidden can be tapped. Plain numbers here: no scale helpers inside a worklet.
     // One step below the status bar, level with the race's heading rather than pressed against the top.
     const actionsTop = insets.top + t.space.sm;
-    const actionsHeight = useSharedValue(0);
-    const actionsStyle = useAnimatedStyle(() => ({
-        height: Math.min(actionsHeight.get(), Math.max(0, stage - lift.get() - actionsTop)),
-    }));
+    const actionsBottom = actionsTop + Control.hitTarget + t.space.sm;
+    const actionsFade = t.space.xl;
+    const actionsStyle = useAnimatedStyle(() => {
+        const edge = stage - lift.get();
+        const shown = interpolate(edge, [actionsBottom, actionsBottom + actionsFade], [0, 1], 'clamp');
+        return { opacity: shown, transform: [{ translateY: shown > 0.05 ? 0 : -1000 }] };
+    });
     // The faces on the race, where they are drawn: a tap on one opens that person.
     const [faceList, setFaceList] = useState<RaceFace[]>([]);
     const openRacer = useCallback((id: string, mine: boolean) => {
@@ -450,7 +452,7 @@ export default function CommunityScreen() {
                 label={unread > 0 ? `Inbox, ${unread} waiting` : 'Inbox'}
                 onPress={() => { lightFeedback(); router.push('/(root)/inbox'); }} diameter={40} size={20} badge={unread} floating />
             <View ref={addFriendTarget} collapsable={false}>
-                <IconButton icon="person-add" label="Add a friend" onPress={() => { mediumFeedback(); setShowAddFriend(true); }} diameter={40} size={20} floating />
+                <IconButton icon="person-add" label="Add a friend" color={colors.textPrimary} onPress={() => { mediumFeedback(); setShowAddFriend(true); }} diameter={40} size={20} floating />
             </View>
         </View>
     );
@@ -484,10 +486,6 @@ export default function CommunityScreen() {
                     mediumFeedback();
                     router.push({ pathname: '/(root)/focus', params: { id: togetherId(host), kind: 'together' } });
                 }} />
-            {/* Adding a friend, on the page itself too (the header's button can be under the race). */}
-            <View style={styles.block}>
-                <AppButton label="Add friends" icon="person-add" onPress={() => { mediumFeedback(); setShowAddFriend(true); }} />
-            </View>
             {/* Today is accountability only: each friend's day. The games are on the next page. */}
             {stream.map((item, index) => {
                 const day = item.post;
@@ -598,9 +596,9 @@ export default function CommunityScreen() {
                     </Animated.ScrollView>
                 </View>
             </Animated.ScrollView>
-            {/* On the race's level: they stay where they are, and the page slides over them as it does over the race. */}
-            <Animated.View style={[styles.actions, { top: actionsTop, right: horizontalPadding - t.space.sm }, actionsStyle]}>
-                <View style={{ padding: t.space.sm }} onLayout={event => actionsHeight.set(event.nativeEvent.layout.height)}>{actions}</View>
+            {/* On the race's level, whole; they fade as the page rises to them (actionsStyle). */}
+            <Animated.View style={[styles.actions, { top: actionsTop, right: horizontalPadding }, actionsStyle]}>
+                {actions}
             </Animated.View>
 
             {cheer ? (

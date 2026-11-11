@@ -32,6 +32,14 @@ struct HeatmapDay: Codable {
     let completed: Int
     let total: Int
 }
+/// One habit for the streak widget: its streak and the heatmap's days, one
+/// character each, oldest first: "1" done, "0" due and not done, "-" not due.
+struct DashboardHabit: Codable, Identifiable {
+    let id: String
+    let name: String
+    let streak: Int
+    let days: String
+}
 struct DashboardGoal: Codable, Identifiable {
     let id: String
     let name: String
@@ -61,6 +69,8 @@ struct DashboardSnapshot: Codable {
     let heatmap: [HeatmapDay]
     var goals: [DashboardGoal]
     var streak: Int? = nil
+    /// Each habit on its own, for the streak widget set to one habit (lib/widgetDashboard.ts).
+    var habits: [DashboardHabit]? = nil
 
     static func read() -> DashboardSnapshot? {
         let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.habyss.data")

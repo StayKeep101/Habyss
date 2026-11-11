@@ -15,6 +15,7 @@ export const ALARM_LINES: Record<PersonalityModeId, string> = {
     normal: 'Up. Your plan for today is ready.',
     dad_mode: 'Up. The day will not wait for you.',
     bully_mode: 'Get up. Everyone else already is.',
+    goofball: 'Rise and shine. Mostly rise. The shining is optional.',
 };
 
 export const morningAlarmAvailable = (): boolean =>

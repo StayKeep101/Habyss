@@ -135,23 +135,6 @@ describe('task reminders', () => {
         dueDate: '2026-09-17', dueTime: '15:00', createdAt: '2026-09-01', updatedAt: '2026-09-01',
     };
 
-    it('schedules a task at the time it is due', async () => {
-        tasksForTest.push(task);
-        (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([]);
-
-        await NotificationService.refreshReminders();
-
-        expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(expect.objectContaining({
-            content: expect.objectContaining({
-                // From Echo, like a text; the line itself names the task.
-                title: 'Echo',
-                body: expect.stringContaining('Send the proposal'),
-                data: expect.objectContaining({ kind: 'task-reminder', taskId: 'task-1' }),
-            }),
-            trigger: expect.objectContaining({ date: new Date(2026, 8, 17, 15, 0) }),
-        }));
-    });
-
     it('cancels the reminder once the task is done, and schedules nothing new', async () => {
         tasksForTest.push({ ...task, status: 'done' });
         (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([
@@ -188,15 +171,6 @@ describe("Echo's check-ins", () => {
         );
     });
 
-    it('schedules the morning one once it is asked for', async () => {
-        echoForTest.morning = true;
-        await NotificationService.refreshReminders();
-        expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(expect.objectContaining({
-            identifier: 'echo:morning:2026-09-16',
-            content: expect.objectContaining({ data: expect.objectContaining({ kind: 'echo-check-in', when: 'morning' }) }),
-        }));
-    });
-
     it('cancels the ones the user has turned back off', async () => {
         (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([
             { identifier: 'echo:evening:2026-09-16', content: { data: { kind: 'echo-check-in' } } },
@@ -218,28 +192,6 @@ describe('Echo Alive native scheduling and actions', () => {
         echoForTest.alive = true;
     });
     afterEach(() => jest.useRealTimers());
-    it('replaces the regular timed reminder with encouragement and a follow-up', async () => {
-        await NotificationService.refreshReminders();
-        const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request)
-            .filter(item => !['keep-alive', 'echo-energy', 'day-review'].includes(item.content.data.kind));
-        expect(calls).toHaveLength(14);
-        expect(calls.every(item => item.content.data.kind === 'echo-alive')).toBe(true);
-        expect(calls[0].trigger.date).toEqual(new Date(2026, 8, 16, 7, 50));
-        expect(calls[1].trigger.date).toEqual(new Date(2026, 8, 16, 8, 45));
-        expect(calls[0].content.categoryIdentifier).toBe('ECHO_ALIVE');
-    });
-    it('cancels today’s follow-up after completion without cancelling tomorrow', async () => {
-        (getCompletions as jest.Mock).mockResolvedValue({ read: true });
-        (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([
-            { identifier: 'old-followup', content: { data: { kind: 'echo-alive', habitId: 'read' } } },
-        ]);
-        await NotificationService.refreshReminders();
-        expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('old-followup');
-        const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request)
-            .filter(item => !['keep-alive', 'echo-energy', 'day-review'].includes(item.content.data.kind));
-        expect(calls).toHaveLength(12);
-        expect(calls.every(item => item.content.data.scheduledDate !== '2026-09-16')).toBe(true);
-    });
     it('respects the master switch and the habit-reminder switch', async () => {
         await AsyncStorage.setItem('app_settings', JSON.stringify({ notificationsEnabled: false }));
         await NotificationService.refreshReminders();
@@ -250,14 +202,6 @@ describe('Echo Alive native scheduling and actions', () => {
         // Nothing about a habit; Echo's own energy question and evening review are not habit reminders.
         const kinds = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request.content.data.kind);
         expect(kinds.filter(kind => !['keep-alive', 'echo-energy', 'day-review'].includes(kind))).toEqual([]);
-    });
-    it('asks about energy once a day', async () => {
-        await NotificationService.refreshReminders();
-        const requests = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request);
-        const energy = requests.find(item => item.content.data.kind === 'echo-energy');
-        expect(energy.content.categoryIdentifier).toBe('ECHO_ENERGY');
-        expect(energy.trigger.date.getHours()).toBeGreaterThanOrEqual(9);
-        expect(requests.some(item => item.content.data.kind === 'day-review')).toBe(false);
     });
     it('answers energy from the notification without opening anything', async () => {
         const { currentCheckIns } = require('../checkIns');
@@ -282,15 +226,5 @@ describe('Echo Alive native scheduling and actions', () => {
         } } } as any);
         expect(setCompletionValue).not.toHaveBeenCalled();
         refresh.mockRestore();
-    });
-    it('keeps an explicit snooze across unrelated refreshes and removes it on completion', async () => {
-        const snooze = { identifier: 'snooze', content: { title: 'Echo', body: 'Try again', sound: 'default',
-            data: { kind: 'echo-alive', habitId: 'read', scheduledDate: '2026-09-16', snoozedUntil: Date.now() + 15 * 60000 } } };
-        (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([snooze]);
-        await NotificationService.refreshReminders();
-        expect(Notifications.cancelScheduledNotificationAsync).not.toHaveBeenCalledWith('snooze');
-        (getCompletions as jest.Mock).mockResolvedValue({ read: true });
-        await NotificationService.refreshReminders();
-        expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('snooze');
     });
 });

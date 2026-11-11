@@ -48,3 +48,22 @@ export function buildTaskReminderPlan(
         .sort((a, b) => a.date.getTime() - b.date.getTime() || a.task.id.localeCompare(b.task.id))
         .slice(0, Math.max(0, limit));
 }
+
+/**
+ * A task's own reminder time ("HH:MM"), as a habit has: on its day (today when it has
+ * none), while it is still open, within the next `hours`. Never in the past.
+ */
+export function buildTaskTimeReminders(tasks: Task[], now = new Date(), hours = 48): TaskReminder[] {
+    const until = now.getTime() + hours * 3600_000;
+    const plan: TaskReminder[] = [];
+    for (const task of tasks) {
+        if (task.status !== 'open' || !task.reminder || !TIME.test(task.reminder)) continue;
+        const day = task.dueDate ?? localDateKey(now);
+        const [year, month, date] = day.split('-').map(Number);
+        const [hour, minute] = task.reminder.split(':').map(Number);
+        const at = new Date(year, month - 1, date, hour, minute, 0, 0);
+        if (!Number.isFinite(at.getTime()) || at.getTime() <= now.getTime() || at.getTime() > until) continue;
+        plan.push({ task, date: at });
+    }
+    return plan.sort((a, b) => a.date.getTime() - b.date.getTime() || a.task.id.localeCompare(b.task.id));
+}

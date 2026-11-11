@@ -39,7 +39,7 @@ export interface ShardMove {
     t: number;
     date: string;
     amount: number;
-    kind: MarkKind | 'stake' | 'payout' | 'refund';
+    kind: MarkKind | 'stake' | 'payout' | 'refund' | 'unlock';
     item?: MarkItem;
     title: string;
     /** Earned nothing (or less) because of a fair-play rule: said in the transactions, so nobody wonders why. */
@@ -70,7 +70,7 @@ const dayOf = (t: number) => { const d = new Date(t); return `${d.getFullYear()}
 export function shardMoves(
     ledger: MarkEvent[],
     ticks: Record<string, number>,
-    bets: { at: number; amount: number; reason: 'stake' | 'payout' | 'refund'; title: string }[] = [],
+    bets: { at: number; amount: number; reason: 'stake' | 'payout' | 'refund' | 'unlock'; title: string }[] = [],
     previouslyEarned: MarkEvent[] = [],
 ): ShardMove[] {
     // Why a completion earns nothing: made the same day, ticked days later, or a goal too new.

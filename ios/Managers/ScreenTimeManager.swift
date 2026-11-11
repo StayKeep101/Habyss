@@ -1,6 +1,7 @@
 import Foundation
 import FamilyControls
 import ManagedSettings
+import DeviceActivity
 import SwiftUI
 
 @available(iOS 16.0, *)
@@ -47,6 +48,71 @@ class ScreenTimeManager: ObservableObject {
         }
     }
     
+    // MARK: Earn your scroll (ios/Gate/GateShared.swift)
+
+    /// The app's view of today (lib/appGate.ts): saved for the block screen and
+    /// the monitor, then applied. Keeps an hour already bought.
+    func setGate(_ json: String) {
+        guard let data = json.data(using: .utf8),
+              var state = try? JSONDecoder().decode(Gate.State.self, from: data) else { return }
+        if let saved = Gate.load() { state.unlockedUntil = max(state.unlockedUntil, saved.unlockedUntil) }
+        Gate.save(state)
+        Gate.apply()
+        // Midnight: a new day starts blocked again, even if Habyss is never opened.
+        let center = DeviceActivityCenter()
+        let daily = DeviceActivityName(Gate.dailyActivity)
+        if state.on {
+            if !center.activities.contains(daily) {
+                let schedule = DeviceActivitySchedule(intervalStart: DateComponents(hour: 0, minute: 0),
+                                                      intervalEnd: DateComponents(hour: 23, minute: 59), repeats: true)
+                try? center.startMonitoring(daily, during: schedule)
+            }
+        } else {
+            center.stopMonitoring([daily, DeviceActivityName(Gate.unlockActivity)])
+        }
+    }
+
+    /// Bought with Shards (already spent on the server): open for `minutes`, then
+    /// the monitor puts the block back, whether or not Habyss is open.
+    func unlockGate(minutes: Int) -> Double {
+        let until = Date().addingTimeInterval(TimeInterval(minutes * 60))
+        guard Gate.load() != nil else { return 0 }
+        Gate.openUntil(until)
+        return until.timeIntervalSince1970
+    }
+
+    /// Echo's lines for each scrolling threshold, written by the app (lib/echoScroll.ts), and the
+    /// daily watch over the chosen apps that makes the monitor extension say them.
+    func setScrollLines(_ json: String) {
+        guard let data = json.data(using: .utf8),
+              let lines = try? JSONSerialization.jsonObject(with: data) as? [String: String] else { return }
+        UserDefaults(suiteName: Gate.groupId)?.set(lines, forKey: Gate.scrollLinesKey)
+        watchScrolling()
+    }
+
+    /// Watches the chosen apps all day, every day: an event at each threshold. Restarted when the
+    /// apps change, so the events always cover what was chosen.
+    func watchScrolling() {
+        loadSelection()
+        let center = DeviceActivityCenter()
+        let name = DeviceActivityName(Gate.scrollActivity)
+        let chosen = activitySelection
+        guard !(chosen.applicationTokens.isEmpty && chosen.categoryTokens.isEmpty && chosen.webDomainTokens.isEmpty) else {
+            center.stopMonitoring([name])
+            return
+        }
+        var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
+        for minutes in Gate.scrollThresholds {
+            events[DeviceActivityEvent.Name("scroll.\(minutes)")] = DeviceActivityEvent(
+                applications: chosen.applicationTokens, categories: chosen.categoryTokens, webDomains: chosen.webDomainTokens,
+                threshold: DateComponents(minute: minutes))
+        }
+        let schedule = DeviceActivitySchedule(intervalStart: DateComponents(hour: 0, minute: 0),
+                                              intervalEnd: DateComponents(hour: 23, minute: 59), repeats: true)
+        center.stopMonitoring([name])
+        try? center.startMonitoring(name, during: schedule, events: events)
+    }
+
     func saveSelection() {
         guard let defaults = UserDefaults(suiteName: appGroupId) else { return }
         if let data = try? JSONEncoder().encode(activitySelection) {
@@ -54,6 +120,8 @@ class ScreenTimeManager: ObservableObject {
             print("Screen Time selection saved (\(activitySelection.applicationTokens.count) apps)")
         }
         if shieldWanted { setShieldEnabled(true) }
+        Gate.apply()
+        watchScrolling()
     }
     
     func loadSelection() {

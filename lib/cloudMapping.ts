@@ -1,3 +1,6 @@
+import { parseAlerts, storeAlerts } from './itemAlerts';
+import { parseAnchor, storeAnchor } from './habitAnchor';
+import { parsePlaces, parseReminderTime, storePlaces } from './places';
 /**
  * Translating rows between the phone and the server.
  *
@@ -95,6 +98,10 @@ export function habitToRemote(row: Row, userId: string): Row {
         graph_style: GRAPH_STYLES.includes(row.graph_style) ? row.graph_style : null,
         tracking_method: TRACKING.includes(row.tracking_method) ? row.tracking_method : 'boolean',
         reminder_offset: finite(row.reminder_offset),
+        // Its own reminders before it begins (lib/itemAlerts.ts), as minutes.
+        alerts: parseAlerts(row.alerts) ?? null,
+        // Held before or after an event or meal (lib/habitAnchor.ts), as jsonb.
+        anchor: parseAnchor(row.anchor) ?? null,
         // Both of these were held out of the mapping while the server had no
         // column for them — uploading a column it lacks fails the whole batch.
         // It has both now, so a restored habit keeps the sentence its reminder
@@ -147,6 +154,8 @@ export function habitToLocal(row: Row): Row {
         // names for amounts, which would otherwise not display.
         tracking_method: row.tracking_method === 'boolean' || !row.tracking_method ? 'boolean' : 'numeric',
         reminder_offset: row.reminder_offset ?? null,
+        ...('alerts' in row ? { alerts: storeAlerts(parseAlerts(row.alerts)) } : {}),
+        ...('anchor' in row ? { anchor: storeAnchor(parseAnchor(row.anchor)) } : {}),
         reminder_message: row.reminder_message ?? null,
         recurrence: row.recurrence ?? null,
         location_reminders: toJsonText(row.location_reminders, '[]'),
@@ -273,6 +282,10 @@ export function taskToRemote(row: Row, userId: string): Row {
         subtasks: (() => { try { return row.subtasks ? JSON.parse(row.subtasks) : null; } catch { return null; } })(),
         deadline: dateOnly(row.deadline),
         section: typeof row.section === 'string' && row.section.trim() ? row.section.trim().slice(0, 80) : null,
+        alerts: parseAlerts(row.alerts) ?? null,
+        // Reminded like a habit: a time on its day, and places (lib/places.ts).
+        reminder: parseReminderTime(row.reminder) ?? null,
+        location_reminders: (() => { const places = parsePlaces(row.location_reminders); return places.length ? places : null; })(),
         ...planningToRemote(row, false),
         created_at: row.created_at ?? null,
         updated_at: row.updated_at ?? null,
@@ -303,6 +316,9 @@ export function taskToLocal(row: Row): Row {
         ...('subtasks' in row ? { subtasks: row.subtasks ? (typeof row.subtasks === 'string' ? row.subtasks : JSON.stringify(row.subtasks)) : null } : {}),
         ...('deadline' in row ? { deadline: dateOnly(row.deadline) } : {}),
         ...('section' in row ? { section: row.section ?? null } : {}),
+        ...('alerts' in row ? { alerts: storeAlerts(parseAlerts(row.alerts)) } : {}),
+        ...('reminder' in row ? { reminder: parseReminderTime(row.reminder) ?? null } : {}),
+        ...('location_reminders' in row ? { location_reminders: storePlaces(parsePlaces(row.location_reminders)) } : {}),
         ...planningToLocal(row, ['difficulty', 'flexible']),
         created_at: row.created_at ?? new Date().toISOString(),
         updated_at: row.updated_at ?? new Date().toISOString(),

@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 20;
+const SCHEMA_VERSION = 23;
 
 let dbInstance: any = null;
 /**
@@ -132,6 +132,9 @@ async function runMigrations(db: any): Promise<void> {
         [18, migrateToV18],
         [19, migrateToV19],
         [20, migrateToV20],
+        [21, migrateToV21],
+        [22, migrateToV22],
+        [23, migrateToV23],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -166,6 +169,43 @@ async function runMigrations(db: any): Promise<void> {
  * to-do planned onto a day still knows where it came from. Null: no section.
  * On this phone only, like v15–v17.
  */
+/**
+ * Migration to version 21 — a habit's or task's own reminders before it begins.
+ *
+ * Minutes before its start, as JSON ("[10, 30]"): "Study in 10 min". The base
+ * notifications (lib/dayGuide.ts) need nothing stored; these are the extras a
+ * habit or task asks for. Backed up: the cloud tables gain `alerts`
+ * (supabase/migrations/20261108000200_item_alerts.sql); until that is applied
+ * the sync leaves the column out and carries on (lib/cloudSync.ts).
+ */
+/**
+ * Migration to version 22 — a habit held before or after an event or meal
+ * (lib/habitAnchor.ts), as JSON: {"to":"Accounting","side":"before","gap":0}.
+ * Backed up through supabase/migrations/20261109000100_habit_anchor.sql; until
+ * that is applied the sync leaves the column out and carries on.
+ */
+/**
+ * Migration to version 23 — a task reminded like a habit: at a time on its day
+ * ("HH:MM"), and at places, arriving or leaving (JSON). Backed up through
+ * supabase/migrations/20261109000200_task_reminders.sql.
+ */
+async function migrateToV23(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'tasks', 'reminder', 'TEXT');
+    await addColumnIfMissing(db, 'tasks', 'location_reminders', 'TEXT');
+    console.log('[Database] Migrated to schema v23');
+}
+
+async function migrateToV22(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'habits', 'anchor', 'TEXT');
+    console.log('[Database] Migrated to schema v22');
+}
+
+async function migrateToV21(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'habits', 'alerts', 'TEXT');
+    await addColumnIfMissing(db, 'tasks', 'alerts', 'TEXT');
+    console.log('[Database] Migrated to schema v21');
+}
+
 async function migrateToV20(db: any): Promise<void> {
     await addColumnIfMissing(db, 'tasks', 'section', 'TEXT');
     console.log('[Database] Migrated to schema v20');

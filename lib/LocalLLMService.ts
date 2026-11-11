@@ -17,7 +17,7 @@ export const INITIAL_MODEL_DOWNLOAD: ModelDownloadState = {
 const CONTEXT = { n_ctx: 2048, n_gpu_layers: 99 };
 
 /**
- * The offline model: Gemma 3n E2B, run on the phone by llama.cpp (llama.rn,
+ * The offline model (lib/localModelDownload.ts: Qwen3.5 0.8B; Gemma 3n on builds before 1.0.4), run on the phone by llama.cpp (llama.rn,
  * through @react-native-ai/llama). Downloaded only when asked (Echo settings),
  * loaded only once its file is complete.
  */
@@ -71,6 +71,64 @@ class LocalLLMService {
         return this.enqueue(() => this.prepareDownloadedModel());
     }
 
+    // Loaded only while it is being used: ~560 MB held in memory and the GPU kept warm by
+    // a model nobody is asking anything heated the phone. Known to be here at launch (a file
+    // check, nothing loaded), loaded on the first question, let go after a few quiet minutes
+    // and the moment the app leaves the screen. Never while it is still answering.
+    private available = false;
+    private busy = 0;
+    private idle: ReturnType<typeof setTimeout> | null = null;
+    private watching = false;
+    static readonly IDLE_MS = 3 * 60_000;
+
+    /** At launch: is it on this phone, without loading it. */
+    async checkAvailable(): Promise<boolean> {
+        this.available = await hasCompleteModelFile().catch(() => false);
+        this.watchAppState();
+        return this.available;
+    }
+
+    /** Downloaded (and chosen): it can answer, loading first if it has to. */
+    isAvailable() {
+        return this.available || this.isModelReady;
+    }
+
+    /** Loads it if it is not loaded, runs `work` with it, and lets it go once quiet. */
+    async use<T>(work: (model: LanguageModel) => Promise<T>): Promise<T | null> {
+        if (this.idle) { clearTimeout(this.idle); this.idle = null; }
+        this.busy += 1;
+        try {
+            if (!this.isModelReady) await this.init();
+            const model = this.getLanguageModel();
+            if (!model) return null;
+            return await work(model);
+        } finally {
+            this.busy -= 1;
+            this.releaseSoon();
+        }
+    }
+
+    private releaseSoon() {
+        if (this.idle) clearTimeout(this.idle);
+        this.idle = setTimeout(() => { this.idle = null; void this.release(); }, LocalLLMService.IDLE_MS);
+    }
+
+    /** Lets go of it now, unless it is answering (then once it has). */
+    release(): Promise<void> {
+        return this.enqueue(async () => {
+            if (!this.isModelReady || this.busy > 0) { if (this.busy > 0) this.releaseSoon(); return; }
+            await this.model?.unload().catch(() => undefined);
+            this.isModelReady = false;
+        });
+    }
+
+    private watchAppState() {
+        if (this.watching) return;
+        this.watching = true;
+        const { AppState } = require('react-native') as typeof import('react-native');
+        AppState.addEventListener('change', state => { if (state === 'background') void this.release(); });
+    }
+
     private async prepareDownloadedModel() {
         if (this.isModelReady) return;
         // The Llama files earlier builds used are no longer read: give the space back.
@@ -118,6 +176,9 @@ class LocalLLMService {
             this.updateDownload({ ...this.downloadState, phase: 'loading', percentage: 100 });
             await this.prepareDownloadedModel();
             if (!this.isModelReady) throw new Error('The model could not load. Retry, or remove it and download a fresh copy.');
+            this.available = true;
+            this.watchAppState();
+            this.releaseSoon();
             await AsyncStorage.setItem(LLAMA_OPT_IN_KEY, '1');
             this.updateDownload({ ...this.downloadState, phase: 'ready' });
             return true;
@@ -140,6 +201,7 @@ class LocalLLMService {
         try {
             if (this.isModelReady) await this.model?.unload().catch(() => undefined);
             this.isModelReady = false;
+            this.available = false;
             this.model = null;
             const uri = modelUri();
             if (uri) {
@@ -156,13 +218,10 @@ class LocalLLMService {
     }
 
     async generateResponse(systemPrompt: string, userMessage: string): Promise<string> {
-        if (!this.isModelReady) {
-            await this.init();
-            if (!this.isModelReady) return "I'm not ready yet. Please download the offline model in settings.";
-        }
+        if (!this.isAvailable() && !(await this.checkAvailable())) return "I'm not ready yet. Please download the offline model in settings.";
         try {
-            const { text } = await generateText({ model: this.languageModel()!, system: systemPrompt, prompt: userMessage });
-            return text;
+            const text = await this.use(async model => (await generateText({ model, system: systemPrompt, prompt: userMessage })).text);
+            return text ?? "I'm not ready yet. Please download the offline model in settings.";
         } catch (e) {
             console.error('Local LLM Generation Error:', e);
             return "I'm having trouble thinking locally. Check my memory (RAM).";

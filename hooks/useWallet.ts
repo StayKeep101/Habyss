@@ -78,5 +78,13 @@ export function useWallet(marks: Pick<Marks, 'ledger'>, ready = true): Wallet {
     // The server checks bets against what doing earned, capped by the account's age.
     useEffect(() => { if (ready && processed === marks.ledger) void publishShards(Math.max(0, wallet.earned)); }, [wallet.earned, ready, processed, marks.ledger]);
 
+    // The Shards widget shows the same balance and line.
+    useEffect(() => {
+        if (!ready) return;
+        const { buildWidgetShards } = require('@/lib/widgetDay') as typeof import('@/lib/widgetDay');
+        const { WidgetService } = require('@/lib/widgetService') as typeof import('@/lib/widgetService');
+        void WidgetService.writeShards(buildWidgetShards(wallet.balance, wallet.today, wallet.timeline));
+    }, [ready, wallet.balance, wallet.today, wallet.timeline]);
+
     return wallet;
 }

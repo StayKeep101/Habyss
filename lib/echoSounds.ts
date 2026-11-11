@@ -7,7 +7,7 @@
  */
 export type EchoMoment = 'leave' | 'start' | 'end' | 'review';
 
-const VOICES = ['normal', 'friendly', 'dad_mode', 'bully_mode'];
+const VOICES = ['normal', 'friendly', 'dad_mode', 'bully_mode', 'goofball'];
 
 export function echoSound(moment: EchoMoment, voice: string | null | undefined): string {
     return `echo_${moment}_${VOICES.includes(voice ?? '') ? voice : 'normal'}.caf`;

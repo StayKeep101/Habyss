@@ -130,7 +130,7 @@ export const DayPlanCard: React.FC<{
                     <View key={minutes} style={[styles.tick, { left: x(minutes), backgroundColor: track }]} />
                 )) : null}
                 {width > 0 ? plan.blocks.map(block => {
-                    const tone = block.color || (block.kind === 'task' ? TASK_COLOR : block.kind === 'event' ? colors.textSecondary : accent);
+                    const tone = block.color || (block.kind === 'task' ? TASK_COLOR : block.kind === 'event' ? colors.textSecondary : block.kind === 'meal' ? colors.textTertiary : accent);
                     const frame = { left: x(block.start), width: Math.max(3, x(block.end) - x(block.start)) };
                     // Getting to or back from an event: a dotted line in its colour, not a block.
                     return block.travel ? (

@@ -1,3 +1,4 @@
+import { DONE_CATEGORY, HANDOVER_CATEGORY } from './notificationActions';
 import { DEFAULT_PREFS, getNotificationPrefs } from './notificationPrefs';
 import { echoSound } from './echoSounds';
 import * as Notifications from 'expo-notifications';
@@ -13,11 +14,8 @@ import { LocationService } from './LocationService';
 import type { Habit } from './habitsSQLite';
 import { buildTaskReminderPlan } from './taskReminders';
 import { buildHabitReminderPlan } from './habitReminders';
-import { longLead } from './leadTime';
-import { isHabitScheduledForDate, localDateKey } from './habitSchedule';
+import { localDateKey } from './habitSchedule';
 import { emit, onAny } from './appEvents';
-import { scheduledMoments } from './scheduledMoments';
-import { buildAlivePlan } from './echoAlive';
 import { engagementLifecycle } from './engagementLifecycle';
 import { focusQuiet, quietUntil } from './focusQuiet';
 import { KEEP_ALIVE_CONTENT, KEEP_ALIVE_ID, keepAliveAt } from './reminderKeepAlive';
@@ -217,7 +215,6 @@ export class NotificationService {
         const todayKey = localDateKey(now);
         const { getTasks }: typeof import('./tasks') = require('./tasks');
         const echo: typeof import('./echo') = require('./echo');
-        const { coachReminder }: typeof import('./coachMessages') = require('./coachMessages');
         const writer: typeof import('./echoWriter') = require('./echoWriter');
         const [habits, tasks, today, skipped, pending, permission, config, dayWindow, voice, person, settingsRaw, habitPreference] = await Promise.all([
           getHabits(), getTasks(), getCompletions(todayKey), getSkipped(todayKey),
@@ -230,7 +227,6 @@ export class NotificationService {
         const allowed = settings?.notificationsEnabled !== false && (permission.granted || permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL);
         const habitsAllowed = habitPreference !== 'false';
         const name = config.useName ? person : undefined;
-        const written = allowed && config.writeReminders ? await writer.loadWrittenLines() : {};
         // Anything about a habit or a task is ours to replace. Builds from late
         // 2025 booked repeating daily reminders tagged with only a habitId; they
         // were never recognised here, so they kept firing beside the new ones
@@ -242,154 +238,67 @@ export class NotificationService {
         // One budget includes Echo, regular reminders, and daily check-ins.
         const budget = Math.max(0, 56 - pending.filter(item => !ours(item)).length);
         const candidates: { identifier: string; date: Date; content: Notifications.NotificationContentInput }[] = [];
-        // A user-requested snooze survives unrelated edits, but not completion,
-        // a skip, deletion, or turning Echo off.
-        if (allowed && config.alive) for (const item of old) {
-          const data = item.content.data;
-          if (typeof data?.snoozedUntil !== 'number' || data.snoozedUntil <= now.getTime()) continue;
-          const unfinished = typeof data.taskId === 'string' ? tasks.some(task => task.id === data.taskId && task.status === 'open')
-            : typeof data.habitId === 'string' && habitsAllowed && data.scheduledDate === todayKey && !today[data.habitId] && !skipped[data.habitId]
-              && habits.some(habit => habit.id === data.habitId && !habit.isArchived);
-          if (unfinished) candidates.push({ identifier: item.identifier, date: new Date(data.snoozedUntil),
-            content: { title: item.content.title, body: item.content.body, sound: 'default', categoryIdentifier: item.content.categoryIdentifier ?? 'ECHO_ALIVE', data } });
-        }
-        const aliveHabits = config.alive && habitsAllowed ? habits.filter(habit => habit.startTime) : [];
-        const aliveTasks = config.alive ? tasks.filter(task => task.dueTime) : [];
-        // Today is timed from the timeline: each reminder and nudge follows where
-        // the auto-schedule put the habit or task, not the time it was first given.
-        const { todayTimes }: typeof import('./todayFlow') = require('./todayFlow');
-        // Undefined when today's timeline could not be read: then the times they were given.
-        const placed = allowed ? await todayTimes(now).catch(() => undefined) : undefined;
-        const moments = scheduledMoments(aliveHabits, aliveTasks, now, today, skipped, 7, placed);
-        const taskPlan = allowed ? buildTaskReminderPlan(tasks.filter(task => !config.alive || !task.dueTime), now, echo.suggestedReminder(dayWindow), 16, placed) : [];
-        const plan = allowed && habitsAllowed ? buildHabitReminderPlan(habits.filter(habit => !config.alive || !habit.startTime), now, { ...today, ...skipped }, 48, placed) : [];
-        const dayOf = (date: Date) => Math.floor(date.getTime() / 86400000);
-        for (const { task, date } of taskPlan) candidates.push({
-          identifier: `task:${task.id}:${date.getTime()}`, date,
-          // From Echo, like a text: the line names the task itself.
-          content: { title: 'Echo', body: writer.pickLine(written, 'task:' + task.id, voice, dayOf(date)) ?? coachReminder(voice, { habitName: task.title, name }),
-            sound: 'default', categoryIdentifier: 'ECHO_ALIVE', data: { kind: 'task-reminder', taskId: task.id, url: '/(root)/(tabs)/roadmap' } },
-        });
+        // What a habit asked for itself: its reminder times ("08:00"). Everything else
+        // comes from the day as it happens (lib/dayGuide.ts), below: no check-ins,
+        // energy questions, streak guards or follow-ups (Settings → Notifications).
+        const taskPlan: ReturnType<typeof buildTaskReminderPlan> = [];
+        const plan = allowed && habitsAllowed
+          ? buildHabitReminderPlan(habits.filter(habit => (habit.reminders?.length ?? 0) > 0 && !habit.reminderOffset), now, { ...today, ...skipped }, 48, undefined)
+          : [];
         for (const { habit, date, scheduledDate } of plan) candidates.push({
           identifier: `habit:${habit.id}:${date.getTime()}`, date,
-          content: { title: 'Echo', body: (habit.reminderOffset ? `${habit.name} in ${longLead(habit.reminderOffset)}. ` : '')
-              // A sentence the user wrote for this habit beats anything Echo
-              // or the coach lines would have chosen for them.
-              + (habit.reminderMessage?.trim()
-                  || writer.pickLine(written, 'habit:' + habit.id, voice, dayOf(date))
-                  || coachReminder(voice, { habitName: habit.name, name })),
-            sound: habit.ringtone === 'silent' || habit.ringtone === 'vibrate' ? false : 'default', categoryIdentifier: 'ECHO_ALIVE',
+          content: { title: habit.name, body: habit.reminderMessage?.trim() || 'Your reminder.',
+            sound: habit.ringtone === 'silent' || habit.ringtone === 'vibrate' ? false : 'default', categoryIdentifier: DONE_CATEGORY,
             data: { kind: 'habit-reminder', habitId: habit.id, scheduledDate, url: '/habit-detail?habitId=' + encodeURIComponent(habit.id) } },
         });
-        if (allowed && config.alive) for (const item of buildAlivePlan(moments, now, dayWindow, voice,
-          { followUp: config.aliveFollowUp !== false, useName: config.useName, name, limit: 56 })) {
-          const habit = item.moment.kind === 'habit' ? habits.find(habit => habit.id === item.moment.id) : undefined;
-          candidates.push({ identifier: item.id, date: item.date,
-            // The follow-up (its time went by untouched) offers the smallest start: five minutes.
-            content: { title: item.title, body: item.body, categoryIdentifier: item.phase === 'follow-up' ? 'ECHO_NUDGE' : 'ECHO_ALIVE',
-              sound: habit?.ringtone === 'silent' || habit?.ringtone === 'vibrate' ? false : 'default',
-              data: { kind: 'echo-alive', phase: item.phase, scheduledDate: item.moment.day, url: item.moment.url,
-                ...(item.moment.kind === 'habit' ? { habitId: item.moment.id } : { taskId: item.moment.id }) } },
+        // What a task asked for itself, as a habit does: its reminder time on its day.
+        if (allowed) {
+          const { buildTaskTimeReminders }: typeof import('./taskReminders') = require('./taskReminders');
+          for (const { task, date } of buildTaskTimeReminders(tasks, now, 48)) candidates.push({
+            identifier: `task-time:${task.id}:${date.getTime()}`, date,
+            content: { title: task.title, body: 'Your reminder.', sound: 'default', categoryIdentifier: DONE_CATEGORY,
+              data: { kind: 'task-reminder', taskId: task.id, url: '/(root)/(tabs)/roadmap' } },
           });
         }
-        const { buildCheckInPlan }: typeof import('./echoCheckIns') = require('./echoCheckIns');
-        const { checkInLine }: typeof import('./echoLines') = require('./echoLines');
-        if (allowed) {
-          const scheduled = habits.filter(habit => !habit.isGoal && !habit.isArchived && !skipped[habit.id] && isHabitScheduledForDate(habit, now));
-          const { getDailyTarget, dailyFocus }: typeof import('./dailyFocus') = require('./dailyFocus');
-          const focus = dailyFocus(tasks, await getDailyTarget(), todayKey, todayKey);
-          const facts = { name, total: scheduled.length, left: scheduled.filter(habit => !today[habit.id]).length,
-            next: focus.rows.find(task => task.status === 'open')?.title ?? scheduled.find(habit => !today[habit.id])?.name,
-            tasksDue: tasks.filter(task => task.status === 'open' && task.dueDate === todayKey).length, focusTarget: focus.target, focusDone: focus.done };
-          // One of Echo's patterns each morning, a different one each day.
-          const { loadPatternLines }: typeof import('./echoPatterns') = require('./echoPatterns');
-          const insights = await loadPatternLines();
-          // Keeping the run alive (lib/notificationActions.ts): nothing done today
-          // and days behind it, so Echo says so two hours before bed.
-          {
-            const { loadedData }: typeof import('./dataStore') = require('./dataStore');
-            const { streakFrom }: typeof import('./dayComplete') = require('./dayComplete');
-            const { doneOnDay }: typeof import('./dailyFocus') = require('./dailyFocus');
-            const { streakGuard }: typeof import('./notificationActions') = require('./notificationActions');
-            const data = await loadedData().catch(() => null);
-            const doneToday = Object.values(today).some(Boolean) || tasks.some(task => doneOnDay(task, todayKey));
-            const streak = data ? streakFrom(habits, data.tasks, data.history, data.skips, todayKey).streak : 0;
-            const [sh, sm] = dayWindow.sleep.split(':').map(Number);
-            const nextTask = focus.rows.find(task => task.status === 'open');
-            const nextHabit = nextTask ? undefined : scheduled.find(habit => !today[habit.id]);
-            const guard = streakGuard({ streak, doneToday, now: now.getHours() * 60 + now.getMinutes(), sleep: sh * 60 + sm, name, next: nextTask?.title ?? nextHabit?.name });
-            if (guard) {
-              const date = new Date(now); date.setHours(0, guard.at, 0, 0);
-              const item = nextTask ? { taskId: nextTask.id } : nextHabit ? { habitId: nextHabit.id } : null;
-              candidates.push({ identifier: `streak-guard:${todayKey}`, date, content: { title: guard.title, body: guard.body, sound: 'default',
-                ...(item ? { categoryIdentifier: 'ECHO_NUDGE' } : null),
-                data: { kind: 'streak-guard', scheduledDate: todayKey, url: '/(root)/(tabs)/home', ...item } } });
-            }
-          }
-          // With Echo on through the day: it asks about energy once a day,
-          // answered on the notification (logging it by hand is gone, see
-          // lib/checkIns.ts energyAskAt), and says when the day's review is ready.
-          if (config.alive) {
-            const [wh, wm] = dayWindow.wake.split(':').map(Number);
-            const [bh, bm] = dayWindow.sleep.split(':').map(Number);
-            const { loadCheckIns, energyAskAt }: typeof import('./checkIns') = require('./checkIns');
-            const { energyCurve }: typeof import('./energyCurve') = require('./energyCurve');
-            const { currentFocusRecords }: typeof import('./focusStats') = require('./focusStats');
-            const checkIns = await loadCheckIns();
-            const curve = energyCurve({ checkIns: checkIns.entries, focus: currentFocusRecords(), now });
-            const at = energyAskAt(checkIns, now, wh * 60 + wm, bh * 60 + bm, curve.confidence >= 0.8);
-            if (at !== null) {
-              const date = new Date(now); date.setHours(0, at, 0, 0);
-              const { leadInFor }: typeof import('./checkIns') = require('./checkIns');
-              candidates.push({ identifier: `echo-energy:${todayKey}`, date, content: { title: 'Echo', body: leadInFor('energy', voice),
-                sound: 'default', categoryIdentifier: 'ECHO_ENERGY', data: { kind: 'echo-energy', url: '/(root)/(tabs)/home' } } });
-            }
-          }
-          for (const item of buildCheckInPlan(config, dayWindow, now)) {
-            const insight = insights.length ? insights[Math.floor(item.date.getTime() / 86400000) % insights.length] : undefined;
-            const line = checkInLine(item.kind, voice, { ...facts, insight });
-            candidates.push({ identifier: item.id, date: item.date, content: { title: line.title, body: line.body, sound: 'default',
-              data: { kind: 'echo-check-in', when: item.kind, url: '/(root)/(tabs)/home' } } });
-          }
-        }
-        // Guided through the day (lib/dayGuide.ts): now, next, a heads-up, meals,
-        // events. A habit or task that already has its own reminder at that
-        // minute keeps it, without a second one beside it.
+        // The day as it happens (lib/dayGuide.ts): as each thing begins, one ending into the
+        // next as one notification (its Done ticks the one that ended), time's up before a gap,
+        // bedtime, and each habit's or task's own reminders before it.
         const prefs = await getNotificationPrefs().catch(() => DEFAULT_PREFS);
         let alarmMoments: { at: number; title: string }[] = [];
         if (allowed && prefs.dayGuide) {
           const { currentTodayFlow }: typeof import('./todayFlow') = require('./todayFlow');
           const { guideMoments }: typeof import('./dayGuide') = require('./dayGuide');
           const { morningAlarmAvailable }: typeof import('./morningAlarm') = require('./morningAlarm');
+          const { loadItemAlerts }: typeof import('./itemAlerts') = require('./itemAlerts');
           const flow = await currentTodayFlow(now).catch(() => null);
           if (flow) {
             const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
-            const covered = (itemId: string | undefined, date: Date) => !!itemId && candidates.some(other =>
-              (other.identifier.includes(itemId)) && Math.abs(other.date.getTime() - date.getTime()) < 3 * 60000);
-            // Leave now and Start now ring as alarms where iOS has them (through
-            // Silent, and on the Watch): then they are not notifications as well.
-            // A build without the alarm call (before runtime 1.0.4) keeps them as notifications.
+            const [sh, sm] = dayWindow.sleep.split(':').map(Number);
+            const [wh, wm] = dayWindow.wake.split(':').map(Number);
+            const sleep = sh * 60 + sm + (sh * 60 + sm <= wh * 60 + wm ? 24 * 60 : 0);
+            const before = await loadItemAlerts(habits, tasks);
+            // Leave now and Now ring as alarms where iOS has them (through Silent, and on the
+            // Watch), when chosen; then they are not notifications as well. A build without
+            // the alarm call keeps them as notifications.
             const alarmCall = !!(require('@/modules/habyss-live-activity') as typeof import('@/modules/habyss-live-activity')).default?.scheduleMomentAlarms;
             const ringing = prefs.alarms && alarmCall && morningAlarmAvailable();
-            for (const moment of guideMoments(flow, now.getHours() * 60 + now.getMinutes(), name)) {
+            for (const moment of guideMoments(flow, now.getHours() * 60 + now.getMinutes(), { sleep, before })) {
               const date = new Date(midnight.getTime() + moment.at * 60000);
-              if (ringing && (moment.kind === 'now' || moment.id.startsWith('guide:leave:'))) {
+              if (ringing && (moment.kind === 'now' || moment.kind === 'leave') && !moment.done) {
                 alarmMoments.push({ at: date.getTime(), title: moment.title });
                 continue;
               }
-              if (moment.kind === 'now' && covered(moment.itemId, date)) continue;
-              const item = moment.itemId && moment.itemKind ? { [moment.itemKind === 'task' ? 'taskId' : 'habitId']: moment.itemId, scheduledDate: todayKey } : null;
-              // Echo says it: leave, start, time's up (lib/echoSounds.ts).
-              const spoken = moment.id.startsWith('guide:leave:') ? 'leave' : moment.kind === 'now' ? 'start' : moment.kind === 'end' ? 'end' : null;
+              // Done ticks the one whose time just ended; a tap opens what is on now.
+              const ticks = moment.done ? { [moment.done.kind === 'task' ? 'taskId' : 'habitId']: moment.done.id, scheduledDate: todayKey } : null;
+              // Echo says it, when chosen (Settings → Notifications → Echo announces): start, time's up, leave.
+              const spoken = moment.kind === 'leave' ? 'leave' : moment.kind === 'end' ? 'end' : moment.kind === 'now' || moment.kind === 'handover' ? 'start' : null;
               candidates.push({ identifier: moment.id, date, content: {
-                title: moment.title, body: moment.body, sound: spoken ? echoSound(spoken, voice) : 'default',
-                // The moments you truly need break through Focus and reach the Watch.
-                ...(spoken ? { interruptionLevel: 'timeSensitive' as const } : null),
-                // About a habit or task: Done, Start focus, In 10 minutes, Skip today;
-                // at its end, Done, +10 min, +30 min, Skip today.
-                ...(item ? { categoryIdentifier: moment.kind === 'end' ? 'ECHO_TIMES_UP' : 'ECHO_ALIVE' } : null),
-                // A habit or task on now opens its focus; anything else, the timeline.
-                data: { kind: 'day-guide', url: moment.kind === 'now' ? '/(root)/focus?day=1' : '/(root)/(tabs)/roadmap', ...item },
+                title: moment.title, body: moment.body,
+                sound: prefs.echoVoice && spoken ? echoSound(spoken, voice) : 'default',
+                // The moments you truly need break through Focus modes, reach the Watch, and are read out on AirPods.
+                interruptionLevel: 'timeSensitive' as const,
+                ...(ticks ? { categoryIdentifier: moment.kind === 'handover' ? HANDOVER_CATEGORY : DONE_CATEGORY } : null),
+                data: { kind: 'day-guide', moment: moment.kind, url: moment.itemId && (moment.kind === 'now' || moment.kind === 'handover') ? '/(root)/focus?day=1' : '/(root)/(tabs)/roadmap', ...ticks },
               } });
             }
           }
@@ -507,6 +416,13 @@ export class NotificationService {
         content: { title: content.title ?? 'Echo', body: content.body, sound: content.sound ?? 'default',
           categoryIdentifier: content.categoryIdentifier ?? 'ECHO_ALIVE', data: { ...data, snoozedUntil: until } },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(until), channelId: 'default' } });
+    }
+    // Ticked from the notification, the app only half awake: the Live Activity moves on to what is
+    // on now straight away, read fresh from the day, not when Habyss next opens.
+    if (unfinished && (action === ACTION.done || action === ACTION.skip)) {
+      const live: typeof import('./scheduledActivities') = require('./scheduledActivities');
+      live.forgetTodayFlow();
+      await live.refreshScheduledActivities().catch(() => undefined);
     }
     await this.refreshReminders();
     return true;

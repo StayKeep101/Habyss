@@ -13,7 +13,7 @@ export const styles = StyleSheet.create({
     race: { position: 'absolute', top: 0, left: 0, right: 0 },
     /** The buttons, over the race and the page. */
     /** The top-right buttons, cut off by the page's edge as it slides over them (overflow hidden). */
-    actions: { position: 'absolute', zIndex: 10, overflow: 'hidden' },
+    actions: { position: 'absolute', zIndex: 10 },
     /** Today and Challenges side by side, each as tall as itself. */
     pages: { flexDirection: 'row', alignItems: 'flex-start' },
     /** The top of a page resting over the race: rounded, with a grabber. */

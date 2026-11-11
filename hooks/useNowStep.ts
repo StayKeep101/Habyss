@@ -5,7 +5,7 @@ import type { DayStep } from '@/lib/todayFlow';
 /**
  * What today's timeline has now (else next): the same step Focus opens on.
  * Read again the moment the one on now ends or the next one begins (so the day
- * moves on with the clock, done or not), every half minute besides, and
+ * moves on with the clock, done or not), every minute besides, and
  * whenever a habit or task changes.
  */
 export function useNowStep(): DayStep | null {
@@ -31,7 +31,8 @@ export function useNowStep(): DayStep | null {
             }
         };
         void read();
-        const timer = setInterval(() => void read(), 30_000);
+        // The edges are timed exactly (above); this only catches what changed elsewhere.
+        const timer = setInterval(() => void read(), 60_000);
         const off = onAny(['tasks_changed', 'habit_completion_updated', 'habit_updated', 'habit_created', 'habit_deleted'], () => void read());
         // The timeline's memory changed (missed ones fitted in): read once the line has been laid out again.
         let soon: ReturnType<typeof setTimeout> | undefined;
