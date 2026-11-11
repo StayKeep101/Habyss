@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
 import { Wheel } from '@/components/ui/Wheel';
 import { ChoicePill } from '@/components/ui/ChoicePill';
+import { DurationWheels } from '@/components/Create/DurationWheels';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -112,7 +113,11 @@ export const TimeRange: React.FC<{
                     onPress={() => { lightFeedback(); onChange({ start, minutes: length.minutes }); }} />
             ))}
         </View>
-        {lengthOnly ? null : (
+        {lengthOnly ? (
+            // Any length, not just the usual ones: hours and minutes on wheels, as the Clock app's timer sets them.
+            <DurationWheels parts={['hours', 'minutes']} seconds={(minutes ?? 0) * 60}
+                onChange={seconds => onChange({ start, minutes: Math.round(seconds / 60) || undefined })} />
+        ) : (
         <View style={styles.wrap}>
             <View style={styles.side}>
                 <View style={styles.head}>

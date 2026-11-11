@@ -30,7 +30,6 @@ import { describeParsedTask, parseTaskText } from '@/lib/taskParser';
 import { type Difficulty } from '@/lib/difficulty';
 import { ImportancePicker, importanceLabel } from '@/components/Create/ImportancePicker';
 import { createTask, updateTask, type Subtask, type Task, type TaskMeasure, type TaskPriority } from '@/lib/tasks';
-import { BeforeReminders } from '@/components/Create/BeforeReminders';
 import { ReminderPicker } from '@/components/Create/ReminderPicker';
 import type { LocationReminder } from '@/lib/habitsSQLite';
 import { describeAlerts } from '@/lib/itemAlerts';
@@ -375,19 +374,17 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             id: 'reminder', icon: 'notifications-outline', label: 'Reminder',
             value: [draft.alerts?.length ? describeAlerts(draft.alerts) : null, draft.reminder ?? null, draft.places.length ? draft.places[0].name : null].filter(Boolean).join(' · ') || undefined,
             content: (
-                <View style={{ gap: Spacing.lg }}>
-                    <BeforeReminders value={draft.alerts} accent={accent} onChange={alerts => change({ alerts })} />
-                    <ReminderPicker
-                        startTime={draft.dueTime}
-                        value={{ reminder: draft.reminder, places: draft.places }}
-                        accent={accent}
-                        onError={setError}
-                        onChange={patch => change({
-                            ...('reminder' in patch ? { reminder: patch.reminder } : null),
-                            ...(patch.places ? { places: patch.places } : null),
-                        })}
-                    />
-                </View>
+                <ReminderPicker
+                    startTime={draft.dueTime}
+                    value={{ reminder: draft.reminder, places: draft.places, alerts: draft.alerts }}
+                    accent={accent}
+                    onError={setError}
+                    onChange={patch => change({
+                        ...('reminder' in patch ? { reminder: patch.reminder } : null),
+                        ...(patch.places ? { places: patch.places } : null),
+                        ...(patch.alerts ? { alerts: patch.alerts } : null),
+                    })}
+                />
             ),
         },
         {

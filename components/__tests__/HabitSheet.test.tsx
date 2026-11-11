@@ -61,36 +61,39 @@ describe('the habit sheet', () => {
         });
     });
 
-    it('reminds at the habit\'s own start time by default', async () => {
+    it('reminds a lead before it starts: Before, then a shortcut or the wheels', async () => {
         const screen = render(<HabitSheet visible />);
         write(screen, 'Stretch at 21:00');
         fireEvent.press(screen.getByText('Reminder'));
-        fireEvent.press(screen.getByLabelText('At a time'));
+        fireEvent.press(screen.getByLabelText('Before'));
+        expect(screen.getByTestId('duration-hours')).toBeTruthy();
+        fireEvent.press(screen.getByLabelText('30 minutes before'));
         await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
 
         await waitFor(() => expect(addHabit).toHaveBeenCalled());
-        expect((addHabit as jest.Mock).mock.calls[0][0].reminders).toEqual(['21:00']);
+        expect((addHabit as jest.Mock).mock.calls[0][0]).toMatchObject({ alerts: [30], reminders: [] });
     });
 
-    it('always offers the same three choices, start time or not', () => {
+    it('always offers the same three choices: Off, Before, At a place', () => {
         const screen = render(<HabitSheet visible />);
         write(screen, 'Pack the bag at 18:00');
         fireEvent.press(screen.getByText('Reminder'));
         expect(screen.getByLabelText('Off')).toBeTruthy();
-        expect(screen.getByLabelText('At a time')).toBeTruthy();
+        expect(screen.getByLabelText('Before')).toBeTruthy();
         expect(screen.getByLabelText('At a place')).toBeTruthy();
-        expect(screen.queryByLabelText('Before')).toBeNull();
+        expect(screen.queryByLabelText('At a time')).toBeNull();
+        // Off by default: no shortcuts until Before or a place is chosen.
+        expect(screen.queryByLabelText('10 minutes before')).toBeNull();
     });
 
-    it('shows a reminder saved with a lead as its clock time', () => {
+    it('shows an older reminder as Before', () => {
         const habit = {
             id: 'h7', name: 'Shop', taskDays: ['sat'], goalValue: 1, unit: 'time', color: '#6B8AF5',
             icon: 'cart-outline', reminders: ['10:00'], reminderOffset: 120, startDate: '2026-01-01', startTime: '10:00',
         } as unknown as Habit;
         const screen = render(<HabitSheet visible habit={habit} />);
         fireEvent.press(screen.getByLabelText(/^Reminder/));
-        expect(screen.getByLabelText('At a time').props.accessibilityState).toMatchObject({ selected: true });
-        expect(screen.queryByLabelText('Before')).toBeNull();
+        expect(screen.getByLabelText('Before').props.accessibilityState).toMatchObject({ selected: true });
     });
 
     it('shows nothing more while the reminder is off, and no message field', () => {
@@ -101,17 +104,11 @@ describe('the habit sheet', () => {
         expect(screen.queryByLabelText('Reminder message')).toBeNull();
     });
 
-    it('lets Health count a sleep habit', async () => {
+    it('never offers to fill a habit from Health, sleep included', () => {
         const screen = render(<HabitSheet visible />);
         write(screen, 'Sleep 8 hours');
         fireEvent.press(screen.getByLabelText(/^Measure/));
-        // "Sleep" is the Health chip; it is the last match on screen.
-        const chips = screen.getAllByText('Sleep');
-        fireEvent.press(chips[chips.length - 1]);
-        await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
-
-        await waitFor(() => expect(addHabit).toHaveBeenCalled());
-        expect((addHabit as jest.Mock).mock.calls[0][0]).toMatchObject({ healthKitMetric: 'sleep' });
+        expect(screen.queryByText('Who counts it')).toBeNull();
     });
 
     it('does not offer Health for steps or anything other than sleep', async () => {

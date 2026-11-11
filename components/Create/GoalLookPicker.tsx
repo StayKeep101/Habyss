@@ -9,7 +9,7 @@ import { AppIcon, ICON_NAMES, isGlyphIcon, isPhotoIcon, type IconName } from '@/
 import { GoalColorWheel, WHEEL_MAX } from './GoalColorWheel';
 import { usePanelRoom } from './DetailBar';
 import { useCustomColors } from '@/hooks/useCustomColors';
-import { removeCustomColor, saveCustomColor } from '@/lib/customColors';
+import { CUSTOM_COLOR_LIMIT, canKeepColor, removeCustomColor, saveCustomColor } from '@/lib/customColors';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -359,12 +359,17 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                 <Animated.View layout={MORPH} entering={FadeIn.duration(180)}>
                     <GoalColorWheel value={color} accent={tint} size={wheelSize} onChange={next => onChange({ color: next })}
                         extra={custom ? (
-                            <Pressable accessibilityRole="button" onPress={() => { selectionFeedback(); void saveCustomColor(color); }}>
-                                <MatteSurface radius={11} level="control" style={styles.save}>
-                                    <AppIcon name="add" size={14} color={colors.textPrimary} />
-                                    <Text style={[styles.label, { color: colors.textPrimary }]}>Save colour</Text>
-                                </MatteSurface>
-                            </Pressable>
+                            // Six kept at most: at the limit it says so, rather than quietly dropping the oldest.
+                            canKeepColor(saved, color) ? (
+                                <Pressable accessibilityRole="button" onPress={() => { selectionFeedback(); void saveCustomColor(color); }}>
+                                    <MatteSurface radius={11} level="control" style={styles.save}>
+                                        <AppIcon name="add" size={14} color={colors.textPrimary} />
+                                        <Text style={[styles.label, { color: colors.textPrimary }]}>{`Save colour · ${saved.length}/${CUSTOM_COLOR_LIMIT}`}</Text>
+                                    </MatteSurface>
+                                </Pressable>
+                            ) : (
+                                <Text style={[styles.label, styles.full, { color: colors.textTertiary }]}>{`${CUSTOM_COLOR_LIMIT} of ${CUSTOM_COLOR_LIMIT} saved. Hold one to remove it.`}</Text>
+                            )
                         ) : null} />
                 </Animated.View>
             ) : null}
@@ -375,6 +380,7 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
 const styles = StyleSheet.create({
     content: { gap: 10 },
     tabs: { flexDirection: 'row', gap: 8 }, tab: { minHeight: 44, paddingHorizontal: 20, justifyContent: 'center', borderRadius: 12, borderWidth: 1 },
+    full: { textAlign: 'center' },
     save: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 36 },
     swatchRow: { flexDirection: 'row', gap: 10, paddingVertical: 2 },
     spectrumWrap: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },

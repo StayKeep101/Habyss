@@ -10,13 +10,16 @@ import { useHaptics } from '@/hooks/useHaptics';
  * in the accent. It replaced the iOS segmented control (a grey track with a
  * sliding thumb), which was the one control in the app with a look of its own.
  */
-export function ChoiceRow<T extends string | number>({ options, value, onChange, accessibilityLabel }: {
+export function ChoiceRow<T extends string | number>({ options, value, onChange, accessibilityLabel, color }: {
     options: { id: T; label: string }[];
     value: T;
     onChange: (id: T) => void;
     accessibilityLabel?: string;
+    /** The colour the chosen one fills in: the sheet's own (a habit's colour), else the app's accent. */
+    color?: string;
 }) {
-    const { primary } = useAccentGradient();
+    const { primary: appAccent } = useAccentGradient();
+    const primary = color ?? appAccent;
     const { selectionFeedback } = useHaptics();
     return (
         <View accessibilityRole="radiogroup" accessibilityLabel={accessibilityLabel} style={styles.row}>

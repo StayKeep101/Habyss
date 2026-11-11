@@ -4,7 +4,9 @@ import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { IconButton } from '@/components/ui/IconButton';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { MatteSurface } from '@/components/ui/MatteSurface';
-import { TimeWheels } from '@/components/ui/TimeWheels';
+import { ChoicePill } from '@/components/ui/ChoicePill';
+import { DurationWheels } from '@/components/Create/DurationWheels';
+import { ALERT_CHOICES } from '@/lib/itemAlerts';
 import { PlaceMap, hasPlaceMap } from '@/components/Create/PlaceMap';
 import { usePanelRoom } from '@/components/Create/DetailBar';
 import { Colors } from '@/theme/colors';
@@ -14,7 +16,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { LocationReminder } from '@/lib/habitsSQLite';
 
-type Mode = 'off' | 'time' | 'place';
+type Mode = 'off' | 'before' | 'place';
 
 export interface ReminderValue {
     /** "HH:MM" the reminder fires at (the start time when tied to it). */
@@ -22,14 +24,20 @@ export interface ReminderValue {
     /** Minutes before the start, when tied to it. */
     reminderOffset?: number;
     places: LocationReminder[];
+    /** How long before it begins to be told, in minutes (lib/itemAlerts.ts). */
+    alerts?: number[];
 }
 
 /**
- * When to be reminded, one way at a time — always the same three choices:
- * - Off: nothing else on screen.
- * - At a time: a clock time on wheels.
- * - At a place: a small map (tap to choose), then whether arriving or leaving.
- * No message: Echo writes it in your voice.
+ * When to be reminded, one way at a time — always the same three choices, in
+ * the sheet's own colour:
+ * - Off (the default): nothing else on screen.
+ * - Before: how long before it begins — the usual leads in one tap, then
+ *   hours and minutes on wheels, as the Clock app's timer sets them.
+ * - At a place: the same leads, then a small map (tap to choose) and whether
+ *   arriving or leaving.
+ * Its start is always told as well (lib/dayGuide.ts). No message: Echo
+ * writes it in your voice.
  */
 export function ReminderPicker({ startTime, value, onChange, accent, onError }: {
     startTime?: string;
@@ -38,23 +46,26 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
     accent: string;
     onError: (message: string) => void;
 }) {
+    void startTime;
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback, lightFeedback } = useHaptics();
     const room = usePanelRoom();
-    // A reminder once tied to the start time shows as the clock time it fires at.
-    const derived: Mode = value.reminder ? 'time' : value.places.length ? 'place' : 'off';
+    const lead = value.alerts?.[0];
+    const derived: Mode = value.places.length ? 'place' : lead || value.reminder ? 'before' : 'off';
     const [chosen, setChosen] = useState<Mode | null>(null);
-    const mode = chosen === 'place' || (chosen === 'off' && derived === 'off') ? chosen : derived;
+    const mode = chosen ?? derived;
     const [here, setHere] = useState<{ latitude: number; longitude: number } | null>(null);
     const [finding, setFinding] = useState(false);
 
     const pick = (next: Mode) => {
         setChosen(next);
-        if (next === 'off') onChange({ reminder: undefined, reminderOffset: undefined, places: [] });
-        if (next === 'time') onChange({ reminder: value.reminder ?? startTime ?? '08:00', reminderOffset: undefined, places: [] });
+        if (next === 'off') onChange({ reminder: undefined, reminderOffset: undefined, places: [], alerts: [] });
+        if (next === 'before') onChange({ reminder: undefined, reminderOffset: undefined, places: [], alerts: [lead ?? 10] });
         if (next === 'place') { onChange({ reminder: undefined, reminderOffset: undefined }); void locate(false); }
     };
+    /** One lead at a time: a shortcut sets it, the wheels fine-tune it. */
+    const setLead = (minutes: number) => onChange({ alerts: minutes > 0 ? [minutes] : [] });
 
     /** Where you are: to centre the map, or to add as the place itself. */
     const locate = async (add: boolean) => {
@@ -91,7 +102,7 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
 
     const options = [
         { id: 'off' as Mode, label: 'Off' },
-        { id: 'time' as Mode, label: 'At a time' },
+        { id: 'before' as Mode, label: 'Before' },
         { id: 'place' as Mode, label: 'At a place' },
     ];
     const place = value.places[0];
@@ -99,11 +110,27 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
 
     return (
         <View style={styles.wrap}>
-            <ChoiceRow accessibilityLabel="When to remind you" options={options} value={mode} onChange={pick} />
+            <ChoiceRow accessibilityLabel="When to remind you" options={options} value={mode} onChange={pick} color={accent} />
 
-            {mode === 'time' ? (
+            {mode !== 'off' ? (
+                // The usual leads, one tap each; tapping the chosen one again takes it off.
+                <View style={styles.leads}>
+                    {ALERT_CHOICES.map(minutes => (
+                        <ChoicePill key={minutes} label={minutes === 60 ? '1 hr' : `${minutes} min`} on={lead === minutes} color={accent}
+                            pressStyle={styles.flex} style={styles.lead} textStyle={styles.leadText}
+                            accessibilityLabel={`${minutes === 60 ? '1 hour' : `${minutes} minutes`} before`}
+                            onPress={() => { selectionFeedback(); setLead(lead === minutes ? 0 : minutes); }} />
+                    ))}
+                </View>
+            ) : null}
+
+            {mode === 'before' ? (
                 <View style={styles.block}>
-                    <TimeWheels value={value.reminder ?? '08:00'} onChange={reminder => onChange({ reminder, reminderOffset: undefined })} />
+                    <DurationWheels parts={['hours', 'minutes']} seconds={(lead ?? 0) * 60}
+                        onChange={seconds => setLead(Math.min(24 * 60, Math.round(seconds / 60)))} />
+                    <Text style={[styles.caption, { color: colors.textTertiary }]}>
+                        {lead ? `${leadLabel(lead)} before it starts` : 'Turn the wheels to choose how long before'}
+                    </Text>
                 </View>
             ) : null}
 
@@ -145,8 +172,19 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
     );
 }
 
+/** "1 hr 30 min", "45 min". */
+const leadLabel = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return [hours ? `${hours} hr` : '', rest ? `${rest} min` : ''].filter(Boolean).join(' ');
+};
+
 const styles = StyleSheet.create({
     wrap: { gap: Spacing.md },
+    leads: { flexDirection: 'row', gap: Spacing.xs },
+    lead: { paddingHorizontal: Spacing.xs },
+    leadText: { fontSize: 12 },
+    flex: { flex: 1 },
     block: { gap: Spacing.sm },
     caption: { fontFamily: FontFamily.medium, fontSize: 12, textAlign: 'center' },
     placeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },

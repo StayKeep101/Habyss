@@ -23,14 +23,13 @@ import { DAILY, describe as describeRule, parseRecurrence, serialiseRecurrence, 
 import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
 import { LookButton } from '@/components/Create/LookButton';
 import { ReminderPicker } from '@/components/Create/ReminderPicker';
-import { BeforeReminders } from '@/components/Create/BeforeReminders';
 import { AnchorPicker } from '@/components/Create/AnchorPicker';
 import { anchorLabel, parseAnchor, type HabitAnchor } from '@/lib/habitAnchor';
 import { describeAlerts } from '@/lib/itemAlerts';
 import { MeasureField } from '@/components/Create/MeasureField';
 import { habitTextSegments } from '@/lib/creationTextHighlight';
 import { readableAccent } from '@/lib/colorContrast';
-import { healthLabel, metricsForUnit, type HealthMetric } from '@/lib/healthMetrics';
+import type { HealthMetric } from '@/lib/healthMetrics';
 import { shortLead } from '@/lib/leadTime';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing } from '@/theme/designSystem';
@@ -336,8 +335,8 @@ export const HabitSheet: React.FC<{
                 locationReminders: draft.places,
                 // Dropped when the unit no longer measures what Health does, so
                 // an edit cannot leave a step count answering for pages.
-                healthKitMetric: draft.health && metricsForUnit(draft.unit === 'min' ? 'minutes' : draft.unit).includes(draft.health)
-                    ? draft.health : undefined,
+                // Filling a habit from Apple Health (sleep and the like) is gone from the forms.
+                healthKitMetric: undefined,
                 goalPeriod: current?.goalPeriod ?? 'daily',
                 category: current?.category ?? 'personal',
                 startDate: draft.startDate ?? current?.startDate ?? localDateKey(new Date()),
@@ -366,7 +365,6 @@ export const HabitSheet: React.FC<{
     };
 
     // 'min' is how the sheet spells minutes; the metrics speak in full words.
-    const healthOptions = metricsForUnit(draft.unit === 'min' ? 'minutes' : draft.unit);
     const goalName = goals.find(goal => goal.id === linkedGoal)?.name;
     const canSave = !!text.trim();
 
@@ -432,38 +430,19 @@ export const HabitSheet: React.FC<{
                         onClear={draft.amount !== undefined ? () => { change({ amount: undefined, unit: undefined }); setAmountText(null); } : undefined}
                     />
 
-                    {/* Who answers for this habit. Only shown when Health
-                        measures the same thing the habit does — offering to
-                        fill "8 glasses" from a step count would be worse than
-                        offering nothing, because the number would look right. */}
-                    {healthOptions.length ? (
-                        <>
-                            <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>Who counts it</Text>
-                            <Choices
-                                options={[{ id: '', label: 'You do' },
-                                    ...healthOptions.map(metric => ({ id: metric, label: healthLabel(metric) }))]}
-                                value={draft.health ?? ''}
-                                accent={accent}
-                                onChange={id => change({ health: (id || undefined) as HealthMetric | undefined })}
-                            />
-                        </>
-                    ) : null}
                 </>
             ),
         },
         {
             id: 'reminder', icon: 'notifications-outline', label: 'Reminder', value: describeReminder(draft),
             content: (
-                <View style={{ gap: Spacing.lg }}>
-                <BeforeReminders value={draft.alerts} accent={accent} onChange={alerts => change({ alerts })} />
                 <ReminderPicker
                     startTime={draft.startTime}
-                    value={{ reminder: draft.reminder, reminderOffset: draft.reminderOffset, places: draft.places }}
+                    value={{ reminder: draft.reminder, reminderOffset: draft.reminderOffset, places: draft.places, alerts: draft.alerts }}
                     accent={accent}
                     onError={setError}
                     onChange={patch => change(patch)}
                 />
-                </View>
             ),
         },
         // Importance: urgency and difficulty, one slider each. They order what the
