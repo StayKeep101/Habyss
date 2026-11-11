@@ -163,7 +163,11 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
     if (isoDate) {
         const [, year, month, day] = isoDate;
         const candidate = new Date(Number(year), Number(month) - 1, Number(day), 12);
-        if (localDateKey(candidate) === `${year}-${month}-${day}`) { due = candidate; strike(new RegExp(escapeRegex(isoDate[0]))); }
+        // A full date already gone is still to be done: today.
+        if (localDateKey(candidate) === `${year}-${month}-${day}`) {
+            due = localDateKey(candidate) < localDateKey(base) ? new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12) : candidate;
+            strike(new RegExp(escapeRegex(isoDate[0])));
+        }
     } else if (named) {
         const word = named[1].toLowerCase();
         due = word.startsWith('today') || word === 'tonight' ? base
@@ -194,13 +198,19 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
         const day = Number(monthFirst ? monthFirst[2] : dayFirst![1]);
         if (day >= 1 && day <= 31) {
             let candidate = new Date(base.getFullYear(), month, day, 12);
-            // A date already gone means next year, the way a calendar does it.
-            if (candidate < base) candidate = new Date(base.getFullYear() + 1, month, day, 12);
+            // A date gone by: only just (within half a year) and it is still to
+            // be done, so today, never a day already gone; long ago ("Jan 5" in
+            // November) means next year, the way a calendar does it.
+            const sixMonthsAgo = new Date(base.getFullYear(), base.getMonth() - 6, base.getDate(), 12);
+            if (candidate < base && localDateKey(candidate) !== localDateKey(base)) {
+                candidate = candidate >= sixMonthsAgo ? new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12)
+                    : new Date(base.getFullYear() + 1, month, day, 12);
+            }
             // February 29: the next year that has one.
             for (let ahead = 1; ahead <= 4 && month === 1 && day === 29 && candidate.getMonth() !== month; ahead++) {
                 candidate = new Date(base.getFullYear() + ahead, 1, 29, 12);
             }
-            if (candidate.getMonth() === month) { due = candidate; strike(new RegExp(escapeRegex((monthFirst ?? dayFirst)![0]), 'i')); }
+            if (candidate.getMonth() === month || localDateKey(candidate) === localDateKey(base)) { due = candidate; strike(new RegExp(escapeRegex((monthFirst ?? dayFirst)![0]), 'i')); }
         }
     } else if (nextWeek) {
         due = addDays(base, 7);

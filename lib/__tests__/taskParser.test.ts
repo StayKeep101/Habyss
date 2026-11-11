@@ -152,3 +152,21 @@ describe('a time said is a time kept', () => {
         expect(read('dinner at Four Seasons')).toEqual({ title: 'Dinner at Four Seasons', dueTime: undefined, flexible: undefined });
     });
 });
+
+describe('a date typed in the past', () => {
+    const NOV_11 = new Date(2026, 10, 11, 10);
+    const day = (text: string) => parseTaskText(text, NOV_11).dueDate;
+
+    it('lands on today when it has only just gone by', () => {
+        expect(day('dishes Nov 3')).toBe('2026-11-11');
+        expect(day('dishes on 3 November')).toBe('2026-11-11');
+        expect(day('dishes Sep 1')).toBe('2026-11-11');
+        expect(day('dishes 2026-11-03')).toBe('2026-11-11');
+    });
+
+    it('means next year when it is long gone, and stays put when still ahead', () => {
+        expect(day('dishes Jan 5')).toBe('2027-01-05');
+        expect(day('dishes Nov 20')).toBe('2026-11-20');
+        expect(day('dishes Nov 11')).toBe('2026-11-11');
+    });
+});
