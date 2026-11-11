@@ -15,7 +15,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
-import { focusHistory, focusInsights } from '@/lib/dailyFocus';
+import { focusHistory, focusInsights, weekTarget } from '@/lib/dailyFocus';
+import { WeekTargetStrip } from '@/components/Tasks/WeekTargetStrip';
 import { onTimeRate, weekChange, weeklyDone, type WeekDone } from '@/lib/taskStats';
 import { isLate, todayKey } from '@/lib/tasks';
 import { styles } from '@/styles/screens/task-stats.styles';
@@ -53,6 +54,8 @@ export default function TaskStatsScreen() {
     // The week under the finger while it is on the chart; this week otherwise.
     const [picked, setPicked] = useState<number | null>(null);
     const shown = picked === null ? null : weeks[picked];
+    // The days of the week on show (the one under the finger, else this one) against the daily 3 or 5.
+    const weekDays = useMemo(() => weekTarget(tasks, target, (shown ?? weeks[weeks.length - 1]).start, today), [tasks, target, shown, weeks, today]);
 
     const up = change.change > 0;
     const down = change.change < 0;
@@ -86,6 +89,8 @@ export default function TaskStatsScreen() {
                     <Text style={[styles.axisText, { color: colors.textTertiary }]}>{shortDay(weeks[0].start)}</Text>
                     <Text style={[styles.axisText, { color: colors.textTertiary }]}>Now</Text>
                 </View>
+
+                <WeekTargetStrip days={weekDays} today={today} />
 
                 <View>
                     <SectionTitle first>Numbers</SectionTitle>

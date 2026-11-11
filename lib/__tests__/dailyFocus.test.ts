@@ -171,3 +171,15 @@ describe("Today's 3 by importance", () => {
         expect(rows).toEqual(['Urgent', 'Hard normal', 'Easy normal']);
     });
 });
+
+describe('weekTarget', () => {
+    const { weekTarget } = require('../dailyFocus') as typeof import('../dailyFocus');
+    it('counts each day of the week against the target, with days ahead left open', () => {
+        const tasks = [finished('2026-09-21'), finished('2026-09-21'), finished('2026-09-21'), finished('2026-09-22')];
+        const week = weekTarget(tasks, 3, '2026-09-21', TODAY);
+        expect(week).toHaveLength(7);
+        expect(week[0]).toMatchObject({ date: '2026-09-21', done: 3, hit: true, future: false });
+        expect(week[1]).toMatchObject({ done: 1, hit: false });
+        expect(week[3]).toMatchObject({ date: '2026-09-24', future: true, hit: false, done: 0 });
+    });
+});

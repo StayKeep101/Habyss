@@ -206,3 +206,22 @@ export function focusInsights(history: FocusDay[]): FocusInsights {
         bestWeekday,
     };
 }
+
+/** One day of a week against the daily 3 (or 5); a day still ahead has no count yet. */
+export interface WeekTargetDay extends FocusDay { future: boolean }
+
+/**
+ * The seven days from `start` (the week as the Tasks chart counts it), each
+ * with how many tasks were finished against the day's target.
+ */
+export function weekTarget(tasks: Task[], target: DailyTarget, start: string, today: string = todayKey()): WeekTargetDay[] {
+    const counted = countedTasks(tasks);
+    return Array.from({ length: 7 }, (_, offset) => {
+        const date = new Date(`${start}T12:00:00`);
+        date.setDate(date.getDate() + offset);
+        const key = localDateKey(date);
+        const future = key > today;
+        const done = future ? 0 : counted.filter(task => doneOnDay(task, key)).length;
+        return { date: key, done, target, hit: !future && done >= target, future };
+    });
+}
