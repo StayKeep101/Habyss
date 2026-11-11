@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import {View, TouchableOpacity, StyleSheet} from 'react-native';
-import { readableAccent } from '@/lib/colorContrast';
+import { mixHex, readableAccent } from '@/lib/colorContrast';
+import { textOn } from '@/theme/tokens';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -78,7 +79,11 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     // The plus is a large icon, not text: it needs 3:1 against its white glyph,
     // not text's 4.5:1, so it keeps the accent's own colour instead of the
     // darkened one buttons with words use (which read as greyed out on warm accents).
-    const orbColors = useMemo(() => accentColors.map(color => readableAccent(color, '#ffffff', 3)) as [string, string], [accentColors]);
+    // A light accent (the top ranks' pale gold and iridescent white) keeps its own colour
+    // and takes a dark glyph instead, as every other solid accent fill does (textOn).
+    const lightOrb = textOn(mixHex(accentColors[0], accentColors[1])) !== Colors.common.white;
+    const orbInk = lightOrb ? Colors.common.black : Colors.common.white;
+    const orbColors = useMemo(() => (lightOrb ? [...accentColors] : accentColors.map(color => readableAccent(color, '#ffffff', 3))) as [string, string], [accentColors, lightOrb]);
     const palette = Colors[theme];
     const { mediumFeedback } = useHaptics();
     const { horizontalPadding, tabBarHeight, floatingButtonSize, tabBarBottomOffset, isCompactWidth, railed, insets } = useResponsiveLayout();
@@ -372,7 +377,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                         end={{ x: 1, y: 1 }}
                         style={[styles.orbGradient, { borderRadius: floatingButtonSize / 2 }]}
                     >
-                        <Ionicons name={plusTab === 'settings' ? 'search' : 'add'} size={isCompactWidth ? 28 : 32} color="#fff" />
+                        <Ionicons name={plusTab === 'settings' ? 'search' : 'add'} size={isCompactWidth ? 28 : 32} color={orbInk} />
                     </LinearGradient>
                 </Animated.View>
                 <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, removeLayer]}>
@@ -460,7 +465,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
             {/* Holding the plus stretches it into a listening pill over the dock. */}
             <View pointerEvents="none" style={[StyleSheet.absoluteFill, { left: horizontalPadding, right: horizontalPadding }]}>
                 <VoiceOrb size={floatingButtonSize} maxWidth={Math.max(floatingButtonSize, screenWidth - horizontalPadding * 2)}
-                    colors={orbColors} ink="#fff" />
+                    colors={orbColors} ink={orbInk} />
             </View>
         </View>
         {/* What to be doing now (or the focus session running) sits on top of the dock, on every tab.

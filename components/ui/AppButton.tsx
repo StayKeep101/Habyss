@@ -35,8 +35,8 @@ export const AppButton: React.FC<AppButtonProps> = ({
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme] ?? Colors.abyss;
-    const { buttonColors } = useAccentGradient();
-    const foreground = variant === 'danger' ? colors.error : variant === 'primary' ? Colors.common.white : colors.textPrimary;
+    const { buttonColors, buttonInk } = useAccentGradient();
+    const foreground = variant === 'danger' ? colors.error : variant === 'primary' ? buttonInk : colors.textPrimary;
     const inner = (
         <>
             {loading ? <ActivityIndicator size="small" color={foreground} /> : icon ? <Ionicons filled name={icon} size={Control.icon} color={foreground} /> : null}

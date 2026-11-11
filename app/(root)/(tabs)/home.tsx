@@ -416,6 +416,12 @@ const Home = () => {
     }), 2500);
     return () => { alive = false; clearTimeout(settle); };
   }, [marks.total, sharedData.historyLoaded, sharedData.tasksLoaded, goalsData.loaded, sharedData.history, sharedData.tasks, playLevelUp]);
+  // The app dresses for your rank (theme/rankLooks.ts): only once Marks are fully counted.
+  useEffect(() => {
+    if (!sharedData.historyLoaded || !sharedData.tasksLoaded || !goalsData.loaded) return;
+    const { rankFor } = require('@/lib/marks') as typeof import('@/lib/marks');
+    (require('@/lib/rankLook') as typeof import('@/lib/rankLook')).setRankLook(rankFor(marks.total).rank.name);
+  }, [marks.total, sharedData.historyLoaded, sharedData.tasksLoaded, goalsData.loaded]);
   // The Developer page can play the moment for any rank, to see it.
   useEffect(() => {
     const sub = on('preview_climb', ({ rank }) => {

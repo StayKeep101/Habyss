@@ -13,6 +13,9 @@ import { useAppSettings } from '@/context/AppSettingsContext';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
 import { getNotificationPrefs } from '@/lib/notificationPrefs';
 import { endLiveActivities, notificationSamples, sampleLiveActivity, sendSample, type NotificationSample } from '@/lib/notificationSamples';
+import { currentRankLook, previewRankLook } from '@/lib/rankLook';
+import { RANK_ORDER, rankGradient } from '@/theme/rankLooks';
+import { mixHex } from '@/lib/colorContrast';
 
 /**
  * Tools for trying the app out: the UI catalogue, onboarding from the start
@@ -38,9 +41,25 @@ export default function DeveloperScreen() {
         if (!(await sampleLiveActivity(kind).catch(() => false))) Alert.alert('No Live Activity', 'This build cannot show one, or Live Activities are off for Habyss.');
     };
 
+    // The app dressed for any rank, this session only (lib/rankLook.ts): your rank is not touched.
+    const [previewing, setPreviewing] = React.useState<string | null>(() => currentRankLook().preview);
+    const preview = (name: string | null) => { previewRankLook(name); setPreviewing(name); };
+
     return (
         <SheetScreen title="Developer" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <SettingsGroup title="Rank looks">
+                    {RANK_ORDER.map(name => {
+                        const [from, to] = rankGradient(name);
+                        return (
+                            <SettingsRow key={name} icon="diamond" color={mixHex(from, to)} label={name}
+                                value={previewing === name ? 'Showing' : undefined} onPress={() => preview(name)} />
+                        );
+                    })}
+                    {previewing ? <SettingsRow icon="arrow-undo" color="#8A8A94" label="Back to my rank" onPress={() => preview(null)} /> : null}
+                </SettingsGroup>
+                <Text style={[styles.note, { color: colors.textTertiary }]}>Dresses the whole app in that rank's look until you go back or close Habyss. Your Marks and rank stay as they are.</Text>
+
                 <SettingsGroup title="Screens">
                     <SettingsRow icon="grid" color="#8A8A94" label="UI catalogue" onPress={() => router.push('/(root)/ui-catalog')} />
                     <SettingsRow icon="play" color="#30D158" label="Test onboarding" onPress={() => router.push({ pathname: '/(auth)/onboarding', params: { preview: '1' } } as never)} />

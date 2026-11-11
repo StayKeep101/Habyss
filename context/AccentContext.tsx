@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useSyncExternalStore, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/theme/colors';
-import { mixHex, readableAccent } from '@/lib/colorContrast';
+import { contrastRatio, mixHex, readableAccent } from '@/lib/colorContrast';
+import { currentRankLook, loadRankLook, subscribeRankLook } from '@/lib/rankLook';
+import { rankGradient } from '@/theme/rankLooks';
 
 // Beautiful gradient presets for app accent
 export const ACCENT_GRADIENTS = [
@@ -24,7 +26,7 @@ export const ACCENT_GRADIENTS = [
 export type AccentGradientId = typeof ACCENT_GRADIENTS[number]['id'];
 
 interface AccentGradient {
-    id: AccentGradientId;
+    id: AccentGradientId | 'rank';
     name: string;
     colors: readonly [string, string];
     shadowColor: string;
@@ -32,13 +34,21 @@ interface AccentGradient {
 
 interface AccentContextType {
     accentGradient: AccentGradient;
+    /** The colour picked in Appearance, used when the app does not follow the rank. */
+    chosenGradient: AccentGradient;
     setAccentGradientId: (id: AccentGradientId) => void;
+    /** The app's colour follows your rank (theme/rankLooks.ts). On unless turned off. */
+    followRank: boolean;
+    setFollowRank: (on: boolean) => void;
+    /** The rank whose look is showing, when it is a rank's look. */
+    rankShown: string | null;
     getAccentColor: () => string; // Returns primary color
 }
 
 const AccentContext = createContext<AccentContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'habyss_accent_gradient';
+const FOLLOW_KEY = 'habyss_accent_follow_rank';
 
 export function AccentProvider({ children }: { children: ReactNode }) {
     const [gradientId, setGradientId] = useState<AccentGradientId>('habyss');
@@ -67,16 +77,38 @@ export function AccentProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const accentGradient = ACCENT_GRADIENTS.find(g => g.id === gradientId) || ACCENT_GRADIENTS[0];
+    // Your rank dresses the app (or, from the Developer page, any rank for a preview).
+    const [followRank, setFollow] = useState(true);
+    useEffect(() => {
+        void loadRankLook();
+        AsyncStorage.getItem(FOLLOW_KEY).then(saved => { if (saved === 'false') setFollow(false); }).catch(() => undefined);
+    }, []);
+    const setFollowRank = (on: boolean) => {
+        setFollow(on);
+        void AsyncStorage.setItem(FOLLOW_KEY, String(on)).catch(() => undefined);
+    };
+    const look = useSyncExternalStore(subscribeRankLook, rankLookKey, rankLookKey);
+    const [rank, preview] = look.split('|').map(part => part || null);
+    const rankShown = preview ?? (followRank ? rank : null);
+
+    const chosenGradient = (ACCENT_GRADIENTS.find(g => g.id === gradientId) || ACCENT_GRADIENTS[0]) as AccentGradient;
+    const accentGradient: AccentGradient = useMemo(() => {
+        if (!rankShown) return chosenGradient;
+        const colors = rankGradient(rankShown);
+        return { id: 'rank', name: rankShown, colors, shadowColor: colors[0] };
+    }, [rankShown, chosenGradient]);
 
     const getAccentColor = () => mixHex(accentGradient.colors[0], accentGradient.colors[1]);
 
     return (
-        <AccentContext.Provider value={{ accentGradient, setAccentGradientId, getAccentColor }}>
+        <AccentContext.Provider value={{ accentGradient, chosenGradient, setAccentGradientId, getAccentColor, followRank, setFollowRank, rankShown }}>
             {children}
         </AccentContext.Provider>
     );
 }
+
+/** A string that changes when the rank or preview does, for useSyncExternalStore. */
+const rankLookKey = () => { const { rank, preview } = currentRankLook(); return `${rank ?? ''}|${preview ?? ''}`; };
 
 export function useAccent() {
     const context = useContext(AccentContext);
@@ -95,14 +127,18 @@ export function useAccentGradient() {
         // so a blue-to-purple theme fills chips, rings and icons in the same
         // violet its gradient button reads as, not in the blue of one end.
         const solid = mixHex(accentGradient.colors[0], accentGradient.colors[1]);
+        const lightAccent = contrastRatio('#000000', solid) > contrastRatio('#FFFFFF', solid);
         return {
         colors: accentGradient.colors as [string, string],
         shadowColor: solid,
         primary: solid,
         secondary: accentGradient.colors[1],
         foreground: readableAccent(solid, Colors[theme].background),
-        // White button labels remain readable even on the brightest presets.
-        buttonColors: accentGradient.colors.map(color => readableAccent(color, '#ffffff')) as [string, string],
+        // A light accent (the top ranks' pale gold, Eternal's white light) keeps its
+        // own colour with dark labels; any other is darkened just enough for white ones.
+        buttonColors: (lightAccent ? [...accentGradient.colors] : accentGradient.colors.map(color => readableAccent(color, '#ffffff'))) as [string, string],
+        /** The label colour on a filled accent button. */
+        buttonInk: lightAccent ? Colors.common.black : Colors.common.white,
         };
     }, [accentGradient, theme]);
 }

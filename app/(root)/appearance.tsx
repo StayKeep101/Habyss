@@ -16,7 +16,7 @@ import { styles } from '@/styles/screens/appearance.styles';
  */
 export default function Appearance() {
     const { cardSize, setCardSize, soundsEnabled, setSoundsEnabled, hapticsEnabled, setHapticsEnabled } = useAppSettings();
-    const { accentGradient, setAccentGradientId } = useAccent();
+    const { chosenGradient, setAccentGradientId, followRank, setFollowRank } = useAccent();
     const { selectionFeedback } = useHaptics();
 
     return (
@@ -30,13 +30,19 @@ export default function Appearance() {
                     <SettingsRow icon="pulse" color="#30D158" label="Vibration" toggle={hapticsEnabled} onToggle={setHapticsEnabled} />
                 </SettingsGroup>
 
-                {/* The app's colour: tap one. */}
-                <View style={styles.swatches} accessibilityRole="radiogroup" accessibilityLabel="App colour">
+                {/* Your rank dresses the app: its colour climbs as you do (theme/rankLooks.ts). */}
+                <SettingsGroup>
+                    <SettingsRow icon="diamond" color="#5E5CE6" label="Colour follows my rank" toggle={followRank}
+                        onToggle={value => { selectionFeedback(); setFollowRank(value); }} />
+                </SettingsGroup>
+
+                {/* Or your own colour: tap one (it stops following your rank). */}
+                <View style={[styles.swatches, followRank && styles.dimmed]} accessibilityRole="radiogroup" accessibilityLabel="App colour">
                     {ACCENT_GRADIENTS.map(gradient => {
-                        const on = accentGradient.id === gradient.id;
+                        const on = !followRank && chosenGradient.id === gradient.id;
                         return (
                             <Pressable key={gradient.id} accessibilityRole="radio" accessibilityLabel={gradient.name} accessibilityState={{ selected: on }}
-                                onPress={() => { selectionFeedback(); setAccentGradientId(gradient.id); }}
+                                onPress={() => { selectionFeedback(); setAccentGradientId(gradient.id); setFollowRank(false); }}
                                 style={[styles.swatchRing, on && styles.swatchRingOn]}>
                                 <LinearGradient colors={gradient.colors as [string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.swatch}>
                                     {on ? <AppIcon name="checkmark" size={16} color="#FFFFFF" /> : null}
