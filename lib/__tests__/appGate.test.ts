@@ -36,12 +36,12 @@ describe('earn your scroll', () => {
 
 describe('the block screen, in Echo’s voice', () => {
     const { shieldWords } = require('../appGate') as typeof import('../appGate');
-    it('ticks what is done, counts it, and offers the hour', () => {
-        const words = shieldWords({ top: [{ id: 'a', title: 'Apply to 50 jobs', done: true }, { id: 'b', title: 'Read', done: false }, { id: 'c', title: 'Gym', done: false }], earned: false, planned: 5 }, 'bully_mode');
-        expect(words.title).toBe('Not yet, slacker.');
-        expect(words.lines).toEqual(['Read and Gym come first.', '', '1 of 3 done · 100 Shards opens your apps for an hour.']);
+    it('lists the top 3 with the done ones ticked, and counts them', () => {
+        const words = shieldWords({ top: [{ id: 'a', title: 'Apply to 50 jobs', done: true }, { id: 'b', title: 'Read', done: false }, { id: 'c', title: 'Gym', done: false }], earned: false, planned: 5 });
+        expect(words.title).toBe('Earn your scroll');
+        expect(words.lines).toEqual(['Complete your priorities or redeem Shards.', '', '✓  Apply to 50 jobs', '○  Read', '○  Gym', '', '1 / 3 complete']);
     });
     it('asks for a plan when nothing is planned', () => {
-        expect(shieldWords({ top: [], earned: false, planned: 0 }, 'goofball').title).toBe('Plot twist: you need a plan.');
+        expect(shieldWords({ top: [], earned: false, planned: 0 }).title).toBe('Plan your day first');
     });
 });

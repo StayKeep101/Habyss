@@ -37,6 +37,7 @@
  *   PeopleFilter (whose progress to show on something shared: all together, or one person, each in their own colour),
  *   LevelTags (how urgent and how hard a habit or task is, on its card: "Urgent · Hard"; nothing when ordinary),
  *   SegmentBar (a bar in pieces, one per thing to do, lit in cobalt as it arrives),
+ *   StepTrack (steps along a line: rings that fill in the accent as each is done, the line lighting behind),
  *   Receipt (the moment something is paid for: a ring closes, the tick lands with haptics and sound, the amount counts in),
  *   Confetti (falls once from the top, for the biggest moments; none with Reduce Motion)
  *
@@ -105,6 +106,7 @@ export { VersusBar, type VersusSide } from './VersusBar';
 export { CardRail } from './CardRail';
 export { PostCard, type PostStat } from './PostCard';
 export { SegmentBar } from './SegmentBar';
+export { StepTrack } from './StepTrack';
 export { Receipt } from './Receipt';
 export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { StatTile, type StatTileProps } from './StatTile';

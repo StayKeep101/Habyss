@@ -3,11 +3,13 @@ import { ActivityIndicator, StyleProp, StyleSheet, Text, TouchableOpacity, View,
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
-import { Control, Radius, Spacing, Typography } from '@/theme/designSystem';
+import { Control, Elevation, Radius, Spacing, Typography } from '@/theme/designSystem';
 import { MatteSurface } from './MatteSurface';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useAccentGradient } from '@/context/AccentContext';
 
-/** The one button; `danger` for destructive words, `ghost` for words alone. */
-type AppButtonVariant = 'default' | 'ghost' | 'danger';
+/** The one button; `primary` for the one thing a page is for, `danger` for destructive words, `ghost` for words alone. */
+type AppButtonVariant = 'default' | 'primary' | 'ghost' | 'danger';
 
 interface AppButtonProps {
     label: string;
@@ -22,8 +24,10 @@ interface AppButtonProps {
 }
 
 /**
- * The one button. Matte, like every surface in the app — no accent fill, no
- * gradient. `ghost` is just the words; `danger` is matte with red words.
+ * The one button. Matte, like every surface in the app. `primary` is the one
+ * exception, for the single action a page is for: solid in the accent's
+ * gradient with white words, drawn as HoldButton draws it. `ghost` is just the
+ * words; `danger` is matte with red words.
  */
 export const AppButton: React.FC<AppButtonProps> = ({
     label, onPress, variant = 'default', icon, disabled = false, loading = false,
@@ -31,7 +35,8 @@ export const AppButton: React.FC<AppButtonProps> = ({
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme] ?? Colors.abyss;
-    const foreground = variant === 'danger' ? colors.error : colors.textPrimary;
+    const { buttonColors } = useAccentGradient();
+    const foreground = variant === 'danger' ? colors.error : variant === 'primary' ? Colors.common.white : colors.textPrimary;
     const inner = (
         <>
             {loading ? <ActivityIndicator size="small" color={foreground} /> : icon ? <Ionicons filled name={icon} size={Control.icon} color={foreground} /> : null}
@@ -50,6 +55,13 @@ export const AppButton: React.FC<AppButtonProps> = ({
         >
             {variant === 'ghost'
                 ? <ViewRow>{inner}</ViewRow>
+                : variant === 'primary'
+                ? (
+                    <View style={[styles.button, styles.primary]}>
+                        <LinearGradient colors={buttonColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                        {inner}
+                    </View>
+                )
                 : <MatteSurface radius={Radius.control} level="control" style={styles.button}>{inner}</MatteSurface>}
         </TouchableOpacity>
     );
@@ -65,5 +77,6 @@ const styles = StyleSheet.create({
         gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
     },
     label: { flexShrink: 1, textAlign: 'center' },
+    primary: { borderRadius: Radius.control, overflow: 'hidden', ...Elevation.control },
     disabled: { opacity: 0.5 },
 });

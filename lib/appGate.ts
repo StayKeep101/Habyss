@@ -90,8 +90,7 @@ export async function syncGate(now = new Date()): Promise<GateView | null> {
         changed();
         if (on) void settleShards();
         const { ScreenTimeService } = require('./ScreenTimeService') as typeof import('./ScreenTimeService');
-        const voice = await (require('./echo') as typeof import('./echo')).getEchoPersonality().catch(() => 'normal');
-        const words = shieldWords(view, voice);
+        const words = shieldWords(view);
         ScreenTimeService.setGate({
             on, day: today, earned: view.earned, planned: view.planned,
             remaining: view.top.filter(item => !item.done).map(item => item.title), unlockedUntil: 0,
@@ -103,28 +102,25 @@ export async function syncGate(now = new Date()): Promise<GateView | null> {
     }
 }
 
-/** What the block screen says, in Echo's voice: a title, and today's top 3 with the done ones ticked. Pure. */
-export function shieldWords(view: GateView, voice: string): { title: string; lines: string[] } {
-    const planning = view.planned === 0;
-    const titles: Record<string, [string, string]> = {
-        friendly: ['Almost there 💙', 'Let’s plan your day first 💙'],
-        normal: ['Finish your top 3 first', 'Plan your day first'],
-        dad_mode: ['Work first. Then this.', 'No plan, no phone.'],
-        bully_mode: ['Not yet, slacker.', 'No plan? No scrolling.'],
-        goofball: ['Nice try.', 'Plot twist: you need a plan.'],
-    };
-    const title = (titles[voice] ?? titles.normal)[planning ? 1 : 0];
-    if (planning) return { title, lines: ['Add what matters today in Habyss, then finish your top 3.', '', '100 Shards opens your apps for an hour.'] };
-    // Apple centres every line of this screen, so one sentence reads better than a list.
-    const left = view.top.filter(item => !item.done).map(item => item.title);
-    const done = view.top.length - left.length;
-    const list = left.length <= 1 ? left[0] : `${left.slice(0, -1).join(', ')} and ${left[left.length - 1]}`;
+/**
+ * What the block screen says (the Focus Gate, drawn like the app's own page,
+ * app/(root)/unlock.tsx): a title, the line under it, today's top 3 as a
+ * list with the done ones ticked, and the count. Apple centres every line and
+ * draws only text there, so the rings are characters. Pure.
+ */
+export function shieldWords(view: GateView): { title: string; lines: string[] } {
+    if (view.planned === 0) {
+        return { title: 'Plan your day first', lines: ['Add what matters in Habyss,', 'then finish your top 3.'] };
+    }
+    const done = view.top.filter(item => item.done).length;
     return {
-        title,
+        title: 'Earn your scroll',
         lines: [
-            left.length ? `${list} come${left.length === 1 ? 's' : ''} first.` : 'All three are done.',
+            'Complete your priorities or redeem Shards.',
             '',
-            `${done} of ${view.top.length} done · 100 Shards opens your apps for an hour.`,
+            ...view.top.map(item => `${item.done ? '✓' : '○'}  ${item.title}`),
+            '',
+            `${done} / ${view.top.length} complete`,
         ],
     };
 }
