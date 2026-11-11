@@ -23,7 +23,7 @@ import { VoiceOrb } from './VoiceOrb';
 
 /** The dock gathering or spreading: worked out once, so the UI thread only reads it. */
 const MERGE_TIMING = timingFor(DURATION.emphasis, EASE.move);
-import { FocusMiniBar } from '@/components/Focus/FocusMiniBar';
+import { FocusMiniBar, FOCUS_BAR_HEIGHT } from '@/components/Focus/FocusMiniBar';
 import { useWindowDimensions } from 'react-native';
 
 interface TabIconProps {
@@ -168,15 +168,22 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     // Whether the dock may gather at all (no rail, a now bar, not opened out), for the UI thread.
     const mergeable = useSharedValue(!railed && barShown && !expanded);
     React.useEffect(() => { mergeable.set(!railed && barShown && !expanded); }, [railed, barShown, expanded, mergeable]);
-    React.useEffect(() => {
-        const to = merged ? 1 : 0;
+    /** Puts the dock where this page wants it, whatever a touch started. */
+    const settle = React.useCallback((to: number) => {
         runOnUI(() => {
             'worklet';
             if (mergeTo.value === to) return;
             mergeTo.value = to;
             merge.value = withTiming(to, MERGE_TIMING);
         })();
-    }, [merged, merge, mergeTo]);
+    }, [merge, mergeTo]);
+    React.useEffect(() => { settle(merged ? 1 : 0); }, [merged, current, settle]);
+    // A touch on a tab starts the move before the page changes. When the touch ends
+    // without changing the page (slid off, cancelled), the dock goes back to what the
+    // page wants: it is only ever gathered on the Roadmap.
+    const mergedRef = React.useRef(merged);
+    mergedRef.current = merged;
+    const settleSoon = React.useCallback(() => { setTimeout(() => settle(mergedRef.current ? 1 : 0), 450); }, [settle]);
     /** A touch on a tab, on the UI thread: gather on the Roadmap, spread anywhere else. */
     const touchTab = (name: string) => Gesture.Manual().onTouchesDown(() => {
         'worklet';
@@ -187,8 +194,8 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
         merge.value = withTiming(to, MERGE_TIMING);
     })
         // Only watches the touch: never takes it over, so the tab's own press runs as before.
-        .onTouchesUp((_event, manager) => { 'worklet'; manager.fail(); })
-        .onTouchesCancelled((_event, manager) => { 'worklet'; manager.fail(); });
+        .onTouchesUp((_event, manager) => { 'worklet'; manager.fail(); runOnJS(settleSoon)(); })
+        .onTouchesCancelled((_event, manager) => { 'worklet'; manager.fail(); runOnJS(settleSoon)(); });
     // A tab switched on touch down: its press, when the finger lifts, is already done.
     const switchedOnDown = React.useRef<string | null>(null);
     const tabs = state.routes.map((route: any, index: number) => {
@@ -284,20 +291,28 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const pillMax = isCompactWidth ? 236 : 260;
     const pillWidth = Math.max(tabBarHeight, Math.min(pillMax, screenWidth - horizontalPadding * 2 - dockGap - floatingButtonSize));
     const rowHeight = Math.max(tabBarHeight, floatingButtonSize);
+    // Gathered, the row is one height: the now bar's. The Roadmap disc and the + become
+    // circles exactly as tall as it (never larger), so the three read as one row.
+    const gathered = Math.min(tabBarHeight, floatingButtonSize, FOCUS_BAR_HEIGHT);
+    const orbShrink = gathered / floatingButtonSize;
     // The usual dock is centred; gathered, the disc and the + go out to the edges.
     const slide = Math.max(0, (screenWidth - (pillWidth + dockGap + floatingButtonSize)) / 2 - horizontalPadding);
     const pillBox = useAnimatedStyle(() => ({
-        width: interpolate(merge.value, [0, 1], [pillWidth, tabBarHeight]),
-        transform: [{ translateX: -merge.value * slide }],
+        width: interpolate(merge.value, [0, 1], [pillWidth, gathered]),
+        height: interpolate(merge.value, [0, 1], [tabBarHeight, gathered]),
+        transform: [{ translateX: -merge.value * slide }, { translateY: merge.value * (tabBarHeight - gathered) / 2 }],
     }));
     const tabsFade = useAnimatedStyle(() => ({ opacity: 1 - merge.value }));
     const discFade = useAnimatedStyle(() => ({ opacity: merge.value }));
-    const orbSlide = useAnimatedStyle(() => ({ transform: [{ translateX: merge.value * slide }] }));
+    // Shrunk about its centre, then nudged out so its edge stays on the margin.
+    const orbSlide = useAnimatedStyle(() => ({
+        transform: [{ translateX: merge.value * (slide + (floatingButtonSize - gathered) / 2) }, { scale: interpolate(merge.value, [0, 1], [1, orbShrink]) }],
+    }));
     const barAbove = tabBarBottomOffset + rowHeight + Spacing.sm;
     const barPlace = useAnimatedStyle(() => ({
-        left: interpolate(merge.value, [0, 1], [horizontalPadding, horizontalPadding + tabBarHeight + dockGap]),
-        right: interpolate(merge.value, [0, 1], [horizontalPadding, horizontalPadding + floatingButtonSize + dockGap]),
-        bottom: interpolate(merge.value, [0, 1], [barAbove, tabBarBottomOffset + (rowHeight - tabBarHeight) / 2]),
+        left: interpolate(merge.value, [0, 1], [horizontalPadding, horizontalPadding + gathered + dockGap]),
+        right: interpolate(merge.value, [0, 1], [horizontalPadding, horizontalPadding + gathered + dockGap]),
+        bottom: interpolate(merge.value, [0, 1], [barAbove, tabBarBottomOffset + (rowHeight - gathered) / 2]),
     }));
     const goTab = React.useCallback((name: string) => {
         mediumFeedback();
@@ -410,7 +425,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
             {/* The matte card surface as a pill, floating on its shadow. Its place in the row keeps
                 its full width, so the + never moves when it gathers into the Roadmap disc. */}
             <View style={{ width: pillWidth, height: tabBarHeight }}>
-            <Animated.View style={[styles.pillBox, { height: tabBarHeight }, pillBox]}>
+            <Animated.View style={[styles.pillBox, pillBox]}>
             <MatteSurface radius={tabBarHeight / 2} elevation="floating" edge={dockEdge} hairline style={styles.fill}>
                 <View style={[styles.clip, { borderRadius: tabBarHeight / 2 }]}>
                     <Animated.View pointerEvents={merged ? 'none' : 'auto'} accessibilityElementsHidden={merged} importantForAccessibility={merged ? 'no-hide-descendants' : 'auto'}
@@ -429,7 +444,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                                 else if (name === 'decrement') goTab('home');
                                 else setExpanded(true);
                             }}
-                            style={[styles.disc, { width: tabBarHeight, height: tabBarHeight }, discFade]}>
+                            style={[styles.disc, { width: gathered, height: gathered }, discFade]}>
                             <TabIcon routeName="roadmap" focused colors={accentColors} isDark={theme !== 'light'} foreground={foreground} background={palette.background} />
                         </Animated.View>
                     </GestureDetector>
@@ -452,7 +467,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
             Beside the dock rather than inside it: iOS gives no touches to a
             view drawn outside its parent. After it, so the dock's fade never
             shades it. */}
-        <Animated.View pointerEvents="box-none" style={[styles.focusBar, merged ? { height: tabBarHeight } : null, barPlace]}>
+        <Animated.View pointerEvents="box-none" style={[styles.focusBar, merged ? { height: gathered } : null, barPlace]}>
             <FocusMiniBar docked={merged} onShown={setBarShown} />
         </Animated.View>
         </>

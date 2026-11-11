@@ -144,9 +144,15 @@ function SessionBar({ docked }: { docked: boolean }) {
 /** How much room the bar takes over the tab bar, for pages to clear it (hooks/useResponsiveLayout). */
 export const NOW_BAR_ROOM = 64;
 
+/** The bar's row (a full touch target) and the room above and below it. */
+const ROW = 44;
+const PAD = 6;
+/** The bar's height, and so the height of the dock's row when the dock gathers around it (GlassDock). */
+export const FOCUS_BAR_HEIGHT = ROW + PAD * 2;
+
 const styles = StyleSheet.create({
-    bar: { flexDirection: 'row', alignItems: 'center', paddingLeft: 10, paddingRight: 8, paddingVertical: 6 },
-    main: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
+    bar: { flexDirection: 'row', alignItems: 'center', paddingLeft: 10, paddingRight: 8, paddingVertical: PAD },
+    main: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: ROW },
     words: { flex: 1 },
     title: { fontSize: 15, fontFamily: FontFamily.semibold },
     meta: { fontSize: 12, fontFamily: FontFamily.medium },
