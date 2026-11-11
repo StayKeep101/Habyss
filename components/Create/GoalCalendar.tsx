@@ -16,6 +16,9 @@ import { DURATION, EASE, timingFor } from '@/theme/motion';
 
 /** Timed, never sprung: a sprung height overshoots and the grid bounces. */
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
+/** Built once, off the gesture: a worklet can read these but not call timingFor. */
+const STEP = timingFor(DURATION.base, EASE.move);
+const FLICK = timingFor(DURATION.quick, EASE.enter);
 const monthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`;
 /** A day's row height on a phone with room; smaller phones get a shorter row so six weeks still fit. */
 const CELL = 36;
@@ -65,7 +68,7 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
     const step = (direction: 1 | -1) => {
         if (direction === -1 && !canGoBack) return;
         if (!width) { commit(direction); return; }
-        slide.value = withTiming(-direction * width, timingFor(DURATION.base, EASE.move), done => { if (done) runOnJS(commit)(direction); });
+        slide.value = withTiming(-direction * width, STEP, done => { if (done) runOnJS(commit)(direction); });
     };
     const swipe = Gesture.Pan()
         .activeOffsetX([-14, 14])
@@ -78,7 +81,7 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
             const go = event.translationX < -50 || event.velocityX < -500 ? 1
                 : (event.translationX > 50 || event.velocityX > 500) && canGoBack ? -1 : 0;
             if (!go || !width) { slide.value = withSpring(0, { damping: 20, stiffness: 240 }); return; }
-            slide.value = withTiming(-go * width, timingFor(DURATION.quick, EASE.enter), done => { if (done) runOnJS(commit)(go as 1 | -1); });
+            slide.value = withTiming(-go * width, FLICK, done => { if (done) runOnJS(commit)(go as 1 | -1); });
         });
     const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slide.value - width }] }));
     const validYear = /^\d{4}$/.test(year) && Number(year) >= minimumMonth.getFullYear() && Number(year) <= 9999;
