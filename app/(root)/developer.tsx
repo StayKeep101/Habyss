@@ -7,6 +7,7 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { emit } from '@/lib/appEvents';
 import { TimelineDebug } from '@/components/Settings/TimelineDebug';
+import { DayCardPreview } from '@/components/Community/DayCardPreview';
 import { styles } from '@/styles/screens/developer.styles';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
@@ -31,6 +32,8 @@ export default function DeveloperScreen() {
         if (result === 'not-allowed') Alert.alert('Notifications are off', 'Allow them in Settings → Notifications first.');
         else if (result === 'failed') Alert.alert('Not sent', 'The notification could not be booked.');
     };
+    // Your accountability card as it stands now, shown here on command (components/Community/DayCardPreview.tsx).
+    const [cardShown, setCardShown] = React.useState(false);
     const live = async (kind: 'task' | 'gate') => {
         if (!(await sampleLiveActivity(kind).catch(() => false))) Alert.alert('No Live Activity', 'This build cannot show one, or Live Activities are off for Habyss.');
     };
@@ -50,6 +53,13 @@ export default function DeveloperScreen() {
                     <SettingsRow icon="happy" color="#FF375F" label="Quick question: mood" onPress={() => play(() => emit('preview_question', { kind: 'mood' }))} />
                 </SettingsGroup>
                 <Text style={[styles.note, { color: colors.textTertiary }]}>These only play the moment; your Marks, rank and data stay as they are.</Text>
+
+                <SettingsGroup title="Accountability card">
+                    <SettingsRow icon="people" color="#5E5CE6" label={cardShown ? 'Hide my card' : 'Show my card now'}
+                        value={cardShown ? 'Live' : undefined} onPress={() => setCardShown(shown => !shown)} />
+                </SettingsGroup>
+                {cardShown ? <DayCardPreview /> : null}
+                <Text style={[styles.note, { color: colors.textTertiary }]}>Today's card as your friends will see it at your sharing time, kept up to date as you tick things. Nothing is posted.</Text>
 
                 <SettingsGroup title="Test notifications">
                     {notificationSamples().map(sample => (

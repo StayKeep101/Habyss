@@ -10,6 +10,7 @@ import { counts, othersOn } from '@/lib/sharedGate';
 import { dailyFocus } from '@/lib/dailyFocus';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { FriendsService } from '@/lib/friendsService';
+import { rememberDayCard } from '@/lib/dayCardLatest';
 
 /** Waits for a burst of ticks to settle before writing, so one card goes up, not ten. */
 const SETTLE_MS = 4000;
@@ -67,6 +68,8 @@ export function useDayCardPublisher() {
                 // What made today stand out: a comeback, a best, a milestone, the focus (lib/dayMoments.ts).
                 ...dayMoments({ today: data.today, streak, completedDates, focus: currentFocusRecords() }),
             };
+            // Kept for the Developer page's preview (lib/dayCardLatest.ts).
+            rememberDayCard(data.today, card);
             if (last.current?.day === data.today && sameCard(last.current.card, card)) return;
             void FeedService.publishDayCard(data.today, card).then(result => {
                 if (result === 'saved') last.current = { day: data.today, card };
