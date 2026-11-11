@@ -92,3 +92,26 @@ export async function coverYesterdayIfMissed(didOn: (day: string) => boolean, ru
         return false;
     }
 }
+
+export type EarnResult = 'earned' | 'too_soon' | 'full' | 'not_yet' | 'signed_out' | 'offline';
+
+/** A freeze is earned on each 7th day of a run: day 7, 14, 21… */
+export const earnsFreeze = (streak: number): boolean => streak >= 7 && streak % 7 === 0;
+
+/**
+ * On a 7th day in a row, asks the server for the freeze it earned (the server
+ * allows one a week and five held). Refreshes the count when one came.
+ */
+export async function earnFreezeIfDue(streak: number): Promise<EarnResult> {
+    if (!earnsFreeze(streak)) return 'not_yet';
+    const sb = getSupabase();
+    if (!sb) return 'offline';
+    try {
+        const { data, error } = await sb.rpc('earn_streak_freeze', { p_streak: streak });
+        if (error) return 'offline';
+        if (data === 'earned') publish({ count: Math.min(5, state.count + 1), days: state.days });
+        return (data as EarnResult) ?? 'offline';
+    } catch {
+        return 'offline';
+    }
+}

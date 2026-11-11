@@ -11,6 +11,8 @@ import { useCachedImage } from '@/hooks/useCachedImage';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { MatteSurface } from '@/components/ui/MatteSurface';
+import { IconTile } from '@/components/ui/IconTile';
+import { textOn, tint } from '@/theme/tokens';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Radius } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';
@@ -73,9 +75,11 @@ export const ProfileView: React.FC<{
     topInset?: number;
     /** Tapping "Goals done" opens the goals reached; without it the number is plain. */
     onGoalsDone?: () => void;
+    /** Tapping a streak opens the Streak page (yours only). */
+    onStreak?: () => void;
     /** Anything the page wants under the numbers. */
     children?: React.ReactNode;
-}> = ({ name, bio, meta, avatar, initials, status, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, onGoalsDone, children }) => {
+}> = ({ name, bio, meta, avatar, initials, status, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, onGoalsDone, onStreak, children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
@@ -207,38 +211,46 @@ export const ProfileView: React.FC<{
                 </View>
             </Animated.View>
 
-            {/* One card: the rank and Marks on top, then the three numbers,
-                all in type, split by hairlines. Nothing to decode. */}
+            {/* The rank on its own card, then three tiles of things to be proud
+                of: the run going now, the best run, the goals reached. */}
             <View style={styles.statsBlock}>
-                {numbers || marks !== undefined ? (
+                {marks !== undefined ? (
                     <VoidCard style={styles.card}>
-                        {marks !== undefined ? <LevelCard marks={marks} /> : null}
-                        {marks !== undefined && numbers ? <View style={[styles.rule, { backgroundColor: colors.border }]} /> : null}
-                        {numbers ? (
-                            // Things to be proud of, not today's to-do: the run, the best run, the goals reached.
-                            <View style={styles.stats}>
-                                {[
-                                    { label: 'Streak', value: numbers.streak },
-                                    { label: 'Best streak', value: numbers.bestStreak },
-                                    { label: 'Goals done', value: numbers.goalsCompleted, onPress: onGoalsDone },
-                                ].map((stat, index) => (
-                                    <PopIn key={stat.label} index={index} style={[styles.stat, index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
-                                        <Pressable disabled={!stat.onPress} onPress={stat.onPress} hitSlop={8} style={styles.statPress}
-                                            accessibilityRole={stat.onPress ? 'button' : undefined}
-                                            accessibilityLabel={stat.onPress ? `${stat.value} ${stat.label.toLowerCase()}. Show them` : undefined}>
-                                            <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={stat.value} />
-                                            <View style={styles.statLabelRow}>
-                                                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{stat.label}</Text>
-                                                {stat.onPress ? <Ionicons name="chevron-forward" size={s(11)} color={colors.textTertiary} /> : null}
-                                            </View>
-                                        </Pressable>
-                                    </PopIn>
-                                ))}
-                            </View>
-                        ) : null}
+                        <LevelCard marks={marks} />
                     </VoidCard>
                 ) : null}
-                {!numbers ? <Text style={[styles.private, { color: colors.textTertiary }]}>{hiddenNote ?? 'Progress is private'}</Text> : null}
+                {numbers ? (
+                    <View style={styles.tiles}>
+                        {[
+                            { key: 'streak', label: 'Day streak', value: numbers.streak, icon: 'flame', color: colors.warning, lit: numbers.streak > 0, onPress: onStreak,
+                                note: numbers.streak > 0 && numbers.streak >= numbers.bestStreak ? 'Best yet' : undefined },
+                            { key: 'best', label: 'Best streak', value: numbers.bestStreak, icon: 'trophy', color: primary, lit: numbers.bestStreak > 0, onPress: onStreak },
+                            { key: 'goals', label: 'Goals done', value: numbers.goalsCompleted, icon: 'flag', color: colors.success, lit: numbers.goalsCompleted > 0, onPress: onGoalsDone },
+                        ].map((stat, index) => (
+                            <PopIn key={stat.key} index={index} style={styles.tileSlot}>
+                                <Pressable disabled={!stat.onPress} onPress={stat.onPress} style={({ pressed }) => [styles.tilePress, pressed && styles.pressed]}
+                                    accessibilityRole={stat.onPress ? 'button' : undefined}
+                                    accessibilityLabel={`${stat.value} ${stat.label.toLowerCase()}${stat.note ? `, ${stat.note.toLowerCase()}` : ''}`}>
+                                    <MatteSurface radius={Radius.card} tint={stat.key === 'streak' && stat.lit ? tint(stat.color, 'subtle') : undefined} style={styles.tile}>
+                                        <IconTile icon={stat.icon} color={stat.color} size={s(30)} muted={!stat.lit} />
+                                        <CountUp style={[styles.tileValue, { color: colors.textPrimary }]} value={stat.value} />
+                                        <View style={styles.statLabelRow}>
+                                            <Text numberOfLines={1} style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+                                            {stat.onPress ? <Ionicons name="chevron-forward" size={s(11)} color={colors.textTertiary} /> : null}
+                                        </View>
+                                        {stat.note ? (
+                                            <View style={[styles.note, { backgroundColor: stat.color }]}>
+                                                <Text style={[styles.noteText, { color: textOn(stat.color) }]}>{stat.note}</Text>
+                                            </View>
+                                        ) : null}
+                                    </MatteSurface>
+                                </Pressable>
+                            </PopIn>
+                        ))}
+                    </View>
+                ) : (
+                    <Text style={[styles.private, { color: colors.textTertiary }]}>{hiddenNote ?? 'Progress is private'}</Text>
+                )}
             </View>
 
             {children}
@@ -272,13 +284,16 @@ const styles = StyleSheet.create({
     bioInput: { paddingTop: vs(10), paddingBottom: vs(10), paddingHorizontal: s(14) },
     bioCount: { position: 'absolute', right: s(12), bottom: -vs(18), fontSize: ms(11), fontFamily: FontFamily.regular, fontVariant: ['tabular-nums'] },
     statsBlock: { marginHorizontal: s(20), marginTop: vs(16), gap: vs(12) },
-    card: { padding: s(20), gap: vs(16) },
-    rule: { height: StyleSheet.hairlineWidth },
-    stats: { flexDirection: 'row' },
-    stat: { flex: 1, alignItems: 'center', gap: vs(2) },
-    statValue: { fontSize: ms(22), lineHeight: ms(28), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
-    statLabel: { fontSize: ms(12), fontFamily: FontFamily.regular },
-    statPress: { alignItems: 'center', gap: vs(2), minHeight: 44, justifyContent: 'center' },
+    card: { padding: s(20) },
+    tiles: { flexDirection: 'row', gap: s(10) },
+    tileSlot: { flex: 1 },
+    tilePress: { flex: 1 },
+    pressed: { opacity: 0.7 },
+    tile: { flex: 1, padding: s(14), gap: vs(6), minHeight: 44 },
+    tileValue: { fontSize: ms(28), lineHeight: ms(34), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'], marginTop: vs(4) },
+    statLabel: { fontSize: ms(12), fontFamily: FontFamily.medium, flexShrink: 1 },
     statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: s(2) },
+    note: { position: 'absolute', top: s(12), right: s(10), borderRadius: 999, paddingHorizontal: s(6), paddingVertical: 1 },
+    noteText: { fontSize: ms(11), fontFamily: FontFamily.bold },
     private: { fontSize: ms(13), fontFamily: FontFamily.regular, textAlign: 'center', paddingVertical: vs(12) },
 });

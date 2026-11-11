@@ -5,7 +5,7 @@ import { EchoLine } from '@/components/Home/EchoLine';
 import { CheckInPopup } from '@/components/Echo/CheckInPopup';
 import { useEchoMemory } from '@/hooks/useEchoMemory';
 import { answer as answerCheckIn, leadInFor, loadCheckIns, markAsked, pickQuestion, type CheckInKind } from '@/lib/checkIns';
-import { coverYesterdayIfMissed, loadFreezes } from '@/lib/streakFreeze';
+import { coverYesterdayIfMissed, earnFreezeIfDue, loadFreezes } from '@/lib/streakFreeze';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ClimbMomentOverlay } from '@/components/Home/ClimbMomentOverlay';
 import { AscentArrival } from '@/components/Ascent/AscentArrival';
@@ -305,8 +305,10 @@ const Home = () => {
     if (!sharedData.historyLoaded) return;
     void loadFreezes().then(() => {
       const history = sharedData.history;
-      const doneDays = new Set(allTasks.filter(task => task.status === 'done' && task.completedAt).map(task => localDateKey(new Date(task.completedAt!))));
-      const didOn = (day: string) => (history[day] ?? []).length > 0 || doneDays.has(day);
+      // "Kept" exactly as the streak counts it (shared habits, skips and all).
+      const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+      const kept = new Set(streakFrom(allHabits, allTasks, history, sharedData.skips, localDateKey(yesterday), 1).completedDates);
+      const didOn = (day: string) => kept.has(day);
       const before = new Date(); before.setDate(before.getDate() - 2);
       const run = streakFrom(allHabits, allTasks, history, sharedData.skips, localDateKey(before)).streak;
       return coverYesterdayIfMissed(didOn, run);
@@ -372,6 +374,8 @@ const Home = () => {
     const run = streakFrom(habits, allTasks, history, sharedData.skips, today, undefined, dailyTarget);
     return { streak: run.streak, bestStreak: bestStreakFrom(run.completedDates) };
   }, [habits, allTasks, sharedData.history, sharedData.skips, completions, dailyTarget]);
+  // Every 7th day in a row earns a streak freeze (the server allows one a week).
+  useEffect(() => { void earnFreezeIfDue(streak); }, [streak]);
   // Goals finished: the trophies on your profile.
   const goalsCompleted = goalsData.finished.length;
 

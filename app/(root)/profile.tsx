@@ -127,6 +127,7 @@ export default function ProfileScreen() {
                     marksSeries={seriesForProfile(marks.series)}
                     numbers={{ streak, bestStreak, goalsCompleted }}
                     onGoalsDone={() => { selectionFeedback(); setGoalsOpen(true); }}
+                    onStreak={() => { selectionFeedback(); router.push('/(root)/progress' as never); }}
                     edit={{
                         onName: name => setDraft(current => ({ ...current, name })),
                         onNameDone: () => change({ name: profile.name.trim() }),

@@ -8,5 +8,5 @@ export const styles = StyleSheet.create({
     more: { position: 'absolute', right: Spacing.xl },
     status: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs + 2, paddingTop: Spacing.xs },
     statusText: { fontFamily: FontFamily.semibold, fontSize: 13 },
-    actions: { marginHorizontal: Spacing.xl },
+    actions: { marginHorizontal: Spacing.xl, marginTop: Spacing.lg },
 });
