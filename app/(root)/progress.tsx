@@ -185,7 +185,7 @@ export default function ProgressScreen() {
     const gap = Math.round(5 * fit);
 
     return (
-        <SheetScreen title="Streak" align="leading"
+        <SheetScreen title="Streak"
             rightSlot={
                 // Whose streak: every habit and task together, or one habit.
                 <ChoicePill label={picked ? picked.name : 'All habits'} icon="chevron-down" on={false} color={accent} role="button" onPress={() => { selectionFeedback(); setChoosing(true); }}
