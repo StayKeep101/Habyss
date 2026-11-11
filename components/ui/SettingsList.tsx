@@ -23,10 +23,20 @@ export const SettingsSearch = SearchContext.Provider;
  * coloured icon tile, a name, and what it is set to. Readable without
  * reading — the tile says what it is, the right edge says what happens.
  */
-export function SettingsGroup({ title, children }: { title?: string; children: React.ReactNode }) {
+/**
+ * A group of rows under a title. `toggle` puts one switch for the whole group
+ * at the title's right ("Meals ··· Flexible ⬤"), so a setting about every row
+ * costs no row of its own.
+ */
+export function SettingsGroup({ title, toggle, children }: {
+    title?: string;
+    toggle?: { label: string; value: boolean; onChange: (value: boolean) => void };
+    children: React.ReactNode;
+}) {
     const { theme } = useTheme();
     const colors = Colors[theme] ?? Colors.abyss;
     const query = React.useContext(SearchContext);
+    const { selectionFeedback } = useHaptics();
     const all = React.Children.toArray(children).filter(Boolean);
     // Searching: a group whose title matches keeps every row; otherwise only the rows whose words match.
     const rows = !query.trim() || matchesSearch(query, title) ? all : all.filter(row => {
@@ -39,7 +49,15 @@ export function SettingsGroup({ title, children }: { title?: string; children: R
     const Surface = inSheet ? View : VoidCard;
     return (
         <View style={styles.group}>
-            {title ? <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{title}</Text> : null}
+            {title && toggle ? (
+                // Its switch lines up with the rows' switches below it.
+                <View style={[styles.header, { paddingRight: (inSheet ? styles.flat : styles.card).paddingHorizontal }]}>
+                    <Text accessibilityRole="header" style={[styles.title, styles.headerTitle, { color: colors.textPrimary }]}>{title}</Text>
+                    <Text style={[styles.value, { color: colors.textSecondary }]}>{toggle.label}</Text>
+                    <AppSwitch value={toggle.value} accessibilityLabel={`${title}: ${toggle.label}`}
+                        onValueChange={next => { selectionFeedback(); toggle.onChange(next); }} />
+                </View>
+            ) : title ? <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{title}</Text> : null}
             <Surface style={inSheet ? styles.flat : styles.card}>
                 {rows.map((row, index) => (
                     <View key={index}>
@@ -138,6 +156,8 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
 const styles = StyleSheet.create({
     group: { gap: 12 },
     title: { ...UIStyles.sectionTitle, marginBottom: 0 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    headerTitle: { flex: 1 },
     /** Rows straight on a sheet, lined up with its title. */
     flat: { paddingHorizontal: 18 },
     card: { paddingHorizontal: 14 },

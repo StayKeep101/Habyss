@@ -82,14 +82,12 @@ export default function TimelineSettingsScreen() {
                 </SettingsGroup>
 
                 {/* Meals: one tidy line each; tap one to set its time and length. */}
-                <SettingsGroup title="Meals">
+                {/* Flexible sits by the title: it is about every meal, so it is no row of its own. */}
+                <SettingsGroup title="Meals"
+                    toggle={anyMeal ? { label: 'Flexible', value: flexible, onChange: value => void setMealsFlexible(value) } : undefined}>
                     {(Object.keys(MEAL_NAMES) as MealId[]).map(id => (
                         <MealRow key={id} meal={meals[id]} onChange={patch => void saveMeal(id, patch)} />
                     ))}
-                    {anyMeal ? (
-                        <SettingsRow icon="swap-vertical" color={t.color.success} label="Flexible"
-                            toggle={flexible} onToggle={value => void setMealsFlexible(value)} />
-                    ) : null}
                 </SettingsGroup>
             </ScrollView>
         </SheetScreen>
