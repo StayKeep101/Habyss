@@ -32,7 +32,7 @@ describe('what Echo talks about', () => {
     });
     it('scrolling while something is on names both', () => {
         const [point] = talkingPoints(everything);
-        expect(writtenLine(point, everything, 'bully_mode')).toMatch(/30 minutes.*Study/);
+        expect(writtenLine(point, everything, 'bully_mode')).toMatch(/half an hour.*Study/i);
     });
     it('nothing to say is nothing, not a random phrase', () => {
         expect(talkingPoints({ ...base, done: 0, total: 0, now: 600 })).toEqual([]);
@@ -57,9 +57,10 @@ describe('the day Echo knows', () => {
         const flow = flowDay([task('Study', { kept: { start: 840, end: 900 } }), task('Emails', { kept: { start: 900, end: 930 } }),
             task('Groceries', { kept: { start: 600, end: 660 } }), task('Read', { done: true, doneAt: 700, planned: { start: 660, end: 720 } })], 860, { wake: 420, sleep: 1380 });
         const facts = dayFacts(flow, 860);
-        expect(facts.onNow).toEqual({ title: 'Study', minutesIn: 20, minutesLeft: 40 });
-        expect(facts.next?.title).toBe('Emails');
-        expect(facts.missed).toEqual(['Groceries']);
+        // A one-word name is quoted, so it reads as a name in a sentence (lib/echoHuman.ts).
+        expect(facts.onNow).toEqual({ title: '“Study”', minutesIn: 20, minutesLeft: 40 });
+        expect(facts.next?.title).toBe('“Emails”');
+        expect(facts.missed).toEqual(['“Groceries”']);
         expect([facts.done, facts.total]).toEqual([1, 4]);
     });
     it('stays small however much there is: the facts for the model are a few lines at most', () => {
@@ -73,7 +74,7 @@ describe('when your apps have had you a while', () => {
     it('a line for every threshold, in your voice, about what is on now', () => {
         const lines = scrollLines('bully_mode', { ...base, onNow: { title: 'Study', minutesIn: 10, minutesLeft: 50 } });
         expect(Object.keys(lines).sort()).toEqual(['120', '15', '30', '45', '60', '90', 'title']);
-        expect(lines['30']).toMatch(/30 minutes/);
+        expect(lines['30']).toMatch(/half an hour/i);
         expect(lines['30']).toMatch(/Study/);
     });
 });

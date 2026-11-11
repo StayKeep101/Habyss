@@ -32,7 +32,9 @@ async function run(): Promise<void> {
         const { getDayWindow } = require('./echo') as typeof import('./echo');
         const { whenAwake } = require('./sleepWindow') as typeof import('./sleepWindow');
         // It can wait: inside your sleep, it comes when you wake.
-        const when = whenAwake(reviewTime(now, start), await getDayWindow());
+        // At a human minute, not on the hour (lib/echoHuman.ts).
+        const { humanTime } = require('./echoHuman') as typeof import('./echoHuman');
+        const when = whenAwake(humanTime(reviewTime(now, start), ID), await getDayWindow());
         if (when.getTime() <= now.getTime()) return;
         await Notifications.scheduleNotificationAsync({
             identifier: ID,

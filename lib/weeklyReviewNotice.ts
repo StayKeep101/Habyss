@@ -17,8 +17,11 @@ export async function syncWeeklyReviewNotice(): Promise<void> {
         if (config.weeklyReview === false) return;
         const { status } = await Notifications.getPermissionsAsync();
         if (status !== 'granted') return;
-        const when = reviewTime(new Date(), await getWeekStart());
-        when.setMinutes(when.getMinutes() + 30);
+        const { humanTime } = require('./echoHuman') as typeof import('./echoHuman');
+        const planned = reviewTime(new Date(), await getWeekStart());
+        planned.setMinutes(planned.getMinutes() + 30);
+        // At a human minute (7:43, not 7:30): Echo is a someone, not a timer.
+        const when = humanTime(planned, ID);
         // It can wait: inside your sleep, it comes when you wake.
         const { getDayWindow } = require('./echo') as typeof import('./echo');
         const { whenAwake } = require('./sleepWindow') as typeof import('./sleepWindow');

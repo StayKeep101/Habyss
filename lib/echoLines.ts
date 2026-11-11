@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { PersonalityModeId } from '@/constants/AIPersonalities';
 import { askForLine, isOnDeviceAIReady } from './onDeviceAI';
 import { speaksAsUser } from './echoWriter';
+import { named, numberWord, roughShare } from './echoHuman';
 
 /**
  * What Echo says at the top of Home, a new line every time the page is opened
@@ -164,41 +165,54 @@ const ROASTS: ((s: EchoStats) => string)[] = [
     () => 'Ten years from now you will either thank this moment or hate it. Choose.',
     () => 'Your goals will not hit themselves while you lie there, genius.',
     () => 'Your parents worked too damn hard for you to be this soft.',
-    s => (s.todayTotal > 0 && s.todayDone === 0 ? `${s.todayTotal} scheduled today. Zero done. What the hell are you doing?` : 'Done is the only status that counts. Everything else is noise.'),
+    s => (s.todayTotal > 0 && s.todayDone === 0 ? 'A full list today and nothing done. What the hell are you doing?' : 'Done is the only status that counts. Everything else is noise.'),
 ];
 
+/**
+ * Lines from their own record, said the way a person who had been watching
+ * would say them: what the numbers mean, not the numbers ("you've been hit or
+ * miss lately", never "active 43% of the last 7 days").
+ */
 function yours(s: EchoStats, personality: PersonalityModeId): string[] {
     const lines: string[] = [];
     const tough = personality === 'dad_mode' || personality === 'bully_mode';
     const warm = personality === 'friendly';
     const left = s.todayTotal - s.todayDone;
+    const next = s.nextHabit ? named(s.nextHabit) : undefined;
 
     if (s.todayTotal > 0 && left === 0) {
-        lines.push(warm ? `All ${s.todayTotal} done today. You nailed it. 🎉` : tough ? `All ${s.todayTotal} done. That is the standard. Again tomorrow.` : `Everything scheduled today is done: ${s.todayDone} of ${s.todayTotal}.`);
-    } else if (s.todayTotal > 0) {
-        lines.push(warm ? `${s.todayDone} of ${s.todayTotal} done so far. ${left === 1 ? 'Just one' : `${left}`} to go. 💙` : tough ? `${left} still open today. Close them.` : `${s.todayDone} of ${s.todayTotal} logged today.`);
+        lines.push(warm ? 'Everything done today. You nailed it. 🎉' : tough ? 'All done. That is the standard. Again tomorrow.' : 'Everything for today is done. Nice.');
+    } else if (s.todayTotal > 0 && s.todayDone > 0) {
+        lines.push(warm ? `Good start. ${left === 1 ? 'Just one' : capital(numberWord(left))} to go 💙` : tough ? `${capital(numberWord(left))} still open. Close them.` : `Moving. ${capital(numberWord(left))} left today.`);
     }
-    if (s.nextHabit && left > 0) {
-        lines.push(warm ? `Next up: ${s.nextHabit}. You have got this. ✨` : tough ? `${s.nextHabit}. Not logged yet. Go.` : `${s.nextHabit} is not logged yet today.`);
+    if (next && left > 0) {
+        lines.push(warm ? `${next} next? You’ve got this.` : tough ? `${next}. Not logged yet. Go.` : `${next} is still waiting on you.`);
     }
     if (s.streak >= 2) {
-        lines.push(warm ? `${s.streak} days in a row! Look at you. 🔥` : tough ? `${s.streak} days in a row. Don't you dare break it.` : `${s.streak} days in a row with at least one thing done.`);
+        const run = s.streak >= 14 ? 'a couple of weeks' : s.streak >= 7 ? 'a week' : `${numberWord(s.streak)} days`;
+        lines.push(warm ? `${capital(run)} in a row now. Look at you. 🔥` : tough ? `${capital(run)} in a row. Don't you dare break it.` : `${capital(run)} in a row. Keep it boring and keep it going.`);
     }
     if (s.weekConsistency > 0) {
-        lines.push(s.weekConsistency >= 70
-            ? (tough ? `Active ${s.weekConsistency}% of this week. Acceptable. Aim higher.` : `You were active on ${s.weekConsistency}% of the last 7 days.`)
-            : (tough ? `Active ${s.weekConsistency}% of this week. That is not a habit yet.` : `Active on ${s.weekConsistency}% of the last 7 days. One more day moves that.`));
+        lines.push(s.weekConsistency >= 85
+            ? (tough ? 'You’ve shown up almost every day this week. Acceptable. Aim higher.' : 'You’ve shown up nearly every day this week. That’s the whole game.')
+            : s.weekConsistency >= 50
+                ? (tough ? 'Most days this week, not all. That is not a habit yet.' : 'Most days this week. A couple more and it sticks.')
+                : (tough ? 'You’ve been hit or miss this week. Pick a day and own it: today.' : 'Bit of a patchy week. One good day changes how it feels.'));
     }
     if (s.bestHabit) {
-        lines.push(warm ? `${s.bestHabit} is your most consistent habit this week. 🌟` : `${s.bestHabit} is your most consistent habit this week.`);
+        lines.push(warm ? `${named(s.bestHabit)} is the one you never miss lately 🌟` : `${named(s.bestHabit)} is your most reliable habit right now.`);
     }
     if (s.goalsCount > 0) {
-        lines.push(tough
-            ? `Your goals are ${s.overallProgress}% done. The rest will not do itself.`
-            : `Across ${s.goalsCount} goal${s.goalsCount === 1 ? '' : 's'}, you are ${s.overallProgress}% of the way.`);
+        lines.push(s.overallProgress === 0
+            ? (tough ? 'Your goals haven’t moved yet. The rest will not do itself.' : 'Your goals haven’t moved yet. One small piece today gets them going.')
+            : tough
+                ? `Your goals are ${roughShare(s.overallProgress)}. The rest will not do itself.`
+                : `Your goals are ${roughShare(s.overallProgress)}. Steady.`);
     }
     return lines;
 }
+
+const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 const RECENT_KEY = 'echo_recent_lines';
 const RECENT_LIMIT = 12;

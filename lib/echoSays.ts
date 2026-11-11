@@ -3,6 +3,7 @@ import type { PersonalityModeId } from '@/constants/AIPersonalities';
 import { clockLabel, type DayFlow, type FlowItem } from './dayFlow';
 import { keepsTheFacts, talkingPoints, writtenLines, type Deadline, type EchoBrief } from './echoBrief';
 import { pickFresh, saidLines, shuffled, type Option, type Said } from './echoRecent';
+import { named } from './echoHuman';
 
 /** Bounds that keep Echo as quick in year five as on day one: only today, only the few that matter. */
 const CAP = { friends: 3, duels: 5, above: 50 } as const;
@@ -32,19 +33,19 @@ export function dayFacts(flow: DayFlow | null, now: number): Pick<EchoBrief, 'on
     const current = flow?.current && doable(flow.current) ? flow.current : null;
     // An event counts as on now too (a class, a meeting): opening the app during it is worth a word.
     const event = !current && flow?.current?.kind === 'event' && !flow.current.done ? flow.current : null;
-    const onNow = current ? (() => { const w = whole(current.id); return { title: current.title, minutesIn: Math.max(0, now - w.start), minutesLeft: Math.max(0, w.end - now) }; })()
-        : event ? { title: event.title, minutesIn: Math.max(0, now - event.start), minutesLeft: Math.max(0, event.end - now) } : undefined;
+    const onNow = current ? (() => { const w = whole(current.id); return { title: named(current.title), minutesIn: Math.max(0, now - w.start), minutesLeft: Math.max(0, w.end - now) }; })()
+        : event ? { title: named(event.title), minutesIn: Math.max(0, now - event.start), minutesLeft: Math.max(0, event.end - now) } : undefined;
     const upcoming = (flow?.timeline ?? []).filter(row => !row.done && row.start > now && (doable(row) || row.kind === 'meal' || row.kind === 'event'))
         .sort((a, b) => a.start - b.start)[0];
-    const next = upcoming ? { title: upcoming.title, at: clockLabel(upcoming.start) } : undefined;
-    const missed = ids.filter(id => { const w = whole(id); return !w.first.done && w.end <= now; }).map(id => whole(id).first.title);
+    const next = upcoming ? { title: named(upcoming.title), at: clockLabel(upcoming.start) } : undefined;
+    const missed = ids.filter(id => { const w = whole(id); return !w.first.done && w.end <= now; }).map(id => named(whole(id).first.title));
     const done = ids.filter(id => whole(id).first.done).length;
     const recent = rows.filter(row => row.done && row.doneAt !== undefined && row.planned && row.planned.end - row.doneAt >= 5 && now - row.doneAt <= 30)
         .sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0))[0];
     return {
         onNow, next, missed, done, total: ids.length,
         freeFor: !current && upcoming ? upcoming.start - now : undefined,
-        early: recent ? { title: recent.title, minutes: recent.planned!.end - recent.doneAt! } : undefined,
+        early: recent ? { title: named(recent.title), minutes: recent.planned!.end - recent.doneAt! } : undefined,
     };
 }
 
@@ -113,6 +114,13 @@ export async function buildBrief(input: { name?: string; streak: number; now?: D
 
 /* ------------------------------------------------------------ saying it */
 
+/**
+ * Who Echo is underneath every voice: the same few convictions, so it reads as
+ * one person over weeks rather than a generator (lib/echoHuman.ts OPINIONS).
+ */
+const CHARACTER = 'You believe small starts beat big plans, that today beats Monday, and that showing up matters more than talent. '
+    + 'You remember what they tell you and you notice patterns. You are not a cheerleader; you say what you actually think.';
+
 /** Who Echo is, in a few plain words: the model gets the voice, never a list of phrases to stir together. */
 const VOICE: Record<PersonalityModeId, string> = {
     friendly: 'a warm, encouraging best friend',
@@ -160,7 +168,9 @@ export async function echoSays(voice: PersonalityModeId, brief: EchoBrief, said:
         const rewritten = await askForLine(
             `You are Echo, ${VOICE[voice] ?? VOICE.normal}. You are a real person texting ${brief.name ? brief.name.split(' ')[0] : 'the user'}, not an app. `
             + 'They just picked up their phone and are reading you. React to what is happening the way a human coach would: notice it, call it out, '
-            + 'and if it helps, give one short practical tip. Keep every name, title and number exactly as written. One or two short sentences. No quotation marks.'
+            + 'and if it helps, give one short practical tip. Keep every name and title exactly as written. Never quote a percentage or an exact count: '
+            + 'say amounts the way a friend would (half an hour, a couple, most of the way). Vary your shape: sometimes one short sentence, sometimes a question. '
+            + `${CHARACTER} No quotation marks.`
             + (lately.length ? ` Do not repeat anything like these, said already: ${lately.join(' / ')}` : ''),
             `What is happening: ${point.facts}\nThe sort of thing you might say: ${chosen.line}`,
         ).catch(() => null);

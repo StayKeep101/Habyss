@@ -30,6 +30,9 @@ import { normalizeAIPersonality } from '@/lib/aiAgentService';
 import { nextEchoLine, type EchoStats } from '@/lib/echoLines';
 import { pressureLines, pressureSpeaks } from '@/lib/taskPressure';
 import { loadSaid, noteSaid, pickFresh, shuffled } from '@/lib/echoRecent';
+import { QUIET_FOR_MS } from '@/lib/echoHuman';
+import type { TalkQuestion } from '@/lib/echoConversation';
+import { ChoiceSheet } from '@/components/ui/ChoiceSheet';
 import { upcomingDeadlines } from '@/lib/echoBrief';
 import { useTaskPressure } from '@/hooks/useTaskPressure';
 import { getName } from '@/lib/echo';
@@ -127,10 +130,18 @@ const Home = () => {
   // Goals as the overview has them, for what is due soon (read inside showEchoLine).
   const goalsDataRef = useRef<ReturnType<typeof useGoalsInsights> | null>(null);
   const echoStatsRef = useRef<EchoStats>({ streak: 0, todayDone: 0, todayTotal: 0, weekConsistency: 0, goalsCount: 0, overallProgress: 0 });
-  const showEchoLine = useCallback(async () => {
+  // What Echo last said and when: coming back to Home a moment later is not a new conversation.
+  const lastShownRef = useRef<{ at: number } | null>(null);
+  // Echo's question of the day, asked once its line has typed out (lib/echoConversation.ts).
+  const [talk, setTalk] = useState<TalkQuestion | null>(null);
+  const pendingTalk = useRef<TalkQuestion | null>(null);
+  const showEchoLine = useCallback(async (options?: { glance?: boolean }) => {
+    // Restraint: a glance back within a few minutes keeps what was said (lib/echoHuman.ts).
+    if (options?.glance && lastShownRef.current && Date.now() - lastShownRef.current.at < QUIET_FOR_MS) return;
     const name = await getName();
     const personality = normalizeAIPersonality(aiPersonality || 'friendly');
     const stats = echoStatsRef.current;
+    const today = localDateKey(new Date());
     // Echo talks like a person, not a loop: every line it said lately is remembered
     // (lib/echoRecent.ts), so a refresh never brings one back and never raises the
     // same thing twice in a row. Most pressing first: behind on tasks, then what is
@@ -138,8 +149,11 @@ const Home = () => {
     const said = await loadSaid();
     const say = (line: string, topic: string) => {
       quoteRef.current = line; setLineTurn(turn => turn + 1); setMotivationalQuote(line);
+      lastShownRef.current = { at: Date.now() };
       void noteSaid(line, topic);
     };
+    const human = require('@/lib/echoHuman') as typeof import('@/lib/echoHuman');
+    const saidToday = (prefix: string) => said.some(item => item.topic.startsWith(prefix) && localDateKey(new Date(item.at)) === today);
     const pressure = pressureRef.current;
     if (pressureSpeaks(pressure)) {
       const level = pressure.level === 4 && !pressure.demonAllowed ? { ...pressure, level: 3 as const } : pressure;
@@ -154,8 +168,53 @@ const Home = () => {
     const brief = await buildBrief({ name: name ?? undefined, streak: stats.streak, deadlines }).catch(() => null);
     // The lines Echo says when your apps have had you a while, kept current with the day (lib/echoScroll.ts).
     if (brief) (require('@/lib/echoScroll') as typeof import('@/lib/echoScroll')).sendScrollLines(personality, brief);
+
+    // Once a day, something only someone who knows you would say: back after a gap,
+    // yesterday's answer, something you told Echo, the help that works for you.
+    const talkLib = require('@/lib/echoConversation') as typeof import('@/lib/echoConversation');
+    if (!saidToday('callback:')) {
+      const memoryLib = require('@/lib/echoMemory') as typeof import('@/lib/echoMemory');
+      const memory = await memoryLib.loadMemory().catch(() => memoryLib.EMPTY_MEMORY);
+      const yesterday = localDateKey(new Date(Date.now() - 86400000));
+      const callback = human.callbackLine({
+        voice: personality, name: name ?? undefined, notes: memory.notes,
+        bestHelp: memoryLib.helpRanking(memory.helps)[0],
+        daysAway: await talkLib.daysAwayBefore(today).catch(() => 0),
+        yesterdayAnswer: await talkLib.yesterdayAnswer(yesterday).catch(() => undefined),
+        waiting: brief?.onNow?.title ?? brief?.next?.title,
+      });
+      if (callback) { say(callback.line, callback.topic); return; }
+    }
+
+    // One real question a day, asked once this line has typed out; the answer comes back tomorrow.
+    if (!pressureSpeaks(pressure)) {
+      const question = await talkLib.dueQuestion(new Date(), today).catch(() => null);
+      if (question) {
+        void talkLib.markAsked(today);
+        pendingTalk.current = question;
+        say(question.text, 'talk');
+        return;
+      }
+    }
+
     const specific = brief ? await echoSays(personality, brief, said).catch(() => null) : null;
-    if (specific) { say(specific.line, specific.topic); return; }
+    if (specific) {
+      // Not every reaction is a full sentence: now and then just a word or a nudge.
+      const kind = specific.topic.split(':')[0];
+      const short = human.SHORT[personality] ?? human.SHORT.normal;
+      const brief_ = (kind === 'early' || kind === 'dayDone') ? short.praise : kind === 'onNow' ? short.nudge : null;
+      if (brief_ && Math.random() < 0.25) {
+        const word = pickFresh(shuffled(brief_).map(line => ({ topic: specific.topic, line })), said, 0);
+        if (word) { say(word.line, word.topic); return; }
+      }
+      say(specific.line, specific.topic);
+      return;
+    }
+    // Now and then, an opinion Echo holds for good: the same ones, week after week.
+    if (!saidToday('opinion') && Math.random() < 0.15) {
+      const opinion = pickFresh(shuffled(human.OPINIONS[personality] ?? human.OPINIONS.normal).map(line => ({ topic: 'opinion', line })), said, 0);
+      if (opinion) { say(opinion.line, opinion.topic); return; }
+    }
     // Now and then, something Echo found in your record instead.
     const found = nextPatternLine(echoPatternsRef.current);
     if (found && !said.some(item => item.line === found)) { say(found, 'pattern'); return; }
@@ -203,7 +262,7 @@ const Home = () => {
     useCallback(() => {
       // A new line from Echo every time Home comes into view, once the tab has
       // been drawn: changing it re-renders Home, which held up the switch.
-      const later = afterPaint(() => { void showEchoLine(); });
+      const later = afterPaint(() => { void showEchoLine({ glance: true }); });
       // Echo keeps up with the day while you are here: when a habit or task changes (a tick,
       // something added, an early finish), and every few minutes as the clock moves on.
       let soon: ReturnType<typeof setTimeout> | undefined;
@@ -508,7 +567,10 @@ const Home = () => {
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
           {motivationalQuote ? <EchoLine key={lineTurn} text={motivationalQuote} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)} style={{ marginTop: sectionGap }}
-            onDone={() => { const kind = pendingQuestion.current; if (kind) { pendingQuestion.current = null; setTimeout(() => setQuestion(kind), 400); } }} /> : null}
+            onDone={() => {
+              const kind = pendingQuestion.current; if (kind) { pendingQuestion.current = null; setTimeout(() => setQuestion(kind), 400); }
+              const asked = pendingTalk.current; if (asked) { pendingTalk.current = null; setTimeout(() => setTalk(asked), 500); }
+            }} /> : null}
 
           {/* Spacer after header */}
           <View style={{ height: sectionGap }} />
@@ -567,6 +629,14 @@ const Home = () => {
 
 
         {/* Echo's quick questions. */}
+        {/* Echo's question of the day, answered in a word or a line; it comes back tomorrow. */}
+        <ChoiceSheet visible={!!talk} title={talk?.text ?? ''} onClose={() => setTalk(null)}
+          ask={talk ? { placeholder: talk.placeholder, label: talk.text, save: 'Tell Echo', onSave: answer => {
+            const asked = talk; setTalk(null); successFeedback();
+            void (require('@/lib/echoConversation') as typeof import('@/lib/echoConversation')).saveAnswer(localDateKey(new Date()), asked, answer);
+            const reply = (require('@/lib/echoHuman') as typeof import('@/lib/echoHuman')).heardLine(normalizeAIPersonality(aiPersonality || 'friendly'), asked.id);
+            quoteRef.current = reply; setLineTurn(turn => turn + 1); setMotivationalQuote(reply);
+          } } : undefined} />
         <CheckInPopup kind={question} onClose={() => setQuestion(null)}
           onAnswer={(kind, value) => { void answerCheckIn(kind, value); setQuestion(null); successFeedback(); }} />
 
