@@ -81,11 +81,140 @@ extension View {
     func sectionLabel() -> some View { modifier(SectionLabel()) }
 }
 
+// MARK: - The widget kit
+// One look for every Habyss widget: the same night background, the same type
+// (SF Pro: a spaced caps eyebrow, a bold title), a count in a pill, a glowing
+// bar, and rows drawn as soft cards. New widgets are built from these.
+
+enum WidgetType {
+    static let eyebrow = Font.system(size: 11, weight: .semibold)
+    static let title = Font.system(size: 19, weight: .bold)
+    static let titleSmall = Font.system(size: 17, weight: .bold)
+    static let row = Font.system(size: 13, weight: .medium)
+    static let meta = Font.system(size: 12, weight: .medium)
+}
+
+/// "TODAY" over "Daily Focus", with an optional pill on the right.
+struct WidgetHeader<Trailing: View>: View {
+    let eyebrow: String
+    let title: String
+    var compact = false
+    @ViewBuilder var trailing: () -> Trailing
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 6) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(eyebrow.uppercased()).font(WidgetType.eyebrow).tracking(1.6).foregroundStyle(Habyss.dim)
+                Text(title).font(compact ? WidgetType.titleSmall : WidgetType.title).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            Spacer(minLength: 0)
+            trailing()
+        }
+    }
+}
+
+/// A figure in a pill, "2 / 5".
+struct WidgetPill: View {
+    let text: String
+    var tint: Color = .white
+    var body: some View {
+        Text(text).font(.system(size: 12, weight: .semibold)).monospacedDigit().foregroundStyle(tint)
+            .padding(.horizontal, 9).padding(.vertical, 4)
+            .background(Capsule().fill(Color.white.opacity(0.06)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.75))
+    }
+}
+
+/// The day's progress: a track and a fill in the accent's gradient, softly lit.
+struct WidgetBar: View {
+    let progress: Double
+    let from: Color
+    let to: Color
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.white.opacity(0.08))
+                Capsule().fill(LinearGradient(colors: [from, to], startPoint: .leading, endPoint: .trailing))
+                    .frame(width: progress > 0 ? max(5, geometry.size.width * progress) : 0)
+                    .shadow(color: to.opacity(0.55), radius: 4)
+            }
+        }
+        .frame(height: 5)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A row on a soft card: a tick on the left, a name, a small icon on the right.
+struct WidgetRowCard: View {
+    let title: String
+    let done: Bool
+    let icon: String
+    let accent: Color
+    var height: CGFloat = 30
+    /// Off on a small widget, so the name has the room.
+    var showsIcon = true
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 17, weight: .light))
+                .foregroundStyle(done ? accent : Color.white.opacity(0.55))
+            Text(title).font(WidgetType.row)
+                .strikethrough(done, color: Habyss.dim)
+                .foregroundStyle(done ? Habyss.dim : .white)
+                .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+            if showsIcon {
+                Image(systemName: icon).font(.system(size: 11, weight: .medium)).foregroundStyle(Habyss.dim)
+                    .frame(width: 22, height: 22)
+                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.white.opacity(0.05)))
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Color.white.opacity(0.08), lineWidth: 0.5))
+            }
+        }
+        .padding(.leading, 9).padding(.trailing, showsIcon ? 5 : 9)
+        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.045)))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white.opacity(0.07), lineWidth: 0.75))
+        .contentShape(Rectangle())
+    }
+}
+
+/// "+2 more ›" at the foot of a list.
+struct WidgetMore: View {
+    let count: Int
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(count > 0 ? "+\(count) more" : "Open Habyss").font(WidgetType.meta).foregroundStyle(Habyss.dim)
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(Habyss.dim)
+        }
+    }
+}
+
+/// What a row is, at a glance: from its words when they say it, else its kind.
+func widgetRowIcon(id: String, title: String, time: String?) -> String {
+    let words = title.lowercased()
+    let guesses: [(keys: [String], icon: String)] = [
+        (["send", "email", "mail", "reply", "message", "text "], "paperplane"),
+        (["call", "phone", "ring "], "phone"),
+        (["book", "appointment", "meeting", "meet", "dentist", "doctor"], "calendar"),
+        (["plan", "organis", "organiz", "review", "prepare", "prep "], "square.stack.3d.up"),
+        (["buy", "shop", "grocer", "order", "pick up"], "cart"),
+        (["read", "study", "learn", "revise"], "book.closed"),
+        (["write", "draft", "journal", "note"], "pencil"),
+        (["run", "gym", "workout", "walk", "train", "swim", "lift", "yoga"], "figure.run"),
+        (["clean", "dish", "laundry", "tidy", "wash"], "sparkles"),
+        (["pay", "invoice", "bill", "bank", "budget"], "creditcard"),
+        (["code", "build", "ship", "fix", "deploy"], "chevron.left.forwardslash.chevron.right"),
+    ]
+    if let hit = guesses.first(where: { $0.keys.contains { words.contains($0) } }) { return hit.icon }
+    if id.hasPrefix("habit:") { return "repeat" }
+    return time != nil ? "clock" : "arrow.up.right"
+}
+
 // MARK: - Data Model
 struct HabitModel: Codable, Identifiable {
     let id: String
     let name: String
     var isCompleted: Bool
+    var time: String? = nil
 }
 
 struct WidgetSummary: Codable {
@@ -110,7 +239,7 @@ struct Provider: TimelineProvider {
     private func entry(at date: Date, snapshot: DashboardSnapshot?) -> SimpleEntry {
         let day = snapshot?.days.first { $0.date == widgetDayKey(date) }
         return SimpleEntry(date: date, habits: (day?.items ?? []).map {
-            HabitModel(id: $0.id, name: $0.name, isCompleted: $0.isCompleted)
+            HabitModel(id: $0.id, name: $0.name, isCompleted: $0.isCompleted, time: $0.time)
         }, summary: day.map { WidgetSummary(total: $0.total, completed: $0.completed) },
             accentFrom: snapshot?.accent.from, accentTo: snapshot?.accent.to,
             dayKey: day?.date ?? snapshot?.dayKey)
@@ -168,64 +297,66 @@ struct WidgetEntryView: View {
         case .accessoryInline:
             Text(entry.needsSync ? "Open Habyss to sync" : "\(remaining) tasks remaining")
         default:
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Today").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-                    Spacer(minLength: 3)
-                    if !entry.needsSync {
-                        Text(remaining == 0 && !rows.isEmpty ? "All done" : "\(remaining) left").font(.system(size: 11, weight: .semibold)).foregroundStyle(remaining == 0 && !rows.isEmpty ? Habyss.done : entry.accentSolid)
+            focusList
+        }
+    }
+
+    /// Small: two rows. Medium: four, in two columns. Both: header, bar, rows, "+N more".
+    private var focusList: some View {
+        let small = family == .systemSmall
+        let shown = small ? 2 : 4
+        let total = entry.summary?.total ?? 0
+        let done = entry.summary?.completed ?? 0
+        let allDone = total > 0 && remaining == 0
+        return VStack(alignment: .leading, spacing: 0) {
+            WidgetHeader(eyebrow: "Today", title: "Daily Focus", compact: small) {
+                if !entry.needsSync && total > 0 {
+                    WidgetPill(text: allDone ? "Done" : "\(done) / \(total)", tint: allDone ? Habyss.done : .white)
+                }
+            }
+            if !entry.needsSync && total > 0 {
+                WidgetBar(progress: progress, from: entry.accentSolid, to: Color(habyssHex: entry.accentTo) ?? Habyss.fallbackTo)
+                    .padding(.top, 9)
+            }
+            if entry.needsSync {
+                emptyState("arrow.triangle.2.circlepath", "Let’s bring today in", "Open Habyss to sync")
+            } else if rows.isEmpty {
+                emptyState(remaining > 0 ? "arrow.clockwise" : "checkmark.circle.fill",
+                           remaining > 0 ? "More tasks are waiting" : total > 0 ? "All done for today" : "A little breathing room",
+                           remaining > 0 ? "Open Habyss to refresh" : "Add a task in Habyss")
+            } else {
+                let visible = Array(rows.prefix(shown))
+                Group {
+                    if small {
+                        VStack(spacing: 5) { ForEach(visible) { row($0) } }
+                    } else {
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 5) {
+                            ForEach(visible) { row($0) }
+                        }
                     }
-                    // Medium only: a small widget has one tap target, its rows.
-                    if family == .systemMedium {
+                }
+                .padding(.top, 10)
+                Spacer(minLength: 4)
+                HStack(spacing: 8) {
+                    WidgetMore(count: max(0, rows.count - shown))
+                    if !small {
                         QuickAddLink(kind: "task", label: "Task", accent: entry.accentSolid)
                         QuickAddLink(kind: "habit", label: "Habit", accent: entry.accentSolid)
                     }
                 }
-                // The day's progress, as the app's bars draw it.
-                if !entry.needsSync && (entry.summary?.total ?? 0) > 0 {
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(Color.white.opacity(0.08))
-                            Capsule().fill(remaining == 0 ? Habyss.done : entry.accentSolid)
-                                .frame(width: max(4, geometry.size.width * progress))
-                        }
-                    }
-                    .frame(height: 4)
-                }
-                if entry.needsSync {
-                    emptyState("arrow.triangle.2.circlepath", "Let’s bring today in", "Open Habyss to sync")
-                } else if rows.isEmpty {
-                    emptyState(remaining > 0 ? "arrow.clockwise" : "checkmark.circle.fill",
-                               remaining > 0 ? "More tasks are waiting" : (entry.summary?.total ?? 0) > 0 ? "All done for today" : "A little breathing room",
-                               remaining > 0 ? "Open Habyss to refresh" : "Add a task in Habyss")
-                } else {
-                    VStack(spacing: family == .systemSmall ? 7 : 3) {
-                        ForEach(rows.prefix(limit)) { task in
-                            Button(intent: ToggleHabitIntent(id: task.id)) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                                        .font(.system(size: 18, weight: task.isCompleted ? .regular : .light))
-                                        .foregroundStyle(task.isCompleted ? Habyss.done : entry.accentSolid)
-                                    Text(task.name).font(.system(size: 12, weight: .medium))
-                                        .strikethrough(task.isCompleted, color: Habyss.dim)
-                                        .foregroundStyle(task.isCompleted ? Habyss.dim : .white)
-                                        .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                .frame(maxWidth: .infinity, minHeight: family == .systemSmall ? 25 : 20, alignment: .leading)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(task.isCompleted ? "Reopen \(task.name)" : "Complete \(task.name)")
-                        }
-                    }
-                    Spacer(minLength: 0)
-                    if family == .systemSmall && rows.count > limit {
-                        Text("+\(rows.count - limit) more").font(.system(size: 10)).foregroundStyle(Habyss.faint)
-                    }
-                }
             }
-            .padding(14)
         }
+        .padding(.horizontal, 14).padding(.vertical, 13)
+    }
+
+    private func row(_ task: HabitModel) -> some View {
+        Button(intent: ToggleHabitIntent(id: task.id)) {
+            WidgetRowCard(title: task.name, done: task.isCompleted,
+                          icon: widgetRowIcon(id: task.id, title: task.name, time: task.time), accent: entry.accentSolid,
+                          showsIcon: family != .systemSmall)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(task.isCompleted ? "Reopen \(task.name)" : "Complete \(task.name)")
     }
     private func emptyState(_ icon: String, _ title: String, _ subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {

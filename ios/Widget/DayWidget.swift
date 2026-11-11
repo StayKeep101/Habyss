@@ -36,6 +36,13 @@ struct HabyssNightBackground: View {
     }
 }
 
+/// "9:30", "14:05": the phone's clock without AM/PM, for lists where the order says it.
+func widgetShortClock(_ minutes: Int) -> String {
+    let h = minutes / 60 % 24, m = minutes % 60
+    let twelve = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current)?.contains("a") ?? false
+    return String(format: "%d:%02d", twelve ? (h % 12 == 0 ? 12 : h % 12) : h, m)
+}
+
 /// "9:30", "14:05": the phone's own clock style.
 func widgetClock(_ minutes: Int, on date: Date = Date()) -> String {
     let start = Calendar.current.startOfDay(for: date)
@@ -125,44 +132,58 @@ struct DayProvider: TimelineProvider {
     }
 }
 
-// MARK: - Pieces
+// MARK: - Pieces (the widget kit, HabyssWidget.swift)
 
-/// What is on now (or next): its kind and time, its name large, the time left filling.
+/// "▶ NOW" (or "NEXT"), in the accent.
+private struct NowEyebrow: View {
+    let on: Bool
+    let accent: Color
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "play.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(accent)
+            Text(on ? "NOW" : "NEXT").font(WidgetType.eyebrow).tracking(1.8).foregroundStyle(Habyss.dim)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// What is on now (or next): its name large, the time left counting down, the bar filling.
 private struct NowBlock: View {
     let entry: DayEntry
-    var titleSize: CGFloat = 17
+    var titleSize: CGFloat = 18
+    var figureSize: CGFloat = 26
     var body: some View {
         if let item = entry.current ?? entry.rest.first(where: { !$0.done }) {
             let on = entry.current != nil
-            let color = entry.color(item)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 5) {
-                    Image(systemName: widgetKindIcon(item.kind)).font(.system(size: 11, weight: .semibold))
-                    Text(on ? "Now" : "Next").font(.system(size: 12, weight: .semibold, design: .rounded))
-                    Spacer(minLength: 0)
-                    Text(widgetClock(item.start)).font(.system(size: 11, weight: .medium, design: .rounded)).foregroundStyle(Habyss.dim)
-                }
-                .foregroundStyle(color)
+            VStack(alignment: .leading, spacing: 0) {
+                NowEyebrow(on: on, accent: entry.accent)
                 Text(item.title)
-                    .font(.system(size: titleSize, weight: .semibold, design: .rounded))
+                    .font(.system(size: titleSize, weight: .bold))
                     .foregroundStyle(.white)
                     .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-                Spacer(minLength: 2)
-                if on {
-                    // The time left, counting down live, and the bar filling as it goes.
-                    Text(timerInterval: Date()...entry.at(item.end), countsDown: true)
-                        .font(.system(size: titleSize + 7, weight: .bold, design: .rounded))
+                    .minimumScaleFactor(0.8)
+                    .padding(.top, 6)
+                Spacer(minLength: 6)
+                // Live without the app: counts down to its end (on now) or its start (next).
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Text(timerInterval: Date()...entry.at(on ? item.end : item.start), countsDown: true)
+                        .font(.system(size: figureSize, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(.white)
                         .lineLimit(1)
+                        .fixedSize()
+                    Text(on ? "left" : "to go").font(.system(size: figureSize * 0.62, weight: .regular)).foregroundStyle(Habyss.dim)
+                }
+                if on {
                     ProgressView(timerInterval: entry.at(item.start)...entry.at(item.end), countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
                         .progressViewStyle(.linear)
-                        .tint(color)
+                        .tint(entry.accent)
+                        .padding(.top, 6)
                 } else {
-                    Text("Until \(widgetClock(item.end))").font(.system(size: 12, weight: .medium, design: .rounded)).foregroundStyle(Habyss.dim)
+                    Text("at \(widgetClock(item.start))").font(WidgetType.meta).foregroundStyle(Habyss.dim).padding(.top, 4)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             DayMessage(entry: entry)
         }
@@ -181,37 +202,45 @@ private struct DayMessage: View {
         VStack(alignment: .leading, spacing: 4) {
             Spacer(minLength: 0)
             Image(systemName: icon).font(.system(size: 22, weight: .light)).foregroundStyle(entry.accent).padding(.bottom, 2)
-            Text(title).font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(.white)
-            Text(subtitle).font(.system(size: 11, weight: .medium)).foregroundStyle(Habyss.dim)
+            Text(title).font(.system(size: 16, weight: .bold)).foregroundStyle(.white)
+            Text(subtitle).font(WidgetType.meta).foregroundStyle(Habyss.dim)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-/// One row of the rest of the day, like the app's timeline: the time, the item's
-/// colour as a pill on the rail, its name (struck through once done).
+/// "UP NEXT"
+private struct UpNextLabel: View {
+    var body: some View { Text("UP NEXT").font(WidgetType.eyebrow).tracking(1.8).foregroundStyle(Habyss.dim) }
+}
+
+/// One row of what comes next: a marker (the first lit), the time, the name.
 private struct DayRow: View {
     let entry: DayEntry
     let item: WidgetDayItem
+    let first: Bool
+    var rail = false
     var compact = false
     var body: some View {
-        let color = entry.color(item)
-        HStack(spacing: 8) {
-            Text(widgetClock(item.start))
-                .font(.system(size: compact ? 11 : 12, weight: .medium, design: .rounded))
+        HStack(spacing: compact ? 9 : 12) {
+            Group {
+                if rail {
+                    Circle().fill(first ? entry.accent : Color.white.opacity(0.22)).frame(width: first ? 11 : 9, height: first ? 11 : 9)
+                } else {
+                    Capsule().fill(first ? entry.accent : Color.white.opacity(0.22)).frame(width: 4, height: 15)
+                }
+            }
+            .frame(width: 12)
+            Text(widgetShortClock(item.start))
+                .font(.system(size: compact ? 13 : 14, weight: .medium))
                 .monospacedDigit()
                 .foregroundStyle(Habyss.dim)
-                .frame(width: compact ? 38 : 44, alignment: .leading)
                 .lineLimit(1)
+                .frame(width: compact ? 38 : 44, alignment: .leading)
                 .minimumScaleFactor(0.8)
-            Capsule().fill(item.done ? Habyss.faint : color).frame(width: 4, height: compact ? 16 : 20)
-            Image(systemName: widgetKindIcon(item.kind))
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(item.done ? Habyss.faint : color)
-                .frame(width: 14)
             Text(item.title)
-                .font(.system(size: compact ? 12 : 13, weight: .medium, design: .rounded))
+                .font(.system(size: compact ? 13 : 14, weight: .medium))
                 .strikethrough(item.done, color: Habyss.dim)
                 .foregroundStyle(item.done ? Habyss.dim : .white)
                 .lineLimit(1)
@@ -221,16 +250,22 @@ private struct DayRow: View {
     }
 }
 
-private struct DayHeader: View {
+/// The rows on a rail: a thin line joins the dots, like the app's timeline.
+private struct UpNextList: View {
     let entry: DayEntry
+    let items: [WidgetDayItem]
+    var rail = false
+    var compact = false
+    var spacing: CGFloat = 10
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Today").font(.system(size: 15, weight: .bold, design: .rounded)).foregroundStyle(.white)
-            Spacer(minLength: 4)
-            if entry.fresh && !entry.items.isEmpty && !entry.night {
-                Text(entry.left == 0 ? "All done" : "\(entry.left) left")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(entry.left == 0 ? Habyss.done : entry.accent)
+        VStack(alignment: .leading, spacing: spacing) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                DayRow(entry: entry, item: item, first: index == 0, rail: rail, compact: compact)
+            }
+        }
+        .background(alignment: .leading) {
+            if rail && items.count > 1 {
+                Rectangle().fill(Color.white.opacity(0.14)).frame(width: 1.5).padding(.vertical, 8).padding(.leading, 5.25)
             }
         }
     }
@@ -247,50 +282,51 @@ struct DayWidgetView: View {
         let skip = entry.current == nil ? entry.rest.first(where: { !$0.done })?.id : nil
         return Array(entry.rest.filter { $0.id != skip }.prefix(count))
     }
+    private var showsNext: Bool { !entry.night && entry.fresh }
 
     var body: some View {
         switch family {
         case .systemSmall:
-            NowBlock(entry: entry, titleSize: 16).padding(14)
+            NowBlock(entry: entry, titleSize: 17, figureSize: 26).padding(15)
         case .systemMedium:
             HStack(alignment: .top, spacing: 14) {
-                NowBlock(entry: entry, titleSize: 16).frame(maxWidth: .infinity)
-                if !entry.night && entry.fresh && !upcoming(3).isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Then").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(Habyss.dim)
-                        ForEach(upcoming(3)) { DayRow(entry: entry, item: $0, compact: true) }
+                NowBlock(entry: entry, titleSize: 17, figureSize: 24).frame(maxWidth: .infinity)
+                if showsNext && !upcoming(3).isEmpty {
+                    Rectangle().fill(Habyss.line).frame(width: 1)
+                    VStack(alignment: .leading, spacing: 11) {
+                        UpNextLabel()
+                        UpNextList(entry: entry, items: upcoming(3), compact: true, spacing: 9)
                         Spacer(minLength: 0)
                     }
                     .frame(maxWidth: .infinity)
                 }
             }
-            .padding(14)
+            .padding(15)
         case .systemExtraLarge:
-            VStack(alignment: .leading, spacing: 12) {
-                DayHeader(entry: entry)
-                HStack(alignment: .top, spacing: 20) {
-                    NowBlock(entry: entry, titleSize: 22).frame(maxWidth: .infinity, maxHeight: 150, alignment: .topLeading)
-                    VStack(alignment: .leading, spacing: 9) {
-                        ForEach(upcoming(14)) { DayRow(entry: entry, item: $0) }
+            HStack(alignment: .top, spacing: 24) {
+                NowBlock(entry: entry, titleSize: 24, figureSize: 36).frame(maxWidth: .infinity, maxHeight: 170, alignment: .topLeading)
+                if showsNext && !upcoming(10).isEmpty {
+                    Rectangle().fill(Habyss.line).frame(width: 1)
+                    VStack(alignment: .leading, spacing: 12) {
+                        UpNextLabel()
+                        UpNextList(entry: entry, items: upcoming(10), rail: true, spacing: 12)
                         Spacer(minLength: 0)
                     }
                     .frame(maxWidth: .infinity)
                 }
             }
-            .padding(18)
+            .padding(20)
         default: // Large
-            VStack(alignment: .leading, spacing: 10) {
-                DayHeader(entry: entry)
-                NowBlock(entry: entry, titleSize: 19).frame(height: 116)
-                if !entry.night && entry.fresh && !upcoming(7).isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                NowBlock(entry: entry, titleSize: 22, figureSize: 34).frame(height: 132)
+                if showsNext && !upcoming(5).isEmpty {
                     Rectangle().fill(Habyss.line).frame(height: 1)
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(upcoming(7)) { DayRow(entry: entry, item: $0) }
-                    }
+                    UpNextLabel()
+                    UpNextList(entry: entry, items: upcoming(5), rail: true, spacing: 12)
                 }
                 Spacer(minLength: 0)
             }
-            .padding(16)
+            .padding(18)
         }
     }
 }
