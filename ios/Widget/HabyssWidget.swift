@@ -441,44 +441,82 @@ struct QuickAddView: View {
                 Label("Add a task", systemImage: "plus.circle").font(.headline)
             }
         case .systemMedium:
-            HStack(spacing: 10) {
-                tile(kind: "task", title: "Task", icon: "checklist")
-                tile(kind: "habit", title: "Habit", icon: "repeat")
+            // The four, side by side, each a + you can tap.
+            VStack(alignment: .leading, spacing: 10) {
+                Text("QUICK ADD").font(WidgetType.eyebrow).tracking(1.6).foregroundStyle(Habyss.dim)
+                HStack(spacing: 8) { ForEach(QuickAddKind.all) { tile($0, tall: true) } }
             }
-            .padding(12)
-        default:
-            // The app's + button: a matte disc, the plus in the accent.
-            VStack(alignment: .leading, spacing: 4) {
-                ZStack {
-                    Circle().fill(LinearGradient(colors: [Color.white.opacity(0.14), Color.white.opacity(0.06)], startPoint: .top, endPoint: .bottom))
-                    Circle().strokeBorder(Color.white.opacity(0.10), lineWidth: 0.5)
-                    Image(systemName: "plus").font(.system(size: 20, weight: .semibold)).foregroundStyle(entry.accent)
-                }
-                .frame(width: 44, height: 44)
-                Spacer(minLength: 0)
-                Text("New task").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
-                Text("Tap and type").font(.system(size: 11)).foregroundStyle(Habyss.dim)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .padding(14)
+        default:
+            // Small: the four in a square, each its own tap.
+            Grid(horizontalSpacing: 7, verticalSpacing: 7) {
+                GridRow { tile(QuickAddKind.all[0]); tile(QuickAddKind.all[1]) }
+                GridRow { tile(QuickAddKind.all[2]); tile(QuickAddKind.all[3]) }
+            }
+            .padding(11)
         }
     }
-    private func tile(kind: String, title: String, icon: String) -> some View {
-        Link(destination: URL(string: "habyss://add?kind=\(kind)")!) {
-            VStack(alignment: .leading, spacing: 6) {
-                Image(systemName: icon).font(.system(size: 18, weight: .medium)).foregroundStyle(entry.accent)
-                Spacer(minLength: 0)
-                HStack(spacing: 4) {
-                    Image(systemName: "plus").font(.system(size: 12, weight: .bold))
-                    Text(title).font(.system(size: 15, weight: .semibold))
-                }.foregroundStyle(.white)
+
+    private func tile(_ kind: QuickAddKind, tall: Bool = false) -> some View {
+        WidgetOpen(url: URL(string: "habyss://add?kind=\(kind.id)")!) {
+            VStack(alignment: tall ? .center : .leading, spacing: tall ? 8 : 0) {
+                if tall { Spacer(minLength: 0) }
+                ZStack {
+                    Circle().fill(LinearGradient(colors: [Color.white.opacity(0.14), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom))
+                    Circle().strokeBorder(Color.white.opacity(0.10), lineWidth: 0.5)
+                    Image(systemName: kind.icon).font(.system(size: tall ? 17 : 14, weight: .semibold)).foregroundStyle(entry.accent)
+                }
+                .frame(width: tall ? 42 : 30, height: tall ? 42 : 30)
+                // The + as a badge on the disc, so the name has the whole width.
+                .overlay(alignment: .topTrailing) {
+                    Image(systemName: "plus").font(.system(size: tall ? 9 : 8, weight: .heavy)).foregroundStyle(.white)
+                        .frame(width: tall ? 16 : 14, height: tall ? 16 : 14)
+                        .background(Circle().fill(entry.accent))
+                        .offset(x: 3, y: -3)
+                }
+                if !tall { Spacer(minLength: 0) }
+                Text(tall ? kind.title : kind.short).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                    .lineLimit(tall ? 2 : 1).multilineTextAlignment(tall ? .center : .leading).fixedSize(horizontal: false, vertical: true)
+                    // Every name the same two-line room, so the discs line up across the row.
+                    .frame(height: tall ? 32 : nil, alignment: .top)
+                if tall { Spacer(minLength: 0) }
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 16).fill(LinearGradient(colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom)))
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
+            .padding(tall ? 8 : 9)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: tall ? .center : .leading)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.045)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.white.opacity(0.07), lineWidth: 0.75))
+            .contentShape(Rectangle())
         }
-        .accessibilityLabel("Add a \(kind)")
+        .accessibilityLabel("Add a \(kind.title.lowercased())")
+    }
+}
+
+/// What the + on a widget can make, and where each one opens (app/add.tsx).
+struct QuickAddKind: Identifiable {
+    let id: String
+    let title: String
+    let icon: String
+    /// The name on a small widget's tile, where "Brain dump" does not fit at a readable size.
+    var short: String { id == "braindump" ? "Dump" : title }
+    static let all = [
+        QuickAddKind(id: "task", title: "Task", icon: "checklist"),
+        QuickAddKind(id: "habit", title: "Habit", icon: "repeat"),
+        QuickAddKind(id: "goal", title: "Goal", icon: "flag"),
+        QuickAddKind(id: "braindump", title: "Brain dump", icon: "brain"),
+    ]
+}
+
+/// Opens a Habyss link from anywhere on a widget, the small one included:
+/// a button running OpenURLIntent on iOS 18, a link before it.
+struct WidgetOpen<Label: View>: View {
+    let url: URL
+    @ViewBuilder var label: () -> Label
+    var body: some View {
+        if #available(iOS 18.0, *) {
+            Button(intent: OpenURLIntent(url)) { label() }.buttonStyle(.plain)
+        } else {
+            Link(destination: url) { label() }
+        }
     }
 }
 
@@ -494,7 +532,7 @@ struct HabyssQuickAddWidget: Widget {
         .contentMarginsDisabled()
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular])
         .configurationDisplayName("Quick Add")
-        .description("Add a task or habit by name in one tap.")
+        .description("A task, a habit, a goal or a brain dump, one tap away.")
     }
 }
 

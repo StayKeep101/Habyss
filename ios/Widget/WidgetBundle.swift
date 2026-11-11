@@ -17,6 +17,8 @@ struct HabyssWidgetBundle: WidgetBundle {
         HabyssDayWidget()
         HabyssShardsWidget()
         HabyssQuickAddWidget()
+        HabyssStreakFlameWidget()
+        HabyssFriendsWidget()
         // WidgetControl() // Requires iOS 18.0
         HabyssLiveActivity()
     }

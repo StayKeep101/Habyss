@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import SharedDefaults from './SharedDefaults';
 import type { WidgetPayload } from './widgetSync';
 import type { WidgetDay, WidgetShards } from './widgetDay';
+import type { WidgetRace } from './widgetRace';
 
 /**
  * The app group the widget reads from (`group.com.habyss.data`).
@@ -19,6 +20,7 @@ let lastPayload: string | null = null;
 let lastDay: string | null = null;
 let lastShards: string | null = null;
 let lastShardsNumbers: string | null = null;
+let lastRace: string | null = null;
 
 /** Writes one shared value and redraws the widgets, unless it is what they already show. */
 async function writeOnce(key: string, value: string, last: string | null): Promise<string | null> {
@@ -79,6 +81,14 @@ export const WidgetService = {
         if (fingerprint === lastShardsNumbers) return;
         const written = await writeOnce('widgetShards', JSON.stringify(shards), lastShards);
         if (written !== lastShards) { lastShards = written; lastShardsNumbers = fingerprint; }
+    },
+
+    /** You and your friends' Marks for the Friends widget (lib/widgetRace.ts). Redrawn only when the numbers change. */
+    async writeRace(race: WidgetRace): Promise<void> {
+        const { at: _at, ...numbers } = race;
+        if (JSON.stringify(numbers) === lastRace) return;
+        await writeOnce('widgetRace', JSON.stringify(race), null);
+        lastRace = JSON.stringify(numbers);
     },
 
     /** Redraws the widget without changing what it shows. */

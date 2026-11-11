@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { emit } from '@/lib/appEvents';
 
 /**
- * `habyss://add?kind=task` (or `habit`): where the widget's + lands.
+ * `habyss://add?kind=task` (or `habit`, `goal`, `braindump`): where the widget's + lands.
  *
  * A widget cannot hold a text field, so the nearest thing to typing into it is
  * one tap to a keyboard: this goes Home and opens the composer straight away.
@@ -15,11 +15,13 @@ export default function QuickAdd() {
     const { kind } = useLocalSearchParams<{ kind?: string }>();
 
     useEffect(() => {
+        // Brain dump is a page of its own: straight there, keyboard up.
+        if (kind === 'braindump') { router.replace('/brain-dump' as never); return; }
         router.replace('/');
-        const which = kind === 'habit' ? 'habit' : 'task';
         // After the replace has settled, so the sheet opens over Home.
         setTimeout(() => {
-            if (which === 'habit') emit('show_quick_add', undefined);
+            if (kind === 'habit') emit('show_quick_add', undefined);
+            else if (kind === 'goal') emit('show_goal_quick_add', undefined);
             else emit('show_task_form', undefined);
         }, 450);
     }, [kind, router]);

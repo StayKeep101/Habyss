@@ -43,6 +43,8 @@ import { Overlay } from '@/components/ui/Overlay';
 import { SealedDayCard } from '@/components/Community/SealedDayCard';
 import { MarketSection } from '@/components/Market/MarketSection';
 import { DuelSection } from '@/components/Duel/DuelSection';
+import { WidgetService } from '@/lib/widgetService';
+import { widgetRace } from '@/lib/widgetRace';
 import { WalletHero } from '@/components/Market/WalletHero';
 import { PageDots } from '@/components/ui/PageDots';
 import { MarksRace } from '@/components/Community/MarksRace';
@@ -169,11 +171,14 @@ export default function CommunityScreen() {
             setRanks(new Map(board.map(row => [row.userId, row.rank])));
             // The race: everyone's published history, and your own total as this phone knows it.
             void Promise.all([FriendsService.marksSeriesFor(board.map(row => row.userId)), localMarks()]).then(([series, mine]) => {
-                setRacers(board.map(row => ({
+                const next = board.map(row => ({
                     id: row.userId, name: row.name, avatarUrl: row.avatarUrl, me: row.isMe,
                     marks: row.isMe && mine !== null ? Math.max(mine, row.marks) : row.marks,
                     series: series.get(row.userId),
-                })));
+                }));
+                setRacers(next);
+                // The same race on the Friends widget.
+                void WidgetService.writeRace(widgetRace(next)).catch(() => undefined);
             }).catch(() => undefined);
             if (current) setMe({ id: current.id, name: current.displayName || current.username });
             setRequests(requestList);
