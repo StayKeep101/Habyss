@@ -109,8 +109,9 @@ function label(people: Participant[]): string {
 }
 
 const styles = StyleSheet.create({
-    // Room on the right and below for the tick that hangs off the last face.
-    row: { flexDirection: 'row', alignItems: 'center', paddingRight: 3, paddingBottom: 3 },
+    // Room on the right and below for the tick that hangs off the last face,
+    // matched above so the faces stay centred on whatever they sit beside.
+    row: { flexDirection: 'row', alignItems: 'center', paddingRight: 3, paddingVertical: 3 },
     face: { borderWidth: 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     photo: { width: '100%', height: '100%', resizeMode: 'cover' },
     initial: { fontFamily: FontFamily.bold },
