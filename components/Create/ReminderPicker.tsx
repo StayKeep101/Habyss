@@ -34,8 +34,9 @@ export interface ReminderValue {
  * - Off (the default): nothing else on screen.
  * - Before: how long before it begins — the usual leads in one tap, then
  *   hours and minutes on wheels, as the Clock app's timer sets them.
- * - At a place: the same leads, then a small map (tap to choose) and whether
- *   arriving or leaving.
+ * - At a place: a small map (tap to choose) and whether arriving or leaving.
+ *   No leads: it fires as you cross the place's edge, and when you will
+ *   arrive is not something the phone can know.
  * Its start is always told as well (lib/dayGuide.ts). No message: Echo
  * writes it in your voice.
  */
@@ -62,7 +63,8 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
         setChosen(next);
         if (next === 'off') onChange({ reminder: undefined, reminderOffset: undefined, places: [], alerts: [] });
         if (next === 'before') onChange({ reminder: undefined, reminderOffset: undefined, places: [], alerts: [lead ?? 10] });
-        if (next === 'place') { onChange({ reminder: undefined, reminderOffset: undefined }); void locate(false); }
+        // A place fires on arriving or leaving, never "before": nobody can know when you will get there.
+        if (next === 'place') { onChange({ reminder: undefined, reminderOffset: undefined, alerts: [] }); void locate(false); }
     };
     /** One lead at a time: a shortcut sets it, the wheels fine-tune it. */
     const setLead = (minutes: number) => onChange({ alerts: minutes > 0 ? [minutes] : [] });
@@ -112,7 +114,7 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
         <View style={styles.wrap}>
             <ChoiceRow accessibilityLabel="When to remind you" options={options} value={mode} onChange={pick} color={accent} />
 
-            {mode !== 'off' ? (
+            {mode === 'before' ? (
                 // The usual leads, one tap each; tapping the chosen one again takes it off.
                 <View style={styles.leads}>
                     {ALERT_CHOICES.map(minutes => (
