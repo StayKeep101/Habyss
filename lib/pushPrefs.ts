@@ -13,7 +13,7 @@ export interface PushKind { id: string; label: string; icon: string; types: stri
 
 export const PUSH_KINDS: PushKind[] = [
     { id: 'friends', label: 'Friend requests', icon: 'person-add', types: ['friend_request', 'friend_accepted'] },
-    { id: 'nudges', label: 'Nudges', icon: 'hand-left', types: ['nudge'] },
+    { id: 'nudges', label: 'Nudges', icon: 'hand-left', types: ['nudge', 'nudge_back'] },
     { id: 'reactions', label: 'Reactions and comments', icon: 'heart', types: ['reaction', 'comment'] },
     { id: 'shares', label: 'Shared habits and tasks', icon: 'people', types: ['share_offer', 'share_accepted', 'share_declined', 'shared_done'] },
     { id: 'games', label: 'Duels and bets', icon: 'flash', types: ['duel', 'challenge', 'market'] },

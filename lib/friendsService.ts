@@ -663,7 +663,7 @@ export class FriendsService {
      */
     private static async notify(
         ctx: Context, userId: string,
-        type: 'friend_request' | 'friend_accepted' | 'nudge' | 'share_offer' | 'share_accepted' | 'share_declined' | 'shared_done',
+        type: 'friend_request' | 'friend_accepted' | 'nudge' | 'nudge_back' | 'share_offer' | 'share_accepted' | 'share_declined' | 'shared_done',
         content: { title: string; body: string },
     ): Promise<boolean> {
         const { error } = await ctx.sb.from('notifications').insert({
@@ -780,6 +780,13 @@ export class FriendsService {
         });
         if (sent) await AsyncStorage.setItem(`habyss_nudged_${friendId}`, localDateKey(new Date())).catch(() => undefined);
         return sent;
+    }
+
+    /** "On it", from a friend's nudge: they hear you are on it. */
+    static async answerNudge(friendId: string): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        return this.notify(ctx, friendId, 'nudge_back', { title: `✅ ${await myName(ctx)} is on it`, body: 'Your nudge worked.' });
     }
 
     /**

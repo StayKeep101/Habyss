@@ -4,8 +4,6 @@ import HabyssLiveActivity from '@/modules/habyss-live-activity';
 import type { DayFlow } from './dayFlow';
 import { emit } from './appEvents';
 import { engagementLifecycle } from './engagementLifecycle';
-import { readAccent } from './widgetSync';
-import { mixHex } from './colorContrast';
 
 const KEY = 'habyss_scheduled_live_activities';
 export async function scheduledActivitiesEnabled() { return (await AsyncStorage.getItem(KEY)) !== 'false'; }
@@ -101,7 +99,7 @@ export function refreshScheduledActivities() {
         const { localDateKey } = require('./habitSchedule') as typeof import('./habitSchedule');
         const now = new Date();
         const today = localDateKey(now);
-        const [enabled, accent, focusing] = await Promise.all([scheduledActivitiesEnabled(), readAccent(), focusCardLive()]);
+        const [enabled, focusing] = await Promise.all([scheduledActivitiesEnabled(), focusCardLive()]);
         // A focus session has its own card (the timer): then that is the one.
         let plan: ReturnType<typeof activityPlan> = [];
         if (enabled && !focusing) {
@@ -109,7 +107,10 @@ export function refreshScheduledActivities() {
                 : slotsFromFlow(await (require('./todayFlow') as typeof import('./todayFlow')).todayFlow(now), today);
             plan = activityPlan(slots, now, scheduledActivitiesCapability() === 'scheduled');
         }
-        const payload = plan.map(({ color, ...item }) => ({ ...item, accentHex: color ?? mixHex(accent.from, accent.to) }));
+        // One colour for every card, the focus card's (Habyss blue, the widget's
+        // fallbackTo): never the habit's, task's or event's own.
+        const { ACCENT_GRADIENTS } = require('@/context/AccentContext') as typeof import('@/context/AccentContext');
+        const payload = plan.map(({ color: _own, ...item }) => ({ ...item, accentHex: ACCENT_GRADIENTS[0].colors[1] }));
         const signature = JSON.stringify(payload);
         if (signature === lastSent) return;
         const result = await HabyssLiveActivity!.reconcileScheduledActivities!(payload);

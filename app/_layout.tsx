@@ -189,7 +189,9 @@ export default function MobileLayout() {
     const handle = async (response: Notifications.NotificationResponse | null) => {
       if (!response) return;
       try {
-        await NotificationService.handleEchoResponse(response);
+        if (!(await NotificationService.handleEchoResponse(response))) {
+          await (require('@/lib/socialActions') as typeof import('@/lib/socialActions')).handleSocialResponse(response);
+        }
         await Notifications.clearLastNotificationResponseAsync();
         const data = response.notification.request.content.data;
         // Every tap goes to its place (navigate): a tab is switched to, a page

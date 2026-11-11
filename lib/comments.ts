@@ -199,6 +199,21 @@ export async function postComment(toUser: string, day: string, body: string, par
     return (await dress(ctx, [data]))[0];
 }
 
+/**
+ * A reply typed on a comment's notification: it answers that person's latest
+ * comment you can see, in its thread (one level deep, so a reply to a reply
+ * hangs under the same comment).
+ */
+export async function replyToLatestFrom(author: string, body: string): Promise<Comment | null> {
+    const ctx = await client();
+    if (!ctx) return null;
+    const { data } = await ctx.sb.from('feed_comments').select(COLUMNS)
+        .eq('author', author).order('created_at', { ascending: false }).limit(1);
+    const latest: any = data?.[0];
+    if (!latest) return null;
+    return postComment(latest.to_user, String(latest.day).slice(0, 10), body, latest.parent_id ?? latest.id);
+}
+
 export async function editComment(id: string, body: string): Promise<void> {
     const ctx = await client();
     if (!ctx) throw new Error('Sign in to edit.');

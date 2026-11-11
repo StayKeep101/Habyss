@@ -179,7 +179,7 @@ async function tellEarned() {
     try {
         const Notifications = require('expo-notifications') as typeof import('expo-notifications');
         await Notifications.scheduleNotificationAsync({
-            content: { title: 'You earned it', body: 'Your top 3 are done. Your apps are open for the rest of today.', data: { type: 'gate_earned' } },
+            content: { title: '🎉 You earned it', body: 'Your top 3 are done. Your apps are open for the rest of today.', data: { type: 'gate_earned' } },
             trigger: null,
         });
     } catch { /* the block is lifted either way */ }

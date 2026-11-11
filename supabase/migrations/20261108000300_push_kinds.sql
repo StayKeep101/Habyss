@@ -47,7 +47,18 @@ begin
             'body', coalesce(new.body, ''),
             'sound', 'default',
             'data', jsonb_build_object('type', new.type, 'from', new.from_user_id),
-            'collapseId', new.type
+            'collapseId', new.type,
+            -- Its buttons, answered on the notification (lib/notificationActions.ts):
+            -- a nudge "On it", a comment "Reply", a duel still waiting "Accept · Decline".
+            'categoryId', case
+                when new.type = 'nudge' then 'HABYSS_FRIEND_NUDGE'
+                when new.type = 'comment' then 'HABYSS_COMMENT'
+                when new.type = 'duel' and exists (
+                    select 1 from public.duels d
+                    where d.challenger_id = new.from_user_id and d.opponent_id = new.user_id and d.status = 'proposed'
+                ) then 'HABYSS_DUEL'
+                else ''
+            end
         )
     );
     return new;

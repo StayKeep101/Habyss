@@ -94,9 +94,9 @@ begin
         update public.duels set status = 'settled', winner_id = winner, settled_at = now() where id = d.id;
         insert into public.notifications (user_id, from_user_id, type, title, body)
             select u, case when u = d.challenger_id then d.opponent_id else d.challenger_id end, 'duel',
-                   case when winner is null then 'Your duel is a draw' when winner = u then 'You won your duel' else 'Your duel is over' end,
+                   case when winner is null then '🤝 Your duel is a draw' when winner = u then '🏆 You won your duel' else '⚔️ Your duel is over' end,
                    case when winner is null then 'Dead even. Any Shards at stake are back.'
-                        when winner = u then case when d.stake > 0 then '+' || (d.stake * 2) || ' Shards.' else 'Nicely kept.' end
+                        when winner = u then case when d.stake > 0 then '+' || (d.stake * 2) || ' Shards 💎' else 'Nicely kept.' end
                         else 'They kept a little more this time. Rematch?' end
               from unnest(array[d.challenger_id, d.opponent_id]) as u;
     end loop;
@@ -159,7 +159,8 @@ begin
     end if;
     insert into public.notifications (user_id, from_user_id, type, title, body)
         values (d.challenger_id, me, 'duel',
-                coalesce((select coalesce(nullif(btrim(display_name), ''), username) from public.profiles where id = me), 'Your friend')
+                case when p_accept then '⚔️ ' else '🫡 ' end
+                    || coalesce((select coalesce(nullif(btrim(display_name), ''), username) from public.profiles where id = me), 'Your friend')
                     || case when p_accept then ' accepted your duel' else ' passed on your duel' end,
                 case when p_accept then 'It starts tomorrow.' else case when d.stake > 0 then 'Your Shards are back.' else 'Maybe next time.' end end);
 end;

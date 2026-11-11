@@ -45,6 +45,22 @@ export const ACTIONS: string[] = Object.values(ACTION);
 /** "Need more time": how many minutes each button gives before Echo asks again. */
 export const MORE_MINUTES: Record<string, number> = { [ACTION.more10]: 10, [ACTION.more30]: 30 };
 
+/**
+ * Community, answered on the push itself (the server names the category,
+ * supabase push_notification): a friend's nudge, "On it", tells them you are;
+ * a comment, "Reply", answers in its thread; a duel waiting on you, "Accept"
+ * or "Decline". Handled in lib/socialActions.ts.
+ */
+export const FRIEND_NUDGE_CATEGORY = 'HABYSS_FRIEND_NUDGE';
+export const COMMENT_CATEGORY = 'HABYSS_COMMENT';
+export const DUEL_CATEGORY = 'HABYSS_DUEL';
+export const SOCIAL_ACTION = {
+    onIt: 'HABYSS_ON_IT',
+    reply: 'HABYSS_REPLY',
+    accept: 'HABYSS_DUEL_ACCEPT',
+    decline: 'HABYSS_DUEL_DECLINE',
+} as const;
+
 /** Energy, one tap: low, okay, high (stored as 2, 3 and 5 on the 1–5 scale). */
 export const ENERGY_ACTION = { low: 'ECHO_ENERGY_LOW', ok: 'ECHO_ENERGY_OK', high: 'ECHO_ENERGY_HIGH' } as const;
 export const ENERGY_VALUE: Record<string, 2 | 3 | 5> = { [ENERGY_ACTION.low]: 2, [ENERGY_ACTION.ok]: 3, [ENERGY_ACTION.high]: 5 };
@@ -54,7 +70,11 @@ export const SNOOZE_MINUTES = 10;
 /** The smallest start Echo offers. */
 export const STARTER_MINUTES = 5;
 
-type Button = { identifier: string; buttonTitle: string; options: { opensAppToForeground: boolean; isDestructive?: boolean } };
+type Button = {
+    identifier: string; buttonTitle: string;
+    textInput?: { submitButtonTitle: string; placeholder: string };
+    options: { opensAppToForeground: boolean; isDestructive?: boolean };
+};
 const button = (identifier: string, buttonTitle: string, extra: Partial<Button['options']> = {}): Button =>
     ({ identifier, buttonTitle, options: { opensAppToForeground: true, ...extra } });
 
@@ -78,6 +98,17 @@ export const CATEGORIES: { id: string; buttons: Button[] }[] = [
         button(ACTION.more10, '+10 min'),
         button(ACTION.more30, '+30 min'),
         button(ACTION.skip, 'Skip today', { isDestructive: true }),
+    ] },
+    { id: FRIEND_NUDGE_CATEGORY, buttons: [button(SOCIAL_ACTION.onIt, 'On it 👊', { opensAppToForeground: false })] },
+    { id: COMMENT_CATEGORY, buttons: [{
+        identifier: SOCIAL_ACTION.reply, buttonTitle: 'Reply',
+        textInput: { submitButtonTitle: 'Send', placeholder: 'Reply…' },
+        options: { opensAppToForeground: false },
+    }] },
+    // Accept opens Habyss: the duel starts there, and a stake you cannot cover says so.
+    { id: DUEL_CATEGORY, buttons: [
+        button(SOCIAL_ACTION.accept, 'Accept ⚔️'),
+        button(SOCIAL_ACTION.decline, 'Decline', { opensAppToForeground: false, isDestructive: true }),
     ] },
     // Answered without opening the app: the answer is all Echo needs.
     { id: ENERGY_CATEGORY, buttons: [
