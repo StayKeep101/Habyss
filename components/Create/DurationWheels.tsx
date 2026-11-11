@@ -46,10 +46,10 @@ export function DurationWheels({ seconds, onChange, parts: shownParts = ['days',
         onChange(next.days * 86400 + next.hours * 3600 + next.minutes * 60 + next.seconds);
     };
     const columns: { key: keyof typeof parts; label: string; options: typeof DAYS }[] = [
-        { key: 'days', label: 'd', options: DAYS },
-        { key: 'hours', label: 'h', options: HOURS },
-        { key: 'minutes', label: 'm', options: SIXTY },
-        { key: 'seconds', label: 's', options: SIXTY },
+        { key: 'days', label: 'day', options: DAYS },
+        { key: 'hours', label: 'hour', options: HOURS },
+        { key: 'minutes', label: 'min', options: SIXTY },
+        { key: 'seconds', label: 'sec', options: SIXTY },
     ];
     return (
         <View style={styles.row}>
