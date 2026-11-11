@@ -130,3 +130,25 @@ describe('time windows and steps', () => {
         expect(parseSubtasks(null)).toBeUndefined();
     });
 });
+
+describe('a time said is a time kept', () => {
+    const read = (text: string) => { const { title, dueTime, flexible } = parseTaskText(text, TODAY); return { title, dueTime, flexible }; };
+
+    it('pins a task to a clock time, in figures or in words', () => {
+        expect(read('Do them dishes at four')).toEqual({ title: 'Do them dishes', dueTime: '16:00', flexible: false });
+        expect(read('dishes at four thirty pm')).toEqual({ title: 'Dishes', dueTime: '16:30', flexible: false });
+        expect(read("dishes at 4 o'clock")).toEqual({ title: 'Dishes', dueTime: '16:00', flexible: false });
+        expect(read('dishes at 4:30')).toEqual({ title: 'Dishes', dueTime: '16:30', flexible: false });
+        expect(read('dishes from 2 to 4pm').flexible).toBe(false);
+    });
+
+    it('keeps a length alone, or a rough time of day, flexible', () => {
+        expect(read('dishes for 30 minutes').flexible).toBeUndefined();
+        expect(read('dishes this afternoon').flexible).toBeUndefined();
+        expect(read('dishes at 4 flexible').flexible).toBe(true);
+    });
+
+    it('leaves a name that only sounds like a time alone', () => {
+        expect(read('dinner at Four Seasons')).toEqual({ title: 'Dinner at Four Seasons', dueTime: undefined, flexible: undefined });
+    });
+});

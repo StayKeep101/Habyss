@@ -66,6 +66,12 @@ const addDays = (from: Date, days: number): Date => {
     return date;
 };
 
+/** Clock hours and minutes said in words ("at four thirty"). */
+const WORD_HOURS: Record<string, number> = {
+    one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
+};
+const WORD_MINUTES: Record<string, string> = { fifteen: '15', thirty: '30', fortyfive: '45' };
+
 export function parseTaskText(input: string, today: Date = new Date()): ParsedTaskText {
     const matched: ParsedTaskText['matched'] = { date: false, time: false, estimate: false, priority: false };
     // "Monday's meeting", "about Saturday", links: not dates (lib/phrases.ts).
@@ -205,6 +211,9 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
 
     /* ----------------------------------------------------------------- time */
     let dueTime: string | undefined = rangeStart;
+    // A clock time said ("at 4", "from 2 to 4pm", "at noon") is a time to keep;
+    // "this afternoon" or "tonight" is only roughly when.
+    let exactTime = !!rangeStart;
     const wordTimes: { pattern: RegExp; time: string }[] = [
         { pattern: /\b(at\s+)?noon\b/i, time: '12:00' },
         // Midnight is the end of the day it is due, never 00:00 that morning.
@@ -213,8 +222,15 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
         { pattern: /\bafternoon\b/i, time: '14:00' },
         { pattern: /\b(evening|tonight)\b/i, time: '19:00' },
     ];
+    // A clock time said in words reads as one in figures: "at four" is "at 4",
+    // "at four thirty pm" "at 4:30 pm"; "o'clock" says nothing more. Only when
+    // what follows is time talk, so "dinner at Four Seasons" keeps its name.
+    rest = rest.replace(
+        new RegExp(`\\bat\\s+(${Object.keys(WORD_HOURS).join('|')})(?:\\s+(fifteen|thirty|forty[\\s-]five))?(?=\\s*(?:o'?clock\\b|am\\b|pm\\b|[,.!;]|$|${escapeRegex(TAKEN.trim())}|\\s(?:today|tomorrow|tonight|for|on|this|next|every|and|then)\\b))`, 'gi'),
+        (_whole, hour: string, minutes?: string) => `at ${WORD_HOURS[hour.toLowerCase()]}${minutes ? `:${WORD_MINUTES[minutes.toLowerCase().replace(/[\s-]/, '')]}` : ''}`,
+    ).replace(/\b(at\s+\d{1,2}(?:[:.]\d{2})?)\s*o'?clock\b/gi, '$1');
     const clockPatterns: { regex: RegExp; hasMinutes: boolean; bare?: boolean }[] = [
-        { regex: /\bat\s+(\d{1,2})[:.](\d{2})\s*(am|pm)?\b/i, hasMinutes: true },
+        { regex: /\bat\s+(\d{1,2})[:.](\d{2})\s*(am|pm)?\b/i, hasMinutes: true, bare: true },
         { regex: /\b(\d{1,2})[:.](\d{2})\s*(am|pm)\b/i, hasMinutes: true },
         { regex: /\bat\s+(\d{1,2})\s*(am|pm)\b/i, hasMinutes: false },
         { regex: /\b(\d{1,2})\s*(am|pm)\b/i, hasMinutes: false },
@@ -238,6 +254,7 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
         else if (pattern.bare && hour >= 1 && hour <= 6) hour += 12;
         if (hour >= 24) continue;
         dueTime = endOfDay && minute === 0 ? '23:59' : `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+        exactTime = !endOfDay;
         matched.time = true;
         strike(new RegExp(escapeRegex(match[0]), 'i'));
         break;
@@ -249,6 +266,7 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
             const match = rest.match(word.pattern);
             if (!match) continue;
             dueTime = word.time;
+            exactTime = word.time === '12:00';
             matched.time = true;
             strike(new RegExp(escapeRegex(match[0]), 'i'));
             break;
@@ -281,7 +299,8 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
         priority,
         deadline,
         difficulty: hardness?.difficulty,
-        flexible: timing?.flexible,
+        // Said how it is ("flexible", "sharp"), else fixed when a clock time was said.
+        flexible: timing?.flexible ?? (exactTime ? false : undefined),
         matched,
     };
 }
