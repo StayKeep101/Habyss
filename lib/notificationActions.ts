@@ -54,7 +54,11 @@ export const MORE_MINUTES: Record<string, number> = { [ACTION.more10]: 10, [ACTI
 export const FRIEND_NUDGE_CATEGORY = 'HABYSS_FRIEND_NUDGE';
 export const COMMENT_CATEGORY = 'HABYSS_COMMENT';
 export const DUEL_CATEGORY = 'HABYSS_DUEL';
+/** A habit, task or goal offered to you: "No thanks" or "Let's do it", which puts it on your list. */
+export const SHARE_CATEGORY = 'HABYSS_SHARE';
 export const SOCIAL_ACTION = {
+    shareYes: 'HABYSS_SHARE_YES',
+    shareNo: 'HABYSS_SHARE_NO',
     onIt: 'HABYSS_ON_IT',
     reply: 'HABYSS_REPLY',
     accept: 'HABYSS_DUEL_ACCEPT',
@@ -109,6 +113,11 @@ export const CATEGORIES: { id: string; buttons: Button[] }[] = [
     { id: DUEL_CATEGORY, buttons: [
         button(SOCIAL_ACTION.accept, 'Accept ⚔️'),
         button(SOCIAL_ACTION.decline, 'Decline', { opensAppToForeground: false, isDestructive: true }),
+    ] },
+    // Both answered without opening Habyss: yes adds it to your list, no tells them politely.
+    { id: SHARE_CATEGORY, buttons: [
+        button(SOCIAL_ACTION.shareNo, 'No thanks', { opensAppToForeground: false, isDestructive: true }),
+        button(SOCIAL_ACTION.shareYes, 'Let’s do it', { opensAppToForeground: false }),
     ] },
     // Answered without opening the app: the answer is all Echo needs.
     { id: ENERGY_CATEGORY, buttons: [

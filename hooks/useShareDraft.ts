@@ -21,7 +21,7 @@ async function apply(kind: Kind, id: string, added: string[], removed: string[])
         if (added.length) work.push(FriendsService.batchShareGoal(id, added));
         if (removed.length) work.push(FriendsService.batchUnshareGoal(id, removed));
         for (const friendId of added) {
-            for (const habit of linked) work.push(FriendsService.shareHabitWithFriend(habit.id, friendId));
+            for (const habit of linked) work.push(FriendsService.shareHabitWithFriend(habit.id, friendId, false));
         }
         for (const friendId of removed) {
             for (const habit of linked) work.push(FriendsService.unshareHabit(habit.id, friendId));

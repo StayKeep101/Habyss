@@ -1134,15 +1134,19 @@ export class FriendsService {
      * or refuse. Putting your habit into somebody else's list because you
      * decided to is the same manners as writing in their diary.
      */
-    static async shareHabitWithFriend(habitId: string, friendId: string): Promise<boolean> {
+    static async shareHabitWithFriend(habitId: string, friendId: string, announce = true): Promise<boolean> {
         const ctx = await signedIn();
         if (!ctx) return false;
         await ensureBackedUp();
 
-        if (!await this.openShareRow(ctx, 'shared_habits', 'habit_id', habitId, friendId)) return false;
+        const opened = await this.openShareRow(ctx, 'shared_habits', 'habit_id', habitId, friendId);
+        if (!opened) return false;
         // Offered, not imposed. Landing somebody else's habit in your list
         // without asking is the same manners as adding yourself to their diary.
-        await this.announceShare(ctx, friendId, 'habit', habitId);
+        // Told once: only when the offer is new (not on every save while it
+        // waits), and not at all for a goal's habits, which the goal's own
+        // notification brings.
+        if (opened === 'opened' && announce) await this.announceShare(ctx, friendId, 'habit', habitId);
         void this.refreshSharedIds();
         return true;
     }
@@ -1193,8 +1197,9 @@ export class FriendsService {
         if (!ctx) return false;
         await ensureBackedUp();
 
-        if (!await this.openShareRow(ctx, 'shared_tasks', 'task_id', taskId, friendId)) return false;
-        await this.announceShare(ctx, friendId, 'task', taskId);
+        const opened = await this.openShareRow(ctx, 'shared_tasks', 'task_id', taskId, friendId);
+        if (!opened) return false;
+        if (opened === 'opened') await this.announceShare(ctx, friendId, 'task', taskId);
         void this.refreshSharedIds();
         return true;
     }
@@ -1248,8 +1253,9 @@ export class FriendsService {
         await ensureBackedUp();
 
         for (const friendId of friendIds) {
-            if (!await this.openShareRow(ctx, 'shared_goals', 'goal_id', goalId, friendId)) return false;
-            await this.announceShare(ctx, friendId, 'goal', goalId);
+            const opened = await this.openShareRow(ctx, 'shared_goals', 'goal_id', goalId, friendId);
+            if (!opened) return false;
+            if (opened === 'opened') await this.announceShare(ctx, friendId, 'goal', goalId);
         }
         void this.refreshSharedIds();
         return true;
@@ -1513,25 +1519,26 @@ export class FriendsService {
      * to the top of their inbox, which is nagging rather than asking. One that
      * was accepted is already done.
      *
-     * @returns false only when the write failed; true means there is now an
-     * open offer, whether this call made it or found it.
+     * @returns false only when the write failed; 'opened' when this call
+     * made the offer (or re-made a refused one), the only time to tell them;
+     * 'exists' when it was already waiting or accepted.
      */
     private static async openShareRow(
         ctx: Context, table: string, column: string, itemId: string, friendId: string,
-    ): Promise<boolean> {
+    ): Promise<'opened' | 'exists' | false> {
         const { data: existing } = await ctx.sb.from(table).select('id, status')
             .eq(column, itemId).eq('owner_id', ctx.me).eq('shared_with_id', friendId).is('deleted_at', null);
 
         const row = (existing ?? [])[0] as { id: string; status: string } | undefined;
-        if (row && row.status !== 'declined') return true;
+        if (row && row.status !== 'declined') return 'exists';
 
         if (row) {
             const { error } = await ctx.sb.from(table).update({ status: 'pending' }).eq('id', row.id);
-            return !error;
+            return error ? false : 'opened';
         }
         const { error } = await ctx.sb.from(table)
             .insert({ [column]: itemId, owner_id: ctx.me, shared_with_id: friendId, status: 'pending' });
-        return !error;
+        return error ? false : 'opened';
     }
 
     /** Tells somebody they have been offered a habit, task or goal. */
@@ -1540,9 +1547,11 @@ export class FriendsService {
     ): Promise<void> {
         const name = await itemName(ctx, type, itemId);
         const me = await myName(ctx);
+        // "Alex shared a habit with you" over the habit itself; its buttons
+        // (No thanks · Let's do it) answer it from the notification.
         await this.notify(ctx, friendId, 'share_offer', {
-            title: name ? `${me} shared “${name}” with you` : `${me} shared a ${type} with you`,
-            body: 'Accept and it joins your list.',
+            title: `${me} shared a ${type} with you`,
+            body: name ?? `Open Habyss to see it.`,
         });
     }
 

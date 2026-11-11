@@ -1,8 +1,8 @@
-import { DONE_CATEGORY, HANDOVER_CATEGORY, ENERGY_CATEGORY, CATEGORIES, FRIEND_NUDGE_CATEGORY, COMMENT_CATEGORY, DUEL_CATEGORY, streakGuard } from '../notificationActions';
+import { DONE_CATEGORY, HANDOVER_CATEGORY, ENERGY_CATEGORY, CATEGORIES, FRIEND_NUDGE_CATEGORY, COMMENT_CATEGORY, DUEL_CATEGORY, SHARE_CATEGORY, streakGuard } from '../notificationActions';
 
 describe('notification buttons', () => {
     it('offers Done first on every item, never more than four buttons', () => {
-        for (const category of CATEGORIES.filter(category => ![ENERGY_CATEGORY, HANDOVER_CATEGORY, FRIEND_NUDGE_CATEGORY, COMMENT_CATEGORY, DUEL_CATEGORY].includes(category.id))) {
+        for (const category of CATEGORIES.filter(category => ![ENERGY_CATEGORY, HANDOVER_CATEGORY, FRIEND_NUDGE_CATEGORY, COMMENT_CATEGORY, DUEL_CATEGORY, SHARE_CATEGORY].includes(category.id))) {
             expect(category.buttons.length).toBeLessThanOrEqual(4);
             expect(category.buttons[0].buttonTitle).toBe('Done');
         }

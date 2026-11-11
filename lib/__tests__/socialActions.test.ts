@@ -1,7 +1,18 @@
 const mockAnswerNudge = jest.fn(async () => true);
 const mockReplyToLatestFrom = jest.fn(async () => null);
 const mockRespondDuel = jest.fn(async () => undefined);
-jest.mock('../friendsService', () => ({ FriendsService: { answerNudge: mockAnswerNudge } }));
+const mockAccept = jest.fn(async () => true);
+const mockDecline = jest.fn(async () => true);
+jest.mock('../friendsService', () => ({ FriendsService: {
+    answerNudge: mockAnswerNudge,
+    acceptShareRequest: mockAccept,
+    declineShareRequest: mockDecline,
+    pendingShares: async () => [
+        { type: 'habit', itemId: 'old', fromUserId: 'sam', createdAt: '2026-11-01T10:00:00Z' },
+        { type: 'habit', itemId: 'read', fromUserId: 'sam', createdAt: '2026-11-11T10:00:00Z' },
+        { type: 'task', itemId: 'other', fromUserId: 'alex', createdAt: '2026-11-11T11:00:00Z' },
+    ],
+} }));
 jest.mock('../comments', () => ({ replyToLatestFrom: mockReplyToLatestFrom }));
 jest.mock('../duels', () => ({
     myDuels: async () => [
@@ -25,6 +36,13 @@ describe('Community buttons', () => {
 
     it('leaves other buttons to the day handler', async () => {
         expect(await handleSocialResponse(press('ECHO_DONE'))).toBe(false);
+    });
+
+    it("Let's do it accepts their latest offer; No thanks declines it", async () => {
+        await handleSocialResponse(press(SOCIAL_ACTION.shareYes));
+        expect(mockAccept).toHaveBeenCalledWith('habit', 'read', 'sam');
+        await handleSocialResponse(press(SOCIAL_ACTION.shareNo));
+        expect(mockDecline).toHaveBeenCalledWith('habit', 'read', 'sam');
     });
 
     it('On it tells the friend who nudged', async () => {

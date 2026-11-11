@@ -46,7 +46,7 @@ export function ChoiceSheet({ visible, title, caption, choices = [], ask, onClos
                 <View style={styles.list}>
                     {choices.map(choice => (
                         <Pressable key={choice.label} onPress={() => pick(choice)} style={styles.row} accessibilityRole="button" accessibilityLabel={choice.label}>
-                            {choice.icon ? <AppIcon name={choice.icon} size={20} color={choice.destructive ? t.color.danger : t.color.textMuted} /> : null}
+                            {choice.icon ? <AppIcon name={choice.icon} size={18} color={choice.destructive ? t.color.danger : t.color.textMuted} /> : null}
                             <Text style={[styles.label, { color: choice.destructive ? t.color.danger : t.color.textPrimary }]}>{choice.label}</Text>
                         </Pressable>
                     ))}
@@ -58,7 +58,7 @@ export function ChoiceSheet({ visible, title, caption, choices = [], ask, onClos
 
 const styles = StyleSheet.create({
     list: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm },
-    row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: 52, paddingHorizontal: Spacing.xs },
-    label: { fontSize: 17, fontFamily: FontFamily.medium },
+    row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: 48, paddingHorizontal: Spacing.xs },
+    label: { fontSize: 15, fontFamily: FontFamily.medium },
     ask: { gap: Spacing.md, paddingBottom: Spacing.sm },
 });

@@ -25,7 +25,7 @@ export const ShareGoalModal: React.FC<ShareGoalModalProps> = ({ visible, goalId,
         if (added.length) operations.push(FriendsService.batchShareGoal(goalId, added));
         if (removed.length) operations.push(FriendsService.batchUnshareGoal(goalId, removed));
         for (const friendId of added) {
-            for (const habit of linked) operations.push(FriendsService.shareHabitWithFriend(habit.id, friendId));
+            for (const habit of linked) operations.push(FriendsService.shareHabitWithFriend(habit.id, friendId, false));
         }
         for (const friendId of removed) {
             for (const habit of linked) operations.push(FriendsService.unshareHabit(habit.id, friendId));
