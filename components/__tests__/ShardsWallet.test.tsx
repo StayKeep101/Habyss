@@ -21,7 +21,7 @@ const wallet: Wallet = {
 
 it('reads like a brokerage account: balance, the period’s change, what is on bets, every transaction', () => {
     const screen = render(<ShardsWallet visible onClose={jest.fn()} wallet={wallet} multiplier={1} perfectRun={0} />);
-    expect(screen.getByText('Shards balance')).toBeTruthy();
+    expect(screen.getByText('Shards')).toBeTruthy();
     expect(screen.getByText('+40 (40.0%)')).toBeTruthy();
     expect(screen.getByText('Past 24 hours')).toBeTruthy();
     // Every range a trading app has, no candles.
