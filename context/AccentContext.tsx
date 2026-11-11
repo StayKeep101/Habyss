@@ -37,8 +37,9 @@ interface AccentContextType {
     /** The colour picked in Appearance, used when the app does not follow the rank. */
     chosenGradient: AccentGradient;
     setAccentGradientId: (id: AccentGradientId) => void;
-    /** The app's colour follows your rank (theme/rankLooks.ts). On unless turned off. */
+    /** The app's colour follows your rank (theme/rankLooks.ts): always. */
     followRank: boolean;
+    /** Kept for callers; the colour always follows the rank now. */
     setFollowRank: (on: boolean) => void;
     /** The rank whose look is showing, when it is a rank's look. */
     rankShown: string | null;
@@ -48,7 +49,6 @@ interface AccentContextType {
 const AccentContext = createContext<AccentContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'habyss_accent_gradient';
-const FOLLOW_KEY = 'habyss_accent_follow_rank';
 
 export function AccentProvider({ children }: { children: ReactNode }) {
     const [gradientId, setGradientId] = useState<AccentGradientId>('habyss');
@@ -77,16 +77,11 @@ export function AccentProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    // Your rank dresses the app (or, from the Developer page, any rank for a preview).
-    const [followRank, setFollow] = useState(true);
-    useEffect(() => {
-        void loadRankLook();
-        AsyncStorage.getItem(FOLLOW_KEY).then(saved => { if (saved === 'false') setFollow(false); }).catch(() => undefined);
-    }, []);
-    const setFollowRank = (on: boolean) => {
-        setFollow(on);
-        void AsyncStorage.setItem(FOLLOW_KEY, String(on)).catch(() => undefined);
-    };
+    // Your rank dresses the app, always (or, from the Developer page, any rank for a preview).
+    // The colour picked before rank looks is kept only for the moment before your rank is known.
+    const followRank = true;
+    const setFollowRank = (_on: boolean) => undefined;
+    useEffect(() => { void loadRankLook(); }, []);
     const look = useSyncExternalStore(subscribeRankLook, rankLookKey, rankLookKey);
     const [rank, preview] = look.split('|').map(part => part || null);
     const rankShown = preview ?? (followRank ? rank : null);
