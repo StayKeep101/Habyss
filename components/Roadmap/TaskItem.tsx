@@ -24,7 +24,7 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { Radius } from '@/theme/designSystem';
 import { useAutoReschedule, type RoadMapCardSize } from '@/context/AppSettingsContext';
-import { isLate, setTaskAmount, taskAmountLabel, taskShare, type Task } from '@/lib/tasks';
+import { isLate, lateBy, setTaskAmount, taskAmountLabel, taskShare, type Task } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
 import { dueLabel } from '@/lib/dayFlow';
 
@@ -116,15 +116,17 @@ const TaskItemComponent: React.FC<Props> = ({
     const autoReschedule = useAutoReschedule();
     const dueTime = task.dueTime && (task.flexible === false || !autoReschedule) ? task.dueTime : undefined;
     // Right-hand column, where a habit shows its time.
+    // Done after its day: says so, "Done · 2 days late", in amber (finished, only late).
+    const late = done ? lateBy(task) : 0;
     const when = done
-        ? 'Done'
+        ? late ? `Done · ${late === 1 ? '1 day' : `${late} days`} late` : 'Done'
         : overdue ? 'Overdue'
             : dueToday ? (dueTime ?? 'Today')
                 : task.dueDate ? shortDate(task.dueDate) : '—';
-    const whenColor = overdue ? colors.error : dueToday ? TASK_COLOR : colors.textTertiary;
+    const whenColor = overdue ? colors.error : late ? colors.warning : dueToday ? TASK_COLOR : colors.textTertiary;
 
     const label = [
-        overdue ? 'Overdue' : task.dueDate ? `${task.dueDate <= today ? 'Today' : shortDate(task.dueDate)}` : 'No date',
+        late ? `Done ${late === 1 ? '1 day' : `${late} days`} late` : overdue ? 'Overdue' : task.dueDate ? `${task.dueDate <= today ? 'Today' : shortDate(task.dueDate)}` : 'No date',
         deadline,
         dueTime,
         task.estimatedMinutes ? shortLength(task.estimatedMinutes) : null,

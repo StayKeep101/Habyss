@@ -412,12 +412,18 @@ export function topTasksForToday(tasks: Task[], today: string, limit = 3): Task[
  *    rather than disappearing from the app entirely.
  *
  * A past or future day shows exactly what was due then, including what was
- * finished, so looking back at a day says what that day actually held.
+ * finished, so looking back at a day says what that day actually held. What
+ * was finished after its day, or with no day, sits on the day it was done
+ * (the row says how late: lateBy).
  */
 export function tasksForDay(tasks: Task[], day: string, today: string = todayKey()): Task[] {
     const isToday = day === today;
     return tasks.filter(task => {
         if (task.status === 'cancelled') return false;
+        // Finished late, or finished with no day: it belongs to the day it was
+        // done, never back on the day it was due (as if done on time).
+        const finished = doneDay(task);
+        if (finished && (!task.dueDate ? !task.goalId : task.dueDate < finished)) return finished === day;
         if (task.dueDate === day) return true;
         if (!isToday) return false;
         // No day: today's, unless it belongs to a goal. Then it is one of the
@@ -428,6 +434,20 @@ export function tasksForDay(tasks: Task[], day: string, today: string = todayKey
 }
 
 export const todayKey = (date: Date = new Date()): string => localDateKey(date);
+
+/** The day a done task was finished (local), or null while it is not done. */
+export function doneDay(task: Pick<Task, 'status' | 'completedAt'>): string | null {
+    return task.status === 'done' && task.completedAt ? localDateKey(new Date(task.completedAt)) : null;
+}
+
+/** Whole days a done task was finished after its deadline (or its day): 0 when on time or not done. */
+export function lateBy(task: Pick<Task, 'status' | 'completedAt' | 'dueDate' | 'deadline'>): number {
+    const finished = doneDay(task);
+    const by = task.deadline ?? task.dueDate;
+    if (!finished || !by || finished <= by) return 0;
+    const at = (key: string) => Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, Number(key.slice(8, 10)));
+    return Math.round((at(finished) - at(by)) / 86_400_000);
+}
 
 /** Late: past its deadline, or past its day when it has no deadline of its own. */
 export function isLate(task: Pick<Task, 'status' | 'dueDate' | 'deadline'>, today: string): boolean {

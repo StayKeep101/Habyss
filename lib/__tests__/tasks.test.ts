@@ -1,4 +1,4 @@
-import { isLate, taskRank, tasksForDay, topTasksForToday, type Task } from '../tasks';
+import { isLate, lateBy, taskRank, tasksForDay, topTasksForToday, type Task } from '../tasks';
 
 const TODAY = '2026-09-17';
 
@@ -97,6 +97,26 @@ describe('taskRank', () => {
 
 describe('the tasks that belong to a day', () => {
     const DAY = '2026-09-23';
+
+    it('keeps a task finished late on the day it was done, and says how late', () => {
+        // Due Monday the 21st, done Wednesday the 23rd at noon.
+        const late = task({ id: 'late', dueDate: '2026-09-21', status: 'done', completedAt: new Date(2026, 8, 23, 12).toISOString() });
+        expect(tasksForDay([late], DAY, DAY).map(item => item.id)).toEqual(['late']);
+        expect(tasksForDay([late], '2026-09-21', DAY)).toEqual([]);
+        expect(lateBy(late)).toBe(2);
+    });
+
+    it('keeps a task with no day on the day it was ticked', () => {
+        const loose = task({ id: 'loose', status: 'done', completedAt: new Date(2026, 8, 23, 9).toISOString() });
+        expect(tasksForDay([loose], DAY, DAY).map(item => item.id)).toEqual(['loose']);
+        expect(tasksForDay([loose], '2026-09-24', '2026-09-24')).toEqual([]);
+    });
+
+    it('a task done on time or early stays on its own day, never late', () => {
+        const early = task({ id: 'early', dueDate: '2026-09-25', status: 'done', completedAt: new Date(2026, 8, 23, 9).toISOString() });
+        expect(tasksForDay([early], '2026-09-25', DAY).map(item => item.id)).toEqual(['early']);
+        expect(lateBy(early)).toBe(0);
+    });
 
     it('shows a task on the day it was given, and on no other', () => {
         const friday = task({ id: 'f', title: 'Call the bank', dueDate: '2026-09-25' });
