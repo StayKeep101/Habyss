@@ -159,7 +159,7 @@ export default function FriendScreen() {
     ];
 
     return (
-        <VoidShell>
+        <VoidShell look="sheet">
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <ProfileView
                     name={name}

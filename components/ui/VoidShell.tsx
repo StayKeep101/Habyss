@@ -4,15 +4,35 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { Colors } from '@/theme/colors';
+import { surfaceFor } from '@/theme/designSystem';
 
 interface VoidShellProps {
     children: React.ReactNode;
+    /**
+     * 'sheet': every page other than the four tabs (Home, Roadmap, Community,
+     * Settings) — the card's own material, lit at the top and falling into the
+     * page colour, exactly as the pop-up sheets (Missed, Wallet) are drawn
+     * (VoidModal). 'tab': the accent's wash over the top third.
+     */
+    look?: 'tab' | 'sheet';
 }
 
-export const VoidShell: React.FC<VoidShellProps> = ({ children }) => {
+export const VoidShell: React.FC<VoidShellProps> = ({ children, look = 'tab' }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
+    const tone = surfaceFor(theme);
+
+    if (look === 'sheet') {
+        return (
+            <View style={[styles.container, { backgroundColor: colors.background }]}>
+                <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
+                <LinearGradient pointerEvents="none" colors={[tone.top, tone.fill, colors.background]} locations={[0, 0.18, 0.5]}
+                    style={StyleSheet.absoluteFill} />
+                <View style={styles.content}>{children}</View>
+            </View>
+        );
+    }
 
     /**
      * One gradient, not four.

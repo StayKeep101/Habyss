@@ -97,7 +97,7 @@ export default function ProfileScreen() {
     useEffect(() => { void getMyUsername().then(found => setHandle(found ?? null)).catch(() => undefined); }, []);
 
     return (
-        <VoidShell>
+        <VoidShell look="sheet">
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
                 {/* The same component a friend's profile uses. What you see
                     of yourself should be what they see of you, or the page is

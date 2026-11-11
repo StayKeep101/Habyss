@@ -13,7 +13,7 @@ type SheetScreenProps = React.ComponentProps<typeof ModalHeader> & { children: R
  */
 export function SheetScreen({ children, onBack, ...header }: SheetScreenProps) {
     return (
-        <VoidShell>
+        <VoidShell look="sheet">
             <SafeAreaView style={{ flex: 1 }} edges={Platform.OS === 'ios' ? ['left', 'right', 'bottom'] : ['top', 'left', 'right', 'bottom']}>
                 <ModalHeader {...header} onBack={Platform.OS === 'ios' ? undefined : onBack} />
                 {children}
