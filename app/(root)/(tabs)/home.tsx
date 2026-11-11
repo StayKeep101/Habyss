@@ -15,7 +15,7 @@ import { s, ms } from '@/theme/scale';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/theme/colors';
 import { VoidShell } from '@/components/ui/VoidShell';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
 import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
@@ -348,6 +348,12 @@ const Home = () => {
     return () => { sub.remove(); ask.remove(); };
   }, [playLevelUp, aiPersonality]);
   const [showWallet, setShowWallet] = useState(false);
+  // habyss:///home?open=missed (or wallet): a link straight to one of Home's sheets.
+  const { open: openSheet } = useLocalSearchParams<{ open?: string }>();
+  useEffect(() => {
+    if (openSheet === 'missed') setShowMissed(true);
+    if (openSheet === 'wallet') setShowWallet(true);
+  }, [openSheet]);
 
 
   /**

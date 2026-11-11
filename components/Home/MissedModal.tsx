@@ -1,40 +1,56 @@
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import Animated, { interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, Extrapolation } from 'react-native-reanimated';
 import { VoidModal } from '@/components/ui/VoidModal';
 import { ModalHeader } from '@/components/ui/ModalHeader';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { SectionTitle } from '@/components/ui/SectionTitle';
+import { ChoicePill } from '@/components/ui/ChoicePill';
 import { CountUp, ListItem } from '@/components/ui/Motion';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
-import type { Miss, Missed, MissLevel } from '@/lib/missed';
-import { toggleCompletion, type Habit } from '@/lib/habitsSQLite';
-import { setTaskStatus } from '@/lib/tasks';
+import { rescheduleToToday, sinceLabel, type Miss, type Missed } from '@/lib/missed';
+import type { Habit } from '@/lib/habitsSQLite';
+import { todayKey, updateTask } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
+import { textOn, tint } from '@/theme/tokens';
 import { FontFamily, Spacing } from '@/theme/designSystem';
-import { TASK_COLOR } from '@/components/Roadmap/TaskItem';
 
-// Headings only: the list says enough without a line of advice under each.
-const SECTIONS: { level: MissLevel[]; title: string }[] = [
-    { level: ['twice'], title: 'Missed twice or more' },
-    { level: ['once'], title: 'Missed once' },
-    { level: ['late', 'moved'], title: 'Tasks' },
-];
+/** How far past the big number the header has fully taken it over. */
+const HANDOVER = 24;
 
 /**
- * Only what is missed right now. Habits missed twice or more in a row first
- * (the ones to rescue), then those missed once, then late tasks. Tick one off
- * here and it leaves the list.
+ * Only what is missed right now, and why twice is the one that matters.
+ *
+ * The count, then James Clear's line, then the split that makes the point:
+ * missed once (an accident) against missed twice or more (a new habit
+ * forming), the second in red. Below, habits and tasks apart, each row just
+ * its name: a habit with how many times in a row, a task with since when and
+ * a button that puts it on today. Scroll past the count and the header says
+ * it instead: "16 missed".
  */
-export const MissedModal: React.FC<{ visible: boolean; onClose: () => void; missed: Missed; habits: Habit[] }> = ({ visible, onClose, missed, habits }) => {
+export const MissedModal: React.FC<{ visible: boolean; onClose: () => void; missed: Missed; habits: Habit[] }> = ({ visible, onClose, missed }) => {
     const t = useTokens();
     const { lightFeedback, successFeedback } = useHaptics();
     const total = missed.items.length;
-    const verdict = missed.twice
-        ? `${missed.twice} ${missed.twice === 1 ? 'habit' : 'habits'} missed twice or more in a row. That's where to start.`
-        : total ? 'Nothing missed twice in a row.' : "Nothing missed. You're all caught up.";
-    const tone = (level: MissLevel) => level === 'twice' ? t.color.danger : level === 'once' ? t.color.warning : t.color.textMuted;
+    const habitRows = missed.items.filter(item => item.kind === 'habit');
+    const taskRows = missed.items.filter(item => item.kind === 'task');
+    const once = habitRows.filter(item => item.level === 'once').length;
+    const today = todayKey();
+
+    // The header takes the count over as the big number scrolls under it.
+    const scrollY = useSharedValue(0);
+    const [heroEnd, setHeroEnd] = useState(120);
+    const onScroll = useAnimatedScrollHandler(event => { scrollY.set(event.contentOffset.y); });
+    const titleStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(scrollY.get(), [heroEnd - HANDOVER, heroEnd], [1, 0], Extrapolation.CLAMP),
+        transform: [{ translateY: interpolate(scrollY.get(), [heroEnd - HANDOVER, heroEnd], [0, -HANDOVER / 3], Extrapolation.CLAMP) }],
+    }));
+    const altStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(scrollY.get(), [heroEnd - HANDOVER, heroEnd], [0, 1], Extrapolation.CLAMP),
+        transform: [{ translateY: interpolate(scrollY.get(), [heroEnd - HANDOVER, heroEnd], [HANDOVER / 3, 0], Extrapolation.CLAMP) }],
+    }));
 
     const open = (item: Miss) => {
         lightFeedback();
@@ -42,51 +58,98 @@ export const MissedModal: React.FC<{ visible: boolean; onClose: () => void; miss
         if (item.kind === 'habit') router.push({ pathname: '/habit-detail', params: { habitId: item.id } });
         else router.push('/(root)/(tabs)/roadmap' as never);
     };
-    // Done from here: it leaves the list, timed or not.
-    const finish = (item: Miss) => {
+    const toToday = (item: Miss) => {
         successFeedback();
-        if (item.kind === 'habit') void toggleCompletion(item.id);
-        else void setTaskStatus(item.id, 'done').then(() => emit('tasks_changed'));
+        void updateTask(item.id, rescheduleToToday(item, today)).then(() => emit('tasks_changed'));
     };
 
     return (
         <VoidModal visible={visible} onClose={onClose}>
-            <ModalHeader title="Missed" />
-            <ScrollView contentContainerStyle={{ paddingHorizontal: t.space.xl, paddingBottom: Spacing.bottom }} showsVerticalScrollIndicator={false}>
-                <View style={[styles.hero, { gap: t.space.xs, paddingVertical: t.space.lg }]}>
-                    <CountUp style={[styles.heroValue, { color: t.color.textPrimary }]} value={total} replay={visible} />
-                    <Text style={[t.type.bodySmall, styles.center, { color: t.color.textMuted }]}>{verdict}</Text>
+            <ModalHeader title="Missed" titleStyle={titleStyle} altTitle={`${total} missed`} altStyle={altStyle} />
+            <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16}
+                contentContainerStyle={{ paddingHorizontal: t.space.xl, paddingBottom: Spacing.bottom }} showsVerticalScrollIndicator={false}>
+                <View style={[styles.hero, { gap: t.space.sm, paddingTop: t.space.sm, paddingBottom: t.space.xl }]}>
+                    <View onLayout={event => setHeroEnd(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}>
+                        <CountUp style={[styles.heroValue, { color: t.color.textPrimary }]} value={total} replay={visible} />
+                    </View>
+                    {total ? (
+                        <View style={{ gap: t.space.xs }}>
+                            <Text style={[t.type.body, styles.quote, { color: t.color.textMuted }]}>
+                                “Missing once is an accident. Missing twice is the start of a new habit.”
+                            </Text>
+                            <Text style={[t.type.caption, styles.center, { color: t.color.textSubtle }]}>— James Clear</Text>
+                        </View>
+                    ) : (
+                        <Text style={[t.type.bodySmall, styles.center, { color: t.color.textMuted }]}>Nothing missed. You're all caught up.</Text>
+                    )}
                 </View>
 
-                {SECTIONS.map(section => {
-                    const rows = missed.items.filter(item => section.level.includes(item.level));
-                    if (!rows.length) return null;
-                    return (
-                        <View key={section.title}>
-                            <SectionTitle>{section.title}</SectionTitle>
-                            <VoidCard style={{ paddingHorizontal: t.space.lg, paddingVertical: t.space.xs }}>
-                                {rows.map((item, index) => (
+                {/* Once against twice: the accident, and the habit forming. */}
+                {habitRows.length ? (
+                    <View style={[styles.split, { gap: t.space.md, marginBottom: t.space.sm }]}>
+                        <VoidCard style={[styles.splitCard, { padding: t.space.lg, gap: t.space.xs / 2, borderColor: 'transparent', borderWidth: 1 }]}>
+                            <CountUp style={[styles.splitValue, { color: t.color.warning }]} value={once} replay={visible} />
+                            <Text style={[t.type.bodySmall, styles.strong, { color: t.color.textPrimary }]}>Missed once</Text>
+                            <Text style={[t.type.caption, { color: t.color.textMuted }]}>An accident</Text>
+                        </VoidCard>
+                        <VoidCard style={[styles.splitCard, { padding: t.space.lg, gap: t.space.xs / 2, borderColor: tint(t.color.danger, missed.twice ? 'border' : 'subtle'), borderWidth: 1 }]}>
+                            <CountUp style={[styles.splitValue, { color: t.color.danger }]} value={missed.twice} replay={visible} />
+                            <Text style={[t.type.bodySmall, styles.strong, { color: t.color.textPrimary }]}>Missed twice+</Text>
+                            <Text style={[t.type.caption, { color: missed.twice ? t.color.danger : t.color.textMuted }]}>A new habit forming</Text>
+                        </VoidCard>
+                    </View>
+                ) : null}
+
+                {habitRows.length ? (
+                    <View>
+                        <SectionTitle>Habits</SectionTitle>
+                        <VoidCard style={{ paddingHorizontal: t.space.lg, paddingVertical: t.space.xs }}>
+                            {habitRows.map((item, index) => {
+                                const twice = item.level === 'twice';
+                                return (
+                                    <ListItem key={item.key} index={index}>
+                                        <Pressable onPress={() => open(item)} accessibilityRole="button"
+                                            accessibilityLabel={`${item.title}. Missed ${item.count} ${item.count === 1 ? 'time' : 'times'} in a row`}
+                                            style={[styles.row, { gap: t.space.md, paddingVertical: t.space.md }, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.color.border }]}>
+                                            <Text numberOfLines={1} style={[t.type.body, styles.strong, styles.flex, { color: t.color.textPrimary }]}>{item.title}</Text>
+                                            {/* ×1 amber, ×2 and up solid red: the second miss is the one that counts. */}
+                                            <View style={[styles.badge, { paddingHorizontal: t.space.sm, borderRadius: t.radius.full, backgroundColor: twice ? t.color.danger : tint(t.color.warning, 'subtle') }]}>
+                                                <Text style={[t.type.bodySmall, styles.count, { color: twice ? textOn(t.color.danger) : t.color.warning }]}>{`×${item.count}`}</Text>
+                                            </View>
+                                        </Pressable>
+                                    </ListItem>
+                                );
+                            })}
+                        </VoidCard>
+                    </View>
+                ) : null}
+
+                {taskRows.length ? (
+                    <View>
+                        <SectionTitle>Tasks</SectionTitle>
+                        <VoidCard style={{ paddingHorizontal: t.space.lg, paddingVertical: t.space.xs }}>
+                            {taskRows.map((item, index) => {
+                                const moved = item.level === 'moved';
+                                const line = moved ? `Moved from ${sinceLabel(item.since, today)}` : `Overdue since ${sinceLabel(item.since, today)}`;
+                                return (
                                     <ListItem key={item.key} index={index}>
                                         <View style={[styles.row, { gap: t.space.md, paddingVertical: t.space.md }, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.color.border }]}>
-                                            {/* Round for a habit, squarer for a task, as everywhere; tap it to do it now. */}
-                                            <Pressable onPress={() => finish(item)} hitSlop={t.space.sm} accessibilityRole="button" accessibilityLabel={`Mark ${item.title} done`}>
-                                                <View style={[styles.mark, { borderRadius: item.kind === 'habit' ? t.radius.full : t.space.xs, borderColor: item.kind === 'task' ? TASK_COLOR : item.color || t.color.accent }]} />
-                                            </Pressable>
-                                            <Pressable style={styles.flex} onPress={() => open(item)} accessibilityRole="button" accessibilityLabel={`${item.title}. ${item.line}`}>
+                                            <Pressable style={styles.flex} onPress={() => open(item)} accessibilityRole="button" accessibilityLabel={`${item.title}. ${line}`}>
                                                 <Text numberOfLines={1} style={[t.type.body, styles.strong, { color: t.color.textPrimary }]}>{item.title}</Text>
-                                                <Text numberOfLines={2} style={[t.type.caption, { color: tone(item.level) }]}>{item.line}</Text>
+                                                <Text numberOfLines={1} style={[t.type.caption, { color: moved ? t.color.textMuted : t.color.danger }]}>{line}</Text>
                                             </Pressable>
-                                            {item.level === 'twice' ? (
-                                                <Text style={[t.type.bodySmall, styles.count, { color: t.color.danger }]}>{`${item.count}×`}</Text>
-                                            ) : null}
+                                            {moved ? null : (
+                                                <ChoicePill label="Today" icon="arrow-forward" on={false} color={t.color.accent} role="button"
+                                                    onPress={() => toToday(item)} accessibilityLabel={`Move ${item.title} to today`} />
+                                            )}
                                         </View>
                                     </ListItem>
-                                ))}
-                            </VoidCard>
-                        </View>
-                    );
-                })}
-            </ScrollView>
+                                );
+                            })}
+                        </VoidCard>
+                    </View>
+                ) : null}
+            </Animated.ScrollView>
         </VoidModal>
     );
 };
@@ -94,10 +157,14 @@ export const MissedModal: React.FC<{ visible: boolean; onClose: () => void; miss
 const styles = StyleSheet.create({
     hero: { alignItems: 'center' },
     heroValue: { fontFamily: FontFamily.bold, fontSize: 52, lineHeight: 58, letterSpacing: -2, fontVariant: ['tabular-nums'] },
+    quote: { textAlign: 'center' },
     center: { textAlign: 'center' },
     strong: { fontFamily: FontFamily.semibold },
     flex: { flex: 1 },
     row: { flexDirection: 'row', alignItems: 'center' },
-    mark: { width: 22, height: 22, borderWidth: 2 },
+    split: { flexDirection: 'row' },
+    splitCard: { flex: 1 },
+    splitValue: { fontFamily: FontFamily.bold, fontSize: 28, lineHeight: 34, fontVariant: ['tabular-nums'] },
+    badge: { minWidth: 36, alignItems: 'center', paddingVertical: 2 },
     count: { fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
 });

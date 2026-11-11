@@ -31,6 +31,8 @@ export interface Miss {
     dueToday?: boolean;
     /** What it is, in a few words. */
     line: string;
+    /** A task's deadline, if it has one (moved along with it to today). */
+    deadline?: string;
 }
 export interface Missed {
     /** Missed twice or more first (most in a row first), then once, then tasks. */
@@ -79,7 +81,7 @@ export function missed(input: {
         if (task.status !== 'open' || !by || by >= today) continue;
         const late = daysBetween(by, today);
         listed.add(task.id);
-        items.push({ key: `task:${task.id}`, id: task.id, kind: 'task', title: task.title, level: 'late', count: late, since: by,
+        items.push({ key: `task:${task.id}`, id: task.id, kind: 'task', title: task.title, level: 'late', count: late, since: by, deadline: task.deadline,
             line: `${late === 1 ? 'A day' : `${late} days`} late, due ${weekday(by)}` });
     }
     // Carried over to today by the timeline, still open.
@@ -98,3 +100,19 @@ export function missed(input: {
 }
 
 const shiftDayBack = (day: string) => localDateKey(new Date(Date.parse(`${day}T12:00:00`) - 86400000));
+
+/**
+ * A late task put on today: its day becomes today, and a deadline already gone
+ * by moves with it (one still ahead is kept), so it leaves the missed list.
+ */
+export function rescheduleToToday(miss: Pick<Miss, 'deadline'>, today: string): { dueDate: string; deadline?: string } {
+    return miss.deadline && miss.deadline < today ? { dueDate: today, deadline: today } : { dueDate: today };
+}
+
+/** When a late task fell due, as a word: "yesterday", "Monday" this past week, else "Nov 2". */
+export function sinceLabel(day: string, today: string): string {
+    const gap = daysBetween(day, today);
+    if (gap === 1) return 'yesterday';
+    if (gap < 7) return weekday(day);
+    return new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}

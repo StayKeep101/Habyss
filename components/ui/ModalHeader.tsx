@@ -29,6 +29,13 @@ interface ModalHeaderProps {
      * closes by swiping down), and the mark fades in with the title.
      */
     leading?: React.ReactNode;
+    /**
+     * A second title that takes over once the page's own headline has scrolled
+     * away ("16 missed" for "Missed"): `titleStyle` fades the first out,
+     * `altStyle` fades this one in, in the same place.
+     */
+    altTitle?: string;
+    altStyle?: React.ComponentProps<typeof Animated.View>['style'];
     /** 'leading': the title reads from the left (no back button), with its action on the right. */
     align?: 'center' | 'leading';
 }
@@ -36,7 +43,7 @@ interface ModalHeaderProps {
 /** Equal side columns keep the heading centered, including with multiple actions. */
 export const ModalHeader: React.FC<ModalHeaderProps> = ({
     title, subtitle, onBack, onAction, actionIcon = 'share-outline', actionLabel,
-    shareSummary, backIcon = 'chevron-back', rightSlot, titleStyle, leading, align = 'center',
+    shareSummary, backIcon = 'chevron-back', rightSlot, titleStyle, leading, align = 'center', altTitle, altStyle,
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -66,10 +73,17 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
             <View style={{ width: actionWidth }}>
                 {onBack ? <IconButton icon={backIcon} label={backIcon === 'close' ? 'Close' : 'Back'} onPress={onBack} size={backIcon === 'close' ? 22 : 26} /> : null}
             </View>
-            <Animated.View style={[styles.copy, titleStyle]}>
-                <Text accessibilityRole="header" numberOfLines={1} style={[Typography.title, styles.centered, { color: colors.textPrimary }]}>{title}</Text>
-                {subtitle ? <Text numberOfLines={1} style={[Typography.caption, styles.subtitle, { color: colors.textTertiary }]}>{subtitle}</Text> : null}
-            </Animated.View>
+            <View style={styles.copySlot}>
+                <Animated.View style={[styles.copy, titleStyle]}>
+                    <Text accessibilityRole="header" numberOfLines={1} style={[Typography.title, styles.centered, { color: colors.textPrimary }]}>{title}</Text>
+                    {subtitle ? <Text numberOfLines={1} style={[Typography.caption, styles.subtitle, { color: colors.textTertiary }]}>{subtitle}</Text> : null}
+                </Animated.View>
+                {altTitle ? (
+                    <Animated.View pointerEvents="none" importantForAccessibility="no-hide-descendants" accessibilityElementsHidden style={[StyleSheet.absoluteFill, styles.copy, styles.alt, altStyle]}>
+                        <Text numberOfLines={1} style={[Typography.title, styles.centered, { color: colors.textPrimary }]}>{altTitle}</Text>
+                    </Animated.View>
+                ) : null}
+            </View>
             <View onLayout={event => setActionWidth(Math.max(Control.hitTarget, event.nativeEvent.layout.width))} style={styles.rightSlot}>{right}</View>
         </View>
     );
@@ -77,7 +91,9 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
 
 const styles = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, paddingBottom: Spacing.md },
+    copySlot: { flex: 1 },
     copy: { flex: 1, alignItems: 'center', paddingHorizontal: Spacing.xs },
+    alt: { justifyContent: 'center' },
     rightSlot: { minWidth: Control.hitTarget, minHeight: Control.hitTarget, alignItems: 'flex-end', justifyContent: 'center' },
     centered: { textAlign: 'center' },
     subtitle: { marginTop: Spacing.xs, textAlign: 'center' },

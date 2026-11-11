@@ -57,3 +57,19 @@ describe('a task with a deadline', () => {
         ]);
     });
 });
+
+describe('rescheduleToToday', () => {
+    const { rescheduleToToday, sinceLabel } = require('../missed') as typeof import('../missed');
+    it('puts the task on today and moves a deadline that has gone by', () => {
+        expect(rescheduleToToday({ deadline: '2026-11-01' }, '2026-11-11')).toEqual({ dueDate: '2026-11-11', deadline: '2026-11-11' });
+    });
+    it('keeps a deadline still ahead, and adds none', () => {
+        expect(rescheduleToToday({ deadline: '2026-11-20' }, '2026-11-11')).toEqual({ dueDate: '2026-11-11' });
+        expect(rescheduleToToday({}, '2026-11-11')).toEqual({ dueDate: '2026-11-11' });
+    });
+    it('says yesterday, a weekday this week, else the date', () => {
+        expect(sinceLabel('2026-11-10', '2026-11-11')).toBe('yesterday');
+        expect(sinceLabel('2026-11-09', '2026-11-11')).toBe('Monday');
+        expect(sinceLabel('2026-11-01', '2026-11-11')).toMatch(/Nov/);
+    });
+});
