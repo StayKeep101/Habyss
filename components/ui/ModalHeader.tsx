@@ -39,10 +39,12 @@ interface ModalHeaderProps {
 }
 
 /**
- * Every sheet's header, one way: the title from the left on the page's own
- * 20 pt margins, with room under the sheet's top edge, and its actions on the
- * right. A sheet that keeps a close button (a form with edits to discard)
- * puts it first and the title after it; a habit's mark sits there too.
+ * Every sheet's header, one way: its name centred at the top in the sheet
+ * title size, on the page's own 20 pt margins with room under the sheet's top
+ * edge. Its actions sit on the right; a close button (a form with edits to
+ * discard) on the left. The two sides are kept the same width, so the name is
+ * centred on the sheet whatever sits beside it. A habit's mark goes in front
+ * of its name, the pair centred together.
  */
 export const ModalHeader: React.FC<ModalHeaderProps> = ({
     title, subtitle, onBack, onAction, actionIcon = 'share-outline', actionLabel,
@@ -50,40 +52,54 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const [sides, setSides] = React.useState({ left: 0, right: 0 });
+    const side = Math.max(sides.left, sides.right);
     const right = rightSlot ?? (onAction
         ? <IconButton icon={actionIcon} label={actionLabel ?? (actionIcon === 'person-add-outline' ? 'Add friend' : 'Share')} onPress={onAction} />
         : shareSummary ? <ShareButton summary={shareSummary} /> : null);
 
     return (
         <View style={styles.header}>
-            {onBack ? (
-                <IconButton icon={backIcon} label={backIcon === 'close' ? 'Close' : 'Back'} onPress={onBack} size={backIcon === 'close' ? 22 : 26} />
-            ) : null}
+            <View style={[styles.side, { minWidth: side }]}>
+                {onBack ? (
+                    <View onLayout={event => { const left = event.nativeEvent.layout.width; setSides(current => (current.left === left ? current : { ...current, left })); }}>
+                        <IconButton icon={backIcon} label={backIcon === 'close' ? 'Close' : 'Back'} onPress={onBack} size={backIcon === 'close' ? 22 : 26} />
+                    </View>
+                ) : null}
+            </View>
             <View style={styles.copySlot}>
                 <Animated.View style={[styles.lead, titleStyle]}>
                     {leading}
                     <View style={styles.copy}>
-                        <Text accessibilityRole="header" numberOfLines={1} style={[Typography.title, { color: colors.textPrimary }]}>{title}</Text>
-                        {subtitle ? <Text numberOfLines={1} style={[Typography.caption, styles.subtitle, { color: colors.textTertiary }]}>{subtitle}</Text> : null}
+                        <Text accessibilityRole="header" numberOfLines={1} style={[Typography.sheetTitle, styles.centered, { color: colors.textPrimary }]}>{title}</Text>
+                        {subtitle ? <Text numberOfLines={1} style={[Typography.caption, styles.centered, styles.subtitle, { color: colors.textTertiary }]}>{subtitle}</Text> : null}
                     </View>
                 </Animated.View>
                 {altTitle ? (
                     <Animated.View pointerEvents="none" importantForAccessibility="no-hide-descendants" accessibilityElementsHidden style={[StyleSheet.absoluteFill, styles.alt, altStyle]}>
-                        <Text numberOfLines={1} style={[Typography.title, { color: colors.textPrimary }]}>{altTitle}</Text>
+                        <Text numberOfLines={1} style={[Typography.sheetTitle, styles.centered, { color: colors.textPrimary }]}>{altTitle}</Text>
                     </Animated.View>
                 ) : null}
             </View>
-            {right ? <View style={styles.rightSlot}>{right}</View> : null}
+            <View style={[styles.side, styles.sideRight, { minWidth: side }]}>
+                {right ? (
+                    <View onLayout={event => { const width = event.nativeEvent.layout.width; setSides(current => (current.right === width ? current : { ...current, right: width })); }}>
+                        {right}
+                    </View>
+                ) : null}
+            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing.md, minHeight: Control.hitTarget },
+    side: { minHeight: Control.hitTarget, justifyContent: 'center', alignItems: 'flex-start' },
+    sideRight: { alignItems: 'flex-end' },
     copySlot: { flex: 1, minHeight: Control.hitTarget, justifyContent: 'center' },
-    lead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + Spacing.xs },
-    copy: { flex: 1 },
+    lead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm + Spacing.xs },
+    copy: { flexShrink: 1 },
     alt: { justifyContent: 'center' },
-    rightSlot: { minWidth: Control.hitTarget, minHeight: Control.hitTarget, alignItems: 'flex-end', justifyContent: 'center' },
+    centered: { textAlign: 'center' },
     subtitle: { marginTop: 2 },
 });

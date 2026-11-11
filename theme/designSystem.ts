@@ -146,6 +146,8 @@ export const Control = { height: 54, hitTarget: 44, icon: 20 } as const;
 export const Typography = StyleSheet.create({
     screenTitle: { fontFamily: FontFamily.bold, fontSize: 30, lineHeight: 38, letterSpacing: -0.8 },
     title: { fontFamily: FontFamily.bold, fontSize: 18, lineHeight: 26 },
+    /** A sheet's name, centred at its top: a step above a title, as large as a section heading. */
+    sheetTitle: { fontFamily: FontFamily.bold, fontSize: 20, lineHeight: 26, letterSpacing: -0.3 },
     heading: { fontFamily: FontFamily.semibold, fontSize: 16, lineHeight: 24 },
     body: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 22 },
     bodySmall: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 20 },
