@@ -8,8 +8,9 @@ import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 
 /**
- * One of the small cards beside the streak: an icon, a big figure, what it
- * is in two words, and one line saying what it means right now.
+ * One of the small cards beside the streak: its icon on the left, a touch
+ * larger than the figure, and the figure beside it. `label` names it for
+ * VoiceOver only; a `note`, when there is one, says what it means right now.
  */
 export function HomeStatCard({ icon, tint, value, label, note, noteTint, onPress, accessibilityLabel }: {
     icon: string; tint: string; value: string | number; label: string; note?: string; noteTint?: string;
@@ -20,13 +21,14 @@ export function HomeStatCard({ icon, tint, value, label, note, noteTint, onPress
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={accessibilityLabel} style={styles.touch}>
             <VoidCard style={styles.card}>
-                {/* Just the icon, in its colour: no tile behind it. */}
-                <AppIcon filled name={icon as never} size={24} color={tint} />
+                {/* The icon first, a little larger than the figure, then the figure
+                    beside it, the way Duolingo lays out a stat. Its name is for
+                    VoiceOver (accessibilityLabel); the icon says it on screen. */}
+                <AppIcon filled name={icon as never} size={28} color={tint} />
                 <View style={styles.readout}>
                     <CountUp style={[styles.value, { color: colors.textPrimary }]} value={value} />
-                    <Text numberOfLines={1} style={[styles.label, { color: colors.textTertiary }]}>{label}</Text>
+                    {note ? <Text numberOfLines={1} style={[styles.note, { color: noteTint ?? colors.textSecondary }]}>{note}</Text> : null}
                 </View>
-                {note ? <Text numberOfLines={1} style={[styles.note, { color: noteTint ?? colors.textSecondary }]}>{note}</Text> : null}
             </VoidCard>
         </TouchableOpacity>
     );
@@ -34,9 +36,8 @@ export function HomeStatCard({ icon, tint, value, label, note, noteTint, onPress
 
 const styles = StyleSheet.create({
     touch: { flex: 1 },
-    card: { flex: 1, padding: Spacing.sm + 2, alignItems: 'center', justifyContent: 'center', gap: Spacing.xs + 2, minHeight: 100 },
-    readout: { alignItems: 'center' },
+    card: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, minHeight: 56 },
+    readout: { flex: 1, minWidth: 0 },
     value: { fontSize: 22, lineHeight: 26, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
-    label: { fontSize: 11, fontFamily: FontFamily.medium },
     note: { fontSize: 11, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
 });

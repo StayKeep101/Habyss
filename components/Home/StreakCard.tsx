@@ -1,12 +1,5 @@
-import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { CountUp } from '@/components/ui/Motion';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import { VoidCard } from '@/components/ui/VoidCard';
-import { Colors } from '@/theme/colors';
-import { useTheme } from '@/context/ThemeContext';
-import { s, vs, ms } from '@/theme/scale';
+import { HomeStatCard } from './HomeStatCard';
 
 interface StreakCardProps {
     streak: number;
@@ -22,76 +15,15 @@ const FLAME_COLORS: Record<number, string[]> = {
     4: ['#EF4444', '#F97316', '#FBBF24', '#22C55E', '#3B82F6', '#8B5CF6'], // Rainbow
 };
 
+/**
+ * The streak beside Focus and Missed, drawn by the same card (HomeStatCard):
+ * the flame on the left in the colour the day has earned, the run beside it.
+ */
 export const StreakCard: React.FC<StreakCardProps> = ({ streak, completionTier, onPress }) => {
-    const { theme } = useTheme();
-    const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const isTrueDark = theme === 'trueDark';
-
     const flameColors = FLAME_COLORS[completionTier] || FLAME_COLORS[0];
-    const isRainbow = completionTier === 4;
-
+    const flame = completionTier === 4 ? flameColors[flameColors.length - 1] : flameColors[0];
     return (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.touchable}>
-            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container]}>
-                <View style={styles.iconContainer}>
-                    {/* Just the flame, in its colour: no tile behind it. */}
-                    <Ionicons name="flame" size={s(26)} color={isRainbow ? flameColors[flameColors.length - 1] : flameColors[0]} />
-                </View>
-
-                <View>
-                    <CountUp style={[styles.value, { color: colors.textPrimary }]} value={streak} />
-                    <Text style={[styles.label, { color: colors.textTertiary }]}>Day streak</Text>
-                </View>
-
-                {completionTier === 4 && (
-                    <View style={styles.perfectBadge}>
-                        <Ionicons name="star" size={s(10)} color="#FBBF24" />
-                    </View>
-                )}
-            </VoidCard>
-        </TouchableOpacity>
+        <HomeStatCard icon="flame" tint={flame} value={streak} label="Day streak" onPress={onPress}
+            accessibilityLabel={`${streak} day streak${completionTier === 4 ? ', a perfect day' : ''}. Open your streak.`} />
     );
 };
-
-const styles = StyleSheet.create({
-    touchable: {
-        flex: 1,
-    },
-    container: {
-        flex: 1,
-        padding: s(10),
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: s(6),
-    },
-    iconContainer: {
-        marginBottom: vs(2),
-    },
-    flameGradient: {
-        width: s(36),
-        height: s(36),
-        borderRadius: s(18),
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    value: {
-        fontSize: ms(24),
-        fontFamily: FontFamily.bold,
-        textAlign: 'center',
-        lineHeight: ms(24),
-    },
-    label: {
-        fontSize: ms(11), fontFamily: FontFamily.medium,
-        textAlign: 'center',
-        marginTop: vs(2),
-    },
-    perfectBadge: {
-        position: 'absolute',
-        top: vs(12),
-        right: s(12),
-        backgroundColor: 'rgba(251, 191, 36, 0.15)',
-        padding: s(4),
-        borderRadius: s(10),
-    },
-});
