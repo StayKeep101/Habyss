@@ -149,22 +149,15 @@ export function DayHourglass({ marks }: { marks: number }) {
     const leftWords = `${Math.floor(glass.left / 3600)} hours ${Math.floor((glass.left % 3600) / 60)} minutes`;
 
     return (
+        // On the sheet's top edge (Home): the glass half above it, the clocks on the sheet either side.
         <View style={styles.stage}>
-            {/* The arch: your rank's light, falling into the page. */}
-            <View style={[styles.arch, { borderColor: tint(t.color.accent, 'subtle') }]} pointerEvents="none">
-                <LinearGradient colors={[tint(t.color.accent, 'soft'), tint(t.color.accent, 'subtle'), 'transparent']} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
-            </View>
-            <Animated.View style={[styles.arch, styles.flare, flareStyle]} pointerEvents="none">
-                <LinearGradient colors={[design.sand[0], tint(design.sand[0], 'soft'), 'transparent']} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
-            </Animated.View>
-            <Motes color={design.sand[0]} count={4 + design.rings * 3} still={reduced} />
-
             <Text style={[styles.clock, { color: t.color.textMuted }]} accessibilityLabel={`${pastWords} of today gone`}>
                 {glass.resting === 'night' ? '—' : clockLabel(glass.past)}
             </Text>
 
             <Pressable onPress={reveal} accessibilityRole="button" style={styles.glassBox}
                 accessibilityLabel={glass.resting === 'night' ? 'Your day has run out. See every hourglass' : `Your day: ${leftWords} left. See every hourglass`}>
+                <Animated.View style={[styles.flare, { backgroundColor: design.sand[0] }, flareStyle]} pointerEvents="none" />
                 <Animated.View style={[styles.ring, { borderColor: design.sand[0] }, ringStyle]} pointerEvents="none" />
                 <Animated.View style={[styles.ring, { borderColor: design.sand[0] }, echoRingStyle]} pointerEvents="none" />
                 <Animated.View ref={glassRef} collapsable={false} style={glassStyle}>
@@ -175,6 +168,23 @@ export function DayHourglass({ marks }: { marks: number }) {
             <Text style={[styles.clock, { color: t.color.accent }]} accessibilityLabel={`${leftWords} left today`}>
                 {glass.resting === 'night' ? '—' : clockLabel(glass.left)}
             </Text>
+        </View>
+    );
+}
+
+/**
+ * Behind Home's sheet, under the fixed header: your rank's light falling from
+ * above, and specks of it drifting up, more the higher your rank.
+ */
+export function DayGlassBackdrop() {
+    const t = useTokens();
+    const { rankShown } = useAccent();
+    const design = glassDesign(rankShown);
+    const reduced = useReducedMotion();
+    return (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <LinearGradient colors={[tint(t.color.accent, 'soft'), tint(t.color.accent, 'subtle'), 'transparent']} locations={[0, 0.35, 0.7]} style={StyleSheet.absoluteFill} />
+            <Motes color={design.sand[0]} count={4 + design.rings * 3} still={reduced} />
         </View>
     );
 }
@@ -206,11 +216,11 @@ function Mote({ index, color, still }: { index: number; color: string; still: bo
 
 
 const styles = StyleSheet.create({
-    stage: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: s(18), paddingBottom: s(6), paddingHorizontal: s(6), overflow: 'hidden' },
-    arch: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, borderTopLeftRadius: s(200), borderTopRightRadius: s(200), borderWidth: 1, borderBottomWidth: 0, overflow: 'hidden' },
-    clock: { width: s(96), textAlign: 'center', fontFamily: FontFamily.semibold, fontSize: s(17), fontVariant: ['tabular-nums'] },
+    // The glass rides half above the sheet's edge; the clocks sit on the sheet beside its lower half.
+    stage: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: -GLASS_HEIGHT / 2 },
+    clock: { width: s(96), marginTop: GLASS_HEIGHT / 2 + s(14), textAlign: 'center', fontFamily: FontFamily.semibold, fontSize: s(17), fontVariant: ['tabular-nums'] },
     glassBox: { alignItems: 'center', justifyContent: 'center' },
-    flare: { borderWidth: 0 },
+    flare: { position: 'absolute', width: GLASS_HEIGHT, height: GLASS_HEIGHT, borderRadius: GLASS_HEIGHT / 2 },
     ring: { position: 'absolute', width: GLASS_HEIGHT * 0.7, height: GLASS_HEIGHT * 0.7, borderRadius: GLASS_HEIGHT, borderWidth: 2 },
     mote: { position: 'absolute', bottom: s(10), width: 3, height: 3, borderRadius: 1.5 },
 });

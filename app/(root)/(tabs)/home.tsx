@@ -47,7 +47,10 @@ import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
-import { DayHourglass } from '@/components/Home/DayHourglass';
+import { DayGlassBackdrop, DayHourglass, GLASS_HEIGHT } from '@/components/Home/DayHourglass';
+import { HOME_BACKDROP, homeSheet, SHEET_TOP } from '@/styles/screens/home.styles';
+import { LinearGradient } from 'expo-linear-gradient';
+import { surfaceFor } from '@/theme/designSystem';
 import { ShardsWallet } from '@/components/Shards/ShardsWallet';
 import { useWallet } from '@/hooks/useWallet';
 import { useMarks } from '@/hooks/useMarks';
@@ -75,6 +78,8 @@ const Home = () => {
   const router = useRouter();
   const { theme } = useTheme();
   const colors = Colors[theme];
+  // The sheet's material, as every sheet in the app is drawn.
+  const sheetTone = surfaceFor(theme);
   const { primary: accentColor } = useAccentGradient();
   const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
   const { playComplete, playLevelUp } = useSounds();
@@ -571,23 +576,17 @@ const Home = () => {
 
   return (
     <VoidShell>
+      {/* Your rank's light, falling from the top of the screen, behind the header and down to the sheet. */}
+      <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: HOME_BACKDROP + SHEET_TOP + GLASS_HEIGHT }} pointerEvents="none">
+        <DayGlassBackdrop />
+      </View>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: tabBarClearance, paddingHorizontal: horizontalPadding }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={accentColor}
-              colors={[accentColor]}
-            />
-          }
-        >
-
+        {/* Transit-style: your picture and stats stay put; everything else is on a sheet
+            that slides up and down beneath them, the day's hourglass riding its edge. */}
           {/* Header Row
               Your picture with your Marks (XP) as its ring, and your Shards (the
               currency) beside it as a holding: who you are, and what you have. */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(12), marginTop: topSpacing }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(12), marginTop: topSpacing, paddingHorizontal: horizontalPadding }}>
             {/* The ring is today: empty at nothing done, closed and green
                 when the day is kept. */}
             <ProgressAvatar
@@ -612,52 +611,68 @@ const Home = () => {
             </View>
           </View>
 
-          {/* Your day as an hourglass: time gone, the glass, time left. Tap it for the Roadmap. */}
-          <View style={{ marginTop: sectionGap }}>
-            <DayHourglass marks={marks.total} />
+
+        <View style={{ flex: 1 }}>
+          <ScrollView
+            contentContainerStyle={{ paddingTop: SHEET_TOP }}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={accentColor}
+                colors={[accentColor]}
+              />
+            }
+          >
+          <View style={[homeSheet.sheet, { paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, borderColor: colors.border }]}>
+            <LinearGradient pointerEvents="none" colors={[sheetTone.top, sheetTone.fill, colors.background]} locations={[0, 0.18, 0.5]} style={homeSheet.material} />
+              {/* Your day as an hourglass on the sheet's edge: time gone, the glass, time left. Tap it for every hourglass. */}
+              <DayHourglass marks={marks.total} />
+
+            {/* Echo, full width below the header, where it reads as a line
+                rather than squeezed into a column beside the picture. */}
+            {motivationalQuote ? <EchoLine key={lineTurn} text={motivationalQuote} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)} style={{ marginTop: sectionGap }}
+              onDone={() => {
+                const kind = pendingQuestion.current; if (kind) { pendingQuestion.current = null; setTimeout(() => setQuestion(kind), 400); }
+                const asked = pendingTalk.current; if (asked) { pendingTalk.current = null; setTimeout(() => setTalk(asked), 500); }
+              }} /> : null}
+
+            {/* Spacer after header */}
+            <View style={{ height: sectionGap }} />
+
+            {/* Goals Progress Bar */}
+            <Animated.View>
+              <View ref={goalsRef} collapsable={false}>
+              <GoalsProgressBar
+                progress={avgGoalProgress}
+                goalsCount={goalsData.goals.length}
+                series={goalsData.overallSeries}
+                onPress={() => router.push('/goals-overview')}
+              />
+            </View>
+            </Animated.View>
+
+            {/* The day's promise, and the few things that would keep it. */}
+            <Animated.View style={{ marginTop: sectionGap }}>
+              <View ref={todayRef} collapsable={false}>
+              <DailyFocusCard
+                focus={focus}
+                multiplier={marks.multiplier}
+                onToggle={handleFocusToggle}
+                onOpen={() => router.push('/task-stats')}
+                onAdd={() => emit('show_task_form')}
+              />
+            </View>
+            </Animated.View>
+
+
+
+
+
           </View>
-
-          {/* Echo, full width below the header, where it reads as a line
-              rather than squeezed into a column beside the picture. */}
-          {motivationalQuote ? <EchoLine key={lineTurn} text={motivationalQuote} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)} style={{ marginTop: sectionGap }}
-            onDone={() => {
-              const kind = pendingQuestion.current; if (kind) { pendingQuestion.current = null; setTimeout(() => setQuestion(kind), 400); }
-              const asked = pendingTalk.current; if (asked) { pendingTalk.current = null; setTimeout(() => setTalk(asked), 500); }
-            }} /> : null}
-
-          {/* Spacer after header */}
-          <View style={{ height: sectionGap }} />
-
-          {/* Goals Progress Bar */}
-          <Animated.View>
-            <View ref={goalsRef} collapsable={false}>
-            <GoalsProgressBar
-              progress={avgGoalProgress}
-              goalsCount={goalsData.goals.length}
-              series={goalsData.overallSeries}
-              onPress={() => router.push('/goals-overview')}
-            />
-          </View>
-          </Animated.View>
-
-          {/* The day's promise, and the few things that would keep it. */}
-          <Animated.View style={{ marginTop: sectionGap }}>
-            <View ref={todayRef} collapsable={false}>
-            <DailyFocusCard
-              focus={focus}
-              multiplier={marks.multiplier}
-              onToggle={handleFocusToggle}
-              onOpen={() => router.push('/task-stats')}
-              onAdd={() => emit('show_task_form')}
-            />
-          </View>
-          </Animated.View>
-
-
-
-
-
-        </ScrollView>
+          </ScrollView>
+        </View>
 
 
         {/* Echo's quick questions. */}
