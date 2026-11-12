@@ -91,14 +91,19 @@ const Home = () => {
   // As the cards rise, the day's hourglass fades out instead of being cut off, and comes back.
   const homeScrollY = useSharedValue(0);
   const onHomeScroll = useAnimatedScrollHandler(event => { homeScrollY.set(event.contentOffset.y); });
+  // How far the page has risen from rest (0 unscrolled); the panel's edge reaches the bar at SCENE_SHOWN.
   const glassFadeFrom = headerHeight;
-  const glassFadeOver = GLASS_HEIGHT * 0.7;
-  // The panel starts this far down: the scene shows above it. The glass begins to fade as the panel's edge nears the bar.
+  // The panel starts this far down: the scene shows above it.
   const { height: screenHeight } = useWindowDimensions();
   const SCENE_SHOWN = Math.round(screenHeight * 0.36);
-  const glassFadeStart = Math.max(0, SCENE_SHOWN - headerHeight - GLASS_HEIGHT * 0.5);
+  // The hourglass and its clocks: gone completely before the glass's top reaches the bar.
+  const glassGone = Math.max(1, SCENE_SHOWN - GLASS_HEIGHT / 2);
   const glassFade = useAnimatedStyle(() => ({
-    opacity: interpolate(homeScrollY.get() + glassFadeFrom, [glassFadeStart, glassFadeStart + glassFadeOver], [1, 0], Extrapolation.CLAMP),
+    opacity: interpolate(homeScrollY.get() + glassFadeFrom, [glassGone * 0.2, glassGone], [1, 0], Extrapolation.CLAMP),
+  }));
+  // The scene behind: gone completely as the panel reaches the top.
+  const sceneFade = useAnimatedStyle(() => ({
+    opacity: interpolate(homeScrollY.get() + glassFadeFrom, [0, SCENE_SHOWN], [1, 0], Extrapolation.CLAMP),
   }));
   const { primary: accentColor } = useAccentGradient();
   const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
@@ -596,7 +601,9 @@ const Home = () => {
   return (
     <VoidShell>
       {/* Transit-style: your rank's scene is the map, fixed behind everything (components/Home/DuneScene.tsx). */}
-      <RankScene scrollY={homeScrollY} scrollRest={-headerHeight} />
+      <Animated.View style={[homeStyles.scene, sceneFade]} pointerEvents="none">
+        <RankScene scrollY={homeScrollY} scrollRest={-headerHeight} />
+      </Animated.View>
       <Animated.ScrollView
         onScroll={onHomeScroll}
         scrollEventThrottle={16}
