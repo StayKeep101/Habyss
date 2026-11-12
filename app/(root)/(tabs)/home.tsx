@@ -67,7 +67,7 @@ import { setTaskStatus, type Task } from '@/lib/tasks';
 import { StreakCard } from '@/components/Home/StreakCard';
 import { useCoachTarget } from '@/hooks/useCoachTarget';
 import { startTour } from '@/lib/coachMarks';
-import { FocusCard } from '@/components/Home/FocusCard';
+import { FocusWeekCard } from '@/components/Home/FocusWeekCard';
 import { localDateKey } from '@/lib/habitSchedule';
 import { echoWeek } from '@/lib/echoInsights';
 import { MissedCard } from '@/components/Home/MissedCard';
@@ -667,6 +667,11 @@ const Home = () => {
           </View>
           </Animated.View>
 
+            {/* This week's focus, a bar a day: the Focus page's week, at a glance. Measured by the walkthrough. */}
+            <View ref={focusRef} collapsable={false} style={{ marginTop: sectionGap }}>
+              <FocusWeekCard onOpen={() => { lightFeedback(); router.push('/(root)/focus-stats' as never); }} />
+            </View>
+
 
 
 
@@ -674,7 +679,7 @@ const Home = () => {
           </View>
       </Animated.ScrollView>
 
-      {/* The floating stats bar: your picture and the four stats, fixed over everything, the cards passing under. */}
+      {/* The floating stats bar: your picture and the three stats, fixed over everything, the cards passing under. */}
       <View style={[homeStyles.bar, { paddingTop: insets.top }]} pointerEvents="box-none"
         onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}>
         <LinearGradient pointerEvents="none" colors={[colors.background, tint(colors.background, 'border'), 'transparent']} locations={[0, 0.6, 1]} style={homeStyles.barFade} />
@@ -689,21 +694,25 @@ const Home = () => {
               marks={marks}
               onPress={() => router.push('/(root)/profile')}
             />
-            {/* Beside it, four stats as icon and figure: Shards, streak, focus today, missed. */}
-            <MatteSurface radius={Radius.pill} level="control" elevation="floating" style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: s(6), paddingHorizontal: s(14), paddingVertical: s(2) }}>
-              <ShardsCard wallet={wallet} onPress={() => setShowWallet(true)} />
+            {/* Beside it, three stats as icon and figure: Shards, streak, missed. */}
+            {/* Three stats, each its own pill: they are three different things. */}
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: s(8) }}>
+              <MatteSurface radius={Radius.pill} level="control" elevation="floating" style={homeStyles.statPill}>
+                <ShardsCard wallet={wallet} onPress={() => setShowWallet(true)} />
+              </MatteSurface>
               {/* Measured by the first-run walkthrough ("Keep the streak"). */}
-              <View ref={streakRef} collapsable={false} style={{ flexShrink: 1 }}>
-                <StreakCard streak={streak} completionTier={completionTier}
-                  onPress={() => { lightFeedback(); router.push('/(root)/progress'); }} />
+              <View ref={streakRef} collapsable={false}>
+                <MatteSurface radius={Radius.pill} level="control" elevation="floating" style={homeStyles.statPill}>
+                  <StreakCard streak={streak} completionTier={completionTier}
+                    onPress={() => { lightFeedback(); router.push('/(root)/progress'); }} />
+                </MatteSurface>
               </View>
-              <View ref={focusRef} collapsable={false} style={{ flexShrink: 1 }}>
-                <FocusCard onPress={() => { lightFeedback(); router.push('/(root)/focus-stats' as never); }} />
+              <View ref={missedRef} collapsable={false}>
+                <MatteSurface radius={Radius.pill} level="control" elevation="floating" style={homeStyles.statPill}>
+                  <MissedCard missed={missed} onPress={() => { lightFeedback(); setShowMissed(true); }} />
+                </MatteSurface>
               </View>
-              <View ref={missedRef} collapsable={false} style={{ flexShrink: 1 }}>
-                <MissedCard missed={missed} onPress={() => { lightFeedback(); setShowMissed(true); }} />
-              </View>
-            </MatteSurface>
+            </View>
           </View>
 
       </View>

@@ -24,6 +24,7 @@ import { startOfWeek } from '@/lib/weekStart';
 import { getHabits, type Habit } from '@/lib/habitsSQLite';
 import { todayKey } from '@/lib/tasks';
 import { styles } from '@/styles/screens/focus-stats.styles';
+import { DayBar } from '@/components/Focus/FocusWeekBars';
 
 type Range = 7 | 30;
 const dayLetter = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'narrow' });
@@ -207,14 +208,3 @@ export default function FocusStatsScreen() {
         </SheetScreen>
     );
 }
-
-/** One day's bar. The picked day stays bright and the rest step back. */
-const DayBar = ({ share, index, replay, tint, lit, dim }: { share: number; index: number; replay: unknown; tint: string; lit: boolean; dim: boolean }) => {
-    const grown = useProgress(Math.max(share, 0.03), index * 25, replay);
-    const height = useAnimatedStyle(() => ({ height: `${grown.get() * 100}%` }));
-    return (
-        <View style={styles.barTrack} pointerEvents="none">
-            <Animated.View style={[styles.bar, height, { backgroundColor: tint, opacity: lit ? 1 : dim ? 0.3 : 0.6 }]} />
-        </View>
-    );
-};
