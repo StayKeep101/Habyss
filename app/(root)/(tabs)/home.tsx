@@ -95,15 +95,18 @@ const Home = () => {
   const glassFadeFrom = headerHeight;
   // The panel starts this far down: the scene shows above it.
   const { height: screenHeight } = useWindowDimensions();
-  const SCENE_SHOWN = Math.round(screenHeight * 0.36);
-  // The hourglass and its clocks: gone completely before the glass's top reaches the bar.
-  const glassGone = Math.max(1, SCENE_SHOWN - GLASS_HEIGHT / 2);
+  // The panel's edge rests a third of the way down the screen (the day gets the other two thirds),
+  // never so high that the glass on it would touch the bar.
+  const SCENE_SHOWN = Math.max(GLASS_HEIGHT / 2 + s(16), Math.round(screenHeight / 3) - headerHeight);
+  // The hourglass and its clocks stay whole until the glass reaches the bar, then fade as it slides under.
+  const glassReaches = Math.max(1, SCENE_SHOWN - GLASS_HEIGHT / 2 - s(8));
   const glassFade = useAnimatedStyle(() => ({
-    opacity: interpolate(homeScrollY.get() + glassFadeFrom, [glassGone * 0.2, glassGone], [1, 0], Extrapolation.CLAMP),
+    opacity: interpolate(homeScrollY.get() + glassFadeFrom, [glassReaches, glassReaches + GLASS_HEIGHT * 0.6], [1, 0], Extrapolation.CLAMP),
   }));
-  // The scene behind: gone completely as the panel reaches the top.
+  // The scene behind.
   const sceneFade = useAnimatedStyle(() => ({
-    opacity: interpolate(homeScrollY.get() + glassFadeFrom, [0, SCENE_SHOWN], [1, 0], Extrapolation.CLAMP),
+    // Holds while you start scrolling; gone once the panel is up past the glass.
+    opacity: interpolate(homeScrollY.get() + glassFadeFrom, [glassReaches * 0.6, SCENE_SHOWN + GLASS_HEIGHT * 0.3], [1, 0], Extrapolation.CLAMP),
   }));
   const { primary: accentColor } = useAccentGradient();
   const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
