@@ -192,29 +192,35 @@ export default function ProgressScreen() {
                     accessibilityLabel={`Streak for ${picked ? picked.name : 'all habits and tasks'}. Change`} />
             }>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!selected}>
-                {/* The answer first, centred and large, the flame beside it and
-                    your best run under it; then the month in four numbers. */}
-                <View style={[styles.hero, { marginBottom: Math.round(20 * fit) }]} accessible accessibilityLabel={`${streak} ${streak === 1 ? 'day' : 'days'} in a row. Best ${best}.`}>
-                    <View style={styles.heroRow}>
-                        <CountUp style={[styles.heroValue, { fontSize: heroSize, lineHeight: Math.round(heroSize * 1.08), letterSpacing: -heroSize / 24, color: colors.textPrimary }]} value={streak} replay={only} />
-                        <Ionicons name="flame" filled size={Math.round(heroSize * 0.42)} color={colors.warning} />
+                {/* The answer on the left (the run, what it means, your best); the month's
+                    four numbers beside it, two by two. */}
+                <View style={[styles.top, { marginBottom: Math.round(16 * fit) }]}>
+                    <View style={styles.hero} accessible accessibilityLabel={`${streak} ${streak === 1 ? 'day' : 'days'} in a row. Best ${best}.`}>
+                        <View style={styles.heroRow}>
+                            <CountUp style={[styles.heroValue, { fontSize: heroSize, lineHeight: Math.round(heroSize * 1.08), letterSpacing: -heroSize / 24, color: colors.textPrimary }]} value={streak} replay={only} />
+                            <Ionicons name="flame" filled size={Math.round(heroSize * 0.42)} color={colors.warning} />
+                        </View>
+                        <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{streak === 1 ? 'day in a row' : 'days in a row'}</Text>
+                        {best > streak ? (
+                            <Text style={[styles.heroBest, { color: colors.textTertiary }]}>{`Best ${best} ${best === 1 ? 'day' : 'days'}`}</Text>
+                        ) : streak > 1 ? (
+                            <Text style={[styles.heroBest, { color: colors.textTertiary }]}>Your best yet</Text>
+                        ) : null}
                     </View>
-                    <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{streak === 1 ? 'day in a row' : 'days in a row'}</Text>
-                    {best > streak ? (
-                        <Text style={[styles.heroBest, { color: colors.textTertiary }]}>{`Best ${best} ${best === 1 ? 'day' : 'days'}`}</Text>
-                    ) : streak > 1 ? (
-                        <Text style={[styles.heroBest, { color: colors.textTertiary }]}>Your best yet</Text>
-                    ) : null}
+                    <VoidCard style={styles.stats}>
+                        <View style={styles.statsRow}>
+                            <MiniStat label="Active days" value={totals.activeDays} change={totals.activeDays - before.activeDays} replay={offset} />
+                            <View style={[styles.statRule, { backgroundColor: colors.border }]} />
+                            <MiniStat label="Perfect" value={totals.perfectDays} change={totals.perfectDays - before.perfectDays} replay={offset} />
+                        </View>
+                        <View style={[styles.statsDivider, { backgroundColor: colors.border }]} />
+                        <View style={styles.statsRow}>
+                            <MiniStat label="Habits kept" value={totals.rate} suffix="%" change={totals.rate !== null && before.rate !== null ? totals.rate - before.rate : 0} replay={offset} />
+                            <View style={[styles.statRule, { backgroundColor: colors.border }]} />
+                            <MiniStat label="Tasks" value={totals.tasks} change={totals.tasks - before.tasks} replay={offset} />
+                        </View>
+                    </VoidCard>
                 </View>
-                <VoidCard style={styles.stats}>
-                    <MiniStat label="Active days" value={totals.activeDays} change={totals.activeDays - before.activeDays} replay={offset} />
-                    <View style={[styles.statRule, { backgroundColor: colors.border }]} />
-                    <MiniStat label="Perfect" value={totals.perfectDays} change={totals.perfectDays - before.perfectDays} replay={offset} />
-                    <View style={[styles.statRule, { backgroundColor: colors.border }]} />
-                    <MiniStat label="Habits kept" value={totals.rate} suffix="%" change={totals.rate !== null && before.rate !== null ? totals.rate - before.rate : 0} replay={offset} />
-                    <View style={[styles.statRule, { backgroundColor: colors.border }]} />
-                    <MiniStat label="Tasks" value={totals.tasks} change={totals.tasks - before.tasks} replay={offset} />
-                </VoidCard>
 
                 {/* Swipe the calendar for another month. */}
                 <View style={[styles.monthRow, { marginTop: Math.round(16 * fit) }]} accessible accessibilityLabel={month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}

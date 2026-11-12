@@ -19,12 +19,16 @@ export const styles = StyleSheet.create({
     ringSvg: { position: 'absolute', top: 0, left: 0 },
     dayNumber: { fontSize: 14, fontVariant: ['tabular-nums'] },
     /** The streak, centred: flame, the figure, what it means, your best. */
-    hero: { alignItems: 'center', marginBottom: 24 },
+    /** The run on the left, the month's numbers two by two on the right. */
+    top: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    hero: { flex: 0.9, alignItems: 'flex-start' },
     heroRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     heroValue: { fontSize: 96, lineHeight: 104, fontFamily: FontFamily.bold, letterSpacing: -4, fontVariant: ['tabular-nums'] },
     heroLabel: { fontSize: 17, fontFamily: FontFamily.medium, marginTop: -2 },
     heroBest: { fontSize: 13, fontFamily: FontFamily.medium, marginTop: 6 },
-    stats: { flexDirection: 'row', paddingVertical: 16, paddingHorizontal: 6, marginTop: 0, marginBottom: 6 },
+    stats: { flex: 1.1, paddingVertical: 6, paddingHorizontal: 4 },
+    statsRow: { flexDirection: 'row', paddingVertical: 8 },
+    statsDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: 10 },
     stat: { flex: 1, alignItems: 'center', gap: 2 },
     statTop: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
     statChange: { fontSize: 11, fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
