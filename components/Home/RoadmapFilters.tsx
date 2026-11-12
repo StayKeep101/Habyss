@@ -17,7 +17,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 
 type Kind = 'goals' | 'habits' | 'tasks';
 type Focus = 'all' | 'morning' | 'afternoon' | 'evening';
-type Order = 'default' | 'name' | 'progress';
+type Order = 'default' | 'name' | 'progress' | 'priority';
 type View_ = 'timeline' | 'list';
 
 /** Where the filter button is, so the menu can drop out of it. */
@@ -156,8 +156,8 @@ export const RoadmapFilters = (props: Props) => {
 
                         {/* Sorting always has an answer; tapping the chosen one flips it. */}
                         <Group label="Sort">
-                            {(['default', 'name', 'progress'] as const).map((id, index) => (
-                                <Pill key={id} label={['Created', 'Name', 'Progress'][index]} on={props.order === id}
+                            {(['default', 'name', 'progress', 'priority'] as const).map((id, index) => (
+                                <Pill key={id} label={['Created', 'Name', 'Progress', 'Priority'][index]} on={props.order === id}
                                     icon={props.order === id ? (props.direction === 1 ? 'arrow-up' : 'arrow-down') : undefined}
                                     onPress={() => props.onOrder(id)} />
                             ))}

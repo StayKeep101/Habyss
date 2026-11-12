@@ -77,7 +77,7 @@ import { useFocusCrew } from '@/hooks/useFocusCrew';
 import { useReschedules } from '@/hooks/useReschedules';
 import { hostOf, linkedHost } from '@/lib/focusTogether';
 import { mealSlots } from '@/lib/meals';
-import { DEFAULT_ROADMAP_FILTER, cachedRoadmapFilter, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type RoadmapView, type ShownKind } from '@/lib/roadmapFilter';
+import { DEFAULT_ROADMAP_FILTER, cachedRoadmapFilter, compareBySort, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type RoadmapSort, type RoadmapView, type ShownKind } from '@/lib/roadmapFilter';
 import { tallyDay } from '@/lib/dayComplete';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { buildDayPlan, clockOf, toMinutes as toMinutesOf } from '@/lib/dayPlan';
@@ -100,7 +100,7 @@ interface Habit extends StoreHabit {
     completed?: boolean;
 }
 
-type SortType = 'default' | 'name' | 'progress';
+type SortType = RoadmapSort;
 type TimeFilter = 'all' | 'morning' | 'afternoon' | 'evening';
 
 // Helper to categorize habits by their start time
@@ -913,11 +913,8 @@ const CalendarScreen = () => {
             filtered = filtered.filter(h => !!sharedFor(h.id));
         }
 
-        filtered.sort((a, b) => {
-            if (activeSort === 'name') return sortDirection * a.name.localeCompare(b.name);
-            if (activeSort === 'progress') return sortDirection * (Number(!!completions[a.id]) - Number(!!completions[b.id]));
-            return sortDirection * a.createdAt.localeCompare(b.createdAt);
-        });
+        const order = compareBySort(activeSort, sortDirection);
+        filtered.sort((a, b) => order({ ...a, done: !!completions[a.id] }, { ...b, done: !!completions[b.id] }));
         const byGoal: Record<string, Habit[]> = {};
 
         filtered.forEach(h => {
@@ -939,8 +936,12 @@ const CalendarScreen = () => {
         // "Shared only" means the whole plan, not only its rhythms: a filter
         // that hid shared habits' neighbours but left every private task in
         // place would not be showing what is shared.
-        return sharedOnly ? due.filter(task => !!sharedTaskFor(task.id)) : due;
-    }, [tasks, selectedDate, sharedOnly, sharedTaskFor]);
+        const shownTasks = sharedOnly ? due.filter(task => !!sharedTaskFor(task.id)) : due;
+        // Created keeps the day's own order (by when it is due); the others sort as habits and goals do.
+        if (activeSort === 'default') return shownTasks;
+        const order = compareBySort(activeSort, sortDirection);
+        return [...shownTasks].sort((a, b) => order({ ...a, name: a.title, done: a.status === 'done' }, { ...b, name: b.title, done: b.status === 'done' }));
+    }, [tasks, selectedDate, sharedOnly, sharedTaskFor, activeSort, sortDirection]);
 
     // The waking day, as set in Notifications; re-read whenever the tab shows.
     const [dayWindow, setDayWindow] = useState<DayWindow>(() => cachedDayWindow() ?? DEFAULT_DAY);
@@ -1283,9 +1284,8 @@ const CalendarScreen = () => {
     const sortedGoals = useMemo(() => goals
         .filter(goal => (!selectedGoalFilter || goal.id === selectedGoalFilter) && (activeTimeFilter === 'all' || (habitsByGoal[goal.id] || []).length > 0))
         .sort((a, b) => {
-            if (activeSort === 'name') return sortDirection * a.name.localeCompare(b.name);
             if (activeSort === 'progress') return sortDirection * ((goalProgress[a.id] || 0) - (goalProgress[b.id] || 0));
-            return sortDirection * a.createdAt.localeCompare(b.createdAt);
+            return compareBySort(activeSort, sortDirection)(a, b);
         }), [goals, activeSort, sortDirection, goalProgress, selectedGoalFilter, activeTimeFilter, habitsByGoal]);
 
     // The tour's "Plan inside your goal": Roadmap shows its list, where goals
@@ -1458,7 +1458,7 @@ const CalendarScreen = () => {
                                                 selectedGoalFilter && goals.find(g => g.id === selectedGoalFilter)?.name?.slice(0, 12),
                                                 selectedCategoryFilter && selectedCategoryFilter.charAt(0).toUpperCase() + selectedCategoryFilter.slice(1),
                                                 activeTimeFilter !== 'all' && activeTimeFilter.charAt(0).toUpperCase() + activeTimeFilter.slice(1),
-                                                activeSort !== 'default' && (activeSort === 'name' ? 'A-Z' : 'Progress'),
+                                                activeSort !== 'default' && ({ name: 'A-Z', progress: 'Progress', priority: 'Priority' } as const)[activeSort],
                                             ].filter(Boolean).join(' • ') || 'Filtered'}
                                         </Text>
                                     </TouchableOpacity>

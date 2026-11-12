@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  */
 export type ShownKind = 'goals' | 'habits' | 'tasks';
 export type TimeOfDay = 'all' | 'morning' | 'afternoon' | 'evening';
-export type RoadmapSort = 'default' | 'name' | 'progress';
+export type RoadmapSort = 'default' | 'name' | 'progress' | 'priority';
 /** The day as a timeline in time order, or the goals, habits and tasks as lists. */
 export type RoadmapView = 'timeline' | 'list';
 
@@ -33,7 +33,7 @@ export const DEFAULT_ROADMAP_FILTER: RoadmapFilterState = {
 
 const KEY = 'habyss_roadmap_filter';
 const TIMES: TimeOfDay[] = ['all', 'morning', 'afternoon', 'evening'];
-const SORTS: RoadmapSort[] = ['default', 'name', 'progress'];
+const SORTS: RoadmapSort[] = ['default', 'name', 'progress', 'priority'];
 
 /** Whatever was stored, made safe: unknown values fall back to the default. */
 export function normalizeRoadmapFilter(raw: unknown): RoadmapFilterState {
@@ -84,4 +84,33 @@ export async function loadRoadmapFilter(): Promise<RoadmapFilterState> {
 export async function saveRoadmapFilter(state: RoadmapFilterState): Promise<void> {
     cached = state;
     await AsyncStorage.setItem(KEY, JSON.stringify(state)).catch(() => undefined);
+}
+
+/** What the list sorts on, the same for a goal, a habit and a task. */
+export interface Sortable {
+    name: string;
+    createdAt?: string;
+    /** 1 urgent, 2 normal (unset), 3 not urgent. */
+    priority?: 1 | 2 | 3;
+    /** 1 easy, 2 medium, 3 hard. */
+    difficulty?: 1 | 2 | 3;
+    done?: boolean;
+}
+
+/**
+ * The list's order. Priority, going up (the first tap), puts the most
+ * important first: urgent before normal before not urgent, the harder one
+ * first between two as urgent, then by name. Tapping it again turns it round.
+ */
+export function compareBySort(sort: RoadmapSort, direction: 1 | -1) {
+    return (a: Sortable, b: Sortable): number => {
+        if (sort === 'name') return direction * a.name.localeCompare(b.name);
+        if (sort === 'progress') return direction * (Number(!!a.done) - Number(!!b.done));
+        if (sort === 'priority') {
+            const urgency = (a.priority ?? 2) - (b.priority ?? 2);
+            const effort = (b.difficulty ?? 2) - (a.difficulty ?? 2);
+            return direction * (urgency || effort || a.name.localeCompare(b.name));
+        }
+        return direction * (a.createdAt ?? '').localeCompare(b.createdAt ?? '');
+    };
 }
