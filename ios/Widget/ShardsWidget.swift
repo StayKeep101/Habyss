@@ -103,7 +103,8 @@ struct ShardsWidgetView: View {
 
     private var heading: some View {
         HStack(spacing: 5) {
-            Image(systemName: "diamond.fill").font(.system(size: 11, weight: .semibold)).foregroundStyle(entry.accent)
+            // The Shard itself (Assets: Shard, synced from assets/shard.svg by scripts/sync-shard-icon.cjs).
+            Image("Shard").resizable().aspectRatio(contentMode: .fit).frame(width: 14, height: 14)
             Text("Shards").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(Habyss.dim)
         }
     }

@@ -18,6 +18,8 @@ import { Overlay } from '@/components/ui/Overlay';
 import { s, vs } from '@/theme/scale';
 
 const ORB = s(10);
+/** A flying Shard: big enough for its facets to read mid-flight. */
+const SHARD = s(18);
 /** How long one orb takes to fly, and the gap between orbs leaving. */
 const FLIGHT = 750;
 const STAGGER = 45;
@@ -118,8 +120,10 @@ function Orb({ kind, index, count, from, to }: { kind: OrbKind; index: number; c
     const { selectionFeedback } = useHaptics();
     const flight = useSharedValue(0);
     const pop = useSharedValue(0);
-    // A Shard is a little gem (a turned square), a Mark a round light.
+    // A Shard flies as the Shard itself (ShardIcon), a Mark as a round light.
     const gem = kind === 'shards';
+    // Worked out here, never inside the worklet below (a helper call there crashes natively).
+    const half = (gem ? SHARD : ORB) / 2;
     // Each orb leaves at its own angle and distance, the same every time for the same index.
     const angle = (index / count) * Math.PI * 2 + (index % 3) * 0.4;
     const reach = s(26) + (index % 4) * s(9);
@@ -147,11 +151,18 @@ function Orb({ kind, index, count, from, to }: { kind: OrbKind; index: number; c
         const y = q * q * sy + 2 * q * p * bend.y + p * p * to.y;
         return {
             opacity: p >= 1 ? 0 : 1,
-            transform: [{ translateX: x - ORB / 2 }, { translateY: y - ORB / 2 }, { scale: (0.4 + out * 0.8) * (1 - p * 0.45) }, { rotate: gem ? '45deg' : '0deg' }],
+            transform: [{ translateX: x - half }, { translateY: y - half }, { scale: (0.4 + out * 0.8) * (1 - p * 0.45) }],
         };
     });
+    if (gem) {
+        return (
+            <Animated.View pointerEvents="none" style={[styles.shard, style]}>
+                <ShardIcon size={SHARD} />
+            </Animated.View>
+        );
+    }
     return (
-        <Animated.View pointerEvents="none" style={[styles.orb, gem && styles.gem, { backgroundColor: t.color.accent, shadowColor: t.color.accent }, style]}>
+        <Animated.View pointerEvents="none" style={[styles.orb, { backgroundColor: t.color.accent, shadowColor: t.color.accent }, style]}>
             <Animated.View style={[styles.core, { backgroundColor: t.color.onAccent }]} />
         </Animated.View>
     );
@@ -204,7 +215,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.9, shadowRadius: ORB, shadowOffset: { width: 0, height: 0 },
     },
     core: { width: ORB / 3, height: ORB / 3, borderRadius: ORB / 6, opacity: 0.8 },
-    gem: { borderRadius: ORB / 5 },
+    shard: { position: 'absolute', top: 0, left: 0, width: SHARD, height: SHARD },
     pillWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
     pill: { flexDirection: 'row', alignItems: 'center', gap: s(6), height: PILL_HEIGHT, paddingHorizontal: s(14) },
     figure: { fontVariant: ['tabular-nums'] },

@@ -15,11 +15,12 @@
     "validate": "npm run check:ui && npm run type-check && npm run test:ci",
     "lint": "expo lint",
     "postinstall": "patch-package",
-    "check:ui": "node scripts/check-ui-consistency.cjs",
+    "check:ui": "node scripts/check-ui-consistency.cjs && node scripts/sync-shard-icon.cjs --check",
     "check:supabase": "node scripts/check-supabase.mjs",
     "check:auth": "node scripts/check-auth.mjs",
     "apply:migration": "node scripts/apply-migration.mjs",
-    "echo:sample": "jest --testMatch '**/scripts/echo-sample.blind.ts' --silent=false --coverage=false"
+    "echo:sample": "jest --testMatch '**/scripts/echo-sample.blind.ts' --silent=false --coverage=false",
+    "shard:sync": "node scripts/sync-shard-icon.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/lexend": "^0.4.1",
