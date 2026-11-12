@@ -1,6 +1,6 @@
 import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import {View, Text, ScrollView, RefreshControl} from 'react-native';
+import { View, Text, ScrollView, RefreshControl, useWindowDimensions } from 'react-native';
 import { EchoLine } from '@/components/Home/EchoLine';
 import { CheckInPopup } from '@/components/Echo/CheckInPopup';
 import { useEchoMemory } from '@/hooks/useEchoMemory';
@@ -48,6 +48,7 @@ import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
 import { DayHourglass, GLASS_HEIGHT } from '@/components/Home/DayHourglass';
+import { RankScene } from '@/components/Home/RankScene';
 import { homeStyles } from '@/styles/screens/home.styles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { tint } from '@/theme/tokens';
@@ -90,8 +91,12 @@ const Home = () => {
   const onHomeScroll = useAnimatedScrollHandler(event => { homeScrollY.set(event.contentOffset.y); });
   const glassFadeFrom = headerHeight;
   const glassFadeOver = GLASS_HEIGHT * 0.7;
+  // The panel starts this far down: the scene shows above it. The glass begins to fade as the panel's edge nears the bar.
+  const { height: screenHeight } = useWindowDimensions();
+  const SCENE_SHOWN = Math.round(screenHeight * 0.36);
+  const glassFadeStart = Math.max(0, SCENE_SHOWN - headerHeight - GLASS_HEIGHT * 0.5);
   const glassFade = useAnimatedStyle(() => ({
-    opacity: interpolate(homeScrollY.get() + glassFadeFrom, [0, glassFadeOver], [1, 0], Extrapolation.CLAMP),
+    opacity: interpolate(homeScrollY.get() + glassFadeFrom, [glassFadeStart, glassFadeStart + glassFadeOver], [1, 0], Extrapolation.CLAMP),
   }));
   const { primary: accentColor } = useAccentGradient();
   const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
@@ -588,6 +593,8 @@ const Home = () => {
 
   return (
     <VoidShell>
+      {/* Transit-style: your rank's scene is the map, fixed behind everything (theme/rankScenes.ts). */}
+      <RankScene />
       <Animated.ScrollView
         onScroll={onHomeScroll}
         scrollEventThrottle={16}
@@ -596,7 +603,7 @@ const Home = () => {
         contentOffset={{ x: 0, y: -headerHeight }}
         scrollIndicatorInsets={{ top: headerHeight }}
         automaticallyAdjustContentInsets={false}
-        contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance }}
+        contentContainerStyle={{ paddingTop: SCENE_SHOWN }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -608,8 +615,12 @@ const Home = () => {
           />
         }
       >
-              {/* Your day as an hourglass on the sheet's edge: time gone, the glass, time left. Tap it for every hourglass. */}
-            <DayHourglass marks={marks.total} />
+          {/* The panel: everything of the day, rising over the scene; the hourglass on its edge. */}
+          <View style={[homeStyles.panel, { backgroundColor: colors.background, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, minHeight: screenHeight - headerHeight }]}>
+            {/* Half over the scene, half on the panel; it fades as the panel nears the top rather than being cut off. Tap it for every hourglass. */}
+            <Animated.View style={glassFade}>
+              <DayHourglass marks={marks.total} />
+            </Animated.View>
 
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
@@ -651,6 +662,7 @@ const Home = () => {
 
 
 
+          </View>
       </Animated.ScrollView>
 
       {/* The floating stats bar: your picture and the four stats, fixed over everything, the cards passing under. */}
