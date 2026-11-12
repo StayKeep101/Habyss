@@ -3,7 +3,7 @@ import { act, render } from '@testing-library/react-native';
 import { GlassCarousel } from '../Home/GlassCarousel';
 import { emit } from '@/lib/appEvents';
 
-jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#6B8AF5' }) }));
+jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#6B8AF5' }), useAccent: () => ({ rankShown: 'Lost' }) }));
 
 describe('every hourglass you can earn', () => {
     it('opens on yours, and says what the next one costs', () => {
