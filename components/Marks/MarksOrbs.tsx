@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ShardIcon } from '@/components/ui/ShardIcon';
 import { StyleSheet, Text, useWindowDimensions } from 'react-native';
 import Animated, {
     Easing, FadeIn, FadeOut, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming,
@@ -13,7 +14,6 @@ import { localDateKey } from '@/lib/habitSchedule';
 import {
     burstMarks, goalDone, milestoneDone, habitDone, marksRange, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskEarned, type Burst, type OrbKind, type Point,
 } from '@/lib/marksOrbs';
-import { AppIcon } from '@/components/ui/AppIcon';
 import { Overlay } from '@/components/ui/Overlay';
 import { s, vs } from '@/theme/scale';
 
@@ -185,7 +185,7 @@ function CatchPill({ marks, count, range, top, kind = 'marks' }: { marks: number
                         </>
                     ) : kind === 'shards' ? (
                         <>
-                            <AppIcon name="diamond" filled size={s(14)} color={t.color.accent} />
+                            <ShardIcon size={s(14)} />
                             <Text style={[t.type.heading, styles.figure, { color: t.color.textPrimary }]}>+{added} Shards</Text>
                         </>
                     ) : (

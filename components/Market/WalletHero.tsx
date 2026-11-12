@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { ShardIcon } from '@/components/ui/ShardIcon';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { AppIcon, Badge, CountUp, Text } from '@/components/ui';
+import { Badge, CountUp, Text } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { on } from '@/lib/appEvents';
 import { myWallet } from '@/lib/market';
@@ -26,7 +27,7 @@ export function WalletHero({ style }: { style?: StyleProp<ViewStyle> }) {
         <View style={[styles.hero, style]} accessible accessibilityLabel={`${wallet.spendable} Shards${wallet.inPlay ? `, ${wallet.inPlay} in play` : ''}`}>
             <Text variant="bodySmall" tone="muted">Shards</Text>
             <View style={styles.row}>
-                <AppIcon name="diamond" filled size={Control.hitTarget - Spacing.md} color={t.color.cobalt} />
+                <ShardIcon size={Control.hitTarget - Spacing.md} />
                 <CountUp value={wallet.spendable.toLocaleString()} style={[t.type.display, styles.figure, { color: t.color.textPrimary }]} />
             </View>
             {wallet.inPlay ? <Badge label={`${wallet.inPlay.toLocaleString()} in play`} tone="cobalt" icon="flash" /> : null}

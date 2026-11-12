@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { ShardIcon } from '@/components/ui/ShardIcon';
 import { Alert, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { AppButton, AppIcon, Avatar, CardRail, Divider, GameCard, IconButton, IconTile, ListItem, SectionTitle, Text, VersusBar, VoidCard } from '@/components/ui';
+import { AppButton, Avatar, CardRail, Divider, GameCard, IconButton, IconTile, ListItem, SectionTitle, Text, VersusBar, VoidCard } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { emit, on } from '@/lib/appEvents';
@@ -122,7 +123,7 @@ function Result({ duel }: { duel: Duel }) {
                     <Text variant="heading" tone={won === null ? 'muted' : won ? 'success' : 'danger'} numeric>
                         {won === null ? '±0' : won ? `+${duel.stake * 2}` : `−${duel.stake}`}
                     </Text>
-                    <AppIcon name="diamond" filled size={Spacing.md} color={t.color.textMuted} />
+                    <ShardIcon size={Spacing.md} />
                 </View>
             ) : null}
         </View>

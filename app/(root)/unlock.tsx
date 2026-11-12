@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ShardIcon } from '@/components/ui/ShardIcon';
 import { Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
@@ -100,7 +101,7 @@ export default function Unlock() {
                             <Pressable onPress={() => { selectionFeedback(); setPaying(open => !open); }}
                                 accessibilityRole="button" accessibilityLabel={`${GATE_PRICE} Shards, unlock 1 hour`} accessibilityState={{ expanded: paying }}>
                                 <MatteSurface radius={t.radius.md} level="control" style={[styles.row, styles.shards, { gap: t.space.md }]}>
-                                    <AppIcon name="diamond" filled size={Control.icon + t.space.xs} color={t.color.accent} />
+                                    <ShardIcon size={Control.icon + t.space.xs} />
                                     <Text style={[t.type.heading, styles.title, { color: t.color.textPrimary }]} numberOfLines={1}>
                                         {GATE_PRICE} Shards <Text style={[t.type.body, { color: t.color.textMuted }]}>· Unlock 1 hour</Text>
                                     </Text>
@@ -108,7 +109,7 @@ export default function Unlock() {
                                 </MatteSurface>
                             </Pressable>
                         ) : null}
-                        {on && paying ? <HoldButton label={`Hold to spend ${GATE_PRICE} Shards`} icon="diamond" loading={busy} onComplete={() => void buy()} /> : null}
+                        {on && paying ? <HoldButton label={`Hold to spend ${GATE_PRICE} Shards`} icon="shard" loading={busy} onComplete={() => void buy()} /> : null}
                     </View>
                 )}
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { ShardIcon } from '@/components/ui/ShardIcon';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { AppIcon, IconButton, ModalHeader, SectionTitle, StatTile, Text, VoidCard, VoidModal } from '@/components/ui';
@@ -82,7 +83,7 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
                 <View style={styles.balance}>
                     <CountUp style={[t.type.display, { color: t.color.textPrimary }]} value={end.toLocaleString()} />
                     <View style={styles.label}>
-                        <AppIcon name="diamond" filled size={Control.icon} color={t.color.accent} />
+                        <ShardIcon size={Control.icon} />
                         <Text variant="heading" tone="muted">Shards</Text>
                     </View>
                 </View>

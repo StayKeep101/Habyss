@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { ShardIcon } from '@/components/ui/ShardIcon';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { useFocusEffect } from 'expo-router';
-import { AppIcon } from '@/components/ui';
 import { CountUp } from '@/components/ui/Motion';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
 import { useTokens } from '@/hooks/useTokens';
@@ -62,7 +62,7 @@ export function ShardsCard({ wallet, onPress }: { wallet: Wallet; onPress: () =>
                 <Animated.View ref={balanceRef} collapsable={false} style={bumpStyle}>
                     <CountUp style={[t.type.screenTitle, { color: t.color.textPrimary }]} value={wallet.balance.toLocaleString()} />
                 </Animated.View>
-                <AppIcon name="diamond" filled size={Spacing.md} color={t.color.accent} />
+                <ShardIcon size={Spacing.lg} />
             </View>
             {week.length > 1 ? (
                 <View style={styles.spark} pointerEvents="none">

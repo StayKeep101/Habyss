@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { ShardIcon } from '@/components/ui/ShardIcon';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, ReduceMotion, useAnimatedProps } from 'react-native-reanimated';
 import Svg from 'react-native-svg';
@@ -66,7 +67,7 @@ export function Receipt({ title, amount, unit = 'Shards', line, onDone }: {
             {said ? (
                 <View style={styles.amount}>
                     <CountUp value={said} style={[t.type.display, { color: amount! < 0 ? t.color.textPrimary : t.color.cobalt }]} />
-                    <AppIcon name="diamond" filled size={Control.icon} color={t.color.cobalt} />
+                    <ShardIcon size={Control.icon} />
                 </View>
             ) : null}
             {line ? <Text variant="bodySmall" tone="muted" align="center">{line}</Text> : null}

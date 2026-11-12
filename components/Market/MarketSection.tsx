@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ShardIcon } from '@/components/ui/ShardIcon';
 import { Alert, Pressable, Text as RNText, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import {
@@ -96,7 +97,7 @@ function MarketCard({ market, onBet }: { market: Market; onBet: () => void }) {
             badge={moodOf(market)}
             footer={stake ? (
                 <View style={styles.stake}>
-                    <AppIcon name="diamond" filled size={Spacing.md} color={t.color.cobalt} />
+                    <ShardIcon size={Spacing.md} />
                     <Text variant="bodySmall" tone="muted" grow numberOfLines={1}>{`${stake.amount} on ${stake.side === 'make' ? 'makes it' : 'misses it'}`}</Text>
                     {result !== null ? (
                         <Text variant="heading" numeric tone={result > 0 ? 'success' : result < 0 ? 'danger' : 'muted'}>{result > 0 ? `+${result}` : result < 0 ? `−${-result}` : '±0'}</Text>
@@ -171,7 +172,7 @@ function StakeSheet({ market, spendable, onClose }: { market: Market; spendable:
             footer={paid ? undefined : (
                 <View style={styles.footer}>
                     {/* Held, like paying: the fill builds, the buzz builds, it lands. */}
-                    {amount > 0 ? <HoldButton label={`Hold to bet ${amount} Shards`} icon="diamond" loading={busy} onComplete={() => void place()} />
+                    {amount > 0 ? <HoldButton label={`Hold to bet ${amount} Shards`} icon="shard" loading={busy} onComplete={() => void place()} />
                         : <AppButton label="Not enough Shards" disabled onPress={() => undefined} />}
                 </View>
             )}>
@@ -189,7 +190,7 @@ function StakeSheet({ market, spendable, onClose }: { market: Market; spendable:
                     <Text variant="caption" tone="muted">{market.pool[side === 'make' ? 'miss' : 'make'] ? 'If you’re right' : 'Nobody on the other side yet'}</Text>
                     <View style={styles.winRow}>
                         <CountUp value={`+${gain}`} style={[t.type.display, { color: gain ? t.color.cobalt : t.color.textMuted }]} />
-                        <AppIcon name="diamond" filled size={Control.icon} color={gain ? t.color.cobalt : t.color.textMuted} />
+                        <ShardIcon size={Control.icon} />
                     </View>
                 </View>
                 {error ? <Text variant="bodySmall" tone="danger" align="center">{error}</Text> : null}

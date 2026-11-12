@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
+import { ShardIcon } from './ShardIcon';
 import { Pressable, Text as RNText, StyleSheet, View } from 'react-native';
 import { useTokens } from '@/hooks/useTokens';
 import Animated, { Easing, ReduceMotion, cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -25,6 +26,7 @@ const EMPTY = { duration: DURATION.exit, easing: EASE.exit, reduceMotion: Reduce
  * VoiceOver users activate it directly; a long hold is not asked of them.
  */
 export function HoldButton({ label, hint = 'Touch and hold', icon, onComplete, disabled, loading }: {
+    /** A glyph name, or 'shard' for the Shard crystal (ShardIcon). */
     label: string; hint?: string; icon?: string; onComplete: () => void; disabled?: boolean; loading?: boolean;
 }) {
     const t = useTokens();
@@ -72,7 +74,7 @@ export function HoldButton({ label, hint = 'Touch and hold', icon, onComplete, d
                 <View style={[styles.button, styles.raised, (disabled || loading) && styles.dim]}>
                     <LinearGradient colors={buttonColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
                     <Animated.View pointerEvents="none" style={[styles.fill, { backgroundColor: Colors.common.white }, width]} />
-                    {icon ? <AppIcon name={icon} filled size={Control.icon} color={Colors.common.white} /> : null}
+                    {icon === 'shard' ? <ShardIcon size={Control.icon} /> : icon ? <AppIcon name={icon} filled size={Control.icon} color={Colors.common.white} /> : null}
                     <RNText style={[t.type.heading, { color: Colors.common.white }]}>{loading ? 'One moment…' : label}</RNText>
                 </View>
             </Pressable>
