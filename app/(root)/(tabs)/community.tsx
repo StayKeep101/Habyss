@@ -583,7 +583,7 @@ export default function CommunityScreen() {
             <Animated.View style={[styles.race, raceStyle]}>
                 <MarksRace racers={racersNow} onFaces={setFaceList} width={screen.width} height={stage} top={insets.top + t.space.sm} scrub={scrub} replay={racers.length > 0} />
                 {/* Closing from the outside in as the page rises: shut before the page is halfway up. */}
-                <IrisFade progress={lift} from={0} to={stuckAt * 0.6} width={screen.width} height={stage} color={colors.background} follow />
+                <IrisFade progress={lift} from={t.space.xl} to={stuckAt * 0.6} width={screen.width} height={stage} color={colors.background} follow />
             </Animated.View>
             <Animated.ScrollView ref={sheetScroll} showsVerticalScrollIndicator={false} onScroll={onLift} scrollEventThrottle={16}
                 onScrollEndDrag={nearEnd} onMomentumScrollEnd={nearEnd}

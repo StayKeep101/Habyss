@@ -29,7 +29,8 @@ export function IrisFade({ progress, from, to, width, height, color, follow = fa
     const cx = width / 2;
     const cy = height / 2;
     // Open: the clear middle (inside the soft edge) reaches past every corner.
-    const open = Math.hypot(cx, cy) / (1 - FEATHER) + 2;
+    // Open: even the soft edge starts well past every corner, so at rest nothing is dimmed (text in the corners included).
+    const open = (Math.hypot(cx, cy) * 1.35) / (1 - FEATHER * 0.4);
     // The solid part beyond the soft edge: a ring wide enough to cover the rest.
     const ring = Math.hypot(width, height) * 2;
 
