@@ -18,6 +18,8 @@ import type { DailyTarget } from './dailyFocus';
  * these keys, and only the payload each key declares.
  */
 export interface AppEvents {
+    /** The day's hourglass tapped on Home: pull it apart onto the Roadmap (components/Home/GlassReveal.tsx). */
+    glass_reveal: { rank: string; ran: number; frame: { x: number; y: number; width: number; height: number } };
     /* ---------------------------------------------------- something changed */
     /** A habit was ticked, un-ticked or skipped. Empty means "something did". */
     habit_completion_updated: {

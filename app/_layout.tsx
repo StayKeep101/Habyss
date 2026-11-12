@@ -35,6 +35,7 @@ import { DuelHost } from '@/components/Duel/DuelHost';
 import { DayCompleteCelebration } from '@/components/Celebrations/DayCompleteCelebration';
 import { MilestoneCelebration } from '@/components/Celebrations/MilestoneCelebration';
 import { HabitSheet } from '@/components/Create/HabitSheet';
+import { GlassReveal } from '@/components/Home/GlassReveal';
 import { GoalSheet } from '@/components/Create/GoalSheet';
 import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
 import { FeedbackSheet } from '@/components/Common/FeedbackSheet';
@@ -479,6 +480,8 @@ function InnerLayout() {
         {/* Mounted once, raised from anywhere with `show_feedback`. Telling us
             something should never depend on being on the right screen. */}
         <FeedbackSheet />
+        {/* The day's hourglass pulled apart onto the Roadmap, over every screen. */}
+        <GlassReveal />
         {/* The first-run tour, over every screen. */}
         <CoachLayer root />
         {/* Orbs flying to your Marks whenever something earns them. Last, so they fly over everything. */}

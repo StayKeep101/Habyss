@@ -47,6 +47,7 @@ import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
+import { DayHourglass } from '@/components/Home/DayHourglass';
 import { ShardsWallet } from '@/components/Shards/ShardsWallet';
 import { useWallet } from '@/hooks/useWallet';
 import { useMarks } from '@/hooks/useMarks';
@@ -602,6 +603,11 @@ const Home = () => {
                 <MissedCard missed={missed} onPress={() => { lightFeedback(); setShowMissed(true); }} />
               </View>
             </View>
+          </View>
+
+          {/* Your day as an hourglass: time gone, the glass, time left. Tap it for the Roadmap. */}
+          <View style={{ marginTop: sectionGap }}>
+            <DayHourglass />
           </View>
 
           {/* Echo, full width below the header, where it reads as a line

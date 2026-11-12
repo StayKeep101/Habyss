@@ -92,7 +92,8 @@ export function EchoLine({ text, style, onPress, onDone, mood = 0 }: {
     return (
         <Pressable style={style} onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : 'text'}
             accessibilityLabel={text} accessibilityHint={onPress ? 'Opens Echo' : undefined}>
-            <View>
+            {/* Clipped to the real sentence's box: the runes never spill past it. */}
+            <View style={styles.box}>
                 {/* The real sentence: it sets the line's size from the first frame, and is what stays. */}
                 <Text style={[styles.line, { color: colors.text, opacity: done ? 1 : 0 }]}>{text}</Text>
                 {done ? null : (
@@ -110,4 +111,5 @@ export function EchoLine({ text, style, onPress, onDone, mood = 0 }: {
 const styles = StyleSheet.create({
     line: { fontSize: ms(15), fontFamily: FontFamily.semibold, textAlign: 'left', lineHeight: ms(22) },
     over: { position: 'absolute', top: 0, left: 0, right: 0 },
+    box: { overflow: 'hidden' },
 });
