@@ -44,9 +44,9 @@ const DRIFT = timingFor(CEREMONY.count * 4, Easing.inOut(Easing.sin));
  * thud of haptics and a ring of light, and the new day's sand begins. With
  * Reduce Motion it simply fills.
  *
- * Tap it to pull it apart onto your Roadmap (components/Home/GlassReveal.tsx).
+ * Tap it to see every hourglass you can earn (components/Home/GlassCarousel.tsx).
  */
-export function DayHourglass() {
+export function DayHourglass({ marks }: { marks: number }) {
     const t = useTokens();
     const { rippleFeedback, lightFeedback } = useHaptics();
     const { rankShown } = useAccent();
@@ -142,9 +142,7 @@ export function DayHourglass() {
     const reveal = () => {
         if (flipping) return;
         lightFeedback();
-        glassRef.current?.measureInWindow((x, y, width, height) => {
-            emit('glass_reveal', { rank: rankShown ?? 'Lost', ran: ran.get(), frame: { x, y, width, height } });
-        });
+        emit('glass_open', { rank: rankShown ?? 'Lost', marks });
     };
 
     const pastWords = `${Math.floor(glass.past / 3600)} hours ${Math.floor((glass.past % 3600) / 60)} minutes`;
@@ -166,7 +164,7 @@ export function DayHourglass() {
             </Text>
 
             <Pressable onPress={reveal} accessibilityRole="button" style={styles.glassBox}
-                accessibilityLabel={glass.resting === 'night' ? 'Your day has run out. Open your Roadmap' : `Your day: ${leftWords} left. Open your Roadmap`}>
+                accessibilityLabel={glass.resting === 'night' ? 'Your day has run out. See every hourglass' : `Your day: ${leftWords} left. See every hourglass`}>
                 <Animated.View style={[styles.ring, { borderColor: design.sand[0] }, ringStyle]} pointerEvents="none" />
                 <Animated.View style={[styles.ring, { borderColor: design.sand[0] }, echoRingStyle]} pointerEvents="none" />
                 <Animated.View ref={glassRef} collapsable={false} style={glassStyle}>

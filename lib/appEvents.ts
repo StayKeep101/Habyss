@@ -20,8 +20,8 @@ import type { DailyTarget } from './dailyFocus';
 export interface AppEvents {
     /** The morning flip landed: rings roll out from the glass across the whole screen (components/Home/GlassRipple.tsx). */
     glass_flipped: { x: number; y: number; color: string };
-    /** The day's hourglass tapped on Home: pull it apart onto the Roadmap (components/Home/GlassReveal.tsx). */
-    glass_reveal: { rank: string; ran: number; frame: { x: number; y: number; width: number; height: number } };
+    /** The day's hourglass tapped on Home: every hourglass you can earn (components/Home/GlassCarousel.tsx). */
+    glass_open: { rank: string; marks: number };
     /* ---------------------------------------------------- something changed */
     /** A habit was ticked, un-ticked or skipped. Empty means "something did". */
     habit_completion_updated: {

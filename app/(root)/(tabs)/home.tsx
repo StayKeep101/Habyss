@@ -100,6 +100,8 @@ const Home = () => {
   // UI state
   const [showCelebration, setShowCelebration] = useState(false);
   const [showMissed, setShowMissed] = useState(false);
+  // Your Marks, for links that open the hourglasses (read outside render).
+  const marksTotalRef = useRef(0);
   // Your photo, from the one profile store (lib/profile.ts).
   const { avatar: profileAvatar } = useMyProfile();
   const [refreshing, setRefreshing] = useState(false);
@@ -368,6 +370,7 @@ const Home = () => {
   const { overall: avgGoalProgress, tasks: allTasks, skippedToday, today: todayKeyString } = goalsData;
   // Marks, from the same habits, tasks and history already loaded here.
   const marks = useMarks(goalsData);
+  marksTotalRef.current = marks.total;
   // Shards, the currency: the same record with Shards' rules (lib/shards.ts), plus what bets moved.
   const wallet = useWallet(marks, goalsData.loaded);
 
@@ -436,11 +439,15 @@ const Home = () => {
     return () => { sub.remove(); ask.remove(); };
   }, [playLevelUp, aiPersonality]);
   const [showWallet, setShowWallet] = useState(false);
-  // habyss:///home?open=missed (or wallet): a link straight to one of Home's sheets.
+  // habyss:///home?open=missed (or wallet, or glasses): a link straight to one of Home's sheets.
   const { open: openSheet } = useLocalSearchParams<{ open?: string }>();
   useEffect(() => {
     if (openSheet === 'missed') setShowMissed(true);
     if (openSheet === 'wallet') setShowWallet(true);
+    if (openSheet === 'glasses') {
+      const { currentRankLook } = require('@/lib/rankLook') as typeof import('@/lib/rankLook');
+      emit('glass_open', { rank: currentRankLook().rank ?? 'Lost', marks: marksTotalRef.current });
+    }
   }, [openSheet]);
 
 
@@ -607,7 +614,7 @@ const Home = () => {
 
           {/* Your day as an hourglass: time gone, the glass, time left. Tap it for the Roadmap. */}
           <View style={{ marginTop: sectionGap }}>
-            <DayHourglass />
+            <DayHourglass marks={marks.total} />
           </View>
 
           {/* Echo, full width below the header, where it reads as a line

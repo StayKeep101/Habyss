@@ -1,0 +1,140 @@
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+    Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming, type SharedValue,
+} from 'react-native-reanimated';
+import { Hourglass } from './Hourglass';
+import { AppIcon, IconButton, RankGem, Text } from '@/components/ui';
+import { on, type AppEvents } from '@/lib/appEvents';
+import { RANKS } from '@/lib/marks';
+import { useTokens } from '@/hooks/useTokens';
+import { useHaptics } from '@/hooks/useHaptics';
+import { glassDesign } from '@/theme/hourglassDesigns';
+import { OVERLAY } from '@/theme/motion';
+import { s } from '@/theme/scale';
+
+type Open = AppEvents['glass_open'];
+
+/** Each hourglass's slot, as a share of the screen's width: the next ones peek in at the sides. */
+const SLOT = 0.54;
+
+/**
+ * Every hourglass you can earn, one per rank, opened by tapping the day's
+ * hourglass on Home (DayHourglass). It opens on yours; swipe right to climb:
+ * the one in the middle large and lit, its neighbours smaller and fainter at
+ * the sides. Each says whose it is: yours, reached, or locked with the Marks
+ * still to go. Drawn over everything from the app's root.
+ */
+export function GlassCarousel() {
+    const t = useTokens();
+    const insets = useSafeAreaInsets();
+    const { width } = useWindowDimensions();
+    const { selectionFeedback, lightFeedback } = useHaptics();
+    const [open, setOpen] = useState<Open | null>(null);
+    const [index, setIndex] = useState(0);
+    const shown = useSharedValue(0);
+    const scrollX = useSharedValue(0);
+    const sand = useSharedValue(0.35);
+
+    const slot = width * SLOT;
+    const side = (width - slot) / 2;
+
+    useEffect(() => {
+        const sub = on('glass_open', event => {
+            const start = Math.max(0, RANKS.findIndex(rank => rank.name === event.rank));
+            setIndex(start);
+            scrollX.set(start * slot);
+            setOpen(event);
+            shown.set(withTiming(1, OVERLAY.in));
+        });
+        return () => sub.remove();
+    }, [shown, scrollX, slot]);
+
+    const close = () => {
+        lightFeedback();
+        const gone = () => setOpen(null);
+        shown.set(withTiming(0, OVERLAY.out, finished => { if (finished) runOnJS(gone)(); }));
+    };
+
+    const onScroll = useAnimatedScrollHandler(event => { scrollX.set(event.contentOffset.x); });
+    const layerStyle = useAnimatedStyle(() => ({ opacity: shown.get(), transform: [{ scale: 0.94 + shown.get() * 0.06 }] }));
+
+    if (!open) return null;
+    const yours = Math.max(0, RANKS.findIndex(rank => rank.name === open.rank));
+    const current = RANKS[index];
+    const reached = open.marks >= current.min;
+
+    return (
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: t.color.background }, layerStyle]}>
+            <View style={[styles.top, { paddingTop: insets.top + t.space.sm, paddingHorizontal: t.space.lg }]}>
+                <View style={styles.flex}>
+                    <Text variant="title" accessibilityRole="header">Hourglasses</Text>
+                    <Text variant="caption" tone="muted">One for every rank. Swipe to climb.</Text>
+                </View>
+                <IconButton icon="close" label="Close" onPress={close} />
+            </View>
+
+            <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}
+                snapToInterval={slot} decelerationRate="fast" contentOffset={{ x: yours * slot, y: 0 }}
+                contentContainerStyle={{ paddingHorizontal: side, alignItems: 'center' }} style={styles.flex}
+                onMomentumScrollEnd={event => {
+                    const next = Math.round(event.nativeEvent.contentOffset.x / slot);
+                    if (next !== index) { selectionFeedback(); setIndex(Math.max(0, Math.min(RANKS.length - 1, next))); }
+                }}>
+                {RANKS.map((rank, position) => (
+                    <Slot key={rank.name} position={position} slot={slot} scrollX={scrollX}>
+                        <View style={{ opacity: open.marks >= rank.min ? 1 : 0.55 }}>
+                            <Hourglass design={glassDesign(rank.name)} size={s(270)} ran={sand} running={false} />
+                        </View>
+                        {open.marks < rank.min ? (
+                            <View style={[styles.lockBadge, { backgroundColor: t.color.surfaceRaised }]}>
+                                <AppIcon name="lock-closed" size={t.space.lg} color={t.color.textPrimary} />
+                            </View>
+                        ) : null}
+                    </Slot>
+                ))}
+            </Animated.ScrollView>
+
+            {/* The one in the middle: whose it is. */}
+            <View style={[styles.caption, { paddingBottom: insets.bottom + t.space.xl, gap: t.space.xs }]} accessibilityLiveRegion="polite">
+                <View style={styles.nameRow}>
+                    <RankGem rank={current.name} size={t.space.xl} locked={!reached} />
+                    <Text variant="screenTitle">{current.name}</Text>
+                </View>
+                <Text variant="body" tone="muted" align="center">
+                    {index === yours ? 'Yours now' : reached ? 'Reached' : `${(current.min - open.marks).toLocaleString()} Marks to go`}
+                </Text>
+                <View style={[styles.dots, { gap: t.space.xs, marginTop: t.space.md }]}>
+                    {RANKS.map((rank, position) => (
+                        <View key={rank.name} style={[styles.dot, { backgroundColor: position === index ? t.color.textPrimary : t.color.border }]} />
+                    ))}
+                </View>
+            </View>
+        </Animated.View>
+    );
+}
+
+/** One slot of the carousel: full size in the middle, smaller and fainter the further it is. */
+function Slot({ position, slot, scrollX, children }: { position: number; slot: number; scrollX: SharedValue<number>; children: React.ReactNode }) {
+    const centre = position * slot;
+    const style = useAnimatedStyle(() => {
+        const away = Math.abs(scrollX.get() - centre) / slot;
+        return {
+            opacity: interpolate(away, [0, 1], [1, 0.4], Extrapolation.CLAMP),
+            transform: [{ scale: interpolate(away, [0, 1], [1, 0.7], Extrapolation.CLAMP) }],
+        };
+    });
+    return <Animated.View style={[styles.slot, { width: slot }, style]}>{children}</Animated.View>;
+}
+
+const styles = StyleSheet.create({
+    flex: { flex: 1 },
+    top: { flexDirection: 'row', alignItems: 'center' },
+    slot: { alignItems: 'center', justifyContent: 'center' },
+    lockBadge: { position: 'absolute', width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+    caption: { alignItems: 'center' },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    dots: { flexDirection: 'row' },
+    dot: { width: 6, height: 6, borderRadius: 3 },
+});

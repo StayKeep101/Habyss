@@ -23,8 +23,7 @@ const BOTTOM_BULB = `M 48.5 ${NECK} C 46 92, 23 110, 23 ${BOTTOM_GLASS} L 77 ${B
  * the day has fallen: the top sand sinks towards the neck, the pile in the
  * bottom rises, and a thin stream falls between them while the day runs.
  *
- * `part` draws only the top or bottom half, for the reveal that pulls the
- * glass apart (components/Home/GlassReveal.tsx).
+ * `part` draws only the top or bottom half (a glass pulled apart).
  */
 export function Hourglass({ design, size, ran, running, part = 'whole' }: {
     design: GlassDesign;
