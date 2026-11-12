@@ -65,6 +65,7 @@ import { useCoachTarget } from '@/hooks/useCoachTarget';
 import { OFFLINE_LINES, useOnline } from '@/lib/connectivity';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { styles } from '@/styles/screens/tabs/community.styles';
+import { IrisFade } from '@/components/ui/IrisFade';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const PAGE = 15;
@@ -245,11 +246,16 @@ export default function CommunityScreen() {
     const scrub = useSharedValue(-1);
     const onPager = useAnimatedScrollHandler(event => { pagePosition.set(event.contentOffset.x / Math.max(1, pageWidth)); });
     const onLift = useAnimatedScrollHandler(event => { lift.set(event.contentOffset.y); });
-    // The race stays put, like a map under its panel, and fades out quickly as the page is lifted over it.
+    // The race stays put, like a map under its panel, and closes from the outside in as the page is lifted over it.
     const stuckAt = Math.max(1, stage - insets.top);
     const raceStyle = useAnimatedStyle(() => ({
-        // Gone by the time the page is halfway up: out of the way early.
-        opacity: interpolate(lift.get(), [0, stuckAt * 0.45], [1, 0], 'clamp'),
+        // The iris (below) closes it from the outside in; meanwhile it recedes a little, for depth,
+        // and the last of it dims as the iris shuts.
+        opacity: interpolate(lift.get(), [stuckAt * 0.45, stuckAt * 0.6], [1, 0], 'clamp'),
+        transform: [
+            { translateY: -0.25 * Math.max(0, lift.get()) },
+            { scale: interpolate(lift.get(), [0, stuckAt * 0.6], [1, 0.94], 'clamp') },
+        ],
     }));
     // The page's title bar, once it reaches the status bar, stays there as the header: a fixed copy
     // takes over at exactly that spot (and steps out of the way, untappable, until then).
@@ -580,6 +586,8 @@ export default function CommunityScreen() {
             {/* The race is the background: it fills the top, and steps back as the page slides over it. */}
             <Animated.View style={[styles.race, raceStyle]}>
                 <MarksRace racers={racersNow} onFaces={setFaceList} width={screen.width} height={stage} top={insets.top + t.space.sm} scrub={scrub} replay={racers.length > 0} />
+                {/* Closing from the outside in as the page rises: shut before the page is halfway up. */}
+                <IrisFade progress={lift} from={0} to={stuckAt * 0.6} width={screen.width} height={stage} color={colors.background} follow />
             </Animated.View>
             <Animated.ScrollView ref={sheetScroll} showsVerticalScrollIndicator={false} onScroll={onLift} scrollEventThrottle={16}
                 onScrollEndDrag={nearEnd} onMomentumScrollEnd={nearEnd}
