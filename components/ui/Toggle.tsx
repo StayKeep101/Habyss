@@ -4,6 +4,7 @@ import { AppSwitch } from './AppSwitch';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Text } from './Text';
+import { useUISound } from '@/hooks/useUISound';
 
 export interface ToggleProps {
     value: boolean;
@@ -18,6 +19,7 @@ export interface ToggleProps {
 export function Toggle({ value, onChange, label, detail, disabled }: ToggleProps) {
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
+    const select = useUISound('select');
     // The system switch (AppSwitch), the same one every on/off row uses. The
     // whole row is the target; the switch only shows the state.
     const track = (
@@ -31,7 +33,7 @@ export function Toggle({ value, onChange, label, detail, disabled }: ToggleProps
             accessibilityLabel={label}
             accessibilityState={{ checked: value, disabled: !!disabled }}
             disabled={disabled}
-            onPress={() => { selectionFeedback(); onChange(!value); }}
+            onPress={() => { selectionFeedback(); select(); onChange(!value); }}
             style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.md, opacity: disabled ? 0.45 : 1,
                 paddingVertical: label ? t.space.md : 0 }}
         >

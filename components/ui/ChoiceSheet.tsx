@@ -7,6 +7,7 @@ import { AppIcon } from './AppIcon';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { FontFamily, Spacing } from '@/theme/designSystem';
+import { useUISound } from '@/hooks/useUISound';
 
 export interface Choice { label: string; icon?: string; destructive?: boolean; onPress: () => void }
 
@@ -26,10 +27,11 @@ export function ChoiceSheet({ visible, title, caption, choices = [], ask, onClos
 }) {
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
+    const select = useUISound('select');
     const [text, setText] = useState(ask?.initial ?? '');
     const [lastAsk, setLastAsk] = useState(ask);
     if (ask !== lastAsk) { setLastAsk(ask); setText(ask?.initial ?? ''); }
-    const pick = (choice: Choice) => { selectionFeedback(); onClose(); setTimeout(choice.onPress, 220); };
+    const pick = (choice: Choice) => { selectionFeedback(); select(); onClose(); setTimeout(choice.onPress, 220); };
     const save = () => { const value = text.trim(); if (!value || !ask) return; selectionFeedback(); onClose(); ask.onSave(value); };
     return (
         // Asking: the field and its button sit in a list that lets a tap through

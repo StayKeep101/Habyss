@@ -10,6 +10,7 @@ import { Colors } from '@/theme/colors';
 import { DURATION, FOCUS_ENTRY, FOCUS_EXIT, OVERLAY } from '@/theme/motion';
 import { focusExitFull, takeFocusRitual } from '@/lib/focusRitual';
 import { SandField } from './SandField';
+import { useUISound } from '@/hooks/useUISound';
 
 /**
  * Focus is always drawn dark (styles/screens/focus.styles.ts `screen`), so its
@@ -65,6 +66,7 @@ export function FocusPortal({ mode, arrive, onDone }: {
     const { width, height } = useWindowDimensions();
     const reduced = useReducedMotion();
     const { lightFeedback, mediumFeedback } = useHaptics();
+    const whoosh = useUISound('transition');
     const finished = useRef(false);
     const beats = useRef<ReturnType<typeof setTimeout>[]>([]);
     // Leaving: the sand's own clock, run from fallen (1) back to whole (0).
@@ -88,6 +90,8 @@ export function FocusPortal({ mode, arrive, onDone }: {
     };
 
     useEffect(() => {
+        // A whole new place, heard: into Focus and back out of it.
+        whoosh();
         if (mode === 'leave') {
             if (reduced) { finish(); return; }
             lightFeedback();

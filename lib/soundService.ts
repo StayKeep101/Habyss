@@ -37,7 +37,10 @@ export type SoundEffect =
     | 'notification'  // Notification received
     | 'swipe'         // Swipe action
     | 'toggle'        // Toggle on/off
-    | 'celebrate';    // Celebration/confetti
+    | 'celebrate'     // Celebration/confetti
+    | 'select'        // A choice made: switches, chips, tabs, menu items
+    | 'open'          // Something appears over the page: a sheet, a popup, a menu
+    | 'transition';   // A whole new place: entering Focus
 
 /**
  * Bundled sound effects.
@@ -53,18 +56,47 @@ export type SoundEffect =
  * needs to change: every function below already no-ops on a missing entry.
  */
 const SOUND_ASSETS: Partial<Record<SoundEffect, number>> = {
+    // ── The interface: one sound per kind of control ──────────────────────
+    // Change a file here and every control of that kind changes with it.
+    // The controls in components/ui play these through hooks/useUISound.ts.
+    //
+    // Buttons: AppButton, IconButton, FocusPill, a ⋯ menu's button, a settings row that opens a page.
+    tap: require('../assets/sounds/ui-tap.m4a'),
+    // Choosing: Toggle, settings switches and choices, ChipPicker, ChoiceRow, ViewSwitcher,
+    // a menu's item, a ChoiceSheet's choice, the tab bar.
+    select: require('../assets/sounds/ui-select.m4a'),
+    // Appearing over the page: VoidSheet, PopupCard, a ⋯ menu opening.
+    open: require('../assets/sounds/ui-open.m4a'),
+    // A whole new place: entering Focus.
+    transition: require('../assets/sounds/ui-transition.m4a'),
+    // Done: a habit or task ticked (Home, Roadmap, habit and goal pages, Receipt).
+    complete: require('../assets/sounds/ui-done.m4a'),
+
+    // ── The app's bigger moments ─────────────────────────────────────────
     // Original tones made for Habyss (soft pentatonic chimes), bundled so they
     // work offline and need no licence.
-    complete: require('../assets/sounds/complete.m4a'),
-    tap: require('../assets/sounds/tap.m4a'),
     success: require('../assets/sounds/success.m4a'),
     error: require('../assets/sounds/error.m4a'),
     streak: require('../assets/sounds/streak.m4a'),
     levelUp: require('../assets/sounds/levelUp.m4a'),
     notification: require('../assets/sounds/notification.m4a'),
     swipe: require('../assets/sounds/swipe.m4a'),
-    toggle: require('../assets/sounds/toggle.m4a'),
+    // Older name for a choice; the same sound as `select`.
+    toggle: require('../assets/sounds/ui-select.m4a'),
     celebrate: require('../assets/sounds/celebrate.m4a'),
+};
+
+/**
+ * How loud each kind is (0–1), in the same one place. The interface stays quiet
+ * under what you are doing; a thing done is heard.
+ */
+export const SOUND_VOLUME: Partial<Record<SoundEffect, number>> = {
+    tap: 0.35,
+    select: 0.35,
+    toggle: 0.35,
+    open: 0.4,
+    transition: 0.5,
+    complete: 0.6,
 };
 
 let warnedAboutMissingSounds = false;
@@ -118,6 +150,8 @@ export async function initializeAudio(): Promise<void> {
  */
 export async function preloadSound(effect: SoundEffect): Promise<void> {
     try {
+        // Once per sound: many controls on a screen ask for the same one.
+        if (playerCache.get(effect)) return;
         const source = sourceFor(effect);
         if (source === null) return;
 
@@ -135,14 +169,14 @@ export async function preloadSound(effect: SoundEffect): Promise<void> {
 export async function preloadCommonSounds(): Promise<void> {
     if (!hasBundledSounds()) return;
     // The ones the app actually plays, loaded ahead so the first is not silent.
-    const commonSounds: SoundEffect[] = ['complete', 'streak', 'celebrate', 'levelUp'];
+    const commonSounds: SoundEffect[] = ['tap', 'select', 'open', 'complete', 'streak', 'celebrate', 'levelUp'];
     await Promise.all(commonSounds.map(preloadSound));
 }
 
 /**
  * Play a sound effect
  */
-export async function playSound(effect: SoundEffect, volume: number = 0.7): Promise<void> {
+export async function playSound(effect: SoundEffect, volume: number = SOUND_VOLUME[effect] ?? 0.7): Promise<void> {
     try {
         const source = sourceFor(effect);
         if (source === null) return;

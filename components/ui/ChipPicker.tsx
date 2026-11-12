@@ -9,6 +9,7 @@ import { FontFamily } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useUISound } from '@/hooks/useUISound';
 
 export interface ChipOption<T extends string> {
     id: T;
@@ -42,6 +43,7 @@ export function ChipPicker<T extends string>({ options, value, onChange, accent 
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
+    const select = useUISound('select');
 
     const chosen = options.find(option => option.id === value);
 
@@ -62,7 +64,7 @@ export function ChipPicker<T extends string>({ options, value, onChange, accent 
                             accessibilityRole="radio"
                             accessibilityState={{ selected: on }}
                             accessibilityLabel={option.label}
-                            onPress={() => { if (!on) { selectionFeedback(); onChange(option.id); } }}
+                            onPress={() => { if (!on) { selectionFeedback(); select(); onChange(option.id); } }}
                         >
                         {/* The matte pill every chip is. The chosen one is filled
                             solid with the accent, still matte — like Phantom's

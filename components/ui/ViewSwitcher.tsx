@@ -6,6 +6,7 @@ import { FontFamily } from '@/theme/designSystem';
 import { MatteSurface } from './MatteSurface';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useUISound } from '@/hooks/useUISound';
 
 export interface SwitcherOption<T extends string> {
     id: T;
@@ -35,6 +36,7 @@ export function ViewSwitcher<T extends string>({ options, value, onChange, accen
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
+    const select = useUISound('select');
 
     return (
         <View accessibilityRole="tablist">
@@ -50,7 +52,7 @@ export function ViewSwitcher<T extends string>({ options, value, onChange, accen
                         accessibilityRole="tab"
                         accessibilityState={{ selected }}
                         accessibilityLabel={option.dot ? `${option.label}, new` : option.label}
-                        onPress={() => { if (!selected) selectionFeedback(); onChange(option.id); }}
+                        onPress={() => { if (!selected) { selectionFeedback(); select(); } onChange(option.id); }}
                         style={styles.segment}
                     >
                         <View>

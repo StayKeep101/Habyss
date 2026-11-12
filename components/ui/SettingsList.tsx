@@ -13,6 +13,7 @@ import { AppSwitch } from './AppSwitch';
 import { useInSheet } from './inSheet';
 import { MatteSurface } from './MatteSurface';
 import { matchesSearch } from '@/lib/settingsSearch';
+import { useUISound } from '@/hooks/useUISound';
 
 /** The words typed in the Settings search, if any: groups show only the rows they match. */
 const SearchContext = React.createContext('');
@@ -37,6 +38,7 @@ export function SettingsGroup({ title, toggle, children }: {
     const colors = Colors[theme] ?? Colors.abyss;
     const query = React.useContext(SearchContext);
     const { selectionFeedback } = useHaptics();
+    const sound = useUISound('select');
     const all = React.Children.toArray(children).filter(Boolean);
     // Searching: a group whose title matches keeps every row; otherwise only the rows whose words match.
     const rows = !query.trim() || matchesSearch(query, title) ? all : all.filter(row => {
@@ -55,7 +57,7 @@ export function SettingsGroup({ title, toggle, children }: {
                     <Text accessibilityRole="header" style={[styles.title, styles.headerTitle, { color: colors.textPrimary }]}>{title}</Text>
                     <Text style={[styles.value, { color: colors.textSecondary }]}>{toggle.label}</Text>
                     <AppSwitch value={toggle.value} accessibilityLabel={`${title}: ${toggle.label}`}
-                        onValueChange={next => { selectionFeedback(); toggle.onChange(next); }} />
+                        onValueChange={next => { selectionFeedback(); sound(); toggle.onChange(next); }} />
                 </View>
             ) : title ? <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{title}</Text> : null}
             <Surface style={inSheet ? styles.flat : styles.card}>
@@ -93,6 +95,7 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
     const { theme } = useTheme();
     const colors = Colors[theme] ?? Colors.abyss;
     const { selectionFeedback } = useHaptics();
+    const sound = useUISound('select');
     // A chosen option wears the colour the user picked for the app.
     const { primary: accentFill } = useAccentGradient();
     const isSwitch = toggle !== undefined;
@@ -102,7 +105,7 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
                 const on = choice.id === chosen;
                 return (
                     <Pressable key={choice.id} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`${label}: ${choice.label}`}
-                        onPress={() => { if (!on) { selectionFeedback(); onChoose?.(choice.id); } }}>
+                        onPress={() => { if (!on) { selectionFeedback(); sound(); onChoose?.(choice.id); } }}>
                         <MatteSurface radius={999} level="control" elevation="none" tint={on ? accentFill : undefined} style={styles.choice}>
                             <Text style={[styles.choiceText, { color: on ? textOn(accentFill) : colors.textSecondary }]}>{choice.label}</Text>
                         </MatteSurface>
@@ -130,7 +133,7 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
             <IconTile icon={icon} color={color} size={30} shape="square" />
             <Text numberOfLines={2} style={[styles.label, { color: destructive ? colors.error : colors.textPrimary }]}>{label}</Text>
             {isSwitch ? (
-                <AppSwitch value={toggle} disabled={disabled} onValueChange={next => { selectionFeedback(); onToggle?.(next); }} />
+                <AppSwitch value={toggle} disabled={disabled} onValueChange={next => { selectionFeedback(); sound(); onToggle?.(next); }} />
             ) : choices ? (
                 pills
             ) : (
@@ -147,7 +150,7 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
         // a function does not lay out as a row on this React Native, which
         // stacked the icon, the name and the arrow on top of each other.
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={value ? `${label}, ${value}` : label} disabled={disabled}
-            activeOpacity={0.6} onPress={() => { selectionFeedback(); onPress(); }} style={[styles.row, disabled && styles.disabled]}>
+            activeOpacity={0.6} onPress={() => { selectionFeedback(); sound('tap'); onPress(); }} style={[styles.row, disabled && styles.disabled]}>
             {content}
         </TouchableOpacity>
     );

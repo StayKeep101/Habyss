@@ -10,6 +10,7 @@ import { useTokens } from '@/hooks/useTokens';
 import { textOn } from '@/theme/tokens';
 import { FontFamily } from '@/theme/designSystem';
 import { s, vs } from '@/theme/scale';
+import { useUISound } from '@/hooks/useUISound';
 
 /**
  * "Focus", as a small solid pill in the thing's own colour: on the card of
@@ -22,9 +23,10 @@ export function FocusPill({ color, onPress, label, compact, word = 'Focus', icon
     word?: string; icon?: string; accessibilityLabel?: string;
 }) {
     const t = useTokens();
+    const tap = useUISound('tap');
     const ink = textOn(color);
     return (
-        <Pressable onPress={onPress} hitSlop={compact ? t.space.md : t.space.sm} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? `Focus on ${label}`}>
+        <Pressable onPress={() => { tap(); onPress(); }} hitSlop={compact ? t.space.md : t.space.sm} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? `Focus on ${label}`}>
             <MatteSurface radius={t.radius.full} level="control" tint={color} style={[styles.pill, compact && styles.compact]}>
                 <AppIcon name={icon} filled size={compact ? s(12) : s(14)} color={ink} />
                 <Text style={[t.type.caption, styles.text, { color: ink }]}>{word}</Text>

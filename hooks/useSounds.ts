@@ -9,6 +9,7 @@ import { useAppSettings } from '@/context/AppSettingsContext';
 import {
     playSound as playSoundService,
     preloadCommonSounds,
+    SOUND_VOLUME,
     SoundEffect
 } from '@/lib/soundService';
 
@@ -35,7 +36,7 @@ export const useSounds = () => {
     }, [soundsEnabled]);
 
     // Convenience methods for common sounds
-    const playComplete = useCallback(() => play('complete'), [play]);
+    const playComplete = useCallback(() => play('complete', SOUND_VOLUME.complete), [play]);
     const playTap = useCallback(() => play('tap', 0.5), [play]);
     const playSuccess = useCallback(() => play('success'), [play]);
     const playError = useCallback(() => play('error', 0.6), [play]);

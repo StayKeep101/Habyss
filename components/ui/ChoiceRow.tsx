@@ -4,6 +4,7 @@ import { ChoicePill } from './ChoicePill';
 import { Spacing } from '@/theme/designSystem';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useUISound } from '@/hooks/useUISound';
 
 /**
  * A few choices side by side: the app's own choice pills, the chosen one filled
@@ -21,12 +22,13 @@ export function ChoiceRow<T extends string | number>({ options, value, onChange,
     const { primary: appAccent } = useAccentGradient();
     const primary = color ?? appAccent;
     const { selectionFeedback } = useHaptics();
+    const select = useUISound('select');
     return (
         <View accessibilityRole="radiogroup" accessibilityLabel={accessibilityLabel} style={styles.row}>
             {options.map(option => (
                 <ChoicePill key={String(option.id)} label={option.label} on={option.id === value} color={primary}
                     pressStyle={styles.item}
-                    onPress={() => { if (option.id !== value) { selectionFeedback(); onChange(option.id); } }} />
+                    onPress={() => { if (option.id !== value) { selectionFeedback(); select(); onChange(option.id); } }} />
             ))}
         </View>
     );

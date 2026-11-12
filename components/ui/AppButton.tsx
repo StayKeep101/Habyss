@@ -7,6 +7,7 @@ import { Control, Elevation, Radius, Spacing, Typography } from '@/theme/designS
 import { MatteSurface } from './MatteSurface';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAccentGradient } from '@/context/AccentContext';
+import { useUISound } from '@/hooks/useUISound';
 
 /** The one button; `primary` for the one thing a page is for, `danger` for destructive words, `ghost` for words alone. */
 type AppButtonVariant = 'default' | 'primary' | 'ghost' | 'danger';
@@ -33,6 +34,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
     label, onPress, variant = 'default', icon, disabled = false, loading = false,
     style, fullWidth = true, accessibilityLabel,
 }) => {
+    const tap = useUISound('tap');
     const { theme } = useTheme();
     const colors = Colors[theme] ?? Colors.abyss;
     const { buttonColors, buttonInk } = useAccentGradient();
@@ -45,7 +47,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
     );
     return (
         <TouchableOpacity
-            onPress={onPress}
+            onPress={() => { tap(); onPress(); }}
             activeOpacity={0.8}
             disabled={disabled || loading}
             accessibilityRole="button"

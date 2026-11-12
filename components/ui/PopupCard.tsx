@@ -10,6 +10,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { sheetBottom } from './sheetBottom';
 import { OVERLAY } from '@/theme/motion';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useUISound } from '@/hooks/useUISound';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -32,15 +33,16 @@ export function PopupCard({ visible, onClose, icon, iconColor, title, body, chil
     const tone = surfaceFor(theme);
     const insets = useSafeAreaInsets();
     const { lightFeedback } = useHaptics();
+    const appear = useUISound('open');
     const [mounted, setMounted] = useState(visible);
     const progress = useSharedValue(0);
     if (visible && !mounted) setMounted(true);
 
     useEffect(() => {
         // The same way in and out as every overlay (theme/motion.ts): no spring, no bounce.
-        if (visible) { progress.value = withTiming(1, OVERLAY.in); return; }
+        if (visible) { appear(); progress.value = withTiming(1, OVERLAY.in); return; }
         progress.value = withTiming(0, OVERLAY.out, finished => { if (finished) runOnJS(setMounted)(false); });
-    }, [visible, progress]);
+    }, [visible, progress]); // eslint-disable-line react-hooks/exhaustive-deps -- the sound plays as it opens, not when the setting changes
 
     const scrim = useAnimatedStyle(() => ({ opacity: progress.value * 0.5 }));
     const card = useAnimatedStyle(() => ({

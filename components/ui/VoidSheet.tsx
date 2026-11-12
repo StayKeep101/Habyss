@@ -15,6 +15,7 @@ import { sheetBottom } from './sheetBottom';
 import { InSheet } from './inSheet';
 import { OVERLAY } from '@/theme/motion';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useUISound } from '@/hooks/useUISound';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 // Every overlay opens and closes the same way (theme/motion.ts).
@@ -65,6 +66,7 @@ export const VoidSheet: React.FC<{
     const insets = useSafeAreaInsets();
     const { height } = useWindowDimensions();
     const { lightFeedback } = useHaptics();
+    const appear = useUISound('open');
 
     // Kept mounted through the closing animation, or it would vanish instantly.
     const [mounted, setMounted] = useState(visible);
@@ -103,13 +105,14 @@ export const VoidSheet: React.FC<{
             const open = Keyboard.isVisible() ? Keyboard.metrics()?.height ?? 0 : 0;
             keyboard.set(open);
             setKeyboardHeight(open);
+            appear();
             progress.set(withTiming(1, OPEN));
             return;
         }
         progress.set(withTiming(0, CLOSE, finished => {
             if (finished) runOnJS(setMounted)(false);
         }));
-    }, [visible, progress, drag, keyboard]);
+    }, [visible, progress, drag, keyboard]); // eslint-disable-line react-hooks/exhaustive-deps -- the sound plays as it opens, not when the setting changes
 
     const scrim = useAnimatedStyle(() => ({
         opacity: progress.get() * 0.55 * (1 - Math.min(1, drag.get() / 300)),

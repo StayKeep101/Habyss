@@ -26,6 +26,7 @@ import { VoiceOrb } from './VoiceOrb';
 const MERGE_TIMING = timingFor(DURATION.emphasis, EASE.move);
 import { FocusMiniBar, FOCUS_BAR_HEIGHT } from '@/components/Focus/FocusMiniBar';
 import { useWindowDimensions } from 'react-native';
+import { useUISound } from '@/hooks/useUISound';
 
 interface TabIconProps {
     routeName: string;
@@ -86,6 +87,8 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const orbColors = useMemo(() => (lightOrb ? [...accentColors] : accentColors.map(color => readableAccent(color, '#ffffff', 3))) as [string, string], [accentColors, lightOrb]);
     const palette = Colors[theme];
     const { mediumFeedback } = useHaptics();
+    // Switching tabs is a choice: the select sound (lib/soundService.ts).
+    const tabSound = useUISound('select');
     const { horizontalPadding, tabBarHeight, floatingButtonSize, tabBarBottomOffset, isCompactWidth, railed, insets } = useResponsiveLayout();
     const orbRef = React.useRef<any>(null);
     // The first-run walkthrough lights up the + button and the tabs (lib/coachMarks.ts).
@@ -228,6 +231,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                             emit('tab_selected', route.name);
                             if (!isFocused && !event.defaultPrevented) {
                                 mediumFeedback();
+                                tabSound();
                                 navigation.navigate(route.name);
                             }
                         };
@@ -321,9 +325,10 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     }));
     const goTab = React.useCallback((name: string) => {
         mediumFeedback();
+        tabSound();
         emit('tab_selected', name);
         navigation.navigate(name);
-    }, [mediumFeedback, navigation]);
+    }, [mediumFeedback, tabSound, navigation]);
     const disc = useMemo(() => {
         const swipe = Gesture.Pan().activeOffsetX([-14, 14]).failOffsetY([-24, 24]).onEnd(event => {
             if (event.translationX <= -32) runOnJS(goTab)('community');

@@ -4,6 +4,7 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { Control, FontFamily } from '@/theme/designSystem';
 import { MatteSurface } from './MatteSurface';
+import { useUISound } from '@/hooks/useUISound';
 
 interface IconButtonProps {
     icon: keyof typeof Ionicons.glyphMap;
@@ -25,11 +26,12 @@ interface IconButtonProps {
 }
 
 export function IconButton({ icon, label, onPress, disabled, loading, size = Control.icon, diameter = Control.hitTarget, color, badge, floating, style }: IconButtonProps) {
+    const tap = useUISound('tap');
     const { theme } = useTheme();
     const colors = Colors[theme];
     const tint = color ?? colors.textPrimary;
     return (
-        <TouchableOpacity onPress={onPress} disabled={disabled || loading} activeOpacity={0.75}
+        <TouchableOpacity onPress={() => { tap(); onPress(); }} disabled={disabled || loading} activeOpacity={0.75}
             accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!disabled || !!loading, busy: !!loading }}
             hitSlop={diameter < Control.hitTarget ? (Control.hitTarget - diameter) / 2 : undefined}
             style={[{ opacity: disabled ? 0.5 : 1 }, style]}>

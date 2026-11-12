@@ -10,6 +10,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { OVERLAY } from '@/theme/motion';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useUISound } from '@/hooks/useUISound';
 
 export interface MorphMenuItem {
     label: string;
@@ -70,6 +71,7 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
     const { lightFeedback, selectionFeedback } = useHaptics();
+    const sound = useUISound('open');
     const insets = useSafeAreaInsets();
     const trigger = useRef<View>(null);
     const layerRef = useRef<View>(null);
@@ -81,6 +83,7 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
 
     const open = () => {
         lightFeedback();
+        sound();
         trigger.current?.measureInWindow((x, y, width) => {
             progress.value = 0;
             setLayer(null);
@@ -200,7 +203,7 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
                                             <TouchableOpacity
                                                 key={item.label}
                                                 accessibilityRole="button"
-                                                onPress={() => { selectionFeedback(); close(item.onPress); }}
+                                                onPress={() => { selectionFeedback(); sound('select'); close(item.onPress); }}
                                                 activeOpacity={0.6}
                                                 style={[styles.row, { height: ROW, borderTopColor: colors.border }]}
                                             >

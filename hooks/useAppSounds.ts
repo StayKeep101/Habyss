@@ -3,9 +3,9 @@ import { on } from '@/lib/appEvents';
 import { useSounds } from '@/hooks/useSounds';
 
 /**
- * The app's moments, heard — and only those: finishing a task, a goal or the
- * whole day, and reaching the daily target. Taps and menus are silent, so a
- * sound always means something was achieved.
+ * The app's moments, heard: finishing a task, a goal or the whole day, and
+ * reaching the daily target. Taps, choices and sheets have their own quiet
+ * sounds, played by the controls themselves (hooks/useUISound.ts).
  *
  * Habit ticks already play from the screen that ticks them (Home, Roadmap,
  * goal page), where the sound lands with the animation.
