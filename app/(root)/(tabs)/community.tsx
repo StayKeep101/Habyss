@@ -251,10 +251,32 @@ export default function CommunityScreen() {
     const stuckEdge = Math.max(1, stage - insets.top);
     const fromFeed = useSharedValue(false);
     const coasting = useSharedValue(false);
+    const dragFrom = useSharedValue(0);
+    // Like a window: let go between the race and the top and it carries on the way the
+    // finger was going (a little up: to the top; a little down: back over the race),
+    // never stopping halfway or snapping back against the drag.
+    const settleSheet = (y: number, intent: number) => {
+        'worklet';
+        if (y <= 0 || y >= stuckEdge) return false;
+        scrollTo(sheetScroll, 0, intent > 0 ? stuckEdge : 0, true);
+        return true;
+    };
     const onLift = useAnimatedScrollHandler({
-        onBeginDrag: event => { fromFeed.set(event.contentOffset.y > stuckEdge + 2); coasting.set(false); },
+        onBeginDrag: event => { fromFeed.set(event.contentOffset.y > stuckEdge + 2); coasting.set(false); dragFrom.set(event.contentOffset.y); },
+        onEndDrag: event => {
+            if (fromFeed.get()) return;
+            const y = event.contentOffset.y;
+            // The fling's direction when there is one, else which way it was dragged.
+            const velocity = event.velocity?.y ?? 0;
+            const intent = Math.abs(velocity) > 0.05 ? velocity : y - dragFrom.get();
+            if (settleSheet(y, intent)) coasting.set(false);
+        },
         onMomentumBegin: () => { coasting.set(true); },
-        onMomentumEnd: () => { coasting.set(false); fromFeed.set(false); },
+        onMomentumEnd: event => {
+            coasting.set(false); fromFeed.set(false);
+            // Come to rest in between anyway (a pull to refresh let go): the nearer end.
+            settleSheet(event.contentOffset.y, event.contentOffset.y - stuckEdge / 2);
+        },
         onScroll: event => {
             lift.set(event.contentOffset.y);
             if (coasting.get() && fromFeed.get() && event.contentOffset.y < stuckEdge) {
@@ -603,8 +625,8 @@ export default function CommunityScreen() {
                 <IrisFade progress={lift} from={t.space.xl} to={stuckAt * 0.6} width={screen.width} height={stage} color={colors.background} follow />
             </Animated.View>
             <Animated.ScrollView ref={sheetScroll} showsVerticalScrollIndicator={false} onScroll={onLift} scrollEventThrottle={16}
-                // Between the race and the top, it always settles at one or the other; past the header the feed scrolls freely.
-                snapToOffsets={[0, stuckAt]} snapToEnd={false}
+                // Between the race and the top it always settles at one or the other, the way it was
+                // pushed (onLift); past the header the feed scrolls freely.
                 onScrollEndDrag={nearEnd} onMomentumScrollEnd={nearEnd}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textTertiary} progressViewOffset={insets.top} />}>
                 {/* Over the race: a drag sideways reads it, day by day. */}

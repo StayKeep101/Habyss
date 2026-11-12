@@ -1482,6 +1482,10 @@ const CalendarScreen = () => {
                                         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Goal plans" onPress={() => router.push('/(root)/goal-roadmap')} style={styles.headerLink}>
                                             <Text style={[styles.headerLinkText, { color: colors.textTertiary }]}>Plans</Text>
                                         </TouchableOpacity>
+                                        {/* Every goal there is: in progress, then archived. */}
+                                        <TouchableOpacity accessibilityRole="button" accessibilityLabel="All goals" onPress={() => router.push({ pathname: '/(root)/all-habits', params: { kind: 'goals' } })} style={styles.headerLink}>
+                                            <Text style={[styles.headerLinkText, { color: colors.textTertiary }]}>See all</Text>
+                                        </TouchableOpacity>
                                         <TouchableOpacity onPress={() => {
                                             const allExpanded = sortedGoals.every(goal => expandedGoals[goal.id]);
                                             setExpandedGoals(allExpanded ? {} : Object.fromEntries(sortedGoals.map(goal => [goal.id, true])));
@@ -1592,7 +1596,12 @@ const CalendarScreen = () => {
                                 filter hides exactly what it was set to show. */}
                             {showTasks && listedTasks.length > 0 && (
                                 <View style={{ marginBottom: 16 }}>
-                                    {scrubbing ? null : <SectionTitle first>Tasks</SectionTitle>}
+                                    {scrubbing ? null : <SectionTitle first right={
+                                        // Every task there is: to do, then done and stopped.
+                                        <TouchableOpacity accessibilityRole="button" accessibilityLabel="All tasks" onPress={() => router.push({ pathname: '/(root)/all-habits', params: { kind: 'tasks' } })} style={styles.headerLink}>
+                                            <Text style={[styles.headerLinkText, { color: colors.textTertiary }]}>See all</Text>
+                                        </TouchableOpacity>
+                                    }>Tasks</SectionTitle>}
                                     {listedTasks
                                         .map(task => (
                                             <ListItem key={task.id} still={scrubbing}><TaskItem
