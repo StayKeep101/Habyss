@@ -7,6 +7,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
     FadeIn, FlipInEasyY, ReduceMotion, interpolate, runOnJS, useAnimatedRef, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue,
+    scrollTo,
 } from 'react-native-reanimated';
 import { IconTile } from '@/components/ui/IconTile';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
@@ -245,9 +246,25 @@ export default function CommunityScreen() {
     // The finger on the race, or −1: it reads that day (components/Community/MarksRace.tsx).
     const scrub = useSharedValue(-1);
     const onPager = useAnimatedScrollHandler(event => { pagePosition.set(event.contentOffset.x / Math.max(1, pageWidth)); });
-    const onLift = useAnimatedScrollHandler(event => { lift.set(event.contentOffset.y); });
+    // Magnetic: a fling that starts in the feed stops at the header instead of carrying the
+    // whole page down to the race; pulling down again from there brings the race back.
+    const stuckEdge = Math.max(1, stage - insets.top);
+    const fromFeed = useSharedValue(false);
+    const coasting = useSharedValue(false);
+    const onLift = useAnimatedScrollHandler({
+        onBeginDrag: event => { fromFeed.set(event.contentOffset.y > stuckEdge + 2); coasting.set(false); },
+        onMomentumBegin: () => { coasting.set(true); },
+        onMomentumEnd: () => { coasting.set(false); fromFeed.set(false); },
+        onScroll: event => {
+            lift.set(event.contentOffset.y);
+            if (coasting.get() && fromFeed.get() && event.contentOffset.y < stuckEdge) {
+                coasting.set(false);
+                scrollTo(sheetScroll, 0, stuckEdge, false);
+            }
+        },
+    });
     // The race stays put, like a map under its panel, and closes from the outside in as the page is lifted over it.
-    const stuckAt = Math.max(1, stage - insets.top);
+    const stuckAt = stuckEdge;
     const raceStyle = useAnimatedStyle(() => ({
         // The graph never moves; the iris (below) closes over it from the outside in,
         // and the last of it dims gently as the iris shuts.
@@ -586,6 +603,8 @@ export default function CommunityScreen() {
                 <IrisFade progress={lift} from={t.space.xl} to={stuckAt * 0.6} width={screen.width} height={stage} color={colors.background} follow />
             </Animated.View>
             <Animated.ScrollView ref={sheetScroll} showsVerticalScrollIndicator={false} onScroll={onLift} scrollEventThrottle={16}
+                // Between the race and the top, it always settles at one or the other; past the header the feed scrolls freely.
+                snapToOffsets={[0, stuckAt]} snapToEnd={false}
                 onScrollEndDrag={nearEnd} onMomentumScrollEnd={nearEnd}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textTertiary} progressViewOffset={insets.top} />}>
                 {/* Over the race: a drag sideways reads it, day by day. */}
