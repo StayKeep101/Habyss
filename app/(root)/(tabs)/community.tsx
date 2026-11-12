@@ -244,10 +244,11 @@ export default function CommunityScreen() {
     const scrub = useSharedValue(-1);
     const onPager = useAnimatedScrollHandler(event => { pagePosition.set(event.contentOffset.x / Math.max(1, pageWidth)); });
     const onLift = useAnimatedScrollHandler(event => { lift.set(event.contentOffset.y); });
-    // The race stays put, like a map under its panel, and fades out completely as the page is lifted over it.
+    // The race stays put, like a map under its panel, and fades out quickly as the page is lifted over it.
     const stuckAt = Math.max(1, stage - insets.top);
     const raceStyle = useAnimatedStyle(() => ({
-        opacity: interpolate(lift.get(), [0, stuckAt], [1, 0], 'clamp'),
+        // Gone by the time the page is halfway up: out of the way early.
+        opacity: interpolate(lift.get(), [0, stuckAt * 0.45], [1, 0], 'clamp'),
     }));
     // The page's title bar, once it reaches the status bar, stays there as the header: a fixed copy
     // takes over at exactly that spot (and steps out of the way, untappable, until then).
