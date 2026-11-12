@@ -1,18 +1,53 @@
 import React from 'react';
 import { ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { RankGem, SheetScreen, Text } from '@/components/ui';
+import { AppIcon, MatteSurface, RankGem, SheetScreen, Text } from '@/components/ui';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSharedValue } from 'react-native-reanimated';
+import { Hourglass } from '@/components/Home/Hourglass';
+import { glassDesign } from '@/theme/hourglassDesigns';
+import { rankGradient } from '@/theme/rankLooks';
 import { AnimatedFill, CountUp, PopIn } from '@/components/ui/Motion';
 import { useTokens } from '@/hooks/useTokens';
 import { RANKS, rankFor } from '@/lib/marks';
 import { rankTone } from '@/theme/tokens';
 import { styles } from '@/styles/screens/ranks.styles';
 
+/** One rank: its gem and name, and what it unlocks; locked ones dimmed but still showing what is ahead. */
+function RankRow({ name, min, marks, current }: { name: string; min: number; marks: number; current: boolean }) {
+    const t = useTokens();
+    const reached = marks >= min;
+    const [from, to] = rankGradient(name);
+    const sand = useSharedValue(0.35);
+    return (
+        <View accessible accessibilityLabel={`${name}, ${min ? `${min.toLocaleString()} Marks` : 'the start'}. ${current ? 'Your rank.' : reached ? 'Reached.' : `Locked, ${(min - marks).toLocaleString()} Marks to go.`} Unlocks its colour and its hourglass.`}>
+        <MatteSurface radius={t.radius.lg} edge={current ? rankTone(name).color : undefined} style={styles.row}>
+            <View style={[styles.rowMain, !reached && styles.locked]}>
+                <RankGem rank={name} size={t.space['3xl'] + t.space.sm} locked={!reached} shine={current} />
+                <View style={styles.rowText}>
+                    <Text variant="heading">{name}</Text>
+                    <View style={styles.status}>
+                        {!reached ? <AppIcon name="lock-closed" size={t.space.md} color={t.color.textMuted} /> : null}
+                        <Text variant="caption" tone="muted">
+                            {current ? 'You are here' : reached ? 'Reached' : `${(min - marks).toLocaleString()} Marks to go`}
+                        </Text>
+                    </View>
+                    {/* The app's colour at this rank. */}
+                    <LinearGradient colors={[from, to]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.swatch} />
+                </View>
+                <Hourglass design={glassDesign(name)} size={t.space['3xl'] * 2} ran={sand} running={false} />
+            </View>
+        </MatteSurface>
+        </View>
+    );
+}
+
 /**
- * The ranks as a collection of gems, one cut in ten colours, darker at the
- * bottom of the climb and brighter towards the light. Yours is large on top
- * with how far to the next; below, every rank: the ones reached lit, the ones
- * ahead still dark stone, each with the Marks it takes.
+ * The ranks, and what climbing them gives you. Yours on top, large, with how
+ * far to the next. Below, the climb: every rank as a row with its gem, the
+ * Marks it takes, and what it unlocks, the app's colour at that rank
+ * (theme/rankLooks.ts) and its hourglass (theme/hourglassDesigns.ts). Ranks
+ * ahead are dimmed and locked but still show what is waiting.
  */
 export default function RanksScreen() {
     const t = useTokens();
@@ -37,18 +72,15 @@ export default function RanksScreen() {
                     </Text>
                 </View>
 
-                <View style={styles.grid}>
-                    {RANKS.map((item, index) => {
-                        const reached = marks >= item.min;
-                        const current = item.name === rank.name;
-                        return (
-                            <PopIn key={item.name} index={index} style={styles.cell}>
-                                <RankGem rank={item.name} size={t.space['3xl'] * 2} locked={!reached} shine={current} />
-                                <Text variant={current ? 'heading' : 'bodySmall'} tone={reached ? undefined : 'muted'} align="center">{item.name}</Text>
-                                <Text variant="caption" tone="muted" align="center">{item.min === 0 ? 'Start' : item.min.toLocaleString()}</Text>
-                            </PopIn>
-                        );
-                    })}
+                {/* The climb: every rank and what it gives you, the app's colour and its hourglass. */}
+                <View style={styles.climb}>
+                    <Text variant="title" accessibilityRole="header">The climb</Text>
+                    <Text variant="bodySmall" tone="muted">Each rank dresses the app in its colour and gives you its hourglass.</Text>
+                    {RANKS.map((item, index) => (
+                        <PopIn key={item.name} index={index}>
+                            <RankRow name={item.name} min={item.min} marks={marks} current={item.name === rank.name} />
+                        </PopIn>
+                    ))}
                 </View>
             </ScrollView>
         </SheetScreen>

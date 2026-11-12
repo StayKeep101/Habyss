@@ -7,6 +7,11 @@ export const styles = StyleSheet.create({
     hero: { alignItems: 'center', gap: Spacing.xs },
     track: { alignSelf: 'stretch', height: Spacing.xs, borderRadius: Spacing.xs / 2, overflow: 'hidden', marginTop: Spacing.md },
     fill: { height: '100%', borderRadius: Spacing.xs / 2 },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: Spacing.lg },
-    cell: { width: '33.333%', alignItems: 'center', gap: Spacing.xs },
+    climb: { gap: Spacing.sm },
+    row: { padding: Spacing.md },
+    rowMain: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+    rowText: { flex: 1, gap: Spacing.xs / 2 },
+    swatch: { height: Spacing.xs + 2, borderRadius: Spacing.xs, marginTop: Spacing.xs, width: '70%' },
+    locked: { opacity: 0.5 },
+    status: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
 });
