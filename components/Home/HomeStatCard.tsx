@@ -1,43 +1,59 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { VoidCard } from '@/components/ui/VoidCard';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { CountUp } from '@/components/ui/Motion';
 import { Colors } from '@/theme/colors';
-import { FontFamily, Spacing } from '@/theme/designSystem';
+import { FontFamily } from '@/theme/designSystem';
+import { s } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
 
 /**
- * One of the small cards beside the streak: its icon on the left, a touch
- * larger than the figure, and the figure beside it. `label` names it for
- * VoiceOver only; a `note`, when there is one, says what it means right now.
+ * How big a header figure is. From the screen's width (s), so the four stats
+ * beside your picture keep the same proportions on a small phone as on a big
+ * one; the icon is drawn at the same size, as tall as the digits or a touch
+ * taller.
  */
-export function HomeStatCard({ icon, tint, value, label, note, noteTint, onPress, accessibilityLabel }: {
-    icon: string; tint: string; value: string | number; label: string; note?: string; noteTint?: string;
-    onPress: () => void; accessibilityLabel: string;
+export const STAT_FIGURE = s(22);
+const STAT_ICON = STAT_FIGURE;
+
+/**
+ * One stat in Home's header, beside your picture: its icon, then its figure,
+ * the way Duolingo lays them out. No card and no label: the icon says what it
+ * is, and `accessibilityLabel` says it for VoiceOver. A figure too long for
+ * its share of the row shrinks a little rather than spill (a long streak,
+ * "1.5h").
+ */
+export function HomeStatCard({ icon, glyph, tint, value, onPress, accessibilityLabel, valueRef }: {
+    icon?: string;
+    /** Drawn in place of `icon` (the Shard). */
+    glyph?: React.ReactNode;
+    tint?: string;
+    value: string | number;
+    /** Kept for callers; the figure is not labelled on screen. */
+    label?: string;
+    note?: string;
+    noteTint?: string;
+    onPress: () => void;
+    accessibilityLabel: string;
+    /** Where something flies to land on this figure (the Shards). */
+    valueRef?: React.Ref<View>;
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
     return (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={accessibilityLabel} style={styles.touch}>
-            <VoidCard style={styles.card}>
-                {/* The icon first, a little larger than the figure, then the figure
-                    beside it, the way Duolingo lays out a stat. Its name is for
-                    VoiceOver (accessibilityLabel); the icon says it on screen. */}
-                <AppIcon filled name={icon as never} size={28} color={tint} />
-                <View style={styles.readout}>
-                    <CountUp style={[styles.value, { color: colors.textPrimary }]} value={value} />
-                    {note ? <Text numberOfLines={1} style={[styles.note, { color: noteTint ?? colors.textSecondary }]}>{note}</Text> : null}
-                </View>
-            </VoidCard>
-        </TouchableOpacity>
+        <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel} hitSlop={6} style={styles.stat}>
+            {glyph ?? <AppIcon filled name={icon as never} size={STAT_ICON} color={tint} />}
+            <View ref={valueRef} collapsable={false} style={styles.figureBox}>
+                <CountUp numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}
+                    style={[styles.figure, { color: colors.textPrimary }]} value={value} />
+            </View>
+        </Pressable>
     );
 }
 
 const styles = StyleSheet.create({
-    touch: { flex: 1 },
-    card: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, minHeight: 56 },
-    readout: { flex: 1, minWidth: 0 },
-    value: { fontSize: 22, lineHeight: 26, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
-    note: { fontSize: 11, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
+    // Sized to its content; the row spreads the space between the stats evenly.
+    stat: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: s(3), minHeight: 44 },
+    figureBox: { flexShrink: 1 },
+    figure: { fontSize: STAT_FIGURE, lineHeight: STAT_FIGURE * 1.2, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
 });

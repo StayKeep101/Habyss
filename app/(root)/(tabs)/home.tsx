@@ -77,7 +77,7 @@ const Home = () => {
   const { primary: accentColor } = useAccentGradient();
   const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
   const { playComplete, playLevelUp } = useSounds();
-  const { horizontalPadding, sectionGap, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
+  const { horizontalPadding, sectionGap, topSpacing, tabBarClearance } = useResponsiveLayout();
 
   // Pro Hooks
   const { aiPersonality, greetingStyle } = useAppSettings();
@@ -579,7 +579,7 @@ const Home = () => {
           {/* Header Row
               Your picture with your Marks (XP) as its ring, and your Shards (the
               currency) beside it as a holding: who you are, and what you have. */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(16), marginTop: topSpacing }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(12), marginTop: topSpacing }}>
             {/* The ring is today: empty at nothing done, closed and green
                 when the day is kept. */}
             <ProgressAvatar
@@ -587,7 +587,21 @@ const Home = () => {
               marks={marks}
               onPress={() => router.push('/(root)/profile')}
             />
-            <ShardsCard wallet={wallet} onPress={() => setShowWallet(true)} />
+            {/* Beside it, four stats as icon and figure: Shards, streak, focus today, missed. */}
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: s(6) }}>
+              <ShardsCard wallet={wallet} onPress={() => setShowWallet(true)} />
+              {/* Measured by the first-run walkthrough ("Keep the streak"). */}
+              <View ref={streakRef} collapsable={false} style={{ flexShrink: 1 }}>
+                <StreakCard streak={streak} completionTier={completionTier}
+                  onPress={() => { lightFeedback(); router.push('/(root)/progress'); }} />
+              </View>
+              <View ref={focusRef} collapsable={false} style={{ flexShrink: 1 }}>
+                <FocusCard onPress={() => { lightFeedback(); router.push('/(root)/focus-stats' as never); }} />
+              </View>
+              <View ref={missedRef} collapsable={false} style={{ flexShrink: 1 }}>
+                <MissedCard missed={missed} onPress={() => { lightFeedback(); setShowMissed(true); }} />
+              </View>
+            </View>
           </View>
 
           {/* Echo, full width below the header, where it reads as a line
@@ -626,27 +640,6 @@ const Home = () => {
           </View>
           </Animated.View>
 
-          {/* 3-Column Stats Row: Streak | Consistency | Completion */}
-          <Animated.View style={{ flexDirection: 'row', gap: isCompactWidth ? s(8) : s(12), marginTop: sectionGap }}>
-            {/* Measured by the first-run walkthrough ("Keep the streak"). */}
-            <View ref={streakRef} collapsable={false} style={{ flex: 1 }}>
-              <StreakCard
-                streak={streak}
-                completionTier={completionTier}
-                onPress={() => { lightFeedback(); router.push('/(root)/progress'); }}
-              />
-            </View>
-            {/* Focus in place of "Kept": time focused today, this week under it. */}
-            <View ref={focusRef} collapsable={false} style={{ flex: 1 }}>
-              <FocusCard onPress={() => { lightFeedback(); router.push('/(root)/focus-stats' as never); }} />
-            </View>
-            <View ref={missedRef} collapsable={false} style={{ flex: 1 }}>
-              <MissedCard
-                missed={missed}
-                onPress={() => { lightFeedback(); setShowMissed(true); }}
-              />
-            </View>
-          </Animated.View>
 
 
 
