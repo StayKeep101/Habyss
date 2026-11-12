@@ -1,12 +1,12 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, Spacing } from '@/theme/designSystem';
 
 /** The look of app/(root)/progress.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
-    content: { paddingHorizontal: 20, paddingBottom: 40 },
-    monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, marginTop: 20 },
+    content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: Spacing.section + Spacing.sm },
+    monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
     month: { fontSize: 17, fontFamily: FontFamily.semibold },
-    statRule: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginVertical: 6 },
+    statRule: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginVertical: Spacing.xs },
     grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
     weekday: { width: '14.2857%', textAlign: 'center', fontSize: 12, fontFamily: FontFamily.semibold, marginBottom: 10 },
     cell: { width: '14.2857%', alignItems: 'center', paddingVertical: 5 },
@@ -20,16 +20,18 @@ export const styles = StyleSheet.create({
     dayNumber: { fontSize: 14, fontVariant: ['tabular-nums'] },
     /** The streak, centred: flame, the figure, what it means, your best. */
     /** The run on the left, the month's numbers two by two on the right. */
-    top: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-    hero: { flex: 0.9, alignItems: 'flex-start' },
-    heroRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    // Both columns the same height: the run on the left, the grid stretched beside it.
+    top: { flexDirection: 'row', alignItems: 'stretch', gap: Spacing.lg },
+    hero: { flex: 0.9, alignItems: 'flex-start', justifyContent: 'center' },
+    // The flame sits on the number's baseline, not floating at its middle.
+    heroRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.xs + 2 },
     heroValue: { fontSize: 96, lineHeight: 104, fontFamily: FontFamily.bold, letterSpacing: -4, fontVariant: ['tabular-nums'] },
-    heroLabel: { fontSize: 17, fontFamily: FontFamily.medium, marginTop: -2 },
-    heroBest: { fontSize: 13, fontFamily: FontFamily.medium, marginTop: 6 },
-    stats: { flex: 1.1, paddingVertical: 6, paddingHorizontal: 4 },
-    statsRow: { flexDirection: 'row', paddingVertical: 8 },
-    statsDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: 10 },
-    stat: { flex: 1, alignItems: 'center', gap: 2 },
+    heroLabel: { fontSize: 17, lineHeight: 22, fontFamily: FontFamily.medium },
+    heroBest: { fontSize: 13, lineHeight: 18, fontFamily: FontFamily.medium, marginTop: Spacing.xs },
+    stats: { flex: 1.1, justifyContent: 'center', padding: Spacing.xs },
+    statsRow: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm },
+    statsDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: Spacing.md },
+    stat: { flex: 1, alignItems: 'center', gap: Spacing.xs / 2 },
     statTop: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
     statChange: { fontSize: 11, fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
     statValue: { fontSize: 20, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },

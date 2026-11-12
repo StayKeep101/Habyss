@@ -13,7 +13,7 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { textOn } from '@/theme/tokens';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -194,7 +194,7 @@ export default function ProgressScreen() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!selected}>
                 {/* The answer on the left (the run, what it means, your best); the month's
                     four numbers beside it, two by two. */}
-                <View style={[styles.top, { marginBottom: Math.round(16 * fit) }]}>
+                <View style={styles.top}>
                     <View style={styles.hero} accessible accessibilityLabel={`${streak} ${streak === 1 ? 'day' : 'days'} in a row. Best ${best}.`}>
                         <View style={styles.heroRow}>
                             <CountUp style={[styles.heroValue, { fontSize: heroSize, lineHeight: Math.round(heroSize * 1.08), letterSpacing: -heroSize / 24, color: colors.textPrimary }]} value={streak} replay={only} />
@@ -223,7 +223,7 @@ export default function ProgressScreen() {
                 </View>
 
                 {/* Swipe the calendar for another month. */}
-                <View style={[styles.monthRow, { marginTop: Math.round(16 * fit) }]} accessible accessibilityLabel={month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                <View style={[styles.monthRow, { marginTop: Math.round(Spacing.xxl * fit) }]} accessible accessibilityLabel={month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                     accessibilityActions={[{ name: 'increment', label: 'Next month' }, { name: 'decrement', label: 'Previous month' }]}
                     onAccessibilityAction={event => goMonth(event.nativeEvent.actionName === 'increment' ? 1 : -1)}>
                     <Text style={[styles.month, { color: colors.textPrimary }]}>
