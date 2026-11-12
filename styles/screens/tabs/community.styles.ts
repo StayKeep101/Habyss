@@ -21,6 +21,12 @@ export const styles = StyleSheet.create({
         borderTopLeftRadius: Radius.sheet, borderTopRightRadius: Radius.sheet, borderTopWidth: StyleSheet.hairlineWidth,
         paddingTop: Spacing.sm,
     },
+    /** The title bar stuck at the top once the page reaches the status bar. */
+    sticky: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 11, borderBottomWidth: StyleSheet.hairlineWidth },
+    /** Square once stuck, no edge of its own: it is the header now. */
+    stuckTop: { borderTopWidth: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 },
+    /** Keeps its room so the title sits exactly where the page's own did. */
+    hidden: { opacity: 0 },
     grabber: { alignSelf: 'center', width: Spacing.xxl + Spacing.md, height: Spacing.xs + 1, borderRadius: Radius.pill },
     /** Confetti over the feed when a perfect day is cheered. */
     cheer: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },

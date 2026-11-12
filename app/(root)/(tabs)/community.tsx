@@ -244,10 +244,17 @@ export default function CommunityScreen() {
     const scrub = useSharedValue(-1);
     const onPager = useAnimatedScrollHandler(event => { pagePosition.set(event.contentOffset.x / Math.max(1, pageWidth)); });
     const onLift = useAnimatedScrollHandler(event => { lift.set(event.contentOffset.y); });
-    // The race stays put, like a map under its panel: as the page is lifted over it, it only dims.
+    // The race stays put, like a map under its panel, and fades out completely as the page is lifted over it.
+    const stuckAt = Math.max(1, stage - insets.top);
     const raceStyle = useAnimatedStyle(() => ({
-        opacity: 1 - interpolate(lift.get(), [0, stage], [0, 0.85], 'clamp'),
+        opacity: interpolate(lift.get(), [0, stuckAt], [1, 0], 'clamp'),
     }));
+    // The page's title bar, once it reaches the status bar, stays there as the header: a fixed copy
+    // takes over at exactly that spot (and steps out of the way, untappable, until then).
+    const stickyStyle = useAnimatedStyle(() => {
+        const stuck = lift.get() >= stuckAt;
+        return { opacity: stuck ? 1 : 0, transform: [{ translateY: stuck ? 0 : -1000 }] };
+    });
     // The buttons sit on the race's level, whole: never clipped (a clip cut the badge and the
     // discs). As the page's top edge rises to them they fade out, then step out of the way so
     // nothing hidden can be tapped. Plain numbers here: no scale helpers inside a worklet.
@@ -601,6 +608,13 @@ export default function CommunityScreen() {
                     </Animated.ScrollView>
                 </View>
             </Animated.ScrollView>
+            {/* The title bar, stuck under the status bar once the page reaches it: Accountability or Challenges, and the dots. */}
+            <Animated.View style={[styles.sticky, { paddingTop: insets.top, backgroundColor: colors.background, borderBottomColor: t.color.border }, stickyStyle]}>
+                <View style={[styles.sheetTop, styles.stuckTop, { paddingHorizontal: horizontalPadding }]}>
+                    <View style={[styles.grabber, styles.hidden]} />
+                    <SectionTitle first right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
+                </View>
+            </Animated.View>
             {/* On the race's level, whole; they fade as the page rises to them (actionsStyle). */}
             <Animated.View style={[styles.actions, { top: actionsTop, right: horizontalPadding }, actionsStyle]}>
                 {actions}
