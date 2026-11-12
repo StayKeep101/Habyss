@@ -53,7 +53,6 @@ import { MatteSurface } from '@/components/ui/MatteSurface';
 import { Radius, Spacing } from '@/theme/designSystem';
 import { homeStyles } from '@/styles/screens/home.styles';
 import { LinearGradient } from 'expo-linear-gradient';
-import { tint } from '@/theme/tokens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShardsWallet } from '@/components/Shards/ShardsWallet';
 import { useWallet } from '@/hooks/useWallet';
@@ -610,7 +609,7 @@ const Home = () => {
         onScroll={onHomeScroll}
         scrollEventThrottle={16}
         // The page stops at the bar's edge: nothing scrolls under your picture and the stats,
-        // so Echo's line can never run into them. The bar's fade softens the cut.
+        // so Echo's line can never run into them. The fade under the bar softens the edge.
         style={{ marginTop: headerHeight }}
         automaticallyAdjustContentInsets={false}
         contentContainerStyle={{ paddingTop: SCENE_SHOWN }}
@@ -680,9 +679,11 @@ const Home = () => {
       </Animated.ScrollView>
 
       {/* The floating stats bar: your picture and the three stats, fixed over everything, the cards passing under. */}
-      <View style={[homeStyles.bar, { paddingTop: insets.top }]} pointerEvents="box-none"
+      {/* Plain dark behind the picture and the stats, no shadow: the page stops at its edge
+          and slips under a short fade into it, so there is never a hard line. */}
+      <View style={[homeStyles.bar, { paddingTop: insets.top, backgroundColor: colors.background }]} pointerEvents="box-none"
         onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}>
-        <LinearGradient pointerEvents="none" colors={[colors.background, tint(colors.background, 'border'), 'transparent']} locations={[0, 0.6, 1]} style={homeStyles.barFade} />
+        <LinearGradient pointerEvents="none" colors={[colors.background, 'transparent']} style={homeStyles.barFade} />
           {/* Header Row
               Your picture with your Marks (XP) as its ring, and your Shards (the
               currency) beside it as a holding: who you are, and what you have. */}
