@@ -1,6 +1,9 @@
 import React, { useId } from 'react';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
+/** Below this the facets blur into a blob, so it is never drawn smaller. */
+const SMALLEST = 14;
+
 /**
  * A Shard: Habyss's currency, drawn as its own faceted crystal (the "Apex"
  * shard). Used wherever Shards are counted, earned, bet or spent, in place of
@@ -10,9 +13,6 @@ import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
  * Decorative by default (the number beside it says what it is); give it an
  * `accessibilityLabel` when it stands alone.
  */
-/** Below this the facets blur into a blob, so it is never drawn smaller. */
-const SMALLEST = 14;
-
 export function ShardIcon({ size: asked = 16, accessibilityLabel }: { size?: number; accessibilityLabel?: string }) {
     const size = Math.max(SMALLEST, asked);
     // Unique per copy: two shards on one screen must not share gradient ids.
