@@ -39,7 +39,7 @@ struct LogHabitIntent: AppIntent {
     }
 }
 
-/// Queues a task or habit by name in the App Group. Habyss turns the queue
+/// Queues a task, habit, goal, thought or anything said freely (`kind|text`) in the App Group. Habyss turns the queue
 /// into real rows the next time it runs (`drainQuickAdds` in
 /// lib/shortcutsInbox.ts), so adding one never has to open the app.
 @available(iOS 16.0, *)
@@ -91,6 +91,65 @@ struct AddHabitIntent: AppIntent {
             return .result(dialog: "Open Habyss once, then try again.")
         }
         return .result(dialog: "Added \(name).")
+    }
+}
+
+/// "Add a goal in Habyss": the system asks what it is ("Read 12 books this year").
+@available(iOS 16.0, *)
+struct AddGoalIntent: AppIntent {
+    static var title: LocalizedStringResource = "Add Goal"
+    static var description = IntentDescription("Add a goal in Habyss, in your own words")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Goal", requestValueDialog: "What's the goal?")
+    var name: String
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard QuickAddQueue.append(kind: "goal", title: name) else {
+            return .result(dialog: "Open Habyss once, then try again.")
+        }
+        return .result(dialog: "Added the goal \(name).")
+    }
+}
+
+/// "Brain dump in Habyss": whatever is on your mind, kept for later.
+@available(iOS 16.0, *)
+struct BrainDumpIntent: AppIntent {
+    static var title: LocalizedStringResource = "Brain Dump"
+    static var description = IntentDescription("Put a thought in your Habyss brain dump")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Thought", requestValueDialog: "What's on your mind?")
+    var text: String
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard QuickAddQueue.append(kind: "thought", title: text) else {
+            return .result(dialog: "Open Habyss once, then try again.")
+        }
+        return .result(dialog: "Got it. It's in your brain dump.")
+    }
+}
+
+/// "Tell Habyss": say it freely ("call mom tomorrow and run every morning");
+/// Habyss reads the tasks, habits and goals in it (lib/voicePlan.ts rules),
+/// anything unclear kept in the brain dump.
+@available(iOS 16.0, *)
+struct TellHabyssIntent: AppIntent {
+    static var title: LocalizedStringResource = "Tell Habyss"
+    static var description = IntentDescription("Say tasks, habits or goals in your own words; Habyss sorts them out")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "What to add", requestValueDialog: "What should I add?")
+    var text: String
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard QuickAddQueue.append(kind: "any", title: text) else {
+            return .result(dialog: "Open Habyss once, then try again.")
+        }
+        return .result(dialog: "On it. It'll be in your plan.")
     }
 }
 
@@ -180,6 +239,34 @@ struct HabyssShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Add Habit",
             systemImageName: "plus.circle"
+        )
+        AppShortcut(
+            intent: TellHabyssIntent(),
+            phrases: [
+                "Tell \(.applicationName)",
+                "Add to \(.applicationName)",
+                "Plan with \(.applicationName)"
+            ],
+            shortTitle: "Tell Habyss",
+            systemImageName: "text.bubble"
+        )
+        AppShortcut(
+            intent: AddGoalIntent(),
+            phrases: [
+                "Add a goal in \(.applicationName)",
+                "New goal in \(.applicationName)"
+            ],
+            shortTitle: "Add Goal",
+            systemImageName: "flag"
+        )
+        AppShortcut(
+            intent: BrainDumpIntent(),
+            phrases: [
+                "Brain dump in \(.applicationName)",
+                "Note a thought in \(.applicationName)"
+            ],
+            shortTitle: "Brain Dump",
+            systemImageName: "brain"
         )
         AppShortcut(
             intent: LogHabitIntent(),

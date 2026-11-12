@@ -153,7 +153,15 @@ async function writeWidgets(): Promise<WidgetPayload | null> {
         const { buildWidgetDay } = require('./widgetDay') as typeof import('./widgetDay');
         const { getDayWindow, minutesOf } = require('./echo') as typeof import('./echo');
         const window = await getDayWindow();
-        await WidgetService.writeDay(buildWidgetDay(flow, today, minutesOf(window.wake), minutesOf(window.sleep)));
+        const day = buildWidgetDay(flow, today, minutesOf(window.wake), minutesOf(window.sleep));
+        // Tomorrow too: after midnight the widget shows it until Habyss runs again.
+        try {
+            const { todayFlow } = require('./todayFlow') as typeof import('./todayFlow');
+            const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0, 0, 0, 0);
+            const { version: _v, next: _n, ...ahead } = buildWidgetDay(await todayFlow(tomorrow, { ahead: true }), localDateKey(tomorrow), day.wake, day.sleep);
+            day.next = ahead;
+        } catch { /* today alone */ }
+        await WidgetService.writeDay(day);
         return payload;
     } catch (error) {
         console.warn('[Widget] Snapshot was not updated; keeping the last successful snapshot.', error);

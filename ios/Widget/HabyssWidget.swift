@@ -458,7 +458,7 @@ struct QuickAddView: View {
     }
 
     private func tile(_ kind: QuickAddKind, tall: Bool = false) -> some View {
-        WidgetOpen(url: URL(string: "habyss://add?kind=\(kind.id)")!) {
+        WidgetAsk(kind: kind) {
             VStack(alignment: tall ? .center : .leading, spacing: tall ? 8 : 0) {
                 if tall { Spacer(minLength: 0) }
                 ZStack {
@@ -504,6 +504,64 @@ struct QuickAddKind: Identifiable {
         QuickAddKind(id: "goal", title: "Goal", icon: "flag"),
         QuickAddKind(id: "braindump", title: "Brain dump", icon: "brain"),
     ]
+}
+
+/// Adding without opening Habyss: a tap on a tile posts a notification you
+/// type into (hold it, type, Add). The app adds it in the background
+/// (lib/quickAddResponse.ts) and says what it added. The categories, each
+/// with its text field, are registered by the app (lib/notificationActions.ts
+/// QUICK_ADD_CATEGORIES). With notifications off, the tile opens the composer.
+@available(iOS 17.0, *)
+struct AskToAddIntent: AppIntent {
+    static var title: LocalizedStringResource = "Add to Habyss"
+    static var isDiscoverable: Bool = false
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Kind") var kind: String
+
+    init() {}
+    init(kind: String) { self.kind = kind }
+
+    private static let prompts: [String: (category: String, title: String)] = [
+        "task": ("HABYSS_ADD_TASK", "New task"),
+        "habit": ("HABYSS_ADD_HABIT", "New habit"),
+        "goal": ("HABYSS_ADD_GOAL", "New goal"),
+        "braindump": ("HABYSS_ADD_THOUGHT", "Brain dump"),
+        "any": ("HABYSS_ADD_ANY", "Tell Habyss"),
+    ]
+
+    func perform() async throws -> some IntentResult {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        let prompt = Self.prompts[kind] ?? Self.prompts["task"]!
+        guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+            return .result()
+        }
+        // Only the newest one waits on screen.
+        center.removeDeliveredNotifications(withIdentifiers: ["habyss-quick-add"])
+        let content = UNMutableNotificationContent()
+        content.title = prompt.title
+        content.body = "Hold here and type it. Added without opening Habyss."
+        content.categoryIdentifier = prompt.category
+        content.threadIdentifier = "habyss-quick-add"
+        let request = UNNotificationRequest(identifier: "habyss-quick-add", content: content, trigger: nil)
+        try? await center.add(request)
+        return .result()
+    }
+}
+
+/// A Quick Add tile: asks in a notification on iOS 17 and later (AskToAddIntent),
+/// opens the composer before that.
+struct WidgetAsk<Label: View>: View {
+    let kind: QuickAddKind
+    @ViewBuilder var label: () -> Label
+    var body: some View {
+        if #available(iOS 17.0, *) {
+            Button(intent: AskToAddIntent(kind: kind.id)) { label() }.buttonStyle(.plain)
+        } else {
+            Link(destination: URL(string: "habyss://add?kind=\(kind.id)")!) { label() }
+        }
+    }
 }
 
 /// Opens a Habyss link from anywhere on a widget, the small one included:

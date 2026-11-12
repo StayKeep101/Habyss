@@ -25,6 +25,8 @@ export interface WidgetDay {
     wake: number;
     sleep: number;
     items: WidgetDayItem[];
+    /** Tomorrow as planned now, shown from midnight until Habyss next runs, so the widget is never empty. */
+    next?: Omit<WidgetDay, 'version' | 'next'>;
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;

@@ -191,6 +191,11 @@ export default function MobileLayout() {
     const handle = async (response: Notifications.NotificationResponse | null) => {
       if (!response) return;
       try {
+        // Typed into the Quick Add widget's notification: added without opening Habyss.
+        if (await (require('@/lib/quickAddResponse') as typeof import('@/lib/quickAddResponse')).handleQuickAddResponse(response)) {
+          await Notifications.clearLastNotificationResponseAsync();
+          return;
+        }
         if (!(await NotificationService.handleEchoResponse(response))) {
           await (require('@/lib/socialActions') as typeof import('@/lib/socialActions')).handleSocialResponse(response);
         }
@@ -362,7 +367,7 @@ function InnerLayout() {
         const { drainQuickAdds } = require('@/lib/shortcutsInbox');
         const added = await drainQuickAdds();
         if (added.tasks.length) emit('tasks_changed');
-        if (added.habits.length) emit('habit_updated', {});
+        if (added.habits.length || added.goals.length) emit('habit_updated', {});
 
         // Rows ticked on the widget while the app was closed, habits and tasks alike.
         const { drainWidgetToggles } = require('@/lib/widgetSync');

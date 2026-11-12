@@ -1,8 +1,8 @@
-import { DONE_CATEGORY, HANDOVER_CATEGORY, ENERGY_CATEGORY, CATEGORIES, FRIEND_NUDGE_CATEGORY, COMMENT_CATEGORY, DUEL_CATEGORY, SHARE_CATEGORY, streakGuard } from '../notificationActions';
+import { DONE_CATEGORY, HANDOVER_CATEGORY, ENERGY_CATEGORY, CATEGORIES, FRIEND_NUDGE_CATEGORY, COMMENT_CATEGORY, DUEL_CATEGORY, SHARE_CATEGORY, QUICK_ADD_CATEGORIES, streakGuard } from '../notificationActions';
 
 describe('notification buttons', () => {
     it('offers Done first on every item, never more than four buttons', () => {
-        for (const category of CATEGORIES.filter(category => ![ENERGY_CATEGORY, HANDOVER_CATEGORY, FRIEND_NUDGE_CATEGORY, COMMENT_CATEGORY, DUEL_CATEGORY, SHARE_CATEGORY].includes(category.id))) {
+        for (const category of CATEGORIES.filter(category => ![ENERGY_CATEGORY, HANDOVER_CATEGORY, FRIEND_NUDGE_CATEGORY, COMMENT_CATEGORY, DUEL_CATEGORY, SHARE_CATEGORY].includes(category.id) && !(category.id in QUICK_ADD_CATEGORIES))) {
             expect(category.buttons.length).toBeLessThanOrEqual(4);
             expect(category.buttons[0].buttonTitle).toBe('Done');
         }
@@ -32,5 +32,16 @@ describe('keeping the run alive', () => {
         expect(streakGuard({ streak: 1, doneToday: false, now: 600, sleep: 1380 })).toBeNull();
         expect(streakGuard({ streak: 6, doneToday: true, now: 600, sleep: 1380 })).toBeNull();
         expect(streakGuard({ streak: 6, doneToday: false, now: 1300, sleep: 1380 })).toBeNull();
+    });
+});
+
+describe('adding from a notification', () => {
+    it('every kind has a text field and adds without opening the app', () => {
+        for (const id of Object.keys(QUICK_ADD_CATEGORIES)) {
+            const category = CATEGORIES.find(entry => entry.id === id)!;
+            expect(category.buttons).toHaveLength(1);
+            expect(category.buttons[0].textInput?.submitButtonTitle).toBe('Add');
+            expect(category.buttons[0].options.opensAppToForeground).toBe(false);
+        }
     });
 });

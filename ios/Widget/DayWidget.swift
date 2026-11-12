@@ -13,17 +13,31 @@ struct WidgetDayItem: Codable, Identifiable, Hashable {
     let color: String?
 }
 
+/// Tomorrow as the app planned it, carried with today (lib/widgetDay.ts `next`).
+struct WidgetDayAhead: Codable {
+    let day: String
+    let wake: Int
+    let sleep: Int
+    let items: [WidgetDayItem]
+}
+
 struct WidgetDayData: Codable {
     let version: Int
     let day: String
     let wake: Int
     let sleep: Int
     let items: [WidgetDayItem]
+    let next: WidgetDayAhead?
 
-    static func read() -> WidgetDayData? {
+    /// The day `date` falls on: today as written, or, past midnight before Habyss
+    /// has run again, the tomorrow it planned, so the widget always shows the day.
+    static func read(for date: Date = .now) -> WidgetDayData? {
         guard let raw = UserDefaults(suiteName: "group.com.habyss.data")?.string(forKey: "widgetDay"),
               let data = raw.data(using: .utf8),
               let decoded = try? JSONDecoder().decode(Self.self, from: data), decoded.version == 1 else { return nil }
+        if decoded.day != widgetDayKey(date), let next = decoded.next, next.day == widgetDayKey(date) {
+            return WidgetDayData(version: 1, day: next.day, wake: next.wake, sleep: next.sleep, items: next.items, next: nil)
+        }
         return decoded
     }
 }
@@ -107,7 +121,7 @@ struct DayEntry: TimelineEntry {
             WidgetDayItem(id: "5", kind: "task", title: "Review the draft", start: m + 140, end: m + 200, done: false, color: nil),
             WidgetDayItem(id: "6", kind: "habit", title: "Walk", start: m + 210, end: m + 240, done: false, color: "#64D2FF"),
         ]
-        return DayEntry(date: .now, data: WidgetDayData(version: 1, day: widgetDayKey(), wake: 420, sleep: 1380, items: items),
+        return DayEntry(date: .now, data: WidgetDayData(version: 1, day: widgetDayKey(), wake: 420, sleep: 1380, items: items, next: nil),
                         accent: Habyss.accent(from: nil, to: nil))
     }
 }
@@ -134,6 +148,7 @@ struct DayProvider: TimelineProvider {
         let later = moments.map { start.addingTimeInterval(TimeInterval($0 * 60)) }.filter { $0 > now }.sorted().prefix(150)
         let entries = [DayEntry(date: now, data: data, accent: accent)] + later.map { DayEntry(date: $0, data: data, accent: accent) }
         let midnight = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? now.addingTimeInterval(3600)
+        // Just after midnight it reads again, and finds tomorrow's plan if the app has not run.
         completion(Timeline(entries: entries, policy: .after(midnight.addingTimeInterval(60))))
     }
     private func entry(at date: Date) -> DayEntry { DayEntry(date: date, data: WidgetDayData.read(), accent: accentColor()) }
@@ -332,11 +347,12 @@ struct DayWidgetView: View {
             .padding(20)
         default: // Large
             VStack(alignment: .leading, spacing: 14) {
-                NowBlock(entry: entry, titleSize: 22, figureSize: 34).frame(height: 132)
-                if showsNext && !upcoming(5).isEmpty {
+                NowBlock(entry: entry, titleSize: 20, figureSize: 30).frame(height: 118)
+                if showsNext && !upcoming(7).isEmpty {
                     Rectangle().fill(Habyss.line).frame(height: 1)
                     UpNextLabel()
-                    UpNextList(entry: entry, items: upcoming(5), rail: true, spacing: 12)
+                    // The rest of the day: seven rows, the most this size holds readably.
+                    UpNextList(entry: entry, items: upcoming(7), rail: true, compact: true, spacing: 9)
                 }
                 Spacer(minLength: 0)
             }

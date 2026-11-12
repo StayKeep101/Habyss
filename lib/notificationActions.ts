@@ -127,6 +127,27 @@ export const CATEGORIES: { id: string; buttons: Button[] }[] = [
     ] },
 ];
 
+/**
+ * Adding without opening Habyss: the Quick Add widget's tiles post one of
+ * these (ios/Widget/HabyssWidget.swift, AskToAddIntent); press on it, type,
+ * and it is added (lib/shortcutsInbox.ts addQuick). The kind is the category.
+ */
+export const QUICK_ADD_CATEGORIES = {
+    HABYSS_ADD_TASK: { kind: 'task', placeholder: 'Call the bank at 3pm' },
+    HABYSS_ADD_HABIT: { kind: 'habit', placeholder: 'Read 20 pages every night' },
+    HABYSS_ADD_GOAL: { kind: 'goal', placeholder: 'Read 12 books this year' },
+    HABYSS_ADD_THOUGHT: { kind: 'thought', placeholder: 'Whatever is on your mind' },
+    HABYSS_ADD_ANY: { kind: 'any', placeholder: 'Anything: tasks, habits, goals' },
+} as const;
+export const QUICK_ADD_ACTION = 'HABYSS_QUICK_ADD';
+for (const [id, { placeholder }] of Object.entries(QUICK_ADD_CATEGORIES)) {
+    CATEGORIES.push({ id, buttons: [{
+        identifier: QUICK_ADD_ACTION, buttonTitle: 'Type it',
+        textInput: { submitButtonTitle: 'Add', placeholder },
+        options: { opensAppToForeground: false },
+    }] });
+}
+
 /** The kinds of notification that are about one habit or task, and so take the buttons. */
 export const ITEM_KINDS = ['echo-alive', 'habit-reminder', 'task-reminder', 'day-guide', 'streak-guard'];
 

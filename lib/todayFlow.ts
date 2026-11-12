@@ -5,7 +5,9 @@ import { flowDay, flowInputs, type DayFlow } from './dayFlow';
  * Roadmap uses (habits, tasks, meals, calendar, waking day, what was already
  * placed), for things that run without the Roadmap open — the Live Activity.
  */
-export async function todayFlow(now = new Date()): Promise<DayFlow> {
+export async function todayFlow(now = new Date(), options: { ahead?: boolean } = {}): Promise<DayFlow> {
+    // `ahead`: a day still to come (tomorrow, for the Day widget after midnight), planned
+    // from waking as it stands, with no "now" and nothing remembered over today's layout.
     const { getHabits, getCompletions, getCompletionTimes, isHabitScheduledForDate } = require('./habitsSQLite') as typeof import('./habitsSQLite');
     const { getTasks, tasksForDay } = require('./tasks') as typeof import('./tasks');
     const { localDateKey } = require('./habitSchedule') as typeof import('./habitSchedule');
@@ -41,6 +43,7 @@ export async function todayFlow(now = new Date()): Promise<DayFlow> {
     const peak = await rememberedPeak();
     const { peekFocusActiveId } = require('@/context/FocusTimeContext') as typeof import('@/context/FocusTimeContext');
     const minute = now.getHours() * 60 + now.getMinutes();
+    if (options.ahead) return flowDay(items, null, { wake: minutesOf(day.wake), sleep: minutesOf(day.sleep), peak }, { auto });
     const flow = flowDay(items, minute, { wake: minutesOf(day.wake), sleep: minutesOf(day.sleep), peak, active: peekFocusActiveId() }, { auto });
     // Kept as shown, wherever today's line is worked out (the bar over the tab bar, notifications,
     // the Live Activity), not only on the Roadmap: without it, something just added had no place
