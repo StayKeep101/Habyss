@@ -49,6 +49,8 @@ import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
 import { DayHourglass, GLASS_HEIGHT } from '@/components/Home/DayHourglass';
 import { RankScene } from '@/components/Home/RankScene';
+import { MatteSurface } from '@/components/ui/MatteSurface';
+import { Radius } from '@/theme/designSystem';
 import { homeStyles } from '@/styles/screens/home.styles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { tint } from '@/theme/tokens';
@@ -594,7 +596,7 @@ const Home = () => {
   return (
     <VoidShell>
       {/* Transit-style: your rank's scene is the map, fixed behind everything (theme/rankScenes.ts). */}
-      <RankScene />
+      <RankScene scrollY={homeScrollY} scrollRest={-headerHeight} />
       <Animated.ScrollView
         onScroll={onHomeScroll}
         scrollEventThrottle={16}
@@ -616,7 +618,7 @@ const Home = () => {
         }
       >
           {/* The panel: everything of the day, rising over the scene; the hourglass on its edge. */}
-          <View style={[homeStyles.panel, { backgroundColor: colors.background, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, minHeight: screenHeight - headerHeight }]}>
+          <View style={[homeStyles.panel, { backgroundColor: colors.background, borderColor: colors.border, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, minHeight: screenHeight - headerHeight }]}>
             {/* Half over the scene, half on the panel; it fades as the panel nears the top rather than being cut off. Tap it for every hourglass. */}
             <Animated.View style={glassFade}>
               <DayHourglass marks={marks.total} />
@@ -681,7 +683,7 @@ const Home = () => {
               onPress={() => router.push('/(root)/profile')}
             />
             {/* Beside it, four stats as icon and figure: Shards, streak, focus today, missed. */}
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: s(6) }}>
+            <MatteSurface radius={Radius.pill} level="control" elevation="floating" style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: s(6), paddingHorizontal: s(14), paddingVertical: s(2) }}>
               <ShardsCard wallet={wallet} onPress={() => setShowWallet(true)} />
               {/* Measured by the first-run walkthrough ("Keep the streak"). */}
               <View ref={streakRef} collapsable={false} style={{ flexShrink: 1 }}>
@@ -694,7 +696,7 @@ const Home = () => {
               <View ref={missedRef} collapsable={false} style={{ flexShrink: 1 }}>
                 <MissedCard missed={missed} onPress={() => { lightFeedback(); setShowMissed(true); }} />
               </View>
-            </View>
+            </MatteSurface>
           </View>
 
       </View>

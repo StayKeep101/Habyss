@@ -8,7 +8,7 @@ export const homeStyles = StyleSheet.create({
     /** Dark at the very top, gone below the bar: the cards pass under it and fade. */
     barFade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: -24 },
     /** The panel rising over the scene, like Transit's list over its map. */
-    panel: { borderTopLeftRadius: Radius.sheet * 1.5, borderTopRightRadius: Radius.sheet * 1.5 },
+    panel: { borderTopLeftRadius: Radius.sheet * 1.5, borderTopRightRadius: Radius.sheet * 1.5, borderTopWidth: StyleSheet.hairlineWidth, borderLeftWidth: StyleSheet.hairlineWidth, borderRightWidth: StyleSheet.hairlineWidth },
     /** Home's sheets and moments, over the page. */
     overlays: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
 });

@@ -16,7 +16,8 @@ import { localDateKey } from '@/lib/habitSchedule';
 import { emit } from '@/lib/appEvents';
 import { glassDesign } from '@/theme/hourglassDesigns';
 import { CEREMONY, EASE, timingFor } from '@/theme/motion';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, Radius } from '@/theme/designSystem';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import { s } from '@/theme/scale';
 import { tint } from '@/theme/tokens';
 
@@ -151,9 +152,11 @@ export function DayHourglass({ marks }: { marks: number }) {
     return (
         // On the panel's top edge (Home): the glass half over the scene, half on the panel; the clocks on the panel beside it.
         <View style={styles.stage}>
-            <Text style={[styles.clock, { color: t.color.textMuted }]} accessibilityLabel={`${pastWords} of today gone`}>
-                {glass.resting === 'night' ? '—' : clockLabel(glass.past)}
-            </Text>
+            <MatteSurface radius={Radius.pill} level="control" style={styles.clockPill}>
+                <Text style={[styles.clock, { color: t.color.textMuted }]} accessibilityLabel={`${pastWords} of today gone`}>
+                    {glass.resting === 'night' ? '—' : clockLabel(glass.past)}
+                </Text>
+            </MatteSurface>
             <Pressable onPress={reveal} accessibilityRole="button" style={styles.glassBox}
                 accessibilityLabel={glass.resting === 'night' ? 'Your day has run out. See every hourglass' : `Your day: ${leftWords} left. See every hourglass`}>
                 <Animated.View style={[styles.flare, { backgroundColor: design.sand[0] }, flareStyle]} pointerEvents="none" />
@@ -163,9 +166,11 @@ export function DayHourglass({ marks }: { marks: number }) {
                     <Hourglass design={design} size={GLASS_HEIGHT} ran={ran} running={!flipping && glass.resting !== 'night'} />
                 </Animated.View>
             </Pressable>
-            <Text style={[styles.clock, { color: t.color.accent }]} accessibilityLabel={`${leftWords} left today`}>
-                {glass.resting === 'night' ? '—' : clockLabel(glass.left)}
-            </Text>
+            <MatteSurface radius={Radius.pill} level="control" style={styles.clockPill}>
+                <Text style={[styles.clock, { color: t.color.accentText }]} accessibilityLabel={`${leftWords} left today`}>
+                    {glass.resting === 'night' ? '—' : clockLabel(glass.left)}
+                </Text>
+            </MatteSurface>
         </View>
     );
 }
@@ -216,7 +221,9 @@ function Mote({ index, color, still }: { index: number; color: string; still: bo
 const styles = StyleSheet.create({
     // Half above the panel's edge: pulled up by half the glass; the clocks sit level with its lower half, on the panel.
     stage: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: -GLASS_HEIGHT / 2 },
-    clock: { width: s(100), marginBottom: GLASS_HEIGHT / 4 - s(10), textAlign: 'center', fontFamily: FontFamily.semibold, fontSize: s(17), fontVariant: ['tabular-nums'] },
+    // The same figures as the stats bar: Lexend bold, tabular, on the app's matte pill.
+    clockPill: { width: s(104), marginBottom: GLASS_HEIGHT / 4 - s(16), paddingVertical: s(7), alignItems: 'center' },
+    clock: { fontFamily: FontFamily.bold, fontSize: s(16), fontVariant: ['tabular-nums'] },
     glassBox: { alignItems: 'center', justifyContent: 'center' },
     flare: { position: 'absolute', width: GLASS_HEIGHT, height: GLASS_HEIGHT, borderRadius: GLASS_HEIGHT / 2 },
     ring: { position: 'absolute', width: GLASS_HEIGHT * 0.7, height: GLASS_HEIGHT * 0.7, borderRadius: GLASS_HEIGHT, borderWidth: 2 },
