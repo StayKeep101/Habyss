@@ -6,7 +6,7 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /** How soft the iris's edge is, as a share of its radius. */
-const FEATHER = 0.55;
+const FEATHER = 0.8;
 
 /**
  * Covers what is under it from the outside in, like an iris closing: a
@@ -52,6 +52,9 @@ export function IrisFade({ progress, from, to, width, height, color, follow = fa
                 <RadialGradient id={`iris${id}`} cx="50%" cy="50%" r="50%">
                     <Stop offset={0} stopColor={color} stopOpacity={0} />
                     <Stop offset={1 - FEATHER} stopColor={color} stopOpacity={0} />
+                    {/* A long, eased falloff rather than a straight ramp: no visible ring. */}
+                    <Stop offset={1 - FEATHER * 0.6} stopColor={color} stopOpacity={0.15} />
+                    <Stop offset={1 - FEATHER * 0.3} stopColor={color} stopOpacity={0.5} />
                     <Stop offset={1} stopColor={color} stopOpacity={1} />
                 </RadialGradient>
             </Defs>

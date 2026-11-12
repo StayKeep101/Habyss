@@ -249,13 +249,9 @@ export default function CommunityScreen() {
     // The race stays put, like a map under its panel, and closes from the outside in as the page is lifted over it.
     const stuckAt = Math.max(1, stage - insets.top);
     const raceStyle = useAnimatedStyle(() => ({
-        // The iris (below) closes it from the outside in; meanwhile it recedes a little, for depth,
-        // and the last of it dims as the iris shuts.
-        opacity: interpolate(lift.get(), [stuckAt * 0.45, stuckAt * 0.6], [1, 0], 'clamp'),
-        transform: [
-            { translateY: -0.25 * Math.max(0, lift.get()) },
-            { scale: interpolate(lift.get(), [0, stuckAt * 0.6], [1, 0.94], 'clamp') },
-        ],
+        // The graph never moves; the iris (below) closes over it from the outside in,
+        // and the last of it dims gently as the iris shuts.
+        opacity: interpolate(lift.get(), [stuckAt * 0.35, stuckAt * 0.6], [1, 0], 'clamp'),
     }));
     // The page's title bar, once it reaches the status bar, stays there as the header: a fixed copy
     // takes over at exactly that spot (and steps out of the way, untappable, until then).
