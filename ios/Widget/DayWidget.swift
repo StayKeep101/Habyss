@@ -87,6 +87,13 @@ struct DayEntry: TimelineEntry {
     }
     var left: Int { items.filter { !$0.done }.count }
     func color(_ item: WidgetDayItem) -> Color { Color(habyssHex: item.color) ?? accent }
+    /// How far through `item` this entry is, 0–1 (0 for an item with no length).
+    func progress(_ item: WidgetDayItem) -> Double {
+        let span = Double(item.end - item.start)
+        guard span > 0 else { return 0 }
+        let elapsed = date.timeIntervalSince(at(item.start)) / 60
+        return min(1, max(0, elapsed / span))
+    }
     func at(_ minutes: Int) -> Date { Calendar.current.startOfDay(for: date).addingTimeInterval(TimeInterval(minutes * 60)) }
 
     static var preview: DayEntry {
@@ -118,9 +125,13 @@ struct DayProvider: TimelineProvider {
         let now = Date()
         let start = Calendar.current.startOfDay(for: now)
         var moments = Set<Int>()
-        for item in data?.items ?? [] { moments.insert(item.start); moments.insert(item.end) }
+        for item in data?.items ?? [] {
+            moments.insert(item.start); moments.insert(item.end)
+            // Every 5 minutes inside it, so the bar of what is on now fills without the app.
+            if item.end > item.start + 5 { for minute in stride(from: item.start + 5, to: item.end, by: 5) { moments.insert(minute) } }
+        }
         if let data { moments.insert(data.sleep) }
-        let later = moments.map { start.addingTimeInterval(TimeInterval($0 * 60)) }.filter { $0 > now }.sorted().prefix(60)
+        let later = moments.map { start.addingTimeInterval(TimeInterval($0 * 60)) }.filter { $0 > now }.sorted().prefix(150)
         let entries = [DayEntry(date: now, data: data, accent: accent)] + later.map { DayEntry(date: $0, data: data, accent: accent) }
         let midnight = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? now.addingTimeInterval(3600)
         completion(Timeline(entries: entries, policy: .after(midnight.addingTimeInterval(60))))
@@ -166,7 +177,9 @@ private struct NowBlock: View {
                 Spacer(minLength: 6)
                 // Live without the app: counts down to its end (on now) or its start (next).
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    Text(timerInterval: Date()...entry.at(on ? item.end : item.start), countsDown: true)
+                    // Never a range that ends before it starts (a stale entry drawn late): the Live Activity's guard.
+                    let target = entry.at(on ? item.end : item.start)
+                    Text(timerInterval: min(entry.date, target)...target, countsDown: true)
                         .font(.system(size: figureSize, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(.white)
@@ -175,10 +188,11 @@ private struct NowBlock: View {
                     Text(on ? "left" : "to go").font(.system(size: figureSize * 0.62, weight: .regular)).foregroundStyle(Habyss.dim)
                 }
                 if on {
-                    ProgressView(timerInterval: entry.at(item.start)...entry.at(item.end), countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
-                        .progressViewStyle(.linear)
-                        .tint(entry.accent)
-                        .padding(.top, 6)
+                    // The widgets' own bar, not ProgressView(timerInterval:): the system's live bar
+                    // crashed the widget renderer (a SwiftUI layout assertion). The timeline adds an
+                    // entry every few minutes while something is on, so the bar still moves.
+                    WidgetBar(progress: entry.progress(item), from: entry.accent, to: entry.accent)
+                        .padding(.top, 8)
                 } else {
                     Text("at \(widgetClock(item.start))").font(WidgetType.meta).foregroundStyle(Habyss.dim).padding(.top, 4)
                 }
