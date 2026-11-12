@@ -36,6 +36,15 @@ describe('the day, told as it happens', () => {
         expect(told.find(moment => moment.title === 'Class')?.at).toBe(840);
         expect(told.some(moment => moment.title.includes('Back from'))).toBe(false);
     });
+    it('a heads-up before leaving, when the event asked for one', () => {
+        const trip = flowDay([
+            { id: 'event:class', kind: 'event', title: 'Class', start: 840, minutes: 90, done: false, fixed: true },
+            { id: 'event:class:to', kind: 'event', title: 'To Class', start: 820, minutes: 20, done: false, fixed: true, warn: 15 },
+        ], 600, day);
+        expect(guideMoments(trip, 600).find(moment => moment.kind === 'before'))
+            .toMatchObject({ at: 805, title: '🚶 Leave for Class in 15 min', body: 'Leave at 1:40 PM · starts at 2:00 PM' });
+        expect(guideMoments(trip, 810).some(moment => moment.kind === 'before')).toBe(false);
+    });
     it('reminders before it only when it asked for them', () => {
         expect(moments.some(moment => moment.kind === 'before')).toBe(false);
         const asked = guideMoments(flow, 590, { before: { Gym: [10, 30] } }).filter(moment => moment.kind === 'before');

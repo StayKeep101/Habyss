@@ -199,6 +199,29 @@ describe('travel either side of an event', () => {
         expect(isTravel('event:abc')).toBe(false);
         expect(isTravel('task:to')).toBe(false);
     });
+    const school = { id: 'ev1', title: 'School', start: 690, minutes: 80 };
+    it('puts the trip there and back on the line, fixed, and plans nothing in them', () => {
+        const travel = { school: { before: 60, after: 45 } };
+        const items = flowInputs({ habits: [], tasks: [], done: {}, day: '2026-11-12', events: [school], travel });
+        expect(items.find(i => i.id === 'event:ev1:to')).toMatchObject({ start: 630, minutes: 60, fixed: true });
+        expect(items.find(i => i.id === 'event:ev1:back')).toMatchObject({ start: 770, minutes: 45, fixed: true });
+        const flow = flowDay([...items, task('essay', { minutes: 120 })], 480, day);
+        const essay = flow.timeline.filter(row => row.id === 'essay');
+        for (const part of essay) expect(part.end <= 630 || part.start >= 815).toBe(true);
+    });
+    it('set for this day only, wins over the one for its name, even when it is none', () => {
+        const travel = { school: { before: 60, after: 45 }, '#2026-11-12#ev1': { before: 0, after: 0 } };
+        const today = flowInputs({ habits: [], tasks: [], done: {}, day: '2026-11-12', events: [school], travel });
+        const tomorrow = flowInputs({ habits: [], tasks: [], done: {}, day: '2026-11-13', events: [school], travel });
+        expect(today.some(i => i.id.endsWith(':to'))).toBe(false);
+        expect(tomorrow.some(i => i.id.endsWith(':to'))).toBe(true);
+    });
+    it('the way back leaves when the event was ended early, and carries the heads-up on the way there', () => {
+        const travel = { school: { before: 30, after: 20, warn: 10 } };
+        const items = flowInputs({ habits: [], tasks: [], done: {}, day: '2026-11-12', events: [school], travel, ended: { 'event:ev1': 720 } });
+        expect(items.find(i => i.id === 'event:ev1:back')!.start).toBe(720);
+        expect(items.find(i => i.id === 'event:ev1:to')!.warn).toBe(10);
+    });
 });
 
 describe('free time', () => {

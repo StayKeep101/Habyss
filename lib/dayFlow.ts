@@ -2,6 +2,7 @@ import type { Habit } from './habitsSQLite';
 import type { Subtask, Task } from './tasks';
 import { habitMinutes, toMinutes } from './dayPlan';
 import { anchoredStart, anchorLabel, type AnchorBlock } from './habitAnchor';
+import { travelOf, type Travel } from './eventTravel';
 
 /**
  * The day as one line, built from these rules and nothing else
@@ -88,6 +89,8 @@ export interface FlowInput {
     anchoredTo?: string;
     /** Rule 5: rescheduled at this minute, by a swipe. */
     rescheduledAt?: number;
+    /** The trip to an event: a heads-up this many minutes before it is time to leave. */
+    warn?: number;
     /** Kept for older callers; the line no longer uses these, except `kept` (today: where it was last shown) and `planned`. */
     flex?: boolean;
     auto?: boolean;
@@ -478,8 +481,8 @@ export function flowInputs(input: {
     doneTimes?: Record<string, string>;
     meals?: { id: string; name: string; start: number; minutes: number }[];
     events?: { id: string; title: string; start: number; minutes: number; color?: string; icon?: string }[];
-    /** Travel to and from events, by event name (lib/eventTravel.ts). */
-    travel?: Record<string, { before: number; after: number }>;
+    /** Travel to and from events, by event name or for one event on the day (lib/eventTravel.ts). */
+    travel?: Record<string, Travel>;
     today?: string;
     /** Rule 5: when each habit or task was rescheduled today, in minutes from midnight (lib/reschedule.ts). */
     rescheduled?: Record<string, number>;
@@ -522,14 +525,16 @@ export function flowInputs(input: {
     for (const event of input.events ?? []) {
         items.push({ id: `event:${event.id}`, kind: 'event', title: event.title, start: event.start, minutes: event.minutes, icon: event.icon ?? 'calendar', color: event.color, fixed: true, ...ended(`event:${event.id}`) });
         // Getting there and back: fixed like the event, so nothing is planned in it.
-        const travel = input.travel?.[event.title.trim().toLowerCase().replace(/\s+/g, ' ')];
-        if (travel?.before) items.push({ id: `event:${event.id}:to`, kind: 'event', title: `To ${event.title}`, start: Math.max(0, event.start - travel.before), minutes: Math.min(travel.before, event.start), done: false, icon: 'car', color: event.color, fixed: true });
-        if (travel?.after) items.push({ id: `event:${event.id}:back`, kind: 'event', title: `Back from ${event.title}`, start: event.start + event.minutes, minutes: travel.after, done: false, icon: 'car', color: event.color, fixed: true });
+        const travel = travelOf(input.travel, event, input.day);
+        if (travel?.before && event.start > 0) items.push({ id: `event:${event.id}:to`, kind: 'event', title: `To ${event.title}`, start: Math.max(0, event.start - travel.before), minutes: Math.min(travel.before, event.start), icon: 'car', color: event.color, fixed: true, ...(travel.warn ? { warn: travel.warn } : null), ...ended(`event:${event.id}:to`) });
+        // The way back leaves when the event really ended: early, if it was ended early.
+        const out = input.ended?.[`event:${event.id}`] ?? event.start + event.minutes;
+        if (travel?.after) items.push({ id: `event:${event.id}:back`, kind: 'event', title: `Back from ${event.title}`, start: Math.min(out, event.start + event.minutes), minutes: travel.after, icon: 'car', color: event.color, fixed: true, ...ended(`event:${event.id}:back`) });
     }
     // What a habit can be held to today (lib/habitAnchor.ts): the events, with their travel, and the meals.
     const anchors: AnchorBlock[] = [
         ...(input.events ?? []).map(event => {
-            const travel = input.travel?.[event.title.trim().toLowerCase().replace(/\s+/g, ' ')];
+            const travel = travelOf(input.travel, event, input.day);
             return { title: event.title, start: event.start, minutes: event.minutes, before: travel?.before, after: travel?.after };
         }),
         ...(input.meals ?? []).map(meal => ({ title: meal.name, start: meal.start, minutes: meal.minutes })),

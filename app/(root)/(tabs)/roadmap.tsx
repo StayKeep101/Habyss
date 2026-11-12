@@ -1025,7 +1025,7 @@ const CalendarScreen = () => {
     const calendarEvents = useCalendarEvents(localDateKey(selectedDate));
     // Travel to and from events (tap an event to set it): kept free of work.
     const eventTravel = useEventTravel();
-    const [eventSheet, setEventSheet] = useState<{ title: string; start: number; end: number } | null>(null);
+    const [eventSheet, setEventSheet] = useState<{ id: string; title: string; start: number; end: number } | null>(null);
     // Held on the timeline: pin it at an exact time (components/Roadmap/PinSheet.tsx).
     const [pinning, setPinning] = useState<(FlowInput & { start: number }) | null>(null);
     // Your best hours: learnt hour by hour from energy answers and focus
@@ -1155,7 +1155,7 @@ const CalendarScreen = () => {
         if (item.kind === 'event') {
             const eventId = item.id.replace(/:(to|back)$/, '').replace(/^event:/, '');
             const event = calendarEvents.find(slot => slot.id === eventId);
-            if (event) setEventSheet({ title: event.title, start: event.start, end: event.start + event.minutes });
+            if (event) setEventSheet({ id: event.id, title: event.title, start: event.start, end: event.start + event.minutes });
             else openInCalendar(localDateKey(selectedDate), item.start ?? 0);
         }
         else if (item.kind === 'meal') router.push('/(root)/meals' as never);
@@ -1702,7 +1702,7 @@ const CalendarScreen = () => {
 
             <PinSheet item={pinning} onClose={() => setPinning(null)}
                 onPin={(item, minute) => void pinFlowItem(item, minute)} onUnpin={item => void pinFlowItem(item, null)} />
-            <EventSheet event={eventSheet} onClose={() => setEventSheet(null)}
+            <EventSheet event={eventSheet} day={localDateKey(selectedDate)} onClose={() => setEventSheet(null)}
                 onOpenCalendar={() => { if (eventSheet) openInCalendar(localDateKey(selectedDate), eventSheet.start); setEventSheet(null); }} />
         </VoidShell>
     );

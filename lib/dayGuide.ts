@@ -76,6 +76,12 @@ export function guideMoments(flow: DayFlow, now: number, options: GuideOptions =
             out.push({ id: `guide:leave:${item.id}:${item.start}`, at: item.start, kind: 'leave',
                 title: `🚶 Leave now for ${event}`, body: `Starts at ${clockLabel(item.end)}`,
                 ...(ended ? { done: { id: ended.id, kind: ended.kind as 'habit' | 'task' } } : null) });
+            // The heads-up asked for on the event (lib/eventTravel.ts): time to wrap up and get ready.
+            const early = item.warn ? item.start - item.warn : null;
+            if (early !== null && early > now) {
+                out.push({ id: `guide:before:${item.id}:${item.warn}:${item.start}`, at: early, kind: 'before',
+                    title: `🚶 Leave for ${event} in ${lengthLabel(item.warn!)}`, body: `Leave at ${clockLabel(item.start)} · starts at ${clockLabel(item.end)}` });
+            }
             continue;
         }
         out.push({
