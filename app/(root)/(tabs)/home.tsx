@@ -50,7 +50,7 @@ import { ShardsCard } from '@/components/Shards/ShardsCard';
 import { DayHourglass, GLASS_HEIGHT } from '@/components/Home/DayHourglass';
 import { RankScene } from '@/components/Home/RankScene';
 import { MatteSurface } from '@/components/ui/MatteSurface';
-import { Radius } from '@/theme/designSystem';
+import { Radius, Spacing } from '@/theme/designSystem';
 import { homeStyles } from '@/styles/screens/home.styles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { tint } from '@/theme/tokens';
@@ -87,12 +87,11 @@ const Home = () => {
   // thing in it), then measured; the cards begin under it.
   const insets = useSafeAreaInsets();
   const [measuredHeader, setHeaderHeight] = useState(0);
-  const headerHeight = measuredHeader || insets.top + topSpacing + s(64) + s(10);
+  const headerHeight = measuredHeader || insets.top + topSpacing + s(64) + Spacing.lg;
   // As the cards rise, the day's hourglass fades out instead of being cut off, and comes back.
   const homeScrollY = useSharedValue(0);
   const onHomeScroll = useAnimatedScrollHandler(event => { homeScrollY.set(event.contentOffset.y); });
   // How far the page has risen from rest (0 unscrolled); the panel's edge reaches the bar at SCENE_SHOWN.
-  const glassFadeFrom = headerHeight;
   // The panel starts this far down: the scene shows above it.
   const { height: screenHeight } = useWindowDimensions();
   // The panel's edge rests a third of the way down the screen (the day gets the other two thirds),
@@ -101,12 +100,12 @@ const Home = () => {
   // The hourglass and its clocks stay whole until the glass reaches the bar, then fade as it slides under.
   const glassReaches = Math.max(1, SCENE_SHOWN - GLASS_HEIGHT / 2 - s(8));
   const glassFade = useAnimatedStyle(() => ({
-    opacity: interpolate(homeScrollY.get() + glassFadeFrom, [glassReaches, glassReaches + GLASS_HEIGHT * 0.6], [1, 0], Extrapolation.CLAMP),
+    opacity: interpolate(homeScrollY.get(), [glassReaches, glassReaches + GLASS_HEIGHT * 0.6], [1, 0], Extrapolation.CLAMP),
   }));
   // The scene behind.
   const sceneFade = useAnimatedStyle(() => ({
     // Holds while you start scrolling; gone once the panel is up past the glass.
-    opacity: interpolate(homeScrollY.get() + glassFadeFrom, [glassReaches * 0.6, SCENE_SHOWN + GLASS_HEIGHT * 0.3], [1, 0], Extrapolation.CLAMP),
+    opacity: interpolate(homeScrollY.get(), [glassReaches * 0.6, SCENE_SHOWN + GLASS_HEIGHT * 0.3], [1, 0], Extrapolation.CLAMP),
   }));
   const { primary: accentColor } = useAccentGradient();
   const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
@@ -605,15 +604,14 @@ const Home = () => {
     <VoidShell>
       {/* Transit-style: your rank's scene is the map, fixed behind everything (components/Home/DuneScene.tsx). */}
       <Animated.View style={[homeStyles.scene, sceneFade]} pointerEvents="none">
-        <RankScene scrollY={homeScrollY} scrollRest={-headerHeight} />
+        <RankScene scrollY={homeScrollY} scrollRest={0} />
       </Animated.View>
       <Animated.ScrollView
         onScroll={onHomeScroll}
         scrollEventThrottle={16}
-        // The cards begin under the floating bar; on iOS the inset keeps pull-to-refresh below it too.
-        contentInset={{ top: headerHeight }}
-        contentOffset={{ x: 0, y: -headerHeight }}
-        scrollIndicatorInsets={{ top: headerHeight }}
+        // The page stops at the bar's edge: nothing scrolls under your picture and the stats,
+        // so Echo's line can never run into them. The bar's fade softens the cut.
+        style={{ marginTop: headerHeight }}
         automaticallyAdjustContentInsets={false}
         contentContainerStyle={{ paddingTop: SCENE_SHOWN }}
         showsVerticalScrollIndicator={false}
@@ -623,7 +621,6 @@ const Home = () => {
             onRefresh={onRefresh}
             tintColor={accentColor}
             colors={[accentColor]}
-            progressViewOffset={headerHeight}
           />
         }
       >
@@ -689,7 +686,7 @@ const Home = () => {
           {/* Header Row
               Your picture with your Marks (XP) as its ring, and your Shards (the
               currency) beside it as a holding: who you are, and what you have. */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(12), paddingTop: topSpacing, paddingBottom: s(10), paddingHorizontal: horizontalPadding }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(12), paddingTop: topSpacing, paddingBottom: Spacing.lg, paddingHorizontal: horizontalPadding }}>
             {/* The ring is today: empty at nothing done, closed and green
                 when the day is kept. */}
             <ProgressAvatar
