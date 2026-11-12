@@ -595,7 +595,7 @@ const Home = () => {
 
   return (
     <VoidShell>
-      {/* Transit-style: your rank's scene is the map, fixed behind everything (theme/rankScenes.ts). */}
+      {/* Transit-style: your rank's scene is the map, fixed behind everything (components/Home/DuneScene.tsx). */}
       <RankScene scrollY={homeScrollY} scrollRest={-headerHeight} />
       <Animated.ScrollView
         onScroll={onHomeScroll}
