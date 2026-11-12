@@ -5,6 +5,7 @@ import Animated, {
     Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import { Hourglass } from './Hourglass';
+import { RankScene } from './RankScene';
 import { AppIcon, IconButton, RankGem, Text } from '@/components/ui';
 import { on, type AppEvents } from '@/lib/appEvents';
 import { RANKS } from '@/lib/marks';
@@ -67,6 +68,8 @@ export function GlassCarousel() {
 
     return (
         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: t.color.background }, layerStyle]}>
+            {/* The scene of the hourglass in the middle, as Opal sets each gem in its cave. */}
+            <RankScene rank={RANKS[index].name} fill />
             <View style={[styles.top, { paddingTop: insets.top + t.space.sm, paddingHorizontal: t.space.lg }]}>
                 <View style={styles.flex}>
                     <Text variant="title" accessibilityRole="header">Hourglasses</Text>

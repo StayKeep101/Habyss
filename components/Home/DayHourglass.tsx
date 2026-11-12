@@ -149,7 +149,6 @@ export function DayHourglass({ marks }: { marks: number }) {
     const leftWords = `${Math.floor(glass.left / 3600)} hours ${Math.floor((glass.left % 3600) / 60)} minutes`;
 
     return (
-        // On the sheet's top edge (Home): the glass half above it, the clocks on the sheet either side.
         <View style={styles.stage}>
             <Text style={[styles.clock, { color: t.color.textMuted }]} accessibilityLabel={`${pastWords} of today gone`}>
                 {glass.resting === 'night' ? '—' : clockLabel(glass.past)}
@@ -216,11 +215,11 @@ function Mote({ index, color, still }: { index: number; color: string; still: bo
 
 
 const styles = StyleSheet.create({
-    // The glass rides half above the sheet's edge; the clocks sit on the sheet beside its lower half.
-    stage: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: -GLASS_HEIGHT / 2 },
-    clock: { width: s(96), marginTop: GLASS_HEIGHT / 2 + s(14), textAlign: 'center', fontFamily: FontFamily.semibold, fontSize: s(17), fontVariant: ['tabular-nums'] },
+    // Standing in the scene: the glass in the middle, a clock either side of it.
+    stage: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: s(36), paddingBottom: s(28) },
+    clock: { width: s(96), textAlign: 'center', fontFamily: FontFamily.semibold, fontSize: s(17), fontVariant: ['tabular-nums'] },
     glassBox: { alignItems: 'center', justifyContent: 'center' },
     flare: { position: 'absolute', width: GLASS_HEIGHT, height: GLASS_HEIGHT, borderRadius: GLASS_HEIGHT / 2 },
     ring: { position: 'absolute', width: GLASS_HEIGHT * 0.7, height: GLASS_HEIGHT * 0.7, borderRadius: GLASS_HEIGHT, borderWidth: 2 },
-    mote: { position: 'absolute', bottom: s(10), width: 3, height: 3, borderRadius: 1.5 },
+    mote: { position: 'absolute', bottom: '50%', width: 3, height: 3, borderRadius: 1.5 },
 });
