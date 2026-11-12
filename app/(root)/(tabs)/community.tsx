@@ -65,6 +65,7 @@ import { useCoachTarget } from '@/hooks/useCoachTarget';
 import { OFFLINE_LINES, useOnline } from '@/lib/connectivity';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { styles } from '@/styles/screens/tabs/community.styles';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const PAGE = 15;
 
@@ -595,8 +596,9 @@ export default function CommunityScreen() {
                             if (face) openRacer(face.id, face.me);
                         }} />
                 </GestureDetector>
-                <View style={[styles.sheetTop, { backgroundColor: colors.background, borderColor: t.color.border, paddingHorizontal: horizontalPadding }]}>
-                    <View style={[styles.grabber, { backgroundColor: t.color.border }]} />
+                {/* The same page continuing: the race falls into it, no edge, no grabber; the title is a section heading. */}
+                <LinearGradient pointerEvents="none" colors={['transparent', colors.background]} style={styles.blend} />
+                <View style={[styles.sheetTop, { backgroundColor: colors.background, paddingHorizontal: horizontalPadding }]}>
                     <SectionTitle first right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
                 </View>
                 <View style={{ backgroundColor: colors.background, minHeight: screen.height - insets.top, paddingBottom: tabBarClearance }}>
@@ -610,9 +612,10 @@ export default function CommunityScreen() {
                 </View>
             </Animated.ScrollView>
             {/* The title bar, stuck under the status bar once the page reaches it: Accountability or Challenges, and the dots. */}
-            <Animated.View style={[styles.sticky, { paddingTop: insets.top, backgroundColor: colors.background, borderBottomColor: t.color.border }, stickyStyle]}>
-                <View style={[styles.sheetTop, styles.stuckTop, { paddingHorizontal: horizontalPadding }]}>
-                    <View style={[styles.grabber, styles.hidden]} />
+            <Animated.View style={[styles.sticky, { paddingTop: insets.top, backgroundColor: colors.background }, stickyStyle]}>
+                {/* No line under it: a soft fade, so the cards pass beneath the heading of the same page. */}
+                <LinearGradient pointerEvents="none" colors={[colors.background, 'transparent']} style={styles.stickyFade} />
+                <View style={[styles.sheetTop, { paddingHorizontal: horizontalPadding }]}>
                     <SectionTitle first right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
                 </View>
             </Animated.View>

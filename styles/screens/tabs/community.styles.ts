@@ -16,18 +16,13 @@ export const styles = StyleSheet.create({
     actions: { position: 'absolute', zIndex: 10 },
     /** Today and Challenges side by side, each as tall as itself. */
     pages: { flexDirection: 'row', alignItems: 'flex-start' },
-    /** The top of a page resting over the race: rounded, with a grabber. */
-    sheetTop: {
-        borderTopLeftRadius: Radius.sheet, borderTopRightRadius: Radius.sheet, borderTopWidth: StyleSheet.hairlineWidth,
-        paddingTop: Spacing.sm,
-    },
-    /** The title bar stuck at the top once the page reaches the status bar. */
-    sticky: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 11, borderBottomWidth: StyleSheet.hairlineWidth },
-    /** Square once stuck, no edge of its own: it is the header now. */
-    stuckTop: { borderTopWidth: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 },
-    /** Keeps its room so the title sits exactly where the page's own did. */
-    hidden: { opacity: 0 },
-    grabber: { alignSelf: 'center', width: Spacing.xxl + Spacing.md, height: Spacing.xs + 1, borderRadius: Radius.pill },
+    /** The page's section heading over the race: part of the same page, no edge of its own. */
+    sheetTop: { paddingTop: Spacing.sm },
+    /** The race falling into the page just above the heading, so there is no line between them. */
+    blend: { height: Spacing.section, marginTop: -Spacing.section },
+    /** The heading stuck at the top once the page reaches the status bar. */
+    sticky: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 11 },
+    stickyFade: { position: 'absolute', left: 0, right: 0, bottom: -Spacing.lg, height: Spacing.lg },
     /** Confetti over the feed when a perfect day is cheered. */
     cheer: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
     requests: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xs },
