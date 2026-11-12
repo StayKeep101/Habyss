@@ -11,6 +11,8 @@ export type CommunicationStyle = 'empathetic' | 'direct' | 'philosophical';
 interface AppSettings {
     hapticsEnabled: boolean;
     soundsEnabled: boolean;
+    /** Habyss's music on repeat while the app is open (lib/backgroundMusic.ts). */
+    musicEnabled: boolean;
     /** The timeline moves habits and tasks for you (lib/dayFlow.ts); off, everything stays at its time. */
     autoReschedule: boolean;
     notificationsEnabled: boolean;
@@ -27,6 +29,7 @@ interface AppSettingsContextType extends AppSettings {
     setHapticsEnabled: (enabled: boolean) => void;
     setAutoReschedule: (enabled: boolean) => void;
     setSoundsEnabled: (enabled: boolean) => void;
+    setMusicEnabled: (enabled: boolean) => void;
     setNotificationsEnabled: (enabled: boolean) => Promise<void>;
     setAIPersonality: (personality: PersonalityModeId) => void;
     setCardSize: (size: RoadMapCardSize) => void;
@@ -42,6 +45,7 @@ interface AppSettingsContextType extends AppSettings {
 const defaultSettings: AppSettings = {
     hapticsEnabled: true,
     soundsEnabled: true,
+    musicEnabled: true,
     autoReschedule: true,
     notificationsEnabled: true,
     aiPersonality: 'friendly',
@@ -131,6 +135,10 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
         void commit({ soundsEnabled: enabled });
     };
 
+    const setMusicEnabled = (enabled: boolean) => {
+        void commit({ musicEnabled: enabled });
+    };
+
     const setNotificationsEnabled = async (enabled: boolean) => {
         await commit({ notificationsEnabled: enabled })
             .then(() => require('@/lib/notificationService').NotificationService.refreshReminders())
@@ -189,6 +197,7 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
                 setHapticsEnabled,
                 setAutoReschedule,
                 setSoundsEnabled,
+                setMusicEnabled,
                 setNotificationsEnabled,
                 setAIPersonality,
                 setCardSize,

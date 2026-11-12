@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AudioPlayer } from 'expo-audio';
+import { setFocusSoundPlaying } from './backgroundMusic';
 
 /**
  * Sounds to focus to, chosen from the focus page: made for Habyss (seamless
@@ -56,7 +57,9 @@ export async function playFocusSound(sound: FocusSound, on: boolean): Promise<vo
     const expo = audio();
     if (!expo) return;
     try {
-        if (!on || sound === 'off') { player?.pause(); return; }
+        if (!on || sound === 'off') { player?.pause(); setFocusSoundPlaying(false); return; }
+        // The music steps aside while the sound you chose plays (lib/backgroundMusic.ts).
+        setFocusSoundPlaying(true);
         if (playing !== sound || !player) {
             player?.remove();
             // Plays with the ringer switch off too: you chose to hear it.
@@ -74,4 +77,5 @@ export function stopFocusSound(): void {
     try { player?.pause(); player?.remove(); } catch { /* gone already */ }
     player = null;
     playing = 'off';
+    setFocusSoundPlaying(false);
 }

@@ -155,7 +155,7 @@ export default function ProfileScreen() {
                     </SettingsGroup>
 
                     <SettingsGroup title="App">
-                        <SettingsRow icon="color-palette" color="#0A84FF" label="Appearance" keywords="theme dark light accent sound vibration" onPress={() => router.push('/(root)/appearance')} />
+                        <SettingsRow icon="color-palette" color="#0A84FF" label="Appearance" keywords="theme dark light accent sound music vibration" onPress={() => router.push('/(root)/appearance')} />
                         <SettingsRow icon="add-circle" color="#0A84FF" label="Plus button" keywords="+ create menu shortcut mood energy bet hold say voice speak" onPress={() => router.push('/(root)/plus-button' as never)} />
                         {hasAnyIntegration() ? (
                             <SettingsRow icon="extension-puzzle" color="#0A84FF" label="Connected apps" onPress={() => router.push('/(root)/integrations')} />

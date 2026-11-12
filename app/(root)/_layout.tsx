@@ -4,6 +4,7 @@ import { Dimensions } from 'react-native';
 import { DemonEdge } from '@/components/ui/DemonEdge';
 import { SleepCover } from '@/components/Sleep/SleepCover';
 import { useTaskPressure } from '@/hooks/useTaskPressure';
+import { useBackgroundMusic } from '@/hooks/useBackgroundMusic';
 
 /**
  * How tall the habit sheet opens: room for the same things on every phone
@@ -34,6 +35,9 @@ export default function RootLayout() {
     }
     initDB();
   }, []);
+
+  // Habyss's music, while the app is open and Music is on.
+  useBackgroundMusic();
 
   const pressure = useTaskPressure();
   const demon = pressure.level === 4 && pressure.demonAllowed;
