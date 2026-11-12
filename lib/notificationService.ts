@@ -1,5 +1,5 @@
 import { DONE_CATEGORY, HANDOVER_CATEGORY } from './notificationActions';
-import { DEFAULT_PREFS, getNotificationPrefs } from './notificationPrefs';
+import { DEFAULT_PREFS, getNotificationPrefs, setNotificationPrefs } from './notificationPrefs';
 import { echoSound } from './echoSounds';
 import * as Notifications from 'expo-notifications';
 import {Platform} from 'react-native';
@@ -265,7 +265,7 @@ export class NotificationService {
         // next as one notification (its Done ticks the one that ended), time's up before a gap,
         // bedtime, and each habit's or task's own reminders before it.
         const prefs = await getNotificationPrefs().catch(() => DEFAULT_PREFS);
-        let alarmMoments: { at: number; title: string }[] = [];
+        let clearAlarms = false;
         if (allowed && prefs.dayGuide) {
           const { currentTodayFlow }: typeof import('./todayFlow') = require('./todayFlow');
           const { guideMoments }: typeof import('./dayGuide') = require('./dayGuide');
@@ -278,18 +278,17 @@ export class NotificationService {
             const [wh, wm] = dayWindow.wake.split(':').map(Number);
             const sleep = sh * 60 + sm + (sh * 60 + sm <= wh * 60 + wm ? 24 * 60 : 0);
             const before = await loadItemAlerts(habits, tasks);
-            // Leave now and Now ring as alarms where iOS has them (through Silent, and on the
-            // Watch), when chosen; then they are not notifications as well. A build without
-            // the alarm call keeps them as notifications.
+            // Never alarms: AlarmKit rings through Silent and cannot just vibrate. As notifications
+            // they follow the silent switch (a vibration on Silent) and tap the Watch.
+            // A phone an earlier version booked alarms on clears them, once.
             const alarmCall = !!(require('@/modules/habyss-live-activity') as typeof import('@/modules/habyss-live-activity')).default?.scheduleMomentAlarms;
-            const ringing = prefs.alarms && alarmCall && morningAlarmAvailable();
+            if (prefs.alarms && alarmCall && morningAlarmAvailable()) {
+              clearAlarms = true;
+              void setNotificationPrefs({ alarms: false });
+            }
             for (const moment of guideMoments(flow, now.getHours() * 60 + now.getMinutes(), { sleep, before })) {
               const date = new Date(midnight.getTime() + moment.at * 60000);
               if (isAsleep(date, dayWindow)) continue;
-              if (ringing && (moment.kind === 'now' || moment.kind === 'leave') && !moment.done) {
-                alarmMoments.push({ at: date.getTime(), title: moment.title });
-                continue;
-              }
               // Done ticks the one whose time just ended; a tap opens what is on now.
               const ticks = moment.done ? { [moment.done.kind === 'task' ? 'taskId' : 'habitId']: moment.done.id, scheduledDate: todayKey } : null;
               // Echo says it, when chosen (Settings → Notifications → Echo announces): start, time's up, leave.
@@ -305,7 +304,7 @@ export class NotificationService {
             }
           }
         }
-        void syncMomentAlarms(alarmMoments);
+        if (clearAlarms) void syncMomentAlarms([]);
         // The same words at the same minute are one notification, even when two
         // copies of a habit or task (a restore, a share) asked for it.
         const seen = new Set<string>();

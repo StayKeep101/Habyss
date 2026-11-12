@@ -24,7 +24,11 @@ export interface NotificationPrefs {
     friendRequests: boolean;
     /** Guided through the day: what is on now, what is next, meals and events (lib/dayGuide.ts). */
     dayGuide: boolean;
-    /** Leave now and Start now ring as alarms, through Silent and on the Watch (iOS 26+). */
+    /**
+     * Retired: Leave now and Start now once rang as AlarmKit alarms, which ring through
+     * Silent and cannot just vibrate. They are notifications now, which follow the silent
+     * switch. Kept only so a phone that had it on clears the alarms it booked, once.
+     */
     alarms: boolean;
     /** The day's notifications are said in Echo's voice (lib/echoSounds.ts), not the plain sound. */
     echoVoice: boolean;
@@ -36,7 +40,7 @@ export const DEFAULT_PREFS: NotificationPrefs = {
     reactions: true,
     friendRequests: true,
     dayGuide: true,
-    alarms: true,
+    alarms: false,
     echoVoice: true,
 };
 

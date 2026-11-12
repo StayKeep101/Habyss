@@ -16,7 +16,6 @@ import { useAccentGradient } from '@/context/AccentContext';
 import * as Notifs from 'expo-notifications';
 import { morningAlarmAvailable, syncMorningAlarm } from '@/lib/morningAlarm';
 import { PUSH_KINDS, pushOff, setPushKind } from '@/lib/pushPrefs';
-import HabyssLiveActivity from '@/modules/habyss-live-activity';
 import { NotificationService } from '@/lib/notificationService';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { cachedEchoConfig, DEFAULT_ECHO, getEchoConfig, updateEchoConfig, type EchoConfig } from '@/lib/echo';
@@ -112,10 +111,7 @@ const Notifications = () => {
     setOff(current => { const next = new Set(current); if (on) next.delete(id); else next.add(id); return next; });
     void setPushKind(id, on).catch(() => Alert.alert('Not saved', 'Could not reach Habyss. Check your connection and try again.'));
   };
-  // Leave now and Start now as alarms (iOS 26+): ring through Silent, buzz the Watch.
-  const [alarms, setAlarms] = useState(true);
-  const alarmsAvailable = morningAlarmAvailable() && !!HabyssLiveActivity?.scheduleMomentAlarms;
-  useEffect(() => { void getNotificationPrefs().then(prefs => { setDayGuide(prefs.dayGuide); setAlarms(prefs.alarms); setEchoVoice(prefs.echoVoice); }).catch(() => undefined); }, []);
+  useEffect(() => { void getNotificationPrefs().then(prefs => { setDayGuide(prefs.dayGuide); setEchoVoice(prefs.echoVoice); }).catch(() => undefined); }, []);
   // Echo, when the timeline moves something you did not get to in time.
 
 
@@ -152,11 +148,6 @@ const Notifications = () => {
             <SettingRow icon="mic" color={accentColor} label="Echo announces"
               value={echoVoice && dayGuide && notificationsEnabled} disabled={!notificationsEnabled || !dayGuide}
               onChange={v => { lightFeedback(); setEchoVoice(v); void setNotificationPrefs({ echoVoice: v }).then(() => NotificationService.refreshReminders()); }} />
-            {alarmsAvailable ? (
-              <SettingRow icon="watch" color={colors.error} label="Leave and start as alarms"
-                value={alarms && dayGuide && notificationsEnabled} disabled={!notificationsEnabled || !dayGuide}
-                onChange={v => { lightFeedback(); setAlarms(v); void setNotificationPrefs({ alarms: v }).then(() => NotificationService.refreshReminders()); }} />
-            ) : null}
             <SettingRow icon="alarm" color={colors.warning} label="Habit reminders"
               value={habitReminders && notificationsEnabled} disabled={!notificationsEnabled}
               onChange={v => toggleSetting('notif_habits', v, setHabitReminders)} />
