@@ -64,6 +64,14 @@ export const useHaptics = () => {
   /** The long one, for a goal reached: three slow taps. Never awaited by anything. */
   const resonance = async () => { taps(3, 150); };
   const successFeedback = () => taps(2, 90);
+  /**
+   * A wave rolling out and fading: five taps, the gaps widening, timed to the
+   * rings of the morning flip crossing the screen. The rarest rhythm there is.
+   */
+  const rippleFeedback = () => {
+    if (!hapticsEnabled) return;
+    [0, 140, 320, 540, 800].forEach(at => (at ? setTimeout(tap, at) : tap()));
+  };
   const errorFeedback = () => taps(3, 70);
 
   return {
@@ -74,6 +82,7 @@ export const useHaptics = () => {
     thud,
     resonance,
     successFeedback,
+    rippleFeedback,
     errorFeedback,
     selectionFeedback,
     softFeedback,

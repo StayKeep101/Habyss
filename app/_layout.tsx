@@ -36,6 +36,7 @@ import { DayCompleteCelebration } from '@/components/Celebrations/DayCompleteCel
 import { MilestoneCelebration } from '@/components/Celebrations/MilestoneCelebration';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { GlassReveal } from '@/components/Home/GlassReveal';
+import { GlassRipple } from '@/components/Home/GlassRipple';
 import { GoalSheet } from '@/components/Create/GoalSheet';
 import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
 import { FeedbackSheet } from '@/components/Common/FeedbackSheet';
@@ -482,6 +483,8 @@ function InnerLayout() {
         <FeedbackSheet />
         {/* The day's hourglass pulled apart onto the Roadmap, over every screen. */}
         <GlassReveal />
+        {/* The morning flip's rings, rolling out over every screen and the tab bar. */}
+        <GlassRipple />
         {/* The first-run tour, over every screen. */}
         <CoachLayer root />
         {/* Orbs flying to your Marks whenever something earns them. Last, so they fly over everything. */}

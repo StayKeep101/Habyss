@@ -48,7 +48,7 @@ const DRIFT = timingFor(CEREMONY.count * 4, Easing.inOut(Easing.sin));
  */
 export function DayHourglass() {
     const t = useTokens();
-    const { resonance, lightFeedback } = useHaptics();
+    const { rippleFeedback, lightFeedback } = useHaptics();
     const { rankShown } = useAccent();
     const design = glassDesign(rankShown);
     const reduced = useReducedMotion();
@@ -90,8 +90,12 @@ export function DayHourglass() {
     }, [day]);
 
     const landed = () => {
-        // The rarest rhythm in the app: three slow taps, as for a goal reached.
-        void resonance();
+        // Felt everywhere: rings roll out from the glass over the whole screen, and the
+        // ripple rhythm (five taps, widening) rolls through the phone with them.
+        rippleFeedback();
+        glassRef.current?.measureInWindow((x, y, width, height) => {
+            emit('glass_flipped', { x: x + width / 2, y: y + height / 2, color: design.sand[0] });
+        });
         flippingRef.current = false;
         setFlipping(false);
         ran.set(glassAt(new Date(), day).ran);
