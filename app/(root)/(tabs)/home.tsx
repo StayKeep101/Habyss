@@ -48,7 +48,6 @@ import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
 import { DayHourglass, GLASS_HEIGHT } from '@/components/Home/DayHourglass';
-import { RankScene } from '@/components/Home/RankScene';
 import { homeStyles } from '@/styles/screens/home.styles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { tint } from '@/theme/tokens';
@@ -589,8 +588,6 @@ const Home = () => {
 
   return (
     <VoidShell>
-      {/* Opal-style: your rank's scene fixed behind everything (theme/rankScenes.ts). */}
-      <RankScene />
       <Animated.ScrollView
         onScroll={onHomeScroll}
         scrollEventThrottle={16}

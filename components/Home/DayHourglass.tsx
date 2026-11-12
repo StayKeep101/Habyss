@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -16,12 +16,15 @@ import { localDateKey } from '@/lib/habitSchedule';
 import { emit } from '@/lib/appEvents';
 import { glassDesign } from '@/theme/hourglassDesigns';
 import { CEREMONY, EASE, timingFor } from '@/theme/motion';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, Radius } from '@/theme/designSystem';
+import { sceneFor } from '@/theme/rankScenes';
 import { s } from '@/theme/scale';
 import { tint } from '@/theme/tokens';
 
 /** The glass's height on Home, from the screen's width so every phone keeps the proportion. */
 export const GLASS_HEIGHT = s(128);
+/** The window onto your rank's scene; the glass stands on its bottom edge. */
+const WINDOW_HEIGHT = s(176);
 const FLIP_KEY = 'habyss_glass_flipped';
 
 // Built once, outside any worklet (a helper call inside one crashes natively).
@@ -52,6 +55,9 @@ export function DayHourglass({ marks }: { marks: number }) {
     const { rankShown } = useAccent();
     const design = glassDesign(rankShown);
     const reduced = useReducedMotion();
+    // The scenes are painted 3 : 4: shown whole across the window's width.
+    const { width: screenWidth } = useWindowDimensions();
+    const sceneHeight = screenWidth * (4 / 3);
 
     const [day, setDay] = useState<DayWindow>(() => cachedDayWindow() ?? DEFAULT_DAY);
     useEffect(() => { void getDayWindow().then(setDay).catch(() => undefined); }, []);
@@ -149,10 +155,23 @@ export function DayHourglass({ marks }: { marks: number }) {
     const leftWords = `${Math.floor(glass.left / 3600)} hours ${Math.floor((glass.left % 3600) / 60)} minutes`;
 
     return (
+        // A window onto your rank's scene, the clocks on it, the glass on its bottom edge: half on the scene, half on the page.
         <View style={styles.stage}>
-            <Text style={[styles.clock, { color: t.color.textMuted }]} accessibilityLabel={`${pastWords} of today gone`}>
-                {glass.resting === 'night' ? '—' : clockLabel(glass.past)}
-            </Text>
+            <View style={[styles.window, { borderColor: t.color.border }]}>
+                {/* The whole picture across the window's width, placed so its horizon sits a little above the middle. */}
+                <Image source={sceneFor(rankShown)} style={[styles.scene, { height: sceneHeight, top: WINDOW_HEIGHT * 0.42 - sceneHeight * 0.5 }]} resizeMode="cover" />
+                <DayGlassBackdrop />
+                {/* The window's lower part darkens, so the clocks read on it. */}
+                <LinearGradient pointerEvents="none" colors={['transparent', tint(t.color.background, 'border'), t.color.background]} locations={[0.35, 0.8, 1]} style={StyleSheet.absoluteFill} />
+                <View style={styles.clocks} pointerEvents="none">
+                    <Text style={[styles.clock, { color: t.color.textPrimary }]} accessibilityLabel={`${pastWords} of today gone`}>
+                        {glass.resting === 'night' ? '—' : clockLabel(glass.past)}
+                    </Text>
+                    <Text style={[styles.clock, { color: t.color.accent }]} accessibilityLabel={`${leftWords} left today`}>
+                        {glass.resting === 'night' ? '—' : clockLabel(glass.left)}
+                    </Text>
+                </View>
+            </View>
 
             <Pressable onPress={reveal} accessibilityRole="button" style={styles.glassBox}
                 accessibilityLabel={glass.resting === 'night' ? 'Your day has run out. See every hourglass' : `Your day: ${leftWords} left. See every hourglass`}>
@@ -163,10 +182,6 @@ export function DayHourglass({ marks }: { marks: number }) {
                     <Hourglass design={design} size={GLASS_HEIGHT} ran={ran} running={!flipping && glass.resting !== 'night'} />
                 </Animated.View>
             </Pressable>
-
-            <Text style={[styles.clock, { color: t.color.accent }]} accessibilityLabel={`${leftWords} left today`}>
-                {glass.resting === 'night' ? '—' : clockLabel(glass.left)}
-            </Text>
         </View>
     );
 }
@@ -215,11 +230,15 @@ function Mote({ index, color, still }: { index: number; color: string; still: bo
 
 
 const styles = StyleSheet.create({
-    // Standing in the scene: the glass in the middle, a clock either side of it.
-    stage: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: s(36), paddingBottom: s(28) },
-    clock: { width: s(96), textAlign: 'center', fontFamily: FontFamily.semibold, fontSize: s(17), fontVariant: ['tabular-nums'] },
-    glassBox: { alignItems: 'center', justifyContent: 'center' },
+    // The window, then the glass on its bottom edge: half inside, half hanging below onto the page.
+    stage: { alignItems: 'center', paddingBottom: GLASS_HEIGHT / 2 },
+    window: { alignSelf: 'stretch', height: WINDOW_HEIGHT, borderRadius: Radius.card, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+    scene: { position: 'absolute', left: 0, right: 0, width: '100%' },
+    // The clocks on the window's lower edge, either side of where the glass stands.
+    clocks: { position: 'absolute', left: 0, right: 0, bottom: s(14), flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: s(14) },
+    clock: { width: s(104), textAlign: 'center', fontFamily: FontFamily.semibold, fontSize: s(17), fontVariant: ['tabular-nums'] },
+    glassBox: { position: 'absolute', top: WINDOW_HEIGHT - GLASS_HEIGHT / 2, alignItems: 'center', justifyContent: 'center' },
     flare: { position: 'absolute', width: GLASS_HEIGHT, height: GLASS_HEIGHT, borderRadius: GLASS_HEIGHT / 2 },
     ring: { position: 'absolute', width: GLASS_HEIGHT * 0.7, height: GLASS_HEIGHT * 0.7, borderRadius: GLASS_HEIGHT, borderWidth: 2 },
-    mote: { position: 'absolute', bottom: '50%', width: 3, height: 3, borderRadius: 1.5 },
+    mote: { position: 'absolute', bottom: '30%', width: 3, height: 3, borderRadius: 1.5 },
 });
