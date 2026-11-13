@@ -1,8 +1,9 @@
 import React, { useEffect, useId, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
-import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming, Easing, type SharedValue } from 'react-native-reanimated';
+import Animated, { cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming, Easing, type SharedValue } from 'react-native-reanimated';
 import { useTheme } from '@/context/ThemeContext';
+import { useOnScreen } from '@/hooks/useOnScreen';
 import { useAccentGradient } from '@/context/AccentContext';
 import { Colors } from '@/theme/colors';
 import { surfaceFor } from '@/theme/designSystem';
@@ -61,10 +62,13 @@ export function DuneScene({ width, height, scrollY, scrollRest = 0, tintColor }:
     }), [colors.background, tone.fill, tone.top, accent]);
 
     const twinkle = useSharedValue(0.7);
+    // Only while Home is in front: a twinkle nobody sees still redraws the screen.
+    const onScreen = useOnScreen();
     useEffect(() => {
-        if (reduced) return;
+        if (reduced || !onScreen) return;
         twinkle.set(withRepeat(withTiming(1, TWINKLE), -1, true));
-    }, [twinkle, reduced]);
+        return () => cancelAnimation(twinkle);
+    }, [twinkle, reduced, onScreen]);
     const starsStyle = useAnimatedStyle(() => ({ opacity: twinkle.get() }));
 
     // Parallax: the sky barely moves, the near dunes most. Plain numbers in the worklets.

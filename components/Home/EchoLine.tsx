@@ -75,9 +75,11 @@ export function EchoLine({ text, style, onPress, onDone, mood = 0 }: {
                 if (index >= text.length) { if (timer) clearInterval(timer); doneRef.current?.(); }
             }, STEP);
         }, PRE_ROLL);
-        // The runes flicker while they wait for the wave.
+        // The runes flicker while they wait for the wave, and stop once it has passed:
+        // a finished line never redraws again.
         const flicker = setInterval(() => setBeat(value => value + 1), STEP * 3);
-        return () => { clearTimeout(start); if (timer) clearInterval(timer); clearInterval(flicker); };
+        const stopFlicker = setTimeout(() => clearInterval(flicker), PRE_ROLL + STEP * (text.length + 1));
+        return () => { clearTimeout(start); clearTimeout(stopFlicker); if (timer) clearInterval(timer); clearInterval(flicker); };
     }, [text, reduced]);
 
     const glow = mood >= 4 ? colors.error : mood >= 2 ? colors.warning : primary;

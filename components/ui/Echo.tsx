@@ -4,6 +4,7 @@ import Animated, {
     cancelAnimation, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withTiming,
 } from 'react-native-reanimated';
 import { useLowPower } from '@/lib/lowPower';
+import { useOnScreen } from '@/hooks/useOnScreen';
 import { useTokens } from '@/hooks/useTokens';
 import { s } from '@/theme/scale';
 import { EASE, timingFor } from '@/theme/motion';
@@ -75,14 +76,16 @@ export function Echo({ mood = 'idle', speaking, size = 'large', color }: { mood?
     }, [mood, look, near, bright, rise, burst, reduced, reach]);
 
     // Breathing: slow when quiet, quicker while speaking.
+    // Breathing only while it can be seen (hooks/useOnScreen.ts).
+    const onScreen = useOnScreen();
     useEffect(() => {
-        if (reduced) return;
+        if (reduced || !onScreen) return;
         const pace = speaking ? Math.min(look.breath, 1500) : look.breath;
         const half = timingFor(pace / 2, EASE.move);
         breath.set(0);
         breath.set(withRepeat(withSequence(withTiming(1, half), withTiming(0, half)), -1, false));
         return () => cancelAnimation(breath);
-    }, [speaking, look.breath, breath, reduced]);
+    }, [speaking, look.breath, breath, reduced, onScreen]);
 
     const body = useAnimatedStyle(() => ({
         opacity: presence.get(),
@@ -97,7 +100,7 @@ export function Echo({ mood = 'idle', speaking, size = 'large', color }: { mood?
     return (
         <Animated.View style={[styles.field, { width: field, height: field }, body]} pointerEvents="none"
             accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-            {size === 'large' && !reduced
+            {size === 'large' && !reduced && onScreen
                 ? Array.from({ length: RINGS }, (_, index) => (
                     <Ring key={`${look.breath}-${index}`} delay={(index * look.breath * 1.4) / RINGS} period={look.breath * 1.4} color={ink} disc={disc} />
                 ))

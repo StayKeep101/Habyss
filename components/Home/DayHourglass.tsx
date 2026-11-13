@@ -3,12 +3,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
-    Easing, interpolate, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue,
+    cancelAnimation, Easing, interpolate, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue,
     withDelay, withRepeat, withSequence, withTiming,
 } from 'react-native-reanimated';
 import { Hourglass } from './Hourglass';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useOnScreen } from '@/hooks/useOnScreen';
 import { useAccent } from '@/context/AccentContext';
 import { cachedDayWindow, getDayWindow, DEFAULT_DAY, type DayWindow } from '@/lib/echo';
 import { clockLabel, flipDue, glassAt, type GlassState } from '@/lib/dayGlass';
@@ -61,8 +62,10 @@ export function DayHourglass({ marks }: { marks: number }) {
     const [flipping, setFlipping] = useState(false);
     const flippingRef = useRef(false);
 
-    // The clocks tick each second; the sand follows (a pixel every few minutes: no animation needed).
+    // The clocks tick each second while Home is in front; the sand follows (a pixel every few minutes: no animation needed).
+    const onScreen = useOnScreen();
     useEffect(() => {
+        if (!onScreen) return;
         const tick = () => {
             const next = glassAt(new Date(), day);
             setGlass(next);
@@ -71,7 +74,7 @@ export function DayHourglass({ marks }: { marks: number }) {
         tick();
         const timer = setInterval(tick, 1000);
         return () => clearInterval(timer);
-    }, [day, ran]);
+    }, [day, ran, onScreen]);
 
     // The morning flip.
     const turn = useSharedValue(0);
@@ -194,6 +197,9 @@ export function DayGlassBackdrop() {
 
 /** Specks of light drifting up through the arch, slowly; more of them the higher your rank. */
 function Motes({ color, count, still }: { color: string; count: number; still: boolean }) {
+    // Drifting only while Home is in front (hooks/useOnScreen.ts).
+    const onScreen = useOnScreen();
+    still = still || !onScreen;
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
             {Array.from({ length: count }, (_, index) => <Mote key={index} index={index} color={color} still={still} />)}
@@ -206,6 +212,7 @@ function Mote({ index, color, still }: { index: number; color: string; still: bo
     useEffect(() => {
         if (still) return;
         rise.set(withDelay(index * 380, withRepeat(withTiming(1, DRIFT), -1, false)));
+        return () => cancelAnimation(rise);
     }, [rise, index, still]);
     // Where each speck starts, the same every time (worked out here, not in the worklet).
     const left = `${8 + ((index * 37) % 84)}%` as const;
