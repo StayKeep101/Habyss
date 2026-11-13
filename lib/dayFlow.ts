@@ -472,6 +472,23 @@ export function flowDay(items: FlowInput[], now: number | null, window: DayWindo
 /** Getting to or back from a calendar event (the travel either side of it, lib/eventTravel.ts). */
 export const isTravel = (id: string): boolean => /^event:.+:(to|back)$/.test(id);
 
+/** How far a meal may move to get out of a class's way, either side: two and a half hours. */
+export const MEAL_REACH = 150;
+/**
+ * Where a meal goes when classes are on: its own time when nothing covers it,
+ * else the nearest start (earlier or later, within MEAL_REACH) where the
+ * whole meal fits between them; null when there is none. Pure.
+ */
+export function mealAround(start: number, minutes: number, busy: { start: number; end: number }[]): number | null {
+    const clear = (at: number) => at >= 0 && at + minutes <= 24 * 60 && busy.every(block => at + minutes <= block.start || at >= block.end);
+    if (clear(start)) return start;
+    // The edges of what is busy are the only places a meal can start or end against.
+    const candidates = busy.flatMap(block => [block.end, block.start - minutes])
+        .filter(at => Math.abs(at - start) <= MEAL_REACH && clear(at))
+        .sort((a, b) => Math.abs(a - start) - Math.abs(b - start) || a - b);
+    return candidates[0] ?? null;
+}
+
 /** Today's habits, tasks, meals and calendar events as flow input. */
 export function flowInputs(input: {
     habits: Habit[]; tasks: Task[]; done: Record<string, boolean>;
@@ -518,10 +535,7 @@ export function flowInputs(input: {
     // never put back in the place it had (that time has gone).
     const unticked = (id: string, done: boolean) => !done && (!!input.wasDone?.[id] || !!input.again?.[id]);
     const keptOf = (id: string, done: boolean) => (done || unticked(id, done) ? undefined : input.kept?.[id]);
-    const items: FlowInput[] = (input.meals ?? []).map(meal => ({
-        id: `meal:${meal.id}`, kind: 'meal' as const, title: meal.name, start: meal.start, minutes: meal.minutes,
-        icon: 'restaurant', fixed: true, ...ended(`meal:${meal.id}`),
-    }));
+    const items: FlowInput[] = [];
     for (const event of input.events ?? []) {
         items.push({ id: `event:${event.id}`, kind: 'event', title: event.title, start: event.start, minutes: event.minutes, icon: event.icon ?? 'calendar', color: event.color, fixed: true, ...ended(`event:${event.id}`) });
         // Getting there and back: fixed like the event, so nothing is planned in it.
@@ -531,6 +545,17 @@ export function flowInputs(input: {
         const out = input.ended?.[`event:${event.id}`] ?? event.start + event.minutes;
         if (travel?.after) items.push({ id: `event:${event.id}:back`, kind: 'event', title: `Back from ${event.title}`, start: Math.min(out, event.start + event.minutes), minutes: travel.after, icon: 'car', color: event.color, fixed: true, ...ended(`event:${event.id}:back`) });
     }
+    // Meals go around classes: one a class (or the walk to it) covers moves to the nearest free
+    // time, and is left out for the day when there is none, instead of sitting on top of it.
+    const busy = items.map(item => ({ start: item.start ?? 0, end: (item.start ?? 0) + item.minutes }));
+    const meals: FlowInput[] = [];
+    for (const meal of input.meals ?? []) {
+        const finished = ended(`meal:${meal.id}`);
+        const start = finished.done ? meal.start : mealAround(meal.start, meal.minutes, busy);
+        if (start === null) continue;
+        meals.push({ id: `meal:${meal.id}`, kind: 'meal' as const, title: meal.name, start, minutes: meal.minutes, icon: 'restaurant', fixed: true, ...finished });
+    }
+    items.unshift(...meals);
     // What a habit can be held to today (lib/habitAnchor.ts): the events, with their travel, and the meals.
     const anchors: AnchorBlock[] = [
         ...(input.events ?? []).map(event => {

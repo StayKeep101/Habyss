@@ -103,6 +103,20 @@ export async function currentTodayFlow(now = new Date()): Promise<DayFlow | null
 }
 
 /**
+ * The next thing that cannot wait: a class or other calendar event, or the
+ * walk to one (lib/eventTravel.ts), still ahead today. A focus session ends
+ * there by itself (context/FocusTimeContext.tsx), so being deep in work never
+ * makes you miss it. Not the way back, which follows the class. Pure.
+ */
+export function hardStopAfter(flow: DayFlow | null, now: number): { at: number; title: string } | null {
+    const { isTravel } = require('./dayFlow') as typeof import('./dayFlow');
+    const next = flow?.timeline
+        .filter(item => item.kind === 'event' && !item.done && item.start > now && (!isTravel(item.id) || /:to$/.test(item.id)))
+        .sort((a, b) => a.start - b.start)[0];
+    return next ? { at: next.start, title: next.title } : null;
+}
+
+/**
  * Today's start and end for every open habit and task on the timeline: what
  * reminders, Echo's nudges and the Live Activity are timed from, so they follow
  * the auto-schedule rather than a time set once.

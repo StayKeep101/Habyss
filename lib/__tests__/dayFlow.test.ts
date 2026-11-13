@@ -1,4 +1,4 @@
-import { flowDay, flowInputs, lengthLabel, lineOrder, upNext, whenLabel, type FlowInput } from '../dayFlow';
+import { flowDay, flowInputs, mealAround, lengthLabel, lineOrder, upNext, whenLabel, type FlowInput } from '../dayFlow';
 
 const day = { wake: 480, sleep: 1410 };
 const meal = (id: string, start: number, minutes: number): FlowInput => ({ id, kind: 'meal', title: id, start, minutes, done: false, fixed: true });
@@ -403,5 +403,34 @@ describe('remembered places never overlap', () => {
                 expect(a.start < b.end && b.start < a.end).toBe(false);
             }
         }
+    });
+});
+
+describe('meals around classes', () => {
+    const lunch = { id: 'lunch', name: 'Lunch', start: 12 * 60, minutes: 30 };
+    const startOf = (input: Parameters<typeof flowInputs>[0]) => flowInputs(input).find(item => item.id === 'meal:lunch')?.start;
+    const base = { habits: [], tasks: [], done: {}, day: '2026-11-10', meals: [lunch] };
+
+    it('keeps lunch at its time when no class covers it', () => {
+        expect(mealAround(720, 30, [{ start: 600, end: 700 }])).toBe(720);
+    });
+    it('moves lunch to the nearest free time when a class covers it', () => {
+        // Class 11:30–12:50: lunch right after it, at 12:50.
+        expect(startOf({ ...base, events: [{ id: 'c', title: 'Class', start: 690, minutes: 80 }] })).toBe(770);
+        // Class 12:00–14:00 with a free hour before it: lunch just before, at 11:30.
+        expect(mealAround(720, 30, [{ start: 720, end: 840 }])).toBe(690);
+    });
+    it('counts the walk to and from class as busy too', () => {
+        const travel = { class: { before: 20, after: 20 } };
+        // Class 12:00–13:00, 20 min each way: 11:40–13:20 is taken; lunch at 11:10 (nearest).
+        expect(startOf({ ...base, travel, events: [{ id: 'c', title: 'Class', start: 720, minutes: 60 }] })).toBe(670);
+    });
+    it('leaves lunch out for the day when classes fill every gap around it', () => {
+        const events = [
+            { id: 'a', title: 'A', start: 540, minutes: 170 }, // 9:00–11:50
+            { id: 'b', title: 'B', start: 710, minutes: 30 }, // 11:50–12:20
+            { id: 'c', title: 'C', start: 740, minutes: 200 }, // 12:20–15:40
+        ];
+        expect(startOf({ ...base, events })).toBeUndefined();
     });
 });

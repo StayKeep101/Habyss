@@ -7,7 +7,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTokens } from '@/hooks/useTokens';
 import { useAccentGradient } from '@/context/AccentContext';
-import { isOnce, setTravel, travelOf, type Travel } from '@/lib/eventTravel';
+import { scopeOf, setTravel, travelOf, type Travel, type TravelScope } from '@/lib/eventTravel';
 import { useEventTravel } from '@/hooks/useEventTravel';
 import { useRetained } from '@/hooks/useRetained';
 
@@ -15,7 +15,8 @@ import { useRetained } from '@/hooks/useRetained';
 const TRIP = [0, 5, 10, 15, 20, 25, 30, 40, 45, 50, 60, 75, 90, 120, 150, 180, 240] as const;
 /** How long before leaving the heads-up comes. */
 const HEADS_UP = [0, 5, 10, 15, 20, 30, 45, 60] as const;
-type Scope = 'every' | 'once';
+type Scope = TravelScope;
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const length = (minutes: number) => minutes === 0 ? 'None'
     : minutes < 60 ? `${minutes} min`
@@ -30,7 +31,8 @@ const nearest = <T extends number>(values: readonly T[], minutes: number): T =>
  * and a heads-up before it is time to leave. School 11:30–12:50 with an hour
  * each way keeps 10:30–1:50 free, the timeline plans everything else around
  * it and a notification says when to leave. Set for every event with its name
- * (every School) or for this one on this day only (a trip somewhere new).
+ * (every School), for that name on this weekday (Tuesday's class is further
+ * away than Thursday's) or for this one on this day only (a trip somewhere new).
  * The event itself still opens in Calendar.
  */
 export function EventSheet({ event: asked, day, onClose, onOpenCalendar }: {
@@ -52,14 +54,14 @@ export function EventSheet({ event: asked, day, onClose, onOpenCalendar }: {
     useEffect(() => {
         if (!asked) return;
         const set = travelOf(all, asked, day) ?? { before: 0, after: 0 };
-        setScope(isOnce(all, asked.id, day) ? 'once' : 'every');
+        setScope(scopeOf(all, asked, day));
         setLocal({ before: nearest(TRIP, set.before), after: nearest(TRIP, set.after), warn: nearest(HEADS_UP, set.warn ?? 0) });
     }, [asked, day]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const save = (next: Travel, nextScope: Scope = scope) => {
         if (!event) return;
         setLocal(next);
-        void setTravel(event, next, nextScope === 'once' ? { day } : undefined);
+        void setTravel(event, next, { day, reach: nextScope });
     };
     const choose = (key: keyof Travel) => (value: number) => save({ ...travel, [key]: value });
     const chooseScope = (value: Scope) => { setScope(value); save(travel, value); };
@@ -67,7 +69,8 @@ export function EventSheet({ event: asked, day, onClose, onOpenCalendar }: {
     if (!event) return null;
     const leave = event.start - travel.before;
     const free = { from: leave, to: event.end + travel.after };
-    const who = scope === 'every' ? `every “${event.title}”` : 'this day only';
+    const weekday = WEEKDAYS[new Date(`${day}T12:00:00`).getDay()];
+    const who = scope === 'every' ? `every “${event.title}”` : scope === 'weekday' ? `every ${weekday}` : 'this day only';
     return (
         <VoidSheet visible={!!asked} onClose={onClose} title={event.title} caption={`${clock(event.start)} – ${clock(event.end)}`}
             footer={
@@ -78,7 +81,7 @@ export function EventSheet({ event: asked, day, onClose, onOpenCalendar }: {
             }>
             <View style={styles.body}>
                 <ChipPicker accent={primary} value={scope} onChange={chooseScope}
-                    options={[{ id: 'every', label: `Every “${event.title}”` }, { id: 'once', label: 'This day only' }]} />
+                    options={[{ id: 'every', label: `Every “${event.title}”` }, { id: 'weekday', label: `Every ${weekday}` }, { id: 'once', label: 'This day only' }]} />
                 <StepSlider label="Getting there" values={TRIP} value={nearest(TRIP, travel.before)} onChange={choose('before')} say={length} />
                 <StepSlider label="Getting back" values={TRIP} value={nearest(TRIP, travel.after)} onChange={choose('after')} say={length} />
                 {travel.before > 0 && (

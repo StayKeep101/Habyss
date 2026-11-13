@@ -564,6 +564,38 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return () => { if (timer) clearTimeout(timer); };
     }, [isRunning, isPaused, activeMode]);
 
+    // ============================================
+    // Hard stop: a class (or the walk to it) begins
+    // ============================================
+    // Deep in work, time goes fast: the session ends by itself when the next class or
+    // the walk to it starts (lib/todayFlow.ts hardStopAfter), with a buzz, its minutes
+    // kept; the Focus page moves on to what comes next, and the Leave now notification
+    // (lib/dayGuide.ts) says where. Read again whenever the session starts or resumes.
+    useEffect(() => {
+        if (!isRunning || isPaused || !activeHabitId) return;
+        let alive = true;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        void (async () => {
+            const { currentTodayFlow, hardStopAfter } = require('@/lib/todayFlow') as typeof import('@/lib/todayFlow');
+            const now = new Date();
+            const minute = now.getHours() * 60 + now.getMinutes();
+            const stop = hardStopAfter(await currentTodayFlow(now), minute);
+            if (!alive || !stop) return;
+            const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
+            const wait = midnight.getTime() + stop.at * 60000 - Date.now();
+            // Only within the day's reach of a timer (a session is never longer than this).
+            if (wait <= 0 || wait > 12 * 3600_000) return;
+            timer = setTimeout(() => {
+                const session = currentSessionRef.current;
+                if (!session) return;
+                Vibration.vibrate([0, 300, 150, 300]);
+                emit('focus_time_up', { id: session.habitId });
+                stopRef.current();
+            }, wait);
+        })();
+        return () => { alive = false; if (timer) clearTimeout(timer); };
+    }, [isRunning, isPaused, activeHabitId]);
+
     /**
      * The countdown reached zero. The day moves on: the session ends here, its
      * minutes kept and nothing ticked, whether or not the Focus page is open (it
