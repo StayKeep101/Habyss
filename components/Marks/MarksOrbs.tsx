@@ -66,7 +66,7 @@ export function MarksOrbs() {
 
     useEffect(() => onMarksBurst(burst => {
         // Shards leave a beat after the Marks they came with, so the two swarms read apart.
-        const delay = burst.kind === 'shards' ? 350 : 0;
+        const delay = 0;
         setTimeout(() => measureMarksTarget(found => {
             // The counter is on this screen: always to it. Scrolled out of
             // sight, they fly up past the top edge where it is.

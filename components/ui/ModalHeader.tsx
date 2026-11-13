@@ -100,7 +100,7 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
             </View>
             <View style={[styles.side, styles.sideRight, { minWidth: side }]}>
                 {right ? (
-                    <View onLayout={event => { const width = event.nativeEvent.layout.width; setSides(current => (current.right === width ? current : { ...current, right: width })); }}>
+                    <View style={styles.slotContent} onLayout={event => { const width = event.nativeEvent.layout.width; setSides(current => (current.right === width ? current : { ...current, right: width })); }}>
                         {right}
                     </View>
                 ) : null}
@@ -111,8 +111,11 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
 
 const styles = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing.md, minHeight: Control.hitTarget },
-    side: { minHeight: Control.hitTarget, justifyContent: 'center', alignItems: 'flex-start' },
-    sideRight: { alignItems: 'flex-end' },
+    // At most 40% of the width each, so a long label on the right (a habit's name)
+    // shortens with an ellipsis instead of running out of the window.
+    side: { minHeight: Control.hitTarget, justifyContent: 'center', alignItems: 'flex-start', maxWidth: '40%' },
+    sideRight: { alignItems: 'flex-end', maxWidth: '40%' },
+    slotContent: { maxWidth: '100%' },
     copySlot: { flex: 1, minHeight: Control.hitTarget, justifyContent: 'center' },
     lead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm + Spacing.xs },
     copy: { flexShrink: 1 },

@@ -37,7 +37,7 @@ export function ChoicePill({ label, icon, on, color, onPress, radius = 999, styl
     return (
         <Pressable hitSlop={6} accessibilityRole={role} accessibilityState={role === 'checkbox' ? { checked: on, disabled } : { selected: on, disabled }}
             accessibilityLabel={accessibilityLabel ?? label} accessibilityHint={accessibilityHint}
-            disabled={disabled} onPress={onPress} style={pressStyle}>
+            disabled={disabled} onPress={onPress} style={[styles.press, pressStyle]}>
             <MatteSurface radius={radius} level="control" elevation="none" tint={on ? color : undefined} style={[styles.pill, style]}>
                 {icon ? <AppIcon filled={on} name={icon} size={14} color={ink} /> : null}
                 <Text numberOfLines={lines} style={[styles.text, { color: ink }, textStyle]}>{label}</Text>
@@ -47,6 +47,8 @@ export function ChoicePill({ label, icon, on, color, onPress, radius = 999, styl
 }
 
 const styles = StyleSheet.create({
-    pill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 9 },
-    text: { fontSize: 13, fontFamily: FontFamily.medium },
+    press: { maxWidth: '100%' },
+    pill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 9, maxWidth: '100%' },
+    // Shrinks (with an ellipsis) before the pill outgrows where it sits.
+    text: { fontSize: 13, fontFamily: FontFamily.medium, flexShrink: 1 },
 });

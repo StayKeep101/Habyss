@@ -5,7 +5,7 @@ import { useFocusEffect } from 'expo-router';
 import { ShardIcon } from '@/components/ui/ShardIcon';
 import { HomeStatCard, STAT_FIGURE } from '@/components/Home/HomeStatCard';
 import { useHaptics } from '@/hooks/useHaptics';
-import { burstShards, recentRewardAction, onOrbLanded, registerShardsTarget } from '@/lib/marksOrbs';
+import { onOrbLanded, registerShardsTarget } from '@/lib/marksOrbs';
 import type { Wallet } from '@/hooks/useWallet';
 import { DURATION } from '@/theme/motion';
 
@@ -31,13 +31,7 @@ export function ShardsCard({ wallet, onPress }: { wallet: Wallet; onPress: () =>
     }, 'shards'), [bump]);
     const bumpStyle = useAnimatedStyle(() => ({ transform: [{ scale: bump.get() }] }));
 
-    // What doing just earned, sent as Shards: never on first read, never for a bet's movement.
-    const seen = useRef<number | null>(null);
-    useEffect(() => {
-        const before = seen.current;
-        seen.current = wallet.earned;
-        if (before !== null && recentRewardAction() && wallet.earned > before) burstShards(wallet.earned - before);
-    }, [wallet.earned]);
+    // What doing earns flies here as Shards from the tick itself (lib/marksOrbs.ts burstMarks).
 
     return (
         <HomeStatCard

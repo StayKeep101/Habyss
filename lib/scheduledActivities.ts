@@ -22,7 +22,9 @@ export function scheduledActivitiesCapability(): 'scheduled' | 'foreground' | 'u
  * not at the time it was first planned, and two cards never overlap: iOS does
  * not end a card by itself when its time is over, so there is only ever one.
  */
-export interface FlowSlot { key: string; kind: 'habit' | 'task' | 'meal' | 'event'; id: string; title: string; start: number; end: number; color?: string }
+export interface FlowSlot { key: string; kind: 'habit' | 'task' | 'meal' | 'event'; id: string; title: string; start: number; end: number; color?: string;
+    /** At its own exact time: never pulled forward. */
+    fixed?: boolean }
 
 /**
  * Everything still ahead on today's timeline, as times: open habits and tasks,
@@ -36,6 +38,7 @@ export function slotsFromFlow(flow: DayFlow, day: string): FlowSlot[] {
         .map(item => ({
             key: `${item.kind}:${item.id}${item.part ? `#${item.part.index}` : ''}:${day}`, kind: item.kind as FlowSlot['kind'], id: item.id, title: item.title,
             start: midnight + item.start * 60000, end: midnight + item.end * 60000, color: item.color,
+            ...(item.fixed ? { fixed: true } : null),
         }));
 }
 
@@ -53,12 +56,29 @@ export function activityPlan(slots: FlowSlot[], now: Date, _supportsScheduling: 
     const doable = (item: FlowSlot) => item.kind === 'habit' || item.kind === 'task';
     // What follows it: the card shows it once this one's time is up (and its
     // Done button moves straight to it), so it never sits on a finished thing.
-    const next = slots.filter(item => item.key !== slot.key && item.start >= slot.end - 1).sort((a, b) => a.start - b.start)[0];
+    const after = slots.filter(item => item.key !== slot.key && item.start >= slot.end - 1).sort((a, b) => a.start - b.start);
+    const next = doable(slot) ? pullForward(slot, after, doable) : after[0];
     return [{
         key: slot.key, title: slot.title, start: slot.start, end: slot.end, url: urlOf(slot), color: slot.color,
         itemId: doable(slot) ? `${slot.kind}:${slot.id}` : null,
         ...(next ? { nextTitle: next.title, nextStart: next.start, nextEnd: next.end, nextItemId: doable(next) ? `${next.kind}:${next.id}` : null, nextUrl: urlOf(next) } : null),
     }];
+}
+
+/**
+ * What to do once this one is done. When a class, a meal or a trip comes next
+ * with free time before it, the first habit or task that fits in that time
+ * (not one at its own exact time) is brought forward, starting as this one
+ * ends: ticking AI Engineering at 1:00 with class at 2:00 shows the next
+ * thing to work on, not an hour of free time. With nothing that fits, it is
+ * what comes next as planned.
+ */
+export function pullForward(slot: FlowSlot, after: FlowSlot[], doable: (item: FlowSlot) => boolean): FlowSlot | undefined {
+    const first = after[0];
+    if (!first || doable(first)) return first;
+    const room = first.start - slot.end;
+    const fit = after.find(item => doable(item) && !item.fixed && item.end - item.start <= room);
+    return fit ? { ...fit, start: slot.end, end: slot.end + (fit.end - fit.start) } : first;
 }
 
 /** The Roadmap's own timeline, the freshest truth, while it is from today. */

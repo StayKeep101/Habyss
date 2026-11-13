@@ -57,11 +57,15 @@ export function onOrbLanded(listener: () => void, kind: OrbKind = 'marks'): () =
 }
 export const orbLanded = (kind: OrbKind = 'marks') => landers[kind].forEach(listener => listener());
 
-/** Sends `marks` Marks' worth of orbs from the last touch (or `from`). */
+/**
+ * Something done, seen: what it earned flies out of the last touch (or `from`)
+ * as Shards, to the wallet. Shards are earned by the same table as Marks
+ * (lib/shards.ts), so the amount is the same; only Shards are shown flying.
+ */
 export function burstMarks(marks: number, from?: Point | null): Burst | null {
     if (marks <= 0) return null;
     rewardActionAt = Date.now();
-    const burst: Burst = { id: nextId++, kind: 'marks', count: orbCount(marks), marks, from: from ?? lastTouch ?? { x: 0, y: 0 } };
+    const burst: Burst = { id: nextId++, kind: 'shards', count: orbCount(marks), marks, from: from ?? lastTouch ?? { x: 0, y: 0 } };
     listeners.forEach(listener => listener(burst));
     return burst;
 }

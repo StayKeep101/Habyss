@@ -65,8 +65,9 @@ const SOUND_ASSETS: Partial<Record<SoundEffect, number>> = {
     // To give them a sound again, map `tap` and `select` here.
     //
     // A window appearing over the page: VoidSheet, PopupCard, a ⋯ menu opening.
-    // The same whoosh as entering Focus.
-    open: require('../assets/sounds/ui-transition.m4a'),
+    // The Focus whoosh, cut so its peak lands at 0.2 s, as the window settles
+    // (it opens in OVERLAY.in, 260 ms): the full whoosh peaks at 0.5 s, after it.
+    open: require('../assets/sounds/ui-open.m4a'),
     // A whole new place: entering Focus.
     transition: require('../assets/sounds/ui-transition.m4a'),
     // Done: a habit or task ticked (Home, Roadmap, habit and goal pages, Receipt).

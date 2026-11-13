@@ -88,6 +88,22 @@ describe('Live Activity planning', () => {
         expect(card).toMatchObject({ itemId: 'habit:run', nextTitle: 'Email', nextStart: at(9), nextEnd: at(9, 20), nextItemId: 'task:mail' });
         expect(activityPlan(slots, new Date(at(9, 5)), false)[0].nextTitle).toBeUndefined();
     });
+    it('brings the next habit or task forward into free time before a class, instead of showing free time', () => {
+        const day = [
+            { key: 'task:ai:d', kind: 'task' as const, id: 'ai', title: 'AI Engineering', start: at(12), end: at(13) },
+            { key: 'event:class:d', kind: 'event' as const, id: 'class', title: 'Class', start: at(14), end: at(15), fixed: true },
+            { key: 'habit:read:d', kind: 'habit' as const, id: 'read', title: 'Read', start: at(15), end: at(15, 30) },
+            { key: 'task:long:d', kind: 'task' as const, id: 'long', title: 'Essay', start: at(15, 30), end: at(17) },
+        ];
+        const [card] = activityPlan(day, new Date(at(12, 30)), true);
+        expect(card).toMatchObject({ nextTitle: 'Read', nextItemId: 'habit:read', nextStart: at(13), nextEnd: at(13, 30) });
+        // Nothing fits (the essay is longer than the hour): the class, as planned.
+        const tight = day.filter(item => item.id !== 'read');
+        expect(activityPlan(tight, new Date(at(12, 30)), true)[0].nextTitle).toBe('Class');
+        // Something at its own exact time stays where it is.
+        const exact = day.map(item => item.id === 'read' ? { ...item, fixed: true } : item).filter(item => item.id !== 'long');
+        expect(activityPlan(exact, new Date(at(12, 30)), true)[0].nextTitle).toBe('Class');
+    });
     it('comes from the timeline, auto-placed things, meals and events included', () => {
         const flow = flowDay([
             { id: 'meal:lunch', kind: 'meal', title: 'Lunch', start: 720, minutes: 30, done: false, fixed: true },

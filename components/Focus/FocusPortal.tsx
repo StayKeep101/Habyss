@@ -90,8 +90,8 @@ export function FocusPortal({ mode, arrive, onDone }: {
     };
 
     useEffect(() => {
-        // A whole new place, heard: into Focus and back out of it.
-        whoosh();
+        // A whole new place, heard: into Focus only. Leaving (the X) is quiet.
+        if (mode !== 'leave') whoosh();
         if (mode === 'leave') {
             if (reduced) { finish(); return; }
             lightFeedback();

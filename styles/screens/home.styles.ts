@@ -6,7 +6,8 @@ export const homeStyles = StyleSheet.create({
     /** The floating stats bar, fixed over everything. */
     bar: { position: 'absolute', top: 0, left: 0, right: 0 },
     /** Just under the plain dark bar: the cards fade into it as they rise, never cut. */
-    barFade: { position: 'absolute', bottom: -Spacing.section * 2, left: 0, right: 0, height: Spacing.section * 2 },
+    // Short, so the sky and your background still show just under the bar.
+    barFade: { position: 'absolute', bottom: -Spacing.bottom, left: 0, right: 0, height: Spacing.bottom },
     /** The panel rising over the scene, like Transit's list over its map. */
     panel: { borderTopLeftRadius: Radius.sheet * 1.5, borderTopRightRadius: Radius.sheet * 1.5, borderTopWidth: StyleSheet.hairlineWidth, borderLeftWidth: StyleSheet.hairlineWidth, borderRightWidth: StyleSheet.hairlineWidth },
     /** One stat's own matte pill in the floating bar. */

@@ -4,7 +4,7 @@ import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'rea
 import { textOn } from '@/theme/tokens';
 import { ListItem } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import { SectionTitle } from '@/components/ui/SectionTitle';
+import { ChipPicker } from '@/components/ui/ChipPicker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -48,8 +48,8 @@ const DROPPED = { label: 'Stopped', icon: 'close-circle-outline' };
  * Every habit, task or goal in one place (`?kind=`; habits when none).
  *
  * The roadmap shows what is on for a day; this shows everything there is, in
- * two clear parts: what is in use now on top, and below it, apart and dimmed,
- * what has stopped (archived, ended, done or dropped), each saying which.
+ * clear parts, chosen with the chips at the top: what is in use now, and apart
+ * from it what has stopped (archived, ended, done or dropped), each saying which.
  */
 export default function AllScreen() {
     const t = useTokens();
@@ -62,6 +62,8 @@ export default function AllScreen() {
     const [habits, setHabits] = useState<Habit[]>([]);
     const [goals, setGoals] = useState<Habit[]>([]);
     const [loading, setLoading] = useState(kind !== 'tasks');
+    // Which part is shown: what is in use (first) or what has stopped, chosen at the top.
+    const [shown, setShown] = useState(0);
 
     const load = useCallback(async () => {
         try {
@@ -93,8 +95,8 @@ export default function AllScreen() {
             const open = tasks.filter(task => task.status === 'open');
             return [
                 { title: 'To do', rows: open.map(task => row(task)), empty: 'Nothing to do.' },
-                { title: 'Done', stopped: true, rows: tasks.filter(task => task.status === 'done').map(task => row(task, DONE)) },
-                { title: 'Stopped', stopped: true, hint: 'Dropped before they were done.', rows: tasks.filter(task => task.status === 'cancelled').map(task => row(task, DROPPED)) },
+                { title: 'Done', stopped: true, empty: 'Nothing done yet.', rows: tasks.filter(task => task.status === 'done').map(task => row(task, DONE)) },
+                { title: 'Stopped', stopped: true, empty: 'Nothing stopped.', hint: 'Dropped before they were done.', rows: tasks.filter(task => task.status === 'cancelled').map(task => row(task, DROPPED)) },
             ];
         }
         const list = kind === 'goals' ? goals : habits;
@@ -122,12 +124,11 @@ export default function AllScreen() {
             {loading ? (
                 <ActivityIndicator color={accent} style={styles.loading} />
             ) : (
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                    {sections.filter(section => section.rows.length > 0 || section.empty).map((section, index) => (
+                <ScrollView key={shown} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                    <ChipPicker accent={accent} value={String(Math.min(shown, sections.length - 1))} onChange={value => setShown(Number(value))}
+                        options={sections.map((section, index) => ({ id: String(index), label: `${section.title} · ${section.rows.length}` }))} />
+                    {[sections[Math.min(shown, sections.length - 1)]].map(section => (
                         <View key={section.title} style={styles.section}>
-                            <SectionTitle first={index === 0} right={
-                                <Text style={[styles.count, { color: t.color.textMuted }]}>{section.rows.length}</Text>
-                            }>{section.title}</SectionTitle>
                             {section.hint && section.rows.length > 0 ? (
                                 <Text style={[styles.hint, { color: t.color.textMuted }]}>{section.hint}</Text>
                             ) : null}
