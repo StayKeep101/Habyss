@@ -60,13 +60,13 @@ const SOUND_ASSETS: Partial<Record<SoundEffect, number>> = {
     // Change a file here and every control of that kind changes with it.
     // The controls in components/ui play these through hooks/useUISound.ts.
     //
-    // Buttons: AppButton, IconButton, FocusPill, a ⋯ menu's button, a settings row that opens a page.
-    tap: require('../assets/sounds/ui-tap.m4a'),
-    // Choosing: Toggle, settings switches and choices, ChipPicker, ChoiceRow, ViewSwitcher,
-    // a menu's item, a ChoiceSheet's choice, the tab bar.
-    select: require('../assets/sounds/ui-select.m4a'),
-    // Appearing over the page: VoidSheet, PopupCard, a ⋯ menu opening.
-    open: require('../assets/sounds/ui-open.m4a'),
+    // Buttons and choices (taps, switches, chips, tabs, menu items) are silent:
+    // only a window opening, entering Focus and something done are heard.
+    // To give them a sound again, map `tap` and `select` here.
+    //
+    // A window appearing over the page: VoidSheet, PopupCard, a ⋯ menu opening.
+    // The same whoosh as entering Focus.
+    open: require('../assets/sounds/ui-transition.m4a'),
     // A whole new place: entering Focus.
     transition: require('../assets/sounds/ui-transition.m4a'),
     // Done: a habit or task ticked (Home, Roadmap, habit and goal pages, Receipt).
@@ -80,9 +80,6 @@ const SOUND_ASSETS: Partial<Record<SoundEffect, number>> = {
     streak: require('../assets/sounds/streak.m4a'),
     levelUp: require('../assets/sounds/levelUp.m4a'),
     notification: require('../assets/sounds/notification.m4a'),
-    swipe: require('../assets/sounds/swipe.m4a'),
-    // Older name for a choice; the same sound as `select`.
-    toggle: require('../assets/sounds/ui-select.m4a'),
     celebrate: require('../assets/sounds/celebrate.m4a'),
 };
 
@@ -91,9 +88,6 @@ const SOUND_ASSETS: Partial<Record<SoundEffect, number>> = {
  * under what you are doing; a thing done is heard.
  */
 export const SOUND_VOLUME: Partial<Record<SoundEffect, number>> = {
-    tap: 0.35,
-    select: 0.35,
-    toggle: 0.35,
     open: 0.4,
     transition: 0.5,
     complete: 0.6,

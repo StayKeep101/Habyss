@@ -4,8 +4,8 @@ import { useSounds } from '@/hooks/useSounds';
 
 /**
  * The app's moments, heard: finishing a task, a goal or the whole day, and
- * reaching the daily target. Taps, choices and sheets have their own quiet
- * sounds, played by the controls themselves (hooks/useUISound.ts).
+ * reaching the daily target. Windows opening and entering Focus whoosh from
+ * the controls themselves (hooks/useUISound.ts); taps and choices are silent.
  *
  * Habit ticks already play from the screen that ticks them (Home, Roadmap,
  * goal page), where the sound lands with the animation.
