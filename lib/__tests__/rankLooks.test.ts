@@ -26,9 +26,9 @@ describe('previewing a rank', () => {
             const look = require('../rankLook') as typeof import('../rankLook');
             look.setRankLook('Growing');
             look.previewRankLook('Master');
-            expect(look.currentRankLook()).toEqual({ rank: 'Growing', preview: 'Master' });
+            expect(look.currentRankLook()).toEqual({ rank: 'Growing', preview: 'Master', chosen: null });
             look.previewRankLook(null);
-            expect(look.currentRankLook()).toEqual({ rank: 'Growing', preview: null });
+            expect(look.currentRankLook()).toEqual({ rank: 'Growing', preview: null, chosen: null });
         });
     });
 });

@@ -96,7 +96,13 @@ export default function MobileLayout() {
   const [bootReady, setBootReady] = React.useState(false);
   // The launch animation, once per cold start.
   const [showIntro, setShowIntro] = React.useState(true);
-  const endIntro = React.useCallback(() => { setShowIntro(false); (require('@/lib/introGate') as typeof import('@/lib/introGate')).releaseIntro(); }, []);
+  const endIntro = React.useCallback(() => {
+    setShowIntro(false);
+    (require('@/lib/introGate') as typeof import('@/lib/introGate')).releaseIntro();
+    // The link Habyss was opened with (a widget's Add, say) opens now, as the launch screen lifts (lib/launchLink.ts).
+    const held = (require('@/lib/launchLink') as typeof import('@/lib/launchLink')).takeLaunchLink();
+    if (held) setTimeout(() => { try { (require('expo-router') as typeof import('expo-router')).router.push(held as never); } catch { /* a link that no longer exists */ } }, 50);
+  }, []);
   // Opened cold from a widget, a Live Activity or a link: the launch animation
   // still plays, over the page that was tapped, which is there when it lifts.
   // (Ending it early here made a first open from a widget skip the intro.)

@@ -3,6 +3,7 @@ import { Alert, ScrollView, Text } from 'react-native';
 import { router } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
+import { localDateKey } from '@/lib/habitSchedule';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { emit } from '@/lib/appEvents';
@@ -70,6 +71,12 @@ export default function DeveloperScreen() {
                     <SettingsRow icon="trophy" color="#FFD60A" label="Rank up: Beginner (league unlocked)" onPress={() => play(() => emit('preview_climb', { rank: 'Beginner' }))} />
                     <SettingsRow icon="trophy" color="#FF9F0A" label="Rank up: Master" onPress={() => play(() => emit('preview_climb', { rank: 'Master' }))} />
                     <SettingsRow icon="happy" color="#FF375F" label="Quick question: mood" onPress={() => play(() => emit('preview_question', { kind: 'mood' }))} />
+                    <SettingsRow icon="happy-outline" color="#FF375F" label="Mood check-in" onPress={() => play(() => emit('show_check_in', { kind: 'mood' }))} />
+                    <SettingsRow icon="battery-half" color="#30D158" label="Energy check-in" onPress={() => play(() => emit('show_check_in', { kind: 'energy' }))} />
+                    <SettingsRow icon="flame" color="#FF9F0A" label="Streak (day complete)" onPress={() => play(() => emit('day_complete', {
+                        tally: { done: 6, total: 6, habits: 4, tasks: 2 }, streak: 5,
+                        completedDates: Array.from({ length: 5 }, (_, back) => localDateKey(new Date(Date.now() - back * 86400000))),
+                    }))} />
                 </SettingsGroup>
                 <Text style={[styles.note, { color: colors.textTertiary }]}>These only play the moment; your Marks, rank and data stay as they are.</Text>
 

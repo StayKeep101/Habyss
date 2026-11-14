@@ -6,7 +6,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Hourglass } from './Hourglass';
 import { RankScene } from './RankScene';
-import { AppIcon, IconButton, RankGem, Text } from '@/components/ui';
+import { AppButton, AppIcon, IconButton, RankGem, Text } from '@/components/ui';
+import { useAccent } from '@/context/AccentContext';
+import { chooseRankLook } from '@/lib/rankLook';
 import { on, type AppEvents } from '@/lib/appEvents';
 import { RANKS } from '@/lib/marks';
 import { useTokens } from '@/hooks/useTokens';
@@ -26,12 +28,17 @@ const SLOT = 0.54;
  * the one in the middle large and lit, its neighbours smaller and fainter at
  * the sides. Each says whose it is: yours, reached, or locked with the Marks
  * still to go. Drawn over everything from the app's root.
+ *
+ * Picking one you have reached is how the app's colour changes, and the only
+ * way: the whole app, Home's hourglass and its scene take its look.
  */
 export function GlassCarousel() {
     const t = useTokens();
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
-    const { selectionFeedback, lightFeedback } = useHaptics();
+    const { selectionFeedback, lightFeedback, mediumFeedback } = useHaptics();
+    // The hourglass dressing the app now: the one you picked, else your rank's.
+    const { rankShown } = useAccent();
     const [open, setOpen] = useState<Open | null>(null);
     const [index, setIndex] = useState(0);
     const shown = useSharedValue(0);
@@ -108,6 +115,14 @@ export function GlassCarousel() {
                 <Text variant="body" tone="muted" align="center">
                     {index === yours ? 'Yours now' : reached ? 'Reached' : `${(current.min - open.marks).toLocaleString()} Marks to go`}
                 </Text>
+                {reached ? (
+                    <AppButton style={{ marginTop: t.space.md }}
+                        label={rankShown === current.name ? 'In use' : 'Use this hourglass'}
+                        variant={rankShown === current.name ? 'default' : 'primary'}
+                        icon={rankShown === current.name ? 'checkmark' : undefined}
+                        disabled={rankShown === current.name}
+                        onPress={() => { mediumFeedback(); chooseRankLook(index === yours ? null : current.name); }} />
+                ) : null}
                 <View style={[styles.dots, { gap: t.space.xs, marginTop: t.space.md }]}>
                     {RANKS.map((rank, position) => (
                         <View key={rank.name} style={[styles.dot, { backgroundColor: position === index ? t.color.textPrimary : t.color.border }]} />

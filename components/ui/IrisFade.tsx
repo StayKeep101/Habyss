@@ -9,6 +9,34 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const FEATHER = 0.8;
 
 /**
+ * How covered one point under an iris is, 0 (clear) to 1 (hidden): the same
+ * sums the iris draws with, so something laid over the view (a button on a
+ * graph) can fade exactly as the view under it does at that spot. A worklet.
+ */
+export function irisCoverAt(progress: number, from: number, to: number, width: number, height: number, follow: boolean, x: number, y: number): number {
+    'worklet';
+    const cx = width / 2;
+    const open = (Math.sqrt(cx * cx + (height / 2) * (height / 2)) * 1.35) / (1 - FEATHER * 0.4);
+    const t = Math.min(1, Math.max(0, (progress - from) / Math.max(1, to - from)));
+    const eased = t * t * (3 - 2 * t);
+    const r = open * (1 - eased);
+    if (r <= 0) return 1;
+    const shown = follow ? Math.max(0, height - Math.max(0, progress)) : height;
+    const u = Math.sqrt((x - cx) * (x - cx) + (y - shown / 2) * (y - shown / 2)) / r;
+    // The gradient's stops (below), as a line through them.
+    const stops = [[0, 0], [1 - FEATHER, 0], [1 - FEATHER * 0.6, 0.15], [1 - FEATHER * 0.3, 0.5], [1, 1]];
+    if (u >= 1) return 1;
+    for (let index = 1; index < stops.length; index++) {
+        const [u1, c1] = stops[index];
+        if (u <= u1) {
+            const [u0, c0] = stops[index - 1];
+            return c0 + ((u - u0) / Math.max(1e-6, u1 - u0)) * (c1 - c0);
+        }
+    }
+    return 1;
+}
+
+/**
  * Covers what is under it from the outside in, like an iris closing: a
  * soft-edged circle of `color` shrinks towards the middle as `progress` goes
  * from `from` to `to`, until nothing shows. Laid over a view (absolute), never

@@ -30,7 +30,7 @@ import { FocusingNow } from '@/components/Community/FocusingNow';
 import { useFocusSession } from '@/context/FocusTimeContext';
 import { hostOf, togetherId } from '@/lib/focusTogether';
 import { Colors } from '@/theme/colors';
-import { Radius } from '@/theme/designSystem';
+import { Control, Radius } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -65,7 +65,7 @@ import { useCoachTarget } from '@/hooks/useCoachTarget';
 import { OFFLINE_LINES, useOnline } from '@/lib/connectivity';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { styles } from '@/styles/screens/tabs/community.styles';
-import { IrisFade } from '@/components/ui/IrisFade';
+import { IrisFade, irisCoverAt } from '@/components/ui/IrisFade';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const PAGE = 15;
@@ -267,12 +267,21 @@ export default function CommunityScreen() {
         const stuck = lift.get() >= stuckAt;
         return { opacity: stuck ? 1 : 0, transform: [{ translateY: stuck ? 0 : -1000 }] };
     });
-    // The buttons belong to the race: they fade with it, on the same curve (raceStyle), never
-    // after it; then step out of the way so nothing hidden can be tapped. Plain numbers here.
+    // The buttons belong to the race: they fade exactly as the race does where they sit,
+    // under the same iris (components/ui/IrisFade.tsx irisCoverAt) and the same dimming
+    // (raceStyle), never on a clock of their own; then step out of the way so nothing
+    // hidden can be tapped. Plain numbers here.
     // One step below the status bar, level with the race's heading rather than pressed against the top.
     const actionsTop = insets.top + t.space.sm;
+    const actionsAt = useSharedValue({ x: screen.width - horizontalPadding - Control.hitTarget, y: actionsTop + Control.hitTarget / 2 });
+    const irisFrom = t.space.xl;
+    const irisTo = stuckAt * 0.6;
+    const raceWidth = screen.width;
     const actionsStyle = useAnimatedStyle(() => {
-        const shown = interpolate(lift.get(), [stuckAt * 0.35, stuckAt * 0.6], [1, 0], 'clamp');
+        const y = lift.get();
+        const dim = interpolate(y, [stuckAt * 0.35, stuckAt * 0.6], [1, 0], 'clamp');
+        const at = actionsAt.get();
+        const shown = (1 - irisCoverAt(y, irisFrom, irisTo, raceWidth, stage, true, at.x, at.y)) * dim;
         return { opacity: shown, transform: [{ translateY: shown > 0.05 ? 0 : -1000 }] };
     });
     // The faces on the race, where they are drawn: a tap on one opens that person.
@@ -629,7 +638,8 @@ export default function CommunityScreen() {
                 </View>
             </Animated.View>
             {/* On the race's level, whole; they fade as the page rises to them (actionsStyle). */}
-            <Animated.View style={[styles.actions, { top: actionsTop, right: horizontalPadding }, actionsStyle]}>
+            <Animated.View style={[styles.actions, { top: actionsTop, right: horizontalPadding }, actionsStyle]}
+                onLayout={event => { const { x, y, width, height } = event.nativeEvent.layout; actionsAt.set({ x: x + width / 2, y: y + height / 2 }); }}>
                 {actions}
             </Animated.View>
 

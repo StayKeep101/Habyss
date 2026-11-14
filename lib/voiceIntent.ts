@@ -10,7 +10,11 @@ export type VoiceKind = 'habit' | 'task' | 'goal';
 
 export interface VoiceIntent { kind: VoiceKind; text: string }
 
-const LEAD = /^(?:(?:hey|ok|okay|so|um|uh|please)[,\s]+)*(?:(?:can|could|would) you\s+)?(?:please\s+)?(?:create|add|make|set(?: up)?|start|new|i want|i'd like|remind me)?\s*(?:me\s+)?(?:a|an|the|new|one)?\s*(?:new\s+)?/i;
+// "Create", "add", "make" and "set up" are a command only when what follows says what
+// to make ("make a habit…", "add a task…", "start a new goal…"): "Make food every 4 weeks"
+// keeps its verb, since making food is the thing itself. "Start" always goes: "start running"
+// is the habit of running.
+const LEAD = /^(?:(?:hey|ok|okay|so|um|uh|please)[,\s]+)*(?:(?:can|could|would) you\s+)?(?:please\s+)?(?:(?:create|add|make|set(?: up)?)(?=\s+(?:me\s+)?(?:(?:a|an|the|new|one)\s+)?(?:new\s+)?(?:habit|task|to-?do|reminder|goal|target)s?\b|\s+(?:a|an|new)\s)\s*|(?:start|new|i want|i'd like|remind me)\b\s*)?(?:me\s+)?(?:(?:a|an|the|new|one)\b\s*)?(?:new\s+)?/i;
 const KIND = /^(habit|task|to-?do|reminder|goal|target)s?\b\s*(?:of|to|for|called|named|that|:|-)?\s*/i;
 
 const kindOf = (word: string): VoiceKind => {

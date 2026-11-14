@@ -198,11 +198,28 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
         const everyOtherDay = rest.match(new RegExp(String.raw`\bevery\s+(?:other|second|2nd|(${NUMBER}))\s+days?\b`, 'i'));
         const everyOtherWeekday = rest.match(new RegExp(String.raw`\bevery\s+(?:other|second|2nd|alternate)\s+(${DAY_NAMES})s?\b`, 'i'));
         const alternateWeeks = rest.match(/\b(?:on\s+)?(?:alternat(?:e|ing)\s+weeks|every\s+(?:other|second|2nd)\s+week)\b/i);
+        // Every few weeks, months or years: "every 4 weeks", "every 3 months", "fortnightly", "yearly".
+        const everyFew = rest.match(new RegExp(String.raw`\bevery\s+(${NUMBER})\s+(weeks?|months?|years?)\b(?:\s+on\s+(${DAY_NAMES})s?\b)?`, 'i'));
+        const fewWord = rest.match(/\b(fortnightly|bi-?weekly|quarterly|every\s+quarter|yearly|annually|every\s+year|once\s+a\s+year|each\s+year)\b/i);
         const monthly = rest.match(/\b(?:once\s+a\s+month|every\s+month|each\s+month|monthly)\b/i);
         const weekly = rest.match(/\b(?:once\s+a\s+week|every\s+week|each\s+week)\b/i);
         // "Set a weekly spending limit": once a week, and "weekly" stays in the name.
         const weeklyWord = !weekly && /\bweekly\b/i.test(rest) && !/\b(sundays?|mondays?|tuesdays?|wednesdays?|thursdays?|fridays?|saturdays?)\b/i.test(rest);
-        if (nthOfMonth) {
+        const todayWeekday = (['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const)[today.getDay()];
+        const few = everyFew
+            ? { every: toNumber(everyFew[1]) ?? 0, unit: everyFew[2].toLowerCase().replace(/s$/, ''), day: everyFew[3] }
+            : fewWord
+                ? /fortnight|bi-?weekly/i.test(fewWord[1]) ? { every: 2, unit: 'week' } : /quarter/i.test(fewWord[1]) ? { every: 3, unit: 'month' } : { every: 1, unit: 'year' }
+                : null;
+        if (few && few.every >= 1 && few.every <= 99) {
+            // On the day it starts (or the weekday said): "every 4 weeks" is every fourth Saturday from today.
+            recurrence = few.unit === 'week'
+                ? { kind: 'weekly', every: few.every, weekdays: [(few.day ? DAY_WORDS[few.day.toLowerCase()] : todayWeekday) as never] }
+                : few.unit === 'month'
+                    ? { kind: 'monthly', every: few.every, dates: [today.getDate()] }
+                    : { kind: 'yearly', every: few.every, months: [today.getMonth()] };
+            take((everyFew ?? fewWord)![0]);
+        } else if (nthOfMonth) {
             recurrence = { kind: 'monthly', every: 1, ordinal: ordinals[nthOfMonth[1].toLowerCase()] as 1, day: DAY_WORDS[nthOfMonth[2].toLowerCase()] as never };
             take(nthOfMonth[0]);
         } else if (dateOfMonth) {

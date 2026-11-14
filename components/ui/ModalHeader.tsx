@@ -29,6 +29,8 @@ interface ModalHeaderProps {
      * closes by swiping down), and the mark fades in with the title.
      */
     leading?: React.ReactNode;
+    /** 'start': the title reads from the left, on the page's own margin (a page whose title is its heading). */
+    align?: 'center' | 'start';
     /**
      * A second title that takes over once the page's own headline has scrolled
      * away ("16 missed" for "Missed"): `titleStyle` fades the first out,
@@ -48,7 +50,7 @@ interface ModalHeaderProps {
  */
 export const ModalHeader: React.FC<ModalHeaderProps> = ({
     title, subtitle, onBack, onAction, actionIcon = 'share-outline', actionLabel,
-    shareSummary, backIcon = 'chevron-back', rightSlot, titleStyle, leading, altTitle, altStyle,
+    shareSummary, backIcon = 'chevron-back', rightSlot, titleStyle, leading, align = 'center', altTitle, altStyle,
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -60,10 +62,11 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
 
     // A habit's page: its mark and name read from the left, as they always have,
     // with the actions on the right and no balancing space to squeeze the name.
-    if (leading) {
+    if (leading || align === 'start') {
         return (
-            <View style={[styles.header, styles.headerLeading]}>
-                <Animated.View style={[styles.lead, styles.leadStart, titleStyle]}>
+            // With a mark: its own tighter edge. Title alone: the page's margin, so it lines up with what is under it.
+            <View style={[styles.header, leading ? styles.headerLeading : null]}>
+                <Animated.View style={[styles.lead, styles.leadStart, !leading && styles.leadFlush, titleStyle]}>
                     {leading}
                     <View style={styles.copyStart}>
                         <Text accessibilityRole="header" numberOfLines={1} style={[Typography.sheetTitle, { color: colors.textPrimary }]}>{title}</Text>
@@ -125,4 +128,5 @@ const styles = StyleSheet.create({
     headerLeading: { paddingHorizontal: Spacing.md, paddingTop: Spacing.lg },
     leadStart: { flex: 1, justifyContent: 'flex-start', minHeight: Control.hitTarget, paddingLeft: Spacing.xs },
     copyStart: { flex: 1 },
+    leadFlush: { paddingLeft: 0 },
 });

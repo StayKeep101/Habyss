@@ -46,6 +46,8 @@ interface AccentContextType {
     getAccentColor: () => string; // Returns primary color
 }
 
+const rankIndex = (name: string) => (require('@/lib/marks') as typeof import('@/lib/marks')).RANKS.findIndex(item => item.name === name);
+
 const AccentContext = createContext<AccentContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'habyss_accent_gradient';
@@ -83,8 +85,10 @@ export function AccentProvider({ children }: { children: ReactNode }) {
     const setFollowRank = (_on: boolean) => undefined;
     useEffect(() => { void loadRankLook(); }, []);
     const look = useSyncExternalStore(subscribeRankLook, rankLookKey, rankLookKey);
-    const [rank, preview] = look.split('|').map(part => part || null);
-    const rankShown = preview ?? (followRank ? rank : null);
+    const [rank, preview, chosen] = look.split('|').map(part => part || null);
+    // The hourglass you picked, when you have reached it (never one above your rank).
+    const reachedChosen = chosen && rank && rankIndex(chosen) >= 0 && rankIndex(chosen) <= rankIndex(rank) ? chosen : null;
+    const rankShown = preview ?? reachedChosen ?? (followRank ? rank : null);
 
     const chosenGradient = (ACCENT_GRADIENTS.find(g => g.id === gradientId) || ACCENT_GRADIENTS[0]) as AccentGradient;
     const accentGradient: AccentGradient = useMemo(() => {
@@ -103,7 +107,7 @@ export function AccentProvider({ children }: { children: ReactNode }) {
 }
 
 /** A string that changes when the rank or preview does, for useSyncExternalStore. */
-const rankLookKey = () => { const { rank, preview } = currentRankLook(); return `${rank ?? ''}|${preview ?? ''}`; };
+const rankLookKey = () => { const { rank, preview, chosen } = currentRankLook(); return `${rank ?? ''}|${preview ?? ''}|${chosen ?? ''}`; };
 
 export function useAccent() {
     const context = useContext(AccentContext);
