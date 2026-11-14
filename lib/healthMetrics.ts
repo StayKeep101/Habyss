@@ -1,15 +1,16 @@
 import { canConvert, convert } from './unitKind';
 
 /**
- * Sleep, from Apple Health — the only thing Habyss reads.
+ * What Habyss can track by itself, from Apple Health: a habit linked to one of
+ * these fills itself in (lib/habitsSQLite.ts syncHealthKitData), so it is done
+ * without a tap. Settings → Automatic habits lists them.
  *
- * Garmin Connect, Oura, Whoop, Fitbit, AutoSleep and the Apple Watch all write
- * their sleep into Apple Health on iOS, so reading Health's sleep is the
- * integration with every one of them, and it keeps working when any of them
- * changes an API. Nothing else is asked for: one permission, for one thing.
+ * Garmin, Oura, Whoop, Fitbit, Strava, the Apple Watch and the iPhone itself
+ * all write into Apple Health, so reading Health is the integration with every
+ * one of them, and keeps working when any of them changes an API. Read-only.
  */
 
-export type HealthMetric = 'sleep';
+export type HealthMetric = 'sleep' | 'steps' | 'exercise' | 'mindful' | 'distance' | 'flights' | 'energy';
 
 export interface HealthMetricInfo {
     id: HealthMetric;
@@ -17,12 +18,27 @@ export interface HealthMetricInfo {
     /** The unit the reader returns, in the app's own vocabulary. */
     unit: string;
     detail: string;
-    /** Roughly what a night of it looks like, for a sensible first target. */
+    /** Roughly what a day (or a night) of it looks like, for a sensible first target. */
     suggested: number;
+    /** As an automatic habit (Settings → Automatic habits): its name, icon, unit and the targets offered. */
+    habit: { name: string; icon: string; unit: string; target: number; targets: readonly number[] };
 }
 
 export const HEALTH_METRICS: HealthMetricInfo[] = [
-    { id: 'sleep', label: 'Sleep', unit: 'minutes', detail: 'Minutes asleep last night', suggested: 450 },
+    { id: 'sleep', label: 'Sleep', unit: 'minutes', detail: 'Time asleep last night', suggested: 450,
+        habit: { name: 'Sleep', icon: 'moon', unit: 'hours', target: 7.5, targets: [6, 6.5, 7, 7.5, 8, 8.5, 9] } },
+    { id: 'steps', label: 'Steps', unit: 'steps', detail: 'Steps today, from your iPhone and Watch', suggested: 8000,
+        habit: { name: 'Walk', icon: 'footsteps', unit: 'steps', target: 8000, targets: [3000, 5000, 6000, 7000, 8000, 10000, 12000, 15000] } },
+    { id: 'exercise', label: 'Exercise', unit: 'minutes', detail: 'Exercise minutes today (the green ring)', suggested: 30,
+        habit: { name: 'Exercise', icon: 'fitness', unit: 'minutes', target: 30, targets: [10, 15, 20, 30, 45, 60, 90] } },
+    { id: 'mindful', label: 'Mindful minutes', unit: 'minutes', detail: 'Mindful minutes today, from any meditation app', suggested: 10,
+        habit: { name: 'Meditate', icon: 'leaf', unit: 'minutes', target: 10, targets: [3, 5, 10, 15, 20, 30] } },
+    { id: 'distance', label: 'Walking and running', unit: 'km', detail: 'Distance walked or run today', suggested: 5,
+        habit: { name: 'Walk or run', icon: 'walk', unit: 'km', target: 5, targets: [1, 2, 3, 5, 8, 10, 15] } },
+    { id: 'flights', label: 'Flights climbed', unit: 'flights', detail: 'Flights of stairs climbed today', suggested: 10,
+        habit: { name: 'Take the stairs', icon: 'trending-up', unit: 'flights', target: 10, targets: [3, 5, 10, 15, 20] } },
+    { id: 'energy', label: 'Active energy', unit: 'kcal', detail: 'Active calories burned today (the red ring)', suggested: 500,
+        habit: { name: 'Move', icon: 'flame', unit: 'kcal', target: 500, targets: [200, 300, 400, 500, 600, 800, 1000] } },
 ];
 
 const BY_ID = new Map(HEALTH_METRICS.map(metric => [metric.id, metric]));
@@ -80,7 +96,6 @@ export const metricFits = (unit: string | null | undefined, metric: HealthMetric
 export async function readHealth(metric: HealthMetric, date = new Date()): Promise<number | null> {
     try {
         const { HealthKitService } = require('./HealthKitService') as typeof import('./HealthKitService');
-        if (metric !== 'sleep') return null;
         if (!HealthKitService.isAvailable) return null;
         if (!await HealthKitService.init()) return null;
         const value = await HealthKitService.read(metric, date);

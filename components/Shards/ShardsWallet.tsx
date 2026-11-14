@@ -15,7 +15,6 @@ import { DURATION } from '@/theme/motion';
 
 const RANGE_NAME: Record<WalletRange, string> = { '1H': 'Past hour', '24H': 'Past 24 hours', '1W': 'Past week', '1M': 'Past month', '1Y': 'Past year', ALL: 'All time' };
 const VERB: Record<ShardMove['kind'], string> = { add: 'Added', complete: 'Completed', miss: 'Missed', stake: 'Bet placed', payout: 'Bet won', refund: 'Bet refunded', unlock: 'Bought an hour' };
-const shortDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 /** A moment under the finger, said as finely as the range is drawn. */
 const momentLabel = (iso: string, range: WalletRange) => {
     const at = new Date(iso);
@@ -23,26 +22,11 @@ const momentLabel = (iso: string, range: WalletRange) => {
     if (range === '1W') return at.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric' });
     return at.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 };
-/** Why a fair-play rule held a move back, said where it is listed. */
-const HELD: Record<NonNullable<ShardMove['held']>, string> = {
-    late: 'Ticked late, so no Shards',
-    limit: 'Daily limit reached',
-};
-/** What a move was, under its title, the way the Marks page said it (and why it earned nothing, when a rule held it back). */
-const meta = (move: ShardMove) => {
-    const what = move.item === 'sleep' ? (move.kind === 'miss' ? 'Slept short of your goal' : 'Slept your goal')
-        : move.item === 'focus' ? 'Finished the day’s tasks'
-        : move.item === 'exercise' ? 'Moved your goal'
-        : move.item ? `${VERB[move.kind]} ${move.item}` : VERB[move.kind];
-    return `${what} · ${move.held ? HELD[move.held] : shortDay(move.date)}`;
-};
-
 /**
  * Your Shards, read like a brokerage account: the balance, what it gained or
  * lost over the period you pick (green up, red down, the line in the same
  * colour, by the hour or the year), a finger to read any moment (with the
- * ticks a trading app gives), what you have and what is on bets, then every
- * transaction. The ⓘ explains exactly what earns and costs Shards, and that
+ * ticks a trading app gives), and what you have and what is on bets. The ⓘ explains exactly what earns and costs Shards, and that
  * they are a game currency with no real-money value. Marks are XP.
  */
 export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun }: {
@@ -114,25 +98,6 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
 
 
 
-                {/* Every transaction, as the Marks page listed them: what, how, when, and the Shards. */}
-                <SectionTitle>Recent</SectionTitle>
-                {wallet.activity.length ? (
-                    <VoidCard style={styles.list}>
-                        {wallet.activity.map((move, index) => (
-                            <View key={`${move.t}-${index}`} style={[styles.row, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.color.border }]}>
-                                <View style={styles.grow}>
-                                    <Text variant="heading" numberOfLines={1}>{move.title}</Text>
-                                    <Text variant="caption" tone="muted" numberOfLines={1}>{meta(move)}</Text>
-                                </View>
-                                <Text variant="heading" numeric tone={move.amount > 0 ? 'success' : move.amount < 0 ? 'danger' : 'muted'}>
-                                    {move.amount ? `${move.amount > 0 ? '+' : '−'}${Math.abs(move.amount)}` : '0'}
-                                </Text>
-                            </View>
-                        ))}
-                    </VoidCard>
-                ) : (
-                    <Text variant="bodySmall" tone="muted">Add a habit, task or goal and your first Shards land here.</Text>
-                )}
             </ScrollView>
 
             {/* How Shards work: everything that earns and costs them, nothing to take on trust. */}

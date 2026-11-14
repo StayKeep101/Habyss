@@ -19,7 +19,7 @@ const wallet: Wallet = {
     ],
 };
 
-it('reads like a brokerage account: balance, the period’s change, what is on bets, every transaction', () => {
+it('reads like a brokerage account: balance, the period’s change and what is on bets, no transaction list', () => {
     const screen = render(<ShardsWallet visible onClose={jest.fn()} wallet={wallet} multiplier={1} perfectRun={0} />);
     expect(screen.getByText('Shards')).toBeTruthy();
     expect(screen.getByText('+40 (40.0%)')).toBeTruthy();
@@ -27,14 +27,9 @@ it('reads like a brokerage account: balance, the period’s change, what is on b
     // Every range a trading app has, no candles.
     ['1H', '24H', '1W', '1M', '1Y', 'All'].forEach(label => expect(screen.getByText(label)).toBeTruthy());
     expect(screen.getByText('On bets')).toBeTruthy();
-    // Transactions as the Marks page listed them: the thing, what happened, the Shards.
-    expect(screen.getByText('Send proposal')).toBeTruthy();
-    expect(screen.getByText(/^Completed task · /)).toBeTruthy();
-    expect(screen.getByText(/^Missed habit · /)).toBeTruthy();
-    expect(screen.getByText('−25')).toBeTruthy();
-    expect(screen.getByText('−2')).toBeTruthy();
-    // Held back by a fair-play rule: listed at 0, saying why.
-    expect(screen.getByText('Added task · Daily limit reached')).toBeTruthy();
+    // The list of every transaction is gone.
+    expect(screen.queryByText('Send proposal')).toBeNull();
+    expect(screen.queryByText('Recent')).toBeNull();
 });
 
 it('says plainly, in its info card, that Shards are a game currency and not money', () => {

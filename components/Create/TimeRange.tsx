@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { IconButton } from '@/components/ui/IconButton';
 import { Wheel } from '@/components/ui/Wheel';
 import { ChoicePill } from '@/components/ui/ChoicePill';
 import { DurationWheels } from '@/components/Create/DurationWheels';
@@ -19,6 +18,8 @@ const minutesFor = (minute: number) => {
 };
 /** "None" sits above midnight on both hour wheels: no time, or no end. */
 const NO_END = -1;
+/** An exact time's end, until one is chosen. */
+const DEFAULT_EXACT_MINUTES = 30;
 const END_HOURS = [{ id: NO_END, label: '–' }, ...HOURS];
 const START_HOURS = END_HOURS;
 const split = (time: string) => time.split(':').map(Number) as [number, number];
@@ -67,8 +68,9 @@ export function endTime(start: string, minutes: number): string {
 /**
  * When it starts, and when it is over: two wheels side by side, hours and
  * minutes each, the way the Clock app sets a time. Either can be "–": turn
- * the start's hour to it for no time at all, the end's for no end. The ×
- * beside End appears only once an end is set, and takes just the end away.
+ * the start's hour to it for no time at all. At an exact time it always has
+ * an end (half an hour unless set): something fixed in the day needs to say
+ * when it is over, so there is no "no end".
  * Stored as a length, so a habit that moves keeps how long it takes rather
  * than when it used to end. Above them, the usual lengths in one tap: they
  * move the end, never the start.
@@ -92,6 +94,11 @@ export const TimeRange: React.FC<{
     const startHour = start ? fromHour : NO_END;
     const end = minutes ? endTime(from, minutes) : null;
     const [endHour, endMinute] = end ? split(end) : [NO_END, 0];
+
+    // At an exact time, an end is always there: half an hour until one is chosen.
+    useEffect(() => {
+        if (!lengthOnly && start && !minutes) onChange({ start, minutes: DEFAULT_EXACT_MINUTES });
+    }, [lengthOnly, start, minutes]); // eslint-disable-line react-hooks/exhaustive-deps -- fills the gap once, whatever the parent passes
 
     const setStart = (hour: number, minute: number) => {
         if (hour === NO_END) { onChange({ start: undefined, minutes: undefined }); return; }
@@ -134,11 +141,9 @@ export const TimeRange: React.FC<{
             <View style={styles.side}>
                 <View style={styles.head}>
                     <Text style={[styles.label, { color: colors.textTertiary }]}>End</Text>
-                    {end ? <IconButton icon="close" label="Clear the end" diameter={24} size={12}
-                        onPress={() => { lightFeedback(); onChange({ start, minutes: undefined }); }} /> : null}
                 </View>
                 <View style={[styles.wheels, !start && styles.unset]} pointerEvents={start ? 'auto' : 'none'}>
-                    <Wheel testID="end-hour" options={END_HOURS} value={endHour} onChange={hour => setEnd(hour, endMinute)} style={styles.digit} />
+                    <Wheel testID="end-hour" options={HOURS} value={endHour} onChange={hour => setEnd(hour, endMinute)} style={styles.digit} />
                     <Text style={[styles.colon, { color: colors.textTertiary }]}>:</Text>
                     <View style={[styles.flex, endHour === NO_END && styles.unset]} pointerEvents={endHour === NO_END ? 'none' : 'auto'}>
                         <Wheel testID="end-minute" options={minutesFor(endMinute)} value={endMinute} onChange={minute => setEnd(endHour, minute)} style={styles.digit} />

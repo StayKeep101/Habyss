@@ -10,12 +10,16 @@ jest.mock('../HealthKitService', () => ({
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const service = () => (require('../HealthKitService') as typeof import('../HealthKitService')).HealthKitService;
 
-describe('sleep is the only thing read from Health', () => {
-    it('offers sleep to a habit counted in time, and nothing else anywhere', () => {
-        expect(metricsForUnit('minutes')).toEqual(['sleep']);
-        expect(metricsForUnit('hours')).toEqual(['sleep']);
-        expect(metricsForUnit('steps')).toEqual([]);
-        expect(metricsForUnit('km')).toEqual([]);
+describe('what Health can track by itself', () => {
+    it('offers only what measures the habit’s own unit, never a look-alike', () => {
+        expect(metricsForUnit('minutes')).toEqual(['sleep', 'exercise', 'mindful']);
+        expect(metricsForUnit('hours')).toEqual(['sleep', 'exercise', 'mindful']);
+        expect(metricsForUnit('steps')).toEqual(['steps']);
+        expect(metricsForUnit('km')).toEqual(['distance']);
+        expect(metricsForUnit('kcal')).toEqual(['energy']);
+        expect(metricsForUnit('flights')).toEqual(['flights']);
+        // A glass of water is not a step: nothing at all rather than a number that looks right.
+        expect(metricsForUnit('glasses')).toEqual([]);
         expect(metricsForUnit('pages')).toEqual([]);
         expect(metricsForUnit('')).toEqual([]);
         expect(metricsForUnit(undefined)).toEqual([]);
@@ -24,14 +28,18 @@ describe('sleep is the only thing read from Health', () => {
     it('knows when a link has stopped making sense', () => {
         expect(metricFits('minutes', 'sleep')).toBe(true);
         expect(metricFits('pages', 'sleep')).toBe(false);
+        expect(metricFits('km', 'steps')).toBe(false);
     });
 
-    it('names it, and knows no other metric', () => {
+    it('names each, and knows no others', () => {
         expect(healthLabel('sleep')).toBe('Sleep');
-        expect(HEALTH_METRICS.map(metric => metric.id)).toEqual(['sleep']);
-        expect(isHealthMetric('sleep')).toBe(true);
-        expect(isHealthMetric('steps')).toBe(false);
+        expect(HEALTH_METRICS.map(metric => metric.id)).toEqual(['sleep', 'steps', 'exercise', 'mindful', 'distance', 'flights', 'energy']);
+        expect(isHealthMetric('steps')).toBe(true);
+        expect(isHealthMetric('heartbeat')).toBe(false);
         expect(isHealthMetric(undefined)).toBe(false);
+    });
+    it('offers each as an automatic habit with its target among the choices', () => {
+        for (const metric of HEALTH_METRICS) expect(metric.habit.targets).toContain(metric.habit.target);
     });
 });
 

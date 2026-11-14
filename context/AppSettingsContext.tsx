@@ -11,7 +11,7 @@ export type CommunicationStyle = 'empathetic' | 'direct' | 'philosophical';
 interface AppSettings {
     hapticsEnabled: boolean;
     soundsEnabled: boolean;
-    /** Habyss's music on repeat while the app is open (lib/backgroundMusic.ts). */
+    /** No longer used: music plays only in Focus now (lib/focusMusic.ts). Kept so saved settings still read. */
     musicEnabled: boolean;
     /** The timeline moves habits and tasks for you (lib/dayFlow.ts); off, everything stays at its time. */
     autoReschedule: boolean;

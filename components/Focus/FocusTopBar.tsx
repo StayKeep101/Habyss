@@ -5,8 +5,8 @@ import Animated, { Easing, useAnimatedProps, useSharedValue, withTiming } from '
 import { IconButton } from '@/components/ui/IconButton';
 import { MorphMenu, type MorphMenuHandle, type MorphMenuItem } from '@/components/ui/MorphMenu';
 import { AnimatedCircle } from '@/components/ui/Motion';
-import { FocusSettingsSheet, FocusSoundSheet, useFocusSoundChoice } from '@/components/Focus/FocusSheets';
-import { playFocusSound, stopFocusSound } from '@/lib/focusSounds';
+import { FocusSettingsSheet, useFocusMusic } from '@/components/Focus/FocusSheets';
+import { playFocusMusic, setFocusMusicOn, stopFocusMusic } from '@/lib/focusMusic';
 import { useHaptics } from '@/hooks/useHaptics';
 import { styles } from '@/styles/screens/focus.styles';
 
@@ -18,8 +18,8 @@ const WHITE = '#FFFFFF';
 
 /**
  * The top of every Focus page, the same whether it was opened from a habit, a
- * task, or the + (a step of the day): the × on the left, the sound and the
- * settings on the right, and the chosen sound playing while the clock runs.
+ * task, or the + (a step of the day): the × on the left, the music (on or off)
+ * and the settings on the right, and the music playing while the clock runs.
  *
  * Ending takes a hold on the ×, so a stray touch never ends it: the ring round
  * it fills, then the × grows into the app's own small window with `endItems`.
@@ -57,11 +57,11 @@ export function FocusTopBar({ active, playing, endItems, onClose, onWake, style 
         hintTimer.current = setTimeout(() => setHoldHint(false), 1800);
     };
 
-    // Sounds to focus to, and the page's own settings, from the top corner.
-    const sound = useFocusSoundChoice();
-    const [sheet, setSheet] = useState<'settings' | 'sound' | null>(null);
-    useEffect(() => { void playFocusSound(sound, playing); }, [sound, playing]);
-    useEffect(() => () => stopFocusSound(), []);
+    // Music, only here: the button turns it on or off; where it comes from is in the settings (lib/focusMusic.ts).
+    const music = useFocusMusic();
+    const [sheet, setSheet] = useState<'settings' | null>(null);
+    useEffect(() => { playFocusMusic(playing); }, [music, playing]);
+    useEffect(() => () => stopFocusMusic(), []);
 
     return (
         <>
@@ -86,12 +86,12 @@ export function FocusTopBar({ active, playing, endItems, onClose, onWake, style 
                     <IconButton icon="close" label="Close" onPress={onClose} size={18} color={WHITE} />
                 )}
                 <View style={styles.topRight}>
-                    <IconButton icon={sound === 'off' ? 'musical-notes-outline' : 'musical-notes'} label="Focus sound" onPress={() => { onWake?.(); setSheet('sound'); }} size={18} color={WHITE} />
+                    <IconButton icon={music.on ? 'musical-notes' : 'musical-notes-outline'} label={music.on ? 'Music on. Turn off' : 'Music off. Turn on'}
+                        onPress={() => { onWake?.(); setFocusMusicOn(!music.on); }} size={18} color={WHITE} />
                     <IconButton icon="settings-outline" label="Focus settings" onPress={() => { onWake?.(); setSheet('settings'); }} size={18} color={WHITE} />
                 </View>
             </Animated.View>
             <FocusSettingsSheet visible={sheet === 'settings'} onClose={() => setSheet(null)} />
-            <FocusSoundSheet visible={sheet === 'sound'} onClose={() => setSheet(null)} />
         </>
     );
 }

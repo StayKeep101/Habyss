@@ -1478,10 +1478,6 @@ const CalendarScreen = () => {
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
                                     <SectionTitle first right={
                                         <View style={styles.headerLinks}>
-                                        {/* Every goal's whole plan (habits and tasks, how far along): was in Settings. */}
-                                        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Goal plans" onPress={() => router.push('/(root)/goal-roadmap')} style={styles.headerLink}>
-                                            <Text style={[styles.headerLinkText, { color: colors.textTertiary }]}>Plans</Text>
-                                        </TouchableOpacity>
                                         {/* Every goal there is: in progress, then archived. */}
                                         <TouchableOpacity accessibilityRole="button" accessibilityLabel="All goals" onPress={() => router.push({ pathname: '/(root)/all-habits', params: { kind: 'goals' } })} style={styles.headerLink}>
                                             <Text style={[styles.headerLinkText, { color: colors.textTertiary }]}>See all</Text>

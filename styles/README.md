@@ -16,7 +16,6 @@ To bring a page in line with the design system, open its file here and swap its 
 | `app/(auth)/onboarding.tsx` | none: The Ascent draws itself (`components/Ascent/`) |
 | `app/(root)/blocked.tsx` | `styles/screens/blocked.styles.ts` |
 | `app/(root)/goal-detail.tsx` | `styles/screens/goal-detail.styles.ts` |
-| `app/(root)/goal-roadmap.tsx` | `styles/screens/goal-roadmap.styles.ts` |
 | `app/(root)/goals-overview.tsx` | `styles/screens/goals-overview.styles.ts` |
 | `app/(root)/habit-detail.tsx` | `styles/screens/habit-detail.styles.ts` |
 | `app/(root)/help.tsx` | `styles/screens/help.styles.ts` |
@@ -49,3 +48,4 @@ Home, Paywall, Goal stats and Goal plan have no page-level styles: they are buil
 | `app/(root)/meals.tsx` | `styles/screens/meals.styles.ts` |
 | `app/(root)/focus-settings.tsx` | `styles/screens/focus-settings.styles.ts` |
 | `app/(root)/app-blocking.tsx` | `styles/screens/app-blocking.styles.ts` |
+| `app/(root)/auto-habits.tsx` | `styles/screens/auto-habits.styles.ts` |

@@ -1,17 +1,16 @@
 import React, { useEffect, useSyncExternalStore } from 'react';
-import { Linking } from 'react-native';
 import { VoidSheet } from '@/components/ui/VoidSheet';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useTokens } from '@/hooks/useTokens';
 import { useClockStyle } from '@/hooks/useClockStyle';
 import { CLOCK_STYLES, setClockStyle, type ClockStyle } from '@/lib/focusClock';
-import { FOCUS_SOUNDS, currentFocusSound, loadFocusSound, setFocusSound, subscribeFocusSound } from '@/lib/focusSounds';
+import { MUSIC_SOURCES, currentFocusMusic, loadFocusMusic, setFocusMusicSource, subscribeFocusMusic } from '@/lib/focusMusic';
 
-/** The sound chosen to focus to, kept in step everywhere. */
-export function useFocusSoundChoice() {
-    useEffect(() => { void loadFocusSound(); }, []);
-    return useSyncExternalStore(subscribeFocusSound, currentFocusSound, currentFocusSound);
+/** Focus music, on or off and where it comes from, kept in step everywhere (lib/focusMusic.ts). */
+export function useFocusMusic() {
+    useEffect(() => { void loadFocusMusic(); }, []);
+    return useSyncExternalStore(subscribeFocusMusic, currentFocusMusic, currentFocusMusic);
 }
 
 /** How the clock looks: the same row in Settings → Focus and on the focus page. */
@@ -26,62 +25,33 @@ export function FocusClockRow({ label = 'Clock' }: { label?: string }) {
 }
 
 /**
- * What to focus to: a sound of Habyss's (silence, rain, waves, a deep even
- * noise), one tap plays it; or your own music, which opens its app to your
- * library, the focus clock running on, and quiets Habyss's sound so the two
- * never play over each other. The same groups in Settings → Focus and on the
- * focus page.
+ * Where focus music comes from: Habyss's own track, or Spotify or Apple Music
+ * (choosing one opens it). The music button on the focus page turns it on or off.
+ * The same group in Settings → Focus and in the focus page's settings.
  */
-export function FocusSoundGroups({ onMusic }: { onMusic?: () => void }) {
+export function FocusMusicGroup() {
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
-    const chosen = useFocusSoundChoice();
+    const music = useFocusMusic();
     return (
-        <>
-            <SettingsGroup title="Sound">
-                {FOCUS_SOUNDS.map(sound => (
-                    <SettingsRow key={sound.id} icon={sound.icon} color={sound.id === 'off' ? t.color.textMuted : t.color.cobalt} label={sound.label}
-                        value={chosen === sound.id ? 'Chosen' : undefined}
-                        onPress={() => { selectionFeedback(); void setFocusSound(sound.id); }} />
-                ))}
-            </SettingsGroup>
-            <SettingsGroup title="Your music">
-                {MUSIC_APPS.map(app => (
-                    <SettingsRow key={app.id} icon="musical-notes" color={app.color} label={app.label}
-                        onPress={() => {
-                            selectionFeedback();
-                            void setFocusSound('off');
-                            onMusic?.();
-                            void Linking.openURL(app.url).catch(() => Linking.openURL(app.store).catch(() => undefined));
-                        }} />
-                ))}
-            </SettingsGroup>
-        </>
+        <SettingsGroup title="Music">
+            {MUSIC_SOURCES.map(source => (
+                <SettingsRow key={source.id} icon={source.icon} color={source.color ?? t.color.accent} label={source.label}
+                    value={music.source === source.id ? 'Chosen' : undefined}
+                    onPress={() => { selectionFeedback(); setFocusMusicSource(source.id); }} />
+            ))}
+        </SettingsGroup>
     );
 }
 
-/** Focus settings, from the focus page itself: how the clock looks. Focus always blocks your apps (App blocking). */
+/** Focus settings, from the focus page itself: how the clock looks, and where the music comes from. */
 export function FocusSettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
     return (
         <VoidSheet visible={visible} onClose={onClose} title="Focus settings">
             <SettingsGroup>
                 <FocusClockRow />
             </SettingsGroup>
+            <FocusMusicGroup />
         </VoidSheet>
     );
 }
-
-/** Sounds and music to focus to, from the focus page. */
-export function FocusSoundSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-    return (
-        <VoidSheet visible={visible} onClose={onClose} title="Focus sound">
-            <FocusSoundGroups onMusic={onClose} />
-        </VoidSheet>
-    );
-}
-
-/** The music apps a focus can be played from: their app if installed, else their App Store page. Their own brand colours. */
-const MUSIC_APPS = [
-    { id: 'spotify', label: 'Spotify', color: '#1DB954', url: 'spotify:', store: 'https://apps.apple.com/app/id324684580' },
-    { id: 'apple', label: 'Apple Music', color: '#FA2D48', url: 'music://', store: 'https://apps.apple.com/app/id1108187390' },
-];

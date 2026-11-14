@@ -134,6 +134,8 @@ export default function ProfileScreen() {
                         {/* Wake and bed times, planning, calendar and meals: what the timeline is built around. */}
                         <SettingsRow icon="time" color="#FF9F0A" label="Day & calendar" keywords="wake bedtime sleep meals tasks a day week starts auto-reschedule calendar"
                             value={dayHours} onPress={() => router.push('/(root)/meals' as never)} />
+                        <SettingsRow icon="sparkles" color="#30D158" label="Automatic habits" keywords="health steps sleep exercise meditate mindful distance stairs calories auto track automatic apple health watch"
+                            onPress={() => router.push('/(root)/auto-habits' as never)} />
                         <SettingsRow icon="timer" color="#FF375F" label="Focus" keywords="clock style ring digital block"
                             onPress={() => router.push('/(root)/focus-settings' as never)} />
                         <SettingsRow icon="lock-closed" color="#FF375F" label="App blocking" keywords="screen time earn your scroll bedtime lock top 3 apps to block hard lock"

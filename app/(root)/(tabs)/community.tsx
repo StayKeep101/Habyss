@@ -598,10 +598,11 @@ export default function CommunityScreen() {
                 <IrisFade progress={lift} from={t.space.xl} to={stuckAt * 0.6} width={screen.width} height={stage} color={colors.background} follow />
             </Animated.View>
             <Animated.ScrollView ref={sheetScroll} showsVerticalScrollIndicator={false} onScroll={onLift} scrollEventThrottle={16}
-                // Half or full, settled by iOS (see stuckEdge); past the header the feed scrolls freely.
-                snapToOffsets={[0, stuckEdge]} snapToEnd={false}
-                onScrollEndDrag={nearEnd} onMomentumScrollEnd={nearEnd}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textTertiary} progressViewOffset={insets.top} />}>
+                // A window: it rests in the middle (over the race) or full, settled by iOS (see stuckEdge);
+                // pulled down from the middle it stays there, never dragged further down (no bounce, so no
+                // pull to refresh: the feed reloads each time Community opens). Past the header the feed scrolls freely.
+                snapToOffsets={[0, stuckEdge]} snapToEnd={false} bounces={false} overScrollMode="never"
+                onScrollEndDrag={nearEnd} onMomentumScrollEnd={nearEnd}>
                 {/* Over the race: a drag sideways reads it, day by day. */}
                 <GestureDetector gesture={reader}>
                     <View style={{ height: stage }}

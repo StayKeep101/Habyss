@@ -41,10 +41,10 @@ const rememberedConnected = () => AsyncStorage.getItem(CONNECTED_KEY).then(value
 const permission = (key: string): string | null => Permissions[key] ?? null;
 
 /**
- * What the app reads from Health: sleep, and the day's activity (exercise
- * minutes, steps). Read-only — Habyss writes nothing into Health.
+ * What the app reads from Health: sleep and the day's activity, for the
+ * automatic habits (lib/healthMetrics.ts). Read-only — Habyss writes nothing.
  */
-const READ = ['SleepAnalysis', 'AppleExerciseTime', 'StepCount'];
+const READ = ['SleepAnalysis', 'AppleExerciseTime', 'StepCount', 'MindfulSession', 'DistanceWalkingRunning', 'FlightsClimbed', 'ActiveEnergyBurned'];
 const WRITE: string[] = [];
 
 const buildPermissions = () => ({
@@ -133,7 +133,50 @@ export class HealthKitService {
      * measured in kilometres would silently be told it had run five thousand.
      */
     static async read(metric: HealthMetric, date = new Date()): Promise<number | null> {
-        return metric === 'sleep' ? this.sleep(date) : null;
+        switch (metric) {
+            case 'sleep': return this.sleep(date);
+            case 'steps': return this.steps(date);
+            case 'exercise': return this.exerciseMinutes(date);
+            case 'mindful': return this.mindfulMinutes(date);
+            case 'distance': return this.distanceKm(date);
+            case 'flights': return this.flights(date);
+            case 'energy': return this.activeEnergy(date);
+            default: return null;
+        }
+    }
+
+    /** The day, midnight to midnight, as Health's options want it. */
+    private static dayRange(date: Date) {
+        const start = new Date(date); start.setHours(0, 0, 0, 0);
+        const end = new Date(start); end.setDate(start.getDate() + 1);
+        return { startDate: start.toISOString(), endDate: end.toISOString() };
+    }
+
+    /** Mindful minutes on `date`, from every meditation app that saves them. */
+    static async mindfulMinutes(date: Date): Promise<number | null> {
+        return ask('getMindfulSession', { ...this.dayRange(date), limit: 1000 },
+            (rows: { startDate: string; endDate: string }[]) => Math.round((rows ?? [])
+                .reduce((sum, row) => sum + Math.max(0, Date.parse(row.endDate) - Date.parse(row.startDate)), 0) / 60000));
+    }
+
+    /** Kilometres walked or run on `date`. */
+    static async distanceKm(date: Date): Promise<number | null> {
+        const day = new Date(date); day.setHours(12, 0, 0, 0);
+        return ask('getDistanceWalkingRunning', { date: day.toISOString(), unit: 'meter', includeManuallyAdded: true },
+            (result: { value: number }) => Math.round((Number(result?.value) || 0) / 10) / 100);
+    }
+
+    /** Flights of stairs climbed on `date`. */
+    static async flights(date: Date): Promise<number | null> {
+        const day = new Date(date); day.setHours(12, 0, 0, 0);
+        return ask('getFlightsClimbed', { date: day.toISOString(), includeManuallyAdded: true },
+            (result: { value: number }) => Math.round(Number(result?.value) || 0));
+    }
+
+    /** Active calories burned on `date` (the red ring). */
+    static async activeEnergy(date: Date): Promise<number | null> {
+        return ask('getActiveEnergyBurned', { ...this.dayRange(date), ascending: true },
+            (rows: { value: number }[]) => Math.round((rows ?? []).reduce((sum, row) => sum + (Number(row.value) || 0), 0)));
     }
 
     /**
