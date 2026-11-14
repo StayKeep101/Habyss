@@ -10,6 +10,8 @@ import { Hourglass } from './Hourglass';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useOnScreen } from '@/hooks/useOnScreen';
+import { useNowStep } from '@/hooks/useNowStep';
+import { AppIcon } from '@/components/ui/AppIcon';
 import { useAccent } from '@/context/AccentContext';
 import { cachedDayWindow, getDayWindow, DEFAULT_DAY, type DayWindow } from '@/lib/echo';
 import { clockLabel, flipDue, glassAt, type GlassState } from '@/lib/dayGlass';
@@ -17,7 +19,7 @@ import { localDateKey } from '@/lib/habitSchedule';
 import { emit } from '@/lib/appEvents';
 import { glassDesign } from '@/theme/hourglassDesigns';
 import { CEREMONY, EASE, timingFor } from '@/theme/motion';
-import { FontFamily, Radius } from '@/theme/designSystem';
+import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { s } from '@/theme/scale';
 import { tint } from '@/theme/tokens';
@@ -142,6 +144,10 @@ export function DayHourglass({ marks }: { marks: number }) {
     // The arch blazes as the glass lands, then settles back to its glow.
     const flareStyle = useAnimatedStyle(() => ({ opacity: interpolate(burst.get(), [0, 0.1, 1], [0, 1, 0]) }));
 
+    // The sand falls in the colour of what you are on now (a habit or task you picked a colour for).
+    const step = useNowStep();
+    const nowColor = step && !step.wait && (step.item.kind === 'habit' || step.item.kind === 'task') ? step.item.color : undefined;
+
     const glassRef = useRef<View>(null);
     const reveal = () => {
         if (flipping) return;
@@ -155,7 +161,9 @@ export function DayHourglass({ marks }: { marks: number }) {
     return (
         // On the panel's top edge (Home): the glass half over the scene, half on the panel; the clocks on the panel beside it.
         <View style={styles.stage}>
+            {/* What each clock is, said by shape, never words: the sun (since you woke) and the moon (until bed). */}
             <MatteSurface radius={Radius.pill} level="control" style={styles.clockPill}>
+                <AppIcon name="sunny" size={CLOCK_ICON} color={t.color.textMuted} />
                 <Text style={[styles.clock, { color: t.color.textMuted }]} accessibilityLabel={`${pastWords} of today gone`}>
                     {glass.resting === 'night' ? '—' : clockLabel(glass.past)}
                 </Text>
@@ -166,10 +174,11 @@ export function DayHourglass({ marks }: { marks: number }) {
                 <Animated.View style={[styles.ring, { borderColor: design.sand[0] }, ringStyle]} pointerEvents="none" />
                 <Animated.View style={[styles.ring, { borderColor: design.sand[0] }, echoRingStyle]} pointerEvents="none" />
                 <Animated.View ref={glassRef} collapsable={false} style={glassStyle}>
-                    <Hourglass design={design} size={GLASS_HEIGHT} ran={ran} running={!flipping && glass.resting !== 'night'} />
+                    <Hourglass design={design} size={GLASS_HEIGHT} ran={ran} running={!flipping && glass.resting !== 'night'} streamColor={nowColor} />
                 </Animated.View>
             </Pressable>
             <MatteSurface radius={Radius.pill} level="control" style={styles.clockPill}>
+                <AppIcon name="moon" size={CLOCK_ICON} color={t.color.accentText} />
                 <Text style={[styles.clock, { color: t.color.accentText }]} accessibilityLabel={`${leftWords} left today`}>
                     {glass.resting === 'night' ? '—' : clockLabel(glass.left)}
                 </Text>
@@ -225,12 +234,16 @@ function Mote({ index, color, still }: { index: number; color: string; still: bo
 }
 
 
+const CLOCK_ICON = s(14);
+
 const styles = StyleSheet.create({
     // Half above the panel's edge: pulled up by half the glass; the clocks sit level with its lower half, on the panel.
     stage: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: -GLASS_HEIGHT / 2 },
     // The same figures as the stats bar: Lexend bold, tabular, on the app's matte pill.
-    clockPill: { width: s(104), marginBottom: GLASS_HEIGHT / 4 - s(16), paddingVertical: s(7), alignItems: 'center' },
-    clock: { fontFamily: FontFamily.bold, fontSize: s(16), fontVariant: ['tabular-nums'] },
+    // Bigger figures, the icon before them, the same inner spacing all round (8 / 12).
+    clockPill: { width: s(128), marginBottom: GLASS_HEIGHT / 4 - s(20), paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs },
+    clock: { fontFamily: FontFamily.bold, fontSize: s(19), fontVariant: ['tabular-nums'] },
     glassBox: { alignItems: 'center', justifyContent: 'center' },
     flare: { position: 'absolute', width: GLASS_HEIGHT, height: GLASS_HEIGHT, borderRadius: GLASS_HEIGHT / 2 },
     ring: { position: 'absolute', width: GLASS_HEIGHT * 0.7, height: GLASS_HEIGHT * 0.7, borderRadius: GLASS_HEIGHT, borderWidth: 2 },

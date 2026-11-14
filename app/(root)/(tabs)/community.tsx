@@ -7,7 +7,6 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
     FadeIn, FlipInEasyY, ReduceMotion, interpolate, runOnJS, useAnimatedRef, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue,
-    scrollTo,
 } from 'react-native-reanimated';
 import { IconTile } from '@/components/ui/IconTile';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
@@ -31,7 +30,7 @@ import { FocusingNow } from '@/components/Community/FocusingNow';
 import { useFocusSession } from '@/context/FocusTimeContext';
 import { hostOf, togetherId } from '@/lib/focusTogether';
 import { Colors } from '@/theme/colors';
-import { Control, Radius } from '@/theme/designSystem';
+import { Radius } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -246,44 +245,14 @@ export default function CommunityScreen() {
     // The finger on the race, or −1: it reads that day (components/Community/MarksRace.tsx).
     const scrub = useSharedValue(-1);
     const onPager = useAnimatedScrollHandler(event => { pagePosition.set(event.contentOffset.x / Math.max(1, pageWidth)); });
-    // Magnetic: a fling that starts in the feed stops at the header instead of carrying the
-    // whole page down to the race; pulling down again from there brings the race back.
+    // Two resting places, like the habit page's sheet: half (the race showing, where it
+    // opens) and full (the page's header at the top). iOS settles between them itself
+    // (snapToOffsets), following the finger and the fling, so nothing is moved from code
+    // mid-scroll (that fought the scroll and felt like a glitch); past the header the
+    // feed scrolls freely (snapToEnd off).
     const stuckEdge = Math.max(1, stage - insets.top);
-    const fromFeed = useSharedValue(false);
-    const coasting = useSharedValue(false);
-    const dragFrom = useSharedValue(0);
-    // Like a window: let go between the race and the top and it carries on the way the
-    // finger was going (a little up: to the top; a little down: back over the race),
-    // never stopping halfway or snapping back against the drag.
-    const settleSheet = (y: number, intent: number) => {
-        'worklet';
-        if (y <= 0 || y >= stuckEdge) return false;
-        scrollTo(sheetScroll, 0, intent > 0 ? stuckEdge : 0, true);
-        return true;
-    };
     const onLift = useAnimatedScrollHandler({
-        onBeginDrag: event => { fromFeed.set(event.contentOffset.y > stuckEdge + 2); coasting.set(false); dragFrom.set(event.contentOffset.y); },
-        onEndDrag: event => {
-            if (fromFeed.get()) return;
-            const y = event.contentOffset.y;
-            // The fling's direction when there is one, else which way it was dragged.
-            const velocity = event.velocity?.y ?? 0;
-            const intent = Math.abs(velocity) > 0.05 ? velocity : y - dragFrom.get();
-            if (settleSheet(y, intent)) coasting.set(false);
-        },
-        onMomentumBegin: () => { coasting.set(true); },
-        onMomentumEnd: event => {
-            coasting.set(false); fromFeed.set(false);
-            // Come to rest in between anyway (a pull to refresh let go): the nearer end.
-            settleSheet(event.contentOffset.y, event.contentOffset.y - stuckEdge / 2);
-        },
-        onScroll: event => {
-            lift.set(event.contentOffset.y);
-            if (coasting.get() && fromFeed.get() && event.contentOffset.y < stuckEdge) {
-                coasting.set(false);
-                scrollTo(sheetScroll, 0, stuckEdge, false);
-            }
-        },
+        onScroll: event => { lift.set(event.contentOffset.y); },
     });
     // The race stays put, like a map under its panel, and closes from the outside in as the page is lifted over it.
     const stuckAt = stuckEdge;
@@ -298,16 +267,12 @@ export default function CommunityScreen() {
         const stuck = lift.get() >= stuckAt;
         return { opacity: stuck ? 1 : 0, transform: [{ translateY: stuck ? 0 : -1000 }] };
     });
-    // The buttons sit on the race's level, whole: never clipped (a clip cut the badge and the
-    // discs). As the page's top edge rises to them they fade out, then step out of the way so
-    // nothing hidden can be tapped. Plain numbers here: no scale helpers inside a worklet.
+    // The buttons belong to the race: they fade with it, on the same curve (raceStyle), never
+    // after it; then step out of the way so nothing hidden can be tapped. Plain numbers here.
     // One step below the status bar, level with the race's heading rather than pressed against the top.
     const actionsTop = insets.top + t.space.sm;
-    const actionsBottom = actionsTop + Control.hitTarget + t.space.sm;
-    const actionsFade = t.space.xl;
     const actionsStyle = useAnimatedStyle(() => {
-        const edge = stage - lift.get();
-        const shown = interpolate(edge, [actionsBottom, actionsBottom + actionsFade], [0, 1], 'clamp');
+        const shown = interpolate(lift.get(), [stuckAt * 0.35, stuckAt * 0.6], [1, 0], 'clamp');
         return { opacity: shown, transform: [{ translateY: shown > 0.05 ? 0 : -1000 }] };
     });
     // The faces on the race, where they are drawn: a tap on one opens that person.
@@ -571,8 +536,7 @@ export default function CommunityScreen() {
     );
     const challengesPage = (
         <View onLayout={measure(1)} style={{ width: pageWidth, paddingHorizontal: horizontalPadding }}>
-            {/* Challenges: your Shards, duels and bets on goals. */}
-            {MARKET_ENABLED ? <WalletHero style={styles.block} /> : null}
+            {/* Challenges: duels and bets on goals; your Shards sit beside the title. */}
             <DuelSection style={styles.block} />
             {MARKET_ENABLED ? <MarketSection style={styles.block} /> : null}
         </View>
@@ -625,8 +589,8 @@ export default function CommunityScreen() {
                 <IrisFade progress={lift} from={t.space.xl} to={stuckAt * 0.6} width={screen.width} height={stage} color={colors.background} follow />
             </Animated.View>
             <Animated.ScrollView ref={sheetScroll} showsVerticalScrollIndicator={false} onScroll={onLift} scrollEventThrottle={16}
-                // Between the race and the top it always settles at one or the other, the way it was
-                // pushed (onLift); past the header the feed scrolls freely.
+                // Half or full, settled by iOS (see stuckEdge); past the header the feed scrolls freely.
+                snapToOffsets={[0, stuckEdge]} snapToEnd={false}
                 onScrollEndDrag={nearEnd} onMomentumScrollEnd={nearEnd}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textTertiary} progressViewOffset={insets.top} />}>
                 {/* Over the race: a drag sideways reads it, day by day. */}
@@ -644,7 +608,7 @@ export default function CommunityScreen() {
                 {/* The same page continuing: the race falls into it, no edge, no grabber; the title is a section heading. */}
                 <LinearGradient pointerEvents="none" colors={['transparent', colors.background]} style={styles.blend} />
                 <View style={[styles.sheetTop, { backgroundColor: colors.background, paddingHorizontal: horizontalPadding }]}>
-                    <SectionTitle first right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
+                    <SectionTitle first after={page === 1 ? <WalletHero compact /> : undefined} right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
                 </View>
                 <View style={{ backgroundColor: colors.background, minHeight: screen.height - insets.top, paddingBottom: tabBarClearance }}>
                     <Animated.ScrollView ref={pager} horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={{ height: pageHeight }}
@@ -661,7 +625,7 @@ export default function CommunityScreen() {
                 {/* No line under it: a soft fade, so the cards pass beneath the heading of the same page. */}
                 <LinearGradient pointerEvents="none" colors={[colors.background, 'transparent']} style={styles.stickyFade} />
                 <View style={[styles.sheetTop, { paddingHorizontal: horizontalPadding }]}>
-                    <SectionTitle first right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
+                    <SectionTitle first after={page === 1 ? <WalletHero compact /> : undefined} right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
                 </View>
             </Animated.View>
             {/* On the race's level, whole; they fade as the page rises to them (actionsStyle). */}

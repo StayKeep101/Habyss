@@ -9,44 +9,32 @@ import { tint } from '@/theme/tokens';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 
-/** Elder Futhark: the old runes Tolkien's Dwarvish script grew from. */
-const RUNES = 'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟ';
-/** One letter resolves every step: slow enough to watch the inscription give way. */
-const STEP = DURATION.tap / 2;
-/** The line holds as runes for a moment before the first one gives way. */
-const PRE_ROLL = DURATION.reward;
-/** How many runes just ahead of the wave burn bright. */
-const FRONT = 3;
-
-/** A letter stays a rune; a space or a mark of punctuation stays itself, so words keep their shape. */
-const runic = (char: string) => /[\p{L}\p{N}]/u.test(char);
-
-/** The rune standing in for the letter at `index` on this flicker `beat`: the same for a beat, then another. */
-export function runeAt(index: number, beat: number): string {
-    const hash = Math.abs(((index + 1) * 2654435761 + beat * 40503) | 0);
-    return RUNES[hash % RUNES.length];
-}
+/** One letter appears every step: quick enough to read along, slow enough to feel written. */
+const STEP = DURATION.tap / 4;
+/** A breath before the first word. */
+const PRE_ROLL = DURATION.base;
+/** How many letters just ahead of the writing are already faintly there. */
+const FRONT = 6;
 
 /**
- * Echo's line on Home, revealed like an old inscription.
+ * Echo's line on Home, written out smoothly.
  *
- * The whole line first shows as faint runes that flicker, then a wave passes
- * along it and each rune settles into its letter, the few just ahead of the
- * wave burning brighter. Spaces and punctuation never change, so the words
- * keep their shape throughout. The real sentence is laid out underneath,
+ * The letters appear one after another from a soft edge: the few just ahead
+ * are already faintly there in Echo's colour, the rest not yet. Nothing
+ * flickers or changes shape. The real sentence is laid out underneath,
  * invisible, so the line's height is fixed from the start and nothing jumps.
  *
- * The runes take Echo's mood (lib/taskPressure.ts): the accent when calm,
+ * The edge takes Echo's mood (lib/taskPressure.ts): the accent when calm,
  * amber when worried, red in demon mode. With Reduce Motion the line simply
  * appears. VoiceOver always reads the real sentence.
  *
- * Its own component so the reveal re-renders only this line, not Home.
+ * Its own component so the writing re-renders only this line, not Home.
  */
 export function EchoLine({ text, style, onPress, onDone, mood = 0 }: {
     text: string; style?: object; onPress?: () => void;
-    /** How worried Echo is about your tasks, 0 calm to 4 demon: the runes' colour. */
+    /** How worried Echo is about your tasks, 0 calm to 4 demon: the writing edge's colour. */
     mood?: number;
-    /** Called once the line has fully revealed (e.g. to ask a question after it). */
+    /** Called once the line has fully appeared (e.g. to ask a question after it). */
     onDone?: () => void;
 }) {
     const { theme } = useTheme();
@@ -54,41 +42,26 @@ export function EchoLine({ text, style, onPress, onDone, mood = 0 }: {
     const { primary } = useAccentGradient();
     const reduced = useReducedMotion();
     const [shown, setShown] = useState(0);
-    const [beat, setBeat] = useState(0);
     const doneRef = useRef(onDone);
     useEffect(() => { doneRef.current = onDone; }, [onDone]);
 
     useEffect(() => {
         if (reduced) { setShown(text.length); doneRef.current?.(); return; }
         setShown(0);
-        setBeat(0);
         let index = 0;
-        let tick = 0;
         let timer: ReturnType<typeof setInterval> | undefined;
         const start = setTimeout(() => {
             timer = setInterval(() => {
-                tick += 1;
-                // Spaces and punctuation are already themselves: the wave passes them at once.
-                do { index += 1; } while (index < text.length && !runic(text[index - 1]));
+                index += 1;
                 setShown(index);
-                if (tick % 3 === 0) setBeat(value => value + 1);
                 if (index >= text.length) { if (timer) clearInterval(timer); doneRef.current?.(); }
             }, STEP);
         }, PRE_ROLL);
-        // The runes flicker while they wait for the wave, and stop once it has passed:
-        // a finished line never redraws again.
-        const flicker = setInterval(() => setBeat(value => value + 1), STEP * 3);
-        const stopFlicker = setTimeout(() => clearInterval(flicker), PRE_ROLL + STEP * (text.length + 1));
-        return () => { clearTimeout(start); clearTimeout(stopFlicker); if (timer) clearInterval(timer); clearInterval(flicker); };
+        return () => { clearTimeout(start); if (timer) clearInterval(timer); };
     }, [text, reduced]);
 
     const glow = mood >= 4 ? colors.error : mood >= 2 ? colors.warning : primary;
-    const rest = useMemo(() => {
-        const chars = text.slice(shown).split('');
-        const near = chars.slice(0, FRONT).map((char, offset) => (runic(char) ? runeAt(shown + offset, beat) : char)).join('');
-        const far = chars.slice(FRONT).map((char, offset) => (runic(char) ? runeAt(shown + FRONT + offset, beat) : char)).join('');
-        return { near, far };
-    }, [text, shown, beat]);
+    const rest = useMemo(() => ({ near: text.slice(shown, shown + FRONT), far: text.slice(shown + FRONT) }), [text, shown]);
     const done = shown >= text.length;
 
     return (
@@ -101,8 +74,8 @@ export function EchoLine({ text, style, onPress, onDone, mood = 0 }: {
                 {done ? null : (
                     <Text style={[styles.line, styles.over, { color: colors.text }]} importantForAccessibility="no" accessibilityElementsHidden>
                         {text.slice(0, shown)}
-                        <Text style={{ color: glow }}>{rest.near}</Text>
-                        <Text style={{ color: tint(glow, 'border') }}>{rest.far}</Text>
+                        <Text style={{ color: tint(glow, 'border') }}>{rest.near}</Text>
+                        <Text style={styles.unwritten}>{rest.far}</Text>
                     </Text>
                 )}
             </View>
@@ -114,4 +87,6 @@ const styles = StyleSheet.create({
     line: { fontSize: ms(15), fontFamily: FontFamily.semibold, textAlign: 'left', lineHeight: ms(22) },
     over: { position: 'absolute', top: 0, left: 0, right: 0 },
     box: { overflow: 'hidden' },
+    // Not written yet: in place (so the words wrap where they will), unseen.
+    unwritten: { opacity: 0 },
 });

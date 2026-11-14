@@ -128,9 +128,8 @@ function TopTasks({ lines, mine }: { lines: DayCardLine[]; mine: boolean }) {
     );
 }
 
-/** A day card, as whichever of the five day kinds it is. */
+/** A day card: the same format whichever of the five day kinds it is (the kind says why it was posted). */
 function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
-    const t = useTokens();
     const { post } = item;
     const card = post.card;
     const done = card.habitsDone + card.tasksDone;
@@ -142,46 +141,28 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
     const rest = lines.filter(line => !topNames.has(line.name));
     const did = lines.filter(line => line.done).map(line => (post.mine ? line.name : maskObjectionable(line.name)));
 
-    let hero: React.ReactNode;
-    let visual: React.ReactNode = <SegmentBar done={done} total={total} />;
+    // One format for every post, so a friend's day always reads the same way: how much of
+    // the day was done, out of what, and the bar of it. What made this post (a milestone, a
+    // record, a comeback, a long focus) is said in the caption beside the figure.
+    let highlight: string | undefined;
     if (item.kind === 'milestone' && card.milestone) {
         const next = STREAK_MILESTONES.find(value => value > card.milestone!) ?? card.milestone * 2;
-        hero = <Hero value={String(card.milestone)} unit="day streak" caption={`Next: ${next}`} />;
-        visual = <SegmentBar done={card.milestone} total={next} accessibilityLabel={`${card.milestone} of ${next} days to the next milestone`} />;
+        highlight = `${card.milestone}-day streak · next ${next}`;
     } else if (item.kind === 'best' && card.best) {
-        hero = card.best.kind === 'streak'
-            ? <Hero value={String(card.best.days)} unit="days in a row" caption="New record" />
-            : <Hero value={focusDuration(card.best.minutes * 60)} unit="focused" caption="New record" />;
+        highlight = card.best.kind === 'streak' ? `Record: ${card.best.days} days in a row` : `Record: ${focusDuration(card.best.minutes * 60)} focused`;
     } else if (item.kind === 'chronos' && card.focusMinutes) {
-        // Half-hour blocks of focus, up to a four-hour day.
-        hero = <Hero value={focusDuration(card.focusMinutes * 60)} unit="focused" />;
-        // Each block is half an hour of focus, and says so.
-        const blocks = Math.round(card.focusMinutes / 30);
-        visual = (
-            <View style={styles.legended}>
-                <SegmentBar done={blocks} total={Math.max(8, blocks)} accessibilityLabel={`${focusDuration(card.focusMinutes * 60)} of focus`} />
-                <Text variant="caption" tone="muted">{`${blocks} × 30 min of focus`}</Text>
-            </View>
-        );
+        highlight = `${focusDuration(card.focusMinutes * 60)} focused`;
     } else if (item.kind === 'comeback' && card.comeback) {
-        hero = <Hero value="Back" unit={`after ${card.comeback} days`} />;
-        // The days away, quiet, then today, lit.
-        visual = (
-            <View style={styles.away} accessible accessibilityLabel={`${card.comeback} days away, then back today`}>
-                {Array.from({ length: Math.min(card.comeback, 14) }, (_, index) => (
-                    <View key={index} style={[styles.awayDay, { backgroundColor: t.color.surfaceRaised }]} />
-                ))}
-                <View style={[styles.awayDay, styles.today, { backgroundColor: t.color.cobalt }]} />
-            </View>
-        );
-    } else {
-        // The percentage is the score, top right; here, what it is made of.
-        hero = <Hero value={`${done} of ${total}`} unit="done" />;
+        highlight = `Back after ${card.comeback} days`;
+    } else if (total && done === total) {
+        highlight = 'All done';
     }
+    const hero = <Hero value={`${done}/${total}`} unit="done" caption={highlight} />;
+    const visual = <SegmentBar done={done} total={total} />;
 
     const stats: PostStat[] = [];
     if (card.streak > 0) stats.push({ icon: 'flame', value: String(card.streak), label: 'day streak' });
-    if (card.focusMinutes && item.kind !== 'chronos') stats.push({ icon: 'hourglass', value: focusDuration(card.focusMinutes * 60), label: 'focus' });
+    if (card.focusMinutes) stats.push({ icon: 'hourglass', value: focusDuration(card.focusMinutes * 60), label: 'focus' });
     if (card.goalsMoved) stats.push({ icon: 'flag', value: String(card.goalsMoved), label: card.goalsMoved === 1 ? 'goal' : 'goals' });
 
     const avatar = post.mine ? ctx.myAvatar : post.avatarUrl;
@@ -274,11 +255,7 @@ const styles = StyleSheet.create({
     line: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: Spacing.xxl },
     facts: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexShrink: 1, maxWidth: '50%' },
     top: { gap: Spacing.xs },
-    legended: { gap: Spacing.xs },
     topHead: { flexDirection: 'row', justifyContent: 'space-between' },
     topRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: Spacing.xxl },
     rank: { width: Spacing.xl, height: Spacing.xl, borderRadius: Spacing.xl / 2, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-    away: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, height: Spacing.sm },
-    awayDay: { flex: 1, height: Spacing.xs, borderRadius: Spacing.xs },
-    today: { height: Spacing.sm, flex: 2 },
 });

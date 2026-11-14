@@ -687,7 +687,7 @@ const Home = () => {
           {/* Header Row
               Your picture with your Marks (XP) as its ring, and your Shards (the
               currency) beside it as a holding: who you are, and what you have. */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(12), paddingTop: topSpacing, paddingBottom: Spacing.lg, paddingHorizontal: horizontalPadding }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(12), paddingTop: topSpacing, paddingBottom: Spacing.sm, paddingHorizontal: horizontalPadding }}>
             {/* The ring is today: empty at nothing done, closed and green
                 when the day is kept. */}
             <ProgressAvatar

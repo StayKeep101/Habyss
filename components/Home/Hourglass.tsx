@@ -25,13 +25,15 @@ const BOTTOM_BULB = `M 48.5 ${NECK} C 46 92, 23 110, 23 ${BOTTOM_GLASS} L 77 ${B
  *
  * `part` draws only the top or bottom half (a glass pulled apart).
  */
-export function Hourglass({ design, size, ran, running, part = 'whole' }: {
+export function Hourglass({ design, size, ran, running, part = 'whole', streamColor }: {
     design: GlassDesign;
     /** Height in points; the width follows (100 : 160). */
     size: number;
     ran: SharedValue<number>;
     /** The stream shows only while the day runs (not at night, not mid-flip). */
     running: boolean;
+    /** The falling stream's colour: the habit or task you are on now (else the glass's own sand). */
+    streamColor?: string;
     part?: 'whole' | 'top' | 'bottom';
 }) {
     const id = useId().replace(/[^a-zA-Z0-9]/g, '');
@@ -86,7 +88,7 @@ export function Hourglass({ design, size, ran, running, part = 'whole' }: {
                 <G clipPath={`url(#${ref('bottom')})`}>
                     <AnimatedRect x={0} width={W} fill={`url(#${ref('sand')})`} animatedProps={bottomSand} />
                 </G>
-                {running ? <AnimatedRect x={49.4} y={NECK} width={1.2} fill={design.sand[0]} animatedProps={stream} /> : null}
+                {running ? <AnimatedRect x={49.4} y={NECK} width={1.2} fill={streamColor ?? design.sand[0]} animatedProps={stream} /> : null}
                 <Path d={TOP_BULB} fill="none" stroke={design.frameLight} strokeOpacity={0.55} strokeWidth={1.2} />
                 <Path d={BOTTOM_BULB} fill="none" stroke={design.frameLight} strokeOpacity={0.55} strokeWidth={1.2} />
                 {/* A highlight down the glass. */}
