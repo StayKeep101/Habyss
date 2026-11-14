@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { ShardsWallet } from '../Shards/ShardsWallet';
 import type { Wallet } from '@/hooks/useWallet';
+import { localDateKey } from '@/lib/habitSchedule';
 
 jest.mock('expo-router', () => ({ router: { navigate: jest.fn() } }));
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'abyss' }) }));
@@ -12,14 +13,15 @@ const wallet: Wallet = {
     balance: 140, inPlay: 25, earned: 65, today: 4,
     timeline: [{ t: Date.now() - 30 * 3600e3, value: 100 }, { t: Date.now() - 2 * 3600e3, value: 120 }, { t: Date.now() - 10 * 60e3, value: 140 }],
     activity: [
-        { t: Date.now() - 60e3, date: '2026-10-28', amount: 10, kind: 'complete', item: 'task', title: 'Send proposal' },
+        { t: Date.now() - 60e3, date: localDateKey(new Date()), amount: 10, kind: 'complete', item: 'task', title: 'Send proposal' },
+        { t: Date.now() - 90e3, date: localDateKey(new Date()), amount: 0, kind: 'add', item: 'task', title: 'Call the bank', held: 'limit' },
         { t: Date.now() - 3600e3, date: '2026-10-27', amount: -25, kind: 'stake', title: 'Run a 5k' },
         { t: Date.now() - 7200e3, date: '2026-10-27', amount: -2, kind: 'miss', item: 'habit', title: 'Read' },
         { t: Date.now() - 9000e3, date: '2026-10-27', amount: 0, kind: 'add', item: 'task', title: 'Plan the week', held: 'limit' },
     ],
 };
 
-it('reads like a brokerage account: balance, the period’s change and what is on bets, no transaction list', () => {
+it('reads like a brokerage account: balance, the period’s change, what is on bets, and today’s transactions only', () => {
     const screen = render(<ShardsWallet visible onClose={jest.fn()} wallet={wallet} multiplier={1} perfectRun={0} />);
     expect(screen.getByText('Shards')).toBeTruthy();
     expect(screen.getByText('+40 (40.0%)')).toBeTruthy();
@@ -27,9 +29,13 @@ it('reads like a brokerage account: balance, the period’s change and what is o
     // Every range a trading app has, no candles.
     ['1H', '24H', '1W', '1M', '1Y', 'All'].forEach(label => expect(screen.getByText(label)).toBeTruthy());
     expect(screen.getByText('On bets')).toBeTruthy();
-    // The list of every transaction is gone.
-    expect(screen.queryByText('Send proposal')).toBeNull();
-    expect(screen.queryByText('Recent')).toBeNull();
+    // Only today's transactions are listed: the thing, what happened and when, the Shards.
+    expect(screen.getByText('Today’s transactions')).toBeTruthy();
+    expect(screen.getByText('Send proposal')).toBeTruthy();
+    expect(screen.getByText(/^Completed task · /)).toBeTruthy();
+    expect(screen.getByText('Added task · Daily limit reached')).toBeTruthy();
+    expect(screen.queryByText('Run a 5k')).toBeNull();
+    expect(screen.queryByText('Read')).toBeNull();
 });
 
 it('says plainly, in its info card, that Shards are a game currency and not money', () => {

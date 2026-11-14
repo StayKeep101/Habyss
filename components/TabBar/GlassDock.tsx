@@ -168,6 +168,8 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const [expanded, setExpanded] = React.useState(false);
     const merged = !railed && current === 'roadmap' && barShown && !expanded;
     const merge = useSharedValue(merged ? 1 : 0);
+    const mergedRef = React.useRef(merged);
+    mergedRef.current = merged;
     // One animation per change, on the UI thread: started when the tab is touched, and only
     // corrected (never restarted) once the navigation lands, so no frame runs in JavaScript.
     // Where the dock is heading, kept on the UI thread: the tab's touch starts the move there,
@@ -181,17 +183,28 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const settle = React.useCallback((to: number) => {
         runOnUI(() => {
             'worklet';
-            if (mergeTo.value === to) return;
+            // Only skipped when the dock is truly there. "Heading there" is not enough: a move
+            // cut short (a tab switched mid-gather, the app sent to the background) left the dock
+            // half gathered on Settings, and nothing ever finished it.
+            if (mergeTo.value === to && merge.value === to) return;
             mergeTo.value = to;
             merge.value = withTiming(to, MERGE_TIMING);
         })();
     }, [merge, mergeTo]);
-    React.useEffect(() => { settle(merged ? 1 : 0); }, [merged, current, settle]);
+    React.useEffect(() => {
+        settle(merged ? 1 : 0);
+        // And once more after the move's time, so a move that never finished is finished now.
+        const again = setTimeout(() => settle(mergedRef.current ? 1 : 0), 600);
+        return () => clearTimeout(again);
+    }, [merged, current, settle]);
+    // Back from the background: wherever a move was left, the dock goes where this page wants it.
+    React.useEffect(() => {
+        const sub = AppState.addEventListener('change', state => { if (state === 'active') settle(mergedRef.current ? 1 : 0); });
+        return () => sub.remove();
+    }, [settle]);
     // A touch on a tab starts the move before the page changes. When the touch ends
     // without changing the page (slid off, cancelled), the dock goes back to what the
     // page wants: it is only ever gathered on the Roadmap.
-    const mergedRef = React.useRef(merged);
-    mergedRef.current = merged;
     const settleSoon = React.useCallback(() => { setTimeout(() => settle(mergedRef.current ? 1 : 0), 450); }, [settle]);
     /** A touch on a tab, on the UI thread: gather on the Roadmap, spread anywhere else. */
     const touchTab = (name: string) => Gesture.Manual().onTouchesDown(() => {

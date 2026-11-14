@@ -1,6 +1,6 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Overlay } from '@/components/ui/Overlay';
 import { useAccentGradient } from '@/context/AccentContext';
 import { textOn } from '@/theme/tokens';
@@ -155,11 +155,11 @@ export const RoadmapFilters = (props: Props) => {
                         </Group>
 
                         {/* Sorting always has an answer; tapping the chosen one flips it. */}
-                        <Group label="Sort">
+                        <Group label="Sort" scroll>
                             {(['default', 'name', 'progress', 'priority'] as const).map((id, index) => (
                                 <Pill key={id} label={['Created', 'Name', 'Progress', 'Priority'][index]} on={props.order === id}
                                     icon={props.order === id ? (props.direction === 1 ? 'arrow-up' : 'arrow-down') : undefined}
-                                    onPress={() => props.onOrder(id)} />
+                                    onPress={() => props.onOrder(id)} fit />
                             ))}
                         </Group>
 
@@ -177,13 +177,17 @@ export const RoadmapFilters = (props: Props) => {
 };
 
 /** A small plain label over one row of choices. */
-const Group = ({ label, children }: { label: string; children: React.ReactNode }) => {
+const Group = ({ label, children, scroll }: { label: string; children: React.ReactNode;
+    /** Choices sized to their words, sliding sideways, for a row with more than fits (Sort, at larger text sizes). */
+    scroll?: boolean }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     return (
         <View style={styles.group}>
             <Text style={[styles.groupLabel, { color: colors.textTertiary }]}>{label}</Text>
-            <View style={styles.pills}>{children}</View>
+            {scroll ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pills} contentContainerStyle={styles.pillsFit}>{children}</ScrollView>
+            ) : <View style={styles.pills}>{children}</View>}
         </View>
     );
 };
@@ -192,7 +196,9 @@ const Group = ({ label, children }: { label: string; children: React.ReactNode }
  * One choice: a matte pill. Chosen, it turns solid and light with dark text,
  * the way Phantom marks its selected range — no accent colour.
  */
-const Pill = ({ label, on, onPress, icon }: { label: string; on: boolean; onPress: () => void; icon?: 'arrow-up' | 'arrow-down' }) => {
+const Pill = ({ label, on, onPress, icon, fit }: { label: string; on: boolean; onPress: () => void; icon?: 'arrow-up' | 'arrow-down';
+    /** As wide as its words (in a sliding row), not a share of the row. */
+    fit?: boolean }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
@@ -200,8 +206,8 @@ const Pill = ({ label, on, onPress, icon }: { label: string; on: boolean; onPres
     const ink = on ? textOn(chosen) : colors.textSecondary;
     return (
         <Pressable accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={label}
-            onPress={() => { selectionFeedback(); onPress(); }} style={styles.pillPress}>
-            <MatteSurface radius={999} level="control" elevation="none" tint={on ? chosen : undefined} style={styles.pill}>
+            onPress={() => { selectionFeedback(); onPress(); }} style={fit ? null : styles.pillPress}>
+            <MatteSurface radius={999} level="control" elevation="none" tint={on ? chosen : undefined} style={[styles.pill, fit && styles.pillFit]}>
                 <Text numberOfLines={1} style={[styles.pillText, { color: ink }, on && styles.pillTextOn]}>{label}</Text>
                 {icon ? <Ionicons name={icon} size={12} color={ink} /> : null}
             </MatteSurface>
@@ -217,8 +223,10 @@ const styles = StyleSheet.create({
     group: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     groupLabel: { width: 50, fontSize: 12, fontFamily: FontFamily.medium },
     pills: { flex: 1, flexDirection: 'row', gap: 6 },
+    pillsFit: { flexDirection: 'row', gap: 6 },
     pillPress: { flex: 1 },
     pill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 7, paddingHorizontal: 6 },
     pillText: { fontSize: 12, fontFamily: FontFamily.medium },
     pillTextOn: { fontFamily: FontFamily.semibold },
+    pillFit: { paddingHorizontal: 12 },
 });

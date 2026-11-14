@@ -12,6 +12,7 @@ import type { GoalPoint } from '@/lib/goalInsights';
 import type { Wallet } from '@/hooks/useWallet';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
 import { DURATION } from '@/theme/motion';
+import { localDateKey } from '@/lib/habitSchedule';
 
 const RANGE_NAME: Record<WalletRange, string> = { '1H': 'Past hour', '24H': 'Past 24 hours', '1W': 'Past week', '1M': 'Past month', '1Y': 'Past year', ALL: 'All time' };
 const VERB: Record<ShardMove['kind'], string> = { add: 'Added', complete: 'Completed', miss: 'Missed', stake: 'Bet placed', payout: 'Bet won', refund: 'Bet refunded', unlock: 'Bought an hour' };
@@ -22,17 +23,34 @@ const momentLabel = (iso: string, range: WalletRange) => {
     if (range === '1W') return at.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric' });
     return at.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 };
+/** Why a fair-play rule held a move back, said where it is listed. */
+const HELD: Record<NonNullable<ShardMove['held']>, string> = {
+    late: 'Ticked late, so no Shards',
+    limit: 'Daily limit reached',
+};
+/** What a move was, under its title, and when today (and why it earned nothing, when a rule held it back). */
+const meta = (move: ShardMove) => {
+    const what = move.item === 'sleep' ? (move.kind === 'miss' ? 'Slept short of your goal' : 'Slept your goal')
+        : move.item === 'focus' ? 'Finished the day’s tasks'
+        : move.item === 'exercise' ? 'Moved your goal'
+        : move.item ? `${VERB[move.kind]} ${move.item}` : VERB[move.kind];
+    return `${what} · ${move.held ? HELD[move.held] : new Date(move.t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+};
+
 /**
  * Your Shards, read like a brokerage account: the balance, what it gained or
  * lost over the period you pick (green up, red down, the line in the same
  * colour, by the hour or the year), a finger to read any moment (with the
- * ticks a trading app gives), and what you have and what is on bets. The ⓘ explains exactly what earns and costs Shards, and that
+ * ticks a trading app gives), what you have and what is on bets, and today's
+ * transactions (only today's: the chart already tells the longer story). The ⓘ explains exactly what earns and costs Shards, and that
  * they are a game currency with no real-money value. Marks are XP.
  */
 export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun }: {
     visible: boolean; onClose: () => void; wallet: Wallet; multiplier: number; perfectRun: number;
 }) {
     const t = useTokens();
+    // Only today's moves are listed; the chart shows the rest.
+    const todayMoves = useMemo(() => { const today = localDateKey(new Date()); return wallet.activity.filter(move => move.date === today); }, [wallet.activity]);
     const [range, setRange] = useState<WalletRange>('24H');
     const [scrub, setScrub] = useState<GoalPoint | null>(null);
     const [info, setInfo] = useState(false);
@@ -98,6 +116,25 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
 
 
 
+                {/* Today's transactions only: what, how, when, and the Shards. */}
+                <SectionTitle>Today’s transactions</SectionTitle>
+                {todayMoves.length ? (
+                    <VoidCard style={styles.list}>
+                        {todayMoves.map((move, index) => (
+                            <View key={`${move.t}-${index}`} style={[styles.row, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.color.border }]}>
+                                <View style={styles.grow}>
+                                    <Text variant="heading" numberOfLines={1}>{move.title}</Text>
+                                    <Text variant="caption" tone="muted" numberOfLines={1}>{meta(move)}</Text>
+                                </View>
+                                <Text variant="heading" numeric tone={move.amount > 0 ? 'success' : move.amount < 0 ? 'danger' : 'muted'}>
+                                    {move.amount ? `${move.amount > 0 ? '+' : '−'}${Math.abs(move.amount)}` : '0'}
+                                </Text>
+                            </View>
+                        ))}
+                    </VoidCard>
+                ) : (
+                    <Text variant="bodySmall" tone="muted">Nothing yet today. Finish something and your Shards land here.</Text>
+                )}
             </ScrollView>
 
             {/* How Shards work: everything that earns and costs them, nothing to take on trust. */}

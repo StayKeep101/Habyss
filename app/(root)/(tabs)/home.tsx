@@ -612,9 +612,14 @@ const Home = () => {
     }
     setFocusStage(go => {
       if (reduceMotion) { go(); return; }
-      focusTurn.set(withTiming(1, timingFor(FOCUS_ENTRY.flip, EASE.move), turned => {
+      // Worked out here, in JavaScript: the callbacks below run on the UI thread, where calling a
+      // helper like timingFor crashes the app natively (Jest never sees it).
+      const turnTiming = timingFor(FOCUS_ENTRY.flip, EASE.move);
+      const leaveTiming = timingFor(FOCUS_ENTRY.leave, EASE.exit);
+      focusTurn.set(withTiming(1, turnTiming, turned => {
+        'worklet';
         if (!turned) return;
-        focusLeave.set(withTiming(1, timingFor(FOCUS_ENTRY.leave, EASE.exit), left => { if (left) runOnJS(go)(); }));
+        focusLeave.set(withTiming(1, leaveTiming, left => { 'worklet'; if (left) runOnJS(go)(); }));
       }));
     });
     return () => setFocusStage(null);

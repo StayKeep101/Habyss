@@ -62,7 +62,10 @@ export function CrackIntro({ onDone }: { onDone: () => void }) {
     const box = { left: (width - LOGO_WIDTH) / 2, top: (height - LOGO_HEIGHT) / 2, width: LOGO_WIDTH, height: LOGO_HEIGHT };
 
     return (
-        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.ground, ground]}>
+        // A real launch screen: it takes every touch (and hides the app from VoiceOver) until it is done,
+        // so nothing under it can be tapped open while it plays.
+        <Animated.View pointerEvents="auto" accessibilityViewIsModal onStartShouldSetResponder={() => true}
+            style={[StyleSheet.absoluteFill, styles.ground, ground]}>
             <Animated.View style={[StyleSheet.absoluteFill, camera]}>
                 <Animated.View style={[styles.piece, box, left]}>
                     <Image source={LEFT} style={styles.image} resizeMode="contain" />

@@ -1,6 +1,7 @@
 import { AppButton } from '@/components/ui/AppButton';
 import { SheetScreen } from '@/components/ui/SheetScreen';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, surfaceFor } from '@/theme/designSystem';
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Alert, AppState, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useAccentGradient } from '@/context/AccentContext';
@@ -223,8 +224,11 @@ const AISettings = () => {
         <SheetScreen title="Echo" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} stickyHeaderIndices={[0]}>
                 {/* Pinned while you scroll: what Echo will send, changing as you change it. */}
-                <View style={[styles.stickyPreview, { backgroundColor: colors.background }]}>
+                {/* On the sheet's own colour (its top is the card's material, not the page's), with a short
+                    fade under it, so what scrolls beneath slips away rather than meeting a black box. */}
+                <View style={[styles.stickyPreview, { backgroundColor: surfaceFor(theme).fill }]}>
                     <AlivePreview lines={previewLines} accent={accentSolid} focus={focus} />
+                    <LinearGradient pointerEvents="none" colors={[surfaceFor(theme).fill, `${surfaceFor(theme).fill}00`]} style={styles.stickyFade} />
                 </View>
 
                 {/* Every option visible at once, as a grid; the one in use

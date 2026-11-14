@@ -1,10 +1,11 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily, UIStyles } from '@/theme/designSystem';
+import { FontFamily, Spacing, UIStyles } from '@/theme/designSystem';
 
 /** The look of app/(root)/ai-settings.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
     // The pinned preview: the page's own background so rows scroll under it.
     stickyPreview: { paddingTop: 2, paddingBottom: 4 },
+    stickyFade: { position: 'absolute', left: 0, right: 0, bottom: -Spacing.lg, height: Spacing.lg },
     sampleMark: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
     group: { marginTop: 22 },
     gridTitle: { marginTop: 22, marginBottom: 8 },
