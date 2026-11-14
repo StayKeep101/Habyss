@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useSyncExternalStore, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/context/ThemeContext';
-import { Colors } from '@/theme/colors';
+import { Colors, PALETTE } from '@/theme/colors';
+import { DEFAULT_PALETTE, paletteFor } from '@/theme/palettes';
 import { contrastRatio, mixHex, readableAccent } from '@/lib/colorContrast';
-import { currentRankLook, loadRankLook, subscribeRankLook } from '@/lib/rankLook';
+import { loadRankLook, shownRankLook, subscribeRankLook } from '@/lib/rankLook';
 import { rankGradient } from '@/theme/rankLooks';
 
 // Beautiful gradient presets for app accent
@@ -46,7 +47,6 @@ interface AccentContextType {
     getAccentColor: () => string; // Returns primary color
 }
 
-const rankIndex = (name: string) => (require('@/lib/marks') as typeof import('@/lib/marks')).RANKS.findIndex(item => item.name === name);
 
 const AccentContext = createContext<AccentContextType | undefined>(undefined);
 
@@ -84,17 +84,16 @@ export function AccentProvider({ children }: { children: ReactNode }) {
     const followRank = true;
     const setFollowRank = (_on: boolean) => undefined;
     useEffect(() => { void loadRankLook(); }, []);
-    const look = useSyncExternalStore(subscribeRankLook, rankLookKey, rankLookKey);
-    const [rank, preview, chosen] = look.split('|').map(part => part || null);
-    // The hourglass you picked, when you have reached it (never one above your rank).
-    const reachedChosen = chosen && rank && rankIndex(chosen) >= 0 && rankIndex(chosen) <= rankIndex(rank) ? chosen : null;
-    const rankShown = preview ?? reachedChosen ?? (followRank ? rank : null);
+    // The hourglass in use (lib/rankLook.ts shownRankLook): a preview, the one you picked, else your rank.
+    const rankShown = useSyncExternalStore(subscribeRankLook, shownRankLook, shownRankLook);
 
     const chosenGradient = (ACCENT_GRADIENTS.find(g => g.id === gradientId) || ACCENT_GRADIENTS[0]) as AccentGradient;
     const accentGradient: AccentGradient = useMemo(() => {
-        if (!rankShown) return chosenGradient;
-        const colors = rankGradient(rankShown);
-        return { id: 'rank', name: rankShown, colors, shadowColor: colors[0] };
+        // The accent is the palette's own (theme/palettes.ts), never a colour of its own.
+        if (PALETTE === 'original' && !rankShown) return chosenGradient;
+        if (PALETTE === 'original') { const gem = rankGradient(rankShown!); return { id: 'rank', name: rankShown!, colors: gem, shadowColor: gem[0] }; }
+        const colors = [...paletteFor(rankShown).accent] as [string, string];
+        return { id: 'rank', name: rankShown ?? DEFAULT_PALETTE, colors, shadowColor: colors[0] };
     }, [rankShown, chosenGradient]);
 
     const getAccentColor = () => mixHex(accentGradient.colors[0], accentGradient.colors[1]);
@@ -107,7 +106,6 @@ export function AccentProvider({ children }: { children: ReactNode }) {
 }
 
 /** A string that changes when the rank or preview does, for useSyncExternalStore. */
-const rankLookKey = () => { const { rank, preview, chosen } = currentRankLook(); return `${rank ?? ''}|${preview ?? ''}|${chosen ?? ''}`; };
 
 export function useAccent() {
     const context = useContext(AccentContext);

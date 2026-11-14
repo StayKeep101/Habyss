@@ -73,7 +73,8 @@ export const colorRoles: Record<ThemeName, ColorRoles> = {
 
 /** Resolves any theme name the app has used (including the old `dark`). */
 export const rolesFor = (theme: string): ColorRoles =>
-    colorRoles[(theme === 'dark' ? 'abyss' : theme) as ThemeName] ?? colorRoles.abyss;
+    // The Abyss is read fresh: its colours follow the palette in use (theme/palettes.ts).
+    theme === 'abyss' || theme === 'dark' ? rolesOf('abyss') : colorRoles[theme as ThemeName] ?? rolesOf('abyss');
 
 /* -------------------------------------------------------------------------- */
 /*  Rank tones — each rank's gem (components/ui/RankGem.tsx).                  */

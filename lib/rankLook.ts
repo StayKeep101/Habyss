@@ -47,6 +47,20 @@ export function setRankLook(name: string): void {
     void AsyncStorage.setItem(KEY, name).catch(() => undefined);
 }
 
+/**
+ * The rank whose look the app wears: a Developer preview, else the hourglass you
+ * picked when you have reached it (never one above your rank), else your rank.
+ */
+export function shownRankLook(): string | null {
+    if (preview) return preview;
+    if (chosen && rank) {
+        const { RANKS } = require('./marks') as typeof import('./marks');
+        const at = (name: string) => RANKS.findIndex(item => item.name === name);
+        if (at(chosen) >= 0 && at(chosen) <= at(rank)) return chosen;
+    }
+    return rank;
+}
+
 /** The hourglass you picked (one you have reached) dresses the app; null goes back to your rank's. */
 export function chooseRankLook(name: string | null): void {
     if (chosen === name) return;

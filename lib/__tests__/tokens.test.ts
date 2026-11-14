@@ -7,8 +7,8 @@ describe('design tokens', () => {
         expect(Object.keys(colorRoles.light).sort()).toEqual(roles);
     });
     it('reads the old dark theme name as abyss', () => {
-        expect(rolesFor('dark')).toBe(colorRoles.abyss);
-        expect(rolesFor('nonsense')).toBe(colorRoles.abyss);
+        expect(rolesFor('dark')).toEqual(rolesFor('abyss'));
+        expect(rolesFor('nonsense')).toEqual(rolesFor('abyss'));
     });
     it('keeps spacing on a 4-point grid', () => {
         expect(Object.values(space).every(value => value % 4 === 0)).toBe(true);
