@@ -18,13 +18,19 @@ export async function openFocus(target?: { kind: string; id: string; title: stri
         const step = nextStep(await currentTodayFlow(now).catch(() => null), now.getHours() * 60 + now.getMinutes());
         if (step && (step.item.kind === 'habit' || step.item.kind === 'task')) to = { kind: step.item.kind, id: step.item.id, title: step.item.title };
     }
-    if (!to) { router.push('/(root)/focus?day=1' as never); return; }
-    router.push({ pathname: '/(root)/focus', params: { day: '1', start: '1', kind: to.kind, id: to.id, title: to.title, ...(to.minutes ? { minutes: String(to.minutes) } : null) } } as never);
+    const { throughStage } = require('./focusStage') as typeof import('./focusStage');
+    const chosen = to;
+    // From Home, through its movement (lib/focusStage.ts); from anywhere else, straight in.
+    throughStage(() => {
+        if (!chosen) { router.push('/(root)/focus?day=1' as never); return; }
+        router.push({ pathname: '/(root)/focus', params: { day: '1', start: '1', kind: chosen.kind, id: chosen.id, title: chosen.title, ...(chosen.minutes ? { minutes: String(chosen.minutes) } : null) } } as never);
+    });
 }
 
 /** A step of the day as Focus opens it: a habit or task directly, a meal or event as its block. */
 export function openFocusOn(item: Pick<FlowItem, 'kind' | 'id' | 'title' | 'start' | 'end'>): void {
     if (item.kind === 'habit' || item.kind === 'task') { void openFocus({ kind: item.kind, id: item.id, title: item.title }); return; }
     const { router } = require('expo-router') as typeof import('expo-router');
-    router.push({ pathname: '/(root)/focus', params: { day: '1', kind: item.kind, id: item.id, title: item.title, from: String(item.start), until: String(item.end), nextKind: item.kind } } as never);
+    const { throughStage } = require('./focusStage') as typeof import('./focusStage');
+    throughStage(() => router.push({ pathname: '/(root)/focus', params: { day: '1', kind: item.kind, id: item.id, title: item.title, from: String(item.start), until: String(item.end), nextKind: item.kind } } as never));
 }

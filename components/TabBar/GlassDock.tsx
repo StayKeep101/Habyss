@@ -6,6 +6,7 @@ import { MatteSurface } from '@/components/ui/MatteSurface';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import Animated, { Easing, useAnimatedStyle, withTiming, useSharedValue, interpolate, runOnJS, runOnUI } from 'react-native-reanimated';
+import { focusLeave } from '@/lib/focusStage';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { DURATION, EASE, timingFor } from '@/theme/motion';
 import { Colors } from '@/theme/colors';
@@ -397,6 +398,12 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
             </Animated.View>
     );
 
+    // Stepping into Focus from Home (lib/focusStage.ts): the dock sinks out with the page.
+    const sinkStyle = useAnimatedStyle(() => ({
+        opacity: 1 - focusLeave.get(),
+        transform: [{ translateY: focusLeave.get() * 160 }],
+    }));
+
     // iPad and an open foldable: the same pill and plus, standing down the
     // left edge, the page beside them instead of under them.
     if (railed) {
@@ -412,13 +419,14 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
 
     return (
         <>
-        <View style={[
+        <Animated.View style={[
             styles.container,
             {
                 bottom: tabBarBottomOffset,
                 paddingHorizontal: horizontalPadding,
                 gap: isCompactWidth ? 10 : 12,
-            }
+            },
+            sinkStyle,
         ]}>
 
             {/* 1. Navigation Pill */}
@@ -472,12 +480,12 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 <VoiceOrb size={floatingButtonSize} maxWidth={Math.max(floatingButtonSize, screenWidth - horizontalPadding * 2)}
                     colors={orbColors} ink={orbInk} />
             </View>
-        </View>
+        </Animated.View>
         {/* What to be doing now (or the focus session running) sits on top of the dock, on every tab.
             Beside the dock rather than inside it: iOS gives no touches to a
             view drawn outside its parent. After it, so the dock's fade never
             shades it. */}
-        <Animated.View pointerEvents="box-none" style={[styles.focusBar, merged ? { height: gathered } : null, barPlace]}>
+        <Animated.View pointerEvents="box-none" style={[styles.focusBar, merged ? { height: gathered } : null, barPlace, sinkStyle]}>
             <FocusMiniBar docked={merged} onShown={setBarShown} />
         </Animated.View>
         </>

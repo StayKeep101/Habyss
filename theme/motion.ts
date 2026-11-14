@@ -57,23 +57,18 @@ export const CEREMONY = {
 export const timingFor = timing;
 
 /**
- * Stepping into Focus and out of it (docs/motion-system.md §4.6): slow on
- * purpose, a ritual, not a transition. Each beat in milliseconds, in order.
+ * Stepping into Focus from Home (lib/focusStage.ts): the hourglass turns over,
+ * then Home's page drops away and its bar rises out, leaving the scene Focus
+ * opens on. Each beat in milliseconds, in order.
  */
 export const FOCUS_ENTRY = {
-    /** The hourglass comes out of the dark. */
-    appear: 1100,
-    /** It hangs there, breathing. */
-    hold: 350,
-    /** It turns over. */
-    flip: 1300,
-    /** The sand starts to run. */
-    settle: 450,
-    /** Into the sand, until it is all there is. */
-    zoom: 1100,
-    /** The sand comes apart, grain by grain, and Focus is underneath. */
-    dissolve: 1500,
+    /** The hourglass turns over. */
+    flip: 650,
+    /** Home's page drops away, the bar rises out, the tab bar sinks: only the scene is left. */
+    leave: 520,
+    /** Focus's clock and buttons appear on the scene. */
+    appear: 360,
 } as const;
 
-/** Leaving Focus: the same sand, gathering back into a sheet before the page fades. */
-export const FOCUS_EXIT = { gather: 1300 } as const;
+/** Back from Focus: Home comes back into place, the hourglass turning back. */
+export const FOCUS_EXIT = { return: 480 } as const;

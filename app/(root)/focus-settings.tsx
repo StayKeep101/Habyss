@@ -3,7 +3,7 @@ import { ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { SettingsGroup } from '@/components/ui/SettingsList';
-import { FocusClockRow, FocusMusicGroup } from '@/components/Focus/FocusSheets';
+import { FocusBackgroundRow, FocusClockRow, FocusMusicGroup } from '@/components/Focus/FocusSheets';
 import { styles } from '@/styles/screens/focus-settings.styles';
 
 /**
@@ -17,6 +17,7 @@ export default function FocusSettingsScreen() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <SettingsGroup title="Clock">
                     <FocusClockRow label="Clock style" />
+                    <FocusBackgroundRow />
                 </SettingsGroup>
                 <FocusMusicGroup />
             </ScrollView>

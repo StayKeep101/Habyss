@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { allowAnyOrientation, applyDefaultOrientation } from '@/lib/orientation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { FocusClock, FocusDigits, FocusRing } from '@/components/Focus/FocusClock';
 import { FocusTopBar } from '@/components/Focus/FocusTopBar';
@@ -17,7 +16,11 @@ import { FocusCrew } from '@/components/Focus/FocusCrew';
 import { FocusSummary } from '@/components/Focus/FocusSummary';
 import { MARKS } from '@/lib/marks';
 import { FocusNearby } from '@/components/Focus/FocusNearby';
-import { FocusPortal, usePortalArrival } from '@/components/Focus/FocusPortal';
+import { RankScene } from '@/components/Home/RankScene';
+import { useFocusBackground } from '@/components/Focus/FocusSheets';
+import { useTokens } from '@/hooks/useTokens';
+import { FOCUS_ENTRY } from '@/theme/motion';
+import { Colors } from '@/theme/colors';
 import { announceChange } from '@/lib/livePulse';
 import { useFocusCrew } from '@/hooks/useFocusCrew';
 import { FeedService } from '@/lib/feedService';
@@ -54,35 +57,15 @@ import { styles } from '@/styles/screens/focus.styles';
  * closing, no "done" screen in between.
  */
 export default function FocusRoute() {
-    // Every way into Focus passes through the portal once, as the page opens;
-    // the day's next steps redraw this same page, so it does not play again.
-    // Every way out (the ×, Finished, Exit, the clock running out) goes back
-    // through the same sand: the page is held until it has gathered.
-    const navigation = useNavigation();
-    const [portal, setPortal] = useState<'enter' | 'leave' | null>('enter');
-    const arrive = useSharedValue(0);
-    const arrival = usePortalArrival(arrive);
-    const leaving = useRef<{ action: Parameters<typeof navigation.dispatch>[0] } | null>(null);
-    const released = useRef(false);
-    useEffect(() => navigation.addListener('beforeRemove', event => {
-        if (released.current) return;
-        event.preventDefault();
-        if (leaving.current) return;
-        leaving.current = { action: event.data.action };
-        // Left before the entrance finished: the page stands where it would have arrived.
-        arrive.set(1);
-        setPortal('leave');
-    }), [navigation, arrive]);
-    const done = () => {
-        if (portal !== 'leave' || !leaving.current) { setPortal(null); return; }
-        released.current = true;
-        navigation.dispatch(leaving.current.action);
-    };
+    // Behind every step of the day: the landscape, the same scene as Home, so stepping in from
+    // Home (lib/focusStage.ts) shows no seam; or the default, plain black (Focus settings).
+    const t = useTokens();
+    const background = useFocusBackground();
     return (
-        <View style={styles.screen}>
-            <Animated.View style={[styles.screen, arrival]}><FocusStep /></Animated.View>
-            {/* In: the hourglass, the sand, the sand falling away. Out: the sand gathering (components/Focus/FocusPortal). */}
-            {portal ? <FocusPortal key={portal} mode={portal} arrive={arrive} onDone={done} /> : null}
+        <View style={[styles.screen, { backgroundColor: background === 'landscape' ? t.color.background : Colors.common.black }]}>
+            {background === 'landscape' ? <RankScene /> : null}
+            {/* The clock and its buttons appear on the scene. */}
+            <Animated.View style={styles.screen} entering={FadeIn.duration(FOCUS_ENTRY.appear).reduceMotion(ReduceMotion.System)}><FocusStep /></Animated.View>
         </View>
     );
 }
@@ -408,9 +391,6 @@ function FocusScreen() {
 
     return (
         <Pressable style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }]} onPress={wake} accessible={false}>
-            {/* A glow of your colour at the top, settling into black: the
-                screen stays mostly black, which an OLED screen spends nothing on. */}
-            <LinearGradient pointerEvents="none" colors={[`${primary}38`, `${primary}0F`, '#00000000']} locations={[0, 0.35, 0.7]} style={styles.glow} />
             {/* The same top as a step of the day opened from the + (FocusBlock): hold the × to end, sound, settings. */}
             <FocusTopBar style={chromeStyle} active={active} playing={active && focus.isRunning && !focus.isPaused} onClose={close} onWake={wake}
                 endItems={[

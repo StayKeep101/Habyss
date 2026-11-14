@@ -16,7 +16,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/theme/colors';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { Extrapolation, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import { focusLeave, focusTurn, setFocusStage } from '@/lib/focusStage';
+import { EASE, FOCUS_ENTRY, FOCUS_EXIT, timingFor } from '@/theme/motion';
 import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { CelebrationAnimation } from '@/components/Celebrations/CelebrationAnimation';
@@ -599,6 +601,30 @@ const Home = () => {
     }
   }, [habits.length, streak, profileAvatar]); // Minimized dependencies to avoid loops
 
+  // Into Focus from here (lib/focusStage.ts): the hourglass turns over, then the page drops
+  // away while the bar rises out (the tab bar sinks with them), leaving only the scene that
+  // Focus opens on. Coming back, Home settles into place again, the hourglass turning back.
+  const reduceMotion = useReducedMotion();
+  useFocusEffect(useCallback(() => {
+    if (focusLeave.get() > 0 || focusTurn.get() > 0) {
+      focusLeave.set(withTiming(0, timingFor(FOCUS_EXIT.return, EASE.enter)));
+      focusTurn.set(withTiming(0, timingFor(FOCUS_EXIT.return, EASE.move)));
+    }
+    setFocusStage(go => {
+      if (reduceMotion) { go(); return; }
+      focusTurn.set(withTiming(1, timingFor(FOCUS_ENTRY.flip, EASE.move), turned => {
+        if (!turned) return;
+        focusLeave.set(withTiming(1, timingFor(FOCUS_ENTRY.leave, EASE.exit), left => { if (left) runOnJS(go)(); }));
+      }));
+    });
+    return () => setFocusStage(null);
+  }, [reduceMotion]));
+  const pageLeave = useAnimatedStyle(() => ({ transform: [{ translateY: focusLeave.get() * screenHeight }] }));
+  const barLeave = useAnimatedStyle(() => ({
+    opacity: 1 - focusLeave.get(),
+    transform: [{ translateY: -focusLeave.get() * Math.max(1, headerHeight) }],
+  }));
+
   return (
     <VoidShell>
       {/* Transit-style: your rank's scene is the map, fixed behind everything (components/Home/DuneScene.tsx). */}
@@ -610,7 +636,7 @@ const Home = () => {
         scrollEventThrottle={16}
         // The page stops at the bar's edge: nothing scrolls under your picture and the stats,
         // so Echo's line can never run into them. The fade under the bar softens the edge.
-        style={{ marginTop: headerHeight }}
+        style={[{ marginTop: headerHeight }, pageLeave]}
         automaticallyAdjustContentInsets={false}
         contentContainerStyle={{ paddingTop: SCENE_SHOWN }}
         showsVerticalScrollIndicator={false}
@@ -681,7 +707,7 @@ const Home = () => {
       {/* The floating stats bar: your picture and the three stats, fixed over everything, the cards passing under. */}
       {/* Plain dark behind the picture and the stats, no shadow: the page stops at its edge
           and slips under a short fade into it, so there is never a hard line. */}
-      <View style={[homeStyles.bar, { paddingTop: insets.top, backgroundColor: colors.background }]} pointerEvents="box-none"
+      <Animated.View style={[homeStyles.bar, { paddingTop: insets.top, backgroundColor: colors.background }, barLeave]} pointerEvents="box-none"
         onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}>
         <LinearGradient pointerEvents="none" colors={[colors.background, 'transparent']} style={homeStyles.barFade} />
           {/* Header Row
@@ -716,7 +742,7 @@ const Home = () => {
             </View>
           </View>
 
-      </View>
+      </Animated.View>
 
       <SafeAreaView style={homeStyles.overlays} edges={['top']} pointerEvents="box-none">
         {/* Echo's quick questions. */}

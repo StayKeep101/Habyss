@@ -52,7 +52,7 @@ export default function RootLayout() {
         <Stack.Screen name="ai-config" options={{ presentation: 'modal' }} />
         <Stack.Screen name="guide" options={{ headerShown: false, presentation: 'modal' }} />
         {/* Focus mode: the whole screen, no swipe away (leaving is the × , which pauses). */}
-        {/* Fades in, not up: the page becomes the void Focus opens from (components/Focus/FocusPortal). */}
+        {/* Fades in, not up: Home has already stepped aside onto the same scene (lib/focusStage.ts). */}
         <Stack.Screen name="focus" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="goals-overview" options={{ presentation: 'modal' }} />
         {/* Earn your scroll: an hour of your apps for Shards, opened from the block screen's notification. */}
