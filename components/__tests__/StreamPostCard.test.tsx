@@ -34,11 +34,13 @@ it('draws a day with its share, rank, what was done, details on demand, and reac
     expect(context.onReact).toHaveBeenCalledWith(expect.objectContaining({ userId: 'ana' }), 'fire');
 });
 
-it('tells the day kinds apart', () => {
-    expect(render(<StreamPostCard item={day('comeback', { comeback: 5 })} ctx={ctx()} />).getByText('after 5 days')).toBeTruthy();
-    expect(render(<StreamPostCard item={day('milestone', { milestone: 30 })} ctx={ctx()} />).getByText('Next: 50')).toBeTruthy();
-    expect(render(<StreamPostCard item={day('best', { best: { kind: 'streak', days: 9 } })} ctx={ctx()} />).getByText('New record')).toBeTruthy();
-    expect(render(<StreamPostCard item={day('chronos', { focusMinutes: 135 })} ctx={ctx()} />).getByText('focused')).toBeTruthy();
+it('keeps one format for every day kind, saying what made it in the caption', () => {
+    expect(render(<StreamPostCard item={day('comeback', { comeback: 5 })} ctx={ctx()} />).getByText('Back after 5 days')).toBeTruthy();
+    expect(render(<StreamPostCard item={day('milestone', { milestone: 30 })} ctx={ctx()} />).getByText('30-day streak · next 50')).toBeTruthy();
+    expect(render(<StreamPostCard item={day('best', { best: { kind: 'streak', days: 9 } })} ctx={ctx()} />).getByText('Record: 9 days in a row')).toBeTruthy();
+    expect(render(<StreamPostCard item={day('chronos', { focusMinutes: 135 })} ctx={ctx()} />).getByText('2h 15m focused')).toBeTruthy();
+    // The same figure on every kind.
+    expect(render(<StreamPostCard item={day('comeback', { comeback: 5 })} ctx={ctx()} />).getAllByText('done').length).toBeGreaterThan(0);
 });
 
 it('shows the best comments on the card and opens the conversation', () => {
