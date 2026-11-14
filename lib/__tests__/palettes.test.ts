@@ -51,4 +51,19 @@ describe('Default or Hourglass theme', () => {
         expect(choice.themeRank()).toBe('Focused');
         look.previewRankLook(null);
     });
+    it('goes back to Default when Default is tapped, even straight after a preview', () => {
+        const look = require('../rankLook') as typeof import('../rankLook');
+        const choice = require('../themeChoice') as typeof import('../themeChoice');
+        look.setRankLook('Master');
+        choice.setThemeChoice('hourglass');
+        look.previewRankLook('Eternal');
+        expect(choice.themeRank()).toBe('Eternal');
+        choice.setThemeChoice('default');
+        expect(choice.themeRank()).toBeNull();
+        expect(look.currentRankLook().preview).toBeNull();
+        // Already on Default, a preview showing: tapping Default still ends it.
+        look.previewRankLook('Focused');
+        choice.setThemeChoice('default');
+        expect(choice.themeRank()).toBeNull();
+    });
 });

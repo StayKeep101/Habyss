@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { currentRankLook, shownRankLook } from './rankLook';
+import { currentRankLook, previewRankLook, shownRankLook } from './rankLook';
 
 /**
  * Settings → Appearance → Theme: Default (Habyss's original palette, always)
@@ -27,6 +27,9 @@ export async function loadThemeChoice(): Promise<void> {
     } catch { /* first launch: Default */ }
 }
 export function setThemeChoice(next: ThemeChoice): void {
+    // Choosing a theme is the last word: a rank look being previewed (Developer)
+    // ends, or tapping Default after a preview would leave the preview showing.
+    if (currentRankLook().preview) previewRankLook(null);
     if (choice === next) return;
     choice = next;
     listeners.forEach(listener => listener());
