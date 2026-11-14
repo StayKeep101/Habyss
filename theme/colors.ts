@@ -6,6 +6,14 @@
 const tintColorLight = '#3B82F6';
 const tintColorDark = '#8B5CF6';
 
+/**
+ * The app's palette, in one switch. 'slate' is the deep blue-grey palette
+ * (#06141B → #CCD0CF); 'original' is Habyss's first look (near-black with
+ * white text). Change this one word to go back; theme/designSystem.ts
+ * Surfaces follows it too.
+ */
+export const PALETTE: 'original' | 'slate' = 'slate';
+
 export const Colors = {
   light: {
     text: '#1F2937', // Text Primary
@@ -47,7 +55,43 @@ export const Colors = {
     gradientStart: '#3B82F6', // Blue-500
     gradientEnd: '#8B5CF6', // Violet-500
   },
-  abyss: {
+  abyss: PALETTE === 'slate' ? {
+    // The slate palette (#06141B #11212D #253745 #4A5C6A #9BA8AB #CCD0CF): the
+    // dark blue-greys of deep water. Your rank's colour stays the accent.
+    text: '#CCD0CF', // Mist: 10.6:1 on a card
+    background: '#06141B', // The deep
+    tint: '#8EB0FF', // Habyss blue (the rank's colour takes over)
+    tabIconDefault: '#8A979B', // Between Fog and Steel: 5.5:1 on a card
+    tabIconSelected: '#8EB0FF',
+
+    primary: '#8EB0FF',
+    primaryLight: '#7B2CBF',
+    primaryDark: '#0B1A23', // Between the deep and Slate
+    secondary: '#11212D', // Slate
+    accent: '#FF4757',
+
+    success: '#2FE3A1',
+    brandSuccess: '#4ECDC4',
+    warning: '#FFB020',
+    error: '#FF4757',
+
+    cobalt: '#6494FF',
+    silver: '#CCD0CF', // Mist
+
+    surface: '#11212D', // Slate: cards
+    surfaceSecondary: '#0B1A23',
+    surfaceTertiary: 'rgba(155, 168, 171, 0.10)', // Fog, faint
+
+    border: '#253745', // Harbour: hairlines only, never text
+    borderLight: '#4A5C6A', // Steel: lines and tracks only (2.4:1, too faint for text)
+
+    textPrimary: '#CCD0CF', // Mist: 10.6:1 on a card
+    textSecondary: '#9BA8AB', // Fog: 6.7:1 on a card
+    textTertiary: '#8A979B', // Between Steel and Fog: 5.5:1 on a card
+
+    gradientStart: '#11212D',
+    gradientEnd: '#06141B',
+  } : {
     text: '#F4F5F7', // High emphasis: crisp white
     background: '#050505', // Void Black (Not pure black)
     tint: '#8EB0FF', // Habyss blue, bright

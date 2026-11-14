@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { PALETTE } from './colors';
 
 /** Shared geometry and the font files loaded by app/_layout.tsx. */
 /**
@@ -70,7 +71,15 @@ export const Surfaces: Record<'light' | 'abyss' | 'trueDark', SurfaceTone> = {
         lip: 'rgba(15,23,42,0.06)',
         line: 'rgba(15,23,42,0.07)',
     },
-    abyss: {
+    abyss: PALETTE === 'slate' ? {
+        // Slate cards on the deep: Slate filled, a touch lighter at the top, Harbour when raised.
+        fill: '#11212D',
+        top: '#162836',
+        bottom: '#0D1B25',
+        raised: '#253745',
+        lip: 'rgba(204,208,207,0.07)',
+        line: 'rgba(204,208,207,0.06)',
+    } : {
         fill: '#111113',
         top: '#18181B',
         bottom: '#0C0C0E',
