@@ -1,10 +1,12 @@
 import { Colors, PALETTE } from './colors';
 import { Surfaces } from './designSystem';
+import { rankGradient } from './rankLooks';
 
 /**
  * One app palette per rank (lib/marks.ts RANKS): the hourglass you use dresses
  * the whole app in its palette, and its accent is the palette's own colour.
- * Lost, the slate of deep water, is everyone's to start with.
+ * Lost is Habyss's original palette, exactly, and is also the Default theme
+ * (Settings → Appearance → Theme); the others are worn with the Hourglass theme.
  *
  * Each has the same six steps, only the hue changes, so every rank feels like
  * the same app: the page (deep), cards, raised parts, lines (never text), the
@@ -17,8 +19,8 @@ import { Surfaces } from './designSystem';
 export interface RankPalette { deep: string; card: string; raised: string; line: string; fog: string; mist: string; accent: readonly [string, string] }
 
 export const RANK_PALETTES: Record<string, RankPalette> = {
-    // Slate: deep water
-    Lost: { deep: '#06141B', card: '#11212D', raised: '#253745', line: '#4A5C6A', fog: '#9BA8AB', mist: '#CCD0CF', accent: ['#79B8D8', '#9DCEE7'] },
+    // Habyss's original: near-black, crisp white text (the Default theme too).
+    Lost: { deep: '#050505', card: '#111113', raised: '#1C1C1F', line: '#4A4A52', fog: '#A3A3AD', mist: '#F4F5F7', accent: rankGradient('Lost') },
     // Dusk
     Beginner: { deep: '#06071B', card: '#11122D', raised: '#252645', line: '#4A4B6A', fog: '#9B9CAB', mist: '#CCCCD0', accent: ['#797CD8', '#9DA0E7'] },
     // Violet night
@@ -97,12 +99,18 @@ export function paletteSurface(palette: RankPalette) {
  * are filled in place, so everything that reads them next draws in it
  * (context/ThemeContext.tsx redraws the app when the rank in use changes).
  */
+// The original, as theme/colors.ts and theme/designSystem.ts hold it, before any palette is worn.
+const ORIGINAL_COLORS = { ...Colors.abyss };
+const ORIGINAL_SURFACE = { ...Surfaces.abyss };
+
 export function applyRankPalette(rank: string | null | undefined): void {
-    if (PALETTE === 'original') return;
+    // The original, exactly: the Default theme, Lost, and everything with palettes off.
+    if (PALETTE === 'original' || !rank || rank === DEFAULT_PALETTE || !RANK_PALETTES[rank]) {
+        Object.assign(Colors.abyss, ORIGINAL_COLORS);
+        Object.assign(Surfaces.abyss, ORIGINAL_SURFACE);
+        return;
+    }
     const palette = paletteFor(rank);
     Object.assign(Colors.abyss, paletteColors(palette));
     Object.assign(Surfaces.abyss, paletteSurface(palette));
 }
-
-// Lost, from the first frame (before any rank is read).
-applyRankPalette(DEFAULT_PALETTE);

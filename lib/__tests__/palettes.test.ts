@@ -28,3 +28,27 @@ describe('a palette for every rank', () => {
         expect(Colors.abyss.background).toBe(RANK_PALETTES.Lost.deep);
     });
 });
+
+describe('Default or Hourglass theme', () => {
+    it('is the original, exactly, for the Default theme and for Lost', () => {
+        const { applyRankPalette: apply } = require('@/theme/palettes');
+        apply('Master');
+        apply(null);
+        expect(Colors.abyss.background).toBe('#050505');
+        expect(Colors.abyss.textPrimary).toBe('#F4F5F7');
+        apply('Lost');
+        expect(Colors.abyss.surface).toBe('#121826');
+    });
+    it('wears the hourglass in use only when Hourglass is chosen (a Developer preview always)', () => {
+        const look = require('../rankLook') as typeof import('../rankLook');
+        const choice = require('../themeChoice') as typeof import('../themeChoice');
+        look.setRankLook('Master');
+        expect(choice.themeRank()).toBeNull();
+        choice.setThemeChoice('hourglass');
+        expect(choice.themeRank()).toBe('Master');
+        choice.setThemeChoice('default');
+        look.previewRankLook('Focused');
+        expect(choice.themeRank()).toBe('Focused');
+        look.previewRankLook(null);
+    });
+});

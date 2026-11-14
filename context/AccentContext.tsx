@@ -86,15 +86,21 @@ export function AccentProvider({ children }: { children: ReactNode }) {
     useEffect(() => { void loadRankLook(); }, []);
     // The hourglass in use (lib/rankLook.ts shownRankLook): a preview, the one you picked, else your rank.
     const rankShown = useSyncExternalStore(subscribeRankLook, shownRankLook, shownRankLook);
+    // The palette the app wears (context/ThemeContext.tsx): Lost when it is the Default theme.
+    const { palette } = useTheme();
 
     const chosenGradient = (ACCENT_GRADIENTS.find(g => g.id === gradientId) || ACCENT_GRADIENTS[0]) as AccentGradient;
     const accentGradient: AccentGradient = useMemo(() => {
-        // The accent is the palette's own (theme/palettes.ts), never a colour of its own.
-        if (PALETTE === 'original' && !rankShown) return chosenGradient;
-        if (PALETTE === 'original') { const gem = rankGradient(rankShown!); return { id: 'rank', name: rankShown!, colors: gem, shadowColor: gem[0] }; }
-        const colors = [...paletteFor(rankShown).accent] as [string, string];
-        return { id: 'rank', name: rankShown ?? DEFAULT_PALETTE, colors, shadowColor: colors[0] };
-    }, [rankShown, chosenGradient]);
+        // The Hourglass theme: the palette's own accent (theme/palettes.ts).
+        if (PALETTE !== 'original' && palette !== DEFAULT_PALETTE) {
+            const colors = [...paletteFor(palette).accent] as [string, string];
+            return { id: 'rank', name: palette, colors, shadowColor: colors[0] };
+        }
+        // The Default theme (and Lost): the original, your rank's own colour as the accent.
+        if (!rankShown) return chosenGradient;
+        const gem = rankGradient(rankShown);
+        return { id: 'rank', name: rankShown, colors: gem, shadowColor: gem[0] };
+    }, [rankShown, chosenGradient, palette]);
 
     const getAccentColor = () => mixHex(accentGradient.colors[0], accentGradient.colors[1]);
 

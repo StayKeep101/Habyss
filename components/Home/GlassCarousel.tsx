@@ -9,6 +9,7 @@ import { RankScene } from './RankScene';
 import { AppButton, AppIcon, IconButton, RankGem, Text } from '@/components/ui';
 import { useAccent } from '@/context/AccentContext';
 import { chooseRankLook } from '@/lib/rankLook';
+import { setThemeChoice } from '@/lib/themeChoice';
 import { on, type AppEvents } from '@/lib/appEvents';
 import { RANKS } from '@/lib/marks';
 import { useTokens } from '@/hooks/useTokens';
@@ -29,8 +30,8 @@ const SLOT = 0.54;
  * the sides. Each says whose it is: yours, reached, or locked with the Marks
  * still to go. Drawn over everything from the app's root.
  *
- * Picking one you have reached is how the app's colour changes, and the only
- * way: the whole app, Home's hourglass and its scene take its look.
+ * Picking one you have reached dresses the app in its palette (and turns on the
+ * Hourglass theme, Settings → Appearance): Home's hourglass and scene take it too.
  */
 export function GlassCarousel() {
     const t = useTokens();
@@ -121,7 +122,7 @@ export function GlassCarousel() {
                         variant={rankShown === current.name ? 'default' : 'primary'}
                         icon={rankShown === current.name ? 'checkmark' : undefined}
                         disabled={rankShown === current.name}
-                        onPress={() => { mediumFeedback(); chooseRankLook(index === yours ? null : current.name); }} />
+                        onPress={() => { mediumFeedback(); chooseRankLook(index === yours ? null : current.name); setThemeChoice('hourglass'); }} />
                 ) : null}
                 <View style={[styles.dots, { gap: t.space.xs, marginTop: t.space.md }]}>
                     {RANKS.map((rank, position) => (

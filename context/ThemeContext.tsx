@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
-import { loadRankLook, shownRankLook, subscribeRankLook } from "@/lib/rankLook";
+import { loadRankLook, subscribeRankLook } from "@/lib/rankLook";
+import { loadThemeChoice, subscribeThemeChoice, themeRank } from "@/lib/themeChoice";
 import { applyRankPalette, DEFAULT_PALETTE } from "@/theme/palettes";
 import { Appearance } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -30,14 +31,21 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // The old Light / Auto choice is gone with the setting.
     void AsyncStorage.removeItem('theme').catch(() => undefined);
   }, []);
-  // The hourglass in use dresses the app in its palette (theme/palettes.ts); Lost until a rank is known.
-  useEffect(() => { void loadRankLook(); }, []);
-  const rank = useSyncExternalStore(subscribeRankLook, shownRankLook, shownRankLook) ?? DEFAULT_PALETTE;
+  // Settings → Appearance → Theme: Default (the original) or the hourglass in use's palette (theme/palettes.ts).
+  useEffect(() => { void loadRankLook(); void loadThemeChoice(); }, []);
+  const rank = useSyncExternalStore(subscribeBoth, themeRank, themeRank) ?? DEFAULT_PALETTE;
   const value = useMemo(() => {
     applyRankPalette(rank);
     return { ...VALUE, palette: rank };
   }, [rank]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+};
+
+/** A change of either the hourglass in use or the theme chosen. */
+const subscribeBoth = (listener: () => void) => {
+  const offRank = subscribeRankLook(listener);
+  const offChoice = subscribeThemeChoice(listener);
+  return () => { offRank(); offChoice(); };
 };
 
 export const useTheme = () => useContext(ThemeContext);
