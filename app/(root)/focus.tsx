@@ -358,6 +358,9 @@ function FocusScreen() {
     const usable = screen.height - insets.top - insets.bottom - extras - (landscape ? 56 : 0);
     const ringSize = landscape ? Math.min(usable * 0.62, screen.width * 0.34) : Math.min(screen.width * 0.6, usable * 0.32);
     const digitSize = landscape ? Math.min(usable * 0.2, screen.width * 0.11) : Math.min(screen.width * 0.18, usable * 0.095);
+    // Sideways, the big clock is held to the height left under the name and above "Ends at" (and the
+    // friend's banner when one shows), so nothing is drawn over it.
+    const digitalMax = landscape ? Math.max(48, usable - 110) : undefined;
     // Split around something fixed (lunch, an event): this part ends at its end,
     // and the rest comes after it, said so the clock is never a surprise.
     // "Ends at 12:00 · Lunch, then 30 min more": what comes between, and the rest after it.
@@ -408,7 +411,7 @@ function FocusScreen() {
                             {heading}
                             <Animated.View layout={MOVE} style={digitsGrow}>
                                 {clock === 'ring' ? <FocusDigits seconds={focus.timeLeft} size={digitSize} label={label} />
-                                    : <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused} label={label} />}
+                                    : <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused} label={label} maxDigits={digitalMax} />}
                             </Animated.View>
                             {controls}
                             {suggestion ? (
