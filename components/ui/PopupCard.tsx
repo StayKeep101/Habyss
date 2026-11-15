@@ -19,7 +19,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * that rises from the bottom with a big icon half out of its top edge, a
  * title, a line, and whatever choices it carries. Tap outside to close.
  */
-export function PopupCard({ visible, onClose, icon, iconColor, title, body, children }: {
+export function PopupCard({ visible, onClose, icon, iconColor, title, body, children, badge: picture }: {
     visible: boolean;
     onClose: () => void;
     icon: string;
@@ -27,6 +27,8 @@ export function PopupCard({ visible, onClose, icon, iconColor, title, body, chil
     title: string;
     body?: string;
     children?: React.ReactNode;
+    /** Drawn on the top edge in place of the icon: a face, for a card about a person. */
+    badge?: React.ReactNode;
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -63,7 +65,7 @@ export function PopupCard({ visible, onClose, icon, iconColor, title, body, chil
                         <LinearGradient colors={[tone.top, tone.fill, tone.bottom]} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
                     </View>
                     <Animated.View style={[styles.badge, badge, { shadowColor: iconColor }]}>
-                        <AppIcon name={icon as never} filled size={76} color={iconColor} />
+                        {picture ?? <AppIcon name={icon as never} filled size={76} color={iconColor} />}
                     </Animated.View>
                     <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
                     {body ? <Text style={[styles.body, { color: colors.textSecondary }]}>{body}</Text> : null}

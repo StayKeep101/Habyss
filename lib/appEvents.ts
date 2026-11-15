@@ -77,6 +77,8 @@ export interface AppEvents {
     show_creation_modal: { x: number; y: number; size: number; height?: number; /** Which tab's + it is (lib/plusActions.ts). */ tab?: 'home' | 'roadmap' | 'community' } | undefined;
     /** One of Echo's one-tap questions, asked now, wherever you are. */
     show_check_in: { kind: 'mood' | 'energy' };
+    /** Echo asks to send a friend a streak freeze (components/Echo/FreezeAskHost.tsx). */
+    show_freeze_ask: { id: string; name: string; avatarUrl?: string; streak: number };
     /** Open one of your goals to bets (the + on Community). */
     show_open_bet: void;
     /** Challenge a friend to a duel (the + on Community). */

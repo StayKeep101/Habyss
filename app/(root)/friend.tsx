@@ -16,7 +16,6 @@ import { FriendsService, type Friend, type FriendProfile } from '@/lib/friendsSe
 import { FeedService, type FriendStatusRow } from '@/lib/feedService';
 import { STATUS_LABEL, statusOf } from '@/lib/presence';
 import { listenToFriends } from '@/lib/livePulse';
-import { giftFreeze } from '@/lib/streakFreeze';
 import { styles } from '@/styles/screens/friend.styles';
 
 /**
@@ -32,15 +31,13 @@ export default function FriendScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
-    const { mediumFeedback, successFeedback } = useHaptics();
+    const { mediumFeedback } = useHaptics();
 
     const [friend, setFriend] = useState<Friend | null>(null);
     const [status, setStatus] = useState<FriendStatusRow | null>(null);
     const [profile, setProfile] = useState<FriendProfile>({});
     const [marks, setMarks] = useState<number | undefined>();
     const [nudged, setNudged] = useState(false);
-    const [gifting, setGifting] = useState(false);
-    const [gifted, setGifted] = useState(false);
     // Friends see the whole page; anyone else (from the world leaderboard) sees
     // only their name, picture and level, and a way to add them.
     const [relation, setRelation] = useState<{ kind: 'self' | 'friend' | 'requested' | 'incoming' | 'none'; requestId?: string } | null>(null);
@@ -111,24 +108,6 @@ export default function FriendScreen() {
         if (await FriendsService.nudgeFriend(id, name)) setNudged(true);
     };
 
-    // A streak freeze: covers a day they miss. The server allows one a week per friend.
-    const sendFreeze = async () => {
-        if (gifting || gifted) return;
-        setGifting(true);
-        const result = await giftFreeze(id);
-        setGifting(false);
-        if (result === 'sent') { successFeedback(); setGifted(true); return; }
-        const why: Record<string, [string, string]> = {
-            too_soon: ['Already sent this week', `You can send ${name} another one in a few days.`],
-            full: [`${name} has five`, 'That is the most anyone can hold.'],
-            not_friends: ['Only for friends', `Add ${name} as a friend first.`],
-            signed_out: ['Sign in first', 'Freezes go through your account.'],
-            offline: ['Could not send it', 'Check your connection and try again.'],
-        };
-        const [title, body] = why[result] ?? why.offline;
-        Alert.alert(title, body);
-    };
-
     const report = () => {
         const file = async (reason: string) => {
             const ok = await FriendsService.reportContent({ userId: id, kind: 'profile', reason });
@@ -182,13 +161,7 @@ export default function FriendScreen() {
                     }
                 />
 
-                {/* A friend: a streak freeze to send, which covers a day they miss. */}
-                {isFriend ? (
-                    <View style={styles.actions}>
-                        <AppButton label={gifted ? 'Streak freeze sent' : 'Send a streak freeze'} icon={gifted ? 'checkmark' : 'snow'}
-                            onPress={() => void sendFreeze()} loading={gifting} disabled={gifted} />
-                    </View>
-                ) : null}
+                {/* A streak freeze is sent only when Echo asks, as a friend is about to lose one (components/Echo/FreezeAskHost.tsx). */}
 
                 {/* Someone who is not a friend yet: the way to add them. */}
                 {relation && !isFriend && relation.kind !== 'self' ? (

@@ -20,8 +20,7 @@ import { localDateKey } from '@/lib/habitSchedule';
 import { emit } from '@/lib/appEvents';
 import { glassDesign } from '@/theme/hourglassDesigns';
 import { CEREMONY, EASE, timingFor } from '@/theme/motion';
-import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
-import { MatteSurface } from '@/components/ui/MatteSurface';
+import { FontFamily, Spacing } from '@/theme/designSystem';
 import { s } from '@/theme/scale';
 import { tint } from '@/theme/tokens';
 
@@ -163,13 +162,14 @@ export function DayHourglass({ marks }: { marks: number }) {
     return (
         // On the panel's top edge (Home): the glass half over the scene, half on the panel; the clocks on the panel beside it.
         <View style={styles.stage}>
-            {/* What each clock is, said by shape, never words: the sun (since you woke) and the moon (until bed). */}
-            <MatteSurface radius={Radius.pill} level="control" style={styles.clockPill}>
+            {/* What each clock is, said by shape, never words: the sun (since you woke) and the moon (until bed).
+                Plain figures, no pill: they are read, not pressed, so they do not look like buttons. */}
+            <View style={styles.clockPill}>
                 <AppIcon name="sunny" size={CLOCK_ICON} color={t.color.textMuted} />
                 <Text style={[styles.clock, { color: t.color.textMuted }]} accessibilityLabel={`${pastWords} of today gone`}>
                     {glass.resting === 'night' ? '—' : clockLabel(glass.past)}
                 </Text>
-            </MatteSurface>
+            </View>
             <Pressable onPress={reveal} accessibilityRole="button" style={styles.glassBox}
                 accessibilityLabel={glass.resting === 'night' ? 'Your day has run out. See every hourglass' : `Your day: ${leftWords} left. See every hourglass`}>
                 <Animated.View style={[styles.flare, { backgroundColor: design.sand[0] }, flareStyle]} pointerEvents="none" />
@@ -179,12 +179,12 @@ export function DayHourglass({ marks }: { marks: number }) {
                     <Hourglass design={design} size={GLASS_HEIGHT} ran={ran} running={!flipping && glass.resting !== 'night'} streamColor={nowColor} />
                 </Animated.View>
             </Pressable>
-            <MatteSurface radius={Radius.pill} level="control" style={styles.clockPill}>
+            <View style={styles.clockPill}>
                 <AppIcon name="moon" size={CLOCK_ICON} color={t.color.accentText} />
                 <Text style={[styles.clock, { color: t.color.accentText }]} accessibilityLabel={`${leftWords} left today`}>
                     {glass.resting === 'night' ? '—' : clockLabel(glass.left)}
                 </Text>
-            </MatteSurface>
+            </View>
         </View>
     );
 }

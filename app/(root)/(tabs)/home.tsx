@@ -391,6 +391,9 @@ const Home = () => {
       afterPaint(() => {
         syncHealthKitData().catch(e => console.log('HealthKit sync error:', e));
       });
+      // In the evening, Echo may ask you to save a friend's streak (lib/freezeAsk.ts), once a day per friend.
+      const ask = setTimeout(() => { void (require('@/lib/freezeAsk') as typeof import('@/lib/freezeAsk')).maybeAskForFreeze(); }, 2500);
+      return () => clearTimeout(ask);
     }, [])
   );
 
@@ -641,9 +644,10 @@ const Home = () => {
         scrollEventThrottle={16}
         // The page stops at the bar's edge: nothing scrolls under your picture and the stats,
         // so Echo's line can never run into them. The fade under the bar softens the edge.
-        style={[{ marginTop: headerHeight }, pageLeave]}
+        style={pageLeave}
         automaticallyAdjustContentInsets={false}
-        contentContainerStyle={{ paddingTop: SCENE_SHOWN }}
+        // The page scrolls up under the bar's fade (it starts below it), so there is no hard line where it stops.
+        contentContainerStyle={{ paddingTop: SCENE_SHOWN + headerHeight }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -651,6 +655,7 @@ const Home = () => {
             onRefresh={onRefresh}
             tintColor={accentColor}
             colors={[accentColor]}
+            progressViewOffset={headerHeight}
           />
         }
       >
@@ -712,9 +717,11 @@ const Home = () => {
       {/* The floating stats bar: your picture and the three stats, fixed over everything, the cards passing under. */}
       {/* Plain dark behind the picture and the stats, no shadow: the page stops at its edge
           and slips under a short fade into it, so there is never a hard line. */}
-      <Animated.View style={[homeStyles.bar, { paddingTop: insets.top, backgroundColor: colors.background }, barLeave]} pointerEvents="box-none"
+      <Animated.View style={[homeStyles.bar, { paddingTop: insets.top }, barLeave]} pointerEvents="box-none"
         onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}>
-        <LinearGradient pointerEvents="none" colors={[colors.background, 'transparent']} style={homeStyles.barFade} />
+        {/* No background: the page colour at the very top (the status bar reads on it), fading out
+            by the bar's foot, so the sky shows behind your picture and stats, as on Community. */}
+        <LinearGradient pointerEvents="none" colors={[colors.background, `${colors.background}99`, `${colors.background}00`]} locations={[0, 0.45, 1]} style={homeStyles.barFade} />
           {/* Header Row
               Your picture with your Marks (XP) as its ring, and your Shards (the
               currency) beside it as a holding: who you are, and what you have. */}

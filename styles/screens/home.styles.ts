@@ -5,9 +5,8 @@ import { Radius, Spacing } from '@/theme/designSystem';
 export const homeStyles = StyleSheet.create({
     /** The floating stats bar, fixed over everything. */
     bar: { position: 'absolute', top: 0, left: 0, right: 0 },
-    /** Just under the plain dark bar: the cards fade into it as they rise, never cut. */
-    // Short, so the sky and your background still show just under the bar.
-    barFade: { position: 'absolute', bottom: -Spacing.md, left: 0, right: 0, height: Spacing.md },
+    /** Behind the bar and a little under it: the page colour at the top, clear by its foot. */
+    barFade: { position: 'absolute', top: 0, bottom: -Spacing.lg, left: 0, right: 0 },
     /** The panel rising over the scene, like Transit's list over its map. */
     panel: { borderTopLeftRadius: Radius.sheet * 1.5, borderTopRightRadius: Radius.sheet * 1.5, borderTopWidth: StyleSheet.hairlineWidth, borderLeftWidth: StyleSheet.hairlineWidth, borderRightWidth: StyleSheet.hairlineWidth },
     /** One stat's own matte pill in the floating bar. */

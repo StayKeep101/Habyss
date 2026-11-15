@@ -30,6 +30,7 @@ import { AccentProvider, useAccentGradient } from '@/context/AccentContext';
 import { FocusTimeProvider, useFocusSession } from '@/context/FocusTimeContext';
 import { CreationModal } from '@/components/Create/CreationModal';
 import { CheckInHost } from '@/components/Echo/CheckInHost';
+import { FreezeAskHost } from '@/components/Echo/FreezeAskHost';
 import { OpenBetHost } from '@/components/Market/OpenBetHost';
 import { DuelHost } from '@/components/Duel/DuelHost';
 import { DayCompleteCelebration } from '@/components/Celebrations/DayCompleteCelebration';
@@ -482,6 +483,7 @@ function InnerLayout() {
         <CreationModal />
         {/* What the + opens from any tab: Echo's one-tap question, a goal opened to bets. */}
         <CheckInHost />
+        <FreezeAskHost />
         <OpenBetHost />
         <DuelHost />
         {/* Hold the create button and speak. */}
