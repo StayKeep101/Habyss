@@ -358,9 +358,12 @@ function FocusScreen() {
     const usable = screen.height - insets.top - insets.bottom - extras - (landscape ? 56 : 0);
     const ringSize = landscape ? Math.min(usable * 0.62, screen.width * 0.34) : Math.min(screen.width * 0.6, usable * 0.32);
     const digitSize = landscape ? Math.min(usable * 0.2, screen.width * 0.11) : Math.min(screen.width * 0.18, usable * 0.095);
-    // Sideways, the big clock is held to the height left under the name and above "Ends at" (and the
-    // friend's banner when one shows), so nothing is drawn over it.
-    const digitalMax = landscape ? Math.max(48, usable - 110) : undefined;
+    // Sideways there is little height: the column (name, clock, Ends at, the buttons a tap shows, a
+    // friend's banner) is measured and scaled down just enough to fit, whatever is showing.
+    const [sideRoom, setSideRoom] = useState(0);
+    const [sideContent, setSideContent] = useState(0);
+    // A little headroom: when calm, the name and clock grow (a transform the layout does not count).
+    const sideScale = sideRoom && sideContent ? Math.min(1, (sideRoom * 0.9) / sideContent) : 1;
     // Split around something fixed (lunch, an event): this part ends at its end,
     // and the rest comes after it, said so the clock is never a surprise.
     // "Ends at 12:00 · Lunch, then 30 min more": what comes between, and the rest after it.
@@ -407,11 +410,12 @@ function FocusScreen() {
                 landscape ? (
                     <View style={styles.sideways}>
                         {clock === 'ring' ? <FocusRing size={ringSize} progress={progress} accent={primary} running={!focus.isPaused} /> : null}
-                        <View style={styles.sideColumn}>
+                        <View style={styles.sideColumn} onLayout={event => setSideRoom(event.nativeEvent.layout.height)}>
+                          <View style={[styles.sideContent, { transform: [{ scale: sideScale }] }]} onLayout={event => setSideContent(event.nativeEvent.layout.height)}>
                             {heading}
                             <Animated.View layout={MOVE} style={digitsGrow}>
                                 {clock === 'ring' ? <FocusDigits seconds={focus.timeLeft} size={digitSize} label={label} />
-                                    : <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused} label={label} maxDigits={digitalMax} />}
+                                    : <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused} label={label} />}
                             </Animated.View>
                             {controls}
                             {suggestion ? (
@@ -419,6 +423,7 @@ function FocusScreen() {
                                 onTogether={() => together(suggestion.userId)}
                                 onDismiss={() => { selectionFeedback(); setPassed(list => [...list, suggestion.userId]); }} />
                         ) : null}
+                          </View>
                         </View>
                     </View>
                 ) : (

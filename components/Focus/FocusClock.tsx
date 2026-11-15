@@ -23,7 +23,7 @@ const RING_DISC = 'rgba(255,255,255,0.035)';
  * in large figures under it. Digital is the figures alone; Minimal, thin
  * figures over a hairline.
  */
-export function FocusClock({ seconds, progress, style, accent, label, running = true, maxDigits }: {
+export function FocusClock({ seconds, progress, style, accent, label, running = true }: {
     /** What to show: time left for a timer, time spent for a stopwatch. */
     seconds: number;
     /** 0–1 for a timer; null for a stopwatch. */
@@ -33,14 +33,12 @@ export function FocusClock({ seconds, progress, style, accent, label, running = 
     label?: string;
     /** False while paused: the mark rests. */
     running?: boolean;
-    /** The largest the figures may be, so the clock leaves room for what else is showing (a friend's banner, sideways). */
-    maxDigits?: number;
 }) {
     const { width, height } = useWindowDimensions();
     const landscape = width > height;
     const text = clockText(seconds);
     const long = text.length > 5;
-    const digits = Math.min((landscape ? width * 0.2 : width * 0.21) * (long ? 0.78 : 1), maxDigits ?? Infinity);
+    const digits = (landscape ? width * 0.2 : width * 0.21) * (long ? 0.78 : 1);
 
     if (style === 'ring') {
         const ring = Math.min(width, height) * (landscape ? 0.6 : 0.66);

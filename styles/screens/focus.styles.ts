@@ -18,7 +18,9 @@ export const styles = StyleSheet.create({
     clockStack: { alignItems: 'center', gap: Spacing.xl },
     /** On its side: the ring on the left, everything else in a column on the right. */
     sideways: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.section, paddingHorizontal: Spacing.xl, paddingBottom: Control.hitTarget },
-    sideColumn: { flex: 1, maxWidth: 420, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg },
+    sideColumn: { flex: 1, maxWidth: 420, alignItems: 'center', justifyContent: 'center' },
+    // What the side column shows, at its natural height: scaled to fit the column (app/(root)/focus.tsx sideScale).
+    sideContent: { alignSelf: 'stretch', alignItems: 'center', gap: Spacing.lg },
     topRight: { flexDirection: 'row', gap: Spacing.sm },
     musicButton: { alignItems: 'center', justifyContent: 'center' },
     // The slash over the notes when music is off: corner to corner, as the system draws "off".
