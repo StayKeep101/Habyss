@@ -1,5 +1,6 @@
 import type { Habit } from './habitsSQLite';
 import { createHabitRequirement, isQuotaHabit, localDateKey, parseHabitDate } from './habitSchedule';
+import { offDays } from './timeOff';
 
 export interface HistoryDay { date: string; completedIds: string[]; skippedIds?: string[] }
 
@@ -53,6 +54,8 @@ export function habitDays(
     // Due that day (a "3 times a week" one only once it could not wait); a
     // quota one done on a day it was free to skip still counts as kept.
     const due = active.map(habit => ({ habit, required: createHabitRequirement(habit), quota: isQuotaHabit(habit) }));
+    // Off sick or on vacation (lib/timeOff.ts): what was left undone was rested, not missed.
+    const off = offDays();
     const out: HabitDay[] = [];
     for (let back = days - 1; back >= 0; back--) {
         const date = shiftDay(end, -back);
@@ -67,7 +70,7 @@ export function habitDays(
             date,
             scheduled,
             done: scheduled.filter(id => doneIds.includes(id)),
-            skipped: scheduled.filter(id => skipIds.includes(id)),
+            skipped: scheduled.filter(id => skipIds.includes(id) || (off.has(date) && !doneIds.includes(id))),
         });
     }
     return out;

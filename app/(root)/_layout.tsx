@@ -136,6 +136,10 @@ export default function RootLayout() {
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
+          name="time-off"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
           name="progress"
           options={{ headerShown: false, presentation: 'modal' }}
         />

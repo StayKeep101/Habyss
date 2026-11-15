@@ -78,6 +78,8 @@ import { useMovedTasks } from '@/hooks/useMovedTasks';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
 import { RANKS } from '@/lib/marks';
+import { useTimeOff, useTimeOffPeriods } from '@/hooks/useTimeOff';
+import { TimeOffCard } from '@/components/Home/TimeOffCard';
 
 const Home = () => {
   const router = useRouter();
@@ -491,13 +493,16 @@ const Home = () => {
    * card that appears when the day is won said three. Two answers to one
    * question is one too many; this is now the same `streakFrom` the card uses.
    */
+  // Days off keep the run: counted again when time off starts or ends.
+  const timeOffPeriods = useTimeOffPeriods();
+  const timeOff = useTimeOff();
   const { streak, bestStreak } = useMemo(() => {
     const today = localDateKey(new Date());
     // The whole shared history, so a run longer than any window still counts.
     const history = { ...sharedData.history, [today]: Object.keys(completions).filter(id => completions[id]) };
     const run = streakFrom(habits, allTasks, history, sharedData.skips, today, undefined, dailyTarget);
     return { streak: run.streak, bestStreak: bestStreakFrom(run.completedDates) };
-  }, [habits, allTasks, sharedData.history, sharedData.skips, completions, dailyTarget]);
+  }, [habits, allTasks, sharedData.history, sharedData.skips, completions, dailyTarget, timeOffPeriods]);
   // Every 7th day in a row earns a streak freeze (the server allows one a week).
   useEffect(() => { void earnFreezeIfDue(streak); }, [streak]);
   // Goals finished: the trophies on your profile.
@@ -684,6 +689,9 @@ const Home = () => {
             />
           </View>
           </Animated.View>
+
+          {/* Off sick or on vacation: what is running, that the streak is safe, and "I'm back". */}
+          {timeOff ? <View style={{ marginTop: sectionGap }}><TimeOffCard /></View> : null}
 
           {/* The day's promise, and the few things that would keep it. */}
           <Animated.View style={{ marginTop: sectionGap }}>

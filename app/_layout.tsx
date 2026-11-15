@@ -119,6 +119,8 @@ export default function MobileLayout() {
             // numbers, rings and bars play in from it. Capped, so a slow
             // database can never hold the app closed.
             const data = ensureData().catch(() => undefined);
+            // Time off (sick, vacation) first: the reminders booked next leave those days quiet.
+            await (require('@/lib/timeOff') as typeof import('@/lib/timeOff')).loadTimeOff().catch(() => undefined);
             await NotificationService.init();
             // Permissions are requested when the user enables a reminder.
             void NotificationService.refreshHabitReminders().catch(error => console.warn('Reminder refresh failed', error));

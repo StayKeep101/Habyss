@@ -321,6 +321,8 @@ export class NotificationService {
           .filter(item => item.date.getTime() > Math.max(now.getTime(), quietUntil()))
           // Never while you sleep (Day & calendar): bedtime rings, nothing after it until you wake.
           .filter(item => !isAsleep(item.date, dayWindow))
+          // Off sick or on vacation (lib/timeOff.ts): nothing about habits or the day; a task's own reminder, set by you, still rings.
+          .filter(item => item.content.data?.kind === 'task-reminder' || !(require('./timeOff') as typeof import('./timeOff')).isDayOff(localDateKey(item.date)))
           // One place kept for the note after the last of them.
           .slice(0, Math.max(0, budget - 1));
         const pauseAt = keepAliveAt(desired);

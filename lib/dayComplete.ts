@@ -72,6 +72,15 @@ export const isDayComplete = (tally: DayTally): boolean => tally.total > 0 && ta
  * Today joins the run the moment something is done, and an empty today does
  * not break it until the day is over. Skipping is not doing.
  */
+/** The days that keep a run without adding to it: those a freeze covered, and time off. */
+function keptDays(): Set<string> {
+    const freezes = (require('./streakFreeze') as typeof import('./streakFreeze')).frozenDays();
+    const off = (require('./timeOff') as typeof import('./timeOff')).offDays();
+    if (!off.size) return freezes;
+    if (!freezes.size) return off;
+    return new Set([...freezes, ...off]);
+}
+
 export function streakFrom(
     habits: Habit[],
     tasks: Task[],
@@ -80,8 +89,8 @@ export function streakFrom(
     today: string,
     back?: number,
     _target: DailyTarget = DEFAULT_TARGET,
-    /** Days a streak freeze covered: they keep the run going without adding to it. */
-    frozen: Set<string> = (require('./streakFreeze') as typeof import('./streakFreeze')).frozenDays(),
+    /** Days a streak freeze covered, and days off sick or on vacation (lib/timeOff.ts): they keep the run going without adding to it. */
+    frozen: Set<string> = keptDays(),
 ): { streak: number; completedDates: string[] } {
     // A shared habit or task counts only once everybody on it has done it.
     history = countedHistory(history);

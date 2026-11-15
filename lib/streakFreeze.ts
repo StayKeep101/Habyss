@@ -80,7 +80,7 @@ export async function coverYesterdayIfMissed(didOn: (day: string) => boolean, ru
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     const day = localDateKey(yesterday);
-    if (frozen.has(day) || didOn(day)) return false;
+    if (frozen.has(day) || didOn(day) || (require('./timeOff') as typeof import('./timeOff')).isDayOff(day)) return false;
     const sb = getSupabase();
     if (!sb) return false;
     try {
