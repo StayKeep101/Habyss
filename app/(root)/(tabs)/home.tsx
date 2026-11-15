@@ -467,12 +467,8 @@ const Home = () => {
       const index = RANKS.findIndex(item => item.name === rank);
       if (index > 0) { setClimbMoment({ kind: 'rankUp', rank, index }); playLevelUp(); }
     });
-    const ask = on('preview_question', ({ kind }) => {
-      pendingQuestion.current = kind;
-      setMotivationalQuote(leadInFor(kind, normalizeAIPersonality(aiPersonality || 'friendly')));
-    });
-    return () => { sub.remove(); ask.remove(); };
-  }, [playLevelUp, aiPersonality]);
+    return () => sub.remove();
+  }, [playLevelUp]);
   const [showWallet, setShowWallet] = useState(false);
   // habyss:///home?open=missed (or wallet, or glasses): a link straight to one of Home's sheets.
   const { open: openSheet } = useLocalSearchParams<{ open?: string }>();

@@ -70,7 +70,6 @@ export default function DeveloperScreen() {
                 <SettingsGroup title="Moments">
                     <SettingsRow icon="trophy" color="#FFD60A" label="Rank up: Beginner (league unlocked)" onPress={() => play(() => emit('preview_climb', { rank: 'Beginner' }))} />
                     <SettingsRow icon="trophy" color="#FF9F0A" label="Rank up: Master" onPress={() => play(() => emit('preview_climb', { rank: 'Master' }))} />
-                    <SettingsRow icon="happy" color="#FF375F" label="Quick question: mood" onPress={() => play(() => emit('preview_question', { kind: 'mood' }))} />
                     <SettingsRow icon="happy-outline" color="#FF375F" label="Mood check-in" onPress={() => play(() => emit('show_check_in', { kind: 'mood' }))} />
                     <SettingsRow icon="battery-half" color="#30D158" label="Energy check-in" onPress={() => play(() => emit('show_check_in', { kind: 'energy' }))} />
                     <SettingsRow icon="snow" color="#64D2FF" label="Echo asks: save a friend's streak" onPress={() => play(() => emit('show_freeze_ask', { id: 'preview', name: 'Sam Rivera', streak: 23 }))} />
