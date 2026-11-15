@@ -19,7 +19,7 @@ const SCENE_RATIO = 4 / 3;
  * colour and its drifting motes over the sky; darker under the floating stats
  * bar, and falling into the page below, where the cards read on dark.
  */
-export function RankScene({ rank, fill = false, scrollY, scrollRest }: {
+export function RankScene({ rank, fill = false, centred = false, scrollY, scrollRest }: {
     /** Where the page rests unscrolled. */
     scrollRest?: number;
     /** The page's scroll, for the scene's layers to drift at their own pace. */
@@ -28,13 +28,15 @@ export function RankScene({ rank, fill = false, scrollY, scrollRest }: {
     rank?: string;
     /** The whole screen (the hourglass carousel), rather than the picture's own height across the top (Home). */
     fill?: boolean;
+    /** Its middle in the middle of the screen (Focus with the phone sideways), rather than its top at the top. */
+    centred?: boolean;
 } = {}) {
     const t = useTokens();
     const { width, height: screen } = useWindowDimensions();
     const height = fill ? screen : width * SCENE_RATIO;
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <View style={{ height, overflow: 'hidden' }}>
+            <View style={[{ height, overflow: 'hidden' }, centred && { marginTop: (screen - height) / 2 }]}>
                 <DuneScene width={width} height={height} scrollY={scrollY} scrollRest={scrollRest} tintColor={rank ? mixHex(...rankGradient(rank)) : undefined} />
                 <DayGlassBackdrop />
                 {/* Under the floating bar: enough dark for its figures to read. */}

@@ -61,9 +61,11 @@ export default function FocusRoute() {
     // Home (lib/focusStage.ts) shows no seam; or the default, plain black (Focus settings).
     const t = useTokens();
     const background = useFocusBackground();
+    // Sideways, the scene is far taller than the screen: its middle (the moon, the dunes) is what shows.
+    const { width, height } = useWindowDimensions();
     return (
         <View style={[styles.screen, { backgroundColor: background === 'landscape' ? t.color.background : Colors.common.black }]}>
-            {background === 'landscape' ? <RankScene /> : null}
+            {background === 'landscape' ? <RankScene centred={width > height} /> : null}
             {/* The clock and its buttons appear on the scene. */}
             <Animated.View style={styles.screen} entering={FadeIn.duration(FOCUS_ENTRY.appear).reduceMotion(ReduceMotion.System)}><FocusStep /></Animated.View>
         </View>
