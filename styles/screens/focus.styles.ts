@@ -20,6 +20,9 @@ export const styles = StyleSheet.create({
     sideways: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.section, paddingHorizontal: Spacing.xl, paddingBottom: Control.hitTarget },
     sideColumn: { flex: 1, maxWidth: 420, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg },
     topRight: { flexDirection: 'row', gap: Spacing.sm },
+    musicButton: { alignItems: 'center', justifyContent: 'center' },
+    // The slash over the notes when music is off: corner to corner, as the system draws "off".
+    musicSlash: { position: 'absolute', width: 24, height: 2, borderRadius: 1, transform: [{ rotate: '-45deg' }] },
     holdLayer: { position: 'absolute', top: 0, left: 0, width: Control.hitTarget, height: Control.hitTarget, alignItems: 'center', justifyContent: 'center' },
     holdHint: { position: 'absolute', top: Control.hitTarget + 6, left: 0, width: 120, fontFamily: FontFamily.medium, fontSize: 13, color: 'rgba(255,255,255,0.75)' },
     /** Your colour, glowing at the top and gone by two thirds down. */

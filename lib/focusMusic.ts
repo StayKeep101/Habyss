@@ -71,14 +71,37 @@ const audio = (): typeof import('expo-audio') | null => {
     try { return require('expo-audio'); } catch { return null; }
 };
 const TRACK = require('../assets/sounds/background-music.m4a');
+/** One player for the whole app, made once (see stopFocusMusic). */
 let player: AudioPlayer | null = null;
 
-/** Habyss's track plays while it is on, chosen, and the clock is running; it stops otherwise. */
-export function playFocusMusic(running: boolean): void {
+/**
+ * Which Focus steps want the music now (a step's top bar, by its own key). Two can be
+ * on screen for a moment as one step hands over to the next; the music follows them
+ * all, so the one leaving never pauses what the one arriving has just started.
+ */
+const wanting = new Set<object>();
+
+/** Habyss's track plays while some step's clock is running and the music is on and chosen; it pauses otherwise. */
+export function playFocusMusic(running: boolean, by: object = DEFAULT_KEY): void {
+    if (running) wanting.add(by); else wanting.delete(by);
+    apply();
+}
+
+/** A step of Focus has gone: it no longer wants the music (the music pauses only if no other does). */
+export function stopFocusMusic(by: object = DEFAULT_KEY): void {
+    wanting.delete(by);
+    apply();
+}
+
+const DEFAULT_KEY = {};
+
+function apply(): void {
     const expo = audio();
     if (!expo) return;
     try {
-        if (!running || !state.on || state.source !== 'habyss') { player?.pause(); return; }
+        if (!wanting.size || !state.on || state.source !== 'habyss') { player?.pause(); return; }
+        // One player for the whole app, made once and only ever paused and played: making a
+        // new one for each step left the old one sounding under it, the music playing twice.
         if (!player) {
             // Plays with the ringer switch off too: you turned it on.
             void expo.setAudioModeAsync({ playsInSilentMode: true, interruptionMode: 'mixWithOthers', shouldPlayInBackground: true });
@@ -86,12 +109,9 @@ export function playFocusMusic(running: boolean): void {
             player.loop = true;
             player.volume = 0.6;
         }
-        player.play();
+        if (!player.playing) player.play();
     } catch { /* music that cannot play is not worth an alert */ }
 }
 
-/** Leaving Focus: the track stops and lets go of the audio. */
-export function stopFocusMusic(): void {
-    try { player?.remove(); } catch { /* already gone */ }
-    player = null;
-}
+// Turned on or off, or another source chosen: follow it at once.
+subscribeFocusMusic(apply);

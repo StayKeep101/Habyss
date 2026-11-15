@@ -15,6 +15,8 @@ const HOLD_SIZE = 44;
 const HOLD_R = 20;
 const HOLD_C = 2 * Math.PI * HOLD_R;
 const WHITE = '#FFFFFF';
+/** The music button when off: faded white, still 4.5:1 on the dark scene. */
+const MUTED = 'rgba(255,255,255,0.55)';
 
 /**
  * The top of every Focus page, the same whether it was opened from a habit, a
@@ -60,8 +62,10 @@ export function FocusTopBar({ active, playing, endItems, onClose, onWake, style 
     // Music, only here: the button turns it on or off; where it comes from is in the settings (lib/focusMusic.ts).
     const music = useFocusMusic();
     const [sheet, setSheet] = useState<'settings' | null>(null);
-    useEffect(() => { playFocusMusic(playing); }, [music, playing]);
-    useEffect(() => () => stopFocusMusic(), []);
+    // This step's own key: the music follows every step on screen, never just the last to speak.
+    const musicKey = React.useRef({}).current;
+    useEffect(() => { playFocusMusic(playing, musicKey); }, [music, playing, musicKey]);
+    useEffect(() => () => stopFocusMusic(musicKey), [musicKey]);
 
     return (
         <>
@@ -86,8 +90,12 @@ export function FocusTopBar({ active, playing, endItems, onClose, onWake, style 
                     <IconButton icon="close" label="Close" onPress={onClose} size={18} color={WHITE} />
                 )}
                 <View style={styles.topRight}>
-                    <IconButton icon={music.on ? 'musical-notes' : 'musical-notes-outline'} label={music.on ? 'Music on. Turn off' : 'Music off. Turn on'}
-                        onPress={() => { onWake?.(); setFocusMusicOn(!music.on); }} size={18} color={WHITE} />
+                    {/* Off is said by shape, not only colour: faded, with a slash through the notes. */}
+                    <View style={styles.musicButton}>
+                        <IconButton icon={music.on ? 'musical-notes' : 'musical-notes-outline'} label={music.on ? 'Music on. Turn off' : 'Music off. Turn on'}
+                            onPress={() => { onWake?.(); setFocusMusicOn(!music.on); }} size={18} color={music.on ? WHITE : MUTED} />
+                        {music.on ? null : <View pointerEvents="none" style={[styles.musicSlash, { backgroundColor: MUTED }]} />}
+                    </View>
                     <IconButton icon="settings-outline" label="Focus settings" onPress={() => { onWake?.(); setSheet('settings'); }} size={18} color={WHITE} />
                 </View>
             </Animated.View>
