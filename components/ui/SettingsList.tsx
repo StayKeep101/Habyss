@@ -59,7 +59,7 @@ export function SettingsGroup({ title, toggle, children }: {
                     <AppSwitch value={toggle.value} accessibilityLabel={`${title}: ${toggle.label}`}
                         onValueChange={next => { selectionFeedback(); sound(); toggle.onChange(next); }} />
                 </View>
-            ) : title ? <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{title}</Text> : null}
+            ) : title ? <Text accessibilityRole="header" style={[styles.title, inSheet && styles.titleInSheet, { color: colors.textPrimary }]}>{title}</Text> : null}
             <Surface style={inSheet ? styles.flat : styles.card}>
                 {rows.map((row, index) => (
                     <View key={index}>
@@ -163,6 +163,8 @@ const styles = StyleSheet.create({
     headerTitle: { flex: 1 },
     /** Rows straight on a sheet, lined up with its title. */
     flat: { paddingHorizontal: 18 },
+    // In a sheet the rows sit on its own edge (flat): the title lines up with them, a step below what is above it.
+    titleInSheet: { paddingHorizontal: 18, marginTop: 12 },
     card: { paddingHorizontal: 14 },
     divider: { height: StyleSheet.hairlineWidth, marginLeft: 42 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 54, paddingVertical: 8 },
