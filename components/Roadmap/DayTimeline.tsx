@@ -94,6 +94,8 @@ const pillHeight = (size: Size, minutes: number) => Math.max(size.min, minutes *
 const gapHeightOf = (size: Size, minutes: number) => Math.max(0, minutes) * size.per;
 /** Free time shorter than this is not labelled: back to back is just a line. */
 const FREE_LABEL_MIN = 15;
+/** The now chip's height on the rail. */
+const NOW_CHIP = s(20);
 
 /**
  * The day as one continuous routine: each habit and task in time order, a
@@ -348,9 +350,14 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
     // Where now falls in this row, if it does: inside its pill while it is on,
     // in the free time after it before the next one, or above the first.
     const gapHeight = nextStart !== undefined ? gapHeightOf(size, nextStart - item.end) : 0;
+    // The chip is held inside the stretch it belongs to (its own pill, or the free line
+    // after it), so near an edge it never slides over the pill next door or a lock badge.
+    const chipHalf = NOW_CHIP / 2 + s(2);
+    const within = (at: number, from: number, to: number) => to - from >= 0 ? Math.min(Math.max(at, from), to) : (from + to) / 2;
+    const badgeRoom = item.locked && !meal ? size.pill * 0.36 : 0;
     const nowAt = calendar !== undefined || now === null ? null
-        : now >= item.start && now < item.end ? ((now - item.start) / Math.max(1, item.end - item.start)) * height
-        : nextStart !== undefined && now >= item.end && now < nextStart ? height + ((now - item.end) / Math.max(1, nextStart - item.end)) * gapHeight
+        : now >= item.start && now < item.end ? within(((now - item.start) / Math.max(1, item.end - item.start)) * height, chipHalf, height - chipHalf - badgeRoom)
+        : nextStart !== undefined && now >= item.end && now < nextStart ? within(height + ((now - item.end) / Math.max(1, nextStart - item.end)) * gapHeight, height + chipHalf, height + gapHeight - chipHalf)
         : first && now < item.start ? 0
         : null;
     if (mark) {
@@ -598,7 +605,7 @@ function NowLine({ top, rail, color }: { top: number; rail: number; color: strin
     const slide = useAnimatedStyle(() => ({ transform: [{ translateY: withTiming(at, GLIDE) }] }));
     return (
         <Animated.View pointerEvents="none" entering={FadeIn.duration(MOTION.duration).reduceMotion(ReduceMotion.System)}
-            style={[styles.now, { top: -s(10), left: rail / 2 - chip / 2, width: chip }, slide]} accessibilityLabel={`Now, ${text.slice(0, 5)}`}>
+            style={[styles.now, { top: -NOW_CHIP / 2, left: rail / 2 - chip / 2, width: chip }, slide]} accessibilityLabel={`Now, ${text.slice(0, 5)}`}>
             <View style={[styles.nowLabel, { backgroundColor: color }]}>
                 <Text style={[styles.nowText, { color: textOn(color) }]}>{text}</Text>
             </View>
