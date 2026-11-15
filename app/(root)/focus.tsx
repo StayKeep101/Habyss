@@ -61,6 +61,9 @@ export default function FocusRoute() {
     // Home (lib/focusStage.ts) shows no seam; or the default, plain black (Focus settings).
     const t = useTokens();
     const background = useFocusBackground();
+    // Any way round while Focus is open, whatever step it is on (a task, a meal, a class, the
+    // day's start or end); portrait again on leaving. Here, not in one step's view, so every step turns.
+    useFocusEffect(React.useCallback(() => { allowAnyOrientation(); return applyDefaultOrientation; }, []));
     // Sideways, the scene is far taller than the screen: its middle (the moon, the dunes) is what shows.
     const { width, height } = useWindowDimensions();
     return (
@@ -106,8 +109,6 @@ function FocusScreen() {
     const { selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
     const clock = useClockStyle();
     const screen = useWindowDimensions();
-    // Any way round while Focus is open (its clock goes sideways); portrait again on leaving.
-    useFocusEffect(React.useCallback(() => { allowAnyOrientation(); return applyDefaultOrientation; }, []));
     const focus = useFocusTime();
     const tasks = useTasks();
     const [habit, setHabit] = useState<Habit | null>(null);
