@@ -7,7 +7,7 @@ import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { Avatar } from '@/components/ui/Avatar';
 import { AnimatedFill, CountUp, ListItem } from '@/components/ui/Motion';
 import { IconTile } from '@/components/ui/IconTile';
-import { RankGem } from '@/components/ui/RankGem';
+import { RankHourglass } from '@/components/Home/RankHourglass';
 import { Spacing } from '@/theme/designSystem';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
@@ -77,8 +77,8 @@ export default function LeaderboardScreen() {
                 ) : null}
 
                 {scope === 'league' && unranked ? null : <View style={styles.hero}>
-                    {/* Your league is your rank: its gem above where you stand in it. */}
-                    {scope === 'league' && band ? <RankGem rank={band.name} size={Spacing.section * 2.5} replay={scope} /> : null}
+                    {/* Your league is your rank: its hourglass above where you stand in it. */}
+                    {scope === 'league' && band ? <RankHourglass rank={band.name} size={Spacing.section * 2.5} /> : null}
                     <CountUp style={[styles.heroRank, { color: colors.textPrimary }]} value={mine ? `#${mine.rank}` : '—'} replay={scope} />
                     <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>
                         {scope === 'league' && band

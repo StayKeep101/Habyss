@@ -29,7 +29,7 @@
  * Content
  *   Echo (Echo, drawn: the one look it has everywhere, in a mood; a Rive Echo would replace this file),
  *   Avatar (a face: photo or initial, optional ring and badge), FaceStack (a few friends' faces, overlapping), IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
- *   StatTile, ChartCard, HabitRow, ProgressRing, HalfCircleProgress, CheckPop, RankGem (a rank as a gem in its own colour, a band of light crossing it once), ShardIcon (a Shard, the currency, as its faceted crystal), IrisFade (covers a view from the outside in as something scrolls), StruckTitle (a name dimmed and struck through as it is done, the line drawing across),
+ *   StatTile, ChartCard, HabitRow, ProgressRing, HalfCircleProgress, CheckPop, ShardIcon (a Shard, the currency, as its faceted crystal), IrisFade (covers a view from the outside in as something scrolls), StruckTitle (a name dimmed and struck through as it is done, the line drawing across),
  *   GameCard (a bet, duel or challenge: face, name, a pill for how it stands, then the contest),
  *   VersusBar (two sides on one line, "22% Long ━━ 78% Short": the split glides, the leader in full colour),
  *   CardRail (cards swiped side by side, the next peeking in),
@@ -116,7 +116,6 @@ export { ProgressRing, type ProgressRingProps } from './ProgressRing';
 export { HalfCircleProgress } from './HalfCircleProgress';
 export { CheckPop } from './CheckPop';
 export { StruckTitle } from './StruckTitle';
-export { RankGem } from './RankGem';
 export { MOTION, LIST_LAYOUT, ListItem, CountUp, AnimatedFill, GrowBar, Reveal, PopIn, useProgress, useCountUp, AnimatedRect, AnimatedCircle, AnimatedPath } from './Motion';
 export { TimeWheels } from './TimeWheels';
 export { DateWheels } from './DateWheels';

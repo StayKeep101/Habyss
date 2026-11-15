@@ -6,7 +6,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Hourglass } from './Hourglass';
 import { RankScene } from './RankScene';
-import { AppButton, AppIcon, IconButton, RankGem, Text } from '@/components/ui';
+import { AppButton, AppIcon, IconButton, Text } from '@/components/ui';
 import { useAccent } from '@/context/AccentContext';
 import { chooseRankLook } from '@/lib/rankLook';
 import { setThemeChoice } from '@/lib/themeChoice';
@@ -110,7 +110,6 @@ export function GlassCarousel() {
             {/* The one in the middle: whose it is. */}
             <View style={[styles.caption, { paddingBottom: insets.bottom + t.space.xl, gap: t.space.xs }]} accessibilityLiveRegion="polite">
                 <View style={styles.nameRow}>
-                    <RankGem rank={current.name} size={t.space.xl} locked={!reached} />
                     <Text variant="screenTitle">{current.name}</Text>
                 </View>
                 <Text variant="body" tone="muted" align="center">

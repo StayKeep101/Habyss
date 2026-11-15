@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { RankGem } from '@/components/ui/RankGem';
+import { RankHourglass } from '@/components/Home/RankHourglass';
 import { rankTone } from '@/theme/tokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { AnimatedFill, CountUp } from '@/components/ui/Motion';
@@ -26,7 +26,7 @@ export function LevelCard({ marks }: { marks: number }) {
         <Pressable style={styles.wrap} accessibilityRole="button" accessibilityLabel={`${rank.name}, ${marks} Marks. See every rank.`}
             onPress={() => { lightFeedback(); router.push({ pathname: '/(root)/ranks' as never, params: { marks: String(marks) } }); }}>
             <View style={styles.top}>
-                <RankGem rank={rank.name} size={Spacing.xxl * 2} />
+                <RankHourglass rank={rank.name} size={Spacing.xxl * 2} />
                 <View style={styles.text}>
                     <Text style={[styles.caption, { color: colors.textTertiary }]}>{rank.min === 0 ? 'Unranked' : 'Rank'}</Text>
                     <Text style={[styles.rank, { color: colors.textPrimary }]}>{rank.name}</Text>

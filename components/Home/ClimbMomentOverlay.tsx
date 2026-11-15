@@ -17,7 +17,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { RANKS } from '@/lib/marks';
 import { RANK_ICONS, echoLineFor, type ClimbMoment } from '@/lib/climbMoments';
-import { RankGem } from '@/components/ui/RankGem';
+import { RankHourglass } from './RankHourglass';
 
 const RM = ReduceMotion.System;
 const EMBLEM = 132;
@@ -157,10 +157,10 @@ export function ClimbMomentOverlay({ moment, onDone }: { moment: ClimbMoment | n
                             ) : null}
                             <Animated.View pointerEvents="none" style={[styles.abs, raysStyle]}><Rays color={shade} /></Animated.View>
                             {Array.from({ length: PARTICLES }, (_, i) => <Particle key={i} index={i} burst={burst} color={i % 2 ? shade : gradient[1]} />)}
-                            {/* A new rank lands as its gem, in its own colour; the first foothold keeps its emblem. */}
+                            {/* A new rank lands as its hourglass; the first foothold keeps its emblem. */}
                             {isRank ? (
                                 <Animated.View style={emblemStyle}>
-                                    <RankGem rank={moment.rank} size={EMBLEM * 1.4} />
+                                    <RankHourglass rank={moment.rank} size={EMBLEM * 1.6} />
                                 </Animated.View>
                             ) : (
                                 <Animated.View style={[styles.emblem, { shadowColor: primary }, emblemStyle]}>

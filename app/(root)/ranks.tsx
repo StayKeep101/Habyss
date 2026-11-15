@@ -1,7 +1,8 @@
 import React from 'react';
 import { ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { AppIcon, MatteSurface, RankGem, SheetScreen, Text } from '@/components/ui';
+import { AppIcon, MatteSurface, SheetScreen, Text } from '@/components/ui';
+import { RankHourglass } from '@/components/Home/RankHourglass';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSharedValue } from 'react-native-reanimated';
 import { Hourglass } from '@/components/Home/Hourglass';
@@ -13,7 +14,7 @@ import { RANKS, rankFor } from '@/lib/marks';
 import { rankTone } from '@/theme/tokens';
 import { styles } from '@/styles/screens/ranks.styles';
 
-/** One rank: its gem and name, and what it unlocks; locked ones dimmed but still showing what is ahead. */
+/** One rank: its name, and what it unlocks; locked ones dimmed but still showing what is ahead. */
 function RankRow({ name, min, marks, current }: { name: string; min: number; marks: number; current: boolean }) {
     const t = useTokens();
     const reached = marks >= min;
@@ -23,7 +24,6 @@ function RankRow({ name, min, marks, current }: { name: string; min: number; mar
         <View accessible accessibilityLabel={`${name}, ${min ? `${min.toLocaleString()} Marks` : 'the start'}. ${current ? 'Your rank.' : reached ? 'Reached.' : `Locked, ${(min - marks).toLocaleString()} Marks to go.`} Unlocks its colour and its hourglass.`}>
         <MatteSurface radius={t.radius.lg} edge={current ? rankTone(name).color : undefined} style={styles.row}>
             <View style={[styles.rowMain, !reached && styles.locked]}>
-                <RankGem rank={name} size={t.space['3xl'] + t.space.sm} locked={!reached} shine={current} />
                 <View style={styles.rowText}>
                     <Text variant="heading">{name}</Text>
                     <View style={styles.status}>
@@ -44,7 +44,7 @@ function RankRow({ name, min, marks, current }: { name: string; min: number; mar
 
 /**
  * The ranks, and what climbing them gives you. Yours on top, large, with how
- * far to the next. Below, the climb: every rank as a row with its gem, the
+ * far to the next. Below, the climb: every rank as a row with its name, the
  * Marks it takes, and what it unlocks, the app's colour at that rank
  * (theme/rankLooks.ts) and its hourglass (theme/hourglassDesigns.ts). Ranks
  * ahead are dimmed and locked but still show what is waiting.
@@ -59,7 +59,7 @@ export default function RanksScreen() {
         <SheetScreen title="Ranks" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <View style={styles.hero}>
-                    <RankGem rank={rank.name} size={t.space['3xl'] * 4} />
+                    <RankHourglass rank={rank.name} size={t.space['3xl'] * 4} />
                     <Text variant="screenTitle" align="center" accessibilityRole="header">{rank.name}</Text>
                     <Text variant="body" tone="muted" align="center">
                         <CountUp value={marks} /> Marks
