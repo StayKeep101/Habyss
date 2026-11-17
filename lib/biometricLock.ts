@@ -1,12 +1,17 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 
-export async function authenticateAppLock(promptMessage = 'Unlock Habyss'): Promise<LocalAuthentication.LocalAuthenticationResult> {
+/**
+ * `ownPasscode`: Habyss has its own passcode (lib/appPasscode.ts), so the
+ * prompt's fallback opens Habyss's keypad (error 'user_fallback') instead of
+ * iOS's passcode screen. Without one, the iPhone passcode is the fallback.
+ */
+export async function authenticateAppLock(promptMessage = 'Unlock Habyss', ownPasscode = false): Promise<LocalAuthentication.LocalAuthenticationResult> {
     try {
-        // Keep the OS passcode fallback. Missing enrollment must never silently
-        // unlock an already-protected app; only a successful OS result can.
+        // Missing enrollment must never silently unlock an already-protected
+        // app; only a successful OS result can.
         return await LocalAuthentication.authenticateAsync({
-            promptMessage, cancelLabel: 'Cancel', fallbackLabel: 'Use device passcode',
-            disableDeviceFallback: false, biometricsSecurityLevel: 'strong',
+            promptMessage, cancelLabel: 'Cancel', fallbackLabel: ownPasscode ? 'Use passcode' : 'Use device passcode',
+            disableDeviceFallback: ownPasscode, biometricsSecurityLevel: 'strong',
         });
     } catch {
         return { success: false, error: 'not_available' };

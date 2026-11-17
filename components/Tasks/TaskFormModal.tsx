@@ -12,7 +12,6 @@ import { ModalHeader } from '@/components/ui/ModalHeader';
 import { ShareButton } from '@/components/Common/ShareButton';
 import { ShareParticipantsSheet } from '@/components/Social/ShareParticipantsSheet';
 import { useShareDraft } from '@/hooks/useShareDraft';
-import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
 import { GoalCalendar } from '@/components/Create/GoalCalendar';
 import { CreationTextInput } from '@/components/Create/CreationTextInput';
@@ -487,7 +486,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                         <Text numberOfLines={1} style={[styles.read, { color: colors.textSecondary }]}>
                             {parsed ? describeParsedTask({ ...parsed, matched: rules?.matched ?? { date: false, time: false, estimate: false, priority: false } }) : ''}
                         </Text>
-                        <AIBadge thinking={smart.thinking} used={!!smart.result} color={accent} onRequest={smart.request} failed={smart.failed} />
                     </View>
 
                     {draft.title && draft.title !== text.trim() ? (

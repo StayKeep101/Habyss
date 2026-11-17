@@ -5,6 +5,9 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { authenticateAppLock } from '@/lib/biometricLock';
 import { IconButton } from '@/components/ui/IconButton';
+import { AppButton } from '@/components/ui/AppButton';
+import { checkPasscode, hasPasscode } from '@/lib/appPasscode';
+import { PasscodePad } from './PasscodePad';
 
 /** Covers native sheets too, and keeps navigation mounted after unlocking. */
 export const BiometricGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -16,6 +19,11 @@ export const BiometricGuard: React.FC<{ children: React.ReactNode }> = ({ childr
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [hasUnlocked, setHasUnlocked] = useState(false);
+    // Habyss's own passcode (lib/appPasscode.ts): when set, a failed or declined
+    // Face ID shows Habyss's keypad, not iOS's passcode screen.
+    const ownCode = useRef(false);
+    const [pad, setPad] = useState(false);
+    const [padMessage, setPadMessage] = useState<string | null>(null);
     const authenticating = useRef(false);
     const appState = useRef(AppState.currentState);
     const backgroundGeneration = useRef(0);
@@ -25,20 +33,32 @@ export const BiometricGuard: React.FC<{ children: React.ReactNode }> = ({ childr
     useEffect(() => { enabled.current = isAppLockEnabled; }, [isAppLockEnabled]);
     useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
-    const authenticate = useCallback(async () => {
+    const unlock = useCallback(() => {
+        needsAuthentication.current = false;
+        setLocked(false);
+        setObscured(false);
+        setHasUnlocked(true);
+        setPad(false);
+        setPadMessage(null);
+    }, []);
+
+    /** `device`: the iPhone passcode, asked for from the keypad when the Habyss one is forgotten. */
+    const authenticate = useCallback(async (device = false) => {
         if (authenticating.current || appState.current !== 'active' || !enabled.current) return;
         authenticating.current = true;
         const generation = backgroundGeneration.current;
         setBusy(true);
         setError(null);
         try {
-            const result = await authenticateAppLock();
+            ownCode.current = await hasPasscode();
+            const result = await authenticateAppLock(undefined, ownCode.current && !device);
             if (!mounted.current || generation !== backgroundGeneration.current) return;
             if (result.success && enabled.current) {
-                needsAuthentication.current = false;
-                setLocked(false);
-                setObscured(false);
-                setHasUnlocked(true);
+                unlock();
+            } else if (!result.success && ownCode.current) {
+                // Face ID failed, was declined, or "Use passcode": Habyss's keypad.
+                setPad(true);
+                setError('pad');
             } else if (!result.success) {
                 setError(['user_cancel', 'system_cancel', 'app_cancel'].includes(result.error)
                     ? 'Habyss stays locked until you authenticate.'
@@ -48,7 +68,14 @@ export const BiometricGuard: React.FC<{ children: React.ReactNode }> = ({ childr
             authenticating.current = false;
             if (mounted.current) setBusy(false);
         }
-    }, []);
+    }, [unlock]);
+
+    const enterCode = useCallback(async (code: string) => {
+        const answer = await checkPasscode(code);
+        if (answer === 'ok') { unlock(); return true; }
+        setPadMessage(answer === 'wait' ? 'Too many tries. Wait a moment, or use Face ID.' : null);
+        return false;
+    }, [unlock]);
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -78,6 +105,7 @@ export const BiometricGuard: React.FC<{ children: React.ReactNode }> = ({ childr
                 setLocked(true);
                 setObscured(true);
                 setError(null);
+                setPad(false);
             } else if (next === 'inactive') {
                 // Face ID and Apple sign-in create brief inactive transitions.
                 // Cover the app switcher without starting a competing prompt.
@@ -95,8 +123,12 @@ export const BiometricGuard: React.FC<{ children: React.ReactNode }> = ({ childr
     // top of it — no title, no paragraph. If the prompt is dismissed, one
     // matte lock button brings it back.
     const lockScreen = <View style={[styles.container, { backgroundColor: colors.background }]}>
-        {isLoaded && error && !busy ? (
-            <IconButton icon="lock-closed" label="Unlock Habyss" onPress={authenticate} diameter={56} size={24} />
+        {isLoaded && pad ? (
+            <PasscodePad title="Enter your passcode" subtitle="Habyss is locked" message={padMessage} onCode={enterCode}
+                onFaceId={() => void authenticate()}
+                footer={<AppButton label="Use iPhone passcode" variant="ghost" onPress={() => void authenticate(true)} />} />
+        ) : isLoaded && error && !busy ? (
+            <IconButton icon="lock-closed" label="Unlock Habyss" onPress={() => void authenticate()} diameter={56} size={24} />
         ) : null}
     </View>;
 

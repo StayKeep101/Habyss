@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, Alert } from 'react-native';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -11,6 +11,8 @@ import { deleteAllLocalData, restartAfterDeletion } from '@/lib/accountDeletion'
 import { currentAccount, deleteAccount } from '@/lib/account';
 import { styles } from '@/styles/screens/privacy.styles';
 import { exportMyData } from '@/lib/dataExport';
+import { clearPasscode, hasPasscode } from '@/lib/appPasscode';
+import { PasscodeSetup } from '@/components/Auth/PasscodeSetup';
 
 const Privacy = () => {
   // const colorScheme = useColorScheme();
@@ -20,6 +22,10 @@ const Privacy = () => {
   const [deleting, setDeleting] = useState(false);
   const [changingLock, setChangingLock] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Habyss's own passcode, for when Face ID doesn't work (lib/appPasscode.ts).
+  const [hasCode, setHasCode] = useState(false);
+  const [settingCode, setSettingCode] = useState(false);
+  useEffect(() => { void hasPasscode().then(setHasCode); }, []);
 
   // Everything you did, as a spreadsheet, wherever you want it.
   const exportData = async () => {
@@ -35,7 +41,12 @@ const Privacy = () => {
     if (changingLock) return;
     lightFeedback();
     setChangingLock(true);
-    try { await setIsAppLockEnabled(enabled); }
+    try {
+      await setIsAppLockEnabled(enabled);
+      // On: choose the passcode next. Off: it has nothing left to guard.
+      if (enabled && !(await hasPasscode())) setSettingCode(true);
+      if (!enabled) { await clearPasscode(); setHasCode(false); }
+    }
     catch (error: any) { Alert.alert('App Lock unchanged', error?.message || 'The setting could not be saved. Please try again.'); }
     finally { setChangingLock(false); }
   };
@@ -94,6 +105,10 @@ const Privacy = () => {
         <SettingsGroup>
           <SettingsRow icon="scan" color="#30D158" label="Face ID lock" toggle={isAppLockEnabled} disabled={changingLock}
             onToggle={value => void changeAppLock(value)} />
+          {isAppLockEnabled ? (
+            <SettingsRow icon="keypad" color="#30D158" label="Passcode" value={hasCode ? 'Change' : 'Set'}
+              onPress={() => { lightFeedback(); setSettingCode(true); }} />
+          ) : null}
         </SettingsGroup>
         <SettingsGroup>
           <SettingsRow icon="download" color="#0A84FF" label={exporting ? 'Preparing…' : 'Export my data'} value="CSV" disabled={exporting}
@@ -104,6 +119,8 @@ const Privacy = () => {
             onPress={handleDeleteAccount} />
         </SettingsGroup>
       </ScrollView>
+      <PasscodeSetup visible={settingCode} onCancel={() => setSettingCode(false)}
+        onDone={() => { setSettingCode(false); setHasCode(true); }} />
     </SheetScreen>
   );
 };

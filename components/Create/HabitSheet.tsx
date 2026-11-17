@@ -9,7 +9,6 @@ import { ComposerModal } from '@/components/Create/ComposerModal';
 import { ShareParticipantsSheet } from '@/components/Social/ShareParticipantsSheet';
 import { useShareDraft } from '@/hooks/useShareDraft';
 import { ModalHeader } from '@/components/ui/ModalHeader';
-import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
 import { type Difficulty } from '@/lib/difficulty';
 import { ImportancePicker, importanceLabel } from '@/components/Create/ImportancePicker';
@@ -539,14 +538,6 @@ export const HabitSheet: React.FC<{
                         </TypingPlaceholder>
                     </DictateField>
 
-                    {/* No "Habit: name" line: the field already says it. Only while
-                        the smart read is working, or if it could not, a quiet badge. */}
-                    {smart.thinking || smart.failed ? (
-                        <View style={styles.readRow}>
-                            <View style={styles.flexSpacer} />
-                            <AIBadge thinking={smart.thinking} used={!!smart.result} color={accent} onRequest={smart.request} failed={smart.failed} />
-                        </View>
-                    ) : null}
 
                     {error ? (
                         <View style={[styles.error, { backgroundColor: colors.error + '18', borderColor: colors.error + '44' }]}>
