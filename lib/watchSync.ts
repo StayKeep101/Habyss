@@ -188,6 +188,9 @@ async function completeFromWatch(habitId: string): Promise<void> {
     const today = localDateKey(new Date());
     // The watch only ever marks done; a tap on something already done is a no-op.
     if ((await getCompletions(today))[habitId]) return;
+    // In a challenge or a bet it needs proof, which the Watch can't take: held, and asked for in Habyss.
+    const habit = (await (require('./habitsSQLite') as typeof import('./habitsSQLite')).getHabits()).find(item => item.id === habitId);
+    if (habit && await (require('./challengeProof') as typeof import('./challengeProof')).holdForProof({ kind: 'habit', habit })) return;
     // Saving announces itself, so Home, widgets and friends all follow.
     await toggleCompletion(habitId, today);
 }

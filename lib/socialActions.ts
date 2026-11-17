@@ -31,9 +31,7 @@ export async function handleSocialResponse(response: Notifications.NotificationR
         const text = (response as { userText?: string }).userText?.trim();
         if (text) await (require('./comments') as typeof import('./comments')).replyToLatestFrom(from, text);
     } else {
-        const duels = require('./duels') as typeof import('./duels');
-        const waiting = (await duels.myDuels()).find(duel => !duel.mine && duel.friendId === from && duel.status === 'proposed');
-        if (waiting) await duels.respondDuel(waiting.id, action === SOCIAL_ACTION.accept);
+        // Duels are gone (a push from before still lands here): Accept opens Community.
         if (action === SOCIAL_ACTION.accept) {
             setTimeout(() => { require('expo-router').router.navigate('/(root)/(tabs)/community'); }, 500);
         }

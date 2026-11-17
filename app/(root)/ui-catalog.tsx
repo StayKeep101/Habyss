@@ -497,7 +497,7 @@ export default function UICatalog() {
                 </Specimen>
 
                 <Specimen number={63} name="Game card" file="components/ui/GameCard.tsx">
-                    <GameCard lead={<Avatar name="Sam" size={t.space['4xl']} />} title="Duel with Sam" subtitle="7 days · 25 Shards" badge={{ label: 'Live', tone: 'cobalt', dot: true }}>
+                    <GameCard lead={<Avatar name="Sam" size={t.space['4xl']} />} title="Cold shower, with Sam" subtitle="Day 3 of 14 · 500 Shards" badge={{ label: 'Live', tone: 'cobalt', dot: true }}>
                         <VersusBar left={{ label: 'You', percent: 72, color: t.color.cobalt }} right={{ label: 'Sam', percent: 58, color: t.color.silver }} />
                     </GameCard>
                 </Specimen>
@@ -577,7 +577,7 @@ export default function UICatalog() {
                 { label: 'Delete', icon: 'trash-outline', destructive: true, onPress: () => undefined },
             ]} />
             <PopupCard visible={popup} onClose={() => setPopup(false)} icon="trophy" iconColor={t.color.accent} title="Seven in a row" body="A week of perfect days. Your Marks now count double." />
-            {receipt ? <Receipt title="Duel with Sam" amount={-25} line="Staked for 7 days" onDone={() => setReceipt(false)} /> : null}
+            {receipt ? <Receipt title="Bet on Sam" amount={-25} line="Staked until Friday" onDone={() => setReceipt(false)} /> : null}
             {ceremony ? <GoalCompleteSequence key={ceremony} goal={{ name: 'Read 24 books', color: t.color.accent, icon: 'book', count: 3 }} onDone={() => setCeremony(0)} /> : null}
             <VoidModal visible={modal} onClose={() => setModal(false)}>
                 <View style={{ gap: t.space.md }}>

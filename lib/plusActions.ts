@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  *
  * - Home and Roadmap: make something (goal, habit, task, thought). Mood and
  *   energy are no longer logged by hand: Echo asks;
- * - Community: put Shards on a goal, or duel a friend;
+ * - Community: put Shards on a goal, or pick a challenge;
  * - Settings: the + is a search lens, not a menu (see settings.tsx).
  *
  * Each tab's list can be changed in Settings → Plus button, from the same
@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type PlusTab = 'home' | 'roadmap' | 'community';
 /** Focus is not one: it is the bar over the tab bar, one tap away on every tab. */
-export type PlusActionId = 'goal' | 'habit' | 'task' | 'thought' | 'bet' | 'duel';
+export type PlusActionId = 'goal' | 'habit' | 'task' | 'thought' | 'bet' | 'challenge';
 
 /** Every action the + can offer, with the token colour its icon wears. */
 export const PLUS_ACTIONS: Record<PlusActionId, { label: string; icon: string; tone: 'accent' | 'success' | 'warning' | 'danger' }> = {
@@ -24,7 +24,7 @@ export const PLUS_ACTIONS: Record<PlusActionId, { label: string; icon: string; t
     task: { label: 'Task', icon: 'checkmark-circle-outline', tone: 'warning' },
     thought: { label: 'Thought', icon: 'bulb-outline', tone: 'warning' },
     bet: { label: 'Bet on a goal', icon: 'diamond-outline', tone: 'accent' },
-    duel: { label: 'Duel a friend', icon: 'flash-outline', tone: 'warning' },
+    challenge: { label: 'Pick a challenge', icon: 'trophy-outline', tone: 'warning' },
 };
 
 export const PLUS_TABS: { id: PlusTab; label: string; icon: string }[] = [
@@ -36,7 +36,7 @@ export const PLUS_TABS: { id: PlusTab; label: string; icon: string }[] = [
 export const DEFAULT_PLUS: Record<PlusTab, PlusActionId[]> = {
     home: ['goal', 'habit', 'task', 'thought'],
     roadmap: ['goal', 'habit', 'task', 'thought'],
-    community: ['bet', 'duel'],
+    community: ['bet', 'challenge'],
 };
 
 /** The most a menu holds, so it never reaches the top of the screen. */
@@ -106,5 +106,5 @@ export function runPlus(id: PlusActionId): void {
     else if (id === 'task') emit('show_task_form');
     else if (id === 'thought') go('/brain-dump');
     else if (id === 'bet') emit('show_open_bet');
-    else if (id === 'duel') emit('show_duel');
+    else if (id === 'challenge') emit('show_challenges');
 }

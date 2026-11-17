@@ -127,7 +127,7 @@ async function uploadToOwnFolder(ctx: Context, uri: string, name: string): Promi
  * Base64 through expo-file-system is the reliable path; the `fetch` is kept
  * only as a fallback for a uri scheme the file system will not open.
  */
-async function readLocalFile(uri: string): Promise<Uint8Array | null> {
+export async function readLocalFile(uri: string): Promise<Uint8Array | null> {
     try {
         const FileSystem = require('expo-file-system/legacy') as typeof import('expo-file-system/legacy');
         const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });

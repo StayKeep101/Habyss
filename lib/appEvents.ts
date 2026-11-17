@@ -66,6 +66,8 @@ export interface AppEvents {
     cloud_restored: void;
     /** A bet was placed, a goal opened to bets, or one settled (lib/market.ts): the wallet and market read again. */
     market_changed: void;
+    /** A challenge started, was joined, ended, or a day was reported (lib/challenges.ts): its items and cards read again. */
+    challenges_changed: void;
     /** A habit or goal sheet opened by the create flow has closed (saved or not): speaking freely opens the next one (lib/voicePlan.ts). */
     creation_sheet_closed: { kind: 'habit' | 'goal' };
     social_state_updated: void;
@@ -81,8 +83,8 @@ export interface AppEvents {
     show_freeze_ask: { id: string; name: string; avatarUrl?: string; streak: number };
     /** Open one of your goals to bets (the + on Community). */
     show_open_bet: void;
-    /** Challenge a friend to a duel (the + on Community). */
-    show_duel: void;
+    /** Pick a challenge from the list (the + on Community). */
+    show_challenges: void;
     /** The + on Settings: search the settings. */
     show_settings_search: void;
     close_creation_modal: void;

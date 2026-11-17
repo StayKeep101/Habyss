@@ -15,6 +15,7 @@ import { SwipeRow } from '@/components/ui/SwipeRow';
 import { BadgeRow, ReminderBadge } from '@/components/Common/CardBadges';
 import { LevelTags } from '@/components/ui/LevelTags';
 import { SharedFaces } from '@/components/Common/SharedFaces';
+import { ChallengeTag } from '@/components/Challenge/ChallengeTag';
 import type { SharedState } from '@/lib/shared';
 import { CheckPop } from '@/components/ui/CheckPop';
 import { Colors } from '@/theme/colors';
@@ -26,6 +27,8 @@ import { Radius } from '@/theme/designSystem';
 import { useAutoReschedule, type RoadMapCardSize } from '@/context/AppSettingsContext';
 import { isLate, lateBy, setTaskAmount, taskAmountLabel, taskShare, type Task } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
+import { proveTick } from '@/lib/challengeProof';
+import { localDateKey } from '@/lib/habitSchedule';
 import { dueLabel } from '@/lib/dayFlow';
 
 /** Tasks are amber throughout, so they read as a different kind of thing. */
@@ -155,9 +158,9 @@ const TaskItemComponent: React.FC<Props> = ({
                         const amount = Number(String(value ?? '').replace(',', '.'));
                         if (!Number.isFinite(amount) || amount <= 0) return;
                         selectionFeedback();
-                        setTaskAmount(task, (task.amount ?? 0) + amount)
+                        void proveTick({ kind: 'task', task }, localDateKey(new Date())).then(ok => { if (ok) void setTaskAmount(task, (task.amount ?? 0) + amount)
                             .then(() => emit('tasks_changed'))
-                            .catch(() => Alert.alert('Could not save', 'Please try again.'));
+                            .catch(() => Alert.alert('Could not save', 'Please try again.')); });
                     },
                 },
             ],
@@ -255,6 +258,8 @@ const TaskItemComponent: React.FC<Props> = ({
                         >
                             {task.title}
                         </Text>
+                        {/* Part of a challenge: which one, and how a tick is proven. */}
+                        <ChallengeTag kind="task" id={task.id} />
                         <View style={styles.metaRow}>
                             <BadgeRow>
                                 <LevelTags priority={task.priority} difficulty={task.difficulty} dim={done} />

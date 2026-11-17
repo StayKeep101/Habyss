@@ -411,7 +411,9 @@ export class NotificationService {
       const task = (await tasks.getTasks({ includeDone: true })).find(task => task.id === data.taskId);
       unfinished = task?.status === 'open';
       if (task) focusOn = { kind: 'task', id: task.id, title: task.title };
-      if (unfinished && action === ACTION.done) { await tasks.setTaskStatus(data.taskId, 'done'); emit('tasks_changed'); }
+      // In a challenge or a bet, Done needs proof the notification can't take: held, and asked for in Habyss.
+      const held = unfinished && action === ACTION.done && task && await (require('./challengeProof') as typeof import('./challengeProof')).holdForProof({ kind: 'task', task });
+      if (unfinished && action === ACTION.done && !held) { await tasks.setTaskStatus(data.taskId, 'done'); emit('tasks_changed'); }
       if (unfinished && action === ACTION.skip) {
         // Not today: tomorrow, and the timeline closes the gap it leaves.
         const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -425,7 +427,8 @@ export class NotificationService {
       if (habit) focusOn = { kind: 'habit', id: habit.id, title: habit.name };
       // "Done" from a notification ticks it, timed habits included.
       const { measurementFor }: typeof import('./habitMeasurement') = require('./habitMeasurement');
-      if (unfinished && action === ACTION.done) await habits.setCompletionValue(data.habitId, measurementFor(habit!).target, date);
+      const held = unfinished && action === ACTION.done && await (require('./challengeProof') as typeof import('./challengeProof')).holdForProof({ kind: 'habit', habit: habit! });
+      if (unfinished && action === ACTION.done && !held) await habits.setCompletionValue(data.habitId, measurementFor(habit!).target, date);
       // A skip neither counts nor breaks the run.
       if (unfinished && action === ACTION.skip) await habits.setSkipped(data.habitId, true, date);
     }

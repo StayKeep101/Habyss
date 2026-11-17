@@ -42,7 +42,7 @@ import { Confetti } from '@/components/ui/Confetti';
 import { Overlay } from '@/components/ui/Overlay';
 import { SealedDayCard } from '@/components/Community/SealedDayCard';
 import { MarketSection } from '@/components/Market/MarketSection';
-import { DuelSection } from '@/components/Duel/DuelSection';
+import { ChallengeSection } from '@/components/Challenge/ChallengeSection';
 import { WidgetService } from '@/lib/widgetService';
 import { widgetRace } from '@/lib/widgetRace';
 import { WalletHero } from '@/components/Market/WalletHero';
@@ -83,7 +83,7 @@ const DROP_SEEN = 'habyss_drop_seen';
  *
  * In two views. Today: every friend's face and status, who is focusing, and
  * the feed of everyone's day (accountability only). Challenges: your Shards,
- * duels and bets, with a dot when a friend's goal is open to a bet. The
+ * challenges and bets, with a dot when a friend's goal is open to a bet. The
  * leaderboard is one tap away in the header.
  */
 export default function CommunityScreen() {
@@ -95,7 +95,7 @@ export default function CommunityScreen() {
     const { horizontalPadding, topSpacing, tabBarClearance } = useResponsiveLayout();
 
     const [gate, setGate] = useState<'signed_out' | 'needs_username' | null | undefined>(undefined);
-    // Community in two pages you swipe between: today (who's around, their days) and challenges (Shards, duels, bets).
+    // Community in two pages you swipe between: today (who's around, their days) and challenges (Shards, challenges, bets).
     const [page, setPage] = useState(0);
     // Everyone's Marks over the last month: the race drawn behind the pages.
     const [racers, setRacers] = useState<Racer[]>([]);
@@ -548,8 +548,8 @@ export default function CommunityScreen() {
     );
     const challengesPage = (
         <View onLayout={measure(1)} style={{ width: pageWidth, paddingHorizontal: horizontalPadding }}>
-            {/* Challenges: duels and bets on goals; your Shards sit beside the title. */}
-            <DuelSection style={styles.block} />
+            {/* Challenges (picked from Habyss's list, alone or with friends) and bets on goals. */}
+            <ChallengeSection style={styles.block} />
             {MARKET_ENABLED ? <MarketSection style={styles.block} /> : null}
         </View>
     );

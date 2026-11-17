@@ -34,7 +34,6 @@ export function notificationSamples(name?: string): NotificationSample[] {
         { id: 'gate-open', label: 'Apps open for an hour', title: '🔓 Your apps are open', body: 'Until 3:14 PM. Then they lock again. 100 Shards spent.' },
         { id: 'nudge', label: 'Community: a nudge', title: '👊 Alex nudged you', body: 'Your move today.', category: 'HABYSS_FRIEND_NUDGE' },
         { id: 'comment', label: 'Community: a comment', title: '💬 Mia commented', body: '"8 of 15 before noon?? who are you"', category: 'HABYSS_COMMENT' },
-        { id: 'duel', label: 'Community: a duel challenge', title: '⚔️ Sam challenged you', body: '7 days · 50 Shards each', category: 'HABYSS_DUEL' },
         { id: 'passed', label: 'Community: a friend passed you', title: '🏁 Alex passed you', body: "You're #3. Take it back." },
     ];
 }

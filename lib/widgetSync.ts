@@ -211,14 +211,16 @@ async function drain(): Promise<{ habits: number; tasks: number }> {
             if (kind === 'habit') {
                 const found = habits.find(habit => habit.id === id && !habit.isGoal);
                 // A tap ticks anything, timed habits included.
-                if (found) {
+                // A tick that needs proof (a challenge or a bet) is held, and asked for in Habyss.
+                if (found && event.done && await (require('./challengeProof') as typeof import('./challengeProof')).holdForProof({ kind: 'habit', habit: found })) { /* held */ }
+                else if (found) {
                     const done = completions[event.day] ?? await getCompletions(event.day);
                     if (!!done[id] !== event.done) { await toggleCompletion(id, event.day, event.done && event.timestamp > 0 ? new Date(event.timestamp).toISOString() : undefined); applied.habits++; }
                     completions[event.day] = { ...done, [id]: event.done };
                 }
             } else {
                 const task = tasks.find(task => task.id === id);
-                if (task && (task.status === 'done') !== event.done) {
+                if (task && (task.status === 'done') !== event.done && !(event.done && await (require('./challengeProof') as typeof import('./challengeProof')).holdForProof({ kind: 'task', task }))) {
                     if (event.done && event.timestamp > 0) {
                         await setTaskStatus(id, 'done', new Date(event.timestamp).toISOString());
                     } else {

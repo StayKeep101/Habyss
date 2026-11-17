@@ -32,7 +32,8 @@ import { CreationModal } from '@/components/Create/CreationModal';
 import { CheckInHost } from '@/components/Echo/CheckInHost';
 import { FreezeAskHost } from '@/components/Echo/FreezeAskHost';
 import { OpenBetHost } from '@/components/Market/OpenBetHost';
-import { DuelHost } from '@/components/Duel/DuelHost';
+import { ChallengeHost } from '@/components/Challenge/ChallengeHost';
+import { ProofCameraHost } from '@/components/Proof/ProofCameraHost';
 import { DayCompleteCelebration } from '@/components/Celebrations/DayCompleteCelebration';
 import { MilestoneCelebration } from '@/components/Celebrations/MilestoneCelebration';
 import { HabitSheet } from '@/components/Create/HabitSheet';
@@ -159,6 +160,8 @@ export default function MobileLayout() {
 
   // The phone runs the newest published update, not the one before it.
   useEffect(() => watchForUpdates(), []);
+  // Challenges and bets: their items in your plan, days kept reported, and what a tick must prove (lib/challengeProof.ts).
+  useEffect(() => (require('@/lib/challengeProof') as typeof import('@/lib/challengeProof')).watchProof(), []);
 
   // Your profile and its photo, read as the app opens, so the profile page
   // shows the picture at once rather than after a download.
@@ -487,7 +490,8 @@ function InnerLayout() {
         <CheckInHost />
         <FreezeAskHost />
         <OpenBetHost />
-        <DuelHost />
+        <ChallengeHost />
+        <ProofCameraHost />
         {/* Hold the create button and speak. */}
         <VoiceCapture />
         <HabitSheet listenToGlobalEvents />

@@ -16,6 +16,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
 import { addDays } from '@/lib/goalInsights';
 import { toggleCompletion, type Habit } from '@/lib/habitsSQLite';
+import { proveTick } from '@/lib/challengeProof';
 import { setTaskStatus, updateTask, type Task } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
 import { GoalMilestones } from '@/components/Goal/GoalMilestones';
@@ -90,6 +91,7 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readO
         } catch { Alert.alert('Could not move the task', 'Please try again.'); }
     };
     const toggleTask = async (task: Task) => {
+        if (task.status !== 'done' && !(await proveTick({ kind: 'task', task }, today))) return;
         selectionFeedback();
         try {
             await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
@@ -99,8 +101,9 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readO
     // The same question as everywhere a task is deleted (hooks/useRemoveTask.ts).
     const askRemoveTask = useRemoveTask();
     const removeTask = (task: Task) => askRemoveTask(task);
-    const toggleHabit = (habit: Habit, done: boolean) => {
-        // A tap ticks anything; a second tap takes it back.
+    const toggleHabit = async (habit: Habit, done: boolean) => {
+        // A tap ticks anything; a second tap takes it back. In a challenge or a bet, a tick needs proof first.
+        if (!done && !(await proveTick({ kind: 'habit', habit }, today))) return;
         selectionFeedback();
         setCompletion(habit.id, !done);
         toggleCompletion(habit.id, today).catch(() => {

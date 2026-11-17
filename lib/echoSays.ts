@@ -74,12 +74,6 @@ async function aroundYou(): Promise<Around> {
             if (passer) value.passedBy = { name: passer.name.split(' ')[0], rank: me.rank };
             await AsyncStorage.setItem(BOARD_KEY, JSON.stringify({ above })).catch(() => undefined);
         }).catch(() => undefined),
-        (require('./duels') as typeof import('./duels')).myDuels().then(duels => {
-            const { daysLeft } = require('./duels') as typeof import('./duels');
-            const share = (score: { done: number; total: number }) => (score.total > 0 ? Math.round((score.done / score.total) * 100) : 0);
-            value.duels = duels.filter(duel => duel.status === 'active')
-                .map(duel => ({ name: duel.name.split(' ')[0], me: share(duel.me), them: share(duel.them), daysLeft: daysLeft(duel.ends) })).slice(0, CAP.duels);
-        }).catch(() => undefined),
         FeedService.feed(undefined, 20).then(posts => {
             value.friendsDone = posts.filter(post => !post.mine && post.day === today)
                 .filter(post => { const total = post.card.habitsTotal + post.card.tasksTotal; return total > 0 && post.card.habitsDone + post.card.tasksDone >= total; })

@@ -16,7 +16,7 @@ export const PUSH_KINDS: PushKind[] = [
     { id: 'nudges', label: 'Nudges', icon: 'hand-left', types: ['nudge', 'nudge_back'] },
     { id: 'reactions', label: 'Reactions and comments', icon: 'heart', types: ['reaction', 'comment'] },
     { id: 'shares', label: 'Shared habits and tasks', icon: 'people', types: ['share_offer', 'share_accepted', 'share_declined', 'shared_done'] },
-    { id: 'games', label: 'Duels and bets', icon: 'flash', types: ['duel', 'challenge', 'market'] },
+    { id: 'games', label: 'Challenges and bets', icon: 'flash', types: ['duel', 'challenge', 'market'] },
     { id: 'focus', label: 'Focus together', icon: 'timer', types: ['focus_invite', 'focus_joined'] },
     { id: 'days', label: 'Friends’ days', icon: 'sunny', types: ['day_drop'] },
     { id: 'gifts', label: 'Gifts', icon: 'gift', types: ['freeze_gift'] },

@@ -23,6 +23,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { HalfCircleProgress } from '@/components/ui/HalfCircleProgress';
 import { PanelCap } from '@/components/Goal/PanelCap';
 import { Habit, removeGoalWithLinkedHabits, toggleCompletion } from '@/lib/habitsSQLite';
+import { proveTick } from '@/lib/challengeProof';
 import { cachedCover, resolveCover, setGoalCover } from '@/lib/goalCover';
 import { ShareGoalModal } from '@/components/Social/ShareGoalModal';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
@@ -263,6 +264,7 @@ const GoalDetail = () => {
 
 
   const toggleTask = async (task: Task) => {
+    if (task.status !== 'done' && !(await proveTick({ kind: 'task', task }, today))) return;
     selectionFeedback();
     try {
       await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
@@ -406,8 +408,9 @@ const GoalDetail = () => {
     ]);
   };
 
-  const handleHabitPress = (habit: Habit) => {
+  const handleHabitPress = async (habit: Habit) => {
     const isCompleted = !completions[habit.id];
+    if (isCompleted && !(await proveTick({ kind: 'habit', habit }, today))) return;
     // A tap ticks anything; a second tap takes it back.
     if (isCompleted) {
       playComplete();

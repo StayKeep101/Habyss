@@ -66,6 +66,8 @@ export async function drainPendingShortcutLogs(): Promise<ShortcutDrainResult> {
             if (!match) { result.unmatched.push(name); continue; }
             if (completions[match.id]) { result.alreadyDone.push(match.name); continue; }
             // A timed habit is done by running its timer, not by saying so.
+            // In a challenge or a bet it needs proof: held, and asked for in Habyss.
+            if (await (require('./challengeProof') as typeof import('./challengeProof')).holdForProof({ kind: 'habit', habit: match })) continue;
 
             // toggleCompletion flips state, so it is only called when the habit
             // is not already complete for today.

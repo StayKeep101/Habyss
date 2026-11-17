@@ -25,6 +25,7 @@ import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { habitRecord } from '@/lib/habitRecord';
 import { describeSchedule } from '@/lib/goalInsights';
 import { setSkipped, toggleCompletion } from '@/lib/habitsSQLite';
+import { proveTick } from '@/lib/challengeProof';
 import { ShareHabitModal } from '@/components/Social/ShareHabitModal';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { Colors } from '@/theme/colors';
@@ -177,9 +178,10 @@ export default function HabitDetailScreen() {
         return found ? days.map(day => (day.date === today ? { ...day, ...patch } : day))
             : [...days, { date: today, completed: false, skipped: false, scheduled: true, ...patch }];
     });
-    const markDone = () => {
+    const markDone = async () => {
         if (!habit) return;
         const next = !doneToday;
+        if (next && !(await proveTick({ kind: 'habit', habit }, today))) return;
         if (next) { playComplete(); selectionFeedback(); } else lightFeedback();
         patchToday({ completed: next, skipped: false });
         toggleCompletion(habit.id, today).catch(() => { patchToday({ completed: !next }); Alert.alert('Not saved', 'That check-in could not be saved. Try again.'); });

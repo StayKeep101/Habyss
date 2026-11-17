@@ -29,6 +29,7 @@ import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import { getTasks, setTaskStatus, updateTask, tasksForDay, todayKey, type Task } from '@/lib/tasks';
 
 import { setSkipped as setSkippedHabit, subscribeToHabits, toggleCompletion, removeHabitEverywhere, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
+import { proveTick } from '@/lib/challengeProof';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useRemoveTask } from '@/hooks/useRemoveTask';
@@ -453,9 +454,11 @@ const CalendarScreen = () => {
         }
 
         // A tap ticks anything, timed or not, and a second tap takes it back.
+        // In a challenge or a bet, a tick needs proof first (lib/challengeProof.ts).
+        const isCompleted = !completions[habit.id];
+        if (isCompleted && !(await proveTick({ kind: 'habit', habit }, dateStr))) { isNavigating.current = false; return; }
 
         // 1. Optimistic Update
-        const isCompleted = !completions[habit.id];
         markDone(habit.id, isCompleted, dateStr);
 
         // 2. Feedback. The Marks orbs leave from your finger now, not once
@@ -494,6 +497,7 @@ const CalendarScreen = () => {
     }, [skipped, selectedDate, selectionFeedback, markSkipped]);
 
     const handleTaskToggle = useCallback(async (task: Task) => {
+        if (task.status !== 'done' && !(await proveTick({ kind: 'task', task }, todayKey()))) return;
         if (task.status !== 'done') {
             const day = todayKey();
             const earned = taskEarned(task.id, day, true);

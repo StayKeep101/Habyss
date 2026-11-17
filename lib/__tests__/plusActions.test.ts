@@ -6,7 +6,7 @@ import { matchesSearch, searchDeep } from '../settingsSearch';
 
 describe('the + on each tab', () => {
     it('makes things on Home and Roadmap, bets on Community, searches on Settings', () => {
-        expect(DEFAULT_PLUS).toEqual({ home: ['goal', 'habit', 'task', 'thought'], roadmap: ['goal', 'habit', 'task', 'thought'], community: ['bet', 'duel'] });
+        expect(DEFAULT_PLUS).toEqual({ home: ['goal', 'habit', 'task', 'thought'], roadmap: ['goal', 'habit', 'task', 'thought'], community: ['bet', 'challenge'] });
         expect(plusTabOf('home')).toBe('home');
         expect(plusTabOf('settings')).toBe('settings');
         expect(plusTabOf(undefined)).toBe('home');
@@ -16,7 +16,7 @@ describe('the + on each tab', () => {
         expect(cleanPlus({ home: ['task', 'goal', 'mood', 'nonsense'] }).home).toEqual(['goal', 'task']);
         expect(cleanPlus({ home: [] }).home).toEqual(DEFAULT_PLUS.home);
         expect(cleanPlus(null)).toEqual(DEFAULT_PLUS);
-        expect(cleanPlus({ roadmap: ['goal', 'habit', 'task', 'thought', 'bet', 'duel'] }).roadmap).toHaveLength(MAX_PLUS);
+        expect(cleanPlus({ roadmap: ['goal', 'habit', 'task', 'thought', 'bet', 'challenge'] }).roadmap).toHaveLength(MAX_PLUS);
         // Focus was once a choice; a menu saved with it opens without it (it is the bar over the tab bar now).
         expect(cleanPlus({ home: ['goal', 'focus'] }).home).toEqual(['goal']);
     });
@@ -27,7 +27,7 @@ describe('the + on each tab', () => {
         const one = { ...DEFAULT_PLUS, community: ['bet' as const] };
         expect(togglePlus(one, 'community', 'bet')).toBe(one);
         const full = cleanPlus({ roadmap: ['goal', 'habit', 'task', 'thought', 'bet'] });
-        expect(togglePlus(full, 'roadmap', 'duel')).toBe(full);
+        expect(togglePlus(full, 'roadmap', 'challenge')).toBe(full);
     });
 
     it('opens the sheet for what was chosen', () => {

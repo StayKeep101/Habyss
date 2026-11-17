@@ -20,6 +20,7 @@ import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler
 import { focusLeave, focusTurn, setFocusStage } from '@/lib/focusStage';
 import { EASE, FOCUS_ENTRY, FOCUS_EXIT, timingFor } from '@/theme/motion';
 import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
+import { proveTick } from '@/lib/challengeProof';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { CelebrationAnimation } from '@/components/Celebrations/CelebrationAnimation';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -559,8 +560,9 @@ const Home = () => {
   // Today's promise, and ticking one of its rows off.
   const focus = useDailyFocus();
 
-  const handleFocusToggle = (task: Task) => {
+  const handleFocusToggle = async (task: Task) => {
     const done = task.status === 'done';
+    if (!done && !(await proveTick({ kind: 'task', task }, localDateKey(new Date())))) return;
     if (!done) playComplete();
     void setTaskStatus(task.id, done ? 'open' : 'done')
         .then(() => emit('tasks_changed'))

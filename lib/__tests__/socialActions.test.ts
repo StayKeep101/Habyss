@@ -1,6 +1,5 @@
 const mockAnswerNudge = jest.fn(async () => true);
 const mockReplyToLatestFrom = jest.fn(async () => null);
-const mockRespondDuel = jest.fn(async () => undefined);
 const mockAccept = jest.fn(async () => true);
 const mockDecline = jest.fn(async () => true);
 jest.mock('../friendsService', () => ({ FriendsService: {
@@ -14,13 +13,6 @@ jest.mock('../friendsService', () => ({ FriendsService: {
     ],
 } }));
 jest.mock('../comments', () => ({ replyToLatestFrom: mockReplyToLatestFrom }));
-jest.mock('../duels', () => ({
-    myDuels: async () => [
-        { id: 'mine', mine: true, friendId: 'sam', status: 'proposed' },
-        { id: 'theirs', mine: false, friendId: 'sam', status: 'proposed' },
-    ],
-    respondDuel: mockRespondDuel,
-}));
 jest.mock('expo-router', () => ({ router: { navigate: jest.fn() } }));
 
 import { handleSocialResponse } from '../socialActions';
@@ -55,14 +47,6 @@ describe('Community buttons', () => {
         expect(mockReplyToLatestFrom).toHaveBeenCalledWith('sam', 'haha ok');
         await handleSocialResponse(press(SOCIAL_ACTION.reply, { userText: '   ' }));
         expect(mockReplyToLatestFrom).toHaveBeenCalledTimes(1);
-    });
-
-    it('Accept and Decline answer the duel they sent, not one you sent', async () => {
-        jest.useFakeTimers();
-        await handleSocialResponse(press(SOCIAL_ACTION.accept));
-        await handleSocialResponse(press(SOCIAL_ACTION.decline));
-        expect(mockRespondDuel.mock.calls).toEqual([['theirs', true], ['theirs', false]]);
-        jest.useRealTimers();
     });
 
     it('a comment can be answered by typing on it', () => {

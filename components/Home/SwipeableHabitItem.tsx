@@ -6,6 +6,7 @@ import { FontFamily } from '@/theme/designSystem';
 import { formatClock, formatDuration, measurementFor } from '@/lib/habitMeasurement';
 import { localDateKey, quotaProgress } from '@/lib/habitSchedule';
 import React, { useRef } from 'react';
+import { ChallengeTag } from '@/components/Challenge/ChallengeTag';
 import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
 import { textOn } from '@/theme/tokens';
 import { CountUp } from '@/components/ui/Motion';
@@ -217,6 +218,8 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
               <Text style={[styles.title, { fontSize, color: colors.textPrimary, textDecorationLine: isCompleted ? 'line-through' : 'none' }, isActive && { fontFamily: FontFamily.bold, color: accentColor }]} numberOfLines={1}>
                 {habit.name}
               </Text>
+              {/* Part of a challenge: which one, and how a tick is proven. */}
+              <ChallengeTag kind="habit" id={habit.id} />
               {shared ? (
                 <View style={styles.sharedRow}>
                   <SharedFaces people={shared.people} tint={accentColor} size={isSmall ? 20 : 24} />
