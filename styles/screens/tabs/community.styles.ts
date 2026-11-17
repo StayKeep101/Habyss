@@ -11,6 +11,8 @@ export const styles = StyleSheet.create({
     block: { marginBottom: Spacing.xxl },
     /** The race behind everything, from the top of the screen. */
     race: { position: 'absolute', top: 0, left: 0, right: 0 },
+    /** The page colour over the shell's top wash, shown as the race goes. */
+    veil: { position: 'absolute', top: 0, left: 0, right: 0 },
     /** The buttons, over the race and the page. */
     /** The top-right buttons, cut off by the page's edge as it slides over them (overflow hidden). */
     actions: { position: 'absolute', zIndex: 10 },
@@ -22,7 +24,6 @@ export const styles = StyleSheet.create({
     blend: { height: Spacing.section, marginTop: -Spacing.section },
     /** The heading stuck at the top once the page reaches the status bar. */
     sticky: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 11 },
-    stickyFade: { position: 'absolute', left: 0, right: 0, bottom: -Spacing.lg, height: Spacing.lg },
     /** Confetti over the feed when a perfect day is cheered. */
     cheer: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
     requests: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xs },

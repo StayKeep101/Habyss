@@ -7,6 +7,11 @@ export const styles = StyleSheet.create({
     headerLinks: { flexDirection: 'row', alignItems: 'center' },
     headerLink: { padding: Spacing.sm, minHeight: 44, justifyContent: 'center' },
     headerLinkText: { fontSize: 13, fontFamily: FontFamily.medium },
+    /** The goals' carousel, edge to edge (the page's padding is given back inside it). */
+    goalRail: { flexGrow: 0 },
+    goalRailRow: { gap: Spacing.md },
+    /** The open goal's plan under the carousel, hung from a thin line. */
+    goalPlan: { marginTop: Spacing.md, marginLeft: Spacing.md, paddingLeft: Spacing.md, borderLeftWidth: 2 },
     /** Timeline and List as two pages side by side; each page sets its own height. */
     pager: { flexGrow: 0 },
     pagerRow: { alignItems: 'flex-start' },

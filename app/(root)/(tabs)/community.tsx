@@ -261,6 +261,9 @@ export default function CommunityScreen() {
         // and the last of it dims gently as the iris shuts.
         opacity: interpolate(lift.get(), [stuckAt * 0.35, stuckAt * 0.6], [1, 0], 'clamp'),
     }));
+    const veilStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(lift.get(), [stuckAt * 0.35, stuckAt * 0.6], [0, 1], 'clamp'),
+    }));
     // The page's title bar, once it reaches the status bar, stays there as the header: a fixed copy
     // takes over at exactly that spot (and steps out of the way, untappable, until then).
     const stickyStyle = useAnimatedStyle(() => {
@@ -592,6 +595,8 @@ export default function CommunityScreen() {
     return (
         <VoidShell>
             {/* The race is the background: it fills the top, and steps back as the page slides over it. */}
+            {/* As the race dims, the page colour covers the shell's accent wash too: no lighter band left at the top. */}
+            <Animated.View pointerEvents="none" style={[styles.veil, { height: stage, backgroundColor: colors.background }, veilStyle]} />
             <Animated.View style={[styles.race, raceStyle]}>
                 <MarksRace racers={racersNow} onFaces={setFaceList} width={screen.width} height={stage} top={insets.top + t.space.sm} scrub={scrub} replay={racers.length > 0} />
                 {/* Closing from the outside in as the page rises: shut before the page is halfway up. */}
@@ -632,8 +637,7 @@ export default function CommunityScreen() {
             </Animated.ScrollView>
             {/* The title bar, stuck under the status bar once the page reaches it: Accountability or Challenges, and the dots. */}
             <Animated.View style={[styles.sticky, { paddingTop: insets.top, backgroundColor: colors.background }, stickyStyle]}>
-                {/* No line under it: a soft fade, so the cards pass beneath the heading of the same page. */}
-                <LinearGradient pointerEvents="none" colors={[colors.background, 'transparent']} style={styles.stickyFade} />
+                {/* No line and no shadow under it: the cards pass beneath a heading of the same colour. */}
                 <View style={[styles.sheetTop, { paddingHorizontal: horizontalPadding }]}>
                     <SectionTitle first after={page === 1 ? <WalletHero compact /> : undefined} right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
                 </View>

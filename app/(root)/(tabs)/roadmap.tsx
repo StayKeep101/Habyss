@@ -1,6 +1,6 @@
 import { useEndedEarly } from '@/hooks/useEndedEarly';
 import { toggleEndedEarly } from '@/lib/endedEarly';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue, useLayoutEffect, memo } from 'react';
 import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager, AppState, useWindowDimensions } from 'react-native';
 import { IconTile } from '@/components/ui/IconTile';
@@ -24,7 +24,7 @@ import { CalendarStrip, type DayMarks } from '@/components/Home/CalendarStrip';
 import { useMilestoneDays } from '@/hooks/useMilestones';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { useSharedItems } from '@/hooks/useSharedItems';
-import { GoalCard } from '@/components/Home/GoalCard';
+import { GoalTile } from '@/components/Roadmap/GoalTile';
 import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import { getTasks, setTaskStatus, updateTask, tasksForDay, todayKey, type Task } from '@/lib/tasks';
 
@@ -284,6 +284,8 @@ const CalendarScreen = () => {
     // On iOS the pill is drawn over the whole window (above the dock and the bar over it, on
     // its way to the bin), so it is placed in window terms; elsewhere, inside the list area.
     const { width: windowWidth } = useWindowDimensions();
+    // A goal card's side in the carousel: about two and a bit across (fewer when cards are big), so the next one peeks in.
+    const goalTileWidth = Math.floor((windowWidth - 2 * horizontalPadding - Spacing.md) / (cardSize === 'small' ? 2.6 : cardSize === 'big' ? 1.7 : 2.2));
     const dragPreviewStyle = useAnimatedStyle(() => ({
         transform: [
             // Centred on the finger, a little above it so the thumb does not hide it.
@@ -872,10 +874,8 @@ const CalendarScreen = () => {
 
     const toggleGoalExpansion = (goalId: string) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setExpandedGoals(prev => ({
-            ...prev,
-            [goalId]: !prev[goalId]
-        }));
+        // One goal's plan open at a time, under the carousel.
+        setExpandedGoals(prev => (prev[goalId] ? {} : { [goalId]: true }));
         selectionFeedback();
     };
 
@@ -1482,51 +1482,39 @@ const CalendarScreen = () => {
                                         <TouchableOpacity accessibilityRole="button" accessibilityLabel="All goals" onPress={() => router.push({ pathname: '/(root)/all-habits', params: { kind: 'goals' } })} style={styles.headerLink}>
                                             <Text style={[styles.headerLinkText, { color: colors.textTertiary }]}>See all</Text>
                                         </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => {
-                                            const allExpanded = sortedGoals.every(goal => expandedGoals[goal.id]);
-                                            setExpandedGoals(allExpanded ? {} : Object.fromEntries(sortedGoals.map(goal => [goal.id, true])));
-                                        }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8 }}>
-                                            <Ionicons name={sortedGoals.every(goal => expandedGoals[goal.id]) ? 'contract-outline' : 'expand-outline'} size={14} color={colors.textSecondary} />
-                                            <Text style={{ color: colors.textTertiary, fontSize: 13, fontFamily: FontFamily.medium }}>{sortedGoals.every(goal => expandedGoals[goal.id]) ? 'Collapse all' : 'Expand all'}</Text>
-                                        </TouchableOpacity>
                                         </View>
                                     }>Goals</SectionTitle>
 
                                     {sortedGoals.length > 0 ? (
-                                        sortedGoals.map(goal => {
-                                            const linkedHabits = habitsByGoal[goal.id] || [];
-                                            const isExpanded = expandedGoals[goal.id];
-
-                                            // Progress Calculation - USE STRICT PROGRESS
-                                            const progress = goalProgress[goal.id] || 0;
-
-                                            return (
-                                                    <ListItem key={goal.id} style={{ marginBottom: 16 }}>
+                                        <>
+                                        {/* The goals as a carousel of near-square cards, the next one peeking in. */}
+                                        <GHScrollView horizontal showsHorizontalScrollIndicator={false} decelerationRate="fast"
+                                            snapToInterval={goalTileWidth + Spacing.md} snapToAlignment="start"
+                                            style={[styles.goalRail, { marginHorizontal: -horizontalPadding }]}
+                                            contentContainerStyle={[styles.goalRailRow, { paddingHorizontal: horizontalPadding }]}>
+                                            {sortedGoals.map(goal => (
+                                                <ListItem key={goal.id}>
                                                     <View ref={(ref) => { goalRefs.current[goal.id] = ref; }}>
-                                                    {/* Goal Header / Card */}
-                                                    <View style={{ position: 'relative' }}>
-                                                        <GoalCard
+                                                        <GoalTile
                                                             goal={{ ...goal, color: goal.color || accentColor }}
-                                                            progress={progress}
-                                                            size={cardSize}
-                                                            isExpanded={!!isExpanded}
-                                                            linkedHabitsCount={linkedHabits.length}
+                                                            progress={goalProgress[goal.id] || 0}
+                                                            width={goalTileWidth}
+                                                            isExpanded={!!expandedGoals[goal.id]}
+                                                            linkedHabitsCount={(habitsByGoal[goal.id] || []).length}
                                                             shared={sharedGoalFor(goal.id)}
                                                             isDropTarget={hoveredGoalId === goal.id}
                                                             onToggleExpand={() => toggleGoalExpansion(goal.id)}
                                                             onPress={() => router.push({ pathname: '/goal-detail', params: { goalId: goal.id } })}
                                                         />
                                                     </View>
-
-                                                    {/* Linked Habits Accordion */}
-                                                    {isExpanded && (
-                                                        <ListItem style={{
-                                                            marginTop: 8,
-                                                            marginLeft: 16,
-                                                            paddingLeft: 16,
-                                                            borderLeftWidth: 2,
-                                                            borderLeftColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'
-                                                        }}>
+                                                </ListItem>
+                                            ))}
+                                        </GHScrollView>
+                                        {/* The open goal's plan, under the carousel: one goal at a time. */}
+                                        {sortedGoals.filter(goal => expandedGoals[goal.id]).map(goal => {
+                                            const linkedHabits = habitsByGoal[goal.id] || [];
+                                            return (
+                                                        <ListItem key={goal.id} style={[styles.goalPlan, { borderLeftColor: colors.border }]}>
                                                             {linkedHabits.length > 0 ? (
                                                                 linkedHabits.map(habit => (
                                                                     <ListItem key={habit.id}><SwipeableHabitItem
@@ -1573,11 +1561,9 @@ const CalendarScreen = () => {
                                                             ))}
 
                                                         </ListItem>
-                                                    )}
-                                                    </View>
-                                                </ListItem>
                                             );
-                                        })
+                                        })}
+                                        </>
                                     ) : (
                                         <VoidCard style={{ alignItems: 'center', justifyContent: 'center', padding: 24, borderStyle: 'dashed' }}>
                                             <Text style={{ color: colors.textTertiary, fontFamily: FontFamily.regular }}>No goals yet</Text>
