@@ -5,10 +5,10 @@ import { useEffect, useState } from 'react';
 /**
  * Bedtime lock: when the day is done (bedtime, from your day window in
  * lib/echo.ts), Habyss falls asleep: one quiet screen over the whole app until
- * wake. With Screen Time allowed, the apps you chose to block are blocked for
- * the same hours, by iOS, whether or not Habyss is open (Night in
- * ios/Gate/GateShared.swift). Switching it off goes through the hard lock
- * (lib/gateLock.ts): ask, and it opens a day later.
+ * wake. With Screen Time allowed, every app is blocked for the same hours, by
+ * iOS, whether or not Habyss is open (Night in ios/Gate/GateShared.swift); calls
+ * and emergencies always work. Switching it off waits like removing an app
+ * (lib/gateLock.ts): 24 hours, then an hour to do it.
  */
 
 const KEY = 'habyss_bedtime_lock';

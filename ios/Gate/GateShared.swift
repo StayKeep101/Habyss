@@ -182,7 +182,7 @@ enum Gate {
     }
 }
 
-/// Bedtime lock: from bedtime to wake, the apps you chose are blocked, whatever the
+/// Bedtime lock: from bedtime to wake, every app is blocked, whatever the
 /// gate says (earned, or an hour bought). Its own store, so nothing that opens the
 /// gate opens the night. The app writes `Night.Settings` (lib/bedtimeLock.ts →
 /// ScreenTimeModule.setNight); the monitor puts the block up at bedtime and takes it
@@ -239,12 +239,14 @@ enum Night {
         return clock.string(from: date)
     }
 
+    /// At night every app is blocked, not only the chosen ones. iOS never blocks
+    /// calls and Emergency SOS, so what matters in an emergency still works.
     static func apply(now: Date = Date()) {
-        guard active(now: now), let chosen = Gate.selection() else { clear(); return }
-        store.shield.applications = chosen.applicationTokens.isEmpty ? nil : chosen.applicationTokens
-        store.shield.applicationCategories = chosen.categoryTokens.isEmpty ? nil : .specific(chosen.categoryTokens)
-        store.shield.webDomains = chosen.webDomainTokens.isEmpty ? nil : chosen.webDomainTokens
-        store.shield.webDomainCategories = chosen.categoryTokens.isEmpty ? nil : .specific(chosen.categoryTokens)
+        guard active(now: now) else { clear(); return }
+        store.shield.applications = nil
+        store.shield.applicationCategories = .all()
+        store.shield.webDomains = nil
+        store.shield.webDomainCategories = .all()
     }
 
     static func clear() {

@@ -50,6 +50,22 @@ class ScreenTimeModule: NSObject {
         }
     }
     
+    /// The picker that keeps the block from loosening (lib/ScreenTimeService.ts pickApps):
+    /// resolves "saved", "held" or "cancelled" once it closes.
+    @objc func presentGuardedPicker(_ allowRemoval: Bool, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard #available(iOS 16.0, *) else { reject("UNSUPPORTED", "Requires iOS 16+", nil); return }
+        DispatchQueue.main.async {
+            guard let root = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .flatMap({ $0.windows })
+                .first(where: { $0.isKeyWindow })?.rootViewController else { resolve("cancelled"); return }
+            var top = root
+            while let shown = top.presentedViewController { top = shown }
+            let picker = ScreenTimePickerView(allowRemoval: allowRemoval, onClose: { result in resolve(result) })
+            top.present(UIHostingController(rootView: picker), animated: true)
+        }
+    }
+
     @objc func setShieldEnabled(_ enabled: Bool) {
         if #available(iOS 16.0, *) {
             ScreenTimeManager.shared.setShieldEnabled(enabled)

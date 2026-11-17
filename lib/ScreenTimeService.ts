@@ -154,6 +154,31 @@ export const ScreenTimeService = {
         return true;
     },
 
+    /** This build checks the picker's result itself: adding is saved at once, a removal only while removing is open. */
+    guardedPickerSupported(): boolean {
+        return Platform.OS === 'ios' && typeof ScreenTimeModule?.presentGuardedPicker === 'function';
+    },
+
+    /**
+     * The apps to block (App blocking). Adding is always free; an app taken off
+     * the list stays on it unless `allowRemoval` (the hour after the 24-hour
+     * wait, lib/gateLock.ts). Resolves once the picker closes:
+     * 'saved', 'held' (something was taken off and kept), 'cancelled', 'denied'
+     * (no Screen Time access), or 'needsWindow' on a build from before the check,
+     * where the picker can only open while removing is open (or nothing is chosen yet).
+     */
+    async pickApps(allowRemoval: boolean): Promise<'saved' | 'held' | 'cancelled' | 'denied' | 'needsWindow'> {
+        if (Platform.OS !== 'ios' || !ScreenTimeModule) return 'denied';
+        const authorized = (await this.isAuthorized()) || (await this.requestAuthorization());
+        if (!authorized) return 'denied';
+        if (this.guardedPickerSupported()) {
+            try { return await ScreenTimeModule.presentGuardedPicker(allowRemoval); } catch { return 'cancelled'; }
+        }
+        if (!allowRemoval && (await this.hasSelectedApps())) return 'needsWindow';
+        this.presentPicker();
+        return 'saved';
+    },
+
     async armShieldIfPossible(): Promise<'armed' | 'picking' | 'denied' | 'off'> {
         if (Platform.OS !== 'ios' || !ScreenTimeModule) return 'denied';
         // Focus always blocks the chosen apps (App blocking): there is no switch.

@@ -6,91 +6,96 @@ import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { ScreenTimeService } from '@/lib/ScreenTimeService';
-import { setGateOn, useAppGate } from '@/lib/appGate';
-import { nightBlockSupported, setBedtimeLock, useBedtimeLock } from '@/lib/bedtimeLock';
-import { currentLock, type LockState } from '@/lib/gateLock';
-import { lockLabel, throughLock } from '@/lib/gateLockPrompt';
-import { cachedDayWindow, DEFAULT_DAY, getDayWindow, minutesOf } from '@/lib/echo';
-import { clockLabel } from '@/lib/dayFlow';
+import { GATE_PRICE } from '@/lib/appGate';
+import { setBedtimeLock, useBedtimeLock } from '@/lib/bedtimeLock';
+import { askToUnlock, currentLock, relock, timeLeft, type LockState } from '@/lib/gateLock';
 import { styles } from '@/styles/screens/app-blocking.styles';
 
-const NOT_AVAILABLE = ['Screen Time not available', 'Allow Habyss in Settings → Screen Time, or update to the newest version of Habyss, then try again.'] as const;
+const NOT_AVAILABLE = ['Screen Time not available', 'Allow Habyss in Settings → Screen Time, then try again.'] as const;
 
 /**
- * Everything that blocks apps, in one place: the one list of apps they all
- * block, then each way of blocking them. Earn your scroll and the Bedtime lock
- * are hard locks (lib/gateLock.ts); their state is shown at the bottom.
+ * App blocking: the apps you choose are always blocked, and only Shards open
+ * them (an hour for 100, lib/appGate.ts). Adding apps is instant; removing one
+ * waits 24 hours, then gives one hour (lib/gateLock.ts). At bedtime every app
+ * is blocked; calls and emergencies always work.
  */
 export default function AppBlockingScreen() {
     const t = useTokens();
     const { lightFeedback } = useHaptics();
-    const gate = useAppGate();
-    const bedtimeLock = useBedtimeLock();
-    const [day, setDay] = useState(() => cachedDayWindow() ?? DEFAULT_DAY);
-    useEffect(() => { void getDayWindow().then(setDay); }, []);
+    const bedtime = useBedtimeLock();
     const [lock, setLock] = useState<LockState>({ kind: 'locked' });
+    const [, tick] = useState(0);
     const readLock = useCallback(() => { void currentLock().then(setLock); }, []);
-    useEffect(readLock, [readLock]);
-    const hardLocked = gate.on || bedtimeLock;
+    useEffect(() => {
+        readLock();
+        // The countdown on the row moves, and the hour closes by itself.
+        const timer = setInterval(() => { tick(n => n + 1); readLock(); }, 30_000);
+        return () => clearInterval(timer);
+    }, [readLock]);
+    const open = lock.kind === 'open';
 
-    const pickApps = () => {
+    const ask = (why: string) => Alert.alert('Wait 24 hours?', `${why} In 24 hours you get one hour to do it. Then it locks again.`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Start the wait', onPress: () => { void askToUnlock().then(setLock); } },
+    ]);
+
+    const pick = (allowRemoval: boolean) => {
         lightFeedback();
-        const pick = () => ScreenTimeService.chooseApps().then(ok => { if (!ok) Alert.alert(...NOT_AVAILABLE); });
-        // While a hard lock is on, the list is behind it.
-        if (hardLocked) void throughLock(pick, readLock); else void pick();
+        void ScreenTimeService.pickApps(allowRemoval).then(result => {
+            if (result === 'denied') Alert.alert(...NOT_AVAILABLE);
+            if (result === 'held') ask('Your new apps are blocked, but apps you took off stay blocked: removing waits.');
+            if (result === 'needsWindow') ask('On this version of Habyss, changing the list waits. The next update lets you add apps at once.');
+        });
     };
+
+    const removeRow = () => {
+        lightFeedback();
+        if (open) { pick(true); return; }
+        if (lock.kind === 'waiting') {
+            Alert.alert('Removing opens soon', `In ${timeLeft(lock.opensAt)}. You'll get a notification.`, [
+                { text: 'Cancel the wait', style: 'destructive', onPress: () => { void relock().then(readLock); } },
+                { text: 'OK', style: 'cancel' },
+            ]);
+            return;
+        }
+        ask('Removing apps takes patience.');
+    };
+
+    const bedtimeToggle = (value: boolean) => {
+        lightFeedback();
+        if (value) {
+            void ScreenTimeService.requestAuthorization().then(() => setBedtimeLock(true));
+            return;
+        }
+        if (open) { void setBedtimeLock(false); return; }
+        if (lock.kind === 'waiting') { Alert.alert('Not yet', `You can turn this off in ${timeLeft(lock.opensAt)}.`); return; }
+        ask('Turning this off takes patience.');
+    };
+
+    const removeValue = open ? `Open · ${timeLeft(lock.closesAt)} left`
+        : lock.kind === 'waiting' ? `Opens in ${timeLeft(lock.opensAt)}` : '24h wait';
 
     return (
         <SheetScreen title="App blocking" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {/* The one list every kind of blocking below uses. */}
-                <SettingsGroup title="Apps">
-                    <SettingsRow icon="apps" color={t.color.danger} label="Apps to block" value="Used by all below" onPress={pickApps} />
+                <SettingsGroup title="Blocked apps">
+                    <SettingsRow icon="add-circle" color={t.color.danger} label="Add apps" value="Instant" onPress={() => pick(open)} />
+                    <SettingsRow icon="remove-circle" color={t.color.textMuted} label="Remove apps" value={removeValue} onPress={removeRow} />
+                    {lock.kind !== 'locked' ? (
+                        <SettingsRow icon="lock-closed" color={t.color.textMuted} label={open ? 'Lock now' : 'Cancel the wait'}
+                            onPress={() => { lightFeedback(); void relock().then(readLock); }} />
+                    ) : null}
                 </SettingsGroup>
 
-                <SettingsGroup title="Blocked">
-                    {/* Earn your scroll (lib/appGate.ts): blocked until today's top 3 are done. */}
-                    {ScreenTimeService.gateSupported() ? (
-                        <SettingsRow icon="lock-closed" color={t.color.danger} label="Until my top 3 are done"
-                            toggle={gate.on} onToggle={value => {
-                                lightFeedback();
-                                if (!value) { void throughLock(() => setGateOn(false), readLock); return; }
-                                void ScreenTimeService.hasSelectedApps().then(async chosen => {
-                                    if (!chosen && !(await ScreenTimeService.chooseApps())) { Alert.alert(...NOT_AVAILABLE); return; }
-                                    await setGateOn(true);
-                                });
-                            }} />
-                    ) : null}
-                    {gate.on ? (
-                        <SettingsRow icon="diamond" color={t.color.danger} label="Today's top 3"
-                            value={gate.view?.earned ? 'Earned' : `${gate.view?.top.filter(item => item.done).length ?? 0} of ${gate.view?.top.length ?? 3} done`}
-                            onPress={() => router.push('/(root)/unlock' as never)} />
-                    ) : null}
-                    {/* Bedtime lock (lib/bedtimeLock.ts): from bedtime to wake, Habyss sleeps and the apps are blocked. */}
-                    <SettingsRow icon="moon" color={t.color.accent} label="At bedtime"
-                        toggle={bedtimeLock} onToggle={value => {
-                            lightFeedback();
-                            if (!value) { void throughLock(() => setBedtimeLock(false), readLock); return; }
-                            if (!nightBlockSupported()) { void setBedtimeLock(true); return; }
-                            void ScreenTimeService.hasSelectedApps().then(async chosen => {
-                                if (!chosen) await ScreenTimeService.chooseApps();
-                                await setBedtimeLock(true);
-                            });
-                        }} />
-                    {/* The hours come from Day & calendar: shown here, changed there. */}
-                    <SettingsRow icon="time" color={t.color.accent} label="Bedtime hours"
-                        value={`${clockLabel(minutesOf(day.sleep))} – ${clockLabel(minutesOf(day.wake))}`} onPress={() => router.push('/(root)/meals' as never)} />
-                    {/* Focus always blocks these apps, until it ends or is paused. */}
-                    <SettingsRow icon="hand-left" color={t.color.danger} label="While focusing" value="Always" />
+                <SettingsGroup title="Unlock">
+                    <SettingsRow icon="diamond" color={t.color.accent} label="1 hour of your apps" value={`${GATE_PRICE} Shards`}
+                        onPress={() => router.push('/(root)/unlock' as never)} />
                 </SettingsGroup>
 
-                {/* Turning a hard lock off, or changing the apps, waits a day after asking. */}
-                {hardLocked ? (
-                    <SettingsGroup title="Hard lock">
-                        <SettingsRow icon="key" color={t.color.textMuted} label="To change anything" value={lockLabel(lock)}
-                            onPress={lock.kind === 'open' ? undefined : () => void throughLock(async () => undefined, readLock)} />
-                    </SettingsGroup>
-                ) : null}
+                <SettingsGroup title="Bedtime">
+                    <SettingsRow icon="moon" color={t.color.accent} label="Block every app" keywords="sleep night calls emergency"
+                        toggle={bedtime} onToggle={bedtimeToggle} />
+                </SettingsGroup>
             </ScrollView>
         </SheetScreen>
     );

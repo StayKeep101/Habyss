@@ -31,7 +31,6 @@ export function notificationSamples(name?: string): NotificationSample[] {
         { id: 'before', label: 'A reminder before (10 min)', title: '⏳ Gym in 10 min', body: 'At 5:00 PM', urgent: true },
         { id: 'bedtime', label: 'Bedtime', title: '😴 Bedtime', body: 'Time to wind down.', urgent: true },
         { id: 'scroll', label: 'Echo: 30 minutes of scrolling', title: 'Echo', body: `${you}30 minutes of brainrot today. That's 30 minutes further from your goals. Study midterm. Now.`, urgent: true },
-        { id: 'earned', label: 'Top 3 done: you earned it', title: '🎉 You earned it', body: 'Your top 3 are done. Your apps are open for the rest of today.' },
         { id: 'gate-open', label: 'Apps open for an hour', title: '🔓 Your apps are open', body: 'Until 3:14 PM. Then they lock again. 100 Shards spent.' },
         { id: 'nudge', label: 'Community: a nudge', title: '👊 Alex nudged you', body: 'Your move today.', category: 'HABYSS_FRIEND_NUDGE' },
         { id: 'comment', label: 'Community: a comment', title: '💬 Mia commented', body: '"8 of 15 before noon?? who are you"', category: 'HABYSS_COMMENT' },
