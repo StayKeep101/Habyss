@@ -36,9 +36,10 @@ const shortDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateStri
  *
  * The big number is the average day across the days shown (this week, a
  * week gone by, or 30 days), and beside it the change against the same days
- * of the window before. Underneath, a bar per day: the week, Monday (or Sunday) to its end, or
- * the last 30 days. Drag a finger along the bars and the big number follows
- * it, day by day, like a stock chart; the arrows go back in time. Under it,
+ * of the window before, in one plain sentence. Underneath, a bar per day: the
+ * week, Monday (or Sunday) to its end, or the last 30 days. Press a bar and the
+ * big number is that day (drag to read the others); let go and it is the
+ * average again. The arrows go back in time. Under it,
  * only what the time went to, most first (for the picked day, when one is).
  */
 export default function FocusStatsScreen() {
@@ -64,8 +65,8 @@ export default function FocusStatsScreen() {
     const end = range === 7 ? shiftDay(weekFrom, 6 - page * 7) : shiftDay(today, -page * range);
     const shown = useMemo(() => focusSummary(records, end, range), [records, end, range]);
     const turn = (by: number) => { selectionFeedback(); setPage(current => Math.max(0, current + by)); setPicked(null); };
-    // Touch or drag along the bars: the day under the finger is picked, and
-    // stays picked when the finger lifts. Tapping it again lets it go.
+    // Press and hold the bars: the day under the finger shows, drag to read the
+    // others; let go and it goes back to the average of the week (or 30 days).
     const { selectionFeedback } = useHaptics();
     const chartWidth = useRef(1);
     const dayAt = (x: number) => {
@@ -78,15 +79,11 @@ export default function FocusStatsScreen() {
         if (!day) return;
         setPicked(current => { if (current !== day) selectionFeedback(); return day; });
     };
-    const scrub = Gesture.Pan().runOnJS(true).activeOffsetX([-6, 6]).failOffsetY([-12, 12])
-        .onStart(event => follow(event.x)).onUpdate(event => follow(event.x));
-    const tap = Gesture.Tap().runOnJS(true).onEnd(event => {
-        const day = dayAt(event.x);
-        if (!day) return;
-        selectionFeedback();
-        setPicked(current => (current === day ? null : day));
-    });
-    const touch = Gesture.Race(scrub, tap);
+    // Picked the moment the finger lands (onBegin), followed sideways, let go on release;
+    // a vertical drag fails it, so the page still scrolls.
+    const touch = Gesture.Pan().runOnJS(true).activeOffsetX([-6, 6]).failOffsetY([-12, 12])
+        .onBegin(event => follow(event.x)).onUpdate(event => follow(event.x))
+        .onFinalize(() => setPicked(null));
     const pickedDay = picked ? shown.days.find(day => day.date === picked) : undefined;
     const dayItems = useMemo(() => {
         if (!picked) return null;
@@ -110,7 +107,10 @@ export default function FocusStatsScreen() {
         const now = mean(elapsed);
         return { now, change: now - mean(before.days.slice(0, count)) };
     }, [shown, before, today]);
-    const windowName = page === 0 ? (range === 7 ? 'this week' : 'last 30 days') : range === 7 ? 'that week' : 'those 30 days';
+    // One plain sentence: "1h 13m less than last week".
+    const previous = range === 7 ? (page === 0 ? 'last week' : 'the week before') : 'the 30 days before';
+    const changeLine = average.change === 0 ? `Same as ${previous}`
+        : `${focusDuration(Math.abs(average.change))} ${average.change > 0 ? 'more' : 'less'} than ${previous}`;
 
     const up = average.change > 0;
     const down = average.change < 0;
@@ -129,14 +129,11 @@ export default function FocusStatsScreen() {
                         <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={focusDuration(average.now)} replay={replay} />
                     )}
                     <View style={styles.trendRow}>
-                        <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{pickedDay ? longDay(pickedDay.date) : `daily avg · ${windowName}`}</Text>
+                        <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{pickedDay ? longDay(pickedDay.date) : 'Daily average'}</Text>
                         {pickedDay ? null : (
-                            <View style={styles.trend} accessible accessibilityLabel={average.change === 0 ? `Same as the ${range === 7 ? 'week' : '30 days'} before` : `${up ? 'Up' : 'Down'} ${focusDuration(Math.abs(average.change))} a day on the ${range === 7 ? 'week' : '30 days'} before`}>
+                            <View style={styles.trend} accessible accessibilityLabel={changeLine}>
                                 <AppIcon name={up ? 'caret-up' : down ? 'caret-down' : 'remove'} size={11} color={trendColor} />
-                                <Text style={[styles.trendValue, { color: trendColor }]}>
-                                    {average.change === 0 ? '0m' : `${up ? '+' : '−'}${focusDuration(Math.abs(average.change))}`}
-                                </Text>
-                                <Text style={[styles.trendText, { color: colors.textTertiary }]}>{range === 7 ? 'vs week before' : 'vs 30 days before'}</Text>
+                                <Text style={[styles.trendText, { color: colors.textTertiary }]}>{changeLine}</Text>
                             </View>
                         )}
                     </View>
@@ -160,7 +157,7 @@ export default function FocusStatsScreen() {
                             <View style={styles.chart} onLayout={event => { chartWidth.current = Math.max(1, event.nativeEvent.layout.width); }}
                                 accessible accessibilityRole="adjustable"
                                 accessibilityLabel={`Focus per day: ${shown.days.map(day => `${longDay(day.date)} ${focusDuration(day.seconds)}`).join(', ')}`}
-                                accessibilityHint="Touch and drag along the bars to read each day"
+                                accessibilityHint="Touch and hold a bar to read that day"
                                 accessibilityActions={[{ name: 'increment', label: 'Later' }, { name: 'decrement', label: 'Earlier' }]}
                                 onAccessibilityAction={event => turn(event.nativeEvent.actionName === 'decrement' ? 1 : -1)}>
                                 {shown.days.map((day, index) => (
