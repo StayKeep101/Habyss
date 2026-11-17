@@ -15,6 +15,7 @@ import { getHabits, getGoals, type Habit } from '@/lib/habitsSQLite';
 import { describeSchedule } from '@/lib/goalInsights';
 import { emit, on } from '@/lib/appEvents';
 import { todayKey, type Task } from '@/lib/tasks';
+import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { styles } from '@/styles/screens/all-habits.styles';
 
 type Kind = 'habits' | 'tasks' | 'goals';
@@ -58,6 +59,8 @@ export default function AllScreen() {
     const params = useLocalSearchParams<{ kind?: string }>();
     const kind: Kind = params.kind === 'tasks' || params.kind === 'goals' ? params.kind : 'habits';
     const tasks = useTasks();
+    // Goals come from the one shared list, so "Current" is exactly what the Roadmap shows.
+    const { goals: activeGoals, finished } = useGoalsInsights();
 
     const [habits, setHabits] = useState<Habit[]>([]);
     const [goals, setGoals] = useState<Habit[]>([]);
@@ -99,25 +102,34 @@ export default function AllScreen() {
                 { title: 'Stopped', stopped: true, empty: 'Nothing stopped.', hint: 'Dropped before they were done.', rows: tasks.filter(task => task.status === 'cancelled').map(task => row(task, DROPPED)) },
             ];
         }
-        const list = kind === 'goals' ? goals : habits;
+        if (kind === 'goals') {
+            const reached = new Set(finished.map(item => item.goal.id));
+            const goalRow = (goal: Habit, stopped?: Row['stopped'], reachedOn?: string): Row => ({
+                id: goal.id, name: goal.name, icon: goal.icon ?? 'flag-outline', color: goal.color, stopped,
+                meta: [reachedOn ? `Reached ${dayLabel(reachedOn)}` : goal.targetDate ? `By ${dayLabel(goal.targetDate)}` : null,
+                    ((count: number) => (count === 1 ? '1 habit' : `${count} habits`))(habits.filter(h => h.goalId === goal.id && !h.isArchived).length)].filter(Boolean).join(' · '),
+                open: () => router.push({ pathname: '/goal-detail', params: { goalId: goal.id } }),
+            });
+            return [
+                { title: 'Current', rows: activeGoals.map(goal => goalRow(goal)), empty: 'No goals in progress.' },
+                { title: 'Completed', stopped: true, rows: finished.map(item => goalRow(item.goal, DONE, item.on)), empty: 'No goals reached yet.' },
+                { title: 'Archived', stopped: true, rows: goals.filter(goal => goal.isArchived && !reached.has(goal.id)).map(goal => goalRow(goal, ARCHIVED)),
+                    empty: 'Nothing archived.', hint: 'Not running any more. Open one to bring it back.' },
+            ];
+        }
         const stoppedOf = (habit: Habit) => habit.isArchived ? ARCHIVED : habit.endDate && habit.endDate < today ? ENDED : undefined;
-        const row = (habit: Habit): Row => ({
-            id: habit.id, name: habit.name, icon: habit.icon ?? (kind === 'goals' ? 'flag-outline' : 'ellipse-outline'), color: habit.color,
+        const rows = habits.map((habit): Row => ({
+            id: habit.id, name: habit.name, icon: habit.icon ?? 'ellipse-outline', color: habit.color,
             stopped: stoppedOf(habit),
-            meta: kind === 'goals'
-                ? [habit.targetDate ? `By ${dayLabel(habit.targetDate)}` : null, `${habits.filter(h => h.goalId === habit.id && !h.isArchived).length} habits`].filter(Boolean).join(' · ')
-                : [targetOf(habit), scheduleOf(habit), habit.goalId ? goalNames[habit.goalId] : null].filter(Boolean).join(' · '),
-            open: () => kind === 'goals'
-                ? router.push({ pathname: '/goal-detail', params: { goalId: habit.id } })
-                : router.push({ pathname: '/habit-detail', params: { habitId: habit.id } }),
-        });
-        const rows = list.map(row);
+            meta: [targetOf(habit), scheduleOf(habit), habit.goalId ? goalNames[habit.goalId] : null].filter(Boolean).join(' · '),
+            open: () => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } }),
+        }));
         return [
-            { title: 'Current', rows: rows.filter(item => !item.stopped), empty: kind === 'goals' ? 'No goals in progress.' : 'No habits running.' },
-            { title: kind === 'goals' ? 'Archived' : 'Archived or ended', stopped: true, rows: rows.filter(item => item.stopped),
+            { title: 'Current', rows: rows.filter(item => !item.stopped), empty: 'No habits running.' },
+            { title: 'Archived or ended', stopped: true, rows: rows.filter(item => item.stopped),
                 empty: 'Nothing archived.', hint: 'Not running any more. Open one to bring it back.' },
         ];
-    }, [kind, habits, goals, tasks]);
+    }, [kind, habits, goals, tasks, activeGoals, finished]);
 
     return (
         <SheetScreen title={TITLES[kind]} onBack={() => router.back()}>

@@ -8,6 +8,21 @@ import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { blocksAt, clockOf, spanLabel, type DayPlan } from '@/lib/dayPlan';
+import { DURATION, EASE, timingFor } from '@/theme/motion';
+
+/** A value changing (theme/motion.ts): a block dimming as its habit or task is done, or lighting back up when undone. */
+const GLIDE = timingFor(DURATION.emphasis, EASE.move);
+
+/**
+ * One habit or task on the track. Ticked, it glides from full to faded (and
+ * back when unticked), so the bar answers the tick instead of snapping.
+ */
+function PlanBlock({ done, style }: { done: boolean; style: object }) {
+    const shown = useSharedValue(done ? 0.35 : 0.85);
+    useEffect(() => { shown.set(withTiming(done ? 0.35 : 0.85, GLIDE)); }, [done, shown]);
+    const fade = useAnimatedStyle(() => ({ opacity: shown.get() }));
+    return <Animated.View style={[style, fade]} />;
+}
 
 /**
  * The waking day as a calendar shows it: a thin hour track, the part already
@@ -136,11 +151,8 @@ export const DayPlanCard: React.FC<{
                     return block.travel ? (
                         <View key={`${block.kind}:${block.id}`} style={[styles.travel, frame, { borderColor: tone }]} />
                     ) : (
-                        <View key={`${block.kind}:${block.id}`} style={[styles.block, frame, {
-                            // Its own colour, the same as its card on the timeline.
-                            backgroundColor: tone,
-                            opacity: block.done ? 0.35 : 0.85,
-                        }]} />
+                        // Its own colour, the same as its card on the timeline; it fades as it is done.
+                        <PlanBlock key={`${block.kind}:${block.id}`} done={!!block.done} style={[styles.block, frame, { backgroundColor: tone }]} />
                     );
                 }) : null}
                 {width > 0 && marker !== null ? (

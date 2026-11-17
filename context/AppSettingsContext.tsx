@@ -49,7 +49,7 @@ const defaultSettings: AppSettings = {
     autoReschedule: true,
     notificationsEnabled: true,
     aiPersonality: 'friendly',
-    cardSize: 'small',
+    cardSize: 'standard',
     greetingStyle: 'ai',
     useLocalAI: true,
     isAppLockEnabled: false,
