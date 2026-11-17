@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { currentRankLook, previewRankLook, shownRankLook } from './rankLook';
 
 /**
- * Settings → Appearance → Theme: Default (Habyss's original palette, always)
+ * Settings → Appearance → Theme: Default (Habyss blue, the logo's palette, always)
  * or Hourglass (the palette of the hourglass in use, theme/palettes.ts).
  * Default to start with. Picking an hourglass to use turns Hourglass on.
  */
@@ -37,8 +37,8 @@ export function setThemeChoice(next: ThemeChoice): void {
 }
 
 /**
- * The rank whose palette the app wears, or null for the Default (original)
- * palette. A Developer preview always shows; otherwise the hourglass in use,
+ * The rank whose palette the app wears, or null for the Default palette
+ * (theme/palettes.ts HABYSS_PALETTE). A Developer preview always shows; otherwise the hourglass in use,
  * when the Hourglass theme is on.
  */
 export function themeRank(): string | null {

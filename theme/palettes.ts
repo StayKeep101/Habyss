@@ -19,7 +19,7 @@ import { rankGradient } from './rankLooks';
 export interface RankPalette { deep: string; card: string; raised: string; line: string; fog: string; mist: string; accent: readonly [string, string] }
 
 export const RANK_PALETTES: Record<string, RankPalette> = {
-    // Habyss's original: near-black, crisp white text (the Default theme too).
+    // Habyss's original: near-black, crisp white text.
     Lost: { deep: '#050505', card: '#111113', raised: '#1C1C1F', line: '#4A4A52', fog: '#A3A3AD', mist: '#F4F5F7', accent: rankGradient('Lost') },
     // Dusk
     Beginner: { deep: '#06071B', card: '#11122D', raised: '#252645', line: '#4A4B6A', fog: '#9B9CAB', mist: '#CCCCD0', accent: ['#797CD8', '#9DA0E7'] },
@@ -42,6 +42,12 @@ export const RANK_PALETTES: Record<string, RankPalette> = {
 };
 
 export const DEFAULT_PALETTE = 'Lost';
+/**
+ * What the Default theme wears (Settings → Appearance → Theme): Consistent's
+ * midnight blue, whose accent is the logo's own periwinkle. The same for
+ * everyone, whatever their rank; the Hourglass theme still follows the hourglass.
+ */
+export const HABYSS_PALETTE = 'Consistent';
 export const paletteFor = (rank: string | null | undefined): RankPalette => RANK_PALETTES[rank ?? ''] ?? RANK_PALETTES[DEFAULT_PALETTE];
 
 /** A colour with some transparency, from a hex value. */

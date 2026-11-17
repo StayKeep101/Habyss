@@ -11,7 +11,7 @@ import { styles } from '@/styles/screens/appearance.styles';
 /**
  * How the app looks and feels, on one screen (always dark): the theme, card size,
  * sound and touch as rows you can change in place. Theme: Default is
- * Habyss's original palette; Hourglass wears the palette of the hourglass in
+ * Habyss blue, the logo's palette, for everyone; Hourglass wears the palette of the hourglass in
  * use (theme/palettes.ts), chosen by tapping the hourglass on Home.
  */
 export default function Appearance() {

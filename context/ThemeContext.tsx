@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 import { loadRankLook, subscribeRankLook } from "@/lib/rankLook";
 import { loadThemeChoice, subscribeThemeChoice, themeRank } from "@/lib/themeChoice";
-import { applyRankPalette, DEFAULT_PALETTE } from "@/theme/palettes";
+import { applyRankPalette, HABYSS_PALETTE } from "@/theme/palettes";
 import { Appearance } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -17,7 +17,7 @@ type ThemeContextType = {
   palette: string;
 };
 
-const VALUE: ThemeContextType = { theme: 'abyss', mode: 'abyss', isDarkMode: true, palette: DEFAULT_PALETTE };
+const VALUE: ThemeContextType = { theme: 'abyss', mode: 'abyss', isDarkMode: true, palette: HABYSS_PALETTE };
 const ThemeContext = createContext<ThemeContextType>(VALUE);
 
 /**
@@ -31,9 +31,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // The old Light / Auto choice is gone with the setting.
     void AsyncStorage.removeItem('theme').catch(() => undefined);
   }, []);
-  // Settings → Appearance → Theme: Default (the original) or the hourglass in use's palette (theme/palettes.ts).
+  // Settings → Appearance → Theme: Default (Habyss blue, theme/palettes.ts HABYSS_PALETTE) or the hourglass in use's palette (theme/palettes.ts).
   useEffect(() => { void loadRankLook(); void loadThemeChoice(); }, []);
-  const rank = useSyncExternalStore(subscribeBoth, themeRank, themeRank) ?? DEFAULT_PALETTE;
+  const rank = useSyncExternalStore(subscribeBoth, themeRank, themeRank) ?? HABYSS_PALETTE;
   const value = useMemo(() => {
     applyRankPalette(rank);
     return { ...VALUE, palette: rank };

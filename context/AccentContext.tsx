@@ -91,12 +91,12 @@ export function AccentProvider({ children }: { children: ReactNode }) {
 
     const chosenGradient = (ACCENT_GRADIENTS.find(g => g.id === gradientId) || ACCENT_GRADIENTS[0]) as AccentGradient;
     const accentGradient: AccentGradient = useMemo(() => {
-        // The Hourglass theme: the palette's own accent (theme/palettes.ts).
+        // Any palette but the original (Default's Habyss blue, or the Hourglass theme): its own accent.
         if (PALETTE !== 'original' && palette !== DEFAULT_PALETTE) {
             const colors = [...paletteFor(palette).accent] as [string, string];
             return { id: 'rank', name: palette, colors, shadowColor: colors[0] };
         }
-        // The Default theme (and Lost): the original, your rank's own colour as the accent.
+        // The original (Lost, or PALETTE = 'original'): your rank's own colour as the accent.
         if (!rankShown) return chosenGradient;
         const gem = rankGradient(rankShown);
         return { id: 'rank', name: rankShown, colors: gem, shadowColor: gem[0] };
