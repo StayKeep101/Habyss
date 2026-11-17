@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
+import { HoldButton } from '@/components/ui/HoldButton';
+import { Text } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { ScreenTimeService } from '@/lib/ScreenTimeService';
-import { GATE_PRICE } from '@/lib/appGate';
+import { buyScrollHour, GATE_MINUTES, GATE_PRICE } from '@/lib/appGate';
+import { clockLabel } from '@/lib/dayFlow';
 import { setBedtimeLock, useBedtimeLock } from '@/lib/bedtimeLock';
 import { askToUnlock, currentLock, relock, timeLeft, type LockState } from '@/lib/gateLock';
 import { styles } from '@/styles/screens/app-blocking.styles';
@@ -33,6 +36,25 @@ export default function AppBlockingScreen() {
         return () => clearInterval(timer);
     }, [readLock]);
     const open = lock.kind === 'open';
+    // An hour of your apps, right here: hold, pay 100 Shards, open.
+    const [shards, setShards] = useState<number | null>(null);
+    const [openUntil, setOpenUntil] = useState(0);
+    const [buying, setBuying] = useState(false);
+    const readWallet = useCallback(() => {
+        void (require('@/lib/market') as typeof import('@/lib/market')).myWallet().then(wallet => setShards(wallet.spendable), () => undefined);
+        void ScreenTimeService.gateOpenUntil().then(at => setOpenUntil(at * 1000));
+    }, []);
+    useEffect(readWallet, [readWallet]);
+    const unlocked = openUntil > Date.now();
+    const buy = () => {
+        if (buying) return;
+        setBuying(true);
+        buyScrollHour()
+            .then(at => { setOpenUntil(at); readWallet(); })
+            .catch((error: unknown) => Alert.alert('No hour bought', error instanceof Error ? error.message : 'Please try again.'))
+            .finally(() => setBuying(false));
+    };
+    const at = new Date(openUntil);
 
     const ask = (why: string) => Alert.alert('Wait 24 hours?', `${why} In 24 hours you get one hour to do it. Then it locks again.`, [
         { text: 'Cancel', style: 'cancel' },
@@ -87,15 +109,25 @@ export default function AppBlockingScreen() {
                     ) : null}
                 </SettingsGroup>
 
-                <SettingsGroup title="Unlock">
-                    <SettingsRow icon="diamond" color={t.color.accent} label="1 hour of your apps" value={`${GATE_PRICE} Shards`}
-                        onPress={() => router.push('/(root)/unlock' as never)} />
-                </SettingsGroup>
-
                 <SettingsGroup title="Bedtime">
                     <SettingsRow icon="moon" color={t.color.accent} label="Block every app" keywords="sleep night calls emergency"
                         toggle={bedtime} onToggle={bedtimeToggle} />
                 </SettingsGroup>
+
+                {/* The only way in: hold to spend Shards on an hour, right here. */}
+                <View style={styles.unlock}>
+                    {unlocked ? (
+                        <Text variant="heading" align="center">Open until {clockLabel(at.getHours() * 60 + at.getMinutes())}</Text>
+                    ) : (
+                        <HoldButton label={`Hold to unlock ${GATE_MINUTES / 60} hour · ${GATE_PRICE}`} icon="shard" loading={buying}
+                            disabled={shards !== null && shards < GATE_PRICE} onComplete={buy} />
+                    )}
+                    <Text variant="caption" tone="muted" align="center">
+                        {shards === null ? 'Finish habits, tasks and goals to earn Shards.'
+                            : shards < GATE_PRICE ? `You have ${shards} Shards. Finish something to earn the rest.`
+                                : `You have ${shards} Shards. Your apps lock again after an hour.`}
+                    </Text>
+                </View>
             </ScrollView>
         </SheetScreen>
     );
