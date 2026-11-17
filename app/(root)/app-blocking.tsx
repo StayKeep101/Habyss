@@ -66,7 +66,7 @@ export default function AppBlockingScreen() {
         void ScreenTimeService.pickApps(allowRemoval).then(result => {
             if (result === 'denied') Alert.alert(...NOT_AVAILABLE);
             if (result === 'held') ask('Your new apps are blocked, but apps you took off stay blocked: removing waits.');
-            if (result === 'needsWindow') ask('On this version of Habyss, changing the list waits. The next update lets you add apps at once.');
+            if (result === 'needsWindow') ask('Adding apps at once comes with the next version of Habyss. On this one, any change to the list waits.');
         });
     };
 
@@ -101,7 +101,8 @@ export default function AppBlockingScreen() {
         <SheetScreen title="App blocking" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <SettingsGroup title="Blocked apps">
-                    <SettingsRow icon="add-circle" color={t.color.danger} label="Add apps" value="Instant" onPress={() => pick(open)} />
+                    {/* Instant once the build has the picker that keeps removals back (ScreenTimeService.guardedPickerSupported). */}
+                    <SettingsRow icon="add-circle" color={t.color.danger} label="Add apps" value={ScreenTimeService.guardedPickerSupported() || open ? 'Instant' : 'Next update'} onPress={() => pick(open)} />
                     <SettingsRow icon="remove-circle" color={t.color.textMuted} label="Remove apps" value={removeValue} onPress={removeRow} />
                     {lock.kind !== 'locked' ? (
                         <SettingsRow icon="lock-closed" color={t.color.textMuted} label={open ? 'Lock now' : 'Cancel the wait'}
