@@ -1,21 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { AppButton, Avatar, Badge, EmptyState, IconTile, ListItem, Receipt, Text, VoidSheet } from '@/components/ui';
+import { AppButton, Avatar, EmptyState, ListItem, Receipt, Text, VoidSheet } from '@/components/ui';
+import { AppIcon } from '@/components/ui/AppIcon';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { on } from '@/lib/appEvents';
-import { challengeCatalog, DIFFICULTY_LABEL, startChallenge, type Challenge } from '@/lib/challenges';
+import { challengeCatalog, DIFFICULTY_LABEL, startChallenge, type Challenge, type Difficulty } from '@/lib/challenges';
 import { FriendsService, type Friend } from '@/lib/friendsService';
 import { Control, Spacing } from '@/theme/designSystem';
+import { ChallengeIcon, Group, GroupTitle, ItemRow, PROOF_WORD, Reward } from './ChallengeParts';
 
-const PROOF_WORD = { health: 'Apple Health', focus: 'Focus timer', photo: 'Photo' } as const;
-const TONE = { easy: 'success', medium: 'warning', hard: 'danger' } as const;
+const LEVELS: Difficulty[] = ['easy', 'medium', 'hard'];
 
 /**
- * Pick a challenge, from the + on Community: the list Habyss offers, then one
- * opened (what it adds to your plan, how each is proven, the reward), with
- * friends to invite. Alone it starts today; with friends, tomorrow.
- * Mounted once over the app.
+ * Pick a challenge, from the + on Community or the + on Challenges: the list
+ * Habyss offers, grouped by level like an iOS inset list, then one opened
+ * (what it adds to your plan, the reward, friends to invite). Alone it starts
+ * today; with friends, tomorrow. Mounted once over the app.
  */
 export function ChallengeHost() {
     const t = useTokens();
@@ -40,6 +41,9 @@ export function ChallengeHost() {
         return () => sub.remove();
     }, []);
 
+    const levels = useMemo(() => LEVELS.map(level => ({ level, items: (list ?? []).filter(item => item.difficulty === level) }))
+        .filter(group => group.items.length), [list]);
+
     const close = () => setVisible(false);
     const start = () => {
         if (!chosen || starting) return;
@@ -49,7 +53,6 @@ export function ChallengeHost() {
             .catch((failed: unknown) => Alert.alert('Couldn’t start it', failed instanceof Error ? failed.message : 'Try again in a moment.'))
             .finally(() => setStarting(false));
     };
-
     const toggle = (id: string) => {
         selectionFeedback();
         setInvited(current => (current.includes(id) ? current.filter(one => one !== id) : [...current, id]));
@@ -57,70 +60,98 @@ export function ChallengeHost() {
 
     return (
         <VoidSheet visible={visible} onClose={close} scrollable maxShare={0.9}
-            title={chosen ? chosen.title : 'Pick a challenge'}
-            caption={chosen ? `${chosen.days} days · ${DIFFICULTY_LABEL[chosen.difficulty]}` : 'All or nothing'}
+            title={chosen && !started ? chosen.title : 'Pick a challenge'}
+            caption={chosen && !started ? `${chosen.days} days · ${DIFFICULTY_LABEL[chosen.difficulty]}` : 'Alone or with friends · all or nothing'}
             footer={chosen && !started ? (
                 <View style={styles.footer}>
                     <AppButton label={invited.length ? `Start with ${invited.length} ${invited.length === 1 ? 'friend' : 'friends'}` : 'Start alone'}
-                        icon="trophy" variant="primary" loading={starting} onPress={start} />
-                    <AppButton label="Back to the list" variant="ghost" onPress={() => setChosen(null)} />
+                        variant="primary" loading={starting} onPress={start} />
+                    <AppButton label="Back" variant="ghost" onPress={() => setChosen(null)} />
                 </View>
             ) : undefined}>
             {started && chosen ? (
                 <Receipt title="Challenge on" amount={undefined}
-                    line={invited.length ? 'Starts tomorrow. Its habits are in your plan; your friends have their invite.' : 'Starts today. Its habits are in your plan.'}
+                    line={invited.length ? 'Starts tomorrow. It’s in your plan, and your friends have their invite.' : 'Starts today. It’s in your plan.'}
                     onDone={close} />
             ) : chosen ? (
                 <View style={styles.body}>
-                    <Text variant="body" tone="muted">{chosen.summary}</Text>
-                    <View style={styles.list}>
-                        {chosen.items.map(item => (
-                            <View key={item.name} style={styles.line}>
-                                <IconTile icon={(item.icon ?? 'checkmark') as never} color={t.color.cobalt} size={Control.hitTarget - Spacing.sm} />
-                                <View style={styles.grow}>
-                                    <Text variant="body" numberOfLines={1}>{item.name}</Text>
-                                    <Text variant="caption" tone="muted">{item.kind === 'task' ? 'Once, by the last day' : 'Every day'} · proven by {PROOF_WORD[item.proof]}</Text>
-                                </View>
-                            </View>
-                        ))}
+                    <View style={styles.hero}>
+                        <ChallengeIcon icon={chosen.icon} difficulty={chosen.difficulty} size={Control.height} />
+                        <Text variant="body" tone="muted" grow>{chosen.summary}</Text>
                     </View>
-                    <Badge label={`${chosen.reward} Shards each if everyone keeps every day`} tone="cobalt" icon="diamond" />
+
+                    <View style={styles.section}>
+                        <GroupTitle>In your plan</GroupTitle>
+                        <Group>{chosen.items.map(item => <ItemRow key={item.name} item={item} difficulty={chosen.difficulty} />)}</Group>
+                    </View>
+
+                    <View style={styles.section}>
+                        <GroupTitle>Reward</GroupTitle>
+                        <Group>
+                            <View style={styles.rewardRow}>
+                                <View style={styles.grow}>
+                                    <Text variant="body">{invited.length ? 'If everyone keeps every day' : 'If you keep every day'}</Text>
+                                    <Text variant="caption" tone="muted">{invited.length ? 'One missed day by anyone ends it' : 'One missed day ends it'}</Text>
+                                </View>
+                                <Reward amount={chosen.reward} each={invited.length > 0} />
+                            </View>
+                        </Group>
+                    </View>
+
                     {friends.length ? (
-                        <View style={styles.list}>
-                            <Text variant="heading">Invite friends</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.faces}>
-                                {friends.map(friend => {
-                                    const picked = invited.includes(friend.userId);
-                                    const name = friend.displayName ?? friend.username;
-                                    return (
-                                        <Pressable key={friend.userId} onPress={() => toggle(friend.userId)} style={styles.face}
-                                            accessibilityRole="checkbox" accessibilityState={{ checked: picked }} accessibilityLabel={`Invite ${name}`}>
-                                            <Avatar name={name} uri={friend.avatarUrl} size={Control.height} ring={picked ? t.color.accent : undefined} dim={invited.length > 0 && !picked} />
-                                            <Text variant="caption" tone={picked ? 'accent' : 'muted'} align="center">{name.split(' ')[0]}</Text>
-                                        </Pressable>
-                                    );
-                                })}
-                            </ScrollView>
-                            <Text variant="caption" tone="muted">One missed day by anyone ends it for everyone.</Text>
+                        <View style={styles.section}>
+                            <GroupTitle>Invite friends</GroupTitle>
+                            <Group>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.faces}>
+                                    {friends.map(friend => {
+                                        const picked = invited.includes(friend.userId);
+                                        const name = friend.displayName ?? friend.username;
+                                        return (
+                                            <Pressable key={friend.userId} onPress={() => toggle(friend.userId)} style={styles.face}
+                                                accessibilityRole="checkbox" accessibilityState={{ checked: picked }} accessibilityLabel={`Invite ${name}`}>
+                                                <View>
+                                                    <Avatar name={name} uri={friend.avatarUrl} size={Control.height} ring={picked ? t.color.accent : undefined} />
+                                                    {picked ? (
+                                                        <View style={[styles.tick, { backgroundColor: t.color.accent, borderColor: t.color.surface }]}>
+                                                            <AppIcon name="checkmark" size={Spacing.md} color={t.color.background} />
+                                                        </View>
+                                                    ) : null}
+                                                </View>
+                                                <Text variant="caption" tone={picked ? 'accent' : 'muted'} align="center" numberOfLines={1}>{name.split(' ')[0]}</Text>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </ScrollView>
+                            </Group>
                         </View>
                     ) : null}
                 </View>
             ) : (
                 <View style={styles.body}>
                     {list === null ? null : list.length === 0 ? (
-                        <EmptyState icon="trophy" title="No challenges right now" message="Check back soon: new ones arrive without an update." />
-                    ) : list.map(challenge => (
-                        <ListItem key={challenge.id}>
-                            <Pressable onPress={() => { selectionFeedback(); setChosen(challenge); }} style={styles.line}
-                                accessibilityRole="button" accessibilityLabel={`${challenge.title}, ${challenge.days} days, ${DIFFICULTY_LABEL[challenge.difficulty]}, ${challenge.reward} Shards`}>
-                                <IconTile icon={challenge.icon as never} color={t.color.cobalt} size={Control.hitTarget} />
-                                <View style={styles.grow}>
-                                    <Text variant="heading" numberOfLines={1}>{challenge.title}</Text>
-                                    <Text variant="caption" tone="muted">{challenge.days} days · {challenge.reward} Shards</Text>
-                                </View>
-                                <Badge label={DIFFICULTY_LABEL[challenge.difficulty]} tone={TONE[challenge.difficulty]} />
-                            </Pressable>
-                        </ListItem>
+                        <EmptyState icon="trophy" title="No challenges right now" message="New ones arrive without an update." />
+                    ) : levels.map(({ level, items }) => (
+                        <View key={level} style={styles.section}>
+                            <GroupTitle>{DIFFICULTY_LABEL[level]}</GroupTitle>
+                            <Group>
+                                {items.map(challenge => (
+                                    <ListItem key={challenge.id}>
+                                        <Pressable onPress={() => { selectionFeedback(); setChosen(challenge); }} style={styles.row}
+                                            accessibilityRole="button" accessibilityLabel={`${challenge.title}, ${challenge.days} days, ${DIFFICULTY_LABEL[challenge.difficulty]}, ${challenge.reward} Shards`}>
+                                            <ChallengeIcon icon={challenge.icon} difficulty={challenge.difficulty} />
+                                            <View style={styles.grow}>
+                                                <Text variant="body" numberOfLines={1}>{challenge.title}</Text>
+                                                <Text variant="caption" tone="muted" numberOfLines={1}>
+                                                    {challenge.days} days · {PROOF_WORD[challenge.items[0]?.proof ?? 'photo']}
+                                                </Text>
+                                            </View>
+                                            <Reward amount={challenge.reward} />
+                                            <AppIcon name="chevron-forward" size={Spacing.lg} color={t.color.textMuted} />
+                                        </Pressable>
+                                    </ListItem>
+                                ))}
+                            </Group>
+                        </View>
                     ))}
                 </View>
             )}
@@ -129,11 +160,14 @@ export function ChallengeHost() {
 }
 
 const styles = StyleSheet.create({
-    body: { gap: Spacing.lg, paddingBottom: Spacing.lg },
+    body: { gap: Spacing.xl, paddingBottom: Spacing.lg },
+    section: { gap: Spacing.sm },
     footer: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, gap: Spacing.xs },
-    list: { gap: Spacing.md },
-    line: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: Control.hitTarget },
-    grow: { flex: 1 },
-    faces: { gap: Spacing.md, paddingVertical: Spacing.xs },
-    face: { alignItems: 'center', gap: Spacing.xs, minWidth: Control.height },
+    hero: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+    row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: Control.height + Spacing.sm },
+    rewardRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: Control.height + Spacing.sm },
+    grow: { flex: 1, gap: Spacing.xs / 2 },
+    faces: { gap: Spacing.lg, paddingVertical: Spacing.md },
+    face: { alignItems: 'center', gap: Spacing.xs, width: Control.height + Spacing.md },
+    tick: { position: 'absolute', right: -Spacing.xs / 2, bottom: -Spacing.xs / 2, width: Spacing.xl, height: Spacing.xl, borderRadius: Spacing.xl / 2, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
 });

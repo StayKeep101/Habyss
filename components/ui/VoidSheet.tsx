@@ -112,6 +112,10 @@ export const VoidSheet: React.FC<{
         progress.set(withTiming(0, CLOSE, finished => {
             if (finished) runOnJS(setMounted)(false);
         }));
+        // Never left behind: an interrupted close would keep an invisible modal over
+        // the app, swallowing every tap. Gone shortly after the close, whatever happened.
+        const gone = setTimeout(() => setMounted(false), (CLOSE.duration ?? 300) + 250);
+        return () => clearTimeout(gone);
     }, [visible, progress, drag, keyboard]); // eslint-disable-line react-hooks/exhaustive-deps -- the sound plays as it opens, not when the setting changes
 
     const scrim = useAnimatedStyle(() => ({

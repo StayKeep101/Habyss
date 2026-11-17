@@ -51,7 +51,8 @@ export function cleanPlus(raw: unknown): Record<PlusTab, PlusActionId[]> {
     const order = Object.keys(PLUS_ACTIONS) as PlusActionId[];
     const out = { ...DEFAULT_PLUS };
     for (const tab of Object.keys(DEFAULT_PLUS) as PlusTab[]) {
-        const list = Array.isArray(saved[tab]) ? (saved[tab] as unknown[]).filter(isAction) : null;
+        // Duels became challenges: a saved "duel" is the challenge now.
+        const list = Array.isArray(saved[tab]) ? (saved[tab] as unknown[]).map(id => (id === 'duel' ? 'challenge' : id)).filter(isAction) : null;
         if (list && list.length) out[tab] = order.filter(id => list.includes(id)).slice(0, MAX_PLUS);
     }
     return out;

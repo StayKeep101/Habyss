@@ -51,6 +51,8 @@ export interface Run extends Challenge {
     ends: string;
     status: RunStatus;
     mine: boolean;
+    /** Your own id, to find you among the members. */
+    meId: string;
     myStatus: 'joined' | 'invited' | 'declined' | 'left';
     myDays: string[];
     members: Member[];
@@ -95,7 +97,7 @@ export async function myChallenges(): Promise<Run[]> {
         runId: String(row.id), id: String(row.challenge_id), title: String(row.title), summary: String(row.summary),
         icon: String(row.icon || 'trophy'), difficulty: row.difficulty as Difficulty, days: Number(row.days) || 1,
         reward: Number(row.reward) || 0, items: readItems(row.items), starts: String(row.starts), ends: String(row.ends),
-        status: row.status as RunStatus, mine: row.owner_id === ctx.me, myStatus: row.my_status,
+        status: row.status as RunStatus, mine: row.owner_id === ctx.me, meId: ctx.me, myStatus: row.my_status,
         myDays: Array.isArray(row.my_days) ? row.my_days.map(String) : [],
         members: (Array.isArray(row.members) ? row.members : []).map((member: Record<string, any>) => ({
             id: String(member.id), name: String(member.name || 'Friend'), avatar: member.avatar || undefined,

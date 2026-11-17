@@ -55,3 +55,10 @@ describe('searching the settings', () => {
         expect(searchDeep('')).toEqual([]);
     });
 });
+
+describe('duels became challenges', () => {
+    it('a saved duel is the challenge now', () => {
+        const { cleanPlus } = require('../plusActions') as typeof import('../plusActions');
+        expect(cleanPlus({ community: ['bet', 'duel'] }).community).toEqual(['bet', 'challenge']);
+    });
+});

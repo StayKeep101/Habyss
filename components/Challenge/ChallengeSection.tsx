@@ -1,16 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { AnimatedFill, AppButton, Avatar, CardRail, GameCard, IconButton, IconTile, ListItem, SectionTitle, Text, VoidSheet } from '@/components/ui';
-import { ShardIcon } from '@/components/ui/ShardIcon';
+import { AppButton, Avatar, CardRail, GameCard, IconButton, IconTile, ListItem, SectionTitle, Text, VoidSheet } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { emit, on } from '@/lib/appEvents';
 import { DIFFICULTY_LABEL, leaveChallenge, myChallenges, respondChallenge, type Run } from '@/lib/challenges';
 import { localDateKey } from '@/lib/habitSchedule';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
-
-const PROOF_WORD = { health: 'Apple Health', focus: 'Focus timer', photo: 'Photo' } as const;
+import { ChallengeIcon, DangerLink, DayStrip, FaceStack, Group, GroupTitle, ItemRow, MemberRow, Reward } from './ChallengeParts';
 
 /** Day 3 of 14, from its first day; "Starts tomorrow" before it. */
 function dayOf(run: Run, today = localDateKey(new Date())): string {
@@ -19,15 +17,29 @@ function dayOf(run: Run, today = localDateKey(new Date())): string {
     return `Day ${day} of ${run.days}`;
 }
 
+/** "Alone", "3 of you", "1 invited". */
+function whoLine(run: Run): string {
+    const joined = run.members.filter(member => member.status === 'joined').length;
+    const invited = run.members.length - joined;
+    if (invited) return `${invited} invited`;
+    if (joined <= 1) return 'Alone';
+    return `${joined} of you`;
+}
+
+const act = (run: () => Promise<void>, done?: () => void) => run().then(done)
+    .catch((failed: unknown) => Alert.alert('That didn’t go through', failed instanceof Error ? failed.message : 'Try again in a moment.'));
+
 /**
  * Challenges, on Community: invites waiting on you first (Join or Not now),
- * then the ones you're in, side by side (everyone's days as one bar, all or
- * nothing), then how the last ones ended. The + opens the list to pick from.
+ * then the ones you're in, side by side: its icon, which day it is, your days
+ * as small segments, and who's in it. The + opens the list to pick from.
  */
 export function ChallengeSection({ style }: { style?: StyleProp<ViewStyle> }) {
     const t = useTokens();
     const [runs, setRuns] = useState<Run[] | null>(null);
+    // The one opened, kept while its sheet slides away.
     const [open, setOpen] = useState<Run | null>(null);
+    const [shown, setShown] = useState(false);
     const load = useCallback(() => { myChallenges().then(setRuns).catch(() => setRuns([])); }, []);
     useFocusEffect(load);
     useEffect(() => {
@@ -36,124 +48,124 @@ export function ChallengeSection({ style }: { style?: StyleProp<ViewStyle> }) {
     }, [load]);
     if (runs === null) return null;
     const pick = () => emit('show_challenges');
+    const show = (run: Run) => { setOpen(run); setShown(true); };
     const invites = runs.filter(run => run.myStatus === 'invited' && run.status === 'open');
     const live = runs.filter(run => run.myStatus === 'joined' && (run.status === 'open' || run.status === 'active'));
     const ended = runs.filter(run => run.status === 'won' || run.status === 'failed');
     return (
         <View style={[styles.section, style]}>
             <SectionTitle first right={<IconButton icon="add" label="Pick a challenge" onPress={pick} />}>Your challenges</SectionTitle>
-            {invites.map(run => <ListItem key={run.runId}><Invite run={run} /></ListItem>)}
+            {invites.map(run => <ListItem key={run.runId}><Invite run={run} onPress={() => show(run)} /></ListItem>)}
             {live.length ? (
-                <CardRail>{live.map(run => <Running key={run.runId} run={run} onPress={() => setOpen(run)} />)}</CardRail>
+                <CardRail>{live.map(run => <Running key={run.runId} run={run} onPress={() => show(run)} />)}</CardRail>
             ) : !invites.length ? (
                 <GameCard onPress={pick} title="Pick a challenge" subtitle="Alone or with friends"
-                    lead={<IconTile icon="trophy" color={t.color.cobalt} size={Control.hitTarget} />}
+                    lead={<IconTile icon="trophy" color={t.color.accent} size={Control.hitTarget} shape="square" muted />}
                     badge={{ label: 'Up to 1000', tone: 'cobalt', icon: 'diamond' }} />
             ) : null}
             {ended.map(run => (
                 <ListItem key={run.runId}>
-                    <GameCard lead={<IconTile icon={run.status === 'won' ? 'trophy' : 'flag'} color={run.status === 'won' ? t.color.cobalt : t.color.textMuted} size={Control.hitTarget} />}
-                        title={run.title} subtitle={run.status === 'won' ? `Done, together · +${run.reward} Shards` : 'A day was missed · ended'}
+                    <GameCard lead={<ChallengeIcon icon={run.status === 'won' ? 'trophy' : run.icon} difficulty={run.difficulty} />}
+                        title={run.title} subtitle={run.status === 'won' ? `Done, together · +${run.reward} Shards` : 'A day was missed'}
                         badge={run.status === 'won' ? { label: 'Won', tone: 'success', icon: 'trophy' } : { label: 'Ended', tone: 'neutral' }} />
                 </ListItem>
             ))}
-            <RunSheet run={open} onClose={() => setOpen(null)} />
+            <RunSheet run={open} visible={shown} onClose={() => setShown(false)} />
         </View>
     );
 }
 
-function Invite({ run }: { run: Run }) {
+function Invite({ run, onPress }: { run: Run; onPress: () => void }) {
     const { successFeedback } = useHaptics();
     const owner = run.members[0];
-    const act = (accept: boolean) => respondChallenge(run.runId, accept).then(() => successFeedback())
-        .catch((failed: unknown) => Alert.alert('That didn’t go through', failed instanceof Error ? failed.message : 'Try again in a moment.'));
     return (
-        <GameCard lead={<Avatar name={owner?.name ?? 'Friend'} uri={owner?.avatar} size={Control.hitTarget} />}
-            title={`${owner?.name.split(' ')[0] ?? 'A friend'} invited you`} subtitle={`${run.title} · ${run.days} days · ${run.reward} Shards each`}
-            badge={{ label: 'New', tone: 'cobalt', icon: 'trophy' }}
+        <GameCard onPress={onPress} lead={<Avatar name={owner?.name ?? 'Friend'} uri={owner?.avatar} size={Control.hitTarget} />}
+            title={`${owner?.name.split(' ')[0] ?? 'A friend'} invited you`} subtitle={`${run.title} · ${run.days} days`}
+            badge={{ label: `${run.reward}`, tone: 'cobalt', icon: 'diamond' }}
             footer={(
                 <View style={styles.buttons}>
-                    <View style={styles.grow}><AppButton label="Not now" variant="ghost" onPress={() => void act(false)} /></View>
-                    <View style={styles.grow}><AppButton label="Join" icon="trophy" variant="primary" onPress={() => void act(true)} /></View>
+                    <View style={styles.grow}><AppButton label="Not now" variant="ghost" onPress={() => void act(() => respondChallenge(run.runId, false))} /></View>
+                    <View style={styles.grow}><AppButton label="Join" variant="primary" onPress={() => void act(() => respondChallenge(run.runId, true), successFeedback)} /></View>
                 </View>
             )} />
     );
 }
 
-/** A challenge under way: the group's days as one bar, and everyone's faces. */
+/** A challenge you're in: which day, your days as segments, and who's with you. */
 function Running({ run, onPress }: { run: Run; onPress: () => void }) {
-    const t = useTokens();
-    const joined = run.members.filter(member => member.status === 'joined');
-    const kept = joined.reduce((sum, member) => sum + member.kept, 0);
-    const share = joined.length ? kept / (joined.length * run.days) : 0;
+    const kept = run.myDays.length;
     return (
-        <GameCard onPress={onPress} lead={<IconTile icon={run.icon as never} color={t.color.cobalt} size={Control.hitTarget} />}
-            title={run.title} subtitle={`${dayOf(run)} · ${joined.length === 1 ? 'Alone' : `${joined.length} of you`}`}
+        <GameCard onPress={onPress} lead={<ChallengeIcon icon={run.icon} difficulty={run.difficulty} />}
+            title={run.title} subtitle={`${dayOf(run)} · ${whoLine(run)}`}
             badge={{ label: `${run.reward}`, tone: 'cobalt', icon: 'diamond' }}
             accessibilityHint="Shows everyone's days and photos">
-            <View style={[styles.track, { backgroundColor: t.color.border }]}>
-                <AnimatedFill progress={share} style={[styles.fill, { backgroundColor: t.color.cobalt }]} replay={run.runId} />
-            </View>
-            <View style={styles.faces}>
-                {joined.map(member => <Avatar key={member.id} name={member.name} uri={member.avatar} size={Spacing.xl} />)}
+            <DayStrip kept={kept} days={run.days} />
+            <View style={styles.between}>
+                <FaceStack members={run.members} />
+                <Text variant="bodySmall" tone="muted" numeric>{kept} of {run.days} days</Text>
             </View>
         </GameCard>
     );
 }
 
-/** One challenge, opened: what it asks, everyone's days, the latest photos, and Give up. */
-function RunSheet({ run, onClose }: { run: Run | null; onClose: () => void }) {
-    const t = useTokens();
-    const { mediumFeedback } = useHaptics();
-    if (!run) return <VoidSheet visible={false} onClose={onClose} title=""><View /></VoidSheet>;
-    const together = run.members.filter(member => member.status === 'joined').length > 1;
+/** One challenge, opened: the reward, what it asks, everyone's days, the latest photos. */
+function RunSheet({ run, visible, onClose }: { run: Run | null; visible: boolean; onClose: () => void }) {
+    const { mediumFeedback, successFeedback } = useHaptics();
+    if (!run) return null;
+    const invited = run.myStatus === 'invited';
+    const together = run.members.length > 1;
     const leave = () => {
         mediumFeedback();
         Alert.alert(run.status === 'open' ? 'Leave this challenge?' : 'Give up?',
             run.status === 'open' ? 'It hasn’t started yet, so nothing is lost.'
                 : together ? 'It’s all or nothing: giving up ends it for everyone, and nobody gets the Shards.' : 'It ends now, without the Shards.', [
                 { text: 'Keep going', style: 'cancel' },
-                { text: run.status === 'open' ? 'Leave' : 'Give up', style: 'destructive', onPress: () => {
-                    void leaveChallenge(run.runId).then(onClose).catch((failed: unknown) => Alert.alert('That didn’t go through', failed instanceof Error ? failed.message : 'Try again.'));
-                } },
+                { text: run.status === 'open' ? 'Leave' : 'Give up', style: 'destructive', onPress: () => void act(() => leaveChallenge(run.runId), onClose) },
             ]);
     };
     return (
-        <VoidSheet visible onClose={onClose} title={run.title} caption={`${dayOf(run)} · ${DIFFICULTY_LABEL[run.difficulty]}`} scrollable maxShare={0.85}
-            footer={<View style={styles.footer}><AppButton label={run.status === 'open' ? 'Leave' : 'Give up'} variant="danger" onPress={leave} /></View>}>
+        <VoidSheet visible={visible} onClose={onClose} title={run.title} caption={`${dayOf(run)} · ${DIFFICULTY_LABEL[run.difficulty]}`} scrollable maxShare={0.88}
+            footer={(
+                <View style={styles.footer}>
+                    {invited ? (
+                        <View style={styles.buttons}>
+                            <View style={styles.grow}><AppButton label="Not now" variant="ghost" onPress={() => void act(() => respondChallenge(run.runId, false), onClose)} /></View>
+                            <View style={styles.grow}><AppButton label="Join" variant="primary" onPress={() => void act(() => respondChallenge(run.runId, true), () => { successFeedback(); onClose(); })} /></View>
+                        </View>
+                    ) : <DangerLink label={run.status === 'open' ? 'Leave challenge' : 'Give up'} onPress={leave} />}
+                </View>
+            )}>
             <View style={styles.body}>
-                <View style={styles.reward}>
-                    <ShardIcon size={Control.icon} />
-                    <Text variant="heading">{run.reward} Shards each</Text>
-                    <Text variant="bodySmall" tone="muted">{together ? 'if everyone keeps every day' : 'if you keep every day'}</Text>
-                </View>
-                <View style={styles.list}>
-                    {run.items.map(item => (
-                        <View key={item.name} style={styles.line}>
-                            <IconTile icon={(item.icon ?? 'checkmark') as never} color={t.color.cobalt} size={Control.hitTarget - Spacing.sm} />
+                <View style={styles.part}>
+                    <GroupTitle>Reward</GroupTitle>
+                    <Group>
+                        <View style={styles.rewardRow}>
                             <View style={styles.grow}>
-                                <Text variant="body" numberOfLines={1}>{item.name}</Text>
-                                <Text variant="caption" tone="muted">{item.kind === 'task' ? 'Once, by the last day' : 'Every day'} · {PROOF_WORD[item.proof]}</Text>
+                                <Text variant="body">{together ? 'If everyone keeps every day' : 'If you keep every day'}</Text>
+                                <Text variant="caption" tone="muted">{together ? 'One missed day by anyone ends it' : 'One missed day ends it'}</Text>
                             </View>
+                            <Reward amount={run.reward} each={together} />
                         </View>
-                    ))}
+                    </Group>
                 </View>
-                <View style={styles.list}>
-                    {run.members.map(member => (
-                        <View key={member.id} style={styles.line}>
-                            <Avatar name={member.name} uri={member.avatar} size={Control.hitTarget - Spacing.sm} />
-                            <View style={styles.grow}><Text variant="body" numberOfLines={1}>{member.name}</Text></View>
-                            <Text variant="bodySmall" tone="muted" numeric>{member.status === 'invited' ? 'Invited' : `${member.kept} / ${run.days}`}</Text>
-                        </View>
-                    ))}
+                <View style={styles.part}>
+                    <GroupTitle>In your plan</GroupTitle>
+                    <Group>{run.items.map(item => <ItemRow key={item.name} item={item} difficulty={run.difficulty} />)}</Group>
+                </View>
+                <View style={styles.part}>
+                    <GroupTitle>People</GroupTitle>
+                    <Group>{run.members.map(member => <MemberRow key={member.id} member={member} days={run.days} me={member.id === run.meId} />)}</Group>
                 </View>
                 {run.proofs.length ? (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>
-                        {run.proofs.map(proof => (
-                            <Image key={proof.url} source={{ uri: proof.url }} style={styles.photo}
-                                accessibilityLabel={`${run.members.find(member => member.id === proof.user)?.name ?? 'Someone'}: ${proof.title}`} />
-                        ))}
-                    </ScrollView>
+                    <View style={styles.part}>
+                        <GroupTitle>Proof</GroupTitle>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>
+                            {run.proofs.map(proof => (
+                                <Image key={proof.url} source={{ uri: proof.url }} style={styles.photo}
+                                    accessibilityLabel={`${run.members.find(member => member.id === proof.user)?.name ?? 'Someone'}: ${proof.title}`} />
+                            ))}
+                        </ScrollView>
+                    </View>
                 ) : null}
             </View>
         </VoidSheet>
@@ -162,16 +174,13 @@ function RunSheet({ run, onClose }: { run: Run | null; onClose: () => void }) {
 
 const styles = StyleSheet.create({
     section: { gap: Spacing.md },
-    grow: { flex: 1 },
+    grow: { flex: 1, gap: Spacing.xs / 2 },
     buttons: { flexDirection: 'row', gap: Spacing.sm },
-    track: { height: Spacing.sm, borderRadius: Radius.pill, overflow: 'hidden' },
-    fill: { height: '100%', borderRadius: Radius.pill },
-    faces: { flexDirection: 'row', gap: Spacing.xs },
+    between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     body: { gap: Spacing.xl, paddingBottom: Spacing.lg },
+    part: { gap: Spacing.sm },
     footer: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm },
-    reward: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
-    list: { gap: Spacing.md },
-    line: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: Control.hitTarget },
+    rewardRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: Control.height + Spacing.sm },
     photos: { gap: Spacing.sm },
-    photo: { width: Spacing.xxl * 3, height: Spacing.xxl * 4, borderRadius: Radius.small },
+    photo: { width: Spacing.xxl * 4, height: Spacing.xxl * 5, borderRadius: Radius.card },
 });
