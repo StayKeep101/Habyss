@@ -140,6 +140,8 @@ export interface EchoConfig {
      * model is on the phone.
      */
     writeReminders: boolean;
+    /** Halfway through the day: a recap of it so far, at the middle of the waking hours (lib/middayRecap.ts). On unless turned off. */
+    midday?: boolean;
     /** The weekly review notification on the week's last evening. On unless turned off. */
     weeklyReview?: boolean;
     /**

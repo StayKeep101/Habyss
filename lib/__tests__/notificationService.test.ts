@@ -20,7 +20,7 @@ jest.mock('../tasks', () => ({
     getTasks: jest.fn(async () => tasksForTest),
     setTaskStatus: jest.fn(async (id: string, status: string) => { const task = tasksForTest.find(task => task.id === id); if (task) task.status = status; }),
 }));
-const echoForTest = { morning: false, evening: false, useName: true, alive: false, aliveFollowUp: true };
+const echoForTest = { morning: false, evening: false, useName: true, alive: false, aliveFollowUp: true, midday: false };
 jest.mock('../echo', () => ({
     getEchoConfig: jest.fn(async () => echoForTest),
     getDayWindow: jest.fn(async () => ({ wake: '07:00', sleep: '23:00' })),

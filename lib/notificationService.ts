@@ -304,6 +304,26 @@ export class NotificationService {
             }
           }
         }
+        // Halfway through the day (lib/middayRecap.ts): at the middle of your waking hours, what
+        // is done so far. Rebuilt on every tick, so its words are the day's as it arrives.
+        const { halfwayPoint, middayRecap }: typeof import('./middayRecap') = require('./middayRecap');
+        const halfway = allowed && config.midday !== false ? halfwayPoint(dayWindow, now) : null;
+        if (halfway && localDateKey(halfway) === todayKey) {
+          const { isHabitScheduledForDate }: typeof import('./habitSchedule') = require('./habitSchedule');
+          const { tasksForDay }: typeof import('./tasks') = require('./tasks');
+          const focus: typeof import('./focusStats') = require('./focusStats');
+          await focus.loadFocusRecords().catch(() => undefined);
+          const due = habits.filter(habit => !habit.isGoal && !habit.isArchived && !skipped[habit.id] && isHabitScheduledForDate(habit, now));
+          const dayTasks = tasksForDay(await getTasks({ includeDone: true }).catch(() => tasks), todayKey, todayKey);
+          const { title, body } = middayRecap({
+            habitsDue: due.length, habitsDone: due.filter(habit => today[habit.id]).length,
+            tasksDue: dayTasks.length, tasksDone: dayTasks.filter(task => task.status === 'done').length,
+            focused: focus.currentFocusRecords().filter(row => row.date === todayKey).reduce((sum, row) => sum + row.seconds, 0),
+          }, name);
+          candidates.push({ identifier: `day-review:${todayKey}`, date: halfway, content: {
+            title, body, sound: 'default', data: { kind: 'day-review', url: '/(root)/(tabs)/home' },
+          } });
+        }
         if (clearAlarms) void syncMomentAlarms([]);
         // The same words at the same minute are one notification, even when two
         // copies of a habit or task (a restore, a share) asked for it.

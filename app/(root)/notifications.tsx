@@ -184,6 +184,8 @@ const Notifications = () => {
               }} />
             <SettingsRow icon="sunny" color={colors.warning} label="Morning check-in" toggle={echo.morning}
               disabled={!notificationsEnabled} onToggle={value => saveEcho({ morning: value })} />
+            <SettingsRow icon="hourglass" color={colors.success} label="Halfway recap" toggle={echo.midday !== false}
+              disabled={!notificationsEnabled} onToggle={value => saveEcho({ midday: value })} />
             <SettingsRow icon="moon" color={accentColor} label="Before bed" toggle={echo.evening}
               disabled={!notificationsEnabled} onToggle={value => saveEcho({ evening: value })} />
             <SettingsRow icon="calendar" color={colors.error} label="Weekly review" toggle={echo.weeklyReview !== false}

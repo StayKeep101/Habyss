@@ -27,6 +27,7 @@ export const DEEP_SETTINGS: SettingEntry[] = [
     { label: 'Vibration', page: 'Appearance', route: '/(root)/appearance', icon: 'phone-portrait', keywords: 'haptics' },
     { label: 'Morning alarm', page: 'Notifications', route: '/(root)/notifications', icon: 'alarm', keywords: 'wake up echo' },
     { label: 'Morning check-in', page: 'Notifications', route: '/(root)/notifications', icon: 'sunny', keywords: 'nudge echo' },
+    { label: 'Halfway recap', page: 'Notifications', route: '/(root)/notifications', icon: 'hourglass', keywords: 'midday half day recap summary analytics progress' },
     { label: 'Before bed', page: 'Notifications', route: '/(root)/notifications', icon: 'moon', keywords: 'evening night nudge echo' },
     { label: 'Weekly review', page: 'Notifications', route: '/(root)/notifications', icon: 'calendar', keywords: 'week reminder' },
     { label: 'Call me by name', page: 'Echo', route: '/(root)/ai-settings', icon: 'person', keywords: 'name' },
