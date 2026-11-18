@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -46,6 +46,7 @@ const LOOK: Record<InboxItem['kind'], { icon: string; tint: (colors: typeof Colo
     share_accepted: { icon: 'checkmark-circle', tint: colors => colors.success },
     share_declined: { icon: 'close-circle', tint: colors => colors.textTertiary },
     shared_done: { icon: 'checkmark-done', tint: colors => colors.success },
+    challenge: { icon: 'trophy', tint: (_colors, accent) => accent },
 };
 
 /** "3 hours ago", without pulling in a date library for one line. */
@@ -148,6 +149,24 @@ export default function InboxScreen() {
         emit('habit_completion_updated', {});
     };
 
+    /** Joining a friend's challenge, or declining it: the same call as Community's invite card. */
+    const answerChallenge = async (item: InboxItem, accept: boolean) => {
+        if (!item.challenge || busy) return;
+        setBusy(item.id);
+        const { respondChallenge } = require('@/lib/challenges') as typeof import('@/lib/challenges');
+        const failed = await respondChallenge(item.challenge.runId, accept).then(() => null, (error: unknown) => error);
+        setBusy(null);
+        if (failed) {
+            Alert.alert('That didn’t go through', failed instanceof Error ? failed.message : 'Try again in a moment.');
+            return;
+        }
+        if (accept) successFeedback(); else lightFeedback();
+        setItems(current => (current ?? []).map(each => each.id === item.id
+            ? { ...each, challenge: undefined, body: accept ? 'You’re in. It’s in your plan.' : 'Declined.' }
+            : each));
+        emit('challenges_changed');
+    };
+
     // Repeats stack into one card with a count (lib/inboxGroups.ts).
     const groups = useMemo(() => groupInbox(items ?? []), [items]);
     const clearable = useMemo(() => (items ?? []).filter(item => !isAnswerable(item)), [items]);
@@ -198,7 +217,7 @@ export default function InboxScreen() {
                                     <SwipeRow
                                         // An open request is answered, not swept away: the
                                         // buttons are the point of it being here.
-                                        right={item.requestId || item.share ? [] : [{
+                                        right={item.requestId || item.share || item.challenge ? [] : [{
                                             icon: 'trash', label: 'Clear', color: colors.error,
                                             destructive: true, onPress: () => void dismiss(ids),
                                         }]}
@@ -227,7 +246,30 @@ export default function InboxScreen() {
                                             </View>
                                         </View>
 
-                                        {item.share ? (
+                                        {item.challenge ? (
+                                            <View style={styles.actions}>
+                                                <Pressable
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel="Decline the challenge"
+                                                    disabled={busy === item.id}
+                                                    onPress={() => void answerChallenge(item, false)}
+                                                    style={[styles.action, { backgroundColor: tone.raised }]}
+                                                >
+                                                    <Text style={[styles.actionText, { color: colors.textSecondary }]}>Decline</Text>
+                                                </Pressable>
+                                                <Pressable
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel="Join the challenge"
+                                                    disabled={busy === item.id}
+                                                    onPress={() => void answerChallenge(item, true)}
+                                                    style={[styles.action, { backgroundColor: tone.raised }]}
+                                                >
+                                                    {busy === item.id
+                                                        ? <ActivityIndicator size="small" color={colors.textPrimary} />
+                                                        : <Text style={[styles.actionText, { color: colors.textPrimary }]}>Join</Text>}
+                                                </Pressable>
+                                            </View>
+                                        ) : item.share ? (
                                             <View style={styles.actions}>
                                                 <Pressable
                                                     accessibilityRole="button"

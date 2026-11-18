@@ -80,7 +80,7 @@ export interface FriendRequest {
 export interface InboxItem {
     id: string;
     kind: 'friend_request' | 'friend_accepted' | 'nudge' | 'local'
-        | 'share_offer' | 'share_accepted' | 'share_declined' | 'shared_done' | 'freeze_gift';
+        | 'share_offer' | 'share_accepted' | 'share_declined' | 'shared_done' | 'freeze_gift' | 'challenge';
     title: string;
     body: string;
     read: boolean;
@@ -95,6 +95,8 @@ export interface InboxItem {
     icon?: string;
     /** A habit, task or goal waiting to be accepted or turned down. */
     share?: { type: 'habit' | 'task' | 'goal'; itemId: string; ownerId: string };
+    /** A challenge invite still open to Join or Decline (lib/challenges.ts canAnswer). */
+    challenge?: { runId: string };
 }
 
 export interface FriendActivity {
@@ -907,20 +909,22 @@ export class FriendsService {
         const ctx = await signedIn();
         if (!ctx) return local;
 
-        const [notifications, requests, shares] = await Promise.all([
+        const challenges = require('./challenges') as typeof import('./challenges');
+        const [notifications, requests, shares, runs] = await Promise.all([
             ctx.sb.from('notifications')
                 .select('id, from_user_id, type, title, body, read, created_at')
                 .eq('user_id', ctx.me).is('deleted_at', null)
                 .order('created_at', { ascending: false }).limit(limit),
             this.getFriendRequests(),
             this.pendingShares(),
+            challenges.myChallenges().catch(() => []),
         ]);
 
         const pendingFrom = new Map(requests.map(request => [request.fromUserId, request.id]));
         const rows = notifications.data ?? [];
         const people = await profiles(ctx, rows.map((row: any) => row.from_user_id).filter(Boolean));
         const KINDS: InboxItem['kind'][] = [
-            'friend_request', 'friend_accepted', 'share_offer', 'share_accepted', 'share_declined', 'shared_done', 'freeze_gift',
+            'friend_request', 'friend_accepted', 'share_offer', 'share_accepted', 'share_declined', 'shared_done', 'freeze_gift', 'challenge',
         ];
         const kindOf = (type: string): InboxItem['kind'] =>
             (KINDS.includes(type as InboxItem['kind']) ? type : 'nudge') as InboxItem['kind'];
@@ -933,6 +937,9 @@ export class FriendsService {
             // is still written, because it is what raises the push on their
             // phone; it just is not a second thing to look at in here.
             .filter((row: any) => row.type !== 'share_offer')
+            // Same for a challenge invite: the card below is read from the
+            // challenge itself, so it has Join and Decline and never goes stale.
+            .filter((row: any) => !(row.type === 'challenge' && /invited you to a challenge$/.test(row.title ?? '')))
             .map((row: any) => ({
             id: row.id,
             kind: kindOf(row.type),
@@ -983,11 +990,30 @@ export class FriendsService {
             share: { type: share.type, itemId: share.itemId, ownerId: share.fromUserId },
         }));
 
+        const today = localDateKey(new Date());
+        const invites: InboxItem[] = runs.filter(run => challenges.canAnswer(run, today)).map(run => {
+            const owner = run.members[0];
+            return {
+                id: `challenge:${run.runId}`,
+                kind: 'challenge',
+                title: `${owner?.name ?? 'A friend'} invited you to ${run.title}`,
+                body: challenges.inviteLine(run, today),
+                read: false,
+                // When it was sent: the invite's own notification, if it is still there.
+                createdAt: rows.find((row: any) => row.type === 'challenge' && row.from_user_id === owner?.id
+                    && /invited you to a challenge$/.test(row.title ?? ''))?.created_at ?? new Date().toISOString(),
+                fromUserId: owner?.id,
+                fromName: owner?.name,
+                fromAvatarUrl: owner?.avatar,
+                challenge: { runId: run.runId },
+            };
+        });
+
         // The offer rows replace the notifications announcing them, so an
         // invitation appears once rather than twice.
         const kept = offers.length ? items.filter(item => item.kind !== 'share_offer') : items;
 
-        return [...kept, ...offers, ...local].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        return [...kept, ...offers, ...invites, ...local].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     }
 
     /** For the badge: what is genuinely waiting, whether or not it was announced. */

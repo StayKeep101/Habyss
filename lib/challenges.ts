@@ -271,3 +271,17 @@ export function syncChallenges(): Promise<void> {
     })();
     return syncing;
 }
+
+/**
+ * An invite can be answered until the end of the challenge's first day (the
+ * server holds the same rule, respond_challenge); after that it is gone. Pure.
+ */
+export function canAnswer(run: Pick<Run, 'myStatus' | 'status' | 'starts'>, today: string): boolean {
+    return run.myStatus === 'invited' && (run.status === 'open' || run.status === 'active') && run.starts >= today;
+}
+
+/** What an invite says, true on the day it is read: "7 days · starts today · 250 Shards each if you all make it". Pure. */
+export function inviteLine(run: Pick<Run, 'days' | 'reward' | 'starts'>, today: string): string {
+    const when = run.starts > today ? 'starts tomorrow' : 'starts today';
+    return `${run.days} days · ${when} · ${run.reward} Shards each if you all make it`;
+}

@@ -5,7 +5,7 @@ import { AppButton, Avatar, CardRail, GameCard, IconButton, IconTile, ListItem, 
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { emit, on } from '@/lib/appEvents';
-import { DIFFICULTY_LABEL, leaveChallenge, myChallenges, respondChallenge, type Run } from '@/lib/challenges';
+import { canAnswer, DIFFICULTY_LABEL, leaveChallenge, myChallenges, respondChallenge, type Run } from '@/lib/challenges';
 import { localDateKey } from '@/lib/habitSchedule';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
 import { ChallengeIcon, DangerLink, DayStrip, FaceStack, Group, GroupTitle, ItemRow, MemberRow, Reward } from './ChallengeParts';
@@ -49,7 +49,8 @@ export function ChallengeSection({ style }: { style?: StyleProp<ViewStyle> }) {
     if (runs === null) return null;
     const pick = () => emit('show_challenges');
     const show = (run: Run) => { setOpen(run); setShown(true); };
-    const invites = runs.filter(run => run.myStatus === 'invited' && run.status === 'open');
+    const today = localDateKey(new Date());
+    const invites = runs.filter(run => canAnswer(run, today));
     const live = runs.filter(run => run.myStatus === 'joined' && (run.status === 'open' || run.status === 'active'));
     const ended = runs.filter(run => run.status === 'won' || run.status === 'failed');
     return (
@@ -84,7 +85,7 @@ function Invite({ run, onPress }: { run: Run; onPress: () => void }) {
             badge={{ label: `${run.reward}`, tone: 'cobalt', icon: 'diamond' }}
             footer={(
                 <View style={styles.buttons}>
-                    <View style={styles.grow}><AppButton label="Not now" variant="ghost" onPress={() => void act(() => respondChallenge(run.runId, false))} /></View>
+                    <View style={styles.grow}><AppButton label="Decline" variant="ghost" onPress={() => void act(() => respondChallenge(run.runId, false))} /></View>
                     <View style={styles.grow}><AppButton label="Join" variant="primary" onPress={() => void act(() => respondChallenge(run.runId, true), successFeedback)} /></View>
                 </View>
             )} />
@@ -129,7 +130,7 @@ function RunSheet({ run, visible, onClose }: { run: Run | null; visible: boolean
                 <View style={styles.footer}>
                     {invited ? (
                         <View style={styles.buttons}>
-                            <View style={styles.grow}><AppButton label="Not now" variant="ghost" onPress={() => void act(() => respondChallenge(run.runId, false), onClose)} /></View>
+                            <View style={styles.grow}><AppButton label="Decline" variant="ghost" onPress={() => void act(() => respondChallenge(run.runId, false), onClose)} /></View>
                             <View style={styles.grow}><AppButton label="Join" variant="primary" onPress={() => void act(() => respondChallenge(run.runId, true), () => { successFeedback(); onClose(); })} /></View>
                         </View>
                     ) : <DangerLink label={run.status === 'open' ? 'Leave challenge' : 'Give up'} onPress={leave} />}

@@ -10,7 +10,7 @@ export interface InboxGroup {
 }
 
 /** Something still waiting for an answer: it has buttons, so it is never stacked or swept away. */
-export const isAnswerable = (item: InboxItem): boolean => !!item.requestId || !!item.share;
+export const isAnswerable = (item: InboxItem): boolean => !!item.requestId || !!item.share || !!item.challenge;
 
 /**
  * Stacks repeats into one card.
