@@ -69,8 +69,15 @@ enum Gate {
     /// Puts the block up or takes it down, from the saved state. `now` lets the
     /// monitor look a moment ahead when an hour ends, so it never lands a hair early.
     static func apply(now: Date = Date()) {
-        guard let state = load(), state.on, let chosen = selection(), !isOpen(state, now: now) else {
+        guard let state = load(), state.on, !isOpen(state, now: now) else {
             clear()
+            return
+        }
+        // Blocked by default, before anything is chosen: iOS only lets a person pick
+        // apps, but sites can be named, so the scrolling ones are closed in every browser.
+        store.webContent.blockedByFilter = .specific(scrollSites)
+        guard let chosen = selection() else {
+            clearApps()
             return
         }
         store.shield.applications = chosen.applicationTokens.isEmpty ? nil : chosen.applicationTokens
@@ -174,7 +181,18 @@ enum Gate {
         return (lines?["title"] ?? "Echo", body)
     }
 
+    /// YouTube and the scrolling social sites, closed whenever the gate is (and their subdomains, m. and www.).
+    static let scrollSites: Set<WebDomain> = Set([
+        "youtube.com", "tiktok.com", "instagram.com", "facebook.com", "x.com", "twitter.com",
+        "reddit.com", "snapchat.com", "threads.net", "pinterest.com", "twitch.tv",
+    ].map { WebDomain(domain: $0) })
+
     static func clear() {
+        clearApps()
+        store.webContent.blockedByFilter = nil
+    }
+
+    private static func clearApps() {
         store.shield.applications = nil
         store.shield.applicationCategories = nil
         store.shield.webDomains = nil

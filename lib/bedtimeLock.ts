@@ -33,7 +33,8 @@ const listeners = new Set<() => void>();
 
 export async function bedtimeLockOn(): Promise<boolean> {
     if (on != null) return on;
-    try { on = (await AsyncStorage.getItem(KEY)) === 'on'; } catch { on = false; }
+    // On unless switched off: the night is blocked by default.
+    try { on = (await AsyncStorage.getItem(KEY)) !== 'off'; } catch { on = true; }
     return on;
 }
 
@@ -58,7 +59,7 @@ export async function syncBedtime(): Promise<void> {
 }
 
 export function useBedtimeLock(): boolean {
-    const [value, setValue] = useState(on ?? false);
+    const [value, setValue] = useState(on ?? true);
     useEffect(() => {
         const read = () => { void bedtimeLockOn().then(setValue); };
         read();
