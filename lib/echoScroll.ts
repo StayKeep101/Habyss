@@ -22,12 +22,25 @@ export function scrollLines(voice: PersonalityModeId, brief: EchoBrief): Record<
     return out;
 }
 
-let lastSent = '';
-/** Hands the lines to the extension, when they changed. A build without it ignores them. */
-export function sendScrollLines(voice: PersonalityModeId, brief: EchoBrief): void {
-    const lines = scrollLines(voice, brief);
-    const json = JSON.stringify(lines);
-    if (json === lastSent) return;
-    lastSent = json;
-    (require('./ScreenTimeService') as typeof import('./ScreenTimeService')).ScreenTimeService.setScrollLines(json);
+const SENT_KEY = 'habyss_scroll_lines_day';
+let sentDay = '';
+/**
+ * Hands the lines to the extension, at most once a day and only before any
+ * scrolling today. On builds up to 1.0.4 handing them over restarts iOS's watch,
+ * and a restart replays every threshold already passed today: five old alerts at
+ * once. The day's first lines are good enough; the watch then repeats by itself.
+ */
+export async function sendScrollLines(voice: PersonalityModeId, brief: EchoBrief): Promise<void> {
+    const { localDateKey } = require('./habitSchedule') as typeof import('./habitSchedule');
+    const AsyncStorage = (require('@react-native-async-storage/async-storage') as typeof import('@react-native-async-storage/async-storage')).default;
+    const { ScreenTimeService } = require('./ScreenTimeService') as typeof import('./ScreenTimeService');
+    const today = localDateKey(new Date());
+    if (sentDay === today) return;
+    sentDay = today;
+    try {
+        if ((await AsyncStorage.getItem(SENT_KEY)) === today) return;
+        if (((await ScreenTimeService.scrolledToday()) ?? 0) > 0) return;
+        await AsyncStorage.setItem(SENT_KEY, today);
+        ScreenTimeService.setScrollLines(JSON.stringify(scrollLines(voice, brief)));
+    } catch { /* tried again tomorrow */ }
 }

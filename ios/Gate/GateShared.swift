@@ -170,6 +170,22 @@ enum Gate {
         UserDefaults(suiteName: groupId)?.set(["day": today(), "minutes": max(minutes, scrolledToday())], forKey: scrolledKey)
     }
 
+    static let scrollStartedKey = "HabyssScrollWatchStarted"
+
+    /// When the watch was (re)started: iOS replays every threshold already passed today
+    /// right after, and those are old news, not new scrolling.
+    static func markScrollWatchStarted() {
+        UserDefaults(suiteName: groupId)?.set(Date().timeIntervalSince1970, forKey: scrollStartedKey)
+    }
+
+    /// Say this threshold out loud? Not when it was already said today, nor when it is
+    /// iOS catching up in the minute after a restart (then it is only recorded).
+    static func shouldAnnounce(_ minutes: Int, now: Date = Date()) -> Bool {
+        if minutes <= scrolledToday() { return false }
+        let started = UserDefaults(suiteName: groupId)?.double(forKey: scrollStartedKey) ?? 0
+        return now.timeIntervalSince1970 - started > 60
+    }
+
     static func resetScrolled() {
         UserDefaults(suiteName: groupId)?.set(["day": today(), "minutes": 0], forKey: scrolledKey)
     }

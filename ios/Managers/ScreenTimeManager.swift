@@ -87,7 +87,8 @@ class ScreenTimeManager: ObservableObject {
         guard let data = json.data(using: .utf8),
               let lines = try? JSONSerialization.jsonObject(with: data) as? [String: String] else { return }
         UserDefaults(suiteName: Gate.groupId)?.set(lines, forKey: Gate.scrollLinesKey)
-        watchScrolling()
+        // Only the words change: the watch keeps running. Restarting it replays every
+        // threshold already passed today. It starts with the chosen apps (saveSelection).
     }
 
     /// Watches the chosen apps all day, every day: an event at each threshold. Restarted when the
@@ -110,6 +111,7 @@ class ScreenTimeManager: ObservableObject {
         let schedule = DeviceActivitySchedule(intervalStart: DateComponents(hour: 0, minute: 0),
                                               intervalEnd: DateComponents(hour: 23, minute: 59), repeats: true)
         center.stopMonitoring([name])
+        Gate.markScrollWatchStarted()
         try? center.startMonitoring(name, during: schedule, events: events)
     }
 

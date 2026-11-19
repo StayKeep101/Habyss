@@ -205,7 +205,7 @@ const Home = () => {
       getData().tasks, localDateKey(new Date()));
     const brief = await buildBrief({ name: name ?? undefined, streak: stats.streak, deadlines }).catch(() => null);
     // The lines Echo says when your apps have had you a while, kept current with the day (lib/echoScroll.ts).
-    if (brief) (require('@/lib/echoScroll') as typeof import('@/lib/echoScroll')).sendScrollLines(personality, brief);
+    if (brief) (require('@/lib/echoScroll') as typeof import('@/lib/echoScroll')).sendScrollLines(personality, brief).catch(() => undefined);
 
     // Once a day, something only someone who knows you would say: back after a gap,
     // yesterday's answer, something you told Echo, the help that works for you.

@@ -32,7 +32,9 @@ final class ActivityMonitorExtension: DeviceActivityMonitor {
         super.eventDidReachThreshold(event, activity: activity)
         guard activity.rawValue == Gate.scrollActivity,
               let minutes = Int(event.rawValue.replacingOccurrences(of: "scroll.", with: "")) else { return }
+        let announce = Gate.shouldAnnounce(minutes)
         Gate.saveScrolled(minutes)
+        guard announce else { return }
         let line = Gate.scrollLine(for: minutes)
         let content = UNMutableNotificationContent()
         content.title = line.title
