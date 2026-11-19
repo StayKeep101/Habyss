@@ -34,9 +34,6 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Habit, getHabits } from '@/lib/habitsSQLite';
-import { learnedMinutes, lengthLine, loadSamples, samplesOf } from '@/lib/learnedLength';
-import { habitMinutes } from '@/lib/dayPlan';
-import { lengthLabel } from '@/lib/dayFlow';
 import { historyWindow, loadedData } from '@/lib/dataStore';
 import { localHabitDate } from '@/lib/habitMeasurement';
 import { isHabitScheduledForDate, parseHabitDate } from '@/lib/habitSchedule';
@@ -128,17 +125,6 @@ export default function HabitDetailScreen() {
     useEffect(() => { void getHabits().then(all => setGoals(all.filter(item => item.isGoal))).catch(() => undefined); }, []);
     const weekStartsMonday = useWeekStart() === 'monday';
     const record = useMemo(() => habitRecord(history, today, habit?.startDate?.slice(0, 10), weekStartsMonday), [history, today, habit?.startDate, weekStartsMonday]);
-    // Planned against how long it really takes you, once there is enough to say.
-    const [took, setTook] = useState<string | null>(null);
-    useEffect(() => {
-        if (!habit) return;
-        let alive = true;
-        void loadSamples().then(() => {
-            const planned = habitMinutes(habit);
-            if (alive) setTook(lengthLine(planned, learnedMinutes(samplesOf(habit.id), planned, today), lengthLabel));
-        }).catch(() => undefined);
-        return () => { alive = false; };
-    }, [habit, today]);
     const todayDay = history.find(day => day.date === today);
     const doneToday = !!todayDay?.completed;
     // Shared: the friends on it beside the buttons, ringed once they have done
@@ -261,7 +247,7 @@ export default function HabitDetailScreen() {
                     </Animated.View>
                     <HabitToday done={doneToday} skipped={skippedToday} scheduled={scheduledToday} color={accent} onDone={markDone} onSkip={skip} onFocus={focus}
                         waiting={shared && waitingOnOthers(shared, doneToday) ? waitingLabel(shared) : null} />
-                    <HabitStats record={record} color={accent} took={took} />
+                    <HabitStats record={record} color={accent} />
 
                     {/* How it has gone, day by day: the heat map. */}
                     <View>

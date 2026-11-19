@@ -371,13 +371,6 @@ export const HabitSheet: React.FC<{
     // With Auto-reschedule off the day is a plain calendar: every time is kept.
     const exact = !autoReschedule || draft.flexible === false;
     const items: DetailItem[] = [
-        // The cue first: tied to something you already do (after lunch, before class), a habit
-        // is an if-then plan, the strongest finding in habit research (lib/habitAnchor.ts).
-        ...(autoReschedule ? [{
-            id: 'anchor' as const, icon: 'link-outline' as const, label: 'Cue',
-            value: draft.anchor?.to.trim() ? anchorLabel(draft.anchor) : undefined,
-            content: <AnchorPicker value={draft.anchor} accent={accent} onChange={anchor => change({ anchor })} />,
-        }] : []),
         {
             id: 'repeat', icon: 'repeat', label: 'Repeat',
             value: `${describeRule(draft.rule)}${draft.endDate ? ` · until ${new Date(`${draft.endDate}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : ''}`,
@@ -411,6 +404,12 @@ export const HabitSheet: React.FC<{
                 </>
             ),
         },
+        // Before or after a class or a meal, wherever it falls that day (lib/habitAnchor.ts).
+        ...(autoReschedule ? [{
+            id: 'anchor', icon: 'link-outline' as const, label: 'Link',
+            value: draft.anchor?.to.trim() ? anchorLabel(draft.anchor) : undefined,
+            content: <AnchorPicker value={draft.anchor} accent={accent} onChange={anchor => change({ anchor })} />,
+        }] : []),
         {
             id: 'target', icon: 'stats-chart-outline', label: 'Measure',
             value: draft.amount ? `${draft.amount} ${draft.unit ?? 'times'}` : undefined,
@@ -538,8 +537,7 @@ export const HabitSheet: React.FC<{
                             )}
                         </TypingPlaceholder>
                     </DictateField>
-                    {/* Honest about the time it takes (Lally et al. 2010: a median of 66 days), so a miss is not a failure. */}
-                    {current ? null : <Text style={[styles.hint, styles.expect, { color: colors.textTertiary }]}>Habits take about 2 months · one miss is fine</Text>}
+
 
                     {error ? (
                         <View style={[styles.error, { backgroundColor: colors.error + '18', borderColor: colors.error + '44' }]}>
@@ -605,7 +603,6 @@ const styles = StyleSheet.create({
     place: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth },
     placeBody: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     hint: { fontSize: 12, fontFamily: FontFamily.regular, lineHeight: 17 },
-    expect: { marginTop: 8, textAlign: 'center' },
     message: { minHeight: 40, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, fontFamily: FontFamily.regular },
     inline: { flexDirection: 'row', alignItems: 'center', gap: 14 },
     notes: { minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },

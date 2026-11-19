@@ -103,7 +103,7 @@ export function HabitToday({ done, skipped, scheduled, color, onDone, onSkip, on
 }
 
 /** Four numbers in type, split by hairlines. */
-export function HabitStats({ record, color, took }: { record: HabitRecord; color: string; took?: string | null }) {
+export function HabitStats({ record, color }: { record: HabitRecord; color: string }) {
     const t = useTokens();
     const items = [
         { label: 'Streak', value: String(record.streak), tone: record.streak > 0 ? color : t.color.textPrimary },
@@ -112,7 +112,6 @@ export function HabitStats({ record, color, took }: { record: HabitRecord; color
         { label: 'Days done', value: String(record.done) },
     ];
     return (
-        <>
         <MatteSurface radius={Radius.card} style={styles.stats}>
             {items.map((item, index) => (
                 <PopIn key={item.label} index={index} style={[styles.stat, index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: t.color.border }]}>
@@ -121,9 +120,6 @@ export function HabitStats({ record, color, took }: { record: HabitRecord; color
                 </PopIn>
             ))}
         </MatteSurface>
-        {/* How long it really takes you, against the plan (lib/learnedLength.ts). */}
-        {took ? <Text style={[t.type.caption, { color: t.color.textMuted, textAlign: 'center' }]}>{took}</Text> : null}
-        </>
     );
 }
 

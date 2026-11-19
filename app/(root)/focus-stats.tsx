@@ -17,8 +17,6 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useFocusRecords } from '@/hooks/useFocusRecords';
 import { useWeekStart } from '@/hooks/useWeekStart';
-import { useDistractions } from '@/hooks/useDistractions';
-import { distractionsBetween } from '@/lib/distractions';
 import { useHaptics } from '@/hooks/useHaptics';
 import { focusDuration, focusSummary, shiftDay } from '@/lib/focusStats';
 import { localDateKey } from '@/lib/habitSchedule';
@@ -58,7 +56,6 @@ export default function FocusStatsScreen() {
     const today = todayKey();
     const summary = useMemo(() => focusSummary(records, today, range), [records, today, range]);
     const weekStart = useWeekStart();
-    const distractions = useDistractions();
     const weekFrom = useMemo(() => localDateKey(startOfWeek(new Date(`${today}T12:00:00`), weekStart)), [today, weekStart]);
     // The arrows page back through time, a week (or 30 days) at a time.
     const [page, setPage] = useState(0);
@@ -120,7 +117,6 @@ export default function FocusStatsScreen() {
     const trendColor = up ? colors.success : down ? colors.error : colors.textTertiary;
     const ceiling = Math.max(1, ...shown.days.map(day => day.seconds));
     const topItem = listed[0]?.seconds ?? 1;
-    const pulledAway = shown.days.length ? distractionsBetween(distractions, shown.days[0].date, shown.days[shown.days.length - 1].date) : 0;
 
     return (
         <SheetScreen title="Focus" onBack={() => router.back()}>
@@ -141,10 +137,6 @@ export default function FocusStatsScreen() {
                             </View>
                         )}
                     </View>
-                    {/* How often you were pulled away (Got distracted in Focus), for the days shown. */}
-                    {!pickedDay && pulledAway ? (
-                        <Text style={[styles.trendText, { color: colors.textTertiary }]}>{`Got distracted ${pulledAway}×`}</Text>
-                    ) : null}
                 </View>
 
                 {summary.sessions === 0 ? (

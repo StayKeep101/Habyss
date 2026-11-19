@@ -34,9 +34,6 @@ export const styles = StyleSheet.create({
     /** The full width to fit into, so shrinking to fit never measures against nothing (the name came out tiny on some phones). */
     name: { alignSelf: 'stretch', fontFamily: FontFamily.bold, fontSize: 28, lineHeight: 34, letterSpacing: -0.5, color: '#FFFFFF', textAlign: 'center' },
     nameSide: { fontSize: 22, lineHeight: 28 },
-    // Got distracted: one quiet tap under the controls.
-    distracted: { alignSelf: 'center', minHeight: Control.hitTarget, justifyContent: 'center', paddingHorizontal: Spacing.lg },
-    distractedText: { ...Typography.caption, color: 'rgba(255,255,255,0.6)' }, // ui-allow: on the scene, like the controls
     // Where it was left last time, under the name.
     resume: { ...Typography.bodySmall, color: 'rgba(255,255,255,0.72)', textAlign: 'center', marginTop: Spacing.xs }, // ui-allow: on the scene, like the name above
 

@@ -1,6 +1,5 @@
 import { useResumeNotes } from '@/hooks/useResumeNotes';
-import { useRecovery } from '@/hooks/useRecovery';
-import { router } from 'expo-router';
+import { usePlaces } from '@/hooks/usePlaces';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { HOLD_MS } from '@/components/ui/DragDrop';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -146,9 +145,6 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onPin, sharedFor,
     now: number | null;
 }) {
     const t = useTokens();
-    // Habits missed last time and due again today (never miss twice), only on today's line.
-    const bounce = useRecovery();
-    const atRisk = useMemo(() => new Set(day === localDateKey(new Date()) ? bounce.atRisk.map(habit => habit.id) : []), [bounce.atRisk, day]);
     const size = SIZES[useAppSettings().cardSize] ?? SIZES.standard;
     const lived = livedUntil(now, day);
     // The page's handlers change on every tick; the rows get fixed ones that
@@ -213,7 +209,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onPin, sharedFor,
                             nextColor={next ? colorOf(next) : undefined} nextStart={next?.start} day={day}
                             now={now} clock={!scrubbing} lived={lived} updated={!!moved?.[item.id]} reason={moved?.[item.id] ? why?.[item.id] : undefined} onToggle={handlers.toggle} onOpen={handlers.open} onFocus={handlers.focus} onPin={onPin ? handlers.pin : undefined}
                             faces={company?.id === item.id ? company.faces : undefined}
-                            shared={sharedFor?.(item) ?? null} risk={atRisk.has(item.id)} /></TimelineDrag>
+                            shared={sharedFor?.(item) ?? null} /></TimelineDrag>
                     </ListItem>
                 );
             }) : (
@@ -288,10 +284,8 @@ function Chips({ label, heading, items, onOpen, onToggle }: {
     );
 }
 
-function RowView({ size, item, color, nextColor, nextStart, last, first, now, lived, updated, reason, onToggle, onOpen, onFocus, onPin, day, faces, shared, clock, calendar, risk }: {
+function RowView({ size, item, color, nextColor, nextStart, last, first, now, lived, updated, reason, onToggle, onOpen, onFocus, onPin, day, faces, shared, clock, calendar }: {
     shared: SharedState | null;
-    /** A habit missed last time and due again today: never miss twice (lib/recovery.ts). */
-    risk?: boolean;
     /** On the calendar: its exact height (its length on the one scale). Short ones are drawn as a thin bar and one line. */
     calendar?: number;
     /** Up to when this day has been lived (livedUntil): what every fill reads. */
@@ -307,6 +301,7 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
 }) {
     const t = useTokens();
     const resume = useResumeNotes()[item.id]?.text ?? null;
+    const place = usePlaces().byTask[item.id] ?? null;
     // The text's own height, measured: placed at once the first time, glided after.
     const [line, setLine] = useState({ height: 0, glide: false });
     // On the line, a pill is never shorter than its text: however short the thing, its pill
@@ -475,7 +470,7 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
                     <View style={[styles.meta, { gap: t.space.sm }]}>
                         {live ? <Text style={[t.type.caption, styles.nowTag, { color: t.color.accentText }]}>Now</Text> : null}
                         <Text numberOfLines={1} style={[t.type.caption, styles.metaText, { color: t.color.textSubtle }]}>
-                            {rangeLabel(item.start, item.end)}
+                            {place ? `${rangeLabel(item.start, item.end)} · ${place}` : rangeLabel(item.start, item.end)}
                         </Text>
 
                         {meal ? null : <LevelTags priority={item.priority} difficulty={item.difficulty} dim={done} />}
@@ -489,16 +484,6 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
                         {shared ? <SharedFaces people={shared.people} tint={color} size={s(20)} othersOnly /> : null}
                         {item.subtasks?.length ? <SubtaskToggle steps={item.subtasks} open={stepsOpen} onToggle={() => setStepsOpen(value => !value)} color={color} /> : null}
                     </View>
-                    {/* Missed last time: one more miss and it slips. The minimum counts, so 10 minutes saves it. */}
-                    {risk && !done ? (
-                        <View style={[styles.risk, { gap: t.space.sm }]}>
-                            <Text numberOfLines={1} style={[t.type.caption, { color: t.color.warning }]}>{"Don't miss twice"}</Text>
-                            <Pressable accessibilityRole="button" accessibilityLabel={`Do 10 minutes of ${item.title}`} hitSlop={t.space.md}
-                                onPress={() => router.push({ pathname: '/(root)/focus', params: { kind: item.kind, id: item.id, title: item.title, minutes: '10' } } as never)}>
-                                <Text style={[t.type.caption, styles.name, { color: t.color.accentText }]}>10 min</Text>
-                            </Pressable>
-                        </View>
-                    ) : null}
                     {/* Where it was left last time (lib/resumeNotes.ts), until it is done. */}
                     {resume && !done ? (
                         <Text numberOfLines={1} style={[t.type.caption, { color: t.color.textMuted }]}>{`Pick up: ${resume}`}</Text>
@@ -541,7 +526,7 @@ type RowProps = React.ComponentProps<typeof RowView>;
 function sameRow(a: RowProps, b: RowProps): boolean {
     return sameItem(a.item, b.item) && a.calendar === b.calendar && a.size === b.size && a.color === b.color && a.nextColor === b.nextColor
         && a.nextStart === b.nextStart && a.last === b.last && a.first === b.first && a.now === b.now && a.lived === b.lived
-        && a.updated === b.updated && a.reason === b.reason && a.risk === b.risk && a.onPin === b.onPin && a.clock === b.clock && a.day === b.day && a.onToggle === b.onToggle && a.onOpen === b.onOpen && a.onFocus === b.onFocus
+        && a.updated === b.updated && a.reason === b.reason && a.onPin === b.onPin && a.clock === b.clock && a.day === b.day && a.onToggle === b.onToggle && a.onOpen === b.onOpen && a.onFocus === b.onFocus
         && JSON.stringify(a.faces ?? null) === JSON.stringify(b.faces ?? null)
         && JSON.stringify(a.shared ?? null) === JSON.stringify(b.shared ?? null);
 }
@@ -672,7 +657,6 @@ const styles = StyleSheet.create({
     body: { flexDirection: 'row', alignItems: 'flex-start' },
     bodyLine: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     name: { fontFamily: FontFamily.semibold },
-    risk: { flexDirection: 'row', alignItems: 'center' },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: s(8) },
     text: { flex: 1, gap: vs(2) },
     meta: { flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },

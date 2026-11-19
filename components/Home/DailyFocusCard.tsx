@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeOut, ReduceMotion, ZoomIn, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { ListItem } from '@/components/ui/Motion';
@@ -15,6 +15,9 @@ import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { DailyFocus } from '@/lib/dailyFocus';
 import type { Task } from '@/lib/tasks';
+import { ChoiceSheet } from '@/components/ui/ChoiceSheet';
+import { usePlaces } from '@/hooks/usePlaces';
+import { placeChoices, setPlace } from '@/lib/taskPlaces';
 
 
 /**
@@ -35,6 +38,10 @@ export const DailyFocusCard: React.FC<{
     const { lightFeedback } = useHaptics();
     // The run of days this target was hit, and the app-wide perfect-day multiplier.
     const streak = focus.streak ?? 0;
+    // Where each task gets done: with its time, an if-then plan ("9:00 · Library").
+    const places = usePlaces();
+    const [placing, setPlacing] = useState<Task | null>(null);
+    const [typing, setTyping] = useState<Task | null>(null);
 
     return (
         <VoidCard style={styles.container}>
@@ -64,15 +71,23 @@ export const DailyFocusCard: React.FC<{
                 </TouchableOpacity>
             ) : (
                 focus.rows.map(task => (
-                    <ListItem key={task.id}><FocusTaskRow task={task} onToggle={onToggle} /></ListItem>
+                    <ListItem key={task.id}><FocusTaskRow task={task} place={places.byTask[task.id] ?? null} onToggle={onToggle} onPlace={() => { lightFeedback(); setPlacing(task); }} /></ListItem>
                 ))
             )}
+            <ChoiceSheet visible={!!placing} onClose={() => setPlacing(null)} title="Where?"
+                choices={placing ? [
+                    ...placeChoices(places.recent).map(place => ({ label: place, icon: 'location', onPress: () => void setPlace(placing.id, place) })),
+                    { label: 'Somewhere else', icon: 'create', onPress: () => setTyping(placing) },
+                    ...(places.byTask[placing.id] ? [{ label: 'No place', icon: 'close', onPress: () => void setPlace(placing.id, null) }] : []),
+                ] : []} />
+            <ChoiceSheet visible={!!typing} onClose={() => setTyping(null)} title="Where?"
+                ask={typing ? { placeholder: 'Library', label: 'Place', save: 'Save', onSave: text => void setPlace(typing.id, text) } : undefined} />
         </VoidCard>
     );
 };
 
 /** One of the day's tasks: tick it and the box fills, swells and rings once, the mark lands, the name dims and is struck through. */
-function FocusTaskRow({ task, onToggle }: { task: Task; onToggle: (task: Task) => void }) {
+function FocusTaskRow({ task, place, onToggle, onPlace }: { task: Task; place: string | null; onToggle: (task: Task) => void; onPlace: () => void }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
@@ -106,6 +121,14 @@ function FocusTaskRow({ task, onToggle }: { task: Task; onToggle: (task: Task) =
             {task.dueTime && !done ? (
                 <Text style={[styles.time, { color: colors.textTertiary }]}>{task.dueTime}</Text>
             ) : null}
+            {/* Where: the place once set, a quiet pin until then. */}
+            {!done ? (
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={place ? `Where: ${place}. Change` : 'Set where'}
+                    hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }} onPress={onPlace} style={styles.place}>
+                    <Ionicons name="location" size={s(13)} color={place ? colors.textSecondary : colors.textTertiary} />
+                    {place ? <Text numberOfLines={1} style={[styles.time, { color: colors.textSecondary }]}>{place}</Text> : null}
+                </TouchableOpacity>
+            ) : null}
         </TouchableOpacity>
     );
 }
@@ -124,4 +147,5 @@ const styles = StyleSheet.create({
     /** Hugs the name, so the strike line ends where the words do. */
     rowTitleBox: { flex: 1, alignItems: 'flex-start' },
     time: { fontSize: ms(12), fontFamily: FontFamily.regular, fontVariant: ['tabular-nums'] },
+    place: { flexDirection: 'row', alignItems: 'center', gap: s(3), maxWidth: s(110), minHeight: s(24) },
 });

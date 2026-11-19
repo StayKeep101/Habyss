@@ -134,13 +134,3 @@ export async function clearSamples(id: string): Promise<void> {
 }
 
 export function resetLearnedLengthsForTests() { state = {}; loaded = false; }
-
-/**
- * Planned against how long it really takes, said only when the gap is real
- * (worthAdapting): "Planned 30 min · takes you 45 min". Calibration is the
- * point of measuring it (planning fallacy); a silent fix teaches nothing. Pure.
- */
-export function lengthLine(planned: number, learned: number | null, label: (minutes: number) => string): string | null {
-    if (!worthAdapting(planned, learned)) return null;
-    return `Planned ${label(planned)} · takes you ${label(learned)}`;
-}
