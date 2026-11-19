@@ -2,11 +2,10 @@ import ManagedSettings
 import ManagedSettingsUI
 import UIKit
 
-/// The screen iOS shows over a blocked app: the Focus Gate, drawn as close to the
-/// app's own page (app/(root)/unlock.tsx) as Apple allows: the Habyss mark,
-/// "Earn your scroll", today's top 3 as a list with the done ones ticked and the
-/// count (written by the app, lib/appGate.ts shieldWords), "Work on priorities"
-/// in the accent and the Shards hour under it. The buttons' jobs are in ShieldActionExtension.
+/// The screen iOS shows over a blocked app. Apple allows only an icon, a title, a
+/// subtitle and two buttons, so it stays short: the Habyss mark, the title in the
+/// app's voice, one line for each fact, and buttons of two or three words. The words
+/// come from the app (lib/appGate.ts shieldWords); the buttons' jobs are in ShieldActionExtension.
 @available(iOS 16.0, *)
 final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     private let background = UIColor(red: 0.02, green: 0.02, blue: 0.03, alpha: 1)
@@ -33,9 +32,9 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         }
         let state = Gate.load()
         let fresh = state?.day == Gate.today()
-        let title = state?.notice ?? (fresh ? state?.title : nil) ?? "Earn your scroll"
+        let title = state?.notice ?? (fresh ? state?.title : nil) ?? "Nice try."
         let subtitle = (fresh ? state?.lines?.joined(separator: "\n") : nil)
-            ?? "Complete your priorities or redeem Shards.\n\nOpen Habyss to see today's top 3."
+            ?? "You blocked this. Good call.\nAn hour costs \(Gate.price) Shards."
         let planning = fresh && state?.planned == 0
         return ShieldConfiguration(
             // The darkest blur under a near-black: with no blur, iOS draws its own light material and ignores the colour.
@@ -44,9 +43,11 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             icon: UIImage(named: "HabyssMark") ?? UIImage(systemName: "lock.fill")?.withTintColor(accent, renderingMode: .alwaysOriginal),
             title: .init(text: title, color: .white),
             subtitle: .init(text: subtitle, color: muted),
-            primaryButtonLabel: .init(text: planning ? "Plan your day" : "Work on priorities", color: .white),
+            // Two or three words each, so iOS never wraps them; white on the grey
+            // button (about 12:1; the accent there was 3.3:1).
+            primaryButtonLabel: .init(text: planning ? "Plan your day" : (state?.primary ?? "Back to work"), color: .white),
             primaryButtonBackgroundColor: accent,
-            secondaryButtonLabel: .init(text: "100 Shards · Unlock 1 hour", color: accent)
+            secondaryButtonLabel: .init(text: state?.secondary ?? "Unlock 1 hour", color: .white)
         )
     }
 }

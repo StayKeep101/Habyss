@@ -15,11 +15,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const GATE_PRICE = 100;
 export const GATE_MINUTES = 60;
 
-/** What the block screen says. Pure. */
-export function shieldWords(): { title: string; lines: string[] } {
+/**
+ * What the block screen says: the joke in the title, one short line for each
+ * fact under it, and buttons of two or three words so iOS never wraps them. Pure.
+ */
+export function shieldWords(): { title: string; lines: string[]; primary: string; secondary: string } {
     return {
         title: 'Nice try.',
-        lines: ['You blocked this. Past you was right.', `Finish habits, tasks and goals for Shards. An hour is ${GATE_PRICE}.`],
+        lines: ['You blocked this. Good call.', `An hour costs ${GATE_PRICE} Shards.`],
+        primary: 'Back to work',
+        secondary: 'Unlock 1 hour',
     };
 }
 
@@ -35,7 +40,7 @@ export async function syncGate(now = new Date()): Promise<void> {
         const words = shieldWords();
         ScreenTimeService.setGate({
             on: true, day: localDateKey(now), earned: false, planned: 1, remaining: [], unlockedUntil: 0,
-            title: words.title, lines: words.lines,
+            title: words.title, lines: words.lines, primary: words.primary, secondary: words.secondary,
         });
         void settleShards();
     } catch { /* tried again on the next sync */ }

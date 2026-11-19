@@ -64,7 +64,7 @@ export const ScreenTimeService = {
         return Platform.OS === 'ios' && typeof ScreenTimeModule?.setGate === 'function';
     },
 
-    setGate(state: { on: boolean; day: string; earned: boolean; remaining: string[]; planned: number; unlockedUntil: number; title?: string; lines?: string[] }): void {
+    setGate(state: { on: boolean; day: string; earned: boolean; remaining: string[]; planned: number; unlockedUntil: number; title?: string; lines?: string[]; primary?: string; secondary?: string }): void {
         if (Platform.OS !== 'ios' || !ScreenTimeModule?.setGate) return;
         ScreenTimeModule.setGate(JSON.stringify(state));
     },

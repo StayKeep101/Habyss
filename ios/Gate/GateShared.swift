@@ -37,6 +37,9 @@ enum Gate {
         /// What the block screen says, in Echo's voice (lib/appGate.ts shieldWords).
         var title: String?
         var lines: [String]?
+        /// The block screen's two buttons, so their words ship with an update (lib/appGate.ts shieldWords).
+        var primary: String?
+        var secondary: String?
         /// Said once on the block screen after a tap that could not buy ("Not enough Shards…").
         var notice: String?
     }

@@ -2,9 +2,9 @@ import ManagedSettings
 import UserNotifications
 
 /// The block screen's two buttons.
-/// - "Work on priorities": closes the blocked app and leaves a notification that opens
+/// - "Back to work": closes the blocked app and leaves a notification that opens
 ///   Habyss on the Roadmap (a shield cannot open another app itself).
-/// - "100 Shards · Unlock 1 hour": bought right here when the balance allows. The apps
+/// - "Unlock 1 hour" (100 Shards): bought right here when the balance allows. The apps
 ///   open at once and Screen Time locks them again in an hour (ios/Gate/GateShared.swift
 ///   buyHourHere); the Shards are charged on the server when Habyss next runs. Short of
 ///   Shards, the screen says so and stays.
