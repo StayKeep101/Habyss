@@ -4,6 +4,8 @@ import { FontFamily, Spacing } from '@/theme/designSystem';
 /** The look of app/(root)/progress.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
     content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: Spacing.section + Spacing.sm },
+    // This week's five numbers, under the calendar.
+    week: { marginTop: Spacing.section },
     monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
     month: { fontSize: 17, fontFamily: FontFamily.semibold },
     statRule: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginVertical: Spacing.xs },
