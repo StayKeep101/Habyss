@@ -62,6 +62,8 @@ it("shows Today's top tasks with how long each took", () => {
     const top = [{ name: 'Ship it', done: true, minutes: 90 }, { name: 'Gym', done: false, waiting: true, with: ['Sam'] }, { name: 'Read', done: false }];
     const screen = render(<StreamPostCard item={day('daily', { top })} ctx={ctx()} />);
     expect(screen.getByText("Today's 3")).toBeTruthy();
+    // The top 3 lead the card, not the count of everything ticked.
+    expect(screen.getByText('top 3')).toBeTruthy();
     expect(screen.queryByText('1 of 3')).toBeNull();
     expect(screen.getByText('1h 30m')).toBeTruthy();
     expect(screen.getByText('with Sam')).toBeTruthy();

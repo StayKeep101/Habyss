@@ -35,6 +35,8 @@ import { lengthLabel } from '@/lib/dayFlow';
 import { styles } from '@/styles/screens/focus.styles';
 import { clearResumeNote, resumeNoteOf, setResumeNote } from '@/lib/resumeNotes';
 import { useResumeNotes } from '@/hooks/useResumeNotes';
+import { useDistractions } from '@/hooks/useDistractions';
+import { addDistraction, distractionsBetween } from '@/lib/distractions';
 
 /** Holding the × this long ends a session, its ring filling as you hold. */
 
@@ -401,6 +403,15 @@ function FocusScreen() {
             </Pressable>
         </Animated.View>
     );
+    // Got distracted: one tap, counted (lib/distractions.ts), the honest number next to time focused.
+    const distractions = useDistractions();
+    const pulledAway = id ? distractionsBetween(distractions, localDateKey(new Date()), localDateKey(new Date()), id) : 0;
+    const distracted = calm || !active ? null : (
+        <Pressable onPress={() => { selectionFeedback(); void addDistraction(localDateKey(new Date()), id ?? null); }} hitSlop={12}
+            accessibilityRole="button" accessibilityLabel={`Got distracted${pulledAway ? `, ${pulledAway} so far` : ''}`} style={styles.distracted}>
+            <Text style={styles.distractedText}>{pulledAway ? `Got distracted · ${pulledAway}` : 'Got distracted'}</Text>
+        </Pressable>
+    );
     const MOVE = LinearTransition.duration(500).easing(Easing.inOut(Easing.cubic));
     const notes = useResumeNotes();
     const resume = id ? notes[id]?.text ?? null : null;
@@ -436,6 +447,8 @@ function FocusScreen() {
                                     : <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused} label={label} />}
                             </Animated.View>
                             {controls}
+                        {distracted}
+                            {distracted}
                             {suggestion ? (
                             <FocusNearby key={suggestion.userId} friend={suggestion} accent={primary}
                                 onTogether={() => together(suggestion.userId)}

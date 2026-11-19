@@ -145,12 +145,18 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
     } else if (total && done === total) {
         highlight = 'All done';
     }
-    const hero = <Hero value={`${done}/${total}`} unit="done" caption={highlight} />;
-    const visual = <SegmentBar done={done} total={total} />;
+    // What is shared first is what mattered, not how many boxes were ticked: the day's top 3
+    // (or 5) and the focus behind them. The full count stays under "more".
+    const top = card.top ?? [];
+    const topDone = top.filter(line => line.done).length;
+    const hero = top.length
+        ? <Hero value={`${topDone}/${top.length}`} unit={`top ${top.length}`} caption={highlight} />
+        : <Hero value={`${done}/${total}`} unit="done" caption={highlight} />;
+    const visual = top.length ? <SegmentBar done={topDone} total={top.length} /> : <SegmentBar done={done} total={total} />;
 
     const stats: PostStat[] = [];
-    if (card.streak > 0) stats.push({ icon: 'flame', value: String(card.streak), label: 'day streak' });
     if (card.focusMinutes) stats.push({ icon: 'hourglass', value: focusDuration(card.focusMinutes * 60), label: 'focus' });
+    if (card.streak > 0) stats.push({ icon: 'flame', value: String(card.streak), label: 'day streak' });
     if (card.goalsMoved) stats.push({ icon: 'flag', value: String(card.goalsMoved), label: card.goalsMoved === 1 ? 'goal' : 'goals' });
 
     const avatar = post.mine ? ctx.myAvatar : post.avatarUrl;

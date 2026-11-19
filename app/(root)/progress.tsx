@@ -28,7 +28,9 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { dateAt } from '@/lib/goalInsights';
 import { styles } from '@/styles/screens/progress.styles';
-import { WeekNumbers } from '@/components/Progress/WeekNumbers';
+import { useRecovery } from '@/hooks/useRecovery';
+import { useEchoPatterns } from '@/hooks/useEchoPatterns';
+import { PatternList } from '@/components/Echo/PatternList';
 
 const MONDAY_FIRST = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const SUNDAY_FIRST = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -98,6 +100,8 @@ export default function ProgressScreen() {
         const result = streakFrom(habits, tasks, merged, skips, today, undefined, dailyTarget);
         return { streak: result.streak, best: Math.max(result.streak, longestRun(result.completedDates)) };
     }, [habits, tasks, history, skips, completions, today, dailyTarget]);
+    const bounce = useRecovery();
+    const patterns = useEchoPatterns();
     const mondayFirst = useWeekStart() === 'monday';
     const name = (id: string) => habits.find(habit => habit.id === id)?.name ?? 'Habit';
     const taskName = (id: string) => tasks.find(task => task.id === id)?.title ?? 'Task';
@@ -207,6 +211,10 @@ export default function ProgressScreen() {
                         ) : streak > 1 ? (
                             <Text style={[styles.heroBest, { color: colors.textTertiary }]}>Your best yet</Text>
                         ) : null}
+                        {/* Never miss twice: a miss is fine, two in a row is the habit slipping (lib/recovery.ts). */}
+                        {bounce.rate !== null && !picked ? (
+                            <Text style={[styles.heroBest, { color: colors.textTertiary }]} accessibilityLabel={`Back after a miss ${bounce.rate} percent of the time`}>{`Back after a miss · ${bounce.rate}%`}</Text>
+                        ) : null}
                     </View>
                     <VoidCard style={styles.stats}>
                         <View style={styles.statsRow}>
@@ -257,8 +265,8 @@ export default function ProgressScreen() {
                 </Animated.View>
                 </GestureDetector>
 
-                {/* The week's five numbers: what to keep an eye on, each opening where it is counted. */}
-                <View style={styles.week}><WeekNumbers /></View>
+                {/* What lines up with your focus and habits: sleep, energy, hours (lib/echoPatterns.ts). */}
+                <View style={styles.week}><PatternList patterns={patterns} title="Echo found" limit={3} /></View>
             </ScrollView>
 
             {/* The tapped ring, grown into a card. */}

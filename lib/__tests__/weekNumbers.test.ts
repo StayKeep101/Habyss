@@ -28,3 +28,13 @@ describe('the week in five numbers', () => {
         expect(hoursOf(23400)).toBe(6.5);
     });
 });
+
+describe('planned against how long it really takes', () => {
+    const { lengthLine } = require('../learnedLength') as typeof import('../learnedLength');
+    const label = (minutes: number) => `${minutes} min`;
+    it('says it only when the gap is real', () => {
+        expect(lengthLine(30, 45, label)).toBe('Planned 30 min · takes you 45 min');
+        expect(lengthLine(30, 33, label)).toBeNull();
+        expect(lengthLine(30, null, label)).toBeNull();
+    });
+});

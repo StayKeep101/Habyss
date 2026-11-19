@@ -287,9 +287,7 @@ export class NotificationService {
               clearAlarms = true;
               void setNotificationPrefs({ alarms: false });
             }
-            const { loadPlaces }: typeof import('./taskPlaces') = require('./taskPlaces');
-            const places = (await loadPlaces()).byTask;
-            for (const moment of guideMoments(flow, now.getHours() * 60 + now.getMinutes(), { sleep, before, places })) {
+            for (const moment of guideMoments(flow, now.getHours() * 60 + now.getMinutes(), { sleep, before })) {
               const date = new Date(midnight.getTime() + moment.at * 60000);
               if (isAsleep(date, dayWindow)) continue;
               // Done ticks the one whose time just ended; a tap opens what is on now.

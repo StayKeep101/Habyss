@@ -22,7 +22,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type PatternKind =
     | 'sleep_energy' | 'sleep_habits' | 'task_hour' | 'habit_hour' | 'weekday'
-    | 'mood_habit' | 'energy_habits' | 'focus_habits' | 'focus_hour' | 'keystone' | 'energy_time';
+    | 'mood_habit' | 'energy_habits' | 'focus_habits' | 'focus_hour' | 'keystone' | 'energy_time'
+    | 'sleep_focus' | 'energy_focus';
 
 export interface Pattern {
     id: string;
@@ -150,6 +151,47 @@ export function findPatterns(input: PatternInput): Pattern[] {
                 evidence: `${long.kept}/${long.countable} kept after ${long.days} longer nights, ${short.kept}/${short.countable} after ${short.days} shorter ones.`,
                 strength: Math.abs(gap) + Math.min(long.days, short.days),
                 short: `sleep≥${sleepLabel(median)}→habits${long.rate}%/${short.rate}%`,
+            });
+        }
+    }
+
+    // 2b. Sleep and focus: minutes focused the day after a long night against a short one.
+    // The research's point (Van Dongen 2003): short sleep costs output you do not feel.
+    const focusOn = new Map<string, number>();
+    for (const row of focus) if (row.date >= floor && row.date < today) focusOn.set(row.date, (focusOn.get(row.date) ?? 0) + row.seconds / 60);
+    const focusDays = (dates: string[]) => mean(dates.map(date => focusOn.get(date) ?? 0));
+    const sleptDays = Object.keys(sleep).filter(date => date >= floor && date < today && sleep[date] > 120);
+    if (sleptDays.length >= 8 && focusOn.size >= 4) {
+        const median = [...sleptDays.map(date => sleep[date])].sort((a, b) => a - b)[Math.floor(sleptDays.length / 2)];
+        const longDays = sleptDays.filter(date => sleep[date] >= median);
+        const shortDays = sleptDays.filter(date => sleep[date] < median);
+        const long = focusDays(longDays);
+        const short = focusDays(shortDays);
+        if (longDays.length >= 4 && shortDays.length >= 4 && long - short >= 10 && long >= short * 1.2) {
+            out.push({
+                id: 'sleep_focus', kind: 'sleep_focus',
+                text: `After ${sleepLabel(median)} of sleep or more you focus ${Math.round(long)} min a day; after less, ${Math.round(short)}.`,
+                evidence: `${longDays.length} longer nights against ${shortDays.length} shorter ones.`,
+                strength: (long - short) / 2 + Math.min(longDays.length, shortDays.length),
+                short: `sleep≥${sleepLabel(median)}→focus${Math.round(long)}m/${Math.round(short)}m`,
+            });
+        }
+    }
+
+    // 2c. Energy and focus: high-energy days (4 or 5) against the rest.
+    const energyDays = [...energy.keys()].filter(date => date >= floor && date < today);
+    if (energyDays.length >= 8 && focusOn.size >= 4) {
+        const highDays = energyDays.filter(date => energy.get(date)! >= 4);
+        const lowDays = energyDays.filter(date => energy.get(date)! < 4);
+        const high = focusDays(highDays);
+        const low = focusDays(lowDays);
+        if (highDays.length >= 4 && lowDays.length >= 4 && high - low >= 10 && high >= low * 1.2) {
+            out.push({
+                id: 'energy_focus', kind: 'energy_focus',
+                text: `On high-energy days you focus ${Math.round(high)} min; on the others, ${Math.round(low)}.`,
+                evidence: `${highDays.length} high-energy days against ${lowDays.length} others.`,
+                strength: (high - low) / 2 + Math.min(highDays.length, lowDays.length),
+                short: `energy≥4→focus${Math.round(high)}m/${Math.round(low)}m`,
             });
         }
     }
