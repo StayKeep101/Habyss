@@ -140,7 +140,7 @@ export default function FocusStatsScreen() {
                 </View>
 
                 {summary.sessions === 0 ? (
-                    <EmptyState icon="timer-outline" title="No focus yet" message="Start focus from a habit or a task. Every session shows up here." />
+                    <EmptyState icon="timer-outline" title="Zero minutes of focus" message="Start focus on a habit or a task. Every session lands here." />
                 ) : (
                     <>
                         <ChoiceRow accessibilityLabel="Days shown" value={range} onChange={setRange}

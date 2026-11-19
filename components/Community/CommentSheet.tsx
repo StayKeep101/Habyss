@@ -13,6 +13,7 @@ import {
     COMMENT_EMOJI, MAX_COMMENT, deleteComment, editComment, insertMention, listenToComments, loadThread, mentionAt, postComment,
     reactToComment, splitMentions, threadsOf, withMyEmoji, type Comment, type CommentEmoji,
 } from '@/lib/comments';
+import { oopsTitle } from '@/lib/voice';
 
 /** Said in one tap: the replies people reach for most. */
 /** Small controls under a comment reach 44 pt this way (an 18 pt line plus this above and below). */
@@ -190,7 +191,7 @@ export function CommentSheet({ target, onClose, onChanged }: { target: CommentTa
         return friend.username.toLowerCase().startsWith(query) || (friend.displayName ?? '').toLowerCase().startsWith(query);
     }).slice(0, 4) : [];
 
-    const fail = (error: unknown) => Alert.alert('That didn’t go through', error instanceof Error ? error.message : 'Try again in a moment.');
+    const fail = (error: unknown) => Alert.alert(oopsTitle(), error instanceof Error ? error.message : 'Try again in a moment.');
     const update = (id: string, change: (comment: Comment) => Comment | null) => setComments(current => (current ?? []).flatMap(comment => {
         if (comment.id !== id) return [comment];
         const next = change(comment);

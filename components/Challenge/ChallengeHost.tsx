@@ -9,6 +9,7 @@ import { challengeCatalog, DIFFICULTY_LABEL, startChallenge, type Challenge, typ
 import { FriendsService, type Friend } from '@/lib/friendsService';
 import { Control, Spacing } from '@/theme/designSystem';
 import { ChallengeIcon, Group, GroupTitle, ItemRow, PROOF_WORD, Reward } from './ChallengeParts';
+import { oopsTitle } from '@/lib/voice';
 
 const LEVELS: Difficulty[] = ['easy', 'medium', 'hard'];
 
@@ -50,7 +51,7 @@ export function ChallengeHost() {
         setStarting(true);
         startChallenge(chosen.id, invited)
             .then(() => { successFeedback(); setStarted(true); })
-            .catch((failed: unknown) => Alert.alert('Couldn’t start it', failed instanceof Error ? failed.message : 'Try again in a moment.'))
+            .catch((failed: unknown) => Alert.alert(oopsTitle(), failed instanceof Error ? failed.message : 'Try again in a moment.'))
             .finally(() => setStarting(false));
     };
     const toggle = (id: string) => {
@@ -129,7 +130,7 @@ export function ChallengeHost() {
             ) : (
                 <View style={styles.body}>
                     {list === null ? null : list.length === 0 ? (
-                        <EmptyState icon="trophy" title="No challenges right now" message="New ones arrive without an update." />
+                        <EmptyState icon="trophy" title="Challenges sold out" message="Fresh ones drop without an app update." />
                     ) : levels.map(({ level, items }) => (
                         <View key={level} style={styles.section}>
                             <GroupTitle>{DIFFICULTY_LABEL[level]}</GroupTitle>

@@ -30,6 +30,7 @@ import { emit } from '@/lib/appEvents';
 import { proveTick } from '@/lib/challengeProof';
 import { localDateKey } from '@/lib/habitSchedule';
 import { dueLabel } from '@/lib/dayFlow';
+import { oopsTitle } from '@/lib/voice';
 
 /** Tasks are amber throughout, so they read as a different kind of thing. */
 export const TASK_COLOR = '#F59E0B';
@@ -160,7 +161,7 @@ const TaskItemComponent: React.FC<Props> = ({
                         selectionFeedback();
                         void proveTick({ kind: 'task', task }, localDateKey(new Date())).then(ok => { if (ok) void setTaskAmount(task, (task.amount ?? 0) + amount)
                             .then(() => emit('tasks_changed'))
-                            .catch(() => Alert.alert('Could not save', 'Please try again.')); });
+                            .catch(() => Alert.alert(oopsTitle(), 'Please try again.')); });
                     },
                 },
             ],

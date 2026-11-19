@@ -17,6 +17,7 @@ import { FeedService, type FriendStatusRow } from '@/lib/feedService';
 import { STATUS_LABEL, statusOf } from '@/lib/presence';
 import { listenToFriends } from '@/lib/livePulse';
 import { styles } from '@/styles/screens/friend.styles';
+import { oopsTitle } from '@/lib/voice';
 
 /**
  * A friend's profile: the same page as your own (components/Profile/
@@ -99,7 +100,7 @@ export default function FriendScreen() {
             : await FriendsService.sendFriendRequest(id);
         setAdding(false);
         if (ok) void load();
-        else Alert.alert('Could not send that', 'Please try again.');
+        else Alert.alert(oopsTitle(), 'Please try again.');
     };
 
     const nudge = async () => {

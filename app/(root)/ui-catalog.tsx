@@ -291,7 +291,7 @@ export default function UICatalog() {
                 </Specimen>
 
                 <Specimen number={29} name="Empty state" file="components/ui/EmptyState.tsx">
-                    <EmptyState icon="flag-outline" title="No goals yet" message="A goal gives your habits somewhere to go." actionLabel="Add a goal" onAction={() => undefined} />
+                    <EmptyState icon="flag-outline" title="No goals. Bold strategy." message="A goal gives your habits somewhere to go." actionLabel="Add a goal" onAction={() => undefined} />
                 </Specimen>
 
                 <Specimen number={30} name="Divider" file="components/ui/Divider.tsx">

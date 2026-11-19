@@ -21,6 +21,7 @@ import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { cachedEchoConfig, DEFAULT_ECHO, getEchoConfig, updateEchoConfig, type EchoConfig } from '@/lib/echo';
 import { scheduledActivitiesEnabled, setScheduledActivitiesEnabled, scheduledActivitiesCapability } from '@/lib/scheduledActivities';
 import { styles } from '@/styles/screens/notifications.styles';
+import { oopsTitle } from '@/lib/voice';
 
 const Notifications = () => {
   const { theme } = useTheme();
@@ -52,7 +53,7 @@ const Notifications = () => {
   const toggleActivities = async (wanted: boolean) => {
     setAsking(true);
     try { await setScheduledActivitiesEnabled(wanted); setActivities(wanted); }
-    catch { Alert.alert('Could not save setting', 'Please try again.'); }
+    catch { Alert.alert(oopsTitle(), 'Please try again.'); }
     finally { setAsking(false); }
   };
 
@@ -109,7 +110,7 @@ const Notifications = () => {
   const togglePush = (id: string, on: boolean) => {
     lightFeedback();
     setOff(current => { const next = new Set(current); if (on) next.delete(id); else next.add(id); return next; });
-    void setPushKind(id, on).catch(() => Alert.alert('Not saved', 'Could not reach Habyss. Check your connection and try again.'));
+    void setPushKind(id, on).catch(() => Alert.alert(oopsTitle(), 'Could not reach Habyss. Check your connection and try again.'));
   };
   useEffect(() => { void getNotificationPrefs().then(prefs => { setDayGuide(prefs.dayGuide); setEchoVoice(prefs.echoVoice); }).catch(() => undefined); }, []);
   // Echo, when the timeline moves something you did not get to in time.

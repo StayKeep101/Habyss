@@ -18,8 +18,8 @@ export const GATE_MINUTES = 60;
 /** What the block screen says. Pure. */
 export function shieldWords(): { title: string; lines: string[] } {
     return {
-        title: 'Earn your scroll',
-        lines: ['Finish habits, tasks and goals to earn Shards.', `An hour of your apps is ${GATE_PRICE}.`],
+        title: 'Nice try.',
+        lines: ['You blocked this. Past you was right.', `Finish habits, tasks and goals for Shards. An hour is ${GATE_PRICE}.`],
     };
 }
 

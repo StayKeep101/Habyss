@@ -15,7 +15,7 @@ describe('the component library', () => {
             <StatTile value="62%" label="Done" />
             <ProgressRing progress={0.5} label="50%" />
             <Divider />
-            <EmptyState icon="flag-outline" title="No goals yet" />
+            <EmptyState icon="flag-outline" title="No goals. Bold strategy." />
             <ChartCard value="62%" caption="done overall" series={[]} />
         </VoidCard>);
         expect(screen.getByText('Goals')).toBeTruthy();

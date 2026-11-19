@@ -6,6 +6,32 @@ Read this before designing or building anything in Habyss. The UI rules (structu
 
 A productivity app for habits, tasks and goals, and for planning the day around them. Its promise is time: **time is money**, and Habyss gives people theirs back. The world it is told in: the **Abyss** (the place in everyone's head where time is lost and plans never start), **Chronos** (time itself, the one constant, the same 24 hours for everyone) and **Echo** (the companion, a ripple in time, that pulls you out).
 
+## The position
+
+- **Very simple on the outside, very complex on the inside.**
+- **People should never need to open the app**, unless they want to, or at the end of the day.
+- **Systems and automations, outcome-based, not time-based.**
+- **Make everything super funny, but genuinely super high quality.**
+
+## Voice: funny, bold, and still useful
+
+Habyss talks like dbrand: confident, deadpan, a little cheeky, never cute. The jokes are as carefully made as the UI.
+
+- **The joke goes in the title; the line under it stays plain and useful** (what happened, what to do). Someone in a hurry gets the help; someone reading gets the laugh.
+- **Roast the habit, never the person.** Doomscrolling, procrastinating, empty plans are fair game. Someone's worth, body or bad day is not.
+- **Short.** One line, a few words. No emoji, no exclamation marks, no memes that date.
+- **Self-aware.** The app can joke about being an app, and own its own mistakes ("That one's on us").
+- **Never funny** when Shards or money are taken, something is deleted or can't be undone, privacy and security, time off (sick, vacation), or in accessibility labels. Those stay plain and kind.
+- **Echo keeps its own chosen personality.** This is the app's voice; Echo's is the user's choice.
+- Recurring moments (something didn't save, a permission is needed) take their titles from `lib/voice.ts`, so the app says them one way, and never the same line twice in a row.
+
+| Plain | Habyss |
+| --- | --- |
+| No goals yet | No goals. Bold strategy. |
+| Error | Well, that's embarrassing |
+| Wait 24 hours? | Having second thoughts? |
+| Earn your scroll | Nice try. |
+
 ## 0. Design first
 
 Design is the first principle, before features and before copy. Every input and every number should be something you can see and touch, not a form:

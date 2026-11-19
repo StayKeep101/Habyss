@@ -56,6 +56,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { emit } from '@/lib/appEvents';
 import { styles } from '@/styles/screens/goal-detail.styles';
+import { oopsTitle, permissionTitle } from '@/lib/voice';
 
 let ImagePicker: any = null;
 try { ImagePicker = require('expo-image-picker'); } catch (e) { }
@@ -190,7 +191,7 @@ const GoalDetail = () => {
     onSplit: () => addMilestones(goal.id, splitPlan),
   } : undefined;
   const toggleMilestone = (milestone: Milestone) => {
-    void updateMilestone(milestone, { done: !milestone.doneAt }).catch(() => Alert.alert('Not saved', 'That milestone could not be updated. Try again.'));
+    void updateMilestone(milestone, { done: !milestone.doneAt }).catch(() => Alert.alert(oopsTitle(), 'That milestone could not be updated. Try again.'));
   };
   // Shared goals are not available yet; kept so the owner-only actions stay gated.
   const [isSharedGoal] = useState(false);
@@ -269,7 +270,7 @@ const GoalDetail = () => {
     try {
       await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
       emit('tasks_changed');
-    } catch { Alert.alert('Could not save task', 'Please try again.'); }
+    } catch { Alert.alert(oopsTitle(), 'Please try again.'); }
   };
 
   // The same question as everywhere a task is deleted (hooks/useRemoveTask.ts).
@@ -422,7 +423,7 @@ const GoalDetail = () => {
     // Fire and forget for instant response
     toggleCompletion(habit.id, today).catch(() => {
       setCompletion(habit.id, !isCompleted);
-      Alert.alert('Could not save progress', 'Your check-in was not saved. Please try again.');
+      Alert.alert(oopsTitle(), 'Your check-in was not saved. Please try again.');
     });
   };
 
@@ -441,7 +442,7 @@ const GoalDetail = () => {
           try {
             // ... existing logic ...
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
-            if (status !== 'granted') return Alert.alert('Permission Required');
+            if (status !== 'granted') return Alert.alert(permissionTitle());
             const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [16, 9], quality: 0.7 });
             if (!result.canceled && result.assets[0] && goal) {
               setBgImage(await setGoalCover(goal, result.assets[0].uri));
@@ -454,7 +455,7 @@ const GoalDetail = () => {
         onPress: async () => {
           try {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (status !== 'granted') return Alert.alert('Permission Required');
+            if (status !== 'granted') return Alert.alert(permissionTitle());
             const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', allowsEditing: true, aspect: [16, 9], quality: 0.7 });
             if (!result.canceled && result.assets[0] && goal) {
               setBgImage(await setGoalCover(goal, result.assets[0].uri));

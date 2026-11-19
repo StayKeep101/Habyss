@@ -17,6 +17,7 @@ import { FriendsService, type InboxItem } from '@/lib/friendsService';
 import { emit } from '@/lib/appEvents';
 import { groupInbox, isAnswerable, type InboxGroup } from '@/lib/inboxGroups';
 import { styles } from '@/styles/screens/inbox.styles';
+import { oopsTitle } from '@/lib/voice';
 
 /** What an empty inbox says, one more each time you pull down to check again. */
 const EMPTY_LINES = [
@@ -157,7 +158,7 @@ export default function InboxScreen() {
         const failed = await respondChallenge(item.challenge.runId, accept).then(() => null, (error: unknown) => error);
         setBusy(null);
         if (failed) {
-            Alert.alert('That didn’t go through', failed instanceof Error ? failed.message : 'Try again in a moment.');
+            Alert.alert(oopsTitle(), failed instanceof Error ? failed.message : 'Try again in a moment.');
             return;
         }
         if (accept) successFeedback(); else lightFeedback();

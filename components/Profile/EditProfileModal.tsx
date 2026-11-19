@@ -17,6 +17,7 @@ import { DateWheels } from '@/components/ui/DateWheels';
 import { SettingsModal } from '@/components/Common/SettingsModal';
 import { getProfile, saveProfile } from '@/lib/profile';
 import { getMyUsername, setMyUsername } from '@/lib/friendsService';
+import { oopsTitle, permissionTitle } from '@/lib/voice';
 
 // Conditionally require ImagePicker
 let ImagePicker: any = null;
@@ -121,7 +122,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                 onPress: async () => {
                     try {
                         const { status } = await ImagePicker.requestCameraPermissionsAsync();
-                        if (status !== 'granted') return Alert.alert('Permission Required');
+                        if (status !== 'granted') return Alert.alert(permissionTitle());
                         const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.7 });
                         if (!result.canceled && result.assets[0]) {
                             setAvatarUri(result.assets[0].uri);
@@ -134,7 +135,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                 onPress: async () => {
                     try {
                         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-                        if (status !== 'granted') return Alert.alert('Permission Required');
+                        if (status !== 'granted') return Alert.alert(permissionTitle());
                         const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', allowsEditing: true, aspect: [1, 1], quality: 0.7 });
                         if (!result.canceled && result.assets[0]) {
                             setAvatarUri(result.assets[0].uri);
@@ -181,7 +182,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
             onProfileUpdate(avatarUri || undefined);
             onClose();
         } catch (e) {
-            Alert.alert('Error', 'Failed to save profile.');
+            Alert.alert(oopsTitle(), 'Failed to save profile.');
         } finally {
             setSaving(false);
         }

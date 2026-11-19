@@ -9,6 +9,7 @@ import { canAnswer, DIFFICULTY_LABEL, leaveChallenge, myChallenges, respondChall
 import { localDateKey } from '@/lib/habitSchedule';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
 import { ChallengeIcon, DangerLink, DayStrip, FaceStack, Group, GroupTitle, ItemRow, MemberRow, Reward } from './ChallengeParts';
+import { oopsTitle } from '@/lib/voice';
 
 /** Day 3 of 14, from its first day; "Starts tomorrow" before it. */
 function dayOf(run: Run, today = localDateKey(new Date())): string {
@@ -27,7 +28,7 @@ function whoLine(run: Run): string {
 }
 
 const act = (run: () => Promise<void>, done?: () => void) => run().then(done)
-    .catch((failed: unknown) => Alert.alert('That didn’t go through', failed instanceof Error ? failed.message : 'Try again in a moment.'));
+    .catch((failed: unknown) => Alert.alert(oopsTitle(), failed instanceof Error ? failed.message : 'Try again in a moment.'));
 
 /**
  * Challenges, on Community: invites waiting on you first (Join or Not now),

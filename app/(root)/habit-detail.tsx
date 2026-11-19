@@ -40,6 +40,7 @@ import { isHabitScheduledForDate, parseHabitDate } from '@/lib/habitSchedule';
 import { readableAccent } from '@/lib/colorContrast';
 import { on } from '@/lib/appEvents';
 import { styles } from '@/styles/screens/habit-detail.styles';
+import { oopsTitle } from '@/lib/voice';
 
 const param = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 type HistoryDay = { date: string; completed: boolean; skipped: boolean; scheduled: boolean };
@@ -184,7 +185,7 @@ export default function HabitDetailScreen() {
         if (next && !(await proveTick({ kind: 'habit', habit }, today))) return;
         if (next) { playComplete(); selectionFeedback(); } else lightFeedback();
         patchToday({ completed: next, skipped: false });
-        toggleCompletion(habit.id, today).catch(() => { patchToday({ completed: !next }); Alert.alert('Not saved', 'That check-in could not be saved. Try again.'); });
+        toggleCompletion(habit.id, today).catch(() => { patchToday({ completed: !next }); Alert.alert(oopsTitle(), 'That check-in could not be saved. Try again.'); });
     };
     const skip = () => {
         if (!habit) return;

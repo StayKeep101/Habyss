@@ -15,6 +15,7 @@ import { VoidModal } from '@/components/ui/VoidModal';
 import { ModalHeader } from '@/components/ui/ModalHeader';
 import { useAccentGradient } from '@/context/AccentContext';
 import { FriendsService } from '@/lib/friendsService';
+import { oopsTitle } from '@/lib/voice';
 
 interface NotificationsModalProps {
     visible: boolean;
@@ -121,7 +122,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                         setNotifications([]);
                         onClose();
                     } else {
-                        Alert.alert('Error', 'Failed to clear notifications.');
+                        Alert.alert(oopsTitle(), 'Failed to clear notifications.');
                     }
                 }
             }
@@ -150,7 +151,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                     : n
             ));
         } else {
-            Alert.alert('Error', 'Failed to accept. Please try again.');
+            Alert.alert(oopsTitle(), 'Failed to accept. Please try again.');
         }
     };
 

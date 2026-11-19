@@ -58,8 +58,8 @@ export default function AppBlockingScreen() {
             .finally(() => setBuying(false));
     };
 
-    const ask = (why: string) => Alert.alert('Wait 24 hours?', `${why} In 24 hours you get one hour to do it. Then it locks again.`, [
-        { text: 'Cancel', style: 'cancel' },
+    const ask = (why: string) => Alert.alert('Having second thoughts?', `${why} In 24 hours you get one hour to do it. Then it locks again.`, [
+        { text: 'Never mind', style: 'cancel' },
         { text: 'Start the wait', onPress: () => { void askToUnlock().then(setLock); } },
     ]);
 
@@ -101,7 +101,7 @@ export default function AppBlockingScreen() {
             return;
         }
         if (open) { void setBedtimeLock(false); return; }
-        if (lock.kind === 'waiting') { Alert.alert('Not yet', `You can turn this off in ${timeLeft(lock.opensAt)}.`); return; }
+        if (lock.kind === 'waiting') { Alert.alert('Nice try. Not yet.', `You can turn this off in ${timeLeft(lock.opensAt)}.`); return; }
         ask('Turning this off takes patience.');
     };
 
@@ -136,8 +136,8 @@ export default function AppBlockingScreen() {
                     <Text variant="caption" tone="muted" align="center">
                         {shards === null ? 'Finish habits, tasks and goals to earn Shards.'
                             : unlocked ? `You have ${shards} Shards.`
-                            : shards < GATE_PRICE ? `You have ${shards} Shards. Finish something to earn the rest.`
-                                : `You have ${shards} Shards. Your apps lock again after an hour.`}
+                            : shards < GATE_PRICE ? `You have ${shards} Shards. Go earn the rest. The apps will wait.`
+                                : `You have ${shards} Shards. One hour, then they lock again.`}
                     </Text>
                 </View>
             </ScrollView>

@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { DURATION, EASE, timingFor } from '@/theme/motion';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
+import { oopsTitle } from '@/lib/voice';
 
 /** The pull-to-filter icon snapping to full size as the pull arms: quick, no bounce. */
 const ARM = timingFor(DURATION.quick, EASE.enter);
@@ -476,7 +477,7 @@ const CalendarScreen = () => {
         toggleCompletion(habit.id, dateStr).catch(e => {
             // Revert on error
             markDone(habit.id, !isCompleted, dateStr);
-            Alert.alert('Could not save progress', 'Your check-in was not saved. Please try again.');
+            Alert.alert(oopsTitle(), 'Your check-in was not saved. Please try again.');
             console.error(e);
         });
 
@@ -492,7 +493,7 @@ const CalendarScreen = () => {
         try { await setSkippedHabit(habit.id, !already, date); }
         catch {
             markSkipped(habit.id, already, date);
-            Alert.alert('Could not save progress', 'This skip was not saved. Please try again.');
+            Alert.alert(oopsTitle(), 'This skip was not saved. Please try again.');
         }
     }, [skipped, selectedDate, selectionFeedback, markSkipped]);
 
@@ -515,7 +516,7 @@ const CalendarScreen = () => {
             emit('tasks_changed');
         } catch {
             setTasks(current => current.map(item => (item.id === task.id ? task : item)));
-            Alert.alert('Could not save task', 'Please try again.');
+            Alert.alert(oopsTitle(), 'Please try again.');
         }
     }, [successFeedback, lightFeedback]);
 

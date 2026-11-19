@@ -24,6 +24,7 @@ import { MilestoneSheet } from '@/components/Goal/MilestoneSheet';
 import { useMilestones } from '@/hooks/useMilestones';
 import { useRetained } from '@/hooks/useRetained';
 import { updateMilestone, type Milestone } from '@/lib/goalMilestones';
+import { oopsTitle } from '@/lib/voice';
 
 /**
  * The goal's roadmap: everything that gets it done, in three plain parts.
@@ -96,7 +97,7 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readO
         try {
             await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
             emit('tasks_changed');
-        } catch { Alert.alert('Could not save task', 'Please try again.'); }
+        } catch { Alert.alert(oopsTitle(), 'Please try again.'); }
     };
     // The same question as everywhere a task is deleted (hooks/useRemoveTask.ts).
     const askRemoveTask = useRemoveTask();
@@ -108,7 +109,7 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readO
         setCompletion(habit.id, !done);
         toggleCompletion(habit.id, today).catch(() => {
             setCompletion(habit.id, done);
-            Alert.alert('Could not save progress', 'Your check-in was not saved. Please try again.');
+            Alert.alert(oopsTitle(), 'Your check-in was not saved. Please try again.');
         });
     };
 
@@ -148,7 +149,7 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readO
                 <Text style={[styles.lead, { color: colors.textTertiary }]}>By when each part should be done.</Text>
                 {milestones.length ? (
                     <GoalMilestones header={false} milestones={milestones} color={color} today={today}
-                        onToggle={milestone => { if (!readOnly) void updateMilestone(milestone, { done: !milestone.doneAt }).catch(() => Alert.alert('Not saved', 'That milestone could not be updated. Try again.')); }}
+                        onToggle={milestone => { if (!readOnly) void updateMilestone(milestone, { done: !milestone.doneAt }).catch(() => Alert.alert(oopsTitle(), 'That milestone could not be updated. Try again.')); }}
                         onOpen={milestone => { if (!readOnly) setMilestoneSheet({ milestone }); }} />
                 ) : null}
                 {!readOnly ? <View style={styles.addRow}><AddButton label="Milestone" icon="flag-outline" onPress={() => { lightFeedback(); setMilestoneSheet({ milestone: null }); }} /></View> : null}
