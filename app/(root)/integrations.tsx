@@ -9,7 +9,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { HealthKitService } from '@/lib/HealthKitService';
 import { syncHealthKitData } from '@/lib/habitsSQLite';
 import { styles } from '@/styles/screens/integrations.styles';
-import { McpKeySheet } from '@/components/Integrations/McpKeySheet';
+import { McpKeySheet, type Assistant } from '@/components/Integrations/McpKeySheet';
 import { useCalendarEvents, useCalendarOn, useCalendars } from '@/hooks/useCalendarEvents';
 import { explainCalendarRefused, setCalendarOn } from '@/lib/calendarEvents';
 import { createMcpKey, listMcpKeys, mcpAvailable, mcpUrl, revokeMcpKey, type McpKey } from '@/lib/mcpKeys';
@@ -57,17 +57,17 @@ export default function IntegrationsScreen() {
         if (ok) setKeys(await listMcpKeys().catch(() => []));
     }, []);
     useEffect(() => { void refreshKeys(); }, [refreshKeys]);
-    const makeKey = () => {
+    // One tap per assistant: the key is made and named for it, then the sheet copies and opens it.
+    const [assistant, setAssistant] = useState<Assistant>('Claude');
+    const connectTo = async (which: Assistant) => {
         lightFeedback();
-        if (!canMcp) { Alert.alert('Sign in first', 'An assistant reads your Habyss account, so sign in (Settings → Account) to connect one.'); return; }
-        const make = async (label: string) => {
-            try { setNewAddress(mcpUrl(await createMcpKey(label))); successFeedback(); void refreshKeys(); }
-            catch (error) { Alert.alert('Could not connect', error instanceof Error ? error.message : 'Try again.'); }
-        };
-        Alert.prompt('Which assistant?', 'A name so you can tell your keys apart.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Make key', onPress: (value?: string) => void make(value?.trim() || 'AI assistant') },
-        ], 'plain-text', 'Claude');
+        if (!canMcp) { Alert.alert('Sign in first', 'Sign in to Habyss (Settings → Account) to connect an assistant.'); return; }
+        try {
+            const key = await createMcpKey(which);
+            setAssistant(which);
+            setNewAddress(mcpUrl(key));
+            void refreshKeys();
+        } catch (error) { Alert.alert('Could not connect', error instanceof Error ? error.message : 'Try again.'); }
     };
     const removeKey = (key: McpKey) => {
         lightFeedback();
@@ -156,18 +156,24 @@ export default function IntegrationsScreen() {
                         toggle={connected} disabled={busy} onToggle={value => { lightFeedback(); void connect(value); }} />
                 </SettingsGroup>
                 {/* Claude, ChatGPT and other assistants, through MCP: one key each. */}
-                <SettingsGroup title="AI assistants (MCP)">
-                    {keys.map(key => (
-                        <SettingsRow key={key.id} icon="sparkles" color={colors.success} label={key.label} value={usedLabel(key)}
-                            onPress={() => removeKey(key)} />
-                    ))}
-                    <SettingsRow icon="add" color={colors.primary} label={keys.length ? 'Connect another assistant' : 'Connect an assistant'}
-                        disabled={canMcp === null} onPress={makeKey} />
+                <SettingsGroup title="AI assistants">
+                    <SettingsRow icon="sparkles" color={colors.primary} label="Connect Claude"
+                        disabled={canMcp === null} onPress={() => void connectTo('Claude')} />
+                    <SettingsRow icon="chatbubble-ellipses" color={colors.success} label="Connect ChatGPT"
+                        disabled={canMcp === null} onPress={() => void connectTo('ChatGPT')} />
                 </SettingsGroup>
+                {keys.length ? (
+                    <SettingsGroup title="Connected">
+                        {keys.map(key => (
+                            <SettingsRow key={key.id} icon="link" color={colors.textTertiary} label={key.label} value={usedLabel(key)}
+                                onPress={() => removeKey(key)} />
+                        ))}
+                    </SettingsGroup>
+                ) : null}
                 <Text style={[styles.note, { color: colors.textTertiary }]}>
                     {canMcp === false
-                        ? 'Sign in to Habyss to connect an assistant: it works with your account.'
-                        : 'Connect an MCP assistant to create tasks, habits, goals and full roadmaps. Tap a key to disconnect it.'}
+                        ? 'Sign in to Habyss to connect an assistant.'
+                        : 'Ask it to plan, add or tick things off in Habyss. Tap a connection to remove it.'}
                 </Text>
 
                 {/* Habyss already answers Siri and Shortcuts (log a habit, add a
@@ -180,7 +186,7 @@ export default function IntegrationsScreen() {
                     <Text style={[styles.filled, { color: colors.textTertiary }]}>{filled} filled in from Health</Text>
                 ) : null}
             </ScrollView>
-            <McpKeySheet address={newAddress} onClose={() => setNewAddress(null)} />
+            <McpKeySheet address={newAddress} assistant={assistant} onClose={() => setNewAddress(null)} />
         </SheetScreen>
     );
 }
