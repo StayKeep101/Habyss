@@ -192,16 +192,10 @@ describe('Echo Alive native scheduling and actions', () => {
         echoForTest.alive = true;
     });
     afterEach(() => jest.useRealTimers());
-    it('respects the master switch and the habit-reminder switch', async () => {
+    it('respects the master switch', async () => {
         await AsyncStorage.setItem('app_settings', JSON.stringify({ notificationsEnabled: false }));
         await NotificationService.refreshReminders();
         expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
-        await AsyncStorage.removeItem('app_settings');
-        await AsyncStorage.setItem('notif_habits', 'false');
-        await NotificationService.refreshReminders();
-        // Nothing about a habit; Echo's own energy question and evening review are not habit reminders.
-        const kinds = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request.content.data.kind);
-        expect(kinds.filter(kind => !['keep-alive', 'echo-energy', 'day-review'].includes(kind))).toEqual([]);
     });
     it('answers energy from the notification without opening anything', async () => {
         const { currentCheckIns } = require('../checkIns');

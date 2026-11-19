@@ -7,7 +7,6 @@ import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { useAppSettings } from '@/context/AppSettingsContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { VoidCard } from '@/components/ui/VoidCard';
@@ -15,11 +14,10 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import * as Notifs from 'expo-notifications';
 import { morningAlarmAvailable, syncMorningAlarm } from '@/lib/morningAlarm';
-import { PUSH_KINDS, pushOff, setPushKind } from '@/lib/pushPrefs';
+import { PUSH_KINDS, pushOff, setCommunityPush } from '@/lib/pushPrefs';
 import { NotificationService } from '@/lib/notificationService';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { cachedEchoConfig, DEFAULT_ECHO, getEchoConfig, updateEchoConfig, type EchoConfig } from '@/lib/echo';
-import { scheduledActivitiesEnabled, setScheduledActivitiesEnabled, scheduledActivitiesCapability } from '@/lib/scheduledActivities';
 import { styles } from '@/styles/screens/notifications.styles';
 import { oopsTitle } from '@/lib/voice';
 
@@ -40,23 +38,6 @@ const Notifications = () => {
     setEcho(current => ({ ...current, ...patch }));
     void updateEchoConfig(patch).then(stored => { setEcho(stored); return NotificationService.refreshReminders(); }).catch(() => undefined);
   };
-  const [activities, setActivities] = useState(true);
-  const [ready, setReady] = useState(false);
-  const capability = scheduledActivitiesCapability();
-  useEffect(() => {
-    let alive = true;
-    scheduledActivitiesEnabled().then(enabled => {
-      if (alive) { setActivities(enabled); setReady(true); }
-    }).catch(() => { if (alive) setReady(true); });
-    return () => { alive = false; };
-  }, []);
-  const toggleActivities = async (wanted: boolean) => {
-    setAsking(true);
-    try { await setScheduledActivitiesEnabled(wanted); setActivities(wanted); }
-    catch { Alert.alert(oopsTitle(), 'Please try again.'); }
-    finally { setAsking(false); }
-  };
-
   /**
    * iOS delivers nothing until it has been asked, and it only offers to ask
    * once. Nothing in the app was asking, so every reminder was being dropped
@@ -99,41 +80,17 @@ const Notifications = () => {
     }
   };
 
-  const [habitReminders, setHabitReminders] = useState(true);
-  // The day as it happens: each thing as it starts, time's up, bedtime (lib/dayGuide.ts).
-  const [dayGuide, setDayGuide] = useState(true);
   // Said in Echo's voice, or the plain sound.
   const [echoVoice, setEchoVoice] = useState(true);
   // Community: each kind pushed, or kept to the inbox (lib/pushPrefs.ts).
   const [off, setOff] = useState<Set<string>>(new Set());
   useEffect(() => { void pushOff().then(setOff); }, []);
-  const togglePush = (id: string, on: boolean) => {
+  const toggleCommunity = (on: boolean) => {
     lightFeedback();
-    setOff(current => { const next = new Set(current); if (on) next.delete(id); else next.add(id); return next; });
-    void setPushKind(id, on).catch(() => Alert.alert(oopsTitle(), 'Could not reach Habyss. Check your connection and try again.'));
+    setOff(new Set(on ? [] : PUSH_KINDS.map(kind => kind.id)));
+    void setCommunityPush(on).catch(() => Alert.alert(oopsTitle(), 'Could not reach Habyss. Check your connection and try again.'));
   };
-  useEffect(() => { void getNotificationPrefs().then(prefs => { setDayGuide(prefs.dayGuide); setEchoVoice(prefs.echoVoice); }).catch(() => undefined); }, []);
-  // Echo, when the timeline moves something you did not get to in time.
-
-
-  // Load saved preferences
-  useEffect(() => {
-    const loadPrefs = async () => {
-      const h = await AsyncStorage.getItem('notif_habits');
-
-      if (h !== null) setHabitReminders(h === 'true');
-
-    };
-    loadPrefs();
-  }, []);
-
-  const toggleSetting = async (key: string, value: boolean, setter: (v: boolean) => void) => {
-    lightFeedback();
-    setter(value);
-    await AsyncStorage.setItem(key, value.toString());
-    await NotificationService.refreshReminders();
-  };
-
+  useEffect(() => { void getNotificationPrefs().then(prefs => setEchoVoice(prefs.echoVoice)).catch(() => undefined); }, []);
   return (
     <SheetScreen title="Notifications" onBack={() => router.back()}>
 
@@ -143,31 +100,14 @@ const Notifications = () => {
             <SettingRow icon="notifications" color={accentColor} label="Notifications"
               value={notificationsEnabled} disabled={asking}
               onChange={v => { lightFeedback(); void toggleAll(v); }} />
-            <SettingRow icon="navigate" color={colors.success} label="Guide me through the day"
-              value={dayGuide && notificationsEnabled} disabled={!notificationsEnabled}
-              onChange={v => { lightFeedback(); setDayGuide(v); void setNotificationPrefs({ dayGuide: v }).then(() => NotificationService.refreshReminders()); }} />
             <SettingRow icon="mic" color={accentColor} label="Echo announces"
-              value={echoVoice && dayGuide && notificationsEnabled} disabled={!notificationsEnabled || !dayGuide}
+              value={echoVoice && notificationsEnabled} disabled={!notificationsEnabled}
               onChange={v => { lightFeedback(); setEchoVoice(v); void setNotificationPrefs({ echoVoice: v }).then(() => NotificationService.refreshReminders()); }} />
-            <SettingRow icon="alarm" color={colors.warning} label="Habit reminders"
-              value={habitReminders && notificationsEnabled} disabled={!notificationsEnabled}
-              onChange={v => toggleSetting('notif_habits', v, setHabitReminders)} />
-            <SettingRow icon="phone-portrait" color={colors.success} label="Live Activities"
-              value={activities && capability !== 'unavailable'} disabled={!ready || asking || capability === 'unavailable'}
-              onChange={wanted => void toggleActivities(wanted)} />
+            {/* Community as one switch: on, a notification; off, it waits quietly in the inbox. */}
+            <SettingRow icon="people" color={accentColor} label="Community"
+              value={off.size < PUSH_KINDS.length && notificationsEnabled} disabled={!notificationsEnabled}
+              onChange={v => toggleCommunity(v)} />
           </VoidCard>
-
-          {/* Community: on, a notification; off, it waits quietly in the inbox. */}
-          <View>
-          <Text style={[styles.detail, { color: colors.textSecondary }]}>Community · off keeps it in your inbox</Text>
-          <VoidCard style={[styles.card, { opacity: notificationsEnabled ? 1 : 0.5 }]}>
-            {PUSH_KINDS.map(kind => (
-              <SettingRow key={kind.id} icon={kind.icon} color={accentColor} label={kind.label}
-                value={!off.has(kind.id) && notificationsEnabled} disabled={!notificationsEnabled}
-                onChange={v => togglePush(kind.id, v)} />
-            ))}
-          </VoidCard>
-          </View>
 
           {/* Echo's own times: the alarm at wake, a word in the morning and before bed, the week's review. */}
           <SettingsGroup title="Wake up & check-ins">

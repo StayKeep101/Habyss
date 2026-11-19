@@ -6,7 +6,8 @@ import { emit } from './appEvents';
 import { engagementLifecycle } from './engagementLifecycle';
 
 const KEY = 'habyss_scheduled_live_activities';
-export async function scheduledActivitiesEnabled() { return (await AsyncStorage.getItem(KEY)) !== 'false'; }
+/** Live Activities have no switch of their own any more: on wherever iOS allows them. */
+export async function scheduledActivitiesEnabled() { return true; }
 export async function setScheduledActivitiesEnabled(enabled: boolean) {
     await AsyncStorage.setItem(KEY, String(enabled));
     emit('engagement_settings_changed');

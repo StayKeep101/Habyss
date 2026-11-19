@@ -39,6 +39,13 @@ export async function pushOff(): Promise<Set<string>> {
 export const mutedTypes = (off: Set<string>): string[] =>
     PUSH_KINDS.filter(kind => off.has(kind.id)).flatMap(kind => kind.types);
 
+/** Community as one switch: every kind pushed, or every kind kept to the inbox. */
+export async function setCommunityPush(on: boolean): Promise<void> {
+    const off = new Set(on ? [] : PUSH_KINDS.map(kind => kind.id));
+    await AsyncStorage.setItem(KEY, JSON.stringify([...off])).catch(() => undefined);
+    await sendPushPrefs(off);
+}
+
 /** Switches one kind, here and on the server. Throws when the server could not be told. */
 export async function setPushKind(id: string, on: boolean): Promise<void> {
     const off = await pushOff();

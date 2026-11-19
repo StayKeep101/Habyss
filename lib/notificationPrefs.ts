@@ -59,7 +59,8 @@ export async function getNotificationPrefs(): Promise<NotificationPrefs> {
         const parsed = raw ? JSON.parse(raw) : null;
         // Merged rather than trusted, so a preference added later is on by
         // default instead of arriving as `undefined` and reading as off.
-        return parsed && typeof parsed === 'object' ? { ...DEFAULT_PREFS, ...parsed } : DEFAULT_PREFS;
+        // The day guide has no switch of its own any more: it follows Notifications.
+        return parsed && typeof parsed === 'object' ? { ...DEFAULT_PREFS, ...parsed, dayGuide: true } : DEFAULT_PREFS;
     } catch {
         return DEFAULT_PREFS;
     }

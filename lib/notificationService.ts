@@ -217,16 +217,17 @@ export class NotificationService {
         const { getTasks }: typeof import('./tasks') = require('./tasks');
         const echo: typeof import('./echo') = require('./echo');
         const writer: typeof import('./echoWriter') = require('./echoWriter');
-        const [habits, tasks, today, skipped, pending, permission, config, dayWindow, voice, person, settingsRaw, habitPreference] = await Promise.all([
+        const [habits, tasks, today, skipped, pending, permission, config, dayWindow, voice, person, settingsRaw] = await Promise.all([
           getHabits(), getTasks(), getCompletions(todayKey), getSkipped(todayKey),
           Notifications.getAllScheduledNotificationsAsync(), Notifications.getPermissionsAsync(),
           echo.getEchoConfig(), echo.getDayWindow(), echo.getEchoPersonality(), echo.getName(),
-          AsyncStorage.getItem('app_settings'), AsyncStorage.getItem('notif_habits'),
+          AsyncStorage.getItem('app_settings'),
         ]);
         let settings: { notificationsEnabled?: boolean } = {};
         try { settings = JSON.parse(settingsRaw ?? '{}'); } catch { /* use defaults */ }
         const allowed = settings?.notificationsEnabled !== false && (permission.granted || permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL);
-        const habitsAllowed = habitPreference !== 'false';
+        // Habit reminders have no switch of their own any more: they follow Notifications.
+        const habitsAllowed = true;
         const name = config.useName ? person : undefined;
         // Anything about a habit or a task is ours to replace. Builds from late
         // 2025 booked repeating daily reminders tagged with only a habitId; they
