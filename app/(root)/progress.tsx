@@ -28,7 +28,6 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { dateAt } from '@/lib/goalInsights';
 import { styles } from '@/styles/screens/progress.styles';
-import { WeekNumbers } from '@/components/Progress/WeekNumbers';
 
 const MONDAY_FIRST = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const SUNDAY_FIRST = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -257,8 +256,6 @@ export default function ProgressScreen() {
                 </Animated.View>
                 </GestureDetector>
 
-                {/* The week's five numbers: what to keep an eye on, each opening where it is counted. */}
-                <View style={styles.week}><WeekNumbers /></View>
             </ScrollView>
 
             {/* The tapped ring, grown into a card. */}
