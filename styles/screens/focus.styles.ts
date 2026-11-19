@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { Control, FontFamily, Spacing, Typography } from '@/theme/designSystem';
+import { Control, FontFamily, Spacing } from '@/theme/designSystem';
 
 /**
  * The look of app/(root)/focus.tsx. Pure black while running: on an OLED
@@ -34,9 +34,6 @@ export const styles = StyleSheet.create({
     /** The full width to fit into, so shrinking to fit never measures against nothing (the name came out tiny on some phones). */
     name: { alignSelf: 'stretch', fontFamily: FontFamily.bold, fontSize: 28, lineHeight: 34, letterSpacing: -0.5, color: '#FFFFFF', textAlign: 'center' },
     nameSide: { fontSize: 22, lineHeight: 28 },
-    // Where it was left last time, under the name.
-    resume: { ...Typography.bodySmall, color: 'rgba(255,255,255,0.72)', textAlign: 'center', marginTop: Spacing.xs }, // ui-allow: on the scene, like the name above
-
     /** Start over, pause, next: a player's three buttons, the middle one the biggest. */
     controls: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xl },
     play: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },

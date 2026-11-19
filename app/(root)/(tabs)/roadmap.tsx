@@ -1,5 +1,3 @@
-import { useDayShare } from '@/hooks/useDayShare';
-import { useGoalModes } from '@/hooks/useGoalModes';
 import { useEndedEarly } from '@/hooks/useEndedEarly';
 import { toggleEndedEarly } from '@/lib/endedEarly';
 import { FontFamily, Spacing } from '@/theme/designSystem';
@@ -1067,9 +1065,7 @@ const CalendarScreen = () => {
             rescheduled, ended,
         });
     }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, eventTravel, flexibleMeals, memory, doneTimes, rescheduled, ended]);
-    // Planned to a share of the free day (Settings → Day & calendar), the rest waiting as No room today.
-    const dayShare = useDayShare();
-    const flow = useMemo(() => flowDay(flowItems, flowNow, flowWindow, { auto: autoReschedule, share: dayShare }), [flowItems, flowNow, flowWindow, autoReschedule, dayShare]);
+    const flow = useMemo(() => flowDay(flowItems, flowNow, flowWindow, { auto: autoReschedule }), [flowItems, flowNow, flowWindow, autoReschedule]);
     // Whether this flow was built from everything it needs: the stored layout,
     // the tick times and the waking day. Saving one built before they arrived
     // is what once moved every ticked thing to the morning after a reload.
@@ -1293,15 +1289,12 @@ const CalendarScreen = () => {
         for (const day of milestoneDays) marks[day] = { ...marks[day], milestone: true };
         return marks;
     }, [tasks, milestoneDays]);
-    const goalModeOf = useGoalModes(useMemo(() => [...goals].sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? '')).map(goal => goal.id), [goals]));
     const sortedGoals = useMemo(() => goals
         .filter(goal => (!selectedGoalFilter || goal.id === selectedGoalFilter) && (activeTimeFilter === 'all' || (habitsByGoal[goal.id] || []).length > 0))
         .sort((a, b) => {
             if (activeSort === 'progress') return sortDirection * ((goalProgress[a.id] || 0) - (goalProgress[b.id] || 0));
-            // Unsorted, the goals in focus (at most three, lib/goalFocus.ts) lead.
-            if (activeSort === 'default' && goalModeOf[a.id] !== goalModeOf[b.id]) return goalModeOf[a.id] === 'focus' ? -1 : 1;
             return compareBySort(activeSort, sortDirection)(a, b);
-        }), [goals, activeSort, sortDirection, goalProgress, selectedGoalFilter, activeTimeFilter, habitsByGoal, goalModeOf]);
+        }), [goals, activeSort, sortDirection, goalProgress, selectedGoalFilter, activeTimeFilter, habitsByGoal]);
 
     // The tour's "Plan inside your goal": Roadmap shows its list, where goals
     // hold their habits and tasks, and goes back to how it was when the tour ends.

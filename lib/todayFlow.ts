@@ -1,4 +1,3 @@
-import { getDayShare } from './dayShare';
 import { flowDay, flowInputs, type DayFlow } from './dayFlow';
 
 /**
@@ -44,9 +43,8 @@ export async function todayFlow(now = new Date(), options: { ahead?: boolean } =
     const peak = await rememberedPeak();
     const { peekFocusActiveId } = require('@/context/FocusTimeContext') as typeof import('@/context/FocusTimeContext');
     const minute = now.getHours() * 60 + now.getMinutes();
-    const share = await getDayShare();
-    if (options.ahead) return flowDay(items, null, { wake: minutesOf(day.wake), sleep: minutesOf(day.sleep), peak }, { auto, share });
-    const flow = flowDay(items, minute, { wake: minutesOf(day.wake), sleep: minutesOf(day.sleep), peak, active: peekFocusActiveId() }, { auto, share });
+    if (options.ahead) return flowDay(items, null, { wake: minutesOf(day.wake), sleep: minutesOf(day.sleep), peak }, { auto });
+    const flow = flowDay(items, minute, { wake: minutesOf(day.wake), sleep: minutesOf(day.sleep), peak, active: peekFocusActiveId() }, { auto });
     // Kept as shown, wherever today's line is worked out (the bar over the tab bar, notifications,
     // the Live Activity), not only on the Roadmap: without it, something just added had no place
     // to keep and was put at "now" again on every look, so its time never ran out.

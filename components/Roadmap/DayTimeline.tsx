@@ -1,5 +1,3 @@
-import { useResumeNotes } from '@/hooks/useResumeNotes';
-import { usePlaces } from '@/hooks/usePlaces';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { HOLD_MS } from '@/components/ui/DragDrop';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -220,7 +218,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onPin, sharedFor,
             {edges && sleep !== undefined ? <Edge size={size} icon="moon" label="Bedtime" at={sleep % 1440} /> : null}
             {/* Bedtime never gives: whatever has no room gets a card of its own, easy to read and to open. */}
             {flow.unfit.length && edges ? (
-                <Chips label="No room today" heading={{ icon: 'moon', tint: t.color.textMuted }} items={flow.unfit} onOpen={onOpen} />
+                <Chips label="No room before bedtime" heading={{ icon: 'moon', tint: t.color.textMuted }} items={flow.unfit} onOpen={onOpen} />
             ) : null}
         </View>
     );
@@ -300,8 +298,6 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
     onPin?: (item: FlowInput) => void;
 }) {
     const t = useTokens();
-    const resume = useResumeNotes()[item.id]?.text ?? null;
-    const place = usePlaces().byTask[item.id] ?? null;
     // The text's own height, measured: placed at once the first time, glided after.
     const [line, setLine] = useState({ height: 0, glide: false });
     // On the line, a pill is never shorter than its text: however short the thing, its pill
@@ -470,7 +466,7 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
                     <View style={[styles.meta, { gap: t.space.sm }]}>
                         {live ? <Text style={[t.type.caption, styles.nowTag, { color: t.color.accentText }]}>Now</Text> : null}
                         <Text numberOfLines={1} style={[t.type.caption, styles.metaText, { color: t.color.textSubtle }]}>
-                            {place ? `${rangeLabel(item.start, item.end)} · ${place}` : rangeLabel(item.start, item.end)}
+                            {rangeLabel(item.start, item.end)}
                         </Text>
 
                         {meal ? null : <LevelTags priority={item.priority} difficulty={item.difficulty} dim={done} />}
@@ -484,10 +480,6 @@ function RowView({ size, item, color, nextColor, nextStart, last, first, now, li
                         {shared ? <SharedFaces people={shared.people} tint={color} size={s(20)} othersOnly /> : null}
                         {item.subtasks?.length ? <SubtaskToggle steps={item.subtasks} open={stepsOpen} onToggle={() => setStepsOpen(value => !value)} color={color} /> : null}
                     </View>
-                    {/* Where it was left last time (lib/resumeNotes.ts), until it is done. */}
-                    {resume && !done ? (
-                        <Text numberOfLines={1} style={[t.type.caption, { color: t.color.textMuted }]}>{`Pick up: ${resume}`}</Text>
-                    ) : null}
                     {/* On now: no Focus button or time left here; the bar over the tab bar says both, and VoiceOver still offers Focus. */}
                 </View>
                 {/* A meal or event: ticked only while it is on, or once ticked, to say it finished early. */}
