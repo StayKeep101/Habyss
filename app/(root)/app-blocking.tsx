@@ -14,6 +14,9 @@ import { setBedtimeLock, useBedtimeLock } from '@/lib/bedtimeLock';
 import { askToUnlock, currentLock, relock, timeLeft, type LockState } from '@/lib/gateLock';
 import { styles } from '@/styles/screens/app-blocking.styles';
 
+/** How long iOS takes to close a page sheet (the system's own animation, not ours). */
+const IOS_SHEET_CLOSE_MS = 650;
+
 const NOT_AVAILABLE = ['Screen Time not available', 'Allow Habyss in Settings → Screen Time, then try again.'] as const;
 
 /**
@@ -62,6 +65,15 @@ export default function AppBlockingScreen() {
 
     const pick = (allowRemoval: boolean) => {
         lightFeedback();
+        // A build without the guarded picker presents it from the app's root, which iOS refuses
+        // while this page (itself a sheet) is up: close the page first, then open the picker.
+        if (!ScreenTimeService.guardedPickerSupported()) {
+            router.back();
+            setTimeout(() => {
+                void ScreenTimeService.pickApps(allowRemoval).then(result => { if (result === 'denied') Alert.alert(...NOT_AVAILABLE); });
+            }, IOS_SHEET_CLOSE_MS);
+            return;
+        }
         void ScreenTimeService.pickApps(allowRemoval).then(result => {
             if (result === 'denied') Alert.alert(...NOT_AVAILABLE);
             if (result === 'held') ask('Your new apps are blocked, but apps you took off stay blocked: removing waits.');
