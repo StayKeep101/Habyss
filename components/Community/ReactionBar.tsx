@@ -63,7 +63,7 @@ export function ReactionBar({ mine, myReaction, reactions, faces, onReact, extra
                     ))}
                     {faces.length > 4 ? <Text variant="caption" tone="muted" numeric>{` +${faces.length - 4}`}</Text> : null}
                 </View>
-            ) : mine ? <Text variant="caption" tone="muted">No reactions yet</Text> : null}
+            ) : null}
             <View style={styles.pills}>
                 {shown.map(option => {
                     const on = myReaction === option.id;

@@ -56,7 +56,7 @@ export function ChallengeSection({ style }: { style?: StyleProp<ViewStyle> }) {
     const ended = runs.filter(run => run.status === 'won' || run.status === 'failed');
     return (
         <View style={[styles.section, style]}>
-            <SectionTitle first right={<IconButton icon="add" label="Pick a challenge" onPress={pick} />}>Your challenges</SectionTitle>
+            <SectionTitle first right={live.length || invites.length ? <IconButton icon="add" label="Pick a challenge" onPress={pick} /> : undefined}>Your challenges</SectionTitle>
             {invites.map(run => <ListItem key={run.runId}><Invite run={run} onPress={() => show(run)} /></ListItem>)}
             {live.length ? (
                 <CardRail>{live.map(run => <Running key={run.runId} run={run} onPress={() => show(run)} />)}</CardRail>

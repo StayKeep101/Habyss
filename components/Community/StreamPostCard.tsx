@@ -32,14 +32,6 @@ export interface StreamContext {
     onOpenComments: (post: FeedPost, write?: boolean) => void;
 }
 
-const KIND = {
-    daily: { icon: 'today', label: 'Daily' },
-    milestone: { icon: 'flag', label: 'Milestone' },
-    best: { icon: 'trophy', label: 'Personal best' },
-    chronos: { icon: 'hourglass', label: 'Chronos' },
-    comeback: { icon: 'trending-up', label: 'Comeback' },
-} as const;
-
 const postedLabel = (postedAt: string) => {
     const date = new Date(postedAt);
     const today = new Date();
@@ -106,10 +98,7 @@ function TopTasks({ lines, mine }: { lines: DayCardLine[]; mine: boolean }) {
     return (
         <View style={styles.top} accessible accessibilityLabel={`Today's ${lines.length}: ${done} of ${lines.length} done. ${lines.map(line =>
             `${mine ? line.name : maskObjectionable(line.name)}, ${line.done ? 'done' : line.waiting ? 'waiting on a friend' : 'not done'}${line.minutes ? `, ${focusDuration(line.minutes * 60)}` : ''}`).join('. ')}`}>
-            <View style={styles.topHead}>
-                <Text variant="caption" tone="muted">{`Today's ${lines.length}`}</Text>
-                <Text variant="caption" numeric tone={done === lines.length ? 'success' : 'muted'}>{done === lines.length ? 'All done' : `${done} of ${lines.length}`}</Text>
-            </View>
+            <Text variant="caption" tone="muted">{`Today's ${lines.length}`}</Text>
             {lines.map((line, index) => (
                 <PopIn key={`${line.name}-${index}`} index={index * 2} style={styles.topRow}>
                     <View style={[styles.rank, line.done || line.waiting
@@ -170,8 +159,7 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
             lead={<Avatar name={post.mine ? ctx.myName : post.name} uri={avatar} size={Control.hitTarget}
                 badge={post.mine ? undefined : (() => { const status = ctx.statusOf(post.userId); return status ? <StatusBadge status={status} size={16} /> : undefined; })()} />}
             name={name} rank={ctx.rankOf(post.userId)}
-            kind={KIND[item.kind]} when={postedLabel(post.postedAt)}
-            score={total ? done / total : undefined}
+            when={postedLabel(post.postedAt)}
             hero={hero}
             stats={stats}
             details={rest.length ? <View style={styles.lines}>{rest.map((line, index) => <Line key={`${line.name}-${index}`} item={line} mine={post.mine} />)}</View> : undefined}
@@ -254,7 +242,6 @@ const styles = StyleSheet.create({
     line: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: Spacing.xxl },
     facts: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexShrink: 1, maxWidth: '50%' },
     top: { gap: Spacing.xs },
-    topHead: { flexDirection: 'row', justifyContent: 'space-between' },
     topRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: Spacing.xxl },
     rank: { width: Spacing.xl, height: Spacing.xl, borderRadius: Spacing.xl / 2, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
 });

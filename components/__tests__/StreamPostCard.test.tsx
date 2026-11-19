@@ -25,7 +25,8 @@ it('draws a day with its share, rank, what was done, details on demand, and reac
     const screen = render(<StreamPostCard item={day('daily')} ctx={context} />);
     expect(screen.getByText('#2')).toBeTruthy();
     expect(screen.getByText('done')).toBeTruthy();
-    expect(screen.getByLabelText('Day score 75 percent')).toBeTruthy();
+    // One count of the day (the figure and the bar), no ring saying it again.
+    expect(screen.queryByLabelText(/Day score/)).toBeNull();
     expect(screen.getByText('Run, Read, Stretch')).toBeTruthy();
     expect(screen.queryByText('Journal')).toBeNull();
     fireEvent.press(screen.getByLabelText('Show All 4'));
@@ -61,7 +62,7 @@ it("shows Today's top tasks with how long each took", () => {
     const top = [{ name: 'Ship it', done: true, minutes: 90 }, { name: 'Gym', done: false, waiting: true, with: ['Sam'] }, { name: 'Read', done: false }];
     const screen = render(<StreamPostCard item={day('daily', { top })} ctx={ctx()} />);
     expect(screen.getByText("Today's 3")).toBeTruthy();
-    expect(screen.getByText('1 of 3')).toBeTruthy();
+    expect(screen.queryByText('1 of 3')).toBeNull();
     expect(screen.getByText('1h 30m')).toBeTruthy();
     expect(screen.getByText('with Sam')).toBeTruthy();
     expect(screen.queryByText(/waiting on/)).toBeNull();

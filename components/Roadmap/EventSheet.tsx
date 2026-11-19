@@ -4,7 +4,7 @@ import { VoidSheet } from '@/components/ui/VoidSheet';
 import { ChipPicker } from '@/components/ui/ChipPicker';
 import { StepSlider } from '@/components/ui/StepSlider';
 import { AppButton } from '@/components/ui/AppButton';
-import { FontFamily, Spacing } from '@/theme/designSystem';
+import { Spacing } from '@/theme/designSystem';
 import { useTokens } from '@/hooks/useTokens';
 import { useAccentGradient } from '@/context/AccentContext';
 import { scopeOf, setTravel, travelOf, type Travel, type TravelScope } from '@/lib/eventTravel';
@@ -70,7 +70,6 @@ export function EventSheet({ event: asked, day, onClose, onOpenCalendar }: {
     const leave = event.start - travel.before;
     const free = { from: leave, to: event.end + travel.after };
     const weekday = WEEKDAYS[new Date(`${day}T12:00:00`).getDay()];
-    const who = scope === 'every' ? `every “${event.title}”` : scope === 'weekday' ? `every ${weekday}` : 'this day only';
     return (
         <VoidSheet visible={!!asked} onClose={onClose} title={event.title} caption={`${clock(event.start)} – ${clock(event.end)}`}
             footer={
@@ -81,17 +80,17 @@ export function EventSheet({ event: asked, day, onClose, onOpenCalendar }: {
             }>
             <View style={styles.body}>
                 <ChipPicker accent={primary} value={scope} onChange={chooseScope}
-                    options={[{ id: 'every', label: `Every “${event.title}”` }, { id: 'weekday', label: `Every ${weekday}` }, { id: 'once', label: 'This day only' }]} />
+                    options={[{ id: 'every', label: 'Every time' }, { id: 'weekday', label: `${weekday}s` }, { id: 'once', label: 'This day' }]} />
                 <StepSlider label="Getting there" values={TRIP} value={nearest(TRIP, travel.before)} onChange={choose('before')} say={length} />
                 <StepSlider label="Getting back" values={TRIP} value={nearest(TRIP, travel.after)} onChange={choose('after')} say={length} />
                 {travel.before > 0 && (
                     <StepSlider label="Heads-up before leaving" values={HEADS_UP} value={nearest(HEADS_UP, travel.warn ?? 0)} onChange={choose('warn')}
                         say={value => value ? `${length(value)} before` : 'None'} />
                 )}
-                <Text style={[styles.note, { color: t.color.textMuted }]} accessibilityLiveRegion="polite">
+                <Text style={[t.type.bodySmall, { color: t.color.textMuted }]} accessibilityLiveRegion="polite">
                     {travel.before === 0 && travel.after === 0
-                        ? `Nothing planned during ${event.title}. Add travel and the time around it is kept free too.`
-                        : `${travel.before ? `Leave at ${clock(Math.max(0, leave))}. ` : ''}Nothing planned from ${clock(Math.max(0, free.from))} to ${clock(Math.min(24 * 60 - 1, free.to))}, ${who}.`}
+                        ? 'Add travel to keep the time around it free.'
+                        : `${travel.before ? `Leave at ${clock(Math.max(0, leave))} · ` : ''}Blocked ${clock(Math.max(0, free.from))}–${clock(Math.min(24 * 60 - 1, free.to))}`}
                 </Text>
             </View>
         </VoidSheet>
@@ -100,6 +99,5 @@ export function EventSheet({ event: asked, day, onClose, onOpenCalendar }: {
 
 const styles = StyleSheet.create({
     body: { gap: Spacing.lg, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg },
-    note: { fontSize: 13, fontFamily: FontFamily.regular },
     footer: { gap: Spacing.sm, paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm },
 });

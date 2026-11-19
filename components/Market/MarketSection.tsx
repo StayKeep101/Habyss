@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ShardIcon } from '@/components/ui/ShardIcon';
 import { Alert, Pressable, Text as RNText, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
-    AppButton, AppIcon, Avatar, CardRail, CountUp, GameCard, HoldButton, IconButton, Receipt, IconTile, ListItem, MatteSurface, SectionTitle, SettingsGroup, SettingsRow, SheetSection, StepSlider, Text, VersusBar, VoidSheet,
+    AppButton, AppIcon, Avatar, CardRail, CountUp, EmptyState, GameCard, HoldButton, IconButton, Receipt, IconTile, ListItem, MatteSurface, SectionTitle, SettingsGroup, SettingsRow, StepSlider, Text, VersusBar, VoidSheet,
     type BadgeProps,
 } from '@/components/ui';
 import { textOn } from '@/theme/tokens';
@@ -47,13 +47,12 @@ export function MarketSection({ style }: { style?: StyleProp<ViewStyle> }) {
 
     return (
         <View style={[styles.section, style]}>
-            <SectionTitle right={<IconButton icon="add" label="Open a goal to bets" onPress={() => setOpening(true)} />}>Bets</SectionTitle>
+            <SectionTitle right={live.length ? <IconButton icon="add" label="Open a goal to bets" onPress={() => setOpening(true)} /> : undefined}>Bets</SectionTitle>
             {live.length ? (
                 <CardRail>{live.map(market => <MarketCard key={market.id} market={market} onBet={() => setBetting(market)} />)}</CardRail>
             ) : markets ? (
                 <GameCard onPress={() => setOpening(true)} title="Open a goal to bets" subtitle="Friends bet Shards on you"
-                    lead={<IconTile icon="trending-up" color={t.color.cobalt} size={Control.hitTarget} />}
-                    badge={{ label: 'Back yourself', tone: 'cobalt' }} />
+                    lead={<IconTile icon="trending-up" color={t.color.cobalt} size={Control.hitTarget} />} />
             ) : null}
             {done.map(market => <ListItem key={market.id}><MarketCard market={market} onBet={() => undefined} /></ListItem>)}
 
@@ -63,19 +62,13 @@ export function MarketSection({ style }: { style?: StyleProp<ViewStyle> }) {
     );
 }
 
-/** How the crowd leans, said as a pill: the market's mood in one word. */
-function moodOf(market: Market): BadgeProps {
+/** A pill only for what the bar can't say: nobody has bet yet, or how it ended. */
+function moodOf(market: Market): BadgeProps | undefined {
     if (market.status === 'won') return { label: 'Made it', tone: 'cobalt', icon: 'checkmark' };
     if (market.status === 'missed') return { label: 'Missed', tone: 'silver', icon: 'close' };
     if (market.status === 'void') return { label: 'Called off', tone: 'neutral' };
     const total = market.pool.make + market.pool.miss;
-    if (!total) return { label: 'New', tone: 'cobalt', icon: 'sparkles' };
-    const share = market.pool.make / total;
-    if (share >= 0.75) return { label: 'Very likely', tone: 'cobalt', icon: 'trending-up' };
-    if (share >= 0.55) return { label: 'Likely', tone: 'cobalt', icon: 'trending-up' };
-    if (share > 0.45) return { label: 'Split', tone: 'neutral', icon: 'swap-horizontal' };
-    if (share > 0.25) return { label: 'Doubted', tone: 'silver', icon: 'trending-down' };
-    return { label: 'Very doubted', tone: 'silver', icon: 'trending-down' };
+    return total ? undefined : { label: 'New', tone: 'cobalt', icon: 'sparkles' };
 }
 
 /** One goal on the market: who, what, by when, how the crowd leans, both sides as one bar. Tap to bet. */
@@ -168,7 +161,7 @@ function StakeSheet({ market, spendable, onClose }: { market: Market; spendable:
     };
 
     return (
-        <VoidSheet visible onClose={onClose} title={market.title} caption={market.mine ? 'Back yourself' : `${market.name.split(' ')[0]}’s goal · ${dueLabel(market.deadline)}`}
+        <VoidSheet visible onClose={onClose} title={market.title} caption={`${market.mine ? 'Your' : `${market.name.split(' ')[0]}’s`} goal · ${dueLabel(market.deadline)}`}
             footer={paid ? undefined : (
                 <View style={styles.footer}>
                     {/* Held, like paying: the fill builds, the buzz builds, it lands. */}
@@ -185,14 +178,20 @@ function StakeSheet({ market, spendable, onClose }: { market: Market; spendable:
                 {steps.length > 1 ? (
                     <StepSlider label="How much" values={steps} value={amount} onChange={setAmount} say={value => `${value} Shards`} />
                 ) : null}
-                {/* What it would win, growing as the slider moves. */}
-                <View style={styles.win} accessible accessibilityLabel={total && market.pool[side === 'make' ? 'miss' : 'make'] ? `Wins ${gain} Shards` : 'Nobody on the other side yet. You get your Shards back.'}>
-                    <Text variant="caption" tone="muted">{market.pool[side === 'make' ? 'miss' : 'make'] ? 'If you’re right' : 'Nobody on the other side yet'}</Text>
-                    <View style={styles.winRow}>
-                        <CountUp value={`+${gain}`} style={[t.type.display, { color: gain ? t.color.cobalt : t.color.textMuted }]} />
-                        <ShardIcon size={Control.icon} />
+                {amount === 0 ? (
+                    <Text variant="body" tone="muted" align="center">{`You have ${spendable ?? 0} Shards. Finish something to earn some.`}</Text>
+                ) : market.pool[side === 'make' ? 'miss' : 'make'] ? (
+                    // What it would win, growing as the slider moves.
+                    <View style={styles.win} accessible accessibilityLabel={`Wins ${gain} Shards`}>
+                        <Text variant="caption" tone="muted">If you’re right</Text>
+                        <View style={styles.winRow}>
+                            <CountUp value={`+${gain}`} style={[t.type.display, { color: t.color.cobalt }]} />
+                            <ShardIcon size={Control.icon} />
+                        </View>
                     </View>
-                </View>
+                ) : (
+                    <Text variant="bodySmall" tone="muted" align="center">No one on the other side yet. If nobody bets against, you get it back.</Text>
+                )}
                 {error ? <Text variant="bodySmall" tone="danger" align="center">{error}</Text> : null}
             </View>
             )}
@@ -216,23 +215,24 @@ export function OpenSheet({ visible, openKeys, onClose }: { visible: boolean; op
     };
 
     return (
-        <VoidSheet visible={visible} onClose={onClose} title="Open to bets" caption="Friends bet Shards on whether you make it" scrollable>
+        <VoidSheet visible={visible} onClose={onClose} title="Open to bets" caption="Goals due in 3+ days" scrollable>
             {ready.length ? (
-                <SettingsGroup title="Your goals">
+                <SettingsGroup title="Ready">
                     {ready.map(goal => (
                         <SettingsRow key={goal.id} icon={goal.icon || 'flag'} color={goal.color} label={goal.name} value={dueLabel(deadlineOf(goal)!)} onPress={() => open(goal)} />
                     ))}
                 </SettingsGroup>
-            ) : (
-                <SheetSection first title="Nothing to open yet" description="A goal can be opened to bets once it has a deadline at least three days away. Set one from the goal’s page." />
-            )}
+            ) : null}
             {notYet.length ? (
-                <SettingsGroup title="Need a deadline 3+ days away">
+                // Not a dead end: each opens its goal, where the deadline is set.
+                <SettingsGroup title="Set a deadline first">
                     {notYet.map(goal => (
-                        <SettingsRow key={goal.id} icon={goal.icon || 'flag'} color={goal.color} label={goal.name} value={deadlineOf(goal) ? 'Too soon' : 'No deadline'} disabled />
+                        <SettingsRow key={goal.id} icon={goal.icon || 'flag'} color={goal.color} label={goal.name} value={deadlineOf(goal) ? 'Too soon' : 'No deadline'}
+                            onPress={() => { onClose(); router.push({ pathname: '/goal-detail', params: { goalId: goal.id } }); }} />
                     ))}
                 </SettingsGroup>
             ) : null}
+            {!ready.length && !notYet.length ? <EmptyState icon="flag" title="No goals yet" message="Add a goal with a deadline to open it to bets." /> : null}
         </VoidSheet>
     );
 }

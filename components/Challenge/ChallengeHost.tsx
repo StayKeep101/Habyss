@@ -141,7 +141,7 @@ export function ChallengeHost() {
                                             accessibilityRole="button" accessibilityLabel={`${challenge.title}, ${challenge.days} days, ${DIFFICULTY_LABEL[challenge.difficulty]}, ${challenge.reward} Shards`}>
                                             <ChallengeIcon icon={challenge.icon} difficulty={challenge.difficulty} />
                                             <View style={styles.grow}>
-                                                <Text variant="body" numberOfLines={1}>{challenge.title}</Text>
+                                                <Text variant="body" numberOfLines={2}>{challenge.title}</Text>
                                                 <Text variant="caption" tone="muted" numberOfLines={1}>
                                                     {challenge.days} days · {PROOF_WORD[challenge.items[0]?.proof ?? 'photo']}
                                                 </Text>

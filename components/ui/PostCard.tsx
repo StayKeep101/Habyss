@@ -34,7 +34,8 @@ export function PostCard({ lead, name, badge, rank, kind, when, live, score, her
     badge?: React.ReactNode;
     /** Their place among friends this week. */
     rank?: number | null;
-    kind: { icon: string; label: string };
+    /** Why it was posted, beside the time. Left out when the card says it elsewhere. */
+    kind?: { icon: string; label: string };
     when?: string;
     /** A contest still running: a cobalt dot and "Live". */
     live?: boolean;
@@ -53,7 +54,7 @@ export function PostCard({ lead, name, badge, rank, kind, when, live, score, her
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
     const [open, setOpen] = useState(false);
-    const meta = [kind.label, when].filter(Boolean).join(' · ');
+    const meta = [kind?.label, when].filter(Boolean).join(' · ');
     return (
         <MatteSurface radius={Radius.card} style={styles.card}>
             <Pressable style={styles.body} onLongPress={onReport} delayLongPress={450}
@@ -70,7 +71,7 @@ export function PostCard({ lead, name, badge, rank, kind, when, live, score, her
                             {rank ? <Text variant="caption" tone="muted" numeric>{`#${rank}`}</Text> : null}
                         </View>
                         <View style={styles.kind}>
-                            <AppIcon name={kind.icon} filled size={Spacing.md} color={t.color.cobalt} />
+                            {kind ? <AppIcon name={kind.icon} filled size={Spacing.md} color={t.color.cobalt} /> : null}
                             <Text variant="caption" tone="muted" numberOfLines={1}>{meta}</Text>
                         </View>
                     </View>

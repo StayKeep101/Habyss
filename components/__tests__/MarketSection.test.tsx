@@ -43,8 +43,9 @@ it('opens the bet from the card: pick a side, see what it would win, place it', 
     lib.placeStake = jest.fn(async () => undefined);
     const screen = render(<MarketSection />);
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    // Everyone doubts Sam, and the card says so.
-    expect(screen.getByText('Very doubted')).toBeTruthy();
+    // The bar says how the crowd leans; no pill says it again.
+    expect(screen.queryByText('Very doubted')).toBeNull();
+    expect(screen.getByText('Misses')).toBeTruthy();
     fireEvent.press(screen.getByText('Run a 5k'));
     fireEvent.press(screen.getByLabelText('Makes it, 0%'));
     // 25 on makes it against 100 on misses it: all of their 100 comes to you.
