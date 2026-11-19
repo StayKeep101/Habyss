@@ -191,11 +191,11 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onPin, sharedFor,
         <View>
             {/* Due by today and not on today's plan: named first, so the deadline is seen. */}
             {edges && dueToday?.length ? (
-                <Chips title="Due today" icon="flag" tint={t.color.warning} items={dueToday} onOpen={onOpen} />
+                <Chips label="Due today" items={dueToday} onOpen={onOpen} />
             ) : null}
             {/* Auto-reschedule off: what has no time is not placed for you. A tap ticks it, a long press opens it. */}
             {edges && flow.anytime.length ? (
-                <Chips title="Anytime" icon="time" tint={t.color.textMuted} items={flow.anytime} onOpen={onOpen} onToggle={onToggle} />
+                <Chips label="Anytime" heading={{ icon: 'time', tint: t.color.textMuted }} items={flow.anytime} onOpen={onOpen} onToggle={onToggle} />
             ) : null}
             {edges && wake !== undefined ? <Edge size={size} icon="sunny" label="Wake up" at={wake} link={flow.timeline.length > 0} /> : null}
             {flow.timeline.length ? flow.timeline.map((item, index) => {
@@ -218,7 +218,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onPin, sharedFor,
             {edges && sleep !== undefined ? <Edge size={size} icon="moon" label="Bedtime" at={sleep % 1440} /> : null}
             {/* Bedtime never gives: whatever has no room gets a card of its own, easy to read and to open. */}
             {flow.unfit.length && edges ? (
-                <Chips title="No room before bedtime" icon="moon" tint={t.color.textMuted} items={flow.unfit} onOpen={onOpen} />
+                <Chips label="No room before bedtime" heading={{ icon: 'moon', tint: t.color.textMuted }} items={flow.unfit} onOpen={onOpen} />
             ) : null}
         </View>
     );
@@ -244,25 +244,31 @@ function Edge({ size, icon, label, at, link }: { size: Size; icon: string; label
 }
 
 /** A few names as little cards in a row: things due today, or with no room before bedtime. */
-function Chips({ title, icon, tint, items, onOpen, onToggle }: {
-    title: string; icon: string; tint: string; items: FlowInput[]; onOpen: (item: FlowInput) => void;
+function Chips({ label, heading, items, onOpen, onToggle }: {
+    /** What the chips are, for VoiceOver, and shown when there is a heading. */
+    label: string;
+    /** A small icon and title above the chips; without one, only the chips show. */
+    heading?: { icon: string; tint: string };
+    items: FlowInput[]; onOpen: (item: FlowInput) => void;
     /** Tickable chips: a tap ticks, a long press opens. */
     onToggle?: (item: FlowInput) => void;
 }) {
     const t = useTokens();
     return (
         <View style={{ gap: t.space.sm, paddingVertical: t.space.sm }}>
-            <View style={[styles.chipsTitle, { gap: t.space.xs }]}>
-                <AppIcon name={icon} size={s(12)} color={tint} />
-                <Text style={[t.type.caption, styles.name, { color: tint }]}>{title}</Text>
-            </View>
+            {heading ? (
+                <View style={[styles.chipsTitle, { gap: t.space.xs }]}>
+                    <AppIcon name={heading.icon} size={s(12)} color={heading.tint} />
+                    <Text style={[t.type.caption, styles.name, { color: heading.tint }]}>{label}</Text>
+                </View>
+            ) : null}
             <View style={[styles.chipRow, { gap: t.space.sm }]}>
                 {items.map(item => (
                     <Pressable key={`${item.kind}-${item.id}`} onPress={() => (onToggle ? onToggle(item) : onOpen(item))}
                         onLongPress={onToggle ? () => onOpen(item) : undefined}
                         hitSlop={t.space.xs}
                         accessibilityRole={onToggle ? 'checkbox' : 'button'} accessibilityState={onToggle ? { checked: item.done } : undefined}
-                        accessibilityLabel={`${title}: ${item.title}`}
+                        accessibilityLabel={`${label}: ${item.title}`}
                         accessibilityActions={onToggle ? [{ name: 'open', label: 'Open' }] : undefined}
                         onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'open') onOpen(item); }}>
                         <MatteSurface radius={item.kind === 'task' ? t.radius.sm : t.radius.full} style={[styles.chip, { paddingHorizontal: t.space.md, paddingVertical: t.space.sm, gap: t.space.xs }]}>

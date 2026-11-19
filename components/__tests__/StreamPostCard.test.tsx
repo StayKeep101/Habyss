@@ -63,5 +63,6 @@ it("shows Today's top tasks with how long each took", () => {
     expect(screen.getByText("Today's 3")).toBeTruthy();
     expect(screen.getByText('1 of 3')).toBeTruthy();
     expect(screen.getByText('1h 30m')).toBeTruthy();
-    expect(screen.getByText('with Sam · waiting on them')).toBeTruthy();
+    expect(screen.getByText('with Sam')).toBeTruthy();
+    expect(screen.queryByText(/waiting on/)).toBeNull();
 });

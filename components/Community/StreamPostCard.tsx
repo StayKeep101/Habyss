@@ -69,7 +69,6 @@ function LineFacts({ item }: { item: DayCardLine }) {
         item.minutes ? focusDuration(item.minutes * 60) : null,
         item.with?.length ? `with ${item.with.join(', ')}` : null,
     ].filter(Boolean);
-    if (item.waiting) parts.push('waiting on them');
     if (!parts.length) return item.skipped ? <Text variant="caption" tone="muted">Skipped</Text> : null;
     return (
         <View style={styles.facts}>

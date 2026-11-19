@@ -937,7 +937,10 @@ const CalendarScreen = () => {
     // day it was given, plus today for anything late or undated.
     const dayTasks = useMemo(() => {
         const day = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-        const due = tasksForDay(tasks, day, todayKey());
+        const planned = tasksForDay(tasks, day, todayKey());
+        // Open tasks due by this day but planned for another are listed too, like any task (their row says Due today).
+        const listed = new Set(planned.map(task => task.id));
+        const due = [...planned, ...tasks.filter(task => task.status === 'open' && task.deadline === day && !listed.has(task.id))];
         // "Shared only" means the whole plan, not only its rhythms: a filter
         // that hid shared habits' neighbours but left every private task in
         // place would not be showing what is shared.
