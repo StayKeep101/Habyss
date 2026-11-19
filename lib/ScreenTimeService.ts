@@ -174,7 +174,8 @@ export const ScreenTimeService = {
         if (this.guardedPickerSupported()) {
             try { return await ScreenTimeModule.presentGuardedPicker(allowRemoval); } catch { return 'cancelled'; }
         }
-        if (!allowRemoval && (await this.hasSelectedApps())) return 'needsWindow';
+        // A build without the check: adding must never wait, so the plain picker opens
+        // (it cannot hold removals back until the next build).
         this.presentPicker();
         return 'saved';
     },

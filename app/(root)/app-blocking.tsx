@@ -100,8 +100,7 @@ export default function AppBlockingScreen() {
         <SheetScreen title="App blocking" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <SettingsGroup title="Blocked apps">
-                    {/* Instant once the build has the picker that keeps removals back (ScreenTimeService.guardedPickerSupported). */}
-                    <SettingsRow icon="add-circle" color={t.color.danger} label="Add apps" value={ScreenTimeService.guardedPickerSupported() || open ? 'Instant' : 'Next update'} onPress={() => pick(open)} />
+                    <SettingsRow icon="add-circle" color={t.color.danger} label="Add apps" value="Instant" onPress={() => pick(open)} />
                     <SettingsRow icon="remove-circle" color={t.color.textMuted} label="Remove apps" value={removeValue} onPress={removeRow} />
                     {lock.kind !== 'locked' ? (
                         <SettingsRow icon="lock-closed" color={t.color.textMuted} label={open ? 'Lock now' : 'Cancel the wait'}
