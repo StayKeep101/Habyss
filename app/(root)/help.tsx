@@ -66,7 +66,11 @@ export default function Help() {
         <SheetScreen title="Help" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <SettingsGroup>
-                    <SettingsRow icon="book" color="#FFB020" label="How Habyss works" onPress={() => router.push('/(root)/guide')} />
+                    {/* The walkthrough itself, on the real screen (Home), not a page about it. */}
+                    <SettingsRow icon="book" color="#FFB020" label="The tour" onPress={() => {
+                        router.navigate('/(root)/(tabs)/home');
+                        setTimeout(() => emit('start_walkthrough'), 450);
+                    }} />
                 </SettingsGroup>
 
                 <SettingsGroup>

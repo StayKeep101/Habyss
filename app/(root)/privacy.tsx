@@ -13,6 +13,7 @@ import { styles } from '@/styles/screens/privacy.styles';
 import { exportMyData } from '@/lib/dataExport';
 import { clearPasscode, hasPasscode } from '@/lib/appPasscode';
 import { PasscodeSetup } from '@/components/Auth/PasscodeSetup';
+import { AccountRows } from '@/components/Account/AccountRows';
 
 const Privacy = () => {
   // const colorScheme = useColorScheme();
@@ -102,7 +103,8 @@ const Privacy = () => {
   return (
     <SheetScreen title="Privacy & security" onBack={() => router.back()}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <SettingsGroup>
+        <AccountRows />
+        <SettingsGroup title="Security">
           <SettingsRow icon="scan" color="#30D158" label="Face ID lock" toggle={isAppLockEnabled} disabled={changingLock}
             onToggle={value => void changeAppLock(value)} />
           {isAppLockEnabled ? (

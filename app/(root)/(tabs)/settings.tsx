@@ -10,14 +10,13 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
-import { emit, on } from '@/lib/appEvents';
+import { on } from '@/lib/appEvents';
 import { useMyProfile } from '@/hooks/useMyProfile';
 
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { cachedDayWindow, DEFAULT_DAY, getDayWindow, minutesOf } from '@/lib/echo';
 import { clockLabel } from '@/lib/dayFlow';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
-import { usePro } from '@/hooks/usePro';
 import { hasAnyIntegration } from '@/lib/integrationAvailability';
 import { APP_SLOGAN } from '@/constants/brand';
 import { currentAccount, knownAccount, onAccountChange } from '@/lib/account';
@@ -39,7 +38,6 @@ const showDeveloper = (() => {
 
 import { useTimeOff } from '@/hooks/useTimeOff';
 export default function ProfileScreen() {
-    const pro = usePro();
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { horizontalPadding, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
@@ -168,22 +166,13 @@ export default function ProfileScreen() {
                         ) : null}
                     </SettingsGroup>
 
+                    {/* Your account and its safety on one page: signed in as, backup, sign out, Face ID, export, delete. */}
                     <SettingsGroup title="Account">
-                        <SettingsRow icon="person-circle" color="#5B8CFF" label="Account & backup"
-                            value={accountEmail ? 'Signed in' : 'Sign in'} onPress={() => router.push('/(root)/account')} />
-                        <SettingsRow icon="finger-print" color="#8A8A94" label="Privacy & security" keywords="face id lock" onPress={() => router.push('/(root)/privacy')} />
-                        {/* Everything is free; Pro is desktop sync (lib/access.ts). */}
-                        <SettingsRow icon="sync" color="#FFB020" label="Habyss Pro"
-                            value={pro.kind === 'pro' ? 'On' : undefined}
-                            onPress={() => router.push('/(root)/paywall')} />
+                        <SettingsRow icon="finger-print" color="#8A8A94" label="Privacy & security" keywords="account sign in sign out backup face id lock export delete"
+                            value={accountEmail ? undefined : 'Sign in'} onPress={() => router.push('/(root)/privacy')} />
                     </SettingsGroup>
 
                     <SettingsGroup title="Help">
-                        {/* The walkthrough itself, on the real screen (Home), not a page about it. */}
-                        <SettingsRow icon="book" color="#FFB020" label="How Habyss works" onPress={() => {
-                            router.navigate('/(root)/(tabs)/home');
-                            setTimeout(() => emit('start_walkthrough'), 450);
-                        }} />
                         <SettingsRow icon="help-buoy" color="#64D2FF" label="Help & feedback" onPress={() => router.push('/(root)/help')} />
                         {/* Testing tools: development and preview builds only, never the App Store build. */}
                         {showDeveloper ? (

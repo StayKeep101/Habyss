@@ -60,9 +60,9 @@ export const DEEP_SETTINGS: SettingEntry[] = [
     { label: 'Post my day to the feed', page: 'Friends & sharing', route: '/(root)/sharing', icon: 'megaphone', keywords: 'daily post community' },
     { label: 'Friends see', page: 'Friends & sharing', route: '/(root)/sharing', icon: 'eye', keywords: 'privacy visible share progress' },
     { label: 'Blocked people', page: 'Friends & sharing', route: '/(root)/sharing', icon: 'ban', keywords: 'block' },
-    { label: 'Sign out', page: 'Account & backup', route: '/(root)/account', icon: 'log-out', keywords: 'logout account' },
-    { label: 'Backup', page: 'Account & backup', route: '/(root)/account', icon: 'cloud-upload', keywords: 'sync restore cloud' },
-    { label: 'Delete account', page: 'Account & backup', route: '/(root)/account', icon: 'trash', keywords: 'remove erase' },
+    { label: 'Sign out', page: 'Privacy & security', route: '/(root)/privacy', icon: 'log-out', keywords: 'logout account' },
+    { label: 'Backup', page: 'Privacy & security', route: '/(root)/privacy', icon: 'cloud-upload', keywords: 'sync restore cloud' },
+    { label: 'Delete account', page: 'Privacy & security', route: '/(root)/privacy', icon: 'trash', keywords: 'remove erase' },
 ];
 
 /** The deeper settings that match, best first: a match in the name before one only in the keywords. */
