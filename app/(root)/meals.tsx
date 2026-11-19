@@ -12,8 +12,6 @@ import { MEAL_NAMES, saveMeal, setMealsFlexible, type MealId } from '@/lib/meals
 import { MealRow } from '@/components/Roadmap/MealRow';
 import { cachedDayWindow, DEFAULT_DAY, getDayWindow, updateDayWindow, type DayWindow } from '@/lib/echo';
 import { NotificationService } from '@/lib/notificationService';
-import { useDailyTarget } from '@/hooks/useDailyFocus';
-import { saveDailyTarget } from '@/lib/dailyFocus';
 import { setWeekStart, type WeekStart } from '@/lib/weekStart';
 import { useWeekStart } from '@/hooks/useWeekStart';
 import { syncBrainDumpReview } from '@/lib/brainDumpReview';
@@ -34,7 +32,6 @@ export default function TimelineSettingsScreen() {
     const meals = useMeals();
     const flexible = useMealsFlexible();
     const anyMeal = Object.values(meals).some(meal => meal.on);
-    const dailyTarget = useDailyTarget();
     const weekStart = useWeekStart();
     const { autoReschedule, setAutoReschedule } = useAppSettings();
     const { lightFeedback } = useHaptics();
@@ -57,9 +54,6 @@ export default function TimelineSettingsScreen() {
 
                 {/* How the day is planned. */}
                 <SettingsGroup title="Planning">
-                    <SettingsRow icon="checkmark-done" color={t.color.warning} label="Tasks a day"
-                        choices={[{ id: '3', label: '3' }, { id: '5', label: '5' }]}
-                        chosen={String(dailyTarget)} onChoose={id => void saveDailyTarget(Number(id) as 3 | 5)} />
                     {/* Whether the timeline moves things for you. Off, it is a plain calendar:
                         everything stays at its time and what has no time waits in Anytime. */}
                     <SettingsRow icon="shuffle" color={t.color.success} label="Auto-reschedule"
@@ -70,10 +64,6 @@ export default function TimelineSettingsScreen() {
                         onChoose={id => { void setWeekStart(id as WeekStart).then(() => syncBrainDumpReview()); }} />
                 </SettingsGroup>
 
-                <SettingsGroup title="Calendar">
-                    <CalendarRow />
-                </SettingsGroup>
-
                 {/* Meals: one tidy line each; tap one to set its time and length. */}
                 {/* Flexible sits by the title: it is about every meal, so it is no row of its own. */}
                 <SettingsGroup title="Meals"
@@ -81,6 +71,10 @@ export default function TimelineSettingsScreen() {
                     {(Object.keys(MEAL_NAMES) as MealId[]).map(id => (
                         <MealRow key={id} meal={meals[id]} onChange={patch => void saveMeal(id, patch)} />
                     ))}
+                </SettingsGroup>
+
+                <SettingsGroup title="Calendar">
+                    <CalendarRow />
                 </SettingsGroup>
             </ScrollView>
         </SheetScreen>

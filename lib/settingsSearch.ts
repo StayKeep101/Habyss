@@ -40,7 +40,7 @@ export const DEEP_SETTINGS: SettingEntry[] = [
     { label: 'Wake up time', page: 'Day & calendar', route: '/(root)/meals', icon: 'sunny', keywords: 'morning day start' },
     { label: 'Bedtime', page: 'Day & calendar', route: '/(root)/meals', icon: 'moon', keywords: 'sleep night day end quiet hours do not disturb silent' },
     { label: 'Use my calendar', page: 'Day & calendar', route: '/(root)/meals', icon: 'calendar', keywords: 'events google apple' },
-    { label: 'Tasks a day', page: 'Day & calendar', route: '/(root)/meals', icon: 'checkmark-done', keywords: 'daily target three five' },
+    { label: 'Tasks a day', page: 'Tasks', route: '/(root)/task-settings', icon: 'checkmark-done', keywords: 'daily target three five' },
     { label: 'Auto-reschedule', page: 'Day & calendar', route: '/(root)/meals', icon: 'shuffle', keywords: 'move plan timeline' },
     { label: 'Week starts', page: 'Day & calendar', route: '/(root)/meals', icon: 'calendar', keywords: 'monday sunday' },
     { label: 'Clock style', page: 'Focus', route: '/(root)/focus-settings', icon: 'timer', keywords: 'ring digital timer' },

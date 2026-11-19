@@ -73,7 +73,8 @@ export default function SharingScreen() {
 
                 {/* Only accepted friends ever see any of this. */}
                 <SettingsGroup title="Friends see">
-                    {SHARING_LABELS.map(item => (
+                    {/* Habits and tasks are on their own pages (Settings → Habits, Tasks). */}
+                    {SHARING_LABELS.filter(item => item.id !== 'habits' && item.id !== 'tasks').map(item => (
                         <SettingsRow key={item.id} icon={SEE_ICON[item.id].icon} color={SEE_ICON[item.id].color} label={item.label}
                             toggle={sharing[item.id]} onToggle={value => void flip(item.id, value)} />
                     ))}
