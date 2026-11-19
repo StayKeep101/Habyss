@@ -7,11 +7,10 @@ import { SectionTitle } from '@/components/ui/SectionTitle';
 import { TimeRow } from '@/components/ui/TimeRow';
 import { useTokens } from '@/hooks/useTokens';
 import { useMeals, useMealsFlexible } from '@/hooks/useMeals';
-import { useCalendarOn } from '@/hooks/useCalendarEvents';
+import { CalendarRow } from '@/components/Calendar/CalendarRow';
 import { MEAL_NAMES, saveMeal, setMealsFlexible, type MealId } from '@/lib/meals';
 import { MealRow } from '@/components/Roadmap/MealRow';
 import { cachedDayWindow, DEFAULT_DAY, getDayWindow, updateDayWindow, type DayWindow } from '@/lib/echo';
-import { explainCalendarRefused, setCalendarOn } from '@/lib/calendarEvents';
 import { NotificationService } from '@/lib/notificationService';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { saveDailyTarget } from '@/lib/dailyFocus';
@@ -35,7 +34,6 @@ export default function TimelineSettingsScreen() {
     const meals = useMeals();
     const flexible = useMealsFlexible();
     const anyMeal = Object.values(meals).some(meal => meal.on);
-    const calendar = useCalendarOn();
     const dailyTarget = useDailyTarget();
     const weekStart = useWeekStart();
     const { autoReschedule, setAutoReschedule } = useAppSettings();
@@ -47,10 +45,6 @@ export default function TimelineSettingsScreen() {
     // Only the end that was changed is saved; the other stays as it was saved.
     const saveDay = (patch: Partial<DayWindow>) => { setDay(current => ({ ...current, ...patch })); void updateDayWindow(patch).then(saved => { setDay(saved); return NotificationService.refreshReminders(); }).catch(() => undefined); };
 
-    const toggleCalendar = async (next: boolean) => {
-        const done = await setCalendarOn(next);
-        if (!done && next) explainCalendarRefused();
-    };
 
     return (
         <SheetScreen title="Day & calendar" onBack={() => router.back()}>
@@ -77,8 +71,7 @@ export default function TimelineSettingsScreen() {
                 </SettingsGroup>
 
                 <SettingsGroup title="Calendar">
-                    <SettingsRow icon="calendar" color={t.color.danger} label="Use my calendar"
-                        toggle={calendar} onToggle={value => void toggleCalendar(value)} />
+                    <CalendarRow />
                 </SettingsGroup>
 
                 {/* Meals: one tidy line each; tap one to set its time and length. */}

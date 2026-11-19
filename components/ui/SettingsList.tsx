@@ -133,7 +133,16 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
             <IconTile icon={icon} color={color} size={30} shape="square" />
             <Text numberOfLines={2} style={[styles.label, { color: destructive ? colors.error : colors.textPrimary }]}>{label}</Text>
             {isSwitch ? (
+                <>
+                {/* A switch that also opens a page (onPress): what it is set to, and the way in, while it is on. */}
+                {onPress && toggle ? (
+                    <>
+                        {value ? <Text numberOfLines={1} style={[styles.value, { color: colors.textTertiary }]}>{value}</Text> : null}
+                        <AppIcon name="chevron-forward" size={16} color={colors.textTertiary} />
+                    </>
+                ) : null}
                 <AppSwitch value={toggle} disabled={disabled} onValueChange={next => { selectionFeedback(); sound(); onToggle?.(next); }} />
+                </>
             ) : choices ? (
                 pills
             ) : (
@@ -144,7 +153,8 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
             )}
         </>
     );
-    if (isSwitch || choices || !onPress) return <View style={[styles.row, disabled && styles.disabled]}>{content}</View>;
+    // A switch row opens its page only while it is on; off, it is just the switch.
+    if ((isSwitch && !(onPress && toggle)) || choices || !onPress) return <View style={[styles.row, disabled && styles.disabled]}>{content}</View>;
     return (
         // A static style, not a function of `pressed`: a Pressable whose style is
         // a function does not lay out as a row on this React Native, which

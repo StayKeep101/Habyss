@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, ScrollView, Text } from 'react-native';
 import { router } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
@@ -10,8 +10,8 @@ import { HealthKitService } from '@/lib/HealthKitService';
 import { syncHealthKitData } from '@/lib/habitsSQLite';
 import { styles } from '@/styles/screens/integrations.styles';
 import { McpKeySheet, type Assistant } from '@/components/Integrations/McpKeySheet';
-import { useCalendarEvents, useCalendarOn, useCalendars } from '@/hooks/useCalendarEvents';
-import { explainCalendarRefused, setCalendarOn } from '@/lib/calendarEvents';
+import { useCalendarEvents, useCalendarOn } from '@/hooks/useCalendarEvents';
+import { CalendarRow } from '@/components/Calendar/CalendarRow';
 import { createMcpKey, listMcpKeys, mcpAvailable, mcpUrl, revokeMcpKey, type McpKey } from '@/lib/mcpKeys';
 import { localDateKey } from '@/lib/habitSchedule';
 
@@ -31,21 +31,9 @@ export default function IntegrationsScreen() {
     const [busy, setBusy] = useState(false);
     const [filled, setFilled] = useState<number | null>(null);
 
-    // Apple Calendar: the same switch as Settings → Timeline, with what it found today.
+    // Apple Calendar: the same row as Day & calendar (components/Calendar/CalendarRow), and today's count.
     const calendar = useCalendarOn();
     const todayEvents = useCalendarEvents(localDateKey(new Date()));
-    // Which of the phone's calendars reach the timeline, grouped by account.
-    const { calendars, shown, setShown } = useCalendars();
-    const accounts = useMemo(() => {
-        const groups = new Map<string, typeof calendars>();
-        for (const item of calendars) groups.set(item.source, [...(groups.get(item.source) ?? []), item]);
-        return [...groups.entries()];
-    }, [calendars]);
-    const toggleCalendar = async (next: boolean) => {
-        lightFeedback();
-        const done = await setCalendarOn(next);
-        if (!done && next) explainCalendarRefused();
-    };
 
     // AI assistants (MCP): your keys, and a new one shown once.
     const [canMcp, setCanMcp] = useState<boolean | null>(null);
@@ -130,20 +118,11 @@ export default function IntegrationsScreen() {
                     one switch, then every account open with its calendars, each one in
                     its own colour, so choosing what reaches the timeline is one look. */}
                 <SettingsGroup title="Calendar">
-                    <SettingsRow icon="calendar" color={colors.error} label="Apple & Google Calendar"
-                        toggle={calendar} onToggle={value => void toggleCalendar(value)} />
+                    <CalendarRow label="Apple & Google Calendar" />
                 </SettingsGroup>
-                {calendar ? accounts.map(([account, list]) => (
-                    <SettingsGroup key={account} title={account}>
-                        {list.map(item => (
-                            <SettingsRow key={item.id} icon="ellipse" color={item.color || colors.error} label={item.title}
-                                toggle={shown(item.id)} onToggle={value => { lightFeedback(); setShown(item.id, value); }} />
-                        ))}
-                    </SettingsGroup>
-                )) : null}
                 <Text style={[styles.note, { color: colors.textTertiary }]}>
                     {calendar
-                        ? `${todayEvents.length} ${todayEvents.length === 1 ? 'event' : 'events'} on your timeline today, from the calendars switched on above.`
+                        ? `${todayEvents.length} ${todayEvents.length === 1 ? 'event' : 'events'} on your timeline today. Tap the row to choose calendars.`
                         : 'Events show on your timeline as fixed blocks, and habits and tasks are planned around them. Google Calendar comes in through the Google account on this iPhone.'}
                 </Text>
 
