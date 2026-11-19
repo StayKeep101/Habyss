@@ -81,12 +81,37 @@ async function whoIs(admin: SupabaseClient, req: Request): Promise<Person | null
     const fromHeader = header.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() : ''
     const fromPath = new URL(req.url).pathname.split('/').filter(Boolean).pop() ?? ''
     const key = fromHeader.startsWith('hby_') ? fromHeader : fromPath.startsWith('hby_') ? fromPath : ''
+    // Signed in with Habyss (OAuth, Supabase Auth's OAuth server): the token is the
+    // person's own access token. Claude and ChatGPT get it by "Connect", no key to copy.
+    if (!key && fromHeader.split('.').length === 3) return await fromToken(admin, fromHeader)
     if (!/^hby_[0-9a-f]{48}$/.test(key)) return null
     const { data } = await admin.from('mcp_keys').select('id, user_id, time_zone, revoked_at').eq('key_hash', await sha256(key)).maybeSingle()
     if (!data || data.revoked_at) return null
     void admin.from('mcp_keys').update({ last_used_at: new Date().toISOString() }).eq('id', data.id).then(() => undefined)
     return { userId: data.user_id, timeZone: data.time_zone || 'UTC' }
 }
+
+/** A signed-in person's access token (issued through "Sign in with Habyss"), checked by Supabase Auth itself. */
+async function fromToken(admin: SupabaseClient, token: string): Promise<Person | null> {
+    const { data, error } = await admin.auth.getUser(token)
+    if (error || !data?.user?.id) return null
+    const { data: profile } = await admin.from('profiles').select('timezone').eq('id', data.user.id).maybeSingle()
+    return { userId: data.user.id, timeZone: profile?.timezone || 'UTC' }
+}
+
+/**
+ * Where an MCP client learns how to sign in (RFC 9728): the short public
+ * address (MCP_PUBLIC_URL, e.g. https://mcp.habyss.app) serves the metadata,
+ * and Supabase Auth is the authorization server behind it.
+ */
+const PUBLIC_URL = (Deno.env.get('MCP_PUBLIC_URL') ?? '').replace(/\/$/, '')
+const unauthorized = () => new Response(JSON.stringify({ error: 'Sign in with Habyss to connect, or use a key from Habyss → Settings → Connected apps.' }), {
+    status: 401,
+    headers: {
+        ...cors, 'Content-Type': 'application/json',
+        'WWW-Authenticate': PUBLIC_URL ? `Bearer resource_metadata="${PUBLIC_URL}/.well-known/oauth-protected-resource"` : 'Bearer realm="habyss"',
+    },
+})
 
 const scheduledOn = (habit: { task_days?: unknown; start_date?: string | null; end_date?: string | null; recurrence?: string | null }, day: string) => {
     if (habit.start_date && habit.start_date > day) return false
@@ -285,11 +310,7 @@ export async function serveRequest(req: Request, admin: SupabaseClient) {
     if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: { ...cors, Allow: 'POST' } })
 
     const person = await whoIs(admin, req)
-    if (!person) {
-        return new Response(JSON.stringify({ error: 'A Habyss key is needed: make one in Habyss → Settings → Integrations → AI assistants.' }), {
-            status: 401, headers: { ...cors, 'Content-Type': 'application/json', 'WWW-Authenticate': 'Bearer realm="habyss"' },
-        })
-    }
+    if (!person) return unauthorized()
 
     if (Number(req.headers.get('content-length')) > 1048576) return json({ error: 'Request too large' }, 413)
     let body: unknown

@@ -12,7 +12,7 @@ import { styles } from '@/styles/screens/integrations.styles';
 import { McpKeySheet, type Assistant } from '@/components/Integrations/McpKeySheet';
 import { useCalendarEvents, useCalendarOn } from '@/hooks/useCalendarEvents';
 import { CalendarRow } from '@/components/Calendar/CalendarRow';
-import { createMcpKey, listMcpKeys, mcpAvailable, mcpUrl, revokeMcpKey, type McpKey } from '@/lib/mcpKeys';
+import { PUBLIC_MCP_URL, createMcpKey, listMcpKeys, mcpAvailable, mcpUrl, revokeMcpKey, signInConnect, type McpKey } from '@/lib/mcpKeys';
 import { localDateKey } from '@/lib/habitSchedule';
 
 /**
@@ -49,6 +49,8 @@ export default function IntegrationsScreen() {
     const [assistant, setAssistant] = useState<Assistant>('Claude');
     const connectTo = async (which: Assistant) => {
         lightFeedback();
+        // With the short address, nothing to make: the assistant signs in with Habyss itself.
+        if (signInConnect()) { setAssistant(which); setNewAddress(PUBLIC_MCP_URL); return; }
         if (!canMcp) { Alert.alert('Sign in first', 'Sign in to Habyss (Settings → Account) to connect an assistant.'); return; }
         try {
             const key = await createMcpKey(which);

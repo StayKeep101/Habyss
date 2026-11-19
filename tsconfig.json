@@ -21,6 +21,7 @@
   ],
   "exclude": [
     "supabase/**/*",
+    "cloudflare/**/*",
     "lib/_premium/**/*",
     "node_modules"
   ]

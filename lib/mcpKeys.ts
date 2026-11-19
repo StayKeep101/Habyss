@@ -8,6 +8,14 @@ import { getSupabase } from './supabase';
  */
 export interface McpKey { id: string; label: string; createdAt: string; lastUsedAt: string | null }
 
+/**
+ * The short public address (cloudflare/mcp-gateway), when it is set up:
+ * assistants connect to it and sign in with Habyss, so there is no key to
+ * copy or keep secret. Without it, a personal key link (below).
+ */
+export const PUBLIC_MCP_URL = (process.env.EXPO_PUBLIC_MCP_URL ?? '').replace(/\/$/, '');
+export const signInConnect = (): boolean => !!PUBLIC_MCP_URL;
+
 /** The address an assistant connects to, with the key in it (for clients that only take a URL). */
 export function mcpUrl(key: string): string {
     return `${process.env.EXPO_PUBLIC_SUPABASE_URL ?? ''}/functions/v1/mcp/${key}`;

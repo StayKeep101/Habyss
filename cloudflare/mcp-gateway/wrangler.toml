@@ -1,0 +1,13 @@
+# The short public address for Habyss's MCP server, and its "Sign in with Habyss"
+# page. Deploy: see cloudflare/mcp-gateway/README.md.
+name = "habyss-mcp"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+[vars]
+SUPABASE_URL = "https://wlbjhtlznzdumqxetilx.supabase.co"
+# Set to https://mcp.<your domain> once the domain is chosen (also the route below).
+PUBLIC_URL = "https://mcp.example.com"
+# SUPABASE_KEY (the app's public key) is set with: npx wrangler secret put SUPABASE_KEY
+
+# routes = [{ pattern = "mcp.example.com", custom_domain = true }]

@@ -5,11 +5,18 @@ import { AppButton } from '@/components/ui/AppButton';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { copyText } from '@/lib/copyText';
+import { signInConnect } from '@/lib/mcpKeys';
 import { Control, FontFamily, Spacing } from '@/theme/designSystem';
 
 export type Assistant = 'Claude' | 'ChatGPT';
 
-/** Where each assistant adds a connection, and the three steps there. */
+/** With the short address: paste it, then Connect and sign in with Habyss. Nothing secret to keep. */
+const SIGN_IN_STEPS: Record<Assistant, string[]> = {
+    Claude: ['Tap Add custom connector', 'Paste the address, then Add', 'Tap Connect and sign in'],
+    ChatGPT: ['Advanced: turn on Developer mode', 'Tap Create and paste the address', 'Choose OAuth, then sign in'],
+};
+
+/** Where each assistant adds a connection, and the three steps there (with a personal key link). */
 const GUIDE: Record<Assistant, { url: string; steps: string[] }> = {
     Claude: {
         url: 'https://claude.ai/settings/connectors',
@@ -31,6 +38,8 @@ export function McpKeySheet({ address, assistant, onClose }: { address: string |
     const { successFeedback } = useHaptics();
     const [copied, setCopied] = useState(false);
     const guide = GUIDE[assistant];
+    const signIn = signInConnect();
+    const steps = signIn ? SIGN_IN_STEPS[assistant] : guide.steps;
     const close = () => { setCopied(false); onClose(); };
     const copyAndOpen = async () => {
         if (!address) return;
@@ -42,10 +51,12 @@ export function McpKeySheet({ address, assistant, onClose }: { address: string |
     };
     return (
         <VoidSheet visible={!!address} onClose={close} title={`Connect ${assistant}`}
-            caption="Your private link. Anyone with it can see and change your plan.">
+            caption={signIn ? 'Copy, paste, sign in.' : 'Your private link. Anyone with it can see and change your plan.'}>
             <View style={{ gap: t.space.lg }}>
+                {/* Short and not secret: shown, so it can be typed too. */}
+                {signIn && address ? <Text selectable style={[t.type.title, styles.address, { color: t.color.textPrimary }]}>{address.replace(/^https:\/\//, '')}</Text> : null}
                 <View style={{ gap: t.space.md }}>
-                    {guide.steps.map((step, index) => (
+                    {steps.map((step, index) => (
                         <View key={step} style={[styles.step, { gap: t.space.md }]}>
                             <View style={[styles.number, { backgroundColor: t.color.surfaceRaised, borderRadius: t.radius.full }]}>
                                 <Text style={[t.type.caption, styles.strong, { color: t.color.textPrimary }]}>{index + 1}</Text>
@@ -55,7 +66,7 @@ export function McpKeySheet({ address, assistant, onClose }: { address: string |
                     ))}
                 </View>
                 <View style={{ gap: t.space.xs }}>
-                    <AppButton variant="primary" label={copied ? `Copied · open ${assistant}` : `Copy link & open ${assistant}`}
+                    <AppButton variant="primary" label={copied ? `Copied · open ${assistant}` : `Copy ${signIn ? 'address' : 'link'} & open ${assistant}`}
                         icon={copied ? 'checkmark' : 'copy-outline'} onPress={() => void copyAndOpen()} />
                     <AppButton variant="ghost" label="Share link" icon="share-outline"
                         onPress={() => { if (address) void Share.share({ message: address }).catch(() => undefined); }} />
@@ -69,5 +80,6 @@ const styles = StyleSheet.create({
     step: { flexDirection: 'row', alignItems: 'center' },
     number: { width: Control.icon + Spacing.sm, height: Control.icon + Spacing.sm, alignItems: 'center', justifyContent: 'center' },
     grow: { flex: 1 },
+    address: { textAlign: 'center' },
     strong: { fontFamily: FontFamily.semibold },
 });
