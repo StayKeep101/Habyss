@@ -20,6 +20,8 @@ import { buildWeeklyReview, type HabitWeek } from '@/lib/weeklyReview';
 import { weekKey } from '@/lib/weekStart';
 import { shiftDay } from '@/lib/habitDays';
 import { styles } from '@/styles/screens/week-review.styles';
+import { WeekNumbers } from '@/components/Progress/WeekNumbers';
+import { BigRocks } from '@/components/Review/BigRocks';
 
 /**
  * The week in a minute: kept rate against last week, what held, what got
@@ -100,6 +102,9 @@ export default function WeekReview() {
                     </VoidCard>
                 </View>
 
+                {/* The week's five numbers, the same card as Progress. */}
+                {which === 'this' ? <WeekNumbers /> : null}
+
                 {review.held.length ? <><SectionTitle>Held up</SectionTitle>{list(review.held, item => `${item.kept}/${item.countable}`)}</> : null}
                 {review.harder.length ? <><SectionTitle>Got harder</SectionTitle>{list(review.harder, item => `${item.before}% → ${item.rate}%`)}</> : null}
 
@@ -129,6 +134,9 @@ export default function WeekReview() {
                         ))}
                     </>
                 ) : null}
+
+                {/* Then plan: next week's big rocks, placed before anything else fills the days. */}
+                {which === 'this' ? <BigRocks nextWeekStart={shiftDay(thisWeek, 7)} /> : null}
             </ScrollView>
         </SheetScreen>
     );

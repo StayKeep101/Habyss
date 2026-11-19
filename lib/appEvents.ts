@@ -61,6 +61,8 @@ export interface AppEvents {
     /** `count`: goals done now, this one included. */
     goal_complete: { goalId: string; name: string; count?: number; color?: string; icon?: string };
     daily_focus_target_changed: DailyTarget;
+    /** The share of the day the timeline plans (lib/dayShare.ts). */
+    day_share_changed: number;
 
     /* ------------------------------------------------------------- the account */
     cloud_restored: void;

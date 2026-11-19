@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { allowAnyOrientation, applyDefaultOrientation } from '@/lib/orientation';
@@ -33,6 +33,8 @@ import { getHabits, setSkipped, type Habit } from '@/lib/habitsSQLite';
 import { localDateKey } from '@/lib/habitSchedule';
 import { lengthLabel } from '@/lib/dayFlow';
 import { styles } from '@/styles/screens/focus.styles';
+import { clearResumeNote, resumeNoteOf, setResumeNote } from '@/lib/resumeNotes';
+import { useResumeNotes } from '@/hooks/useResumeNotes';
 
 /** Holding the × this long ends a session, its ring filling as you hold. */
 
@@ -267,9 +269,11 @@ function FocusScreen() {
         successFeedback();
         const seconds = focus.activeMode === 'flow' ? focus.timeLeft : Math.max(0, focus.totalDuration - focus.timeLeft);
         setSummary({ title: name, seconds, marks: host ? 0 : isTask ? MARKS.complete.task : MARKS.complete.habit, next });
+        if (id) void clearResumeNote(id);
         focus.finishTimer();
     };
     const finishNow = () => finishWith(false);
+    // Done: the note on where to pick up has nothing left to say.
     // The checkmark: counted done, the Marks and Shards fly from it (the
     // overlay over the whole app, components/Marks/MarksOrbs), and the next
     // thing in the day starts at once, with no summary in between.
@@ -277,6 +281,7 @@ function FocusScreen() {
         if (!active) return;
         leaving.current = true;
         successFeedback();
+        if (id) void clearResumeNote(id);
         focus.finishTimer();
         void proceed(id);
     };
@@ -313,6 +318,14 @@ function FocusScreen() {
         selectionFeedback();
         focus.stopTimer();
         if (!isTask && !host && id) void setSkipped(id, true, localDateKey(new Date())).catch(() => undefined);
+        // A task put down unfinished: one line on where to pick up, then on with the day.
+        if (isTask && id && !host && Platform.OS === 'ios') {
+            Alert.prompt('Where to pick up?', undefined, [
+                { text: 'Skip', style: 'cancel', onPress: () => void proceed(id) },
+                { text: 'Save', onPress: (text?: string) => { void setResumeNote(id, text ?? ''); void proceed(id); } },
+            ], 'plain-text', resumeNoteOf(id) ?? '');
+            return;
+        }
         void proceed(id);
     };
 
@@ -389,11 +402,15 @@ function FocusScreen() {
         </Animated.View>
     );
     const MOVE = LinearTransition.duration(500).easing(Easing.inOut(Easing.cubic));
+    const notes = useResumeNotes();
+    const resume = id ? notes[id]?.text ?? null : null;
     const heading = (
         <Animated.View layout={MOVE} style={[styles.heading, headingGrow]}>
             <Text style={[styles.eyebrow, { color: primary }]}>{eyebrow}</Text>
             <Text numberOfLines={landscape ? 1 : 2} adjustsFontSizeToFit minimumFontScale={0.75}
                 style={[styles.name, landscape && styles.nameSide]} accessibilityRole="header">{name}</Text>
+            {/* Where it was left last time, so getting back in takes seconds. */}
+            {resume ? <Text numberOfLines={2} style={styles.resume} accessibilityLabel={`Last time: ${resume}`}>{`Last time: ${resume}`}</Text> : null}
             <FocusCrew crew={crew} accent={primary} note={note} mine={name} />
         </Animated.View>
     );

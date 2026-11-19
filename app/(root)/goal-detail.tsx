@@ -26,7 +26,10 @@ import { Habit, removeGoalWithLinkedHabits, toggleCompletion } from '@/lib/habit
 import { proveTick } from '@/lib/challengeProof';
 import { cachedCover, resolveCover, setGoalCover } from '@/lib/goalCover';
 import { ShareGoalModal } from '@/components/Social/ShareGoalModal';
-import { useGoalInsights } from '@/hooks/useGoalInsights';
+import { useGoalInsights, useGoalsInsights } from '@/hooks/useGoalInsights';
+import { useGoalModes } from '@/hooks/useGoalModes';
+import { MAX_FOCUS, setGoalMode } from '@/lib/goalFocus';
+import { ChoiceSheet } from '@/components/ui/ChoiceSheet';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { GoalPlanBoard } from '@/components/Goal/GoalPlanBoard';
 import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
@@ -135,6 +138,20 @@ const GoalDetail = () => {
   const { primary: accentColor } = useAccentGradient();
 
   const { goal, completions, setCompletion, insights, today } = useGoalInsights(goalId);
+  // At most three goals in focus (lib/goalFocus.ts): this one's mode, and the others in focus to swap with.
+  const { goals: allGoals } = useGoalsInsights();
+  const goalAges = useMemo(() => [...allGoals].sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? '')).map(item => item.id), [allGoals]);
+  const modes = useGoalModes(goalAges);
+  const mode = goalId ? modes[goalId] : undefined;
+  const [swapping, setSwapping] = useState(false);
+  const toggleMode = () => {
+    if (!goalId) return;
+    lightFeedback();
+    if (mode === 'focus') { void setGoalMode(goalId, 'maintain'); return; }
+    const inFocus = goalAges.filter(id => modes[id] === 'focus');
+    if (inFocus.length >= MAX_FOCUS) { setSwapping(true); return; }
+    void setGoalMode(goalId, 'focus');
+  };
   // Undefined until known, so the first frame never flashes the placeholder
   // over a cover that is about to appear.
   const [bgImage, setBgImage] = useState<string | null | undefined>(() => (goalId ? cachedCover(goalId) : null));
@@ -372,6 +389,7 @@ const GoalDetail = () => {
       { label: 'Add milestone', icon: 'flag-outline' as const, onPress: () => { lightFeedback(); setMilestoneSheet({ milestone: null }); } },
       ...(canLog ? [{ label: 'Log progress', icon: 'create-outline' as const, onPress: () => { lightFeedback(); setLogging(true); } }] : []),
     ] : []),
+    ...(!isSharedGoal && mode ? [{ label: mode === 'focus' ? 'Maintain instead' : 'Make it a focus', icon: (mode === 'focus' ? 'pause-circle-outline' : 'locate-outline') as never, onPress: toggleMode }] : []),
     { label: 'Change cover photo', icon: 'image-outline', onPress: () => handleChangeBackground() },
     ...(!isSharedGoal && MARKET_ENABLED ? [
       { label: 'Open to bets', icon: 'diamond-outline' as const, onPress: () => openToBets() },
@@ -572,6 +590,7 @@ const GoalDetail = () => {
                     {insights && goal.targetDate ? dateAt(insights.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Ongoing'}
                   </Text>
                   {goal.targetDate ? <DeadlineCountdown deadline={goal.targetDate} style={[styles.goalTarget, { color: colors.textSecondary }]} /> : null}
+                  {mode ? <Text style={[styles.goalTarget, { color: mode === 'focus' ? colors.textSecondary : colors.textTertiary }]}>{mode === 'focus' ? '· Focus' : '· Maintain'}</Text> : null}
                 </View>
               </View>
               {/* Everything a goal can do lives behind the ⋯ in the header. */}
@@ -632,6 +651,12 @@ const GoalDetail = () => {
         </Animated.View>
       </Animated.ScrollView>
       </DragDropProvider>
+      {/* Three in focus already: which one steps back to make room. */}
+      <ChoiceSheet visible={swapping} onClose={() => setSwapping(false)} title="Three in focus" caption="Which one moves to maintain?"
+        choices={goalAges.filter(id => modes[id] === 'focus').map(id => ({
+          label: allGoals.find(item => item.id === id)?.name ?? 'Goal', icon: 'pause-circle-outline',
+          onPress: () => { if (goalId) void setGoalMode(goalId, 'focus', id); },
+        }))} />
       {/* The page dims into this behind the switcher, as it does behind the tab bar. */}
       <BottomFade height={insets.bottom + 16 + 64 + 56} />
       {/* Today, the numbers, or the whole plan — without leaving the page. */}

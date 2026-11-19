@@ -1,3 +1,4 @@
+import { overCapacity } from './dayCapacity';
 import type { Habit } from './habitsSQLite';
 import type { Subtask, Task } from './tasks';
 import { habitMinutes, toMinutes } from './dayPlan';
@@ -344,8 +345,12 @@ function layoutToday(moving: FlowInput[], fixedBlocks: Span[], now: number, wind
  * neither a reschedule nor a tick moves anything. What has no time waits in
  * `anytime`, by name; urgency and difficulty order nothing.
  */
-export function flowDay(items: FlowInput[], now: number | null, window: DayWindowMinutes = { wake: 7 * 60, sleep: 23 * 60 }, options: { auto?: boolean } = {}): DayFlow {
+export function flowDay(items: FlowInput[], now: number | null, window: DayWindowMinutes = { wake: 7 * 60, sleep: 23 * 60 }, options: { auto?: boolean; share?: number } = {}): DayFlow {
     const auto = options.auto !== false;
+    // A day planned to a share of its free hours (lib/dayCapacity.ts): what is over waits off the line.
+    const over = auto && options.share !== undefined ? overCapacity(items, window, options.share, lengthOf) : new Set<string>();
+    const waiting = items.filter(item => over.has(item.id));
+    if (over.size) items = items.filter(item => !over.has(item.id));
     const at = (item: FlowInput): FlowItem => ({ ...item, start: item.start as number, end: (item.start as number) + Math.max(1, lengthOf(item)), plannedStart: item.start as number, shift: 0, state: 'later' });
     // Rule 6: ticked before its end, it ends at the tick (never before it began).
     // A meal or event ended early (lib/endedEarly.ts) is done at its minute the same way.
@@ -466,7 +471,7 @@ export function flowDay(items: FlowInput[], now: number | null, window: DayWindo
         timeline[i] = { ...item, state };
         if (state === 'now' && !item.fixed && !current) current = timeline[i];
     }
-    return { timeline, anytime, unfit, current };
+    return { timeline, anytime, unfit: [...unfit, ...waiting], current };
 }
 
 /** Getting to or back from a calendar event (the travel either side of it, lib/eventTravel.ts). */

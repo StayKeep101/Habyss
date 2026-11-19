@@ -48,6 +48,8 @@ export interface GuideOptions {
     sleep?: number;
     /** Each habit's or task's own reminders: minutes before it begins. */
     before?: Record<string, number[]>;
+    /** Where each task gets done (lib/taskPlaces.ts): said as it starts. */
+    places?: Record<string, string>;
 }
 
 export function guideMoments(flow: DayFlow, now: number, options: GuideOptions = {}): GuideMoment[] {
@@ -90,7 +92,8 @@ export function guideMoments(flow: DayFlow, now: number, options: GuideOptions =
             // Only its name: arriving as it starts already says "now", and the
             // Live Activity shows how long is left. Its button still ticks the last one.
             title: item.kind === 'meal' ? mealTitle(item) : item.title,
-            body: '',
+            // With a place, it is an if-then plan: at this time, here.
+            body: options.places?.[item.id] ? `At ${options.places[item.id]}` : '',
             ...(ended ? { done: { id: ended.id, kind: ended.kind as 'habit' | 'task' } } : null),
         });
     }

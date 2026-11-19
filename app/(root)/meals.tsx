@@ -1,3 +1,5 @@
+import { DAY_SHARES, setDayShare, type DayShare } from '@/lib/dayShare';
+import { useDayShare } from '@/hooks/useDayShare';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
@@ -28,6 +30,7 @@ import { styles } from '@/styles/screens/meals.styles';
  * is left, most urgent first; meals and events never move.
  */
 export default function TimelineSettingsScreen() {
+    const dayShare = useDayShare();
     const t = useTokens();
     const meals = useMeals();
     const flexible = useMealsFlexible();
@@ -54,6 +57,10 @@ export default function TimelineSettingsScreen() {
 
                 {/* How the day is planned. */}
                 <SettingsGroup title="Planning">
+                    {/* Room to breathe: things take longer than planned, so the day is never planned full. */}
+                    <SettingsRow icon="pie-chart" color={t.color.accent} label="Plan my day to" keywords="capacity buffer room overplanned 70%"
+                        choices={DAY_SHARES.map(value => ({ id: String(value), label: value === 1 ? 'Full' : `${Math.round(value * 100)}%` }))}
+                        chosen={String(dayShare)} onChoose={id => { lightFeedback(); void setDayShare(Number(id) as DayShare); }} />
                     {/* Whether the timeline moves things for you. Off, it is a plain calendar:
                         everything stays at its time and what has no time waits in Anytime. */}
                     <SettingsRow icon="shuffle" color={t.color.success} label="Auto-reschedule"
