@@ -1,12 +1,12 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
+import { FontFamily, UIStyles, Radius, Spacing } from '@/theme/designSystem';
 
 /** The look of app/(root)/privacy.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: { ...UIStyles.screenContent },
+  content: { ...UIStyles.screenContent, gap: Spacing.xxl },
   sectionTitle: UIStyles.sectionTitle,
   card: {
     borderRadius: Radius.card,

@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily, Typography, UIStyles } from '@/theme/designSystem';
+import { FontFamily, Spacing, Typography, UIStyles } from '@/theme/designSystem';
 
 /** The look of app/(root)/(tabs)/settings.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
@@ -44,6 +44,8 @@ export const styles = StyleSheet.create({
         borderWidth: 1,
     },
     scrollContent: {
+        // Space between groups, so each title belongs to the card under it.
+        gap: Spacing.xxl,
         paddingBottom: 120,
         paddingHorizontal: 20,
     },

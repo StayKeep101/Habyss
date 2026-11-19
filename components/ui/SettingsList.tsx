@@ -4,7 +4,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { textOn } from '@/theme/tokens';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
-import { FontFamily, UIStyles } from '@/theme/designSystem';
+import { FontFamily, Spacing, UIStyles } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { IconTile } from './IconTile';
@@ -157,7 +157,8 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
 }
 
 const styles = StyleSheet.create({
-    group: { gap: 12 },
+    // A title sits closer to its own rows than to the group above (HIG layout: group by negative space).
+    group: { gap: Spacing.sm },
     title: { ...UIStyles.sectionTitle, marginBottom: 0 },
     header: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     headerTitle: { flex: 1 },
