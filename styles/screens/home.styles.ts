@@ -18,6 +18,12 @@ export const homeStyles = StyleSheet.create({
     statPill: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 2 },
     /** The scene behind everything, fading as the panel rises. */
     scene: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+    /** The scene's last stretch, fading into the page's colour. */
+    sceneFoot: { position: 'absolute', left: 0, right: 0 },
+    /** The hourglass, fixed on the podium (behind the page, which rises over it). */
+    glassStage: { position: 'absolute' },
+    /** Where the page takes a tap on the hourglass. */
+    glassTap: { position: 'absolute', left: '50%' },
     /** Home's sheets and moments, over the page. */
     overlays: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
 });

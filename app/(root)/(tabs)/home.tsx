@@ -1,6 +1,6 @@
 import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, RefreshControl, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, useWindowDimensions, Image, Pressable } from 'react-native';
 import { EchoLine } from '@/components/Home/EchoLine';
 import { CheckInPopup } from '@/components/Echo/CheckInPopup';
 import { useEchoMemory } from '@/hooks/useEchoMemory';
@@ -28,7 +28,7 @@ import { useSounds } from '@/hooks/useSounds';
 
 import { useFocusEffect } from 'expo-router';
 import { useAppSettings } from '@/context/AppSettingsContext';
-import { useAccentGradient } from '@/context/AccentContext';
+import { useAccent, useAccentGradient } from '@/context/AccentContext';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
 import { nextEchoLine, type EchoStats } from '@/lib/echoLines';
 import { pressureLines, pressureSpeaks } from '@/lib/taskPressure';
@@ -51,10 +51,10 @@ import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
 import { DayHourglass, GLASS_HEIGHT } from '@/components/Home/DayHourglass';
-import { RankScene } from '@/components/Home/RankScene';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { Radius, Spacing } from '@/theme/designSystem';
-import { homeStyles } from '@/styles/screens/home.styles';
+import { homeStyles, PANEL_FADE } from '@/styles/screens/home.styles';
+import { TEMPLE } from '@/theme/hourglassArt';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShardsWallet } from '@/components/Shards/ShardsWallet';
@@ -95,26 +95,21 @@ const Home = () => {
   const insets = useSafeAreaInsets();
   const [measuredHeader, setHeaderHeight] = useState(0);
   const headerHeight = measuredHeader || insets.top + topSpacing + s(64) + Spacing.lg;
-  // As the cards rise, the day's hourglass fades out instead of being cut off, and comes back.
   const homeScrollY = useSharedValue(0);
   const onHomeScroll = useAnimatedScrollHandler(event => { homeScrollY.set(event.contentOffset.y); });
-  // How far the page has risen from rest (0 unscrolled); the panel's edge reaches the bar at SCENE_SHOWN.
-  // The panel starts this far down: the scene shows above it.
-  const { height: screenHeight } = useWindowDimensions();
-  // The panel's edge rests a third of the way down the screen (the day gets the other two thirds),
-  // never so high that the glass on it would touch the bar.
-  const SCENE_SHOWN = Math.max(GLASS_HEIGHT / 2 + s(16), Math.round(screenHeight / 3) - headerHeight);
-  // The hourglass and its clocks stay whole until the glass reaches the bar, then fade as it slides under.
-  const glassReaches = Math.max(1, SCENE_SHOWN - GLASS_HEIGHT / 2 - s(8));
-  const glassFade = useAnimatedStyle(() => ({
-    opacity: interpolate(homeScrollY.get(), [glassReaches, glassReaches + GLASS_HEIGHT * 0.6], [1, 0], Extrapolation.CLAMP),
-  }));
-  // The scene behind.
+  // The temple scene (assets/images/scenes/temple.jpg, 1199 × 1312) at the screen's width: the hourglass
+  // stands on its podium's top step, and the cards start just below the stairs.
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
+  const sceneScale = screenWidth / TEMPLE.width;
+  const sceneHeight = TEMPLE.height * sceneScale;
+  const stepY = TEMPLE.step * sceneScale;
+  const panelTop = TEMPLE.stairsEnd * sceneScale + PANEL_FADE * 0.8;
+  // The hourglass stays where it stands; the scene fades as the cards rise over it.
   const sceneFade = useAnimatedStyle(() => ({
-    // Holds while you start scrolling; gone once the panel is up past the glass.
-    opacity: interpolate(homeScrollY.get(), [glassReaches * 0.6, SCENE_SHOWN + GLASS_HEIGHT * 0.3], [1, 0], Extrapolation.CLAMP),
+    opacity: interpolate(homeScrollY.get(), [0, panelTop * 0.75], [1, 0], Extrapolation.CLAMP),
   }));
   const { primary: accentColor } = useAccentGradient();
+  const { rankShown } = useAccent();
   const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
   const { playComplete, playLevelUp } = useSounds();
 
@@ -643,8 +638,14 @@ const Home = () => {
     <VoidShell>
       {/* Transit-style: your rank's scene is the map, fixed behind everything (components/Home/DuneScene.tsx). */}
       <Animated.View style={[homeStyles.scene, sceneFade]} pointerEvents="none">
-        <RankScene scrollY={homeScrollY} scrollRest={0} />
+        <Image source={TEMPLE.image} style={{ width: screenWidth, height: sceneHeight }} accessibilityIgnoresInvertColors />
+        {/* Its foot melts into the page's colour. */}
+        <LinearGradient colors={[clearOf(colors.background), colors.background]} style={[homeStyles.sceneFoot, { top: sceneHeight * 0.72, height: sceneHeight * 0.28 }]} />
       </Animated.View>
+      {/* The day's hourglass on the podium's top step: it never moves; the cards rise over it. */}
+      <View pointerEvents="none" style={[homeStyles.glassStage, { top: stepY - GLASS_HEIGHT / 2, left: horizontalPadding, right: horizontalPadding }]}>
+        <DayHourglass marks={marks.total} />
+      </View>
       <Animated.ScrollView
         onScroll={onHomeScroll}
         scrollEventThrottle={16}
@@ -653,7 +654,7 @@ const Home = () => {
         style={pageLeave}
         automaticallyAdjustContentInsets={false}
         // The page scrolls up under the bar's fade (it starts below it), so there is no hard line where it stops.
-        contentContainerStyle={{ paddingTop: SCENE_SHOWN + headerHeight }}
+        contentContainerStyle={{ paddingTop: panelTop }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -665,14 +666,14 @@ const Home = () => {
           />
         }
       >
+          {/* Tap the hourglass for every hourglass: the glass sits under the page, so the page takes the tap where it stands. */}
+          <Pressable accessibilityRole="button" accessibilityLabel="See every hourglass"
+            onPress={() => { lightFeedback(); emit('glass_open', { rank: rankShown ?? 'Lost', marks: marks.total }); }}
+            style={[homeStyles.glassTap, { top: stepY - GLASS_HEIGHT, width: GLASS_HEIGHT, height: GLASS_HEIGHT, marginLeft: -GLASS_HEIGHT / 2 }]} />
           {/* The panel: everything of the day, rising over the scene; the hourglass on its edge. */}
           <View style={[homeStyles.panel, { backgroundColor: colors.background, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, minHeight: screenHeight - headerHeight }]}>
             {/* Its top edge is a shadow of its own colour, melting into the night. */}
             <LinearGradient pointerEvents="none" colors={[clearOf(colors.background), colors.background]} style={homeStyles.panelFade} />
-            {/* Half over the scene, half on the panel; it fades as the panel nears the top rather than being cut off. Tap it for every hourglass. */}
-            <Animated.View style={glassFade}>
-              <DayHourglass marks={marks.total} />
-            </Animated.View>
 
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}

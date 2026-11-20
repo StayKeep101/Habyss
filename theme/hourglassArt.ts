@@ -52,3 +52,16 @@ export const CRAFTED_HOURGLASS: ReadonlySet<string> = new Set(['Growing']);
 export const HOME_PREVIEW_ART: Record<string, { image: ImageSourcePropType; ratio: number }> = {
     Growing: { image: require('@/assets/images/hourglasses/home-preview.png'), ratio: 623 / 829 },
 };
+
+/**
+ * Home's scene: a temple at night, the hourglass on its podium. On the image's
+ * own grid: its size, the podium's top step (where the hourglass stands) and
+ * where the stairs end (the cards start below them).
+ */
+export const TEMPLE = {
+    image: require('@/assets/images/scenes/temple.jpg') as ImageSourcePropType,
+    width: 1199,
+    height: 1312,
+    step: 912,
+    stairsEnd: 1075,
+};
