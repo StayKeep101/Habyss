@@ -18,7 +18,7 @@ type NativeProps = { days: number; offset: number; weekStart: number; style?: Vi
  * Family Controls capability (ios/remove_report_target.rb, ios/add_report_target.rb):
  * without it the view would draw nothing, so it stays off.
  */
-const REPORT_IN_BUILD = false;
+const REPORT_IN_BUILD = true;
 
 const NativeReport = REPORT_IN_BUILD && UIManager.hasViewManagerConfig?.('ScreenTimeReportView')
     ? requireNativeComponent<NativeProps>('ScreenTimeReportView')
