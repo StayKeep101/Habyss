@@ -2,9 +2,8 @@ import type { ImageSourcePropType } from 'react-native';
 
 /**
  * Each rank's hourglass, as finished art (assets/images/hourglasses): used
- * wherever a rank is shown still (RankHourglass). A rank with no art yet is
- * drawn instead (theme/hourglassDesigns.ts), and so is the live glass on Home,
- * whose sand runs with the day.
+ * wherever a rank is shown still (RankHourglass). The live glass on Home,
+ * whose sand runs with the day, is still drawn (theme/hourglassDesigns.ts).
  */
 export const HOURGLASS_ART: Record<string, ImageSourcePropType> = {
     Lost: require('@/assets/images/hourglasses/lost.png'),
@@ -16,6 +15,7 @@ export const HOURGLASS_ART: Record<string, ImageSourcePropType> = {
     Master: require('@/assets/images/hourglasses/master.png'),
     Unbreakable: require('@/assets/images/hourglasses/unbreakable.png'),
     Timekeeper: require('@/assets/images/hourglasses/timekeeper.png'),
+    Eternal: require('@/assets/images/hourglasses/eternal.png'),
 };
 
 /** Width over height of the art (1113 × 1413). */
