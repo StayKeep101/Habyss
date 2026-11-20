@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, Text as RNText, StyleSheet, View } from 'react-native';
-import { AppIcon, Avatar, CountUp, MatteSurface, PopIn, SegmentBar, Text, TimelinePost, type PostStat } from '@/components/ui';
+import { AppIcon, Avatar, CountUp, MatteSurface, PopIn, PostCard, SegmentBar, Text, type PostStat } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { textOn } from '@/theme/tokens';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
@@ -101,7 +101,6 @@ function TopTasks({ lines, mine }: { lines: DayCardLine[]; mine: boolean }) {
             <Text variant="caption" tone="muted">{`Today's ${lines.length}`}</Text>
             {lines.map((line, index) => (
                 <PopIn key={`${line.name}-${index}`} index={index * 2} style={styles.topRow}>
-                    {index < lines.length - 1 ? <View style={[styles.link, { backgroundColor: lines[index].done ? t.color.cobalt : t.color.border }]} /> : null}
                     <View style={[styles.rank, line.done || line.waiting
                         ? { backgroundColor: t.color.cobalt, borderColor: t.color.cobalt }
                         : { borderColor: t.color.border }]}>
@@ -118,7 +117,7 @@ function TopTasks({ lines, mine }: { lines: DayCardLine[]; mine: boolean }) {
 }
 
 /** A day card: the same format whichever of the five day kinds it is (the kind says why it was posted). */
-function DayPost({ item, ctx, last }: { item: StreamPost; ctx: StreamContext; last?: boolean }) {
+function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
     const { post } = item;
     const card = post.card;
     const done = card.habitsDone + card.tasksDone;
@@ -156,8 +155,7 @@ function DayPost({ item, ctx, last }: { item: StreamPost; ctx: StreamContext; la
 
     const avatar = post.mine ? ctx.myAvatar : post.avatarUrl;
     return (
-        <TimelinePost
-            last={last}
+        <PostCard
             lead={<Avatar name={post.mine ? ctx.myName : post.name} uri={avatar} size={Control.hitTarget}
                 badge={post.mine ? undefined : (() => { const status = ctx.statusOf(post.userId); return status ? <StatusBadge status={status} size={16} /> : undefined; })()} />}
             name={name} rank={ctx.rankOf(post.userId)}
@@ -176,7 +174,7 @@ function DayPost({ item, ctx, last }: { item: StreamPost; ctx: StreamContext; la
                     {`${did.slice(0, 3).join(', ')}${did.length > 3 ? ` +${did.length - 3}` : ''}`}
                 </Text>
             ) : null}
-        </TimelinePost>
+        </PostCard>
     );
 }
 
@@ -229,9 +227,9 @@ function Footer({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
     );
 }
 
-/** A post in Today's feed: a friend's day on the feed's spine, the way the Timeline draws your own. */
-export function StreamPostCard({ item, ctx, last }: { item: StreamPost; ctx: StreamContext; last?: boolean }) {
-    return <DayPost item={item} ctx={ctx} last={last} />;
+/** A post in Today's feed: a friend's day, drawn as the kind of day it was. */
+export function StreamPostCard({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
+    return <DayPost item={item} ctx={ctx} />;
 }
 
 const styles = StyleSheet.create({
@@ -246,6 +244,4 @@ const styles = StyleSheet.create({
     top: { gap: Spacing.xs },
     topRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: Spacing.xxl },
     rank: { width: Spacing.xl, height: Spacing.xl, borderRadius: Spacing.xl / 2, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-    /** From one of Today's 3 down to the next, under the circles: a little Timeline. */
-    link: { position: 'absolute', left: Spacing.xl / 2 - 1, top: Spacing.xxl / 2 + Spacing.xl / 2, width: 2, height: Spacing.xxl - Spacing.xl + Spacing.xs, borderRadius: 1 },
 });

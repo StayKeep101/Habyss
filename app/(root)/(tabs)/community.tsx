@@ -527,7 +527,7 @@ export default function CommunityScreen() {
                             <SealedDayCard key="sealed" name={day.name} avatarUrl={day.avatarUrl} opensAt={opensAt} />
                         ) : (
                             <Animated.View key="open" entering={flipping && !day.mine && day.day === today ? FlipInEasyY.duration(520).delay(index * 140).reduceMotion(ReduceMotion.System) : undefined}>
-                                <StreamPostCard item={item} ctx={streamContext} last={index === stream.length - 1} />
+                                <StreamPostCard item={item} ctx={streamContext} />
                             </Animated.View>
                         )}
                     </ListItem>
