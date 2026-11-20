@@ -30,8 +30,10 @@ const FRONT = 6;
  *
  * Its own component so the writing re-renders only this line, not Home.
  */
-export function EchoLine({ text, style, onPress, onDone, mood = 0 }: {
+export function EchoLine({ text, style, onPress, onDone, mood = 0, align = 'left' }: {
     text: string; style?: object; onPress?: () => void;
+    /** Left in a column of text; centred under the hourglass. */
+    align?: 'left' | 'center';
     /** How worried Echo is about your tasks, 0 calm to 4 demon: the writing edge's colour. */
     mood?: number;
     /** Called once the line has fully appeared (e.g. to ask a question after it). */
@@ -70,9 +72,9 @@ export function EchoLine({ text, style, onPress, onDone, mood = 0 }: {
             {/* Clipped to the real sentence's box: the runes never spill past it. */}
             <View style={styles.box}>
                 {/* The real sentence: it sets the line's size from the first frame, and is what stays. */}
-                <Text style={[styles.line, { color: colors.text, opacity: done ? 1 : 0 }]}>{text}</Text>
+                <Text style={[styles.line, { color: colors.text, opacity: done ? 1 : 0, textAlign: align }]}>{text}</Text>
                 {done ? null : (
-                    <Text style={[styles.line, styles.over, { color: colors.text }]} importantForAccessibility="no" accessibilityElementsHidden>
+                    <Text style={[styles.line, styles.over, { color: colors.text, textAlign: align }]} importantForAccessibility="no" accessibilityElementsHidden>
                         {text.slice(0, shown)}
                         <Text style={{ color: tint(glow, 'border') }}>{rest.near}</Text>
                         <Text style={styles.unwritten}>{rest.far}</Text>
