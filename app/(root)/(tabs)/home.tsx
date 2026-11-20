@@ -28,9 +28,7 @@ import { useSounds } from '@/hooks/useSounds';
 
 import { useFocusEffect } from 'expo-router';
 import { useAppSettings } from '@/context/AppSettingsContext';
-import { useAccent, useAccentGradient } from '@/context/AccentContext';
-import { glassDesign } from '@/theme/hourglassDesigns';
-import { Ornament } from '@/components/ui/Ornament';
+import { useAccentGradient } from '@/context/AccentContext';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
 import { nextEchoLine, type EchoStats } from '@/lib/echoLines';
 import { pressureLines, pressureSpeaks } from '@/lib/taskPressure';
@@ -84,6 +82,9 @@ import { RANKS } from '@/lib/marks';
 import { useTimeOff, useTimeOffPeriods } from '@/hooks/useTimeOff';
 import { TimeOffCard } from '@/components/Home/TimeOffCard';
 
+/** A colour with no opacity, so a fade to it never passes through grey. */
+const clearOf = (color: string) => (/^#[0-9a-f]{6}$/i.test(color) ? `${color}00` : 'transparent');
+
 const Home = () => {
   const router = useRouter();
   const { theme } = useTheme();
@@ -114,8 +115,6 @@ const Home = () => {
     opacity: interpolate(homeScrollY.get(), [glassReaches * 0.6, SCENE_SHOWN + GLASS_HEIGHT * 0.3], [1, 0], Extrapolation.CLAMP),
   }));
   const { primary: accentColor } = useAccentGradient();
-  // The rank's colour (its hourglass's sand), for the ornament under the glass.
-  const rankLight = glassDesign(useAccent().rankShown).sand[0];
   const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
   const { playComplete, playLevelUp } = useSounds();
 
@@ -667,12 +666,12 @@ const Home = () => {
         }
       >
           {/* The panel: everything of the day, rising over the scene; the hourglass on its edge. */}
-          <View style={[homeStyles.panel, { backgroundColor: colors.background, borderColor: colors.border, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, minHeight: screenHeight - headerHeight }]}>
+          <View style={[homeStyles.panel, { backgroundColor: colors.background, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, minHeight: screenHeight - headerHeight }]}>
+            {/* Its top edge is a shadow of its own colour, melting into the night. */}
+            <LinearGradient pointerEvents="none" colors={[clearOf(colors.background), colors.background]} style={homeStyles.panelFade} />
             {/* Half over the scene, half on the panel; it fades as the panel nears the top rather than being cut off. Tap it for every hourglass. */}
             <Animated.View style={glassFade}>
               <DayHourglass marks={marks.total} />
-              {/* The mark on every hourglass's base, between it and Echo. */}
-              <View style={{ marginTop: sectionGap }}><Ornament color={rankLight} /></View>
             </Animated.View>
 
           {/* Echo, full width below the header, where it reads as a line
