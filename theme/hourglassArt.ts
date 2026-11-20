@@ -12,6 +12,10 @@ export const HOURGLASS_ART: Record<string, ImageSourcePropType> = {
     Growing: require('@/assets/images/hourglasses/growing.png'),
     Consistent: require('@/assets/images/hourglasses/consistent.png'),
     Disciplined: require('@/assets/images/hourglasses/disciplined.png'),
+    Focused: require('@/assets/images/hourglasses/focused.png'),
+    Master: require('@/assets/images/hourglasses/master.png'),
+    Unbreakable: require('@/assets/images/hourglasses/unbreakable.png'),
+    Timekeeper: require('@/assets/images/hourglasses/timekeeper.png'),
 };
 
 /** Width over height of the art (1113 × 1413). */
