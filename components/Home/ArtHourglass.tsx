@@ -1,97 +1,80 @@
-import React, { useId } from 'react';
-import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
-import Animated, { useAnimatedProps, type SharedValue } from 'react-native-reanimated';
-import Svg, { ClipPath, Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
-import type { GlassDesign } from '@/theme/hourglassDesigns';
-import { HOURGLASS_ART_RATIO } from '@/theme/hourglassArt';
-
-const AnimatedRect = Animated.createAnimatedComponent(Rect);
+import React from 'react';
+import { Image, StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
+import { HOURGLASS_ART_RATIO, type LiveGlassArt } from '@/theme/hourglassArt';
 
 /** The art's own grid (1113 × 1413): every hourglass shares this glass. */
-const W = 1113;
 const H = 1413;
 const CX = 556;
 const NECK = 776;
+/** Just under the bottom of the glass, where the pile stands. */
+const BASE = 1215;
+/** The stream's window, either side of the centre. */
+const STREAM = 10;
 /** The smallest clear margin either side of the art, as a share of its width. */
 const ART_BLEED = 0.06;
-/** Where the top sand starts the day, and where the bottom pile ends it. */
-const TOP_FULL = 450;
-const BOTTOM = 1196;
-const BOTTOM_FULL = 900;
 
 /**
- * The inside of the glass, measured off the art (half-widths from the centre
- * at each height, a little inside the rim so the sand never spills over it).
+ * Your rank's hourglass as finished art, live on Home: the empty glass, and the
+ * art's own painted sand (its glow, its grain, its mound) shown a little at a
+ * time. `ran` (0 to 1) is how much of the day has fallen: the top sand sinks
+ * to the neck, the pile rises from the bottom to its full mound, and the stream
+ * falls between them while the day runs. Three windows onto the sand, nothing
+ * redrawn, so it looks exactly like the art at every moment.
  */
-const TOP_EDGE: [number, number][] = [[360, 190], [380, 205], [420, 205], [460, 202], [500, 200], [540, 186], [580, 180], [620, 146], [660, 100], [700, 56], [740, 22], [NECK, 10]];
-const BOTTOM_EDGE: [number, number][] = [[NECK, 10], [820, 18], [860, 46], [900, 88], [940, 122], [980, 146], [1020, 175], [1060, 222], [1100, 228], [1140, 224], [1170, 210], [BOTTOM, 170]];
-
-const outline = (edge: [number, number][]) =>
-    `M ${edge.map(([y, half]) => `${CX + half} ${y}`).join(' L ')} L ${[...edge].reverse().map(([y, half]) => `${CX - half} ${y}`).join(' L ')} Z`;
-const TOP_BULB = outline(TOP_EDGE);
-const BOTTOM_BULB = outline(BOTTOM_EDGE);
-
-/**
- * Your rank's hourglass as finished art (theme/hourglassArt.ts, the empty
- * glass), with the day's sand in it: `ran` (0 to 1) is how much of the day has
- * fallen. The top sinks towards the neck, the pile below rises, and a thin
- * stream falls between them while the day runs. The same as the drawn
- * Hourglass, for a rank that has its art.
- */
-export function ArtHourglass({ art, design, size, ran, running, streamColor }: {
-    art: ImageSourcePropType;
-    design: GlassDesign;
+export function ArtHourglass({ art, size, ran, running }: {
+    art: LiveGlassArt;
     /** Height in points; the width follows the art. */
     size: number;
     ran: SharedValue<number>;
     running: boolean;
-    streamColor?: string;
 }) {
-    const id = useId().replace(/[^a-zA-Z0-9]/g, '');
-    const ref = (name: string) => `${name}${id}`;
     const width = size * HOURGLASS_ART_RATIO;
+    // Points per pixel of the art, and the art's two levels: plain numbers for the worklets.
+    const k = size / H;
+    const top = art.topSand;
+    const pile = art.pile;
+    const streamLeft = k * (CX - STREAM);
 
-    // Worklets: plain numbers only (never a helper call inside them).
-    const topSand = useAnimatedProps(() => {
-        const level = TOP_FULL + (NECK - TOP_FULL) * ran.get();
-        return { y: level, height: Math.max(0, NECK - level) };
+    const topWindow = useAnimatedStyle(() => {
+        const level = top + (NECK - top) * ran.get();
+        return { top: k * level, height: Math.max(0, k * (NECK - level)) };
     });
-    const bottomSand = useAnimatedProps(() => {
-        const height = (BOTTOM - BOTTOM_FULL) * ran.get();
-        return { y: BOTTOM - height, height };
+    const topSand = useAnimatedStyle(() => ({ transform: [{ translateY: -k * (top + (NECK - top) * ran.get()) }] }));
+    const pileWindow = useAnimatedStyle(() => {
+        const level = BASE - (BASE - pile) * ran.get();
+        return { top: k * level, height: Math.max(0, size - k * level) };
     });
-    const stream = useAnimatedProps(() => {
-        const top = BOTTOM - (BOTTOM - BOTTOM_FULL) * ran.get();
+    const pileSand = useAnimatedStyle(() => ({ transform: [{ translateY: -k * (BASE - (BASE - pile) * ran.get()) }] }));
+    const streamWindow = useAnimatedStyle(() => {
         const flowing = ran.get() > 0.001 && ran.get() < 0.999;
-        return { height: flowing ? Math.max(0, top - NECK) : 0 };
+        const level = BASE - (BASE - pile) * ran.get();
+        return { height: flowing ? Math.max(0, k * (level - NECK)) : 0 };
     });
 
+    const sandStyle = [styles.layer, { width, height: size }];
     return (
         // The art has clear margins either side (6–9% of its width): they may overlap
         // what is beside it, so it takes about the room of the drawn glass on Home.
         <View style={{ width, height: size, marginHorizontal: -width * ART_BLEED }}>
-            {/* Sized exactly, not "fill the parent": on Home the image otherwise drew at its own size. */}
-            <Image source={art} resizeMode="contain" style={[styles.layer, { width, height: size }]} accessibilityIgnoresInvertColors />
-            <Svg width={width} height={size} style={styles.layer} viewBox={`0 0 ${W} ${H}`}>
-                <Defs>
-                    <LinearGradient id={ref('sand')} x1="0" y1="0" x2="0" y2="1">
-                        <Stop offset="0" stopColor={design.sand[0]} /><Stop offset="1" stopColor={design.sand[1]} />
-                    </LinearGradient>
-                    <ClipPath id={ref('top')}><Path d={TOP_BULB} /></ClipPath>
-                    <ClipPath id={ref('bottom')}><Path d={BOTTOM_BULB} /></ClipPath>
-                </Defs>
-                <G clipPath={`url(#${ref('top')})`}>
-                    <AnimatedRect x={0} width={W} fill={`url(#${ref('sand')})`} fillOpacity={0.92} animatedProps={topSand} />
-                </G>
-                <G clipPath={`url(#${ref('bottom')})`}>
-                    <AnimatedRect x={0} width={W} fill={`url(#${ref('sand')})`} fillOpacity={0.92} animatedProps={bottomSand} />
-                </G>
-                {running ? <AnimatedRect x={CX - 3} y={NECK} width={6} fill={streamColor ?? design.sand[0]} animatedProps={stream} /> : null}
-            </Svg>
+            {/* Every layer sized exactly: "fill the parent" drew the image at its own size on Home. */}
+            <Image source={art.glass} resizeMode="contain" style={sandStyle} accessibilityIgnoresInvertColors />
+            <Animated.View style={[styles.window, { width }, topWindow]} pointerEvents="none">
+                <Animated.Image source={art.sand} resizeMode="contain" style={[sandStyle, topSand]} />
+            </Animated.View>
+            <Animated.View style={[styles.window, { width }, pileWindow]} pointerEvents="none">
+                <Animated.Image source={art.sand} resizeMode="contain" style={[sandStyle, pileSand]} />
+            </Animated.View>
+            {running ? (
+                <Animated.View style={[styles.window, { left: streamLeft, top: k * NECK, width: k * STREAM * 2 }, streamWindow]} pointerEvents="none">
+                    <Image source={art.sand} resizeMode="contain" style={[sandStyle, { left: -streamLeft, top: -k * NECK }]} />
+                </Animated.View>
+            ) : null}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     layer: { position: 'absolute', top: 0, left: 0 },
+    window: { position: 'absolute', left: 0, overflow: 'hidden' },
 });

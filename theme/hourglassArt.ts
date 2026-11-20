@@ -22,13 +22,18 @@ export const HOURGLASS_ART: Record<string, ImageSourcePropType> = {
 export const HOURGLASS_ART_RATIO = 1113 / 1413;
 
 /**
- * The same art with empty glass, for the live hourglass on Home: the sand is
- * drawn into it and runs with the day (components/Home/ArtHourglass.tsx).
- * A rank without one yet stays drawn there.
+ * The art for the live hourglass on Home (components/Home/ArtHourglass.tsx):
+ * the empty glass, and the sand alone (taken from the full art by
+ * scripts/extract-hourglass-sand.py), which is shown a little at a time as the
+ * day runs. `topSand` is where the top sand starts the day, `pile` the top of
+ * the full pile, both on the art's own 1113 × 1413 grid. A rank without these
+ * stays drawn there.
  */
-export const EMPTY_HOURGLASS_ART: Record<string, ImageSourcePropType> = {
-    Growing: require('@/assets/images/hourglasses/empty/growing.png'),
-    Disciplined: require('@/assets/images/hourglasses/empty/disciplined.png'),
-    Focused: require('@/assets/images/hourglasses/empty/focused.png'),
-    Unbreakable: require('@/assets/images/hourglasses/empty/unbreakable.png'),
+export interface LiveGlassArt { glass: ImageSourcePropType; sand: ImageSourcePropType; topSand: number; pile: number }
+
+export const LIVE_HOURGLASS_ART: Record<string, LiveGlassArt> = {
+    Growing: { glass: require('@/assets/images/hourglasses/empty/growing.png'), sand: require('@/assets/images/hourglasses/sand/growing.png'), topSand: 606, pile: 1016 },
+    Disciplined: { glass: require('@/assets/images/hourglasses/empty/disciplined.png'), sand: require('@/assets/images/hourglasses/sand/disciplined.png'), topSand: 572, pile: 1035 },
+    Focused: { glass: require('@/assets/images/hourglasses/empty/focused.png'), sand: require('@/assets/images/hourglasses/sand/focused.png'), topSand: 582, pile: 1033 },
+    Unbreakable: { glass: require('@/assets/images/hourglasses/empty/unbreakable.png'), sand: require('@/assets/images/hourglasses/sand/unbreakable.png'), topSand: 558, pile: 977 },
 };

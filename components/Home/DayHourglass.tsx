@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Hourglass } from './Hourglass';
 import { ArtHourglass } from './ArtHourglass';
-import { EMPTY_HOURGLASS_ART } from '@/theme/hourglassArt';
+import { LIVE_HOURGLASS_ART } from '@/theme/hourglassArt';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useOnScreen } from '@/hooks/useOnScreen';
@@ -178,9 +178,8 @@ export function DayHourglass({ marks }: { marks: number }) {
                 <Animated.View style={[styles.ring, { borderColor: design.sand[0] }, ringStyle]} pointerEvents="none" />
                 <Animated.View style={[styles.ring, { borderColor: design.sand[0] }, echoRingStyle]} pointerEvents="none" />
                 <Animated.View ref={glassRef} collapsable={false} style={glassStyle}>
-                    {EMPTY_HOURGLASS_ART[rankShown ?? 'Lost'] ? (
-                        <ArtHourglass art={EMPTY_HOURGLASS_ART[rankShown ?? 'Lost']} design={design} size={GLASS_HEIGHT} ran={ran}
-                            running={!flipping && glass.resting !== 'night'} streamColor={nowColor} />
+                    {LIVE_HOURGLASS_ART[rankShown ?? 'Lost'] ? (
+                        <ArtHourglass art={LIVE_HOURGLASS_ART[rankShown ?? 'Lost']} size={GLASS_HEIGHT} ran={ran} running={!flipping && glass.resting !== 'night'} />
                     ) : (
                         <Hourglass design={design} size={GLASS_HEIGHT} ran={ran} running={!flipping && glass.resting !== 'night'} streamColor={nowColor} />
                     )}
