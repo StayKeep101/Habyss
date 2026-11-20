@@ -3,11 +3,12 @@
 name = "habyss-mcp"
 main = "worker.js"
 compatibility_date = "2026-11-01"
+workers_dev = false
+# Top-level keys must come before [vars], or TOML reads them as variables.
+routes = [{ pattern = "mcp.habyss.app", custom_domain = true }]
 
 [vars]
 SUPABASE_URL = "https://wlbjhtlznzdumqxetilx.supabase.co"
-# Set to https://mcp.<your domain> once the domain is chosen (also the route below).
-PUBLIC_URL = "https://mcp.example.com"
+# The short public address (also the route above).
+PUBLIC_URL = "https://mcp.habyss.app"
 # SUPABASE_KEY (the app's public key) is set with: npx wrangler secret put SUPABASE_KEY
-
-# routes = [{ pattern = "mcp.example.com", custom_domain = true }]
