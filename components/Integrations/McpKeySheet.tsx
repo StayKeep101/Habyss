@@ -16,22 +16,6 @@ const SIGN_IN_STEPS: Record<Assistant, string[]> = {
     ChatGPT: ['Settings → Apps (or Plugins) → Create', 'Paste the address, choose OAuth', 'Tap Connect, then Open Habyss'],
 };
 
-/**
- * The assistant's own app first: ChatGPT's web link does not open its app, so
- * its URL schemes are tried before the website. A scheme that isn't there
- * just fails, and the next is tried.
- */
-const APP_FIRST: Record<Assistant, string[]> = {
-    Claude: [],
-    ChatGPT: ['chatgpt://', 'com.openai.chat://'],
-};
-
-async function openAssistant(assistant: Assistant, web: string): Promise<void> {
-    for (const url of [...APP_FIRST[assistant], web]) {
-        try { await Linking.openURL(url); return; } catch { /* not installed: the next one */ }
-    }
-}
-
 /** Where each assistant adds a connection, and the three steps there (with a personal key link). */
 const GUIDE: Record<Assistant, { url: string; steps: string[] }> = {
     Claude: {
@@ -63,7 +47,7 @@ export function McpKeySheet({ address, assistant, onClose }: { address: string |
         setCopied(done);
         if (!done) return;
         successFeedback();
-        await openAssistant(assistant, guide.url);
+        await Linking.openURL(guide.url).catch(() => undefined);
     };
     return (
         <VoidSheet visible={!!address} onClose={close} title={`Connect ${assistant}`}
