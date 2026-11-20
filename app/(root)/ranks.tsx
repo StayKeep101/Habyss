@@ -4,9 +4,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { AppIcon, MatteSurface, SheetScreen, Text } from '@/components/ui';
 import { RankHourglass } from '@/components/Home/RankHourglass';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSharedValue } from 'react-native-reanimated';
-import { Hourglass } from '@/components/Home/Hourglass';
-import { glassDesign } from '@/theme/hourglassDesigns';
 import { rankGradient } from '@/theme/rankLooks';
 import { AnimatedFill, CountUp, PopIn } from '@/components/ui/Motion';
 import { useTokens } from '@/hooks/useTokens';
@@ -19,7 +16,6 @@ function RankRow({ name, min, marks, current }: { name: string; min: number; mar
     const t = useTokens();
     const reached = marks >= min;
     const [from, to] = rankGradient(name);
-    const sand = useSharedValue(0.35);
     return (
         <View accessible accessibilityLabel={`${name}, ${min ? `${min.toLocaleString()} Marks` : 'the start'}. ${current ? 'Your rank.' : reached ? 'Reached.' : `Locked, ${(min - marks).toLocaleString()} Marks to go.`} Unlocks its colour and its hourglass.`}>
         <MatteSurface radius={t.radius.lg} edge={current ? rankTone(name).color : undefined} style={styles.row}>
@@ -35,7 +31,7 @@ function RankRow({ name, min, marks, current }: { name: string; min: number; mar
                     {/* The app's colour at this rank. */}
                     <LinearGradient colors={[from, to]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.swatch} />
                 </View>
-                <Hourglass design={glassDesign(name)} size={t.space['3xl'] * 2} ran={sand} running={false} />
+                <RankHourglass rank={name} size={t.space['3xl'] * 2} />
             </View>
         </MatteSurface>
         </View>

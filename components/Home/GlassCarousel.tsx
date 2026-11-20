@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
     Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming, type SharedValue,
 } from 'react-native-reanimated';
-import { Hourglass } from './Hourglass';
+import { RankHourglass } from './RankHourglass';
 import { RankScene } from './RankScene';
 import { AppButton, AppIcon, IconButton, Text } from '@/components/ui';
 import { useAccent } from '@/context/AccentContext';
@@ -14,7 +14,6 @@ import { on, type AppEvents } from '@/lib/appEvents';
 import { RANKS } from '@/lib/marks';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
-import { glassDesign } from '@/theme/hourglassDesigns';
 import { OVERLAY } from '@/theme/motion';
 import { s } from '@/theme/scale';
 
@@ -44,7 +43,6 @@ export function GlassCarousel() {
     const [index, setIndex] = useState(0);
     const shown = useSharedValue(0);
     const scrollX = useSharedValue(0);
-    const sand = useSharedValue(0.35);
 
     const slot = width * SLOT;
     const side = (width - slot) / 2;
@@ -96,7 +94,7 @@ export function GlassCarousel() {
                 {RANKS.map((rank, position) => (
                     <Slot key={rank.name} position={position} slot={slot} scrollX={scrollX}>
                         <View style={{ opacity: open.marks >= rank.min ? 1 : 0.55 }}>
-                            <Hourglass design={glassDesign(rank.name)} size={s(270)} ran={sand} running={false} />
+                            <RankHourglass rank={rank.name} size={s(270)} />
                         </View>
                         {open.marks < rank.min ? (
                             <View style={[styles.lockBadge, { backgroundColor: t.color.surfaceRaised }]}>
