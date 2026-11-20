@@ -13,7 +13,14 @@ type NativeProps = { days: number; offset: number; weekStart: number; style?: Vi
  * there and never reach Habyss. Needs the build that has it, and Screen Time
  * allowed.
  */
-const NativeReport = UIManager.hasViewManagerConfig?.('ScreenTimeReportView')
+/**
+ * The report extension is out of the build until its Apple app ID has the
+ * Family Controls capability (ios/remove_report_target.rb, ios/add_report_target.rb):
+ * without it the view would draw nothing, so it stays off.
+ */
+const REPORT_IN_BUILD = false;
+
+const NativeReport = REPORT_IN_BUILD && UIManager.hasViewManagerConfig?.('ScreenTimeReportView')
     ? requireNativeComponent<NativeProps>('ScreenTimeReportView')
     : null;
 
@@ -24,7 +31,7 @@ export function ScreenTimeReport({ days, offset, weekStart, height }: { days: 7 
     useEffect(() => { void ScreenTimeService.isAuthorized().then(setAllowed).catch(() => setAllowed(false)); }, []);
 
     if (!NativeReport) {
-        return <EmptyState icon="phone-portrait-outline" title="Screen time needs the newest Habyss" message="Update Habyss to see where your hours go." />;
+        return <EmptyState icon="phone-portrait-outline" title="Screen time is on its way" message="Where your hours go, app by app, arrives in a coming update." />;
     }
     if (allowed === false) {
         return (
