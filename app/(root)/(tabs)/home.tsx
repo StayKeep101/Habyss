@@ -53,7 +53,7 @@ import { ShardsCard } from '@/components/Shards/ShardsCard';
 import { DayHourglass, GLASS_HEIGHT } from '@/components/Home/DayHourglass';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { Radius, Spacing } from '@/theme/designSystem';
-import { homeStyles, PANEL_FADE } from '@/styles/screens/home.styles';
+import { homeStyles } from '@/styles/screens/home.styles';
 import { TEMPLE } from '@/theme/hourglassArt';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -103,11 +103,14 @@ const Home = () => {
   const sceneScale = screenWidth / TEMPLE.width;
   const sceneHeight = TEMPLE.height * sceneScale;
   const stepY = TEMPLE.step * sceneScale;
-  const panelTop = TEMPLE.stairsEnd * sceneScale + PANEL_FADE * 0.25;
-  // The hourglass stays where it stands; the scene fades as the cards rise over it.
-  const sceneFade = useAnimatedStyle(() => ({
-    opacity: interpolate(homeScrollY.get(), [0, panelTop * 0.75], [1, 0], Extrapolation.CLAMP),
-  }));
+  const panelTop = TEMPLE.stairsEnd * sceneScale + Spacing.md;
+  // As you scroll, the temple and its hourglass dissolve into the night: no panel edge sliding over
+  // them, just the picture fading, eased so it starts and ends softly (smoothstep).
+  const fadeOver = panelTop * 0.9;
+  const sceneFade = useAnimatedStyle(() => {
+    const t = Math.min(1, Math.max(0, homeScrollY.get() / fadeOver));
+    return { opacity: 1 - t * t * (3 - 2 * t) };
+  });
   const { primary: accentColor } = useAccentGradient();
   const { rankShown } = useAccent();
   const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
@@ -643,9 +646,9 @@ const Home = () => {
         <LinearGradient colors={[clearOf(colors.background), colors.background]} style={[homeStyles.sceneFoot, { top: sceneHeight * 0.72, height: sceneHeight * 0.28 }]} />
       </Animated.View>
       {/* The day's hourglass on the podium's top step: it never moves; the cards rise over it. */}
-      <View pointerEvents="none" style={[homeStyles.glassStage, { top: stepY - GLASS_HEIGHT / 2, left: horizontalPadding, right: horizontalPadding }]}>
+      <Animated.View pointerEvents="none" style={[homeStyles.glassStage, { top: stepY - GLASS_HEIGHT / 2, left: horizontalPadding, right: horizontalPadding }, sceneFade]}>
         <DayHourglass marks={marks.total} />
-      </View>
+      </Animated.View>
       <Animated.ScrollView
         onScroll={onHomeScroll}
         scrollEventThrottle={16}
@@ -671,9 +674,8 @@ const Home = () => {
             onPress={() => { lightFeedback(); emit('glass_open', { rank: rankShown ?? 'Lost', marks: marks.total }); }}
             style={[homeStyles.glassTap, { top: stepY - GLASS_HEIGHT, width: GLASS_HEIGHT, height: GLASS_HEIGHT, marginLeft: -GLASS_HEIGHT / 2 }]} />
           {/* The panel: everything of the day, rising over the scene; the hourglass on its edge. */}
-          <View style={[homeStyles.panel, { backgroundColor: colors.background, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, minHeight: screenHeight - headerHeight }]}>
+          <View style={[homeStyles.panel, { paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, minHeight: screenHeight - headerHeight }]}>
             {/* Its top edge is a shadow of its own colour, melting into the night. */}
-            <LinearGradient pointerEvents="none" colors={[clearOf(colors.background), colors.background]} style={homeStyles.panelFade} />
 
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
