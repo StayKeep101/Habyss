@@ -10,10 +10,6 @@ export const homeStyles = StyleSheet.create({
     bar: { position: 'absolute', top: 0, left: 0, right: 0 },
     /** Behind the bar and a little under it: the page colour at the top, clear by its foot. */
     barFade: { position: 'absolute', top: 0, bottom: -Spacing.lg, left: 0, right: 0 },
-    /** Home's hero on the scene: the title, the hourglass and its clocks, Echo's line. */
-    hero: { gap: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.section },
-    /** "Today" and the date, top left. */
-    titleBlock: { gap: Spacing.xs / 2 },
     /** The panel rising over the scene: no edge of its own, it rises out of the night (panelFade). */
     panel: {},
     /** Above the panel: its own colour fading up into the scene, a soft shadow instead of a drawn edge. */

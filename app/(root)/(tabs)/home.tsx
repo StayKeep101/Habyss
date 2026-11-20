@@ -1,7 +1,6 @@
 import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, RefreshControl, useWindowDimensions } from 'react-native';
-import { Text as UIText } from '@/components/ui/Text';
 import { EchoLine } from '@/components/Home/EchoLine';
 import { CheckInPopup } from '@/components/Echo/CheckInPopup';
 import { useEchoMemory } from '@/hooks/useEchoMemory';
@@ -99,17 +98,23 @@ const Home = () => {
   // As the cards rise, the day's hourglass fades out instead of being cut off, and comes back.
   const homeScrollY = useSharedValue(0);
   const onHomeScroll = useAnimatedScrollHandler(event => { homeScrollY.set(event.contentOffset.y); });
-  // The hero (title, hourglass, clocks, Echo) sits on the scene; it fades as it slides under the bar,
-  // and the scene with it, once the cards have risen past the glass.
+  // How far the page has risen from rest (0 unscrolled); the panel's edge reaches the bar at SCENE_SHOWN.
+  // The panel starts this far down: the scene shows above it.
   const { height: screenHeight } = useWindowDimensions();
+  // The panel's edge rests a third of the way down the screen (the day gets the other two thirds),
+  // never so high that the glass on it would touch the bar.
+  const SCENE_SHOWN = Math.max(GLASS_HEIGHT / 2 + s(16), Math.round(screenHeight / 3) - headerHeight);
+  // The hourglass and its clocks stay whole until the glass reaches the bar, then fade as it slides under.
+  const glassReaches = Math.max(1, SCENE_SHOWN - GLASS_HEIGHT / 2 - s(8));
   const glassFade = useAnimatedStyle(() => ({
-    opacity: interpolate(homeScrollY.get(), [GLASS_HEIGHT * 0.4, GLASS_HEIGHT * 1.1], [1, 0], Extrapolation.CLAMP),
+    opacity: interpolate(homeScrollY.get(), [glassReaches, glassReaches + GLASS_HEIGHT * 0.6], [1, 0], Extrapolation.CLAMP),
   }));
+  // The scene behind.
   const sceneFade = useAnimatedStyle(() => ({
-    opacity: interpolate(homeScrollY.get(), [GLASS_HEIGHT * 0.6, GLASS_HEIGHT * 1.8], [1, 0], Extrapolation.CLAMP),
+    // Holds while you start scrolling; gone once the panel is up past the glass.
+    opacity: interpolate(homeScrollY.get(), [glassReaches * 0.6, SCENE_SHOWN + GLASS_HEIGHT * 0.3], [1, 0], Extrapolation.CLAMP),
   }));
   const { primary: accentColor } = useAccentGradient();
-  const todayTitleDate = new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
   const { playComplete, playLevelUp } = useSounds();
 
@@ -648,7 +653,7 @@ const Home = () => {
         style={pageLeave}
         automaticallyAdjustContentInsets={false}
         // The page scrolls up under the bar's fade (it starts below it), so there is no hard line where it stops.
-        contentContainerStyle={{ paddingTop: headerHeight }}
+        contentContainerStyle={{ paddingTop: SCENE_SHOWN + headerHeight }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -660,39 +665,28 @@ const Home = () => {
           />
         }
       >
-          {/* The hero, on the scene: the day's title, the hourglass with its clocks, and Echo's line. Tap the glass for every hourglass. */}
-          <Animated.View style={[homeStyles.hero, { paddingHorizontal: horizontalPadding }, glassFade]}>
-            <View style={homeStyles.titleBlock}>
-              <UIText variant="screenTitle">Today</UIText>
-              <UIText variant="bodySmall" tone="muted">{todayTitleDate}</UIText>
-            </View>
-            <DayHourglass marks={marks.total} />
-          {motivationalQuote ? <EchoLine key={lineTurn} align="center" text={motivationalQuote} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)}
+          {/* The panel: everything of the day, rising over the scene; the hourglass on its edge. */}
+          <View style={[homeStyles.panel, { backgroundColor: colors.background, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, minHeight: screenHeight - headerHeight }]}>
+            {/* Its top edge is a shadow of its own colour, melting into the night. */}
+            <LinearGradient pointerEvents="none" colors={[clearOf(colors.background), colors.background]} style={homeStyles.panelFade} />
+            {/* Half over the scene, half on the panel; it fades as the panel nears the top rather than being cut off. Tap it for every hourglass. */}
+            <Animated.View style={glassFade}>
+              <DayHourglass marks={marks.total} />
+            </Animated.View>
+
+          {/* Echo, full width below the header, where it reads as a line
+              rather than squeezed into a column beside the picture. */}
+          {motivationalQuote ? <EchoLine key={lineTurn} text={motivationalQuote} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)} style={{ marginTop: sectionGap }}
             onDone={() => {
               const kind = pendingQuestion.current; if (kind) { pendingQuestion.current = null; setTimeout(() => setQuestion(kind), 400); }
               const asked = pendingTalk.current; if (asked) { pendingTalk.current = null; setTimeout(() => setTalk(asked), 500); }
             }} /> : null}
 
-          </Animated.View>
-
-          {/* The panel: the day's cards, rising out of the night (its top edge a fade of its own colour). */}
-          <View style={[homeStyles.panel, { backgroundColor: colors.background, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, minHeight: screenHeight - headerHeight }]}>
-            <LinearGradient pointerEvents="none" colors={[clearOf(colors.background), colors.background]} style={homeStyles.panelFade} />
-          {/* The day's promise, and the few things that would keep it. */}
-          <Animated.View>
-            <View ref={todayRef} collapsable={false}>
-            <DailyFocusCard
-              focus={focus}
-              multiplier={marks.multiplier}
-              onToggle={handleFocusToggle}
-              onOpen={() => router.push('/task-stats')}
-              onAdd={() => emit('show_task_form')}
-            />
-          </View>
-          </Animated.View>
+          {/* Spacer after header */}
+          <View style={{ height: sectionGap }} />
 
           {/* Goals Progress Bar */}
-          <Animated.View style={{ marginTop: sectionGap }}>
+          <Animated.View>
             <View ref={goalsRef} collapsable={false}>
             <GoalsProgressBar
               progress={avgGoalProgress}
@@ -705,6 +699,19 @@ const Home = () => {
 
           {/* Off sick or on vacation: what is running, that the streak is safe, and "I'm back". */}
           {timeOff ? <View style={{ marginTop: sectionGap }}><TimeOffCard /></View> : null}
+
+          {/* The day's promise, and the few things that would keep it. */}
+          <Animated.View style={{ marginTop: sectionGap }}>
+            <View ref={todayRef} collapsable={false}>
+            <DailyFocusCard
+              focus={focus}
+              multiplier={marks.multiplier}
+              onToggle={handleFocusToggle}
+              onOpen={() => router.push('/task-stats')}
+              onAdd={() => emit('show_task_form')}
+            />
+          </View>
+          </Animated.View>
 
             {/* This week's focus, a bar a day: the Focus page's week, at a glance. Measured by the walkthrough. */}
             <View ref={focusRef} collapsable={false} style={{ marginTop: sectionGap }}>

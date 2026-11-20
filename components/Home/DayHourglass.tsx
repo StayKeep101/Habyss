@@ -28,7 +28,7 @@ import { s } from '@/theme/scale';
 import { tint } from '@/theme/tokens';
 
 /** The glass's height on Home, from the screen's width so every phone keeps the proportion. */
-export const GLASS_HEIGHT = s(160);
+export const GLASS_HEIGHT = s(128);
 const FLIP_KEY = 'habyss_glass_flipped';
 
 // Built once, outside any worklet (a helper call inside one crashes natively).
@@ -163,16 +163,15 @@ export function DayHourglass({ marks }: { marks: number }) {
     const leftWords = `${Math.floor(glass.left / 3600)} hours ${Math.floor((glass.left % 3600) / 60)} minutes`;
 
     return (
-        // Home's hero: the glass in the middle, the clocks either side of it.
+        // On the panel's top edge (Home): the glass half over the scene, half on the panel; the clocks on the panel beside it.
         <View style={styles.stage}>
             {/* What each clock is, said by shape, never words: the sun (since you woke) and the moon (until bed).
                 Plain figures, no pill: they are read, not pressed, so they do not look like buttons. */}
-            <View style={styles.clockColumn} accessible accessibilityLabel={`${pastWords} of today gone`}>
-                <AppIcon name="sunny" size={CLOCK_ICON} color={t.color.accentText} />
-                <Text style={[styles.clock, { color: t.color.textPrimary }]}>
+            <View style={styles.clockPill}>
+                <AppIcon name="sunny" size={CLOCK_ICON} color={t.color.textMuted} />
+                <Text style={[styles.clock, { color: t.color.textMuted }]} accessibilityLabel={`${pastWords} of today gone`}>
                     {glass.resting === 'night' ? '—' : clockLabel(glass.past)}
                 </Text>
-                <Text style={[styles.clockLabel, { color: t.color.textMuted }]}>Awake</Text>
             </View>
             <Pressable onPress={reveal} accessibilityRole="button" style={styles.glassBox}
                 accessibilityLabel={glass.resting === 'night' ? 'Your day has run out. See every hourglass' : `Your day: ${leftWords} left. See every hourglass`}>
@@ -192,12 +191,11 @@ export function DayHourglass({ marks }: { marks: number }) {
                     )}
                 </Animated.View>
             </Pressable>
-            <View style={styles.clockColumn} accessible accessibilityLabel={`${leftWords} left today`}>
+            <View style={styles.clockPill}>
                 <AppIcon name="moon" size={CLOCK_ICON} color={t.color.accentText} />
-                <Text style={[styles.clock, { color: t.color.textPrimary }]}>
+                <Text style={[styles.clock, { color: t.color.accentText }]} accessibilityLabel={`${leftWords} left today`}>
                     {glass.resting === 'night' ? '—' : clockLabel(glass.left)}
                 </Text>
-                <Text style={[styles.clockLabel, { color: t.color.textMuted }]}>Until sleep</Text>
             </View>
         </View>
     );
@@ -250,15 +248,16 @@ function Mote({ index, color, still }: { index: number; color: string; still: bo
 }
 
 
-const CLOCK_ICON = s(20);
+const CLOCK_ICON = s(14);
 
 const styles = StyleSheet.create({
-    // The glass in the middle, a clock either side, centred on it.
-    stage: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    // Each clock a column: its icon, the time, what the time is.
-    clockColumn: { flex: 1, alignItems: 'center', gap: Spacing.xs },
-    clock: { fontFamily: FontFamily.bold, fontSize: s(24), fontVariant: ['tabular-nums'] },
-    clockLabel: { fontFamily: FontFamily.medium, fontSize: s(13) },
+    // Half above the panel's edge: pulled up by half the glass; the clocks sit level with its lower half, on the panel.
+    stage: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: -GLASS_HEIGHT / 2 },
+    // The same figures as the stats bar: Lexend bold, tabular, on the app's matte pill.
+    // Bigger figures, the icon before them, the same inner spacing all round (8 / 12).
+    clockPill: { width: s(128), marginBottom: GLASS_HEIGHT / 4 - s(20), paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs },
+    clock: { fontFamily: FontFamily.bold, fontSize: s(19), fontVariant: ['tabular-nums'] },
     glassBox: { alignItems: 'center', justifyContent: 'center' },
     flare: { position: 'absolute', width: GLASS_HEIGHT, height: GLASS_HEIGHT, borderRadius: GLASS_HEIGHT / 2 },
     ring: { position: 'absolute', width: GLASS_HEIGHT * 0.7, height: GLASS_HEIGHT * 0.7, borderRadius: GLASS_HEIGHT, borderWidth: 2 },
