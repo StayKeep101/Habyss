@@ -50,5 +50,5 @@ export const CRAFTED_HOURGLASS: ReadonlySet<string> = new Set(['Growing']);
  * before it is drawn live (a test: the sand does not move).
  */
 export const HOME_PREVIEW_ART: Record<string, { image: ImageSourcePropType; ratio: number }> = {
-    Growing: { image: require('@/assets/images/hourglasses/home-preview.png'), ratio: 623 / 829 },
+    Growing: { image: require('@/assets/images/hourglasses/home-preview.png'), ratio: 652 / 900 },
 };
