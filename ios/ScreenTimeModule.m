@@ -1,4 +1,5 @@
 #import <React/RCTBridgeModule.h>
+#import <React/RCTViewManager.h>
 
 @interface RCT_EXTERN_MODULE (ScreenTimeModule, NSObject)
 
@@ -24,5 +25,18 @@ RCT_EXTERN_METHOD(gateOpenUntil : (RCTPromiseResolveBlock)
                       resolve reject : (RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(hasSelectedApps : (RCTPromiseResolveBlock)
                       resolve reject : (RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(pickAppTimeApps : (NSString *)habitId title : (NSString *)title resolve : (RCTPromiseResolveBlock)
+                      resolve reject : (RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(appTimeChosen : (NSString *)habitId resolve : (RCTPromiseResolveBlock)
+                      resolve reject : (RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(setAppTimeHabits : (NSString *)json)
+RCT_EXTERN_METHOD(takeAppTimeResults : (RCTPromiseResolveBlock)
+                      resolve reject : (RCTPromiseRejectBlock)reject)
 
+@end
+
+@interface RCT_EXTERN_MODULE(ScreenTimeReportViewManager, RCTViewManager)
+RCT_EXPORT_VIEW_PROPERTY(days, NSNumber)
+RCT_EXPORT_VIEW_PROPERTY(offset, NSNumber)
+RCT_EXPORT_VIEW_PROPERTY(weekStart, NSNumber)
 @end

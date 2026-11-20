@@ -12,8 +12,8 @@ const service = () => (require('../HealthKitService') as typeof import('../Healt
 
 describe('what Health can track by itself', () => {
     it('offers only what measures the habit’s own unit, never a look-alike', () => {
-        expect(metricsForUnit('minutes')).toEqual(['sleep', 'exercise', 'mindful']);
-        expect(metricsForUnit('hours')).toEqual(['sleep', 'exercise', 'mindful']);
+        expect(metricsForUnit('minutes')).toEqual(['sleep', 'exercise', 'mindful', 'strength', 'run', 'cycle', 'swim', 'yoga', 'hiit', 'workout']);
+        expect(metricsForUnit('hours')).toEqual(['sleep', 'exercise', 'mindful', 'strength', 'run', 'cycle', 'swim', 'yoga', 'hiit', 'workout']);
         expect(metricsForUnit('steps')).toEqual(['steps']);
         expect(metricsForUnit('km')).toEqual(['distance']);
         expect(metricsForUnit('kcal')).toEqual(['energy']);
@@ -33,7 +33,7 @@ describe('what Health can track by itself', () => {
 
     it('names each, and knows no others', () => {
         expect(healthLabel('sleep')).toBe('Sleep');
-        expect(HEALTH_METRICS.map(metric => metric.id)).toEqual(['sleep', 'steps', 'exercise', 'mindful', 'distance', 'flights', 'energy']);
+        expect(HEALTH_METRICS.map(metric => metric.id)).toEqual(['sleep', 'steps', 'exercise', 'mindful', 'distance', 'flights', 'energy', 'strength', 'run', 'cycle', 'swim', 'yoga', 'hiit', 'workout']);
         expect(isHealthMetric('steps')).toBe(true);
         expect(isHealthMetric('heartbeat')).toBe(false);
         expect(isHealthMetric(undefined)).toBe(false);

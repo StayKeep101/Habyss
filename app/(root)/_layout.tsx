@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { Dimensions } from 'react-native';
 import { DemonEdge } from '@/components/ui/DemonEdge';
-import { SleepCover } from '@/components/Sleep/SleepCover';
 import { useTaskPressure } from '@/hooks/useTaskPressure';
 
 /**
@@ -250,7 +249,6 @@ export default function RootLayout() {
       {/* Demon mode: far behind on tasks, the edge of the screen glows red (lib/taskPressure.ts). */}
       <DemonEdge on={demon} />
       {/* When the day is done, Habyss sleeps until wake (the Bedtime lock). */}
-      <SleepCover />
       {/* Phone on its side: focus on what is due now. */}
     </>
   );

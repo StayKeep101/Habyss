@@ -3,6 +3,7 @@ import React
 import SwiftUI
 import FamilyControls
 import ManagedSettings
+import DeviceActivity
 
 @objc(ScreenTimeModule)
 class ScreenTimeModule: NSObject {
@@ -115,6 +116,38 @@ class ScreenTimeModule: NSObject {
         if #available(iOS 16.0, *) { resolve(Gate.load()?.unlockedUntil ?? 0) } else { resolve(0) }
     }
 
+    // MARK: App time (AppTime in GateShared.swift, lib/appTime.ts)
+
+    /// The apps that count for one habit: resolves the number chosen, or -1 when closed without saving.
+    @objc func pickAppTimeApps(_ habitId: String, title: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard #available(iOS 16.0, *) else { reject("UNSUPPORTED", "Requires iOS 16+", nil); return }
+        DispatchQueue.main.async {
+            guard let root = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .flatMap({ $0.windows })
+                .first(where: { $0.isKeyWindow })?.rootViewController else { resolve(-1); return }
+            var top = root
+            while let shown = top.presentedViewController { top = shown }
+            let picker = AppTimePickerView(habitId: habitId, title: title, onClose: { count in resolve(count) })
+            top.present(UIHostingController(rootView: picker), animated: true)
+        }
+    }
+
+    @objc func appTimeChosen(_ habitId: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        if #available(iOS 16.0, *) { resolve(AppTime.chosenCount(habitId)) } else { resolve(0) }
+    }
+
+    /// [{id, name, minutes, quit}]: saved, and each one's daily watch (re)started.
+    @objc func setAppTimeHabits(_ json: String) {
+        guard #available(iOS 16.0, *), let data = json.data(using: .utf8),
+              let list = try? JSONDecoder().decode([AppTime.Habit].self, from: data) else { return }
+        AppTime.watch(list)
+    }
+
+    @objc func takeAppTimeResults(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        if #available(iOS 16.0, *) { resolve(AppTime.takeResults()) } else { resolve([]) }
+    }
+
     @objc func hasSelectedApps(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         if #available(iOS 16.0, *) {
             // A whole category ("Social") counts as a choice, not only single apps.
@@ -124,5 +157,68 @@ class ScreenTimeModule: NSObject {
         } else {
             resolve(false)
         }
+    }
+}
+
+// MARK: - Screen time, drawn by the report extension (ios/ScreenTimeReport)
+
+
+/// The Focus page's Screen time side (lib/screenTimeReport.tsx): `days` (7 or 30)
+/// ending `offset` windows ago, drawn by the report extension; the app never sees the numbers.
+@objc(ScreenTimeReportViewManager)
+class ScreenTimeReportViewManager: RCTViewManager {
+    override static func requiresMainQueueSetup() -> Bool { true }
+    override func view() -> UIView! {
+        if #available(iOS 16.0, *) { return ScreenTimeReportView() }
+        return UIView()
+    }
+}
+
+@available(iOS 16.0, *)
+class ScreenTimeReportView: UIView {
+    @objc var days: NSNumber = 7 { didSet { render() } }
+    @objc var offset: NSNumber = 0 { didSet { render() } }
+    /// The first day of the week (0 Sunday, 1 Monday), so a week matches the Focus side.
+    @objc var weekStart: NSNumber = 1 { didSet { render() } }
+    private var host: UIHostingController<AnyView>?
+
+    override init(frame: CGRect) { super.init(frame: frame); backgroundColor = .clear; render() }
+    required init?(coder: NSCoder) { super.init(coder: coder); render() }
+
+    private func interval() -> DateInterval {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let count = max(1, days.intValue)
+        var start: Date
+        if count == 7 {
+            // The calendar week, like the Focus side.
+            let weekday = calendar.component(.weekday, from: today) - 1
+            let back = (weekday - weekStart.intValue + 7) % 7
+            start = calendar.date(byAdding: .day, value: -back - 7 * offset.intValue, to: today) ?? today
+        } else {
+            start = calendar.date(byAdding: .day, value: -(count - 1) - count * offset.intValue, to: today) ?? today
+        }
+        let end = min(calendar.date(byAdding: .day, value: count, to: start) ?? today, calendar.date(byAdding: .day, value: 1, to: today) ?? today)
+        return DateInterval(start: start, end: end)
+    }
+
+    private func render() {
+        let filter = DeviceActivityFilter(segment: .daily(during: interval()), users: .all, devices: .init([.iPhone]))
+        let report = AnyView(DeviceActivityReport(DeviceActivityReport.Context("habyss.usage"), filter: filter).background(Color.clear))
+        if let host {
+            host.rootView = report
+        } else {
+            let made = UIHostingController(rootView: report)
+            made.view.backgroundColor = .clear
+            made.view.frame = bounds
+            made.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            addSubview(made.view)
+            host = made
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        host?.view.frame = bounds
     }
 }

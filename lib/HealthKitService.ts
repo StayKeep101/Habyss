@@ -45,11 +45,19 @@ const permission = (key: string): string | null => Permissions[key] ?? null;
  * automatic habits (lib/healthMetrics.ts). Read-only — Habyss writes nothing.
  */
 const READ = ['SleepAnalysis', 'AppleExerciseTime', 'StepCount', 'MindfulSession', 'DistanceWalkingRunning', 'FlightsClimbed', 'ActiveEnergyBurned'];
+/**
+ * Workouts are asked for only once a workout habit exists: Health shows its
+ * sheet again for any type not yet answered, and nobody with only a step habit
+ * should see one about workouts.
+ */
+const WORKOUTS_KEY = 'habyss_health_workouts';
+let workoutsWanted: boolean | null = null;
+const wantsWorkouts = async () => (workoutsWanted ??= (await AsyncStorage.getItem(WORKOUTS_KEY).catch(() => null)) === '1');
 const WRITE: string[] = [];
 
-const buildPermissions = () => ({
+const buildPermissions = (workouts = false) => ({
     permissions: {
-        read: READ.map(permission).filter(Boolean) as string[],
+        read: [...READ, ...(workouts ? ['Workout'] : [])].map(permission).filter(Boolean) as string[],
         write: WRITE.map(permission).filter(Boolean) as string[],
     },
 });
@@ -114,10 +122,18 @@ export class HealthKitService {
         });
     }
 
+    /** A workout habit was added: workouts are read from now on (and asked for, once). */
+    static async wantWorkouts(): Promise<boolean> {
+        workoutsWanted = true;
+        await AsyncStorage.setItem(WORKOUTS_KEY, '1').catch(() => undefined);
+        return this.init();
+    }
+
     static async init(): Promise<boolean> {
         if (!has('initHealthKit')) return false;
+        const workouts = await wantsWorkouts();
         return new Promise(resolve => {
-            AppleHealthKit.initHealthKit(buildPermissions(), (error: string | null) => {
+            AppleHealthKit.initHealthKit(buildPermissions(workouts), (error: string | null) => {
                 if (error) console.warn('HealthKit init error:', error);
                 else { HealthKitService.known = true; void AsyncStorage.setItem(CONNECTED_KEY, '1').catch(() => undefined); }
                 resolve(!error);
@@ -141,7 +157,11 @@ export class HealthKitService {
             case 'distance': return this.distanceKm(date);
             case 'flights': return this.flights(date);
             case 'energy': return this.activeEnergy(date);
-            default: return null;
+            default: {
+                const { WORKOUT_KINDS } = require('./healthMetrics') as typeof import('./healthMetrics');
+                const kinds = WORKOUT_KINDS[metric];
+                return kinds ? this.workoutMinutes(date, kinds) : null;
+            }
         }
     }
 
@@ -150,6 +170,17 @@ export class HealthKitService {
         const start = new Date(date); start.setHours(0, 0, 0, 0);
         const end = new Date(start); end.setDate(start.getDate() + 1);
         return { startDate: start.toISOString(), endDate: end.toISOString() };
+    }
+
+    /** Minutes of workouts on `date` of these kinds (any kind when empty), from every app that saves them. */
+    static async workoutMinutes(date: Date, kinds: readonly string[]): Promise<number | null> {
+        if (!(await wantsWorkouts())) return null;
+        return ask('getAnchoredWorkouts', { ...this.dayRange(date), type: 'Workout' },
+            (results: { data?: { activityName?: string; duration?: number; start?: string }[] }) => Math.round((results?.data ?? [])
+                .filter(row => !kinds.length || kinds.includes(String(row.activityName)))
+                // Counted on the day it started, so a run past midnight is not counted twice.
+                .filter(row => !row.start || new Date(row.start).toDateString() === date.toDateString())
+                .reduce((sum, row) => sum + Math.max(0, Number(row.duration) || 0), 0) / 60));
     }
 
     /** Mindful minutes on `date`, from every meditation app that saves them. */

@@ -18,6 +18,10 @@ jest.mock('expo-notifications', () => ({
     IosAuthorizationStatus: { PROVISIONAL: 3 },
 }));
 jest.mock('../habitsSQLite', () => ({ getHabits: jest.fn(), getCompletions: jest.fn() }));
+jest.mock('../autoTrack', () => ({
+    autoTickHabit: jest.fn().mockResolvedValue({ result: 'done', name: 'Gym' }),
+    autoTickTask: jest.fn(), tellAutoTicked: jest.fn(), minutesLabel: (m: number) => `${Math.round(m)} min`,
+}));
 
 const habit = { id: 'read', name: 'Read', startDate: '2026-01-01', frequency: 'weekly', taskDays: ['wed'], locationReminders: [{ name: 'Home', latitude: 45, longitude: -73, radius: 150 }] };
 const task = (TaskManager.defineTask as jest.Mock).mock.calls[0][1];
@@ -107,3 +111,40 @@ describe('habit place reminders', () => {
         expect(Location.startGeofencingAsync).not.toHaveBeenCalled();
     });
 });
+
+describe('time at a place', () => {
+    const { autoTickHabit, tellAutoTicked } = require('../autoTrack');
+    const staying = { ...habit, id: 'gym', name: 'Gym', taskDays: [], frequency: 'daily', locationReminders: [{ name: 'The gym', latitude: 45, longitude: -73, radius: 150, trigger: 'stay' as const, stayMinutes: 30 }] };
+    const at = (minutes: number) => jest.setSystemTime(new Date(2026, 8, 16, 18, minutes));
+    const cross = (eventType: 1 | 2) => task({ data: { eventType, region: { identifier: 'gym::0' } } });
+
+    beforeEach(async () => {
+        jest.clearAllMocks();
+        jest.useFakeTimers();
+        await AsyncStorage.clear();
+        (getHabits as jest.Mock).mockResolvedValue([staying]);
+        (getCompletions as jest.Mock).mockResolvedValue({});
+    });
+    afterEach(() => jest.useRealTimers());
+
+    it('ticks it after long enough there, and says so', async () => {
+        at(0); await cross(1);
+        at(47); await cross(2);
+        expect(autoTickHabit).toHaveBeenCalledWith('gym', '2026-09-16');
+        expect(tellAutoTicked).toHaveBeenCalledWith('habit:gym', 'Gym: done.', '47 min at The gym. Not a single tap.');
+        expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
+
+    it('does not tick a quick visit', async () => {
+        at(0); await cross(1);
+        at(10); await cross(2);
+        expect(autoTickHabit).not.toHaveBeenCalled();
+    });
+
+    it('watches both ways for a stay', async () => {
+        await LocationService.refreshGeofences();
+        expect(Location.startGeofencingAsync).toHaveBeenCalledWith('HABYSS_GEOFENCING_TASK',
+            [expect.objectContaining({ notifyOnEnter: true, notifyOnExit: true })]);
+    });
+});
+

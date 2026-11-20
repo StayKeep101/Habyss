@@ -145,14 +145,14 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
                         <View style={styles.placeRow}>
                             <AppIcon name="location" size={14} color={accent} />
                             <Text numberOfLines={1} style={[styles.placeName, { color: colors.textPrimary }]}>{place.name}</Text>
-                            {(['arrive', 'leave'] as const).map(trigger => {
+                            {(['arrive', 'leave', 'stay'] as const).map(trigger => {
                                 const on = (place.trigger ?? 'arrive') === trigger;
                                 return (
                                     <Pressable key={trigger} accessibilityRole="radio" accessibilityState={{ selected: on }}
-                                        accessibilityLabel={trigger === 'arrive' ? 'When I arrive' : 'When I leave'}
-                                        onPress={() => { if (!on) { selectionFeedback(); onChange({ places: [{ ...place, trigger }] }); } }}>
+                                        accessibilityLabel={TRIGGER_SAID[trigger]} hitSlop={Spacing.sm}
+                                        onPress={() => { if (!on) { selectionFeedback(); onChange({ places: [{ ...place, trigger, stayMinutes: trigger === 'stay' ? place.stayMinutes ?? 30 : place.stayMinutes }] }); } }}>
                                         <MatteSurface radius={Radius.pill} level="control" tint={on ? accent : undefined} style={styles.pill}>
-                                            <Text style={[styles.pillText, { color: on ? textOn(accent) : colors.textSecondary }]}>{trigger === 'arrive' ? 'Arrive' : 'Leave'}</Text>
+                                            <Text style={[styles.pillText, { color: on ? textOn(accent) : colors.textSecondary }]}>{TRIGGER_LABEL[trigger]}</Text>
                                         </MatteSurface>
                                     </Pressable>
                                 );
@@ -168,11 +168,31 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
                             </MatteSurface>
                         </Pressable>
                     )}
+                    {place?.trigger === 'stay' ? (
+                        <>
+                            <View style={styles.leads}>
+                                {STAY_CHOICES.map(minutes => (
+                                    <ChoicePill key={minutes} label={leadLabel(minutes)} on={(place.stayMinutes ?? 30) === minutes} color={accent}
+                                        pressStyle={styles.flex} style={styles.lead} textStyle={styles.leadText}
+                                        accessibilityLabel={`Tick it after ${leadLabel(minutes)} there`}
+                                        onPress={() => { selectionFeedback(); onChange({ places: [{ ...place, stayMinutes: minutes }] }); }} />
+                                ))}
+                            </View>
+                            <Text style={[styles.caption, { color: colors.textTertiary }]}>
+                                {`Ticks itself after ${leadLabel(place.stayMinutes ?? 30)} at ${place.name}`}
+                            </Text>
+                        </>
+                    ) : null}
                 </View>
             ) : null}
         </View>
     );
 }
+
+const TRIGGER_LABEL = { arrive: 'Arrive', leave: 'Leave', stay: 'Stay' } as const;
+const TRIGGER_SAID = { arrive: 'Remind me when I arrive', leave: 'Remind me when I leave', stay: 'Tick it after time there' } as const;
+/** How long at the place before it counts. */
+const STAY_CHOICES = [15, 30, 45, 60, 90];
 
 /** "1 hr 30 min", "45 min". */
 const leadLabel = (minutes: number) => {

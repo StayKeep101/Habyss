@@ -25,8 +25,17 @@ import { getHabits, type Habit } from '@/lib/habitsSQLite';
 import { todayKey } from '@/lib/tasks';
 import { styles } from '@/styles/screens/focus-stats.styles';
 import { DayBar } from '@/components/Focus/FocusWeekBars';
+import { ScreenTimeReport } from '@/components/Focus/ScreenTimeReport';
+import { IconToggle } from '@/components/ui/IconToggle';
 
 type Range = 7 | 30;
+type Side = 'focus' | 'screen';
+const SIDES = [
+    { id: 'focus' as Side, icon: 'timer-outline' as const, label: 'Focus time' },
+    { id: 'screen' as Side, icon: 'phone-portrait-outline' as const, label: 'Screen time' },
+] as const;
+/** Room for the report: the number, the bars and eight apps. */
+const REPORT_HEIGHT = 820;
 const dayLetter = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'narrow' });
 const longDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 const shortDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
@@ -53,6 +62,8 @@ export default function FocusStatsScreen() {
     useEffect(() => { void getHabits().then(setHabits).catch(() => undefined); }, []);
 
     const [range, setRange] = useState<Range>(7);
+    // Focus time, or Screen time: the same days, the other side of the same question.
+    const [side, setSide] = useState<Side>('focus');
     const today = todayKey();
     const summary = useMemo(() => focusSummary(records, today, range), [records, today, range]);
     const weekStart = useWeekStart();
@@ -119,8 +130,23 @@ export default function FocusStatsScreen() {
     const topItem = listed[0]?.seconds ?? 1;
 
     return (
-        <SheetScreen title="Focus" onBack={() => router.back()}>
+        <SheetScreen title={side === 'focus' ? 'Focus' : 'Screen time'} onBack={() => router.back()}
+            rightSlot={<IconToggle options={SIDES} value={side} onChange={next => { selectionFeedback(); setSide(next); setPage(0); setPicked(null); }} />}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                {side === 'screen' ? (
+                    <>
+                        <ChoiceRow accessibilityLabel="Days shown" value={range} onChange={setRange}
+                            options={[{ id: 7 as Range, label: '7 days' }, { id: 30 as Range, label: '30 days' }]} />
+                        <View style={styles.window}>
+                            <IconButton icon="chevron-back" label={range === 7 ? 'Previous week' : 'Previous 30 days'} diameter={32} size={16} onPress={() => turn(1)} />
+                            <Text style={[styles.windowLabel, { color: colors.textSecondary }]}>
+                                {page === 0 ? (range === 7 ? 'This week' : 'Last 30 days') : `${shortDay(shown.days[0].date)} – ${shortDay(shown.days[shown.days.length - 1].date)}`}
+                            </Text>
+                            <IconButton icon="chevron-forward" label={range === 7 ? 'Next week' : 'Next 30 days'} diameter={32} size={16} disabled={page === 0} onPress={() => turn(-1)} />
+                        </View>
+                        <ScreenTimeReport days={range} offset={page} weekStart={weekStart} height={REPORT_HEIGHT} />
+                    </>
+                ) : (<>
                 <View style={styles.hero}>
                     {/* The week, or the day under your finger. */}
                     {pickedDay ? (
@@ -201,6 +227,7 @@ export default function FocusStatsScreen() {
                         ) : null}
                     </>
                 )}
+                </>)}
             </ScrollView>
         </SheetScreen>
     );

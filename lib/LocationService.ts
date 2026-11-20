@@ -30,6 +30,7 @@ async function notifyCrossing(identifier: string, direction: 'arrive' | 'leave')
     if (!habit || habit.isArchived || habit.isGoal || !isHabitScheduledForDate(habit, now)) return;
     if ((await getCompletions(date))[habitId]) return;
     const place = habit.locationReminders?.[Number(index)];
+    if (place?.trigger === 'stay') { await stayCrossing(identifier, direction, place, { kind: 'habit', id: habitId }); return; }
     if (!place || (place.trigger ?? 'arrive') !== direction) return;
     // Once a day per place and per direction: a habit with two places should
     // still be able to catch you at the second one.
@@ -57,6 +58,7 @@ async function notifyTaskCrossing(identifier: string, direction: 'arrive' | 'lea
     const task = (await getTasks()).find(item => item.id === taskId);
     if (!task || task.status !== 'open') return;
     const place = task.locationReminders?.[Number(index)];
+    if (place?.trigger === 'stay') { await stayCrossing(identifier, direction, place, { kind: 'task', id: taskId }); return; }
     if (!place || (place.trigger ?? 'arrive') !== direction) return;
     const date = localDateKey(new Date());
     const dedupeKey = `habyss_crossing_task_${taskId}::${index}::${direction}`;
@@ -73,6 +75,79 @@ async function notifyTaskCrossing(identifier: string, direction: 'arrive' | 'lea
         trigger: null,
     });
     await AsyncStorage.setItem(dedupeKey, date);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Time at a place: ticks itself                                              */
+/* -------------------------------------------------------------------------- */
+
+type StayPlace = { name: string; latitude: number; longitude: number; radius?: number; stayMinutes?: number };
+type StayItem = { kind: 'habit' | 'task'; id: string };
+const ARRIVED_KEY = 'habyss_place_arrivals';
+/** Longer than this without a "left" means a missed exit, not a stay. */
+const STAY_CEILING_MS = 14 * 60 * 60 * 1000;
+
+const stayMs = (place: StayPlace) => Math.max(5, Math.min(600, place.stayMinutes ?? 30)) * 60 * 1000;
+
+type Arrival = { at: number; item: StayItem; place: StayPlace };
+async function arrivals(): Promise<Record<string, Arrival>> {
+    try { return JSON.parse((await AsyncStorage.getItem(ARRIVED_KEY)) ?? '{}'); } catch { return {}; }
+}
+async function setArrivals(next: Record<string, Arrival>) {
+    await AsyncStorage.setItem(ARRIVED_KEY, JSON.stringify(next)).catch(() => undefined);
+}
+
+/** Arriving starts the clock; leaving after long enough ticks it. */
+async function stayCrossing(identifier: string, direction: 'arrive' | 'leave', place: StayPlace, item: StayItem) {
+    const all = await arrivals();
+    if (direction === 'arrive') {
+        if (!all[identifier]) { all[identifier] = { at: Date.now(), item, place }; await setArrivals(all); }
+        return;
+    }
+    const arrival = all[identifier];
+    delete all[identifier];
+    await setArrivals(all);
+    if (!arrival) return;
+    const stayed = Date.now() - arrival.at;
+    if (stayed >= stayMs(place) && stayed <= STAY_CEILING_MS) await tickForStay(item, place, stayed, new Date(arrival.at));
+}
+
+async function tickForStay(item: StayItem, place: StayPlace, stayedMs: number, arrivedAt: Date) {
+    const { autoTickHabit, autoTickTask, tellAutoTicked, minutesLabel }: typeof import('./autoTrack') = require('./autoTrack');
+    const outcome = item.kind === 'habit' ? await autoTickHabit(item.id, localDateKey(arrivedAt)) : await autoTickTask(item.id);
+    if (outcome.result !== 'done' || !outcome.name) return;
+    await tellAutoTicked(`${item.kind}:${item.id}`, `${outcome.name}: done.`, `${minutesLabel(stayedMs / 60000)} at ${place.name}. Not a single tap.`);
+}
+
+/** Metres between two points (haversine). */
+function metresBetween(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
+    const rad = (deg: number) => (deg * Math.PI) / 180;
+    const dLat = rad(b.latitude - a.latitude), dLon = rad(b.longitude - a.longitude);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.latitude)) * Math.cos(rad(b.latitude)) * Math.sin(dLon / 2) ** 2;
+    return 2 * 6371000 * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Still there and long enough: ticked now rather than on leaving (run when
+ * Habyss comes to the front). Only with a fresh enough fix that puts you
+ * inside the place; otherwise it waits for the exit.
+ */
+export async function checkStays(): Promise<void> {
+    const all = await arrivals();
+    const due = Object.entries(all).filter(([, arrival]) => Date.now() - arrival.at >= stayMs(arrival.place));
+    if (!due.length) return;
+    let here: { latitude: number; longitude: number } | null = null;
+    try {
+        const fix = await Location.getLastKnownPositionAsync({ maxAge: 5 * 60 * 1000 });
+        if (fix) here = { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
+    } catch { /* no fix: wait for the exit */ }
+    for (const [identifier, arrival] of due) {
+        if (Date.now() - arrival.at > STAY_CEILING_MS) { delete all[identifier]; continue; }
+        if (!here || metresBetween(here, arrival.place) > Math.max(100, arrival.place.radius ?? 150) + 50) continue;
+        delete all[identifier];
+        await tickForStay(arrival.item, arrival.place, Date.now() - arrival.at, new Date(arrival.at));
+    }
+    await setArrivals(all);
 }
 
 // Define the background task in the global scope
@@ -161,7 +236,8 @@ export class LocationService {
                             // would fire the crossing the user did not ask for
                             // and then be thrown away in notifyCrossing.
                             notifyOnEnter: loc.trigger !== 'leave',
-                            notifyOnExit: loc.trigger === 'leave',
+                            // A stay is timed from arriving to leaving, so it needs both.
+                            notifyOnExit: loc.trigger === 'leave' || loc.trigger === 'stay',
                         });
                     });
                 }
@@ -176,7 +252,7 @@ export class LocationService {
                     regions.push({
                         identifier: `task:${task.id}::${index}`, latitude: loc.latitude, longitude: loc.longitude,
                         radius: Number.isFinite(loc.radius) ? Math.max(100, loc.radius!) : 150,
-                        notifyOnEnter: loc.trigger !== 'leave', notifyOnExit: loc.trigger === 'leave',
+                        notifyOnEnter: loc.trigger !== 'leave', notifyOnExit: loc.trigger === 'leave' || loc.trigger === 'stay',
                     });
                 });
             }

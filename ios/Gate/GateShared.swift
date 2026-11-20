@@ -316,3 +316,127 @@ enum Night {
         }
     }
 }
+
+// MARK: - App time: habits that tick themselves from time in chosen apps
+
+/// "Read 20 min" ticks itself after 20 minutes in Kindle or Books; "Under an hour
+/// of social" is kept when the day ends under it, and lost the moment it goes over.
+/// The app writes the habits (lib/appTime.ts → ScreenTimeModule.setAppTimeHabits);
+/// each one is a daily watch over its own chosen apps, and the monitor extension
+/// records what happened and says it, whether or not Habyss is open. The app
+/// turns the records into ticks when it next runs.
+@available(iOS 16.0, *)
+enum AppTime {
+    static let prefix = "habyss.apptime."
+    static let habitsKey = "HabyssAppTimeHabits"
+    static let resultsKey = "HabyssAppTimeResults"
+    static let startedKey = "HabyssAppTimeStarted"
+    /// iOS allows about 20 watched activities in all; the gate, scrolling and the night use a few.
+    static let most = 12
+
+    struct Habit: Codable {
+        let id: String
+        let name: String
+        let minutes: Int
+        /// A habit being broken: kept under the time, lost over it.
+        let quit: Bool
+    }
+
+    static func selectionKey(_ id: String) -> String { "HabyssAppTimeSelection.\(id)" }
+
+    static func selection(_ id: String) -> FamilyActivitySelection? {
+        guard let data = UserDefaults(suiteName: Gate.groupId)?.data(forKey: selectionKey(id)) else { return nil }
+        return try? JSONDecoder().decode(FamilyActivitySelection.self, from: data)
+    }
+
+    static func saveSelection(_ selection: FamilyActivitySelection, for id: String) {
+        guard let data = try? JSONEncoder().encode(selection) else { return }
+        UserDefaults(suiteName: Gate.groupId)?.set(data, forKey: selectionKey(id))
+    }
+
+    static func chosenCount(_ id: String) -> Int {
+        guard let s = selection(id) else { return 0 }
+        return s.applicationTokens.count + s.categoryTokens.count + s.webDomainTokens.count
+    }
+
+    static func habits() -> [Habit] {
+        guard let data = UserDefaults(suiteName: Gate.groupId)?.data(forKey: habitsKey) else { return [] }
+        return (try? JSONDecoder().decode([Habit].self, from: data)) ?? []
+    }
+
+    static func habit(for activity: DeviceActivityName) -> Habit? {
+        guard activity.rawValue.hasPrefix(prefix) else { return nil }
+        let id = String(activity.rawValue.dropFirst(prefix.count))
+        return habits().first { $0.id == id }
+    }
+
+    /// "id|day|done", "id|day|kept" or "id|day|over", once per habit per day. True when new.
+    @discardableResult
+    static func record(_ id: String, _ outcome: String, day: String = Gate.today()) -> Bool {
+        let defaults = UserDefaults(suiteName: Gate.groupId)
+        var results = defaults?.stringArray(forKey: resultsKey) ?? []
+        let head = "\(id)|\(day)|"
+        if results.contains(where: { $0.hasPrefix(head) }) { return false }
+        results.append(head + outcome)
+        // Only the last few weeks matter; the app takes them as it runs.
+        defaults?.set(Array(results.suffix(400)), forKey: resultsKey)
+        return true
+    }
+
+    static func recorded(_ id: String, day: String = Gate.today()) -> String? {
+        let head = "\(id)|\(day)|"
+        return (UserDefaults(suiteName: Gate.groupId)?.stringArray(forKey: resultsKey) ?? [])
+            .first { $0.hasPrefix(head) }.map { String($0.dropFirst(head.count)) }
+    }
+
+    /// What happened since the app last looked; each is handed over once.
+    static func takeResults() -> [String] {
+        let defaults = UserDefaults(suiteName: Gate.groupId)
+        let results = defaults?.stringArray(forKey: resultsKey) ?? []
+        let handed = Set(defaults?.stringArray(forKey: resultsKey + ".handed") ?? [])
+        let fresh = results.filter { !handed.contains($0) }
+        defaults?.set(Array(results.suffix(400)), forKey: resultsKey + ".handed")
+        return fresh
+    }
+
+    /// Saves the habits and (re)starts a daily watch over each one's apps.
+    static func watch(_ list: [Habit]) {
+        let kept = Array(list.filter { $0.minutes > 0 && chosenCount($0.id) > 0 }.prefix(most))
+        if let data = try? JSONEncoder().encode(kept) { UserDefaults(suiteName: Gate.groupId)?.set(data, forKey: habitsKey) }
+        let center = DeviceActivityCenter()
+        let wanted = Set(kept.map { prefix + $0.id })
+        let running = center.activities.filter { $0.rawValue.hasPrefix(prefix) }
+        center.stopMonitoring(running.filter { !wanted.contains($0.rawValue) })
+        let schedule = DeviceActivitySchedule(intervalStart: DateComponents(hour: 0, minute: 0),
+                                              intervalEnd: DateComponents(hour: 23, minute: 59), repeats: true)
+        UserDefaults(suiteName: Gate.groupId)?.set(Date().timeIntervalSince1970, forKey: startedKey)
+        for habit in kept {
+            guard let chosen = selection(habit.id) else { continue }
+            let name = DeviceActivityName(prefix + habit.id)
+            let event = DeviceActivityEvent(applications: chosen.applicationTokens, categories: chosen.categoryTokens,
+                                            webDomains: chosen.webDomainTokens, threshold: DateComponents(minute: habit.minutes))
+            center.stopMonitoring([name])
+            try? center.startMonitoring(name, during: schedule, events: [DeviceActivityEvent.Name("reached"): event])
+        }
+    }
+
+    /// The monitor: the time was reached today.
+    static func reached(_ activity: DeviceActivityName) -> (title: String, body: String)? {
+        guard let habit = habit(for: activity) else { return nil }
+        guard record(habit.id, habit.quit ? "over" : "done") else { return nil }
+        // iOS replays thresholds already passed right after a restart: recorded, not said again.
+        let started = UserDefaults(suiteName: Gate.groupId)?.double(forKey: startedKey) ?? 0
+        if Date().timeIntervalSince1970 - started < 60 { return nil }
+        return habit.quit
+            ? ("\(habit.name): gone for today.", "Over \(habit.minutes) min. Put it down. Tomorrow's a clean slate.")
+            : ("\(habit.name): done.", "\(habit.minutes) min in your apps. Not a single tap.")
+    }
+
+    /// The monitor: the day ended. A habit being broken that never went over is kept.
+    static func dayEnded(_ activity: DeviceActivityName, now: Date = Date()) {
+        guard let habit = habit(for: activity), habit.quit else { return }
+        // Only the real end of the day: a restart can end an interval early.
+        guard Calendar.current.component(.hour, from: now) >= 23 else { return }
+        if recorded(habit.id) == nil { record(habit.id, "kept") }
+    }
+}

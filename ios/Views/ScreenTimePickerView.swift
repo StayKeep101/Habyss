@@ -63,3 +63,41 @@ struct ScreenTimePickerView: View {
         return "held"
     }
 }
+
+/// The apps that count for one habit (AppTime): Kindle and Books for "Read", the
+/// social apps for "Under an hour of social". Saved on Done; `onClose` gets how
+/// many were chosen, or -1 when closed without saving.
+@available(iOS 16.0, *)
+struct AppTimePickerView: View {
+    let habitId: String
+    let title: String
+    var onClose: ((Int) -> Void)? = nil
+    @Environment(\.dismiss) var dismiss
+    @State private var selection = FamilyActivitySelection()
+    @State private var answered = false
+
+    var body: some View {
+        NavigationView {
+            FamilyActivityPicker(selection: $selection)
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            AppTime.saveSelection(selection, for: habitId)
+                            answer(AppTime.chosenCount(habitId))
+                            dismiss()
+                        }
+                    }
+                }
+        }
+        .onAppear { if let saved = AppTime.selection(habitId) { selection = saved } }
+        .onDisappear { answer(-1) }
+    }
+
+    private func answer(_ count: Int) {
+        guard !answered else { return }
+        answered = true
+        onClose?(count)
+    }
+}

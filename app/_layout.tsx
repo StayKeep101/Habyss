@@ -342,6 +342,8 @@ function InnerLayout() {
 
   // Siri and Shortcuts act on the account without opening Habyss (lib/siriAccess.ts).
   useEffect(() => (require('@/lib/siriAccess') as typeof import('@/lib/siriAccess')).startSiriAccess(), []);
+  // Habits timed in their apps: iOS watches them with today's names and minutes.
+  useEffect(() => { void (require('@/lib/appTime') as typeof import('@/lib/appTime')).pushAppTime().catch(() => undefined); }, []);
 
   // --- App Intents Listener (Siri/Shortcuts) ---
   const { startTimer, stopTimer: globalStopTimer } = useFocusSession();
@@ -383,6 +385,12 @@ function InnerLayout() {
         const added = await drainQuickAdds();
         if (added.tasks.length) emit('tasks_changed');
         if (added.habits.length || added.goals.length) emit('habit_updated', {});
+
+        // Long enough at a place that ticks itself, and still there (lib/LocationService.ts).
+        await (require('@/lib/LocationService') as typeof import('@/lib/LocationService')).checkStays().catch(() => undefined);
+
+        // Habits timed in their apps, reached or kept while Habyss was closed (lib/appTime.ts).
+        if (await (require('@/lib/appTime') as typeof import('@/lib/appTime')).drainAppTime().catch(() => 0)) emit('habit_completion_updated', {});
 
         // Rows ticked on the widget while the app was closed, habits and tasks alike.
         const { drainWidgetToggles } = require('@/lib/widgetSync');

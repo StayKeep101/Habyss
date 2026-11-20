@@ -146,7 +146,10 @@ export interface LocationReminder {
     latitude: number;
     longitude: number;
     radius?: number;
-    trigger?: 'arrive' | 'leave';
+    /** Remind on arriving or leaving; or `stay`: tick it by itself after `stayMinutes` there (lib/LocationService.ts). */
+    trigger?: 'arrive' | 'leave' | 'stay';
+    /** For `stay`: minutes there before it counts (30 when absent). */
+    stayMinutes?: number;
 }
 
 function storedArray(value: unknown, fallback: any[] = []): any[] {

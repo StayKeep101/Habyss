@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 
 /**
  * Bedtime lock: when the day is done (bedtime, from your day window in
- * lib/echo.ts), Habyss falls asleep: one quiet screen over the whole app until
- * wake. With Screen Time allowed, every app is blocked for the same hours, by
+ * lib/echo.ts), every other app goes quiet until wake. Habyss itself stays
+ * open, to plan tomorrow. With Screen Time allowed, every app is blocked for the same hours, by
  * iOS, whether or not Habyss is open (Night in ios/Gate/GateShared.swift); calls
  * and emergencies always work. Switching it off waits like removing an app
  * (lib/gateLock.ts): 24 hours, then an hour to do it.
@@ -67,33 +67,4 @@ export function useBedtimeLock(): boolean {
         return () => { listeners.delete(read); };
     }, []);
     return value;
-}
-
-/** Whether Habyss is asleep now, and when it wakes ("07:00"). Re-read exactly at bedtime and at wake. */
-export function useAsleep(): { asleep: boolean; wake: string } {
-    const lock = useBedtimeLock();
-    const [state, setState] = useState({ asleep: false, wake: '07:00' });
-    useEffect(() => {
-        if (!lock) return;
-        let alive = true;
-        let timer: ReturnType<typeof setTimeout> | undefined;
-        const { getDayWindow, minutesOf } = require('./echo') as typeof import('./echo');
-        const read = async () => {
-            const day = await getDayWindow();
-            if (!alive) return;
-            const now = new Date();
-            const wake = minutesOf(day.wake);
-            const sleep = minutesOf(day.sleep);
-            setState({ asleep: isNight(now.getHours() * 60 + now.getMinutes(), wake, sleep), wake: day.wake });
-            if (timer) clearTimeout(timer);
-            timer = setTimeout(() => void read(), msToNextEdge(now, wake, sleep) + 500);
-        };
-        void read();
-        // Timers stop while the phone sleeps: read again whenever the app comes back.
-        const { AppState } = require('react-native') as typeof import('react-native');
-        const sub = AppState.addEventListener('change', next => { if (next === 'active') void read(); });
-        return () => { alive = false; if (timer) clearTimeout(timer); sub.remove(); };
-    }, [lock]);
-    // Switched off, it is awake at once, whatever was last read.
-    return lock ? state : { asleep: false, wake: state.wake };
 }

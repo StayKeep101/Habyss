@@ -10,7 +10,20 @@ import { canConvert, convert } from './unitKind';
  * one of them, and keeps working when any of them changes an API. Read-only.
  */
 
-export type HealthMetric = 'sleep' | 'steps' | 'exercise' | 'mindful' | 'distance' | 'flights' | 'energy';
+export type HealthMetric = 'sleep' | 'steps' | 'exercise' | 'mindful' | 'distance' | 'flights' | 'energy'
+    | 'workout' | 'strength' | 'run' | 'cycle' | 'swim' | 'yoga' | 'hiit';
+
+/** Workouts by kind, as Health names them (react-native-health activityName); empty means any workout. */
+export const WORKOUT_KINDS: Partial<Record<HealthMetric, readonly string[]>> = {
+    workout: [],
+    strength: ['TraditionalStrengthTraining', 'FunctionalStrengthTraining', 'CoreTraining', 'CrossTraining'],
+    run: ['Running'],
+    cycle: ['Cycling'],
+    swim: ['Swimming'],
+    yoga: ['Yoga', 'Pilates', 'MindAndBody', 'Flexibility'],
+    hiit: ['HighIntensityIntervalTraining', 'MixedCardio', 'Boxing', 'Kickboxing'],
+};
+export const isWorkoutMetric = (metric: HealthMetric): boolean => metric in WORKOUT_KINDS;
 
 export interface HealthMetricInfo {
     id: HealthMetric;
@@ -20,6 +33,8 @@ export interface HealthMetricInfo {
     detail: string;
     /** Roughly what a day (or a night) of it looks like, for a sensible first target. */
     suggested: number;
+    /** Workouts are listed apart from the day's body numbers. */
+    group?: 'workout';
     /** As an automatic habit (Settings → Automatic habits): its name, icon, unit and the targets offered. */
     habit: { name: string; icon: string; unit: string; target: number; targets: readonly number[] };
 }
@@ -39,6 +54,21 @@ export const HEALTH_METRICS: HealthMetricInfo[] = [
         habit: { name: 'Take the stairs', icon: 'trending-up', unit: 'flights', target: 10, targets: [3, 5, 10, 15, 20] } },
     { id: 'energy', label: 'Active energy', unit: 'kcal', detail: 'Active calories burned today (the red ring)', suggested: 500,
         habit: { name: 'Move', icon: 'flame', unit: 'kcal', target: 500, targets: [200, 300, 400, 500, 600, 800, 1000] } },
+    // Workouts, from any watch or app that saves them to Health (Apple Watch, Strava, Garmin, Whoop…).
+    { id: 'strength', group: 'workout', label: 'Strength', unit: 'minutes', detail: 'A strength or gym workout today', suggested: 45,
+        habit: { name: 'Gym', icon: 'barbell', unit: 'minutes', target: 30, targets: [10, 15, 20, 30, 45, 60, 90] } },
+    { id: 'run', group: 'workout', label: 'Running', unit: 'minutes', detail: 'A run today', suggested: 30,
+        habit: { name: 'Run', icon: 'speedometer', unit: 'minutes', target: 20, targets: [10, 15, 20, 30, 45, 60, 90] } },
+    { id: 'cycle', group: 'workout', label: 'Cycling', unit: 'minutes', detail: 'A ride today', suggested: 45,
+        habit: { name: 'Ride', icon: 'bicycle', unit: 'minutes', target: 30, targets: [10, 15, 20, 30, 45, 60, 90] } },
+    { id: 'swim', group: 'workout', label: 'Swimming', unit: 'minutes', detail: 'A swim today', suggested: 30,
+        habit: { name: 'Swim', icon: 'water', unit: 'minutes', target: 20, targets: [10, 15, 20, 30, 45, 60, 90] } },
+    { id: 'yoga', group: 'workout', label: 'Yoga and Pilates', unit: 'minutes', detail: 'Yoga, Pilates or stretching today', suggested: 20,
+        habit: { name: 'Yoga', icon: 'body', unit: 'minutes', target: 15, targets: [10, 15, 20, 30, 45, 60, 90] } },
+    { id: 'hiit', group: 'workout', label: 'HIIT', unit: 'minutes', detail: 'HIIT, cardio or boxing today', suggested: 20,
+        habit: { name: 'HIIT', icon: 'flash', unit: 'minutes', target: 15, targets: [10, 15, 20, 30, 45, 60, 90] } },
+    { id: 'workout', group: 'workout', label: 'Any workout', unit: 'minutes', detail: 'Any workout today, of any kind', suggested: 30,
+        habit: { name: 'Work out', icon: 'fitness', unit: 'minutes', target: 30, targets: [10, 15, 20, 30, 45, 60, 90] } },
 ];
 
 const BY_ID = new Map(HEALTH_METRICS.map(metric => [metric.id, metric]));
