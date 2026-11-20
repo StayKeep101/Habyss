@@ -2,8 +2,11 @@
  * mcp.<domain>: the short address for Habyss's MCP server, so Claude and
  * ChatGPT connect to "mcp.habyss.app" instead of a 100-character Supabase link.
  *
- *   /.well-known/oauth-protected-resource   how to sign in (RFC 9728): Supabase Auth
- *   /.well-known/oauth-authorization-server  Supabase Auth's own metadata, mirrored here
+ *   /.well-known/oauth-protected-resource   how to sign in (RFC 9728): this address
+ *   /.well-known/oauth-authorization-server  Supabase Auth's metadata, with this address in front
+ *   /oauth/authorize, /oauth/token, /oauth/register
+ *                                            passed on to Supabase Auth's OAuth server, so the
+ *                                            sign-in prompt on the phone names habyss.app, not supabase.co
  *   /oauth/consent                           "Allow Claude to use Habyss?" (Supabase's OAuth server sends people here)
  *   everything else                          forwarded to the mcp edge function
  *
@@ -26,13 +29,38 @@ export default {
             return json({
                 resource: publicUrl,
                 resource_name: 'Habyss',
-                authorization_servers: [issuer],
+                authorization_servers: [publicUrl],
                 bearer_methods_supported: ['header'],
             });
         }
         if (url.pathname.startsWith('/.well-known/oauth-authorization-server') || url.pathname.startsWith('/.well-known/openid-configuration')) {
             const upstream = await fetch(`${issuer}${url.pathname.startsWith('/.well-known/openid') ? '/.well-known/openid-configuration' : '/.well-known/oauth-authorization-server'}`);
-            return new Response(upstream.body, { status: upstream.status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+            if (!upstream.ok) return new Response(upstream.body, { status: upstream.status, headers: { 'Content-Type': 'application/json' } });
+            const meta = await upstream.json();
+            return json({
+                ...meta,
+                issuer: publicUrl,
+                authorization_endpoint: `${publicUrl}/oauth/authorize`,
+                token_endpoint: `${publicUrl}/oauth/token`,
+                registration_endpoint: `${publicUrl}/oauth/register`,
+            });
+        }
+        if (request.method === 'OPTIONS' && url.pathname.startsWith('/oauth/')) {
+            return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Max-Age': '86400' } });
+        }
+        // The first page the phone opens to sign in: straight on to Supabase Auth.
+        if (url.pathname === '/oauth/authorize') {
+            return Response.redirect(`${issuer}/oauth/authorize${url.search}`, 302);
+        }
+        if (url.pathname === '/oauth/token' || url.pathname === '/oauth/register') {
+            const target = `${issuer}${url.pathname === '/oauth/token' ? '/oauth/token' : '/oauth/clients/register'}${url.search}`;
+            const headers = new Headers();
+            for (const name of ['content-type', 'authorization', 'accept']) { const value = request.headers.get(name); if (value) headers.set(name, value); }
+            headers.set('apikey', env.SUPABASE_KEY);
+            const upstream = await fetch(target, { method: request.method, headers, body: request.method === 'GET' ? undefined : request.body });
+            const out = new Headers(upstream.headers);
+            out.set('Access-Control-Allow-Origin', '*');
+            return new Response(upstream.body, { status: upstream.status, headers: out });
         }
         if (url.pathname === '/oauth/consent') {
             return new Response(consentPage({ supabaseUrl: env.SUPABASE_URL, supabaseKey: env.SUPABASE_KEY }), {

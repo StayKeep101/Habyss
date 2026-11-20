@@ -1,9 +1,10 @@
 /**
  * "Allow Claude to use your Habyss?": the page Supabase Auth's OAuth server
  * sends people to (Authentication → OAuth Server → Authorization Path:
- * /oauth/consent, on Site URL https://mcp.<domain>). Sign in with Apple or
- * Google (the same accounts as the app), then Allow or Don't allow. Names
- * from the request are set as text, never as HTML.
+ * /oauth/consent, on Site URL https://mcp.<domain>). Sign in with an emailed
+ * code (the same account as the app; Apple and Google on the web need their
+ * own secrets in Supabase), then Allow or Don't allow. Names from the request
+ * are set as text, never as HTML.
  */
 export function consentPage({ supabaseUrl, supabaseKey }) {
     return `<!doctype html>
@@ -25,8 +26,9 @@ export function consentPage({ supabaseUrl, supabaseKey }) {
   button { display: block; width: 100%; min-height: 50px; border-radius: 14px; border: 0; font: 600 17px -apple-system, system-ui, sans-serif; margin-top: 10px; cursor: pointer; }
   .primary { background: var(--accent); color: var(--on-accent); }
   .quiet { background: transparent; color: var(--muted); }
-  .apple { background: var(--text); color: var(--bg); }
-  .google { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  input { display: block; width: 100%; min-height: 50px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: 17px -apple-system, system-ui, sans-serif; padding: 0 14px; text-align: center; }
+  .code { letter-spacing: 6px; font-size: 22px; }
+  .error { color: #FF8A80; font-size: 15px; margin: 12px 0 0; min-height: 0; }
   .who { font-size: 13px; color: var(--muted); margin-top: 14px; }
   [hidden] { display: none !important; }
 </style>
@@ -37,9 +39,23 @@ export function consentPage({ supabaseUrl, supabaseKey }) {
 
   <section id="signin" hidden>
     <h1>Sign in to Habyss</h1>
-    <p>Use the account you use in the app.</p>
-    <button class="apple" id="apple">Continue with Apple</button>
-    <button class="google" id="google">Continue with Google</button>
+    <p>Use the email on your Habyss account (Settings → Account).</p>
+    <form id="emailForm">
+      <input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" placeholder="you@example.com" required aria-label="Email">
+      <button class="primary" type="submit" id="send">Email me a code</button>
+    </form>
+    <p class="error" id="emailError" hidden></p>
+  </section>
+
+  <section id="code" hidden>
+    <h1>Check your email</h1>
+    <p id="sentTo">Enter the code we sent.</p>
+    <form id="codeForm">
+      <input id="token" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456" required aria-label="Code">
+      <button class="primary" type="submit" id="verify">Sign in</button>
+    </form>
+    <button class="quiet" id="again">Use a different email</button>
+    <p class="error" id="codeError" hidden></p>
   </section>
 
   <section id="consent" hidden>
@@ -63,21 +79,41 @@ export function consentPage({ supabaseUrl, supabaseKey }) {
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.89.0/dist/umd/supabase.min.js"></script>
 <script>
 (async () => {
-  const show = id => ['loading', 'signin', 'consent', 'problem'].forEach(name => { document.getElementById(name).hidden = name !== id; });
+  const show = id => ['loading', 'signin', 'code', 'consent', 'problem'].forEach(name => { document.getElementById(name).hidden = name !== id; });
   const fail = text => { if (text) document.getElementById('problemText').textContent = text; show('problem'); };
   const params = new URLSearchParams(location.search);
   const id = params.get('authorization_id');
   if (!id) return fail('This page opens from Claude or ChatGPT when you connect Habyss.');
   const sb = supabase.createClient(${JSON.stringify(supabaseUrl)}, ${JSON.stringify(supabaseKey)}, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true } });
 
+  const say = (el, text) => { const node = document.getElementById(el); node.textContent = text || ''; node.hidden = !text; };
   const { data: { session } } = await sb.auth.getSession();
   if (!session) {
-    // Back here after signing in, with the same authorization_id.
-    const back = location.origin + location.pathname + '?authorization_id=' + encodeURIComponent(id);
-    for (const provider of ['apple', 'google']) {
-      document.getElementById(provider).onclick = () => sb.auth.signInWithOAuth({ provider, options: { redirectTo: back } });
-    }
-    return show('signin');
+    await new Promise(resolve => {
+      let email = '';
+      document.getElementById('emailForm').onsubmit = async event => {
+        event.preventDefault();
+        email = document.getElementById('email').value.trim().toLowerCase();
+        say('emailError'); document.getElementById('send').disabled = true;
+        const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+        document.getElementById('send').disabled = false;
+        if (error) return say('emailError', /signups not allowed|not found/i.test(error.message) ? 'No Habyss account uses that email. Use the one in Settings → Account.' : error.message);
+        document.getElementById('sentTo').textContent = 'Enter the code sent to ' + email + '.';
+        show('code'); document.getElementById('token').focus();
+      };
+      document.getElementById('codeForm').onsubmit = async event => {
+        event.preventDefault();
+        say('codeError'); document.getElementById('verify').disabled = true;
+        const token = document.getElementById('token').value.replace(/\\s/g, '');
+        const { error } = await sb.auth.verifyOtp({ email, token, type: 'email' });
+        document.getElementById('verify').disabled = false;
+        if (error) return say('codeError', 'That code did not work. Check it, or send a new one.');
+        resolve();
+      };
+      document.getElementById('again').onclick = () => { say('codeError'); show('signin'); };
+      show('signin');
+    });
+    show('loading');
   }
 
   const { data, error } = await sb.auth.oauth.getAuthorizationDetails(id);
@@ -92,7 +128,7 @@ export function consentPage({ supabaseUrl, supabaseKey }) {
   show('consent');
 })().catch(error => {
   document.getElementById('problemText').textContent = (error && error.message) || 'Something went wrong.';
-  ['loading', 'signin', 'consent'].forEach(name => { document.getElementById(name).hidden = true; });
+  ['loading', 'signin', 'code', 'consent'].forEach(name => { document.getElementById(name).hidden = true; });
   document.getElementById('problem').hidden = false;
 });
 </script>
