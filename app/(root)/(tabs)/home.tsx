@@ -106,7 +106,7 @@ const Home = () => {
   const panelTop = TEMPLE.stairsEnd * sceneScale + Spacing.md;
   // As you scroll, the temple and its hourglass dissolve into the night: no panel edge sliding over
   // them, just the picture fading, eased so it starts and ends softly (smoothstep).
-  const fadeOver = panelTop * 0.9;
+  const fadeOver = panelTop * 0.45;
   const sceneFade = useAnimatedStyle(() => {
     const t = Math.min(1, Math.max(0, homeScrollY.get() / fadeOver));
     return { opacity: 1 - t * t * (3 - 2 * t) };
