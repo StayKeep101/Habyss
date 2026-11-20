@@ -56,3 +56,40 @@ export async function revokeMcpKey(id: string): Promise<void> {
     const { error } = await sb.rpc('revoke_mcp_key', { p_id: id });
     if (error) throw new Error('Could not remove that key. Try again.');
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Connecting an assistant from the app                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * "Open Habyss" on the sign-in page in Claude or ChatGPT lands here
+ * (habyss://connect?authorization_id=…). Which assistant is asking, from
+ * Supabase Auth's OAuth server; null when signed out or the request expired.
+ */
+export async function connectRequest(authorizationId: string): Promise<{ client: string } | null> {
+    const sb = await signedIn();
+    if (!sb) return null;
+    const { data, error } = await sb.auth.oauth.getAuthorizationDetails(authorizationId);
+    if (error || !data) return null;
+    const client = (data as { client?: { name?: string; client_name?: string } }).client;
+    return { client: client?.name || client?.client_name || 'This assistant' };
+}
+
+/**
+ * Allow or don't allow. The gateway asks Supabase, then hands its answer to
+ * the page waiting in the assistant, which carries on by itself.
+ */
+export async function answerConnect(authorizationId: string, allow: boolean): Promise<void> {
+    const sb = await signedIn();
+    const token = sb ? (await sb.auth.getSession()).data.session?.access_token : null;
+    if (!token || !PUBLIC_MCP_URL) throw new Error('Sign in to Habyss first.');
+    const response = await fetch(`${PUBLIC_MCP_URL}/oauth/handoff/${encodeURIComponent(authorizationId)}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: allow ? 'approve' : 'deny' }),
+    });
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error || 'That did not work. Start again in the assistant.');
+    }
+}

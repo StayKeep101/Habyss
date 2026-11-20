@@ -1,9 +1,10 @@
 /**
  * "Allow Claude to use your Habyss?": the page Supabase Auth's OAuth server
  * sends people to (Authentication → OAuth Server → Authorization Path:
- * /oauth/consent, on Site URL https://mcp.<domain>). Sign in with an emailed
- * code (the same account as the app; Apple and Google on the web need their
- * own secrets in Supabase), then Allow or Don't allow. Names from the request
+ * /oauth/consent, on Site URL https://mcp.<domain>). First choice: Open
+ * Habyss, Allow in the app (already signed in, however), and this page goes
+ * on by itself (it asks the gateway's /oauth/handoff until the answer is
+ * there). Fallback: an emailed code, then Allow or Don't allow here. Names from the request
  * are set as text, never as HTML.
  */
 export function consentPage({ supabaseUrl, supabaseKey }) {
@@ -26,6 +27,8 @@ export function consentPage({ supabaseUrl, supabaseKey }) {
   button { display: block; width: 100%; min-height: 50px; border-radius: 14px; border: 0; font: 600 17px -apple-system, system-ui, sans-serif; margin-top: 10px; cursor: pointer; }
   .primary { background: var(--accent); color: var(--on-accent); }
   .quiet { background: transparent; color: var(--muted); }
+  a.button { display: flex; align-items: center; justify-content: center; min-height: 50px; border-radius: 14px; font: 600 17px -apple-system, system-ui, sans-serif; text-decoration: none; margin-top: 10px; }
+  .waiting { font-size: 13px; color: var(--muted); margin: 16px 0 0; }
   input { display: block; width: 100%; min-height: 50px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: 17px -apple-system, system-ui, sans-serif; padding: 0 14px; text-align: center; }
   .code { letter-spacing: 6px; font-size: 22px; }
   .error { color: #FF8A80; font-size: 15px; margin: 12px 0 0; min-height: 0; }
@@ -36,6 +39,14 @@ export function consentPage({ supabaseUrl, supabaseKey }) {
 <body>
 <main>
   <div id="loading"><p>One moment…</p></div>
+
+  <section id="app" hidden>
+    <h1>Connect Habyss</h1>
+    <p>Allow it in the app. You're already signed in there.</p>
+    <a class="button primary" id="open" href="#">Open Habyss</a>
+    <p class="waiting" id="waiting" hidden>Waiting for you to tap Allow…</p>
+    <button class="quiet" id="useEmail">Use an email code instead</button>
+  </section>
 
   <section id="signin" hidden>
     <h1>Sign in to Habyss</h1>
@@ -79,7 +90,7 @@ export function consentPage({ supabaseUrl, supabaseKey }) {
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.89.0/dist/umd/supabase.min.js"></script>
 <script>
 (async () => {
-  const show = id => ['loading', 'signin', 'code', 'consent', 'problem'].forEach(name => { document.getElementById(name).hidden = name !== id; });
+  const show = id => ['loading', 'app', 'signin', 'code', 'consent', 'problem'].forEach(name => { document.getElementById(name).hidden = name !== id; });
   const fail = text => { if (text) document.getElementById('problemText').textContent = text; show('problem'); };
   const params = new URLSearchParams(location.search);
   const id = params.get('authorization_id');
@@ -89,7 +100,24 @@ export function consentPage({ supabaseUrl, supabaseKey }) {
   const say = (el, text) => { const node = document.getElementById(el); node.textContent = text || ''; node.hidden = !text; };
   const { data: { session } } = await sb.auth.getSession();
   if (!session) {
+    // Allowed in the app: the gateway holds where to go next.
+    let polling = true;
+    const poll = async () => {
+      if (!polling) return;
+      try {
+        const answer = await fetch('/oauth/handoff/' + encodeURIComponent(id), { cache: 'no-store' });
+        if (answer.status === 200) { const { redirect_url } = await answer.json(); if (redirect_url) { polling = false; show('loading'); location.replace(redirect_url); return; } }
+      } catch {}
+      setTimeout(poll, 1500);
+    };
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+    const open = document.getElementById('open');
+    open.href = 'habyss://connect?authorization_id=' + encodeURIComponent(id);
+    open.addEventListener('click', () => { document.getElementById('waiting').hidden = false; });
+    poll();
     await new Promise(resolve => {
+      document.getElementById('useEmail').onclick = () => show('signin');
+      show('app');
       let email = '';
       document.getElementById('emailForm').onsubmit = async event => {
         event.preventDefault();
@@ -111,8 +139,8 @@ export function consentPage({ supabaseUrl, supabaseKey }) {
         resolve();
       };
       document.getElementById('again').onclick = () => { say('codeError'); show('signin'); };
-      show('signin');
     });
+    polling = false;
     show('loading');
   }
 
@@ -128,7 +156,7 @@ export function consentPage({ supabaseUrl, supabaseKey }) {
   show('consent');
 })().catch(error => {
   document.getElementById('problemText').textContent = (error && error.message) || 'Something went wrong.';
-  ['loading', 'signin', 'code', 'consent'].forEach(name => { document.getElementById(name).hidden = true; });
+  ['loading', 'app', 'signin', 'code', 'consent'].forEach(name => { document.getElementById(name).hidden = true; });
   document.getElementById('problem').hidden = false;
 });
 </script>

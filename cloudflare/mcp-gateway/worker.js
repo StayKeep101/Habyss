@@ -7,13 +7,38 @@
  *   /oauth/authorize, /oauth/token, /oauth/register
  *                                            passed on to Supabase Auth's OAuth server, so the
  *                                            sign-in prompt on the phone names habyss.app, not supabase.co
- *   /oauth/consent                           "Allow Claude to use Habyss?" (Supabase's OAuth server sends people here)
+ *   /oauth/consent                           "Connect Habyss": Open Habyss to allow (or an emailed code);
+ *                                            Supabase's OAuth server sends people here
+ *   /oauth/handoff/<authorization_id>        POST from the app (signed in): allow or deny, answered by
+ *                                            Supabase; GET from the consent page: where to go next
+ *
  *   everything else                          forwarded to the mcp edge function
  *
  * The server itself (supabase/functions/mcp) checks every request; this only
  * forwards and serves the one page Supabase functions cannot (HTML).
  */
 import { consentPage } from './consent.js';
+
+/**
+ * One sign-in's answer, from the app to the page waiting in Claude: the
+ * redirect Supabase gave, kept 10 minutes. Useless without the code verifier
+ * the assistant holds, and only ever set from Supabase's own reply.
+ */
+export class Handoff {
+    constructor(state) { this.state = state; }
+    async fetch(request) {
+        if (request.method === 'PUT') {
+            await this.state.storage.put('redirect', await request.text());
+            await this.state.storage.setAlarm(Date.now() + 10 * 60 * 1000);
+            return new Response(null, { status: 204 });
+        }
+        const redirect = await this.state.storage.get('redirect');
+        return redirect ? new Response(redirect) : new Response(null, { status: 204 });
+    }
+    async alarm() { await this.state.storage.deleteAll(); }
+}
+
+const AUTH_ID = /^[A-Za-z0-9_-]{8,128}$/;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
     status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=300' },
@@ -61,6 +86,35 @@ export default {
             const out = new Headers(upstream.headers);
             out.set('Access-Control-Allow-Origin', '*');
             return new Response(upstream.body, { status: upstream.status, headers: out });
+        }
+        const handoff = url.pathname.match(/^\/oauth\/handoff\/([^/]+)$/);
+        if (handoff) {
+            const id = handoff[1];
+            if (!AUTH_ID.test(id)) return json({ error: 'Unknown sign-in.' }, 400);
+            const box = env.HANDOFF.get(env.HANDOFF.idFromName(id));
+            if (request.method === 'GET') {
+                const answer = await box.fetch('https://handoff/');
+                if (answer.status === 204) return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
+                return json({ redirect_url: await answer.text() });
+            }
+            if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+            const auth = request.headers.get('authorization') ?? '';
+            if (!/^Bearer\s+\S+/.test(auth)) return json({ error: 'Sign in to Habyss first.' }, 401);
+            const action = (await request.json().catch(() => ({}))).action === 'deny' ? 'deny' : 'approve';
+            const headers = { apikey: env.SUPABASE_KEY, Authorization: auth, 'Content-Type': 'application/json', 'X-Supabase-Api-Version': '2024-01-01' };
+            // Allowed before: Supabase answers the details with where to go.
+            const details = await fetch(`${issuer}/oauth/authorizations/${id}`, { headers });
+            const known = await details.json().catch(() => ({}));
+            if (!details.ok) return json({ error: known.msg || known.message || 'That sign-in has expired. Start again in Claude.' }, details.status);
+            let redirect = action === 'approve' ? known.redirect_url : undefined;
+            if (!redirect) {
+                const consent = await fetch(`${issuer}/oauth/authorizations/${id}/consent`, { method: 'POST', headers, body: JSON.stringify({ action }) });
+                const answer = await consent.json().catch(() => ({}));
+                if (!consent.ok || !answer.redirect_url) return json({ error: answer.msg || answer.message || 'That did not work. Start again in Claude.' }, consent.ok ? 502 : consent.status);
+                redirect = answer.redirect_url;
+            }
+            await box.fetch('https://handoff/', { method: 'PUT', body: redirect });
+            return json({ ok: true, client: known.client?.name || known.client?.client_name || null });
         }
         if (url.pathname === '/oauth/consent') {
             return new Response(consentPage({ supabaseUrl: env.SUPABASE_URL, supabaseKey: env.SUPABASE_KEY }), {

@@ -7,6 +7,15 @@ workers_dev = false
 # Top-level keys must come before [vars], or TOML reads them as variables.
 routes = [{ pattern = "mcp.habyss.app", custom_domain = true }]
 
+# Where the app leaves "Allow" for the page waiting in Claude (worker.js, Handoff).
+[[durable_objects.bindings]]
+name = "HANDOFF"
+class_name = "Handoff"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Handoff"]
+
 [vars]
 SUPABASE_URL = "https://wlbjhtlznzdumqxetilx.supabase.co"
 # The short public address (also the route above).
