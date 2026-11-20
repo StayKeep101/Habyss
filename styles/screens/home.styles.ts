@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 import { Spacing } from '@/theme/designSystem';
 
 /** How tall the panel's soft top edge is. */
-export const PANEL_FADE = Spacing.section * 3;
+export const PANEL_FADE = Spacing.section * 1.5;
 
 /** The look of app/(root)/(tabs)/home.tsx's floating parts. */
 export const homeStyles = StyleSheet.create({

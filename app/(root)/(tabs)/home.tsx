@@ -103,7 +103,7 @@ const Home = () => {
   const sceneScale = screenWidth / TEMPLE.width;
   const sceneHeight = TEMPLE.height * sceneScale;
   const stepY = TEMPLE.step * sceneScale;
-  const panelTop = TEMPLE.stairsEnd * sceneScale + PANEL_FADE * 0.8;
+  const panelTop = TEMPLE.stairsEnd * sceneScale + PANEL_FADE * 0.25;
   // The hourglass stays where it stands; the scene fades as the cards rise over it.
   const sceneFade = useAnimatedStyle(() => ({
     opacity: interpolate(homeScrollY.get(), [0, panelTop * 0.75], [1, 0], Extrapolation.CLAMP),
