@@ -37,3 +37,41 @@ export const LIVE_HOURGLASS_ART: Record<string, LiveGlassArt> = {
     Focused: { glass: require('@/assets/images/hourglasses/empty/focused.png'), sand: require('@/assets/images/hourglasses/sand/focused.png'), topSand: 582, pile: 1033 },
     Unbreakable: { glass: require('@/assets/images/hourglasses/empty/unbreakable.png'), sand: require('@/assets/images/hourglasses/sand/unbreakable.png'), topSand: 558, pile: 977 },
 };
+
+/**
+ * A quiet, matte hourglass for Home (no texture, no badge): its glass is
+ * measured off the image so the day's sand can be drawn inside it
+ * (components/Home/MatteHourglass.tsx). On the image's own pixel grid: the
+ * glass's centre, and its half-width at each height, top bulb then bottom.
+ */
+export interface MatteGlass {
+    image: ImageSourcePropType;
+    width: number;
+    height: number;
+    centre: number;
+    top: [number, number][];
+    bottom: [number, number][];
+    /** Where the top sand starts the day, and how high the pile ends it. */
+    topFull: number;
+    pileFull: number;
+    /** The clear margin either side, as a share of the width. */
+    bleed: number;
+}
+
+const BRONZE: MatteGlass = {
+    image: require('@/assets/images/hourglasses/matte/bronze.png'),
+    width: 1068,
+    height: 1473,
+    centre: 531,
+    // Measured, then brought in from the rim so the sand never touches it.
+    top: [[352, 205], [400, 246], [450, 259], [500, 257], [550, 240], [600, 207], [650, 161], [700, 109], [750, 58], [800, 25], [825, 14]],
+    bottom: [[825, 14], [850, 31], [900, 77], [950, 132], [1000, 182], [1050, 223], [1100, 248], [1150, 258], [1200, 252], [1240, 228], [1262, 190]],
+    topFull: 470,
+    pileFull: 1070,
+    bleed: 0.04,
+};
+
+/** The matte hourglass Home shows for a rank, before any finished art. */
+export const MATTE_HOURGLASS: Record<string, MatteGlass> = {
+    Growing: BRONZE,
+};
