@@ -1,6 +1,7 @@
 import { type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0'
 // The app's own repeat rule (no imports of its own), so a habit is due here exactly when it is due in the app.
 import { PLANNING_TOOLS, planningRows, validateInput } from '../../../lib/mcpPlanning.ts'
+import { EDITING_TOOLS, checkEditing, daysBetween, goalPatch, habitPatch, percent, taskPatch } from '../../../lib/mcpEditing.ts'
 import { matches, parseRecurrence } from '../../../lib/recurrence.ts'
 
 /**
@@ -60,12 +61,13 @@ const TOOL_LIST = [
             date: { type: 'string', description: 'YYYY-MM-DD; defaults to today' },
         } },
     },
+    ...EDITING_TOOLS,
 ]
 
 /**
  * A title and what each tool does to the account, for the assistant (and the
- * Claude and ChatGPT directories, which require them): reads are read-only;
- * adds and ticks change the plan but never delete anything.
+ * Claude and ChatGPT directories, which require them): reads are read-only,
+ * deletes are destructive (soft: the row is marked deleted, and the phone follows).
  */
 const ABOUT: Record<string, { title: string; reads?: true }> = {
     get_today: { title: "Get today's plan", reads: true },
@@ -79,7 +81,21 @@ const ABOUT: Record<string, { title: string; reads?: true }> = {
     create_roadmap: { title: 'Create a roadmap' },
     complete_task: { title: 'Complete a task' },
     log_habit: { title: 'Mark a habit done' },
+    update_task: { title: 'Edit or reschedule a task' },
+    delete_task: { title: 'Delete a task' },
+    update_habit: { title: 'Edit or pause a habit' },
+    delete_habit: { title: 'Delete a habit' },
+    undo_habit: { title: 'Un-tick a habit' },
+    update_goal: { title: 'Edit a goal' },
+    delete_goal: { title: 'Delete a goal' },
+    get_range: { title: 'View a date range', reads: true },
+    get_stats: { title: 'Get stats', reads: true },
+    add_thought: { title: 'Add to brain dump' },
+    list_thoughts: { title: 'Read the brain dump', reads: true },
+    update_thought: { title: 'Reword a thought' },
+    delete_thought: { title: 'Delete a thought' },
 }
+const DELETES = new Set(['delete_task', 'delete_habit', 'delete_goal', 'delete_thought'])
 const TOOLS = TOOL_LIST.map(tool => {
     const about = ABOUT[tool.name] ?? { title: tool.name }
     return {
@@ -88,8 +104,8 @@ const TOOLS = TOOL_LIST.map(tool => {
         annotations: {
             title: about.title,
             readOnlyHint: !!about.reads,
-            destructiveHint: false,
-            idempotentHint: !!about.reads || tool.name === 'complete_task' || tool.name === 'log_habit',
+            destructiveHint: DELETES.has(tool.name),
+            idempotentHint: !!about.reads || DELETES.has(tool.name) || ['complete_task', 'log_habit', 'undo_habit', 'update_task', 'update_habit', 'update_goal', 'update_thought'].includes(tool.name),
             openWorldHint: false,
         },
     }
@@ -184,6 +200,31 @@ function findOne<T extends { id: string }>(rows: T[], id: unknown, name: unknown
     if (!matches.length) throw new Error(`No ${kind} called "${name}".`)
     throw new Error(`Several ${kind}s match "${name}": ${matches.slice(0, 8).map(r => `"${label(r)}" (${r.id})`).join(', ')}. Use the id.`)
 }
+
+/** Days in a row done, counting back from today (or yesterday, while today is still open). */
+function streakOf(habit: Parameters<typeof scheduledOn>[0], days: Set<string>, today: string): number {
+    let streak = 0
+    const floor = shiftDate(today, -400)
+    for (let day = days.has(today) ? today : shiftDate(today, -1); day >= floor; day = shiftDate(day, -1)) {
+        if (!scheduledOn(habit, day)) continue
+        if (!days.has(day)) break
+        streak++
+    }
+    return streak
+}
+async function myTasks(admin: SupabaseClient, person: Person) {
+    const { data, error } = await admin.from('tasks').select('id, title, status').eq('user_id', person.userId).is('deleted_at', null).order('updated_at', { ascending: false }).limit(1000)
+    if (error) throw new Error(error.message)
+    return data ?? []
+}
+async function myHabits(admin: SupabaseClient, person: Person, goals: boolean) {
+    const { data, error } = await admin.from('habits').select('id, name, start_date, end_date, goal_spec, is_archived')
+        .eq('user_id', person.userId).is('deleted_at', null).eq('is_goal', goals).limit(1000)
+    if (error) throw new Error(error.message)
+    return data ?? []
+}
+const weekdayName = (day: string) => new Date(`${day}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
+const dayOf = (iso: string, timeZone: string) => localDate(timeZone, new Date(iso))
 
 async function callTool(admin: SupabaseClient, person: Person, name: string, args: Record<string, unknown>): Promise<string> {
     const today = localDate(person.timeZone)
@@ -288,6 +329,157 @@ async function callTool(admin: SupabaseClient, person: Person, name: string, arg
             if (error) throw new Error(error.message)
             return `Logged "${habit.name}" as done for ${day}.`
         }
+        case 'update_task': {
+            checkEditing(name, args)
+            const task = findOne(await myTasks(admin, person), args.task_id, args.find, t => t.title, 'task')
+            const patch = taskPatch(args, new Date().toISOString())
+            const { error } = await admin.from('tasks').update(patch).eq('id', task.id).eq('user_id', person.userId)
+            if (error) throw new Error(error.message)
+            return `Updated "${patch.title ?? task.title}"${patch.due_date ? `, now due ${patch.due_date}${patch.due_time ? ` at ${patch.due_time}` : ''}` : ''}${patch.status ? `, ${patch.status}` : ''}.`
+        }
+        case 'delete_task': {
+            checkEditing(name, args)
+            const task = findOne(await myTasks(admin, person), args.task_id, args.find, t => t.title, 'task')
+            const { error } = await admin.from('tasks').update({ deleted_at: new Date().toISOString() }).eq('id', task.id).eq('user_id', person.userId)
+            if (error) throw new Error(error.message)
+            return `Deleted the task "${task.title}".`
+        }
+        case 'update_habit': {
+            checkEditing(name, args)
+            const habit = findOne(await myHabits(admin, person, false), args.habit_id, args.find, h => h.name, 'habit')
+            const patch = habitPatch(args, habit)
+            const { error } = await admin.from('habits').update(patch).eq('id', habit.id).eq('user_id', person.userId)
+            if (error) throw new Error(error.message)
+            return `Updated the habit "${patch.name ?? habit.name}"${patch.is_archived === true ? ', paused' : patch.is_archived === false ? ', running again' : ''}.`
+        }
+        case 'delete_habit': {
+            checkEditing(name, args)
+            const habit = findOne(await myHabits(admin, person, false), args.habit_id, args.find, h => h.name, 'habit')
+            const { error } = await admin.from('habits').update({ deleted_at: new Date().toISOString() }).eq('id', habit.id).eq('user_id', person.userId)
+            if (error) throw new Error(error.message)
+            return `Deleted the habit "${habit.name}".`
+        }
+        case 'undo_habit': {
+            checkEditing(name, args)
+            const habit = findOne(await myHabits(admin, person, false), args.habit_id, args.find, h => h.name, 'habit')
+            const day = typeof args.date === 'string' ? args.date : today
+            const { data, error } = await admin.from('habit_completions').update({ completed: false, deleted_at: new Date().toISOString() })
+                .eq('user_id', person.userId).eq('habit_id', habit.id).eq('date', day).is('deleted_at', null).select('date')
+            if (error) throw new Error(error.message)
+            return data?.length ? `"${habit.name}" is no longer done for ${day}.` : `"${habit.name}" was not marked done for ${day}.`
+        }
+        case 'update_goal': {
+            checkEditing(name, args)
+            const goal = findOne(await myHabits(admin, person, true), args.goal_id, args.find, g => g.name, 'goal')
+            const patch = goalPatch(args, goal)
+            const { error } = await admin.from('habits').update(patch).eq('id', goal.id).eq('user_id', person.userId)
+            if (error) throw new Error(error.message)
+            return `Updated the goal "${patch.name ?? goal.name}"${patch.target_date ? `, target ${patch.target_date}` : ''}.`
+        }
+        case 'delete_goal': {
+            checkEditing(name, args)
+            const goal = findOne(await myHabits(admin, person, true), args.goal_id, args.find, g => g.name, 'goal')
+            const now = new Date().toISOString()
+            // Its habits and tasks stay, unlinked; its milestones go with it.
+            const results = await Promise.all([
+                admin.from('habits').update({ goal_id: null }).eq('user_id', person.userId).eq('goal_id', goal.id),
+                admin.from('tasks').update({ goal_id: null, milestone_id: null }).eq('user_id', person.userId).eq('goal_id', goal.id),
+                admin.from('goal_milestones').update({ deleted_at: now }).eq('user_id', person.userId).eq('goal_id', goal.id).is('deleted_at', null),
+            ])
+            for (const result of results) if (result.error) throw new Error(result.error.message)
+            const { error } = await admin.from('habits').update({ deleted_at: now }).eq('id', goal.id).eq('user_id', person.userId)
+            if (error) throw new Error(error.message)
+            return `Deleted the goal "${goal.name}". Its habits and tasks are still there.`
+        }
+        case 'get_range': {
+            checkEditing(name, args)
+            const days = daysBetween(String(args.from), String(args.to), 92)
+            const [habits, done, tasksRes] = await Promise.all([
+                activeHabits(admin, person),
+                doneOn(admin, person, days[0], days[days.length - 1]),
+                admin.from('tasks').select('id, title, due_date, due_time, status').eq('user_id', person.userId).is('deleted_at', null)
+                    .gte('due_date', days[0]).lte('due_date', days[days.length - 1]).order('due_time', { nullsFirst: true }).limit(1000),
+            ])
+            if (tasksRes.error) throw new Error(tasksRes.error.message)
+            const doneOnDay = new Set(done.map(row => `${row.habit_id}|${row.date}`))
+            return days.map(day => {
+                const due = habits.filter(h => scheduledOn(h, day))
+                const ticked = due.filter(h => doneOnDay.has(`${h.id}|${day}`))
+                const tasks = (tasksRes.data ?? []).filter(t => t.due_date === day)
+                const future = day > today
+                return [`${day} (${weekdayName(day)})${future ? '' : `: habits ${ticked.length}/${due.length}`}`,
+                    ...due.map(h => `  - ${future ? '' : doneOnDay.has(`${h.id}|${day}`) ? '[x] ' : '[ ] '}${h.name}${h.start_time ? ` at ${h.start_time}` : ''} (habit ${h.id})`),
+                    ...tasks.map(t => `  - ${t.status === 'done' ? '[x]' : '[ ]'} ${t.title}${t.due_time ? ` at ${t.due_time}` : ''} (task ${t.id})`),
+                ].join('\n')
+            }).join('\n')
+        }
+        case 'get_stats': {
+            checkEditing(name, args)
+            const to = typeof args.to === 'string' ? args.to : today
+            const from = typeof args.from === 'string' ? args.from : shiftDate(to, -29)
+            const days = daysBetween(from, to, 366).filter(day => day <= today)
+            if (!days.length) throw new Error('That range has not started yet.')
+            const [habits, done, history, tasksRes, goals] = await Promise.all([
+                activeHabits(admin, person),
+                doneOn(admin, person, days[0], days[days.length - 1]),
+                doneOn(admin, person, shiftDate(today, -400), today),
+                admin.from('tasks').select('id, title, due_date, status, completed_at, goal_id').eq('user_id', person.userId).is('deleted_at', null).limit(5000),
+                admin.from('habits').select('id, name, target_date').eq('user_id', person.userId).eq('is_goal', true).eq('is_archived', false).is('deleted_at', null),
+            ])
+            if (tasksRes.error) throw new Error(tasksRes.error.message)
+            if (goals.error) throw new Error(goals.error.message)
+            const doneSet = new Set(done.map(row => `${row.habit_id}|${row.date}`))
+            const byHabit = new Map<string, Set<string>>()
+            for (const row of history) byHabit.set(row.habit_id, (byHabit.get(row.habit_id) ?? new Set()).add(row.date))
+            let dueAll = 0, doneAll = 0
+            const habitLines = habits.map(h => {
+                const due = days.filter(day => scheduledOn(h, day))
+                const ticked = due.filter(day => doneSet.has(`${h.id}|${day}`)).length
+                dueAll += due.length; doneAll += ticked
+                return `- ${h.name}: ${ticked}/${due.length} (${percent(ticked, due.length)}), streak ${streakOf(h, byHabit.get(h.id) ?? new Set(), today)} (id ${h.id})`
+            })
+            const tasks = tasksRes.data ?? []
+            const finished = tasks.filter(t => t.status === 'done' && t.completed_at && dayOf(t.completed_at, person.timeZone) >= days[0] && dayOf(t.completed_at, person.timeZone) <= days[days.length - 1])
+            const dueInRange = tasks.filter(t => t.due_date && t.due_date >= days[0] && t.due_date <= days[days.length - 1])
+            const overdue = tasks.filter(t => t.status === 'open' && t.due_date && t.due_date < today)
+            const goalLines = (goals.data ?? []).map(g => {
+                const linked = tasks.filter(t => t.goal_id === g.id)
+                const closed = linked.filter(t => t.status === 'done').length
+                return `- ${g.name}: ${closed}/${linked.length} tasks done (${percent(closed, linked.length)})${g.target_date ? `, target ${g.target_date}` : ''} (id ${g.id})`
+            })
+            return [`${days[0]} to ${days[days.length - 1]} (${days.length} days)`,
+                `Habits: ${doneAll}/${dueAll} done (${percent(doneAll, dueAll)})`, ...habitLines,
+                `Tasks: ${finished.length} done in this range; ${dueInRange.filter(t => t.status === 'done').length}/${dueInRange.length} of those due in it done; ${overdue.length} overdue now`,
+                ...(goalLines.length ? ['Goals:', ...goalLines] : []),
+            ].join('\n')
+        }
+        case 'add_thought': {
+            checkEditing(name, args)
+            const id = crypto.randomUUID()
+            const { error } = await admin.from('brain_dump').insert({ id, user_id: person.userId, text: String(args.text).trim() })
+            if (error) throw new Error(error.message)
+            return `In the brain dump (id ${id}).`
+        }
+        case 'list_thoughts': {
+            checkEditing(name, args)
+            let query = admin.from('brain_dump').select('id, text, created_at').eq('user_id', person.userId).is('deleted_at', null)
+            if (typeof args.from === 'string') query = query.gte('created_at', `${args.from}T00:00:00Z`)
+            if (typeof args.to === 'string') query = query.lte('created_at', `${shiftDate(args.to, 1)}T00:00:00Z`)
+            if (typeof args.search === 'string') query = query.ilike('text', `%${args.search.replace(/[%_\\]/g, m => `\\${m}`)}%`)
+            const { data, error } = await query.order('created_at', { ascending: false }).limit(Number(args.limit) || 50)
+            if (error) throw new Error(error.message)
+            if (!data?.length) return 'The brain dump is empty for that.'
+            return data.map(t => `- ${dayOf(t.created_at, person.timeZone)}: ${t.text.replace(/\s+/g, ' ')} (id ${t.id})`).join('\n')
+        }
+        case 'update_thought':
+        case 'delete_thought': {
+            checkEditing(name, args)
+            const patch = name === 'update_thought' ? { text: String(args.text).trim() } : { deleted_at: new Date().toISOString() }
+            const { data, error } = await admin.from('brain_dump').update(patch).eq('user_id', person.userId).eq('id', args.thought_id).is('deleted_at', null).select('id')
+            if (error) throw new Error(error.message)
+            if (!data?.length) throw new Error('No thought with that id. Use list_thoughts to find it.')
+            return name === 'update_thought' ? 'Reworded.' : 'Removed from the brain dump.'
+        }
         default:
             throw Object.assign(new Error(`Unknown tool: ${name}`), { code: -32602 })
     }
@@ -303,7 +495,7 @@ async function handle(admin: SupabaseClient, person: Person, message: Rpc) {
                 protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
                 capabilities: { tools: { listChanged: false } },
                 serverInfo: { name: 'habyss', title: 'Habyss', version: '1.1.0' },
-                instructions: 'Habyss manages habits, tasks, goals and roadmaps. Start with get_today or list_goals. Use create_roadmap for a complete plan, with a request_id UUID reused on retries. Changes reach the app on its next sync. Dates use the account time zone.',
+                instructions: 'Habyss manages habits, tasks, goals, roadmaps and a private brain dump. Start with get_today, get_range or list_goals; get_stats for how it is going. Edit, reschedule and delete with update_*/delete_* (deletes are soft). Use create_roadmap for a complete plan, with a request_id UUID reused on retries. Changes reach the app on its next sync. Dates use the account time zone.',
             })
         }
         case 'ping': return reply({})

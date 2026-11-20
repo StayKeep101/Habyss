@@ -123,6 +123,8 @@ async function runSync(): Promise<SyncReport> {
         await AsyncStorage.setItem(LAST_SYNC_KEY, report.at);
         // Settings, Echo, focus totals and the rest that are not table rows.
         await syncPersonal(userId).catch(error => console.warn('[Backup] personal stores:', error?.message));
+        // The brain dump, thought by thought, so an AI assistant can add to it and read it.
+        await (require('./brainDumpSync') as typeof import('./brainDumpSync')).syncBrainDump(sb, userId);
 
         if (report.downloaded > 0) await announceChanges();
         return report;

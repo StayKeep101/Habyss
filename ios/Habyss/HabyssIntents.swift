@@ -315,9 +315,8 @@ struct BrainDumpIntent: AppIntent {
     @Parameter(title: "Thought", requestValueDialog: "What's on your mind?")
     var text: String
 
-    @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard QuickAddQueue.append(kind: "thought", title: text) else { return .result(dialog: "Open Habyss once, then try again.") }
+        guard await save("add_thought", ["text": text], kind: "thought", title: text) else { return .result(dialog: "That didn't save. Try again in Habyss.") }
         return .result(dialog: "Out of your head, into Habyss.")
     }
 }
