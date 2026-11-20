@@ -28,7 +28,10 @@ import { useSounds } from '@/hooks/useSounds';
 
 import { useFocusEffect } from 'expo-router';
 import { useAppSettings } from '@/context/AppSettingsContext';
-import { useAccentGradient } from '@/context/AccentContext';
+import { useAccent, useAccentGradient } from '@/context/AccentContext';
+import { glassDesign } from '@/theme/hourglassDesigns';
+import { PanelRim } from '@/components/Home/PanelRim';
+import { Ornament } from '@/components/ui/Ornament';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
 import { nextEchoLine, type EchoStats } from '@/lib/echoLines';
 import { pressureLines, pressureSpeaks } from '@/lib/taskPressure';
@@ -112,6 +115,8 @@ const Home = () => {
     opacity: interpolate(homeScrollY.get(), [glassReaches * 0.6, SCENE_SHOWN + GLASS_HEIGHT * 0.3], [1, 0], Extrapolation.CLAMP),
   }));
   const { primary: accentColor } = useAccentGradient();
+  // The rank's light (its hourglass's sand): the panel's lit edge and the ornament under the glass.
+  const rankLight = glassDesign(useAccent().rankShown).sand[0];
   const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
   const { playComplete, playLevelUp } = useSounds();
 
@@ -665,8 +670,12 @@ const Home = () => {
           {/* The panel: everything of the day, rising over the scene; the hourglass on its edge. */}
           <View style={[homeStyles.panel, { backgroundColor: colors.background, borderColor: colors.border, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, minHeight: screenHeight - headerHeight }]}>
             {/* Half over the scene, half on the panel; it fades as the panel nears the top rather than being cut off. Tap it for every hourglass. */}
+            {/* The panel's top edge catches the glass's light. */}
+            <PanelRim color={rankLight} />
             <Animated.View style={glassFade}>
               <DayHourglass marks={marks.total} />
+              {/* The mark on every hourglass's base, between it and Echo. */}
+              <View style={{ marginTop: sectionGap }}><Ornament color={rankLight} /></View>
             </Animated.View>
 
           {/* Echo, full width below the header, where it reads as a line

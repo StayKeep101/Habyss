@@ -8,6 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Hourglass } from './Hourglass';
 import { ArtHourglass } from './ArtHourglass';
+import { GlassLight } from './GlassLight';
 import { LIVE_HOURGLASS_ART } from '@/theme/hourglassArt';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -174,6 +175,7 @@ export function DayHourglass({ marks }: { marks: number }) {
             </View>
             <Pressable onPress={reveal} accessibilityRole="button" style={styles.glassBox}
                 accessibilityLabel={glass.resting === 'night' ? 'Your day has run out. See every hourglass' : `Your day: ${leftWords} left. See every hourglass`}>
+                <GlassLight color={design.sand[0]} size={GLASS_HEIGHT} />
                 <Animated.View style={[styles.flare, { backgroundColor: design.sand[0] }, flareStyle]} pointerEvents="none" />
                 <Animated.View style={[styles.ring, { borderColor: design.sand[0] }, ringStyle]} pointerEvents="none" />
                 <Animated.View style={[styles.ring, { borderColor: design.sand[0] }, echoRingStyle]} pointerEvents="none" />

@@ -18,7 +18,7 @@
  * Controls
  *   AppButton, HoldButton (hold to mean it: fills, buzz builds, lands with a thud), IconButton, AppTextField, ChoiceRow, ChipPicker, Toggle,
  *   StepSlider (a value chosen by sliding: gradient fill, snaps you feel, VoiceOver adjustable),
- *   TimeRow, Wheel, TimeWheels (a clock time on wheels), DateWheels (a date on wheels), ViewSwitcher, IconToggle (a header's two-way switch), PageDots (pages you swipe between), SwipeRow, TypingPlaceholder,
+ *   TimeRow, Wheel, TimeWheels (a clock time on wheels), DateWheels (a date on wheels), ViewSwitcher, IconToggle (a header's two-way switch), Ornament (the hourglass's line ✦ line, as a divider), PageDots (pages you swipe between), SwipeRow, TypingPlaceholder,
  *   MorphMenu (a ⋯ button that grows into its own menu), MicButton (talk instead of typing),
  *   FocusPill (the solid "Focus" pill on whatever is on right now)
  *   DemonEdge (the red glow round the screen in Echo's demon mode)
@@ -92,6 +92,7 @@ export { MorphMenu, type MorphMenuItem } from './MorphMenu';
 export { MicButton } from './MicButton';
 export { ViewSwitcher } from './ViewSwitcher';
 export { IconToggle } from './IconToggle';
+export { Ornament } from './Ornament';
 export { PageDots } from './PageDots';
 export { SwipeRow } from './SwipeRow';
 export { TypingPlaceholder } from './TypingPlaceholder';
