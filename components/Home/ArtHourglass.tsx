@@ -70,8 +70,9 @@ export function ArtHourglass({ art, design, size, ran, running, streamColor }: {
         // The art has clear margins either side (6–9% of its width): they may overlap
         // what is beside it, so it takes about the room of the drawn glass on Home.
         <View style={{ width, height: size, marginHorizontal: -width * ART_BLEED }}>
-            <Image source={art} resizeMode="contain" style={StyleSheet.absoluteFill} accessibilityIgnoresInvertColors />
-            <Svg style={StyleSheet.absoluteFill} viewBox={`0 0 ${W} ${H}`}>
+            {/* Sized exactly, not "fill the parent": on Home the image otherwise drew at its own size. */}
+            <Image source={art} resizeMode="contain" style={[styles.layer, { width, height: size }]} accessibilityIgnoresInvertColors />
+            <Svg width={width} height={size} style={styles.layer} viewBox={`0 0 ${W} ${H}`}>
                 <Defs>
                     <LinearGradient id={ref('sand')} x1="0" y1="0" x2="0" y2="1">
                         <Stop offset="0" stopColor={design.sand[0]} /><Stop offset="1" stopColor={design.sand[1]} />
@@ -90,3 +91,7 @@ export function ArtHourglass({ art, design, size, ran, running, streamColor }: {
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    layer: { position: 'absolute', top: 0, left: 0 },
+});
