@@ -4,7 +4,8 @@
  * /oauth/consent, on Site URL https://mcp.<domain>). First choice: Open
  * Habyss, Allow in the app (already signed in, however), and this page goes
  * on by itself (it asks the gateway's /oauth/handoff until the answer is
- * there). Fallback: an emailed code, then Allow or Don't allow here. Names from the request
+ * there). Fallback: an emailed code or a password (the directories' reviewers
+ * sign in this way, from a computer), then Allow or Don't allow here. Names from the request
  * are set as text, never as HTML.
  */
 export function consentPage({ supabaseUrl, supabaseKey }) {
@@ -53,8 +54,10 @@ export function consentPage({ supabaseUrl, supabaseKey }) {
     <p>Use the email on your Habyss account (Settings → Account).</p>
     <form id="emailForm">
       <input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" placeholder="you@example.com" required aria-label="Email">
+      <input id="password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password" hidden style="margin-top:10px">
       <button class="primary" type="submit" id="send">Email me a code</button>
     </form>
+    <button class="quiet" id="usePassword">Use a password instead</button>
     <p class="error" id="emailError" hidden></p>
   </section>
 
@@ -119,10 +122,23 @@ export function consentPage({ supabaseUrl, supabaseKey }) {
       document.getElementById('useEmail').onclick = () => show('signin');
       show('app');
       let email = '';
+      const passwordField = document.getElementById('password');
+      document.getElementById('usePassword').onclick = () => {
+        passwordField.hidden = false; passwordField.required = true;
+        document.getElementById('send').textContent = 'Sign in';
+        document.getElementById('usePassword').hidden = true;
+        passwordField.focus();
+      };
       document.getElementById('emailForm').onsubmit = async event => {
         event.preventDefault();
         email = document.getElementById('email').value.trim().toLowerCase();
         say('emailError'); document.getElementById('send').disabled = true;
+        if (!passwordField.hidden) {
+          const { error } = await sb.auth.signInWithPassword({ email, password: passwordField.value });
+          document.getElementById('send').disabled = false;
+          if (error) return say('emailError', /invalid login/i.test(error.message) ? 'That email and password do not match.' : error.message);
+          return resolve();
+        }
         const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
         document.getElementById('send').disabled = false;
         if (error) return say('emailError', /signups not allowed|not found/i.test(error.message) ? 'No Habyss account uses that email. Use the one in Settings → Account.' : error.message);

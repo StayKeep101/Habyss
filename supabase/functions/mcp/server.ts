@@ -27,7 +27,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 type Rpc = { jsonrpc: '2.0'; id?: string | number | null; method: string; params?: Record<string, unknown> }
 type Person = { userId: string; timeZone: string }
 
-const TOOLS = [
+const TOOL_LIST = [
     {
         name: 'get_today',
         description: "Today's plan in Habyss: the habits due today (done or not) and the open tasks for today, including late ones. Use this first to see what the person has on.",
@@ -61,6 +61,39 @@ const TOOLS = [
         } },
     },
 ]
+
+/**
+ * A title and what each tool does to the account, for the assistant (and the
+ * Claude and ChatGPT directories, which require them): reads are read-only;
+ * adds and ticks change the plan but never delete anything.
+ */
+const ABOUT: Record<string, { title: string; reads?: true }> = {
+    get_today: { title: "Get today's plan", reads: true },
+    list_tasks: { title: 'List tasks', reads: true },
+    list_habits: { title: 'List habits', reads: true },
+    list_goals: { title: 'List goals', reads: true },
+    get_roadmap: { title: 'Get a roadmap', reads: true },
+    add_task: { title: 'Add a task' },
+    add_habit: { title: 'Add a habit' },
+    add_goal: { title: 'Add a goal' },
+    create_roadmap: { title: 'Create a roadmap' },
+    complete_task: { title: 'Complete a task' },
+    log_habit: { title: 'Mark a habit done' },
+}
+const TOOLS = TOOL_LIST.map(tool => {
+    const about = ABOUT[tool.name] ?? { title: tool.name }
+    return {
+        ...tool,
+        title: about.title,
+        annotations: {
+            title: about.title,
+            readOnlyHint: !!about.reads,
+            destructiveHint: false,
+            idempotentHint: !!about.reads || tool.name === 'complete_task' || tool.name === 'log_habit',
+            openWorldHint: false,
+        },
+    }
+})
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 
