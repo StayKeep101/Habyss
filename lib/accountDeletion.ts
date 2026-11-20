@@ -32,6 +32,7 @@ const SHARED_DEFAULT_KEYS = [
     'widgetDashboard', 'siriHabitsData', 'siri_last_sync', 'streakCount', 'topHabitName',
     'dayKey', 'accentFrom', 'accentTo', 'pending_widget_toggles', 'pending_habit_logs',
     'intent_start_focus_duration', 'intent_stop_focus', 'intent_stop_focus_timestamp',
+    'siri_mcp_url', 'siri_mcp_key_id', 'pending_quick_adds',
 ];
 
 /** Integrations that may have left OAuth tokens in the keychain. */

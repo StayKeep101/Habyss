@@ -340,6 +340,9 @@ function InnerLayout() {
     return stop;
   }, []);
 
+  // Siri and Shortcuts act on the account without opening Habyss (lib/siriAccess.ts).
+  useEffect(() => (require('@/lib/siriAccess') as typeof import('@/lib/siriAccess')).startSiriAccess(), []);
+
   // --- App Intents Listener (Siri/Shortcuts) ---
   const { startTimer, stopTimer: globalStopTimer } = useFocusSession();
 

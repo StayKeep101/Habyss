@@ -40,6 +40,7 @@
 		861FAA29B2346D3627FA5619 /* LiveActivityShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 335B4BB0978F232C833454DF /* LiveActivityShared.swift */; };
 		8783AE296FE4C9EA78640C37 /* echo_review_bully_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = AB45CEF4F178A64B25AF5436 /* echo_review_bully_mode.caf */; };
 		88228CC7829B697844A4E570 /* echo_end_bully_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = F9EECA2F9C22BE571C3E8BB6 /* echo_end_bully_mode.caf */; };
+		8DE02B2029B2DA1C059DA966 /* HabyssIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C81C6A0BA0073E44D9679B3 /* HabyssIntents.swift */; };
 		961105958615E986AF44B725 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E43594A9D6C422E0D552E996 /* ExpoModulesProvider.swift */; };
 		988B034DED08F61E4668F3BC /* GateShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6863FF264729579CB88A877A /* GateShared.swift */; };
 		9B52A62CEDA2DAC5E89531EE /* echo_review_normal.caf in Resources */ = {isa = PBXBuildFile; fileRef = D3BB9A1D67C9CDE1FF6862CB /* echo_review_normal.caf */; };
@@ -167,6 +168,7 @@
 		3AF4D1E21FE215BAE329FF31 /* ShieldActionExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShieldActionExtension.swift; sourceTree = "<group>"; };
 		3EE498404A0789C731E0033B /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		46A43E3BBB6EEE9A03429279 /* echo_leave_bully_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_leave_bully_mode.caf; sourceTree = "<group>"; };
+		4C81C6A0BA0073E44D9679B3 /* HabyssIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HabyssIntents.swift; path = Habyss/HabyssIntents.swift; sourceTree = "<group>"; };
 		52BA9FD8DC81D4A2786985A8 /* echo_start_friendly.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_start_friendly.caf; sourceTree = "<group>"; };
 		62D42E88EC5845660042208F /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/UserNotifications.framework; sourceTree = DEVELOPER_DIR; };
 		67B839F0BAD3AF82FC559708 /* ShieldConfigurationExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShieldConfigurationExtension.swift; sourceTree = "<group>"; };
@@ -351,6 +353,7 @@
 				DE54580FC86AA4EE1F54AF25 /* SharedDefaults.m */,
 				335B4BB0978F232C833454DF /* LiveActivityShared.swift */,
 				A93A724771B2F37C31991BFC /* Sounds */,
+				4C81C6A0BA0073E44D9679B3 /* HabyssIntents.swift */,
 			);
 			name = Habyss;
 			sourceTree = "<group>";
@@ -991,6 +994,7 @@
 				0F64715E561999ACB00955C1 /* SharedDefaults.m in Sources */,
 				C5E8C659EAF96CAF9249B264 /* LiveActivityShared.swift in Sources */,
 				5C54F6C71FBADFA9D979C397 /* GateShared.swift in Sources */,
+				8DE02B2029B2DA1C059DA966 /* HabyssIntents.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

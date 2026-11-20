@@ -155,6 +155,8 @@ class SharedDefaults: NSObject {
   func reloadTimelines(_ resolver: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
     if #available(iOS 14.0, *) {
       WidgetCenter.shared.reloadAllTimelines()
+      // Today's habits changed: Siri's "Mark <habit> done" learns the new names.
+      if #available(iOS 16.0, *) { HabyssShortcuts.updateAppShortcutParameters() }
       resolver(true)
     } else {
       resolver(false)
