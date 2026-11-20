@@ -65,3 +65,15 @@ export const TEMPLE = {
     step: 912,
     stairsEnd: 1075,
 };
+
+/**
+ * The blue hourglass's own colours, sampled from the art, for the live one
+ * drawn with Skia (components/Home/SkiaHourglass.tsx). Its sand is the rank's.
+ */
+export const HOURGLASS_INK = {
+    pillar: ['#4A5888', '#5C6B9E', '#3F4C7A'],
+    glass: ['#1F2B4C', '#162039', '#1B2747'],
+    rim: '#9BB2F0',
+    rimGlow: '#8FA8EE',
+    cap: ['#7A8DC9', '#4A5A92', '#3A4878'],
+} as const;

@@ -25,10 +25,15 @@ import { glassDesign } from '@/theme/hourglassDesigns';
 import { CEREMONY, EASE, timingFor } from '@/theme/motion';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { s } from '@/theme/scale';
+import { skiaReady } from '@/lib/skiaReady';
 import { tint } from '@/theme/tokens';
 
 /** The glass's height on Home, from the screen's width so every phone keeps the proportion. */
 export const GLASS_HEIGHT = s(128);
+
+/** The live Skia hourglass, on a build that has Skia; null keeps the still pictures. */
+const LiveGlass: React.ComponentType<{ size: number; ran: import('react-native-reanimated').SharedValue<number>; running: boolean; sand: [string, string] }> | null =
+    skiaReady ? (require('./SkiaHourglass') as typeof import('./SkiaHourglass')).TiltingHourglass : null;
 const FLIP_KEY = 'habyss_glass_flipped';
 
 // Built once, outside any worklet (a helper call inside one crashes natively).
@@ -179,7 +184,9 @@ export function DayHourglass({ marks }: { marks: number }) {
                 <Animated.View style={[styles.ring, { borderColor: design.sand[0] }, ringStyle]} pointerEvents="none" />
                 <Animated.View style={[styles.ring, { borderColor: design.sand[0] }, echoRingStyle]} pointerEvents="none" />
                 <Animated.View ref={glassRef} collapsable={false} style={glassStyle}>
-                    {HOME_PREVIEW_ART[rankShown ?? 'Lost'] ? (
+                    {LiveGlass ? (
+                        <LiveGlass size={GLASS_HEIGHT} ran={ran} running={!flipping && glass.resting !== 'night'} sand={design.sand} />
+                    ) : HOME_PREVIEW_ART[rankShown ?? 'Lost'] ? (
                         <Image source={HOME_PREVIEW_ART[rankShown ?? 'Lost'].image} resizeMode="contain" accessibilityIgnoresInvertColors
                             style={{ height: GLASS_HEIGHT, width: GLASS_HEIGHT * HOME_PREVIEW_ART[rankShown ?? 'Lost'].ratio }} />
                     ) : CRAFTED_HOURGLASS.has(rankShown ?? 'Lost') ? (

@@ -120,3 +120,6 @@ jest.mock('react-native-safe-area-context', () => {
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
+
+// Skia draws only on a device build; tests take the still-picture path (lib/skiaReady.ts).
+jest.mock('@/lib/skiaReady', () => ({ skiaReady: false }));

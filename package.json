@@ -33,6 +33,7 @@
     "@react-native-community/netinfo": "12.0.1",
     "@react-native-google-signin/google-signin": "^16.2.0",
     "@sentry/react-native": "~7.11.0",
+    "@shopify/react-native-skia": "2.6.2",
     "@supabase/supabase-js": "^2.89.0",
     "ai": "^6.0.86",
     "class-variance-authority": "^0.7.1",
@@ -143,6 +144,8 @@
     }
   },
   "allowScripts": {
-    "llama.rn@0.12.9": true
+    "llama.rn@0.12.9": true,
+    "@shopify/react-native-skia@2.6.2": true,
+    "@sentry/cli@2.58.4": true
   }
 }
