@@ -1,0 +1,38 @@
+# On every push and pull request: types, tests, the UI rules and SwiftLint.
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: Types, tests, UI rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run type-check
+      - run: npm run test:ci
+      - run: npm run check:ui
+
+  swift:
+    name: SwiftLint
+    # Reports only until the first run's findings are cleaned up.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container: ghcr.io/realm/swiftlint:latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: swiftlint lint --reporter github-actions-logging

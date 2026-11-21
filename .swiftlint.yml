@@ -1,0 +1,43 @@
+# SwiftLint for Habyss's own native code (the app's Swift, widgets, Watch app,
+# Screen Time extensions). Run: swiftlint (from the repo root).
+# Tuned to catch real smells (force unwraps and casts, unused code, retain
+# risks) without nagging about style the Swift files already follow.
+included:
+  - ios
+excluded:
+  - ios/Pods
+  - ios/build
+  - node_modules
+
+disabled_rules:
+  - line_length
+  - identifier_name
+  - type_name
+  - trailing_comma
+  - todo
+  - nesting
+
+opt_in_rules:
+  - force_unwrapping
+  - weak_delegate
+  - unowned_variable_capture
+  - unused_closure_parameter
+  - empty_count
+  - first_where
+  - contains_over_first_not_nil
+  - redundant_nil_coalescing
+
+force_cast: warning
+force_try: warning
+function_body_length:
+  warning: 80
+  error: 200
+file_length:
+  warning: 800
+  error: 2000
+type_body_length:
+  warning: 400
+  error: 1000
+cyclomatic_complexity:
+  warning: 15
+  error: 30
