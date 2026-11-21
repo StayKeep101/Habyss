@@ -44,3 +44,13 @@ end
 
 project.save
 puts 'Project saved.'
+
+# Its fonts (Lexend, the app's own), so the report reads like the rest of Habyss.
+project = Xcodeproj::Project.open('ios/Habyss.xcodeproj')
+report = project.targets.find { |t| t.name == 'ScreenTimeReport' }
+fonts = project.main_group.find_subpath('ScreenTimeReport', false)
+%w[Lexend_400Regular Lexend_500Medium Lexend_600SemiBold Lexend_700Bold].each do |font|
+  ref = fonts.files.find { |f| f.path == "Fonts/#{font}.ttf" } || fonts.new_reference("Fonts/#{font}.ttf")
+  report.resources_build_phase.add_file_reference(ref, true)
+end
+project.save

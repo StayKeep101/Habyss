@@ -3,11 +3,14 @@ import FamilyControls
 import ManagedSettings
 import SwiftUI
 
-/// Screen time, drawn inside Habyss (the Focus page's Screen time side). iOS only
-/// lets this extension see the numbers: it draws them here and nothing leaves it,
-/// so Habyss itself never reads anyone's app usage. The app picks the days
-/// (ScreenTimeReportView in ios/ScreenTimeModule.swift); this draws the daily
-/// average, what that costs over a year, a bar per day and the top apps.
+/// Screen time, drawn inside Habyss: the Focus page's Screen time side, in the
+/// Focus page's own design (app/(root)/focus-stats.tsx). iOS lets only this
+/// extension see the numbers: it draws them and nothing leaves it, so Habyss
+/// itself never reads anyone's app usage. The app picks the days
+/// (ScreenTimeReportView in ios/ScreenTimeModule.swift) and hands over its
+/// colours (components/Focus/ScreenTimeReport.tsx); this draws the average, a
+/// bar per day (tap one to read it, tap it again for the average), what Echo
+/// makes of it, and where the time went.
 @main
 struct ScreenTimeReportExtension: DeviceActivityReportExtension {
     var body: some DeviceActivityReportScene {
@@ -30,19 +33,32 @@ struct DayUsage: Identifiable {
     var id: Date { day }
     let day: Date
     var seconds: TimeInterval
+    var pickups: Int
+    var apps: [String: AppUsage]
 }
 
 struct Usage {
     var days: [DayUsage] = []
-    var apps: [AppUsage] = []
-    var pickups = 0
 
-    var total: TimeInterval { days.reduce(0) { $0 + $1.seconds } }
     /// Over the days that have come, not the ones still ahead.
-    var average: TimeInterval {
+    var elapsed: [DayUsage] {
         let today = Calendar.current.startOfDay(for: Date())
-        let counted = days.filter { $0.day <= today }
+        return days.filter { $0.day <= today }
+    }
+    var average: TimeInterval {
+        let counted = elapsed
         return counted.isEmpty ? 0 : counted.reduce(0) { $0 + $1.seconds } / Double(counted.count)
+    }
+    /// Apps across the given days, most first.
+    func apps(in list: [DayUsage]) -> [AppUsage] {
+        var merged: [String: AppUsage] = [:]
+        for day in list {
+            for (key, app) in day.apps {
+                if merged[key] == nil { merged[key] = AppUsage(id: key, token: app.token, name: app.name, seconds: 0) }
+                merged[key]?.seconds += app.seconds
+            }
+        }
+        return merged.values.filter { $0.seconds >= 60 }.sorted { $0.seconds > $1.seconds }
     }
 }
 
@@ -51,47 +67,74 @@ struct UsageScene: DeviceActivityReportScene {
     let content: (Usage) -> UsageView
 
     func makeConfiguration(representing data: DeviceActivityResults<DeviceActivityData>) async -> Usage {
-        var byDay: [Date: TimeInterval] = [:]
-        var byApp: [String: AppUsage] = [:]
-        var pickups = 0
+        var byDay: [Date: DayUsage] = [:]
         for await device in data {
             for await segment in device.activitySegments {
                 let day = Calendar.current.startOfDay(for: segment.dateInterval.start)
-                byDay[day, default: 0] += segment.totalActivityDuration
-                pickups += segment.totalPickupsWithoutApplicationActivity
+                var entry = byDay[day] ?? DayUsage(day: day, seconds: 0, pickups: 0, apps: [:])
+                entry.seconds += segment.totalActivityDuration
+                entry.pickups += segment.totalPickupsWithoutApplicationActivity
                 for await category in segment.categories {
                     for await activity in category.applications {
                         let app = activity.application
                         let key = app.bundleIdentifier ?? app.localizedDisplayName ?? "app"
-                        pickups += activity.numberOfPickups
-                        if byApp[key] == nil {
-                            byApp[key] = AppUsage(id: key, token: app.token, name: app.localizedDisplayName ?? "An app", seconds: 0)
+                        entry.pickups += activity.numberOfPickups
+                        if entry.apps[key] == nil {
+                            entry.apps[key] = AppUsage(id: key, token: app.token, name: app.localizedDisplayName ?? "An app", seconds: 0)
                         }
-                        byApp[key]?.seconds += activity.totalActivityDuration
+                        entry.apps[key]?.seconds += activity.totalActivityDuration
                     }
                 }
+                byDay[day] = entry
             }
         }
         var usage = Usage()
-        usage.days = byDay.map { DayUsage(day: $0.key, seconds: $0.value) }.sorted { $0.day < $1.day }
-        usage.apps = byApp.values.filter { $0.seconds >= 60 }.sorted { $0.seconds > $1.seconds }
-        usage.pickups = pickups
+        usage.days = byDay.values.sorted { $0.day < $1.day }
         return usage
     }
 }
 
-// MARK: - The look (the Focus page's, in SwiftUI)
+// MARK: - The app's look (handed over by the app; Lexend is bundled with this extension)
 
-private let group = UserDefaults(suiteName: "group.com.habyss.data")
+private struct Theme {
+    var text = Color.white
+    var muted = Color.white.opacity(0.7)
+    var subtle = Color.white.opacity(0.45)
+    var border = Color.white.opacity(0.1)
+    var accent = Color(red: 0.55, green: 0.66, blue: 0.95)
+    var card: [Color] = [Color.white.opacity(0.07), Color.white.opacity(0.05), Color.white.opacity(0.04)]
 
-private func color(_ hex: String?, _ fallback: Color) -> Color {
-    guard var text = hex?.trimmingCharacters(in: .whitespaces), text.hasPrefix("#") else { return fallback }
-    text.removeFirst()
-    guard text.count == 6, let value = Int(text, radix: 16) else { return fallback }
-    return Color(red: Double((value >> 16) & 0xFF) / 255, green: Double((value >> 8) & 0xFF) / 255, blue: Double(value & 0xFF) / 255)
+    static func load() -> Theme {
+        var theme = Theme()
+        guard let raw = UserDefaults(suiteName: "group.com.habyss.data")?.string(forKey: "habyss_report_theme"),
+              let data = raw.data(using: .utf8),
+              let values = try? JSONSerialization.jsonObject(with: data) as? [String: String] else { return theme }
+        func colour(_ key: String) -> Color? { values[key].flatMap(Color.init(hex:)) }
+        theme.text = colour("text") ?? theme.text
+        theme.muted = colour("muted") ?? theme.muted
+        theme.subtle = colour("subtle") ?? theme.subtle
+        theme.border = colour("border") ?? theme.border
+        theme.accent = colour("accent") ?? theme.accent
+        if let top = colour("cardTop"), let fill = colour("cardFill"), let bottom = colour("cardBottom") { theme.card = [top, fill, bottom] }
+        return theme
+    }
 }
 
-/// "3h 12m", "45m".
+private extension Color {
+    init?(hex: String) {
+        var text = hex.trimmingCharacters(in: .whitespaces)
+        guard text.hasPrefix("#") else { return nil }
+        text.removeFirst()
+        guard text.count == 6 || text.count == 8, let value = UInt64(text, radix: 16) else { return nil }
+        let rgb = text.count == 8 ? value >> 8 : value
+        let alpha = text.count == 8 ? Double(value & 0xFF) / 255 : 1
+        self.init(.sRGB, red: Double((rgb >> 16) & 0xFF) / 255, green: Double((rgb >> 8) & 0xFF) / 255, blue: Double(rgb & 0xFF) / 255, opacity: alpha)
+    }
+}
+
+private func lexend(_ size: CGFloat, _ weight: String) -> Font { .custom("Lexend-\(weight)", fixedSize: size) }
+
+/// "3h 12m", "45m" (the Focus page's way).
 private func duration(_ seconds: TimeInterval) -> String {
     let minutes = Int((seconds / 60).rounded())
     let hours = minutes / 60, rest = minutes % 60
@@ -99,75 +142,85 @@ private func duration(_ seconds: TimeInterval) -> String {
     return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
 }
 
+private func longDay(_ day: Date) -> String { day.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)) }
+private func shortDay(_ day: Date) -> String { day.formatted(.dateTime.day().month(.abbreviated)) }
+
+/// What Echo makes of it: plain numbers, a little deadpan, never more than two lines.
+private func echoLine(usage: Usage, picked: DayUsage?) -> String {
+    if let day = picked {
+        let top = usage.apps(in: [day]).first
+        let lead = top.map { "\($0.name) took \(duration($0.seconds)) of it." } ?? "Barely touched it. Respect."
+        return day.pickups > 0 ? "\(lead) Picked up \(day.pickups) times." : lead
+    }
+    let days = usage.elapsed
+    guard !days.isEmpty, usage.average >= 60 else { return "Almost no screen time. Suspiciously good." }
+    var parts: [String] = []
+    let apps = usage.apps(in: days)
+    let total = days.reduce(0) { $0 + $1.seconds }
+    if let top = apps.first, total > 0 {
+        let share = Int((top.seconds / total * 100).rounded())
+        parts.append(share >= 30 ? "\(top.name) is \(share)% of it. That's the leak." : "\(top.name) leads, at \(duration(top.seconds / Double(days.count))) a day.")
+    }
+    let pickups = days.reduce(0) { $0 + $1.pickups } / max(1, days.count)
+    if pickups > 0 { parts.append("You pick it up \(pickups) times a day.") }
+    if days.count >= 3, let worst = days.max(by: { $0.seconds < $1.seconds }) {
+        parts.append("\(worst.day.formatted(.dateTime.weekday(.wide))) was the worst: \(duration(worst.seconds)).")
+    }
+    return parts.prefix(2).joined(separator: " ")
+}
+
 struct UsageView: View {
     let usage: Usage
-    @Environment(\.colorScheme) private var scheme
+    @State private var picked: Date?
+    private let theme = Theme.load()
 
-    private var accent: Color { color(group?.string(forKey: "accentFrom"), .blue) }
-    private var primary: Color { scheme == .dark ? .white : .black }
-    private var muted: Color { primary.opacity(0.6) }
-    private var track: Color { primary.opacity(0.1) }
-
-    /// What this pace costs: days of a year, waking hours (16 a day).
-    private var yearLine: String? {
-        guard usage.average >= 15 * 60 else { return nil }
-        let days = Int((usage.average * 365 / (16 * 3600)).rounded())
-        return days >= 1 ? "At this pace: \(days) waking days a year on your phone." : nil
-    }
+    private var pickedDay: DayUsage? { picked.flatMap { day in usage.days.first { $0.day == day } } }
+    private var today: Date { Calendar.current.startOfDay(for: Date()) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(duration(usage.average))
-                    .font(.system(size: 56, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundColor(primary)
-                Text("Daily average")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(muted)
-                if let yearLine {
-                    Text(yearLine)
-                        .font(.system(size: 15))
-                        .foregroundColor(muted)
-                        .padding(.top, 2)
-                }
-            }
-
+            hero
             bars
-
-            if !usage.apps.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Where it went")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(primary)
-                    VStack(spacing: 14) {
-                        ForEach(usage.apps.prefix(8)) { app in row(app) }
-                    }
-                    .padding(16)
-                    .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(primary.opacity(0.05)))
-                }
-            }
-
-            if usage.pickups > 0, !usage.days.isEmpty {
-                Text("Picked up \(usage.pickups / max(1, usage.days.count)) times a day.")
-                    .font(.system(size: 15))
-                    .foregroundColor(muted)
-            }
+            wentTo
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    // The big figure: the daily average, or the day you tapped; Echo's line under it.
+    private var hero: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(duration(pickedDay?.seconds ?? usage.average))
+                .font(lexend(56, "Bold"))
+                .tracking(-2)
+                .monospacedDigit()
+                .foregroundColor(theme.text)
+            Text(pickedDay.map { longDay($0.day) } ?? "Daily average")
+                .font(lexend(15, "Medium"))
+                .foregroundColor(theme.muted)
+            Text(echoLine(usage: usage, picked: pickedDay))
+                .font(lexend(15, "Regular"))
+                .foregroundColor(theme.subtle)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, 6)
+    }
+
+    // A bar a day: tap one to read it, tap it again for the average.
     private var bars: some View {
         let ceiling = max(1, usage.days.map(\.seconds).max() ?? 1)
-        let today = Calendar.current.startOfDay(for: Date())
-        return VStack(spacing: 8) {
+        return VStack(spacing: 4) {
             HStack(alignment: .bottom, spacing: 4) {
                 ForEach(usage.days) { day in
+                    let lit = picked.map { $0 == day.day } ?? (day.day == today)
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(day.day == today ? accent : accent.opacity(0.55))
+                        .fill(day.seconds > 0 ? theme.accent : theme.border)
+                        .opacity(picked == nil ? (lit ? 1 : 0.75) : (lit ? 1 : 0.35))
                         .frame(height: max(4, 150 * day.seconds / ceiling))
                         .frame(maxWidth: .infinity)
-                        .accessibilityLabel("\(day.day.formatted(.dateTime.weekday(.wide))), \(duration(day.seconds))")
+                        .contentShape(Rectangle())
+                        .onTapGesture { picked = picked == day.day ? nil : day.day }
+                        .accessibilityLabel("\(longDay(day.day)), \(duration(day.seconds))")
+                        .accessibilityAddTraits(.isButton)
                 }
             }
             .frame(height: 150, alignment: .bottom)
@@ -175,39 +228,60 @@ struct UsageView: View {
                 HStack(spacing: 4) {
                     ForEach(usage.days) { day in
                         Text(day.day.formatted(.dateTime.weekday(.narrow)))
-                            .font(.system(size: 12))
-                            .foregroundColor(day.day == today ? primary : muted)
+                            .font(lexend(12, "Regular"))
+                            .foregroundColor(day.day == (picked ?? today) ? theme.text : theme.subtle)
                             .frame(maxWidth: .infinity)
                     }
+                }
+            } else if let first = usage.days.first, let last = usage.days.last {
+                HStack {
+                    Text(shortDay(first.day)).font(lexend(12, "Regular")).foregroundColor(theme.subtle)
+                    Spacer()
+                    Text(last.day == today ? "Today" : shortDay(last.day)).font(lexend(12, "Regular")).foregroundColor(theme.subtle)
                 }
             }
         }
     }
 
-    private func row(_ app: AppUsage) -> some View {
-        let top = max(1, usage.apps.first?.seconds ?? 1)
-        return VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                if let token = app.token {
-                    Label(token).labelStyle(.iconOnly).frame(width: 24, height: 24)
+    // Where the time went, most first: the Focus page's list, in the app's card.
+    @ViewBuilder private var wentTo: some View {
+        let apps = Array(usage.apps(in: pickedDay.map { [$0] } ?? usage.elapsed).prefix(8))
+        if !apps.isEmpty {
+            let top = max(1, apps.first?.seconds ?? 1)
+            VStack(alignment: .leading, spacing: 12) {
+                Text(pickedDay.map { "\(shortDay($0.day)) went to" } ?? (usage.days.count <= 7 ? "This week went to" : "These days went to"))
+                    .font(lexend(20, "Bold"))
+                    .tracking(-0.3)
+                    .foregroundColor(theme.text)
+                VStack(spacing: 0) {
+                    ForEach(apps) { app in
+                        VStack(spacing: 8) {
+                            HStack(spacing: 10) {
+                                if let token = app.token {
+                                    Label(token).labelStyle(.iconOnly).frame(width: 22, height: 22)
+                                }
+                                Text(app.name).font(lexend(15, "Medium")).foregroundColor(theme.text).lineLimit(1)
+                                Spacer()
+                                Text(duration(app.seconds)).font(lexend(14, "SemiBold")).monospacedDigit().foregroundColor(theme.muted)
+                            }
+                            GeometryReader { proxy in
+                                ZStack(alignment: .leading) {
+                                    Capsule().fill(theme.border)
+                                    Capsule().fill(theme.accent).frame(width: proxy.size.width * app.seconds / top)
+                                }
+                            }
+                            .frame(height: 6)
+                        }
+                        .padding(.vertical, 10)
+                    }
                 }
-                Text(app.name)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(primary)
-                    .lineLimit(1)
-                Spacer()
-                Text(duration(app.seconds))
-                    .font(.system(size: 14, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundColor(muted)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(LinearGradient(colors: theme.card, startPoint: .top, endPoint: .bottom))
+                )
             }
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(track)
-                    Capsule().fill(accent).frame(width: proxy.size.width * app.seconds / top)
-                }
-            }
-            .frame(height: 6)
         }
     }
 }

@@ -21,6 +21,8 @@
 		1D75205034E024351BA8E488 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9F010AD7F3662CE05388C78E /* Assets.xcassets */; };
 		1E69ECA55A3B0F0787C8CBFA /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27ABC22CCEF4F4A574C70474 /* ManagedSettings.framework */; };
 		2480B1B098F9D9CF6C28A775 /* ActivityMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9CA2BF0F4CA87C7C3794E79B /* ActivityMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		25216F708388D6FCED97AF83 /* Lexend_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 26020B7FABD69AAA7AFBF0CD /* Lexend_400Regular.ttf */; };
+		266ED6541BB1FC34ACE4B582 /* Lexend_600SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3CA2EF1A26437B12B560DBE4 /* Lexend_600SemiBold.ttf */; };
 		274EA239A3B61C052D5B0BC8 /* echo_leave_normal.caf in Resources */ = {isa = PBXBuildFile; fileRef = 7022C67BF3B293ED5D6D7130 /* echo_leave_normal.caf */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		3E7B6B98E541968B99E98020 /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27ABC22CCEF4F4A574C70474 /* ManagedSettings.framework */; };
@@ -64,6 +66,7 @@
 		C59D848C2431CE604B0CD0AA /* echo_start_bully_mode.caf in Resources */ = {isa = PBXBuildFile; fileRef = 374B2A5B75FEDB72BE26156B /* echo_start_bully_mode.caf */; };
 		C5E8C659EAF96CAF9249B264 /* LiveActivityShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 335B4BB0978F232C833454DF /* LiveActivityShared.swift */; };
 		CD96AA76814FF42BC529B598 /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27ABC22CCEF4F4A574C70474 /* ManagedSettings.framework */; };
+		D22EC0ACC849D6A3B6156447 /* Lexend_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A8F4311CD0FA2B60885C548C /* Lexend_700Bold.ttf */; };
 		D34EB9618A114640AED3E701 /* WidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = D34EB9618A114640AED3E702 /* WidgetShared.swift */; };
 		D3E60B1B0D31AC6EEECAE446 /* echo_leave_friendly.caf in Resources */ = {isa = PBXBuildFile; fileRef = 6A7A63DEF1FF86CD2EB4D12B /* echo_leave_friendly.caf */; };
 		D8ABA97CAB7884A8AAF2D332 /* GateShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6863FF264729579CB88A877A /* GateShared.swift */; };
@@ -85,6 +88,7 @@
 		FB409C2E3BEEA019059C82C9 /* ScreenTimeModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E7BCBC66B78AA89F94FBAE /* ScreenTimeModule.swift */; };
 		FBB4C9B2D545F84CBE6CB2FC /* echo_end_normal.caf in Resources */ = {isa = PBXBuildFile; fileRef = 116C3B85C384919296AE838A /* echo_end_normal.caf */; };
 		FC9B44A77B0091A4CB9111E5 /* echo_review_goofball.caf in Resources */ = {isa = PBXBuildFile; fileRef = 17C12D13E6003354425E0E81 /* echo_review_goofball.caf */; };
+		FCC20EE9B8C0B1D983102CF4 /* Lexend_500Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8AFE645ADF3C5C5D97AD6C78 /* Lexend_500Medium.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -173,6 +177,7 @@
 		15D0E84CA5816128117F419F /* echo_review_dad_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_review_dad_mode.caf; sourceTree = "<group>"; };
 		17C12D13E6003354425E0E81 /* echo_review_goofball.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_review_goofball.caf; sourceTree = "<group>"; };
 		1E089807AF9CC20BFEF42E57 /* ScreenTimeModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = ScreenTimeModule.m; sourceTree = "<group>"; };
+		26020B7FABD69AAA7AFBF0CD /* Lexend_400Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = Lexend_400Regular.ttf; path = Fonts/Lexend_400Regular.ttf; sourceTree = "<group>"; };
 		27ABC22CCEF4F4A574C70474 /* ManagedSettings.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettings.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/ManagedSettings.framework; sourceTree = DEVELOPER_DIR; };
 		2C5FEC4998F7FA502BBAF875 /* Pods-Habyss.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Habyss.release.xcconfig"; path = "Target Support Files/Pods-Habyss/Pods-Habyss.release.xcconfig"; sourceTree = "<group>"; };
 		2CD9B95DB430CEF614992B8D /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/SwiftUI.framework; sourceTree = DEVELOPER_DIR; };
@@ -182,6 +187,7 @@
 		374B2A5B75FEDB72BE26156B /* echo_start_bully_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_start_bully_mode.caf; sourceTree = "<group>"; };
 		399CFCF61C3233CD2B661E85 /* DeviceActivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DeviceActivity.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/DeviceActivity.framework; sourceTree = DEVELOPER_DIR; };
 		3AF4D1E21FE215BAE329FF31 /* ShieldActionExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShieldActionExtension.swift; sourceTree = "<group>"; };
+		3CA2EF1A26437B12B560DBE4 /* Lexend_600SemiBold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = Lexend_600SemiBold.ttf; path = Fonts/Lexend_600SemiBold.ttf; sourceTree = "<group>"; };
 		3EE498404A0789C731E0033B /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		46A43E3BBB6EEE9A03429279 /* echo_leave_bully_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_leave_bully_mode.caf; sourceTree = "<group>"; };
 		4C81C6A0BA0073E44D9679B3 /* HabyssIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HabyssIntents.swift; path = Habyss/HabyssIntents.swift; sourceTree = "<group>"; };
@@ -198,11 +204,13 @@
 		7FF67B723CA87F0CEEE98F70 /* FamilyControls.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FamilyControls.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/FamilyControls.framework; sourceTree = DEVELOPER_DIR; };
 		85F71723A01C8B0C7A43909B /* echo_end_goofball.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_end_goofball.caf; sourceTree = "<group>"; };
 		894C975C24508B66D771E868 /* ShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		8AFE645ADF3C5C5D97AD6C78 /* Lexend_500Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = Lexend_500Medium.ttf; path = Fonts/Lexend_500Medium.ttf; sourceTree = "<group>"; };
 		9CA2BF0F4CA87C7C3794E79B /* ActivityMonitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ActivityMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		9F010AD7F3662CE05388C78E /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9FCCDB3B9ED43389F3476412 /* ManagedSettingsUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettingsUI.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/ManagedSettingsUI.framework; sourceTree = DEVELOPER_DIR; };
 		A4D352A872465CB1F4C53483 /* SharedDefaults.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SharedDefaults.swift; path = Habyss/SharedDefaults.swift; sourceTree = "<group>"; };
 		A4E7BCBC66B78AA89F94FBAE /* ScreenTimeModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenTimeModule.swift; sourceTree = "<group>"; };
+		A8F4311CD0FA2B60885C548C /* Lexend_700Bold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = Lexend_700Bold.ttf; path = Fonts/Lexend_700Bold.ttf; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Habyss/SplashScreen.storyboard; sourceTree = "<group>"; };
 		AB45CEF4F178A64B25AF5436 /* echo_review_bully_mode.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = echo_review_bully_mode.caf; sourceTree = "<group>"; };
 		AE7DC5282F40FA2500F32E02 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
@@ -435,6 +443,10 @@
 				E18017986D0B7081DC3621BB /* ScreenTimeReportExtension.swift */,
 				BA5DC23AABB14F9496B48EC9 /* Info.plist */,
 				D914D7C3CE23C93D4B6661E5 /* ScreenTimeReport.entitlements */,
+				26020B7FABD69AAA7AFBF0CD /* Lexend_400Regular.ttf */,
+				8AFE645ADF3C5C5D97AD6C78 /* Lexend_500Medium.ttf */,
+				3CA2EF1A26437B12B560DBE4 /* Lexend_600SemiBold.ttf */,
+				A8F4311CD0FA2B60885C548C /* Lexend_700Bold.ttf */,
 			);
 			name = ScreenTimeReport;
 			path = ScreenTimeReport;
@@ -837,6 +849,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				25216F708388D6FCED97AF83 /* Lexend_400Regular.ttf in Resources */,
+				FCC20EE9B8C0B1D983102CF4 /* Lexend_500Medium.ttf in Resources */,
+				266ED6541BB1FC34ACE4B582 /* Lexend_600SemiBold.ttf in Resources */,
+				D22EC0ACC849D6A3B6156447 /* Lexend_700Bold.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
