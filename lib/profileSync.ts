@@ -31,15 +31,20 @@ export interface Sharing {
      * ends up sharing more than anybody agreed to.
      */
     tasks: boolean;
+    /** The year of days on your profile (built from the day cards you share). */
+    year?: boolean;
+    /** The hourglasses you have earned, on your profile. */
+    awards?: boolean;
 }
 
-export const ALL_SHARED: Sharing = { name: true, bio: true, photo: true, progress: true, habits: true, tasks: true };
+export const ALL_SHARED: Sharing = { name: true, bio: true, photo: true, progress: true, habits: true, tasks: true, year: true, awards: true };
 
 export const SHARING_LABELS: { id: keyof Sharing; label: string; detail: string }[] = [
     { id: 'name', label: 'Your name', detail: 'Otherwise friends see your username' },
     { id: 'photo', label: 'Your picture', detail: 'Shown beside your day in the feed' },
-    { id: 'bio', label: 'Your bio', detail: 'The line about what you are working on' },
     { id: 'progress', label: 'Your progress', detail: 'Streak and how much of today is done' },
+    { id: 'year', label: 'Your year', detail: 'The heatmap of every day, on your profile' },
+    { id: 'awards', label: 'Your awards', detail: 'The hourglasses you have earned' },
     { id: 'habits', label: 'Shared habit names', detail: 'Only ones you have shared with that person' },
     { id: 'tasks', label: "Today's tasks", detail: 'Up to five, by name, on your card in the feed' },
 ];

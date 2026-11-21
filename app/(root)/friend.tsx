@@ -8,6 +8,10 @@ import { AppButton } from '@/components/ui/AppButton';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { MorphMenu, type MorphMenuItem } from '@/components/ui/MorphMenu';
 import { ProfileView, type ProfileNumbers } from '@/components/Profile/ProfileView';
+import { YearHeatmap, type HeatDay } from '@/components/Profile/YearHeatmap';
+import { HourglassAwards } from '@/components/Profile/HourglassAwards';
+import { friendYear } from '@/lib/friendYear';
+import { localDateKey } from '@/lib/habitSchedule';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
@@ -82,6 +86,16 @@ export default function FriendScreen() {
     const statusColor = now === 'focus' ? primary : now === 'live' ? colors.success : colors.textTertiary;
     const statusLine = now === 'focus' && status?.focusLabel ? `${STATUS_LABEL.focus} · ${status.focusLabel}` : STATUS_LABEL[now];
 
+    // What they share of their profile (missing reads as yes), and their year of days.
+    const shares = { year: profile.sharing?.year !== false && profile.sharing?.progress !== false, awards: profile.sharing?.awards !== false };
+    const [year, setYear] = useState<HeatDay[]>([]);
+    useEffect(() => {
+        if (!isFriend || !id || !shares.year) return;
+        let live = true;
+        void friendYear(id).then(days => { if (live) setYear(days); });
+        return () => { live = false; };
+    }, [isFriend, id, shares.year]);
+
     // The same four numbers your own profile shows; absent when they keep
     // their progress private (friend_stats leaves them out).
     const numbers: ProfileNumbers | undefined = isFriend && friend ? {
@@ -143,7 +157,7 @@ export default function FriendScreen() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <ProfileView
                     name={name}
-                    bio={profile.bio ?? ''}
+                    bio=""
                     meta={username ? `@${username}` : ''}
                     avatar={profile.avatarUrl ?? friend?.avatarUrl ?? status?.avatarUrl ?? stranger?.avatarUrl}
                     initials={name.slice(0, 1).toUpperCase()}
@@ -160,7 +174,16 @@ export default function FriendScreen() {
                             <Text style={[styles.statusText, { color: statusColor }]}>{statusLine}</Text>
                         </View>
                     }
-                />
+                    // Their year, as yours sits under your name (when they share it).
+                    social={isFriend && shares.year && year.length ? (
+                        <View style={styles.year}><YearHeatmap days={year} color={primary} today={localDateKey(new Date())} /></View>
+                    ) : null}
+                >
+                    {/* Their awards, as on yours (when they share them). */}
+                    {isFriend && shares.awards && marks !== undefined ? (
+                        <View style={styles.awards}><HourglassAwards marks={marks} /></View>
+                    ) : null}
+                </ProfileView>
 
                 {/* A streak freeze is sent only when Echo asks, as a friend is about to lose one (components/Echo/FreezeAskHost.tsx). */}
 

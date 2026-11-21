@@ -15,5 +15,7 @@ export const styles = StyleSheet.create({
     footnote: { fontSize: ms(11), lineHeight: ms(16), fontFamily: FontFamily.regular, textAlign: 'center', marginTop: vs(8), marginHorizontal: s(20) },
     /** The year's heatmap, under the numbers. */
     year: { marginTop: Spacing.xl, alignSelf: 'stretch' },
+    /** Sleep, workouts and awards, under the numbers. */
+    more: { marginHorizontal: Spacing.xl, marginTop: Spacing.xxl, gap: Spacing.xxl },
     freezeSheet: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md },
 });

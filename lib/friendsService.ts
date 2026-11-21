@@ -192,6 +192,8 @@ export interface FriendProfile {
     marksSeries?: number[];
     bestStreak?: number;
     goalsCompleted?: number;
+    /** What they let friends see of their profile (missing keys read as yes). */
+    sharing?: { year?: boolean; awards?: boolean; progress?: boolean };
 }
 
 async function stats(ctx: Context): Promise<StatsRow[]> {
@@ -513,12 +515,13 @@ export class FriendsService {
         const ctx = await signedIn();
         if (!ctx) return {};
         const { data } = await ctx.sb.from('profiles')
-            .select('bio, avatar_url, cover_url, marks_series, best_streak, goals_completed').eq('id', friendId).maybeSingle();
+            .select('bio, avatar_url, cover_url, marks_series, best_streak, goals_completed, sharing').eq('id', friendId).maybeSingle();
         return {
             bio: data?.bio ?? undefined, avatarUrl: data?.avatar_url ?? undefined, coverUrl: data?.cover_url ?? undefined,
             marksSeries: data?.marks_series ?? undefined,
             bestStreak: data?.best_streak ?? undefined,
             goalsCompleted: data?.goals_completed ?? undefined,
+            sharing: data?.sharing ?? undefined,
         };
     }
 

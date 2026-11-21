@@ -94,5 +94,7 @@ const SEE_ICON: Record<keyof Sharing, { icon: string; color: string }> = {
     bio: { icon: 'text', color: '#64D2FF' },
     progress: { icon: 'trending-up', color: '#30D158' },
     habits: { icon: 'repeat', color: '#FF9F0A' },
+    year: { icon: 'grid', color: '#30D158' },
+    awards: { icon: 'hourglass', color: '#FF9F0A' },
     tasks: { icon: 'checkmark-done', color: '#FF453A' },
 };

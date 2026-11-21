@@ -15,6 +15,9 @@ import { ProfileView } from '@/components/Profile/ProfileView';
 import { FreezeCard } from '@/components/Profile/FreezeCard';
 import { FollowCounts } from '@/components/Profile/FollowCounts';
 import { YearHeatmap } from '@/components/Profile/YearHeatmap';
+import { HourglassAwards } from '@/components/Profile/HourglassAwards';
+import { SleepCard } from '@/components/Home/SleepCard';
+import { ActivityCard } from '@/components/Home/ActivityCard';
 import { VoidSheet } from '@/components/ui/VoidSheet';
 import { useFreezes } from '@/hooks/useCheckIns';
 import { yearDays } from '@/lib/progressMonth';
@@ -94,7 +97,14 @@ export default function ProfileScreen() {
                             </View>
                         </>
                     )}
-                />
+               >
+                    {/* Sleep and workouts, as on Home; then the hourglasses earned, as awards. */}
+                    <View style={styles.more}>
+                        <SleepCard />
+                        <ActivityCard />
+                        <HourglassAwards marks={marks.total} />
+                    </View>
+                </ProfileView>
 
             </ScrollView>
             {/* The freezes, opened from the snowflake on the streak. Yours alone. */}

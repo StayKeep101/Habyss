@@ -12,13 +12,13 @@ export function FriendsSeeRow({ what, icon, color, label }: { what: keyof Sharin
     const [on, setOn] = useState<boolean | null>(null);
     useEffect(() => {
         let alive = true;
-        void getSharing().then(found => { if (alive) setOn(found[what]); }).catch(() => undefined);
+        void getSharing().then(found => { if (alive) setOn(found[what] !== false); }).catch(() => undefined);
         return () => { alive = false; };
     }, [what]);
     const flip = (value: boolean) => {
         selectionFeedback();
         setOn(value);
-        void setSharing({ [what]: value }).then(found => setOn(found[what])).catch(() => setOn(!value));
+        void setSharing({ [what]: value }).then(found => setOn(found[what] !== false)).catch(() => setOn(!value));
     };
     return <SettingsRow icon={icon} color={color} label={label} toggle={on ?? true} disabled={on === null} onToggle={flip} />;
 }
