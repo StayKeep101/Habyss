@@ -46,3 +46,13 @@ export function dolly(p: number, zoom: number): number {
     if (Math.abs(zoom - 1) < 0.001) return p;
     return (Math.pow(zoom, p) - 1) / (zoom - 1);
 }
+
+/**
+ * How far the camera has arrived, 0 to 1, from its progress `p`: nothing until the last
+ * stretch of the approach, then all of it. What waits for the camera (the carousel over
+ * the podium) appears with this, and what it replaces (Home's glass) goes with it.
+ */
+export function arrived(p: number): number {
+    'worklet';
+    return Math.max(0, Math.min(1, (p - 0.7) / 0.3));
+}

@@ -17,7 +17,7 @@ import { Colors } from '@/theme/colors';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
-import { dolly, focusGlassPlace, focusLeave, focusTurn, setFocusStage } from '@/lib/focusStage';
+import { arrived, dolly, focusGlassPlace, focusLeave, focusTurn, setFocusStage } from '@/lib/focusStage';
 import { CEREMONY, EASE, FOCUS_ENTRY, FOCUS_EXIT, OVERLAY, timingFor } from '@/theme/motion';
 import { FOCUS_BAR } from '@/components/Focus/FocusHourglass';
 import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
@@ -686,6 +686,8 @@ const Home = () => {
     if (open) homeScrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [glassesAside]);
   const asideForGlasses = useAnimatedStyle(() => ({ opacity: 1 - glassesAside.get() }));
+  // Home's glass rides the camera in, handing over to the carousel's only as the camera arrives.
+  const glassHandOver = useAnimatedStyle(() => ({ opacity: 1 - arrived(glassesCam.get()) }));
   const barLeave = useAnimatedStyle(() => {
     const q = Math.min(1, focusLeave.get() * clearShare);
     return { opacity: 1 - q, transform: [{ translateY: -q * Math.max(1, headerHeight) }] };
@@ -701,7 +703,7 @@ const Home = () => {
       </Animated.View>
       {/* The day's hourglass on the podium's top step: it never moves; the cards rise over it. */}
       <Animated.View pointerEvents="none" onLayout={event => setGlassBoxHeight(event.nativeEvent.layout.height)}
-        style={[homeStyles.glassStage, { top: stepY - GLASS_HEIGHT / 2 + glassSink, left: horizontalPadding, right: horizontalPadding }, sceneFade, asideForGlasses, glassZoom]}>
+        style={[homeStyles.glassStage, { top: stepY - GLASS_HEIGHT / 2 + glassSink, left: horizontalPadding, right: horizontalPadding }, sceneFade, glassHandOver, glassZoom]}>
         <DayHourglass marks={marks.total} />
       </Animated.View>
       <Animated.ScrollView
@@ -785,7 +787,7 @@ const Home = () => {
           </View>
       </Animated.ScrollView>
       {/* Every hourglass, on this podium, over this scene (components/Home/GlassCarousel.tsx). */}
-      <GlassCarousel stage={{ glassBottom: glassesBottom, size: GLASS_HEIGHT * glassesZoom, captionTop: stepY + GLASS_HEIGHT / 2 + Spacing.xl }} onOpenChange={onGlasses} />
+      <GlassCarousel stage={{ glassBottom: glassesBottom, size: GLASS_HEIGHT * glassesZoom, captionTop: stepY + GLASS_HEIGHT / 2 + Spacing.xl }} onOpenChange={onGlasses} camera={glassesCam} />
 
       {/* The floating stats bar: your picture and the three stats, fixed over everything, the cards passing under. */}
       {/* Plain dark behind the picture and the stats, no shadow: the page stops at its edge

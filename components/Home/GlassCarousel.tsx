@@ -11,6 +11,7 @@ import { useAccent } from '@/context/AccentContext';
 import { chooseRankLook } from '@/lib/rankLook';
 import { setThemeChoice } from '@/lib/themeChoice';
 import { on, type AppEvents } from '@/lib/appEvents';
+import { arrived } from '@/lib/focusStage';
 import { RANKS } from '@/lib/marks';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -32,7 +33,7 @@ const SLOT = 0.54;
  * Picking one you have reached dresses the app in its palette (and turns on the
  * Hourglass theme, Settings → Appearance): Home's hourglass and scene take it too.
  */
-export function GlassCarousel({ stage, onOpenChange }: {
+export function GlassCarousel({ stage, onOpenChange, camera }: {
     /**
      * Opened in place on Home, over its own scene: where the podium's hourglass
      * stands (its bottom edge, in points from the top), how big the one in the
@@ -40,6 +41,8 @@ export function GlassCarousel({ stage, onOpenChange }: {
      */
     stage?: { glassBottom: number; size: number; captionTop: number };
     onOpenChange?: (open: boolean) => void;
+    /** On Home: the camera flying in on the podium (0 to 1); the carousel appears as it arrives. */
+    camera?: SharedValue<number>;
 } = {}) {
     const t = useTokens();
     const insets = useSafeAreaInsets();
@@ -77,7 +80,10 @@ export function GlassCarousel({ stage, onOpenChange }: {
     const onScroll = useAnimatedScrollHandler(event => { scrollX.set(event.contentOffset.x); });
     // On Home the scene itself zooms in to it, so the carousel only fades; on its own it settles in.
     const onStage = !!stage;
-    const layerStyle = useAnimatedStyle(() => ({ opacity: shown.get(), transform: [{ scale: onStage ? 1 : 0.94 + shown.get() * 0.06 }] }));
+    const layerStyle = useAnimatedStyle(() => ({
+        opacity: shown.get() * (camera ? arrived(camera.get()) : 1),
+        transform: [{ scale: onStage ? 1 : 0.94 + shown.get() * 0.06 }],
+    }));
     const glassSize = stage?.size ?? s(270);
 
     if (!open) return null;
