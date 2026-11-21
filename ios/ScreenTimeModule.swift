@@ -234,3 +234,60 @@ class ScreenTimeReportView: UIView {
         host?.view.frame = bounds
     }
 }
+
+/// The apps a habit counts time in (Tracking → Apps), as their own icons: only iOS
+/// can draw them (the app never learns which apps they are), from the chosen
+/// selection saved for that habit (AppTime in GateShared.swift).
+@objc(AppTimeIconsViewManager)
+class AppTimeIconsViewManager: RCTViewManager {
+    override static func requiresMainQueueSetup() -> Bool { true }
+    override func view() -> UIView! {
+        if #available(iOS 16.0, *) { return AppTimeIconsView() }
+        return UIView()
+    }
+}
+
+@available(iOS 16.0, *)
+class AppTimeIconsView: UIView {
+    @objc var habitId: NSString = "" { didSet { render() } }
+    /// Bumped by the app after the picker closes, so a new choice shows at once.
+    @objc var version: NSNumber = 0 { didSet { render() } }
+    @objc var size: NSNumber = 28 { didSet { render() } }
+    private var host: UIHostingController<AnyView>?
+
+    override init(frame: CGRect) { super.init(frame: frame); backgroundColor = .clear; render() }
+    required init?(coder: NSCoder) { super.init(coder: coder); render() }
+
+    private func render() {
+        let selection = AppTime.selection(habitId as String) ?? FamilyActivitySelection()
+        let side = CGFloat(truncating: size)
+        let apps = Array(selection.applicationTokens.prefix(12))
+        let categories = Array(selection.categoryTokens.prefix(12 - apps.count))
+        let view = AnyView(
+            HStack(spacing: 8) {
+                ForEach(apps, id: \.self) { token in
+                    Label(token).labelStyle(.iconOnly).frame(width: side, height: side).clipShape(RoundedRectangle(cornerRadius: side * 0.23, style: .continuous))
+                }
+                ForEach(categories, id: \.self) { token in
+                    Label(token).labelStyle(.iconOnly).frame(width: side, height: side)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .background(Color.clear)
+        )
+        if let host {
+            host.rootView = view
+            return
+        }
+        let made = UIHostingController(rootView: view)
+        made.view.backgroundColor = .clear
+        made.view.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(made.view)
+        NSLayoutConstraint.activate([
+            made.view.leadingAnchor.constraint(equalTo: leadingAnchor), made.view.trailingAnchor.constraint(equalTo: trailingAnchor),
+            made.view.topAnchor.constraint(equalTo: topAnchor), made.view.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+        host = made
+    }
+}

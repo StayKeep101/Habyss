@@ -547,7 +547,7 @@ export const HabitSheet: React.FC<{
                     stayPlace={stayPlace ?? null} reminderPlace={draft.places.find(place => place.trigger !== 'stay') ?? null}
                     onStayPlace={place => change({ places: [...draft.places.filter(item => item.trigger !== 'stay'),
                         ...(place ? [{ ...place, trigger: 'stay' as const, stayMinutes: minutes }] : [])] })}
-                    onAddApps={addApps} appsCount={appsCount} minutesFromHabit={minutesFromHabit}
+                    onAddApps={addApps} appsCount={appsCount} minutesFromHabit={minutesFromHabit} appsHabitId={habitId}
                     appsAvailable={appsAvailable} healthAvailable={draft.habitType !== 'quit'}
                 />
             ),

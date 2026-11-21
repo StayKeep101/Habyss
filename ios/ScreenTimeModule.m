@@ -42,3 +42,9 @@ RCT_EXPORT_VIEW_PROPERTY(days, NSNumber)
 RCT_EXPORT_VIEW_PROPERTY(offset, NSNumber)
 RCT_EXPORT_VIEW_PROPERTY(weekStart, NSNumber)
 @end
+
+@interface RCT_EXTERN_MODULE(AppTimeIconsViewManager, RCTViewManager)
+RCT_EXPORT_VIEW_PROPERTY(habitId, NSString)
+RCT_EXPORT_VIEW_PROPERTY(version, NSNumber)
+RCT_EXPORT_VIEW_PROPERTY(size, NSNumber)
+@end

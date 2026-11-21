@@ -441,6 +441,206 @@ struct CheckProgressIntent: AppIntent {
     }
 }
 
+// MARK: - More: moving, undoing, asking about any stretch of time (in Shortcuts and automations)
+
+/// Which task, to the server: its own id when it came from there, else its title to find it by.
+@available(iOS 16.0, *)
+private func taskRef(_ task: TaskEntity) -> [String: Any] { task.id.hasPrefix("task:") ? ["find": task.title] : ["task_id": task.id] }
+@available(iOS 16.0, *)
+private func habitRef(_ habit: HabitEntity) -> [String: Any] { habit.id.hasPrefix("habit:") ? ["find": habit.name] : ["habit_id": habit.id] }
+
+/// "Move Essay to Friday": a task to another day (and time, when given).
+@available(iOS 16.0, *)
+struct RescheduleTaskIntent: AppIntent {
+    static var title: LocalizedStringResource = "Move Task"
+    static var description = IntentDescription("Move one of your tasks to another day in Habyss")
+    static var openAppWhenRun: Bool = false
+    @Parameter(title: "Task", requestValueDialog: "Which task?") var task: TaskEntity
+    @Parameter(title: "To", requestValueDialog: "To when?") var day: Date
+    static var parameterSummary: some ParameterSummary { Summary("Move \(\.$task) to \(\.$day)") }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        var arguments = taskRef(task)
+        arguments["due_date"] = dayString(day)
+        let parts = Calendar.current.dateComponents([.hour, .minute], from: day)
+        if let hour = parts.hour, let minute = parts.minute, hour + minute > 0 { arguments["due_time"] = String(format: "%02d:%02d", hour, minute) }
+        do { return .result(dialog: "\(try await HabyssCloud.call("update_task", arguments))") }
+        catch HabyssCloud.Failure.refused(let why) { return .result(dialog: "\(why)") }
+        catch { return .result(dialog: "Habyss can't be reached right now. Try again in a minute.") }
+    }
+}
+
+/// "Move what's left to tomorrow": every task still open today goes to tomorrow, in one go.
+@available(iOS 16.0, *)
+struct MoveLeftoversIntent: AppIntent {
+    static var title: LocalizedStringResource = "Move Today's Leftovers to Tomorrow"
+    static var description = IntentDescription("Every task still open today moves to tomorrow")
+    static var openAppWhenRun: Bool = false
+
+    func perform() async throws -> some IntentResult & ReturnsValue<Int> & ProvidesDialog {
+        let open: [HabyssCloud.Row]
+        do { open = try await HabyssCloud.today().tasks.filter { !$0.done } }
+        catch { return .result(value: 0, dialog: "Habyss can't be reached right now. Try again in a minute.") }
+        guard !open.isEmpty else { return .result(value: 0, dialog: "Nothing left today. Clean slate.") }
+        let tomorrow = dayString(Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date())
+        var moved = 0
+        for task in open where (try? await HabyssCloud.call("update_task", ["task_id": task.id, "due_date": tomorrow])) != nil { moved += 1 }
+        return .result(value: moved, dialog: "Moved \(moved) task\(moved == 1 ? "" : "s") to tomorrow. Rest up.")
+    }
+}
+
+/// The stretch of time to ask about.
+@available(iOS 16.0, *)
+enum ReviewPeriod: String, AppEnum {
+    case today, week, month, year
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Period"
+    static var caseDisplayRepresentations: [ReviewPeriod: DisplayRepresentation] = [
+        .today: "Today", .week: "This week", .month: "This month", .year: "This year",
+    ]
+    var days: Int { switch self { case .today: return 0; case .week: return 6; case .month: return 29; case .year: return 364 } }
+    var said: String { switch self { case .today: return "Today"; case .week: return "This week"; case .month: return "This month"; case .year: return "This year" } }
+}
+
+/// "How did I do this week": habits kept, the best and the weakest, tasks done and overdue.
+@available(iOS 16.0, *)
+struct ReviewIntent: AppIntent {
+    static var title: LocalizedStringResource = "How Did I Do"
+    static var description = IntentDescription("Your habits kept, best and weakest habit, tasks done and overdue, for any stretch of time")
+    static var openAppWhenRun: Bool = false
+    @Parameter(title: "Period", default: .week) var period: ReviewPeriod
+    static var parameterSummary: some ParameterSummary { Summary("How did I do \(\.$period)") }
+
+    func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        let to = Date()
+        let from = Calendar.current.date(byAdding: .day, value: -period.days, to: to) ?? to
+        let text: String
+        do { text = try await HabyssCloud.call("get_stats", ["from": dayString(from), "to": dayString(to)]) }
+        catch { return .result(value: "", dialog: "Habyss can't be reached right now. Try again in a minute.") }
+        let lines = text.components(separatedBy: "\n")
+        let habits = lines.first { $0.hasPrefix("Habits: ") }.map { String($0.dropFirst(8)) } ?? "nothing due"
+        // Per habit: "- Run: 6/7 (86%), streak 12 (id …)": the best and the weakest.
+        let rated: [(name: String, rate: Double)] = lines.compactMap { line in
+            guard line.hasPrefix("- "), line.contains(", streak "), let colon = line.firstIndex(of: ":"),
+                  let slash = line.firstIndex(of: "/") else { return nil }
+            let name = String(line[line.index(line.startIndex, offsetBy: 2)..<colon])
+            let done = Double(line[line.index(after: colon)..<slash].trimmingCharacters(in: .whitespaces)) ?? 0
+            let rest = line[line.index(after: slash)...]
+            let total = Double(rest.prefix { $0.isNumber }) ?? 0
+            return total > 0 ? (name, done / total) : nil
+        }
+        let best = rated.max { $0.rate < $1.rate }
+        let worst = rated.min { $0.rate < $1.rate }
+        let tasks = lines.first { $0.hasPrefix("Tasks: ") }.map { line -> String in
+            let done = line.dropFirst(7).prefix { $0.isNumber }
+            let overdue = line.components(separatedBy: "; ").last?.prefix { $0.isNumber } ?? "0"
+            return "\(done) task\(done == "1" ? "" : "s") done, \(overdue) overdue"
+        } ?? ""
+        var said = "\(period.said): habits \(habits). \(tasks)."
+        if let best, let worst, best.name != worst.name {
+            said += " Strongest: \(best.name). Needs you: \(worst.name)."
+        }
+        return .result(value: said, dialog: "\(said)")
+    }
+}
+
+/// "What's my Run streak": days in a row, from the server.
+@available(iOS 16.0, *)
+struct StreakIntent: AppIntent {
+    static var title: LocalizedStringResource = "Get Habit Streak"
+    static var description = IntentDescription("How many days in a row you have kept a habit")
+    static var openAppWhenRun: Bool = false
+    @Parameter(title: "Habit", requestValueDialog: "Which habit?") var habit: HabitEntity
+    static var parameterSummary: some ParameterSummary { Summary("Streak of \(\.$habit)") }
+
+    func perform() async throws -> some IntentResult & ReturnsValue<Int> & ProvidesDialog {
+        guard let text = try? await HabyssCloud.call("get_stats") else { return .result(value: 0, dialog: "Habyss can't be reached right now.") }
+        let line = text.components(separatedBy: "\n").first { $0.hasPrefix("- \(habit.name):") || $0.contains("(id \(habit.id))") }
+        let streak = line.flatMap { $0.components(separatedBy: "streak ").last }.map { Int($0.prefix { $0.isNumber }) ?? 0 } ?? 0
+        return .result(value: streak, dialog: streak == 0 ? "No streak on \(habit.name) yet. Today can be day one." : "\(habit.name): \(streak) day\(streak == 1 ? "" : "s") in a row.")
+    }
+}
+
+/// For automations: is this habit done today? (True or false, to branch on.)
+@available(iOS 16.0, *)
+struct IsHabitDoneIntent: AppIntent {
+    static var title: LocalizedStringResource = "Is Habit Done Today"
+    static var description = IntentDescription("True when the habit is done today: for automations that nudge you, or reward you")
+    static var openAppWhenRun: Bool = false
+    @Parameter(title: "Habit", requestValueDialog: "Which habit?") var habit: HabitEntity
+    static var parameterSummary: some ParameterSummary { Summary("Is \(\.$habit) done today") }
+
+    func perform() async throws -> some IntentResult & ReturnsValue<Bool> & ProvidesDialog {
+        let today = try? await HabyssCloud.today()
+        let done = today?.habits.first { $0.id == habit.id || $0.title.caseInsensitiveCompare(habit.name) == .orderedSame }?.done ?? habit.isCompleted
+        return .result(value: done, dialog: done ? "Yes, \(habit.name) is done." : "Not yet. \(habit.name) is still waiting.")
+    }
+}
+
+/// For automations: how much is left today (habits not done and open tasks).
+@available(iOS 16.0, *)
+struct ThingsLeftIntent: AppIntent {
+    static var title: LocalizedStringResource = "Count What's Left Today"
+    static var description = IntentDescription("How many habits and tasks are still to do today, as a number")
+    static var openAppWhenRun: Bool = false
+
+    func perform() async throws -> some IntentResult & ReturnsValue<Int> & ProvidesDialog {
+        guard let today = try? await HabyssCloud.today() else { return .result(value: 0, dialog: "Habyss can't be reached right now.") }
+        let left = today.habits.filter { !$0.done }.count + today.tasks.filter { !$0.done }.count
+        return .result(value: left, dialog: left == 0 ? "Nothing left. You're done for today." : "\(left) thing\(left == 1 ? "" : "s") left today.")
+    }
+}
+
+/// "Undo Run": un-tick a habit marked done by mistake.
+@available(iOS 16.0, *)
+struct UndoHabitIntent: AppIntent {
+    static var title: LocalizedStringResource = "Undo Habit"
+    static var description = IntentDescription("Un-tick a habit you marked done by mistake")
+    static var openAppWhenRun: Bool = false
+    @Parameter(title: "Habit", requestValueDialog: "Which habit?") var habit: HabitEntity
+    static var parameterSummary: some ParameterSummary { Summary("Undo \(\.$habit)") }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do { _ = try await HabyssCloud.call("undo_habit", habitRef(habit)); return .result(dialog: "\(habit.name) is open again.") }
+        catch HabyssCloud.Failure.refused(let why) { return .result(dialog: "\(why)") }
+        catch { return .result(dialog: "Habyss can't be reached right now. Try again in a minute.") }
+    }
+}
+
+/// "Delete a task": asks first.
+@available(iOS 16.0, *)
+struct DeleteTaskIntent: AppIntent {
+    static var title: LocalizedStringResource = "Delete Task"
+    static var description = IntentDescription("Delete one of your tasks (Habyss asks first)")
+    static var openAppWhenRun: Bool = false
+    @Parameter(title: "Task", requestValueDialog: "Which task?") var task: TaskEntity
+    static var parameterSummary: some ParameterSummary { Summary("Delete \(\.$task)") }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        try await requestConfirmation(result: .result(dialog: "Delete \(task.title)?"))
+        do { _ = try await HabyssCloud.call("delete_task", taskRef(task)); return .result(dialog: "Deleted \(task.title).") }
+        catch HabyssCloud.Failure.refused(let why) { return .result(dialog: "\(why)") }
+        catch { return .result(dialog: "Habyss can't be reached right now. Try again in a minute.") }
+    }
+}
+
+/// "Read me my day": everything planned today, in order.
+@available(iOS 16.0, *)
+struct ReadMyDayIntent: AppIntent {
+    static var title: LocalizedStringResource = "Read Me My Day"
+    static var description = IntentDescription("Everything on today, what's done and what's left")
+    static var openAppWhenRun: Bool = false
+
+    func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        guard let today = try? await HabyssCloud.today() else { return .result(value: "", dialog: "Habyss can't be reached right now.") }
+        let left = today.habits.filter { !$0.done }.map(\.title) + today.tasks.filter { !$0.done }.map(\.title)
+        let done = today.habits.filter(\.done).count + today.tasks.filter(\.done).count
+        guard !left.isEmpty else { return .result(value: "", dialog: "All \(done) done. Nothing left but rest.") }
+        let list = left.count <= 2 ? left.joined(separator: " and ") : left.dropLast().joined(separator: ", ") + ", and " + (left.last ?? "")
+        let said = "\(done) done, \(left.count) to go: \(list)."
+        return .result(value: said, dialog: "\(said)")
+    }
+}
+
 // MARK: - Siri phrases (Apple allows 10; Stop Focus stays an action in Shortcuts)
 
 @available(iOS 16.0, *)

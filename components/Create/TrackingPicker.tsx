@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { AppButton, ChoicePill, ChoiceRow, Text } from '@/components/ui';
+import { AppButton, AppIcons, ChoicePill, ChoiceRow, Text } from '@/components/ui';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Spacing } from '@/theme/designSystem';
 import type { AutoTrackOption } from '@/lib/autoTrackSources';
@@ -21,7 +21,7 @@ const PLACE_MINUTES = [10, 15, 20, 30, 45, 60, 90];
  * unless it says otherwise; or from time at a place, and for
  * how long. What each means is said under it, in one line.
  */
-export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, accent, stayPlace, reminderPlace, onStayPlace, onAddApps, appsCount, minutesFromHabit, appsAvailable, healthAvailable }: {
+export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, accent, stayPlace, reminderPlace, onStayPlace, appsHabitId, onAddApps, appsCount, minutesFromHabit, appsAvailable, healthAvailable }: {
     /** Every option (lib/autoTrackSources.ts allTrackOptions). */
     options: AutoTrackOption[];
     chosen: AutoTrackOption | null;
@@ -34,6 +34,8 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, 
     stayPlace: PickedPlace | null;
     reminderPlace: PickedPlace | null;
     onStayPlace: (place: PickedPlace | null) => void;
+    /** The habit the apps are chosen for (its id, new or saved), to show their icons. */
+    appsHabitId?: string;
     /** Opens Apple's app picker. */
     onAddApps: () => void;
     /** How many apps are chosen so far. */
@@ -79,6 +81,8 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, 
             {way === 'app' && chosen?.kind === 'app' ? (
                 <>
                     {/* Which apps: Apple's own picker, opened right here. How long: the habit's own time. */}
+                    {/* The apps themselves, by their icons, once there are some. */}
+                    {appsCount && appsHabitId ? <AppIcons habitId={appsHabitId} version={appsCount} /> : null}
                     <AppButton label={appsCount ? `${appsCount} app${appsCount > 1 ? 's' : ''} chosen · Change` : 'Add apps'} icon={appsCount ? 'apps' : 'add'}
                         variant={appsCount ? 'default' : 'primary'} onPress={onAddApps} />
                     <Text variant="caption" tone="muted">

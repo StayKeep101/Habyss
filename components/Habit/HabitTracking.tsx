@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { AnimatedFill, AppIcon, CountUp, SectionTitle, Text, VoidCard } from '@/components/ui';
+import { AnimatedFill, AppIcon, AppIcons, CountUp, SectionTitle, Text, VoidCard } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useTrackingProgress } from '@/hooks/useTrackingProgress';
 import type { Habit } from '@/lib/habitsSQLite';
@@ -48,6 +48,7 @@ export function HabitTracking({ habit, color }: { habit: Habit; color: string })
                         <Text variant="caption" tone="muted" grow numberOfLines={1}>{source.label}</Text>
                         {reached && !(progress.kind === 'app' && progress.quit) ? <AppIcon name="checkmark-circle" filled size={Spacing.lg + 2} color={color} /> : null}
                     </View>
+                    {progress.kind === 'app' ? <AppIcons habitId={habit.id} /> : null}
                     <View style={styles.figure}>
                         <CountUp value={known ? amount(value) : '—'} style={[t.type.screenTitle, { color: t.color.textPrimary }]} />
                         <Text variant="body" tone="muted">{`/ ${amount(progress.target)}${unit ? ` ${unit}` : ''}`}</Text>

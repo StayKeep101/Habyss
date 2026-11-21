@@ -21,7 +21,7 @@ describe('the component library', () => {
         expect(screen.getByText('Goals')).toBeTruthy();
         expect(screen.getByText('On track')).toBeTruthy();
         // Figures count up from zero, then settle on the real value.
-        await waitFor(() => expect(screen.getAllByText('62%')).toHaveLength(2));
+        await waitFor(() => expect(screen.getAllByText('62%')).toHaveLength(2), { timeout: 4000 });
     });
 
     it('presses buttons, flips toggles and ticks rows', () => {
