@@ -7,10 +7,10 @@ import { mixHex } from '@/lib/colorContrast';
 import { Colors } from '@/theme/colors';
 import { HOURGLASS_INK } from '@/theme/hourglassArt';
 import { DURATION, EASE } from '@/theme/motion';
+import { heapPeak, heapSurface, makeBulbs, solveHeap, solveTop, topArea, topSurface } from '@/lib/sandPhysics';
 
 // Built once, outside any worklet: the slide of an avalanche, and the heaps settling back.
 const AVALANCHE = { duration: DURATION.base, easing: EASE.enter };
-const SETTLE_BACK = { duration: DURATION.base + 60, easing: EASE.move };
 
 /**
  * Home's hourglass, drawn live with Skia in the design of the blue hourglass
@@ -30,7 +30,6 @@ const GLASS_TOP = 87;
 const GLASS_BOTTOM = 747;
 /** Where the top sand starts the day, and how tall the pile ends it. */
 const TOP_FULL = 175;
-const PILE_FULL = 170;
 /** Grains in the air at once, and how long one takes to fall (ms). */
 const GRAINS = 36;
 const FALL_MS = 700;
@@ -59,6 +58,10 @@ const OUTLINE: [number, number, number][] = [
     [735, 102, 519], [747, 110, 511],
 ];
 
+/** Each bulb's inside, column by column, and all the sand there is (the top bulb full, level at TOP_FULL). */
+const BULBS = makeBulbs(OUTLINE, CX, NECK, 9);
+const TOTAL = topArea(-TOP_FULL, 0, 0, REPOSE, BULBS);
+
 /** A smooth closed path through the outline, brought in by `inset` from the rim. */
 function glassPath(inset: number) {
     const path = Skia.Path.Make();
@@ -75,15 +78,17 @@ function glassPath(inset: number) {
     return path;
 }
 
-export function SkiaHourglass({ size, ran, running, sand, tilt }: {
+export function SkiaHourglass({ size, ran, running, sand, tilt, shake }: {
     /** Height in points; the width follows the art (622 : 836). */
     size: number;
     ran: SharedValue<number>;
     running: boolean;
     /** The rank's sand: [light, deep]. */
     sand: [string, string];
-    /** The phone's sideways tilt in radians, gravity's direction across the screen (0 when still). */
+    /** Gravity's direction across the screen, in radians (0: straight down; positive: towards the right). */
     tilt?: SharedValue<number>;
+    /** How hard the phone is being shaken, 0 to 1: shaken sand loosens and slumps flatter. */
+    shake?: SharedValue<number>;
 }) {
     const reduced = useReducedMotion();
     const clock = useClock();
@@ -97,23 +102,27 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
     const light = useMemo(() => mixHex(sand[0], Colors.common.white, 0.2), [sand]);
     const deep = sand[1];
 
-    // How the heaps lie: held where they are until the glass leans past what sand
-    // holds, then a quick slide (an avalanche) to the new angle, and still again.
+    // How the resting sand lies: held where it is until the glass leans past what sand
+    // holds, then a quick slide (an avalanche) towards gravity, and still again. Shaken,
+    // it gives way at once and settles with gravity.
+    const jolt = shake ?? still;
     const settled = useSharedValue(0);
     useAnimatedReaction(() => (reduced ? 0 : lean.value), angle => {
         const gap = angle - settled.value;
-        if (Math.abs(gap) > HOLD) settled.value = withTiming(angle - Math.sign(gap) * HOLD * 0.6, AVALANCHE);
-        else if (Math.abs(angle) < 0.04 && Math.abs(settled.value) > 0 && Math.abs(gap) > HOLD * 0.5) settled.value = withTiming(0, SETTLE_BACK);
+        const hold = HOLD * (1 - 0.8 * jolt.value);
+        if (Math.abs(gap) > hold) settled.value = withTiming(angle - Math.sign(gap) * hold * 0.5, AVALANCHE);
     });
 
     // The living sand, recorded fresh each frame on the UI thread.
     const picture = useDerivedValue(() => {
         const t = reduced ? 0 : clock.value;
         const r = Math.min(1, Math.max(0, ran.value));
-        // Gravity, for what falls (grains drop straight down); the heaps' own lie, for what rests.
-        const angle = reduced ? 0 : Math.max(-0.7, Math.min(0.7, lean.value));
-        const slope = Math.tan(angle);
-        const rest = Math.tan(settled.value) * 0.45;
+        // Gravity, for what falls; the resting angle, for what rests; looser when shaken (lib/sandPhysics.ts).
+        const gravity = reduced ? 0 : Math.max(-0.7, Math.min(0.7, lean.value));
+        const rest = reduced ? 0 : settled.value;
+        const loose = reduced ? 0 : Math.min(1, jolt.value);
+        const repose = REPOSE * (1 - 0.75 * loose);
+        const tg = Math.tan(gravity);
         return createPicture(canvas => {
             const paint = Skia.Paint();
             paint.setAntiAlias(true);
@@ -123,33 +132,23 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
                 [Skia.Color(light), Skia.Color(deep)], null, 0);
             paint.setShader(shader);
 
-            // The top: sand drains from its middle, so its surface is a funnel over the
-            // neck, its sides at the angle of repose, deepening as the bulb empties.
-            const level = TOP_FULL + (NECK - TOP_FULL) * r;
-            const crater = Math.min(NECK - level, 16 + 44 * r);
+            // The top bulb: what is left of the sand, level but for the funnel over the drain.
+            const L = solveTop((1 - r) * TOTAL, rest, gravity, repose, BULBS, GLASS_TOP);
+            const quiver = (x: number) => loose * 5 * Math.sin(x * 0.21 + t * 0.06);
             const top = Skia.Path.Make();
-            top.moveTo(60, NECK + 4);
-            for (let x = 60; x <= W - 60; x += 8) {
-                const dip = Math.max(0, crater - REPOSE * Math.abs(x - CX));
-                top.lineTo(x, Math.min(NECK + 2, level + dip + rest * (x - CX)));
-            }
-            top.lineTo(W - 60, NECK + 4);
+            top.moveTo(BULBS.xs[0], NECK + 4);
+            for (const x of BULBS.xs) top.lineTo(x, Math.min(NECK + 2, topSurface(x, L, rest, gravity, repose, BULBS) + quiver(x)));
+            top.lineTo(BULBS.xs[BULBS.xs.length - 1], NECK + 4);
             top.close();
             canvas.drawPath(top, paint);
 
-            // The pile: a cone where the grains land (straight down from the neck, along
-            // gravity), its sides at the angle of repose, spreading to the walls as it grows.
-            const height = PILE_FULL * Math.sqrt(r);
-            // Grains drop with gravity, but the stream leaves through a narrow neck: the peak shifts, not swings.
-            const peakX = CX + slope * 0.4 * (GLASS_BOTTOM - height - NECK);
-            const peakY = GLASS_BOTTOM - height * 1.15;
+            // The bottom bulb: a heap holding exactly what fell, peaking where the grains land.
+            const hP = solveHeap(r * TOTAL, rest, gravity, repose, BULBS, GLASS_BOTTOM);
+            const peak = heapPeak(hP, rest, gravity, BULBS);
             const pile = Skia.Path.Make();
-            pile.moveTo(60, GLASS_BOTTOM + 4);
-            for (let x = 60; x <= W - 60; x += 8) {
-                const dx = x - peakX;
-                pile.lineTo(x, Math.min(GLASS_BOTTOM + 4, peakY + REPOSE * Math.abs(dx) + rest * dx));
-            }
-            pile.lineTo(W - 60, GLASS_BOTTOM + 4);
+            pile.moveTo(BULBS.xs[0], GLASS_BOTTOM + 4);
+            for (const x of BULBS.xs) pile.lineTo(x, Math.max(NECK + 6, heapSurface(x, hP, peak.w, rest, repose) + quiver(x + 40)));
+            pile.lineTo(BULBS.xs[BULBS.xs.length - 1], GLASS_BOTTOM + 4);
             pile.close();
             canvas.drawPath(pile, paint);
             paint.setShader(null);
@@ -169,34 +168,33 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
             canvas.restore();
 
             if (running && !reduced && r > 0.001 && r < 0.999) {
-                // The stream: a thin trickle through the neck, made of grains, each falling
-                // faster as it goes (gravity), a hair apart, onto the cone's peak.
+                // The stream: grains leave the neck and fall straight along gravity, faster as
+                // they go, to where they meet the heap (its peak sits on that line).
                 paint.setColor(Skia.Color(light));
-                const land = peakY + 2;
+                const land = Math.max(NECK + 12, Math.min(GLASS_BOTTOM, peak.y));
+                const along = (y: number) => CX + tg * (y - NECK);
                 paint.setAlphaf(0.35);
                 const stream = Skia.Path.Make();
                 stream.moveTo(CX - 1.6, NECK - 10);
                 stream.lineTo(CX + 1.6, NECK - 10);
-                stream.lineTo(CX + slope * 0.4 * (land - NECK) + 1.6, land);
-                stream.lineTo(CX + slope * 0.4 * (land - NECK) - 1.6, land);
+                stream.lineTo(along(land) + 1.6, land);
+                stream.lineTo(along(land) - 1.6, land);
                 stream.close();
                 canvas.drawPath(stream, paint);
                 for (let i = 0; i < GRAINS; i++) {
                     const phase = ((t / FALL_MS) + i / GRAINS) % 1;
                     const y = NECK - 6 + phase * phase * (land - NECK + 6);
-                    const x = CX + slope * 0.4 * (y - NECK) + Math.sin(i * 12.9898) * 1.8 * phase;
                     paint.setAlphaf(phase > 0.92 ? (1 - phase) * 12 : 0.95);
-                    canvas.drawCircle(x, y, 2.1, paint);
+                    canvas.drawCircle(along(y) + Math.sin(i * 12.9898) * 1.8 * phase, y, 2.1, paint);
                 }
-                // Now and then a grain rolls down the cone's side and stops.
+                // Now and then a grain rolls from the peak down the heap's side and stops.
                 for (let i = 0; i < 4; i++) {
                     const phase = ((t / 1600) + i / 4) % 1;
-                    const side = i % 2 === 0 ? -1 : 1;
-                    const dx = side * phase * Math.min(150, height * 1.2 + 20);
-                    const y = peakY + REPOSE * Math.abs(dx) + rest * dx - 2.5;
-                    if (y < GLASS_BOTTOM) {
+                    const x = peak.x + (i % 2 === 0 ? -1 : 1) * phase * 120;
+                    const y = heapSurface(x, hP, peak.w, rest, repose) - 2.5;
+                    if (y < GLASS_BOTTOM - 4 && x > BULBS.xs[0] && x < BULBS.xs[BULBS.xs.length - 1]) {
                         paint.setAlphaf(phase < 0.8 ? 0.9 : (1 - phase) * 4.5);
-                        canvas.drawCircle(peakX + dx, y, 2.2, paint);
+                        canvas.drawCircle(x, y, 2.2, paint);
                     }
                 }
                 paint.setAlphaf(1);
@@ -204,7 +202,7 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
 
             // A band of light drifting across the glass, a little further with the tilt.
             if (!reduced) {
-                const drift = ((t / 7000) % 1) * (W + 300) - 150 + slope * 80;
+                const drift = ((t / 7000) % 1) * (W + 300) - 150 + tg * 80;
                 const sheen = Skia.Shader.MakeLinearGradient(vec(drift - 90, 0), vec(drift + 90, H),
                     [Skia.Color('rgba(255,255,255,0)'), Skia.Color('rgba(255,255,255,0.10)'), Skia.Color('rgba(255,255,255,0)')], null, 0);
                 const band = Skia.Paint();
@@ -249,30 +247,50 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
     );
 }
 
-/** The phone's sideways tilt, as an angle in radians (gravity's direction across the screen), while mounted; 0 with Reduce Motion. */
-export function useTilt(): SharedValue<number> {
+/**
+ * The phone's motion, for the sand: gravity's direction across the screen (from
+ * the accelerometer, so it is right however the phone is held: tilt it left and
+ * gravity points left), and how hard it is being shaken. Flat on a table, there
+ * is no "across", and the sand rests. Still with Reduce Motion.
+ */
+export function useSandMotion(): { tilt: SharedValue<number>; shake: SharedValue<number> } {
     const tilt = useSharedValue(0);
+    const shake = useSharedValue(0);
     const reduced = useReducedMotion();
     useEffect(() => {
         if (reduced) return;
         let sub: { remove: () => void } | null = null;
+        // Which way this phone reports gravity (as a pull, or as what holds it up), learned once.
+        let sign = 0;
         try {
             const { DeviceMotion } = require('expo-sensors') as typeof import('expo-sensors');
             DeviceMotion.setUpdateInterval(33);
             sub = DeviceMotion.addListener(event => {
-                const gamma = event.rotation?.gamma ?? 0;
-                // Eased towards the reading, so a shaky hand does not jitter the sand.
-                // Tilting left reads as a positive gamma here, and the sand must fall left: the angle is −gamma.
-                tilt.value = tilt.value + (Math.max(-0.7, Math.min(0.7, -gamma)) - tilt.value) * 0.2;
+                const g = event.accelerationIncludingGravity;
+                if (g) {
+                    if (!sign && Math.abs(g.y) > 5) sign = g.y < 0 ? 1 : -1;
+                    const flip = sign || 1;
+                    // On screen: x to the right, y down.
+                    const gx = flip * g.x, gy = -flip * g.y;
+                    const across = Math.hypot(gx, gy);
+                    // Lying flat, the reading across the screen is small and means nothing: rest.
+                    const weight = Math.max(0, Math.min(1, (across - 2) / 4));
+                    const target = Math.max(-0.7, Math.min(0.7, Math.atan2(gx, gy))) * weight;
+                    // Eased, so a shaky hand does not jitter the sand.
+                    tilt.value = tilt.value + (target - tilt.value) * 0.25;
+                }
+                const a = event.acceleration;
+                const jolt = a ? Math.hypot(a.x, a.y, a.z) : 0;
+                shake.value = Math.min(1, shake.value * 0.93 + Math.max(0, jolt - 2.5) * 0.12);
             });
         } catch { /* no motion sensor: still sand */ }
         return () => sub?.remove();
-    }, [reduced, tilt]);
-    return tilt;
+    }, [reduced, tilt, shake]);
+    return { tilt, shake };
 }
 
-/** The live hourglass with the phone's tilt fed in: what Home shows. */
-export function TiltingHourglass(props: Omit<React.ComponentProps<typeof SkiaHourglass>, 'tilt'>) {
-    const tilt = useTilt();
-    return <SkiaHourglass {...props} tilt={tilt} />;
+/** The live hourglass with the phone's motion fed in: what Home and Focus show. */
+export function TiltingHourglass(props: Omit<React.ComponentProps<typeof SkiaHourglass>, 'tilt' | 'shake'>) {
+    const { tilt, shake } = useSandMotion();
+    return <SkiaHourglass {...props} tilt={tilt} shake={shake} />;
 }
