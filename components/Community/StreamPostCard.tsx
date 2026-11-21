@@ -1,6 +1,6 @@
 import React from 'react';
-import { Image, Pressable, Text as RNText, StyleSheet, View } from 'react-native';
-import { AppIcon, Avatar, CountUp, MatteSurface, PopIn, PostCard, SegmentBar, Text, type PostStat } from '@/components/ui';
+import { Pressable, Text as RNText, StyleSheet, View } from 'react-native';
+import { AppIcon, Avatar, CountUp, MatteSurface, PhotoStory, PopIn, PostCard, SegmentBar, Text, type PostStat } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { textOn } from '@/theme/tokens';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
@@ -169,14 +169,9 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
             onReport={post.mine ? undefined : () => ctx.onReport(post)}
             footer={<Footer item={item} ctx={ctx} />}>
             {visual}
-            {/* The photos taken as things were ticked: the proof, at a glance. */}
+            {/* The photos taken as things were ticked, one at a time like a story: swipe or tap through. */}
             {photos.length ? (
-                <View style={styles.photos}>
-                    {photos.slice(0, 4).map(line => (
-                        <Image key={line.photo} source={{ uri: line.photo }} style={styles.photo}
-                            accessibilityLabel={`Photo of ${post.mine ? line.name : maskObjectionable(line.name)}`} />
-                    ))}
-                </View>
+                <PhotoStory photos={photos.map(line => ({ uri: line.photo!, caption: post.mine ? line.name : maskObjectionable(line.name) }))} />
             ) : null}
             {/* The day's most important tasks, when it had them; otherwise a line of what was done. */}
             {card.top?.length ? <TopTasks lines={card.top} mine={post.mine} /> : did.length ? (
@@ -253,7 +248,5 @@ const styles = StyleSheet.create({
     facts: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexShrink: 1, maxWidth: '50%' },
     top: { gap: Spacing.xs },
     topRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: Spacing.xxl },
-    photos: { flexDirection: 'row', gap: Spacing.sm },
-    photo: { width: Spacing.section * 2, height: Spacing.section * 2, borderRadius: Radius.small },
     rank: { width: Spacing.xl, height: Spacing.xl, borderRadius: Spacing.xl / 2, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
 });

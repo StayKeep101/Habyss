@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
@@ -74,4 +75,33 @@ async function upload(habitId: string, day: string, uri: string): Promise<void> 
         await save();
         changed();
     } catch { /* kept on the phone; friends just don't see it */ }
+}
+
+// ------------------------------------------------- the setting: ask or not
+
+/** Settings → Habits → Photo when you tick: on unless turned off. */
+const ON_KEY = 'habyss_tick_photo_on';
+let on: boolean | null = null;
+const onListeners = new Set<(value: boolean) => void>();
+
+export async function tickPhotoOn(): Promise<boolean> {
+    if (on === null) on = (await AsyncStorage.getItem(ON_KEY).catch(() => null)) !== '0';
+    return on;
+}
+
+export async function setTickPhotoOn(value: boolean): Promise<void> {
+    on = value;
+    onListeners.forEach(listener => listener(value));
+    await AsyncStorage.setItem(ON_KEY, value ? '1' : '0').catch(() => undefined);
+}
+
+/** The setting, kept in step across screens. */
+export function useTickPhotoOn(): boolean {
+    const [value, setValue] = useState(on ?? true);
+    useEffect(() => {
+        void tickPhotoOn().then(setValue);
+        onListeners.add(setValue);
+        return () => { onListeners.delete(setValue); };
+    }, []);
+    return value;
 }

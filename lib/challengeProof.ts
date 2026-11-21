@@ -132,9 +132,10 @@ export async function proveTick(item: ProofItem, day: string, done = true): Prom
     if (rule === 'none') {
         // Every habit ticked by hand: the camera opens for a photo of it, skippable (the tick stands
         // either way). Kept in the habit's history and shown to friends on your day (lib/tickPhotos.ts).
-        if (item.kind === 'habit' && asker) {
+        const photos = require('./tickPhotos') as typeof import('./tickPhotos');
+        if (item.kind === 'habit' && asker && await photos.tickPhotoOn()) {
             const uri = await new Promise<string | null>(resolve => asker!({ title: titleOf(item), resolve, optional: true }));
-            if (uri) void (require('./tickPhotos') as typeof import('./tickPhotos')).keepTickPhoto(item.habit.id, day, uri);
+            if (uri) void photos.keepTickPhoto(item.habit.id, day, uri);
         }
         return true;
     }
