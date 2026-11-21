@@ -13,7 +13,7 @@ import { styles } from '@/styles/screens/developer.styles';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
 import { getNotificationPrefs } from '@/lib/notificationPrefs';
-import { endLiveActivities, notificationSamples, sampleLiveActivity, sendSample, type NotificationSample } from '@/lib/notificationSamples';
+import { endLiveActivities, newNotificationSamples, notificationSamples, sampleBackToBack, sampleLiveActivity, sampleLiveDrop, sendSample, type NotificationSample } from '@/lib/notificationSamples';
 import { currentRankLook, previewRankLook } from '@/lib/rankLook';
 import { RANK_ORDER, rankGradient } from '@/theme/rankLooks';
 import { mixHex } from '@/lib/colorContrast';
@@ -94,6 +94,22 @@ export default function DeveloperScreen() {
                     ))}
                 </SettingsGroup>
                 <Text style={[styles.note, { color: colors.textTertiary }]}>Each arrives in 5 seconds: lock the phone or leave the app to see it as it really comes. Its buttons do nothing.</Text>
+
+                <SettingsGroup title="New notifications">
+                    {newNotificationSamples().map(sample => (
+                        <SettingsRow key={sample.id} icon={sample.category ? 'checkmark-done' : sample.urgent ? 'notifications' : 'book'} color={sample.category ? '#30D158' : sample.urgent ? '#FF9F0A' : '#64D2FF'}
+                            label={sample.label} onPress={() => void send(sample)} />
+                    ))}
+                    <SettingsRow icon="layers" color="#FF9F0A" label="3 back-to-back starts, 1 min apart" onPress={() => void sampleBackToBack().then(ok => Alert.alert(
+                        ok ? 'Booked' : 'Needs 1.0.8',
+                        ok ? 'Read in 1 min, Journal in 2, Stretch in 3. Lock your phone: each one replaces the last. Opening Habyss brings your real starts back.'
+                            : 'This needs the 1.0.8 build and Screen Time allowed.'))} />
+                    <SettingsRow icon="arrow-down-circle" color="#64D2FF" label="Live Activity drops down in 1 min" onPress={() => void sampleLiveDrop().then(result => Alert.alert(
+                        result === 'scheduled' ? 'Booked' : 'Not on this iPhone',
+                        result === 'scheduled' ? 'Lock your phone: in a minute the card drops down, as at a habit’s start. Opening Habyss brings your real card back.'
+                            : 'A card that starts on its own needs iOS 26 and Live Activities on.'))} />
+                </SettingsGroup>
+                <Text style={[styles.note, { color: colors.textTertiary }]}>Samples arrive in 5 seconds; their buttons show what you would see but change nothing. The back-to-back test uses the real system.</Text>
 
                 <SettingsGroup title="Test Live Activities">
                     <SettingsRow icon="timer" color="#64D2FF" label="A task under way (2 min)" onPress={() => void live('task')} />

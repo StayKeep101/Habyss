@@ -38,6 +38,57 @@ export function notificationSamples(name?: string): NotificationSample[] {
     ];
 }
 
+/** The newer ones: a hand-over, the Community ones with Accept · Decline, and time in apps (Libby). */
+export function newNotificationSamples(): NotificationSample[] {
+    return [
+        { id: 'handover', label: 'Hand-over: one ends, the next starts', title: 'Journal', body: 'Read done? Tap “Last one done”.', clip: 'start', category: 'HABYSS_HANDOVER', urgent: true },
+        { id: 'friend-request', label: 'Friend request (Decline · Accept)', title: '👋 Sam wants to be friends', body: '@sam.lee · tap Accept to add them.', category: 'HABYSS_FRIEND_REQUEST' },
+        { id: 'challenge', label: 'Challenge invite (Decline · Join)', title: '🏆 Sam invited you to a challenge', body: 'No sugar, 7 days, starting tomorrow. 50 Shards each if you all make it.', category: 'HABYSS_CHALLENGE' },
+        { id: 'share', label: 'Shared habit (No thanks · Let’s do it)', title: '🤝 Sam wants to do Read with you', body: 'Every day, 30 min. Do it together?', category: 'HABYSS_SHARE' },
+        { id: 'apptime-start', label: 'Libby: tracking started (5 min in)', title: 'Read: tracking started.', body: '5 of 30 min so far. It ticks itself at 30.' },
+        { id: 'apptime-done', label: 'Libby: habit completed (30 min)', title: 'Congrats, your Read habit is completed.', body: '30 min, ticked by itself. Not a single tap.' },
+    ];
+}
+
+/**
+ * Three starts back to back, a minute apart, said the way the day's are with
+ * 1.0.8: by the Screen Time monitor, one at a time under one name, so each
+ * replaces the last in Notification Center, with the phone locked and Habyss
+ * closed (NowGuide). Your real starts come back the next time Habyss refreshes
+ * its notifications (opening it is enough). False on a build without it, or
+ * without Screen Time.
+ */
+export async function sampleBackToBack(): Promise<boolean> {
+    const guide = require('./nowGuide') as typeof import('./nowGuide');
+    if (!(await guide.nowGuideReady())) return false;
+    const now = Date.now() / 1000;
+    const step = (at: number, title: string, body: string, category: string | null) =>
+        ({ at: now + at, title, body, category, sound: null, data: { kind: 'sample', sample: 'back-to-back' } });
+    guide.setNowPlan([
+        step(60, 'Read', 'Now until 9:30 AM', null),
+        step(120, 'Journal', 'Read done? Tap “Last one done”.', 'HABYSS_HANDOVER'),
+        step(180, 'Stretch', 'Journal done? Tap “Last one done”.', 'HABYSS_HANDOVER'),
+    ]);
+    return true;
+}
+
+/**
+ * A Live Activity that drops down in a minute, as a habit's does at its start
+ * (iOS 26: a card scheduled to start on its own, with an alert). It takes the
+ * card's place for five minutes; the real one returns when Habyss refreshes it.
+ */
+export async function sampleLiveDrop(): Promise<'scheduled' | 'unsupported'> {
+    const LiveActivity = require('@/modules/habyss-live-activity').default as typeof import('@/modules/habyss-live-activity').default;
+    if (!LiveActivity?.reconcileScheduledActivities || !LiveActivity.supportsScheduledActivities?.()) return 'unsupported';
+    const start = Date.now() + 60_000;
+    const { ACCENT_GRADIENTS } = require('@/context/AccentContext') as typeof import('@/context/AccentContext');
+    await LiveActivity.reconcileScheduledActivities([{
+        key: `sample:${start}`, title: 'Study midterm', start, end: start + 5 * 60_000, url: 'habyss://roadmap', accentHex: ACCENT_GRADIENTS[0].colors[1],
+        itemId: null, nextTitle: 'Emails', nextStart: start + 5 * 60_000, nextEnd: start + 20 * 60_000, nextItemId: null, nextUrl: 'habyss://roadmap',
+    }]);
+    return 'scheduled';
+}
+
 /** Sends one, five seconds from now. Never asks for permission (Settings → Notifications does). */
 export async function sendSample(sample: NotificationSample, voice: PersonalityModeId, echoVoice: boolean): Promise<'sent' | 'not-allowed'> {
     const Notifications = require('expo-notifications') as typeof import('expo-notifications');
