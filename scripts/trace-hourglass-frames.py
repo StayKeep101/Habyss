@@ -96,14 +96,6 @@ for rank, name in FILES.items():
     im = keyed(Image.open(os.path.join(SRC, name)))
     im = im.resize((round(im.width * H / im.height), H), Image.LANCZOS)
     g = trace(im)
-    # The glass 30% less see-through: inside the traced glass only, what shows through is cut by
-    # 30%. Never outside it, where the art's faint specks would turn into dark spots.
-    al = im.split()[3]; ap = al.load()
-    for yy, l, r in [(y, *v) for y, v in g['rows'].items()]:
-        for x in range(l, r + 1):
-            v = ap[x, yy]
-            if 0 < v < 255: ap[x, yy] = round(255 - 0.7 * (255 - v))
-    im.putalpha(al)
     im.save(f'assets/images/hourglasses/frames/{rank.lower()}.png', optimize=True)
     rows = ', '.join(f'[{y}, {l}, {r}]' for y, l, r in g['outline'])
     out.append(f"""    {rank}: {{

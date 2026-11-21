@@ -5,7 +5,7 @@ import {
 } from '@shopify/react-native-skia';
 import { mixHex } from '@/lib/colorContrast';
 import { Colors } from '@/theme/colors';
-import { HOURGLASS_INK } from '@/theme/hourglassArt';
+import { HOURGLASS_INK, HOURGLASS_OPACITY } from '@/theme/hourglassArt';
 import type { GlassFrame } from '@/theme/hourglassFrames';
 import { DURATION, EASE } from '@/theme/motion';
 import { heapPeak, heapSurface, makeBulbs, solveHeap, solveTop, topArea, topSurface } from '@/lib/sandPhysics';
@@ -269,10 +269,10 @@ export function SkiaHourglass({ size, ran, running, sand, tilt, shake, frame }: 
     return (
         <Canvas style={{ width, height: size }}>
             {frame ? (
-                // Dimmed as a whole (frame and sand) to sit in the night scene.
+                // Dimmed and see-through as a whole (frame and sand) to sit in the night scene.
                 <Group transform={[{ scale }]} layer={(
                     <Paint>
-                        <ColorMatrix matrix={[frame.brightness, 0, 0, 0, 0, 0, frame.brightness, 0, 0, 0, 0, 0, frame.brightness, 0, 0, 0, 0, 0, 1, 0]} />
+                        <ColorMatrix matrix={[frame.brightness, 0, 0, 0, 0, 0, frame.brightness, 0, 0, 0, 0, 0, frame.brightness, 0, 0, 0, 0, 0, HOURGLASS_OPACITY, 0]} />
                     </Paint>
                 )}>
                     {/* The rank's frame; the sand inside its glass; then the glass's own light back over the sand. */}

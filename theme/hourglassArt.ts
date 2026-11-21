@@ -5,6 +5,9 @@ import type { ImageSourcePropType } from 'react-native';
  * the glass with no painted sand, as on Home.
  */
 
+/** How opaque every hourglass stands in the scene (Home, Focus, the carousel): the scene shows through. */
+export const HOURGLASS_OPACITY = 0.7;
+
 /** Width over height of the art (1113 × 1413). */
 export const HOURGLASS_ART_RATIO = 1113 / 1413;
 
