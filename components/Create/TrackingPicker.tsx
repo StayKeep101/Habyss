@@ -15,24 +15,28 @@ const PLACE_MINUTES = [10, 15, 20, 30, 45, 60, 90];
 /**
  * The Tracking chip's panel: how this habit gets ticked, all of it in one
  * place. By hand; from Apple Health (any metric it counts, fed by the Watch,
- * Strava, Bevel, Oura…); from time in apps (Libby, Kindle, Duolingo: chosen
- * in Apple's own picker), and for how long; or from time at a place, and for
+ * Strava, Bevel, Oura…); from time in apps (Add apps opens Apple's own
+ * picker: Libby, Kindle, Duolingo), for the habit's own time, 30 minutes
+ * unless it says otherwise; or from time at a place, and for
  * how long. What each means is said under it, in one line.
  */
-export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, accent, placeName, onPickPlace, onChangeApps, appsLinked, appsAvailable, healthAvailable }: {
+export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, accent, placeName, onPickPlace, onAddApps, appsCount, minutesFromHabit, appsAvailable, healthAvailable }: {
     /** Every option (lib/autoTrackSources.ts allTrackOptions). */
     options: AutoTrackOption[];
     chosen: AutoTrackOption | null;
     onChoose: (key: string) => void;
-    /** For apps and a place: how long before it counts. */
+    /** How long before it counts (apps: the habit's own time; a place: chosen here). */
     minutes: number;
     onMinutes: (minutes: number) => void;
     accent: string;
     placeName?: string;
     onPickPlace: () => void;
-    /** Editing a habit already linked to apps: choose them again now. */
-    onChangeApps?: () => void;
-    appsLinked?: boolean;
+    /** Opens Apple's app picker. */
+    onAddApps: () => void;
+    /** How many apps are chosen so far. */
+    appsCount: number;
+    /** The time came from the habit itself (its amount or length), not the 30-minute default. */
+    minutesFromHabit?: boolean;
     appsAvailable: boolean;
     healthAvailable: boolean;
 }) {
@@ -70,20 +74,12 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, 
 
             {way === 'app' && chosen?.kind === 'app' ? (
                 <>
-                    <View style={styles.pills}>
-                        {of('app').map(option => (
-                            <ChoicePill key={option.key} label={option.label} on={option.key === chosen.key} color={accent} onPress={() => pick(option.key)} />
-                        ))}
-                    </View>
-                    <View style={styles.pills}>
-                        {chosen.idea.choices.map(value => (
-                            <ChoicePill key={value} label={minutesSaid(value)} on={value === minutes} color={accent} onPress={() => { selectionFeedback(); onMinutes(value); }} />
-                        ))}
-                    </View>
+                    {/* Which apps: Apple's own picker, opened right here. How long: the habit's own time. */}
+                    <AppButton label={appsCount ? `${appsCount} app${appsCount > 1 ? 's' : ''} chosen · Change` : 'Add apps'} icon={appsCount ? 'apps' : 'add'}
+                        variant={appsCount ? 'default' : 'primary'} onPress={onAddApps} />
                     <Text variant="caption" tone="muted">
-                        {`${chosen.idea.quit ? `Kept when the day ends under ${minutesSaid(minutes)}` : `Ticks itself after ${minutesSaid(minutes)}`} in the apps you choose. ${appsLinked ? '' : 'Apple’s picker opens when you save: tap Libby, Kindle, or any app.'}`}
+                        {`${chosen.idea.quit ? `Kept when the day ends under ${minutesSaid(minutes)}` : `Ticks itself after ${minutesSaid(minutes)}`} in ${appsCount ? 'them' : 'the apps you add'}. ${minutesFromHabit ? '' : 'Set another time in Measure.'}`}
                     </Text>
-                    {appsLinked && onChangeApps ? <AppButton label="Change apps" icon="apps" onPress={onChangeApps} /> : null}
                 </>
             ) : null}
 

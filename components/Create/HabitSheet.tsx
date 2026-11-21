@@ -41,7 +41,8 @@ import { parseHabitText } from '@/lib/habitParser';
 import { addHabit, updateHabit, getGoals, withAutoTrack, type Habit, type LocationReminder } from '@/lib/habitsSQLite';
 import { allTrackOptions, autoTrackOptions, trackMinutes, type AutoTrackOption } from '@/lib/autoTrackSources';
 import { TrackingPicker } from '@/components/Create/TrackingPicker';
-import { APP_TIME_IDEAS, appTimeSupported, chooseApps, getAppTime, setAppTime } from '@/lib/appTime';
+import { appTimeSupported, appsChosen, chooseApps, getAppTime, setAppTime } from '@/lib/appTime';
+import { generateId } from '@/lib/database';
 import { AutoTrackHint } from '@/components/Create/AutoTrackHint';
 import { localDateKey } from '@/lib/habitSchedule';
 import { NotificationService } from '@/lib/notificationService';
@@ -201,6 +202,9 @@ export const HabitSheet: React.FC<{
     const [trackMins, setTrackMins] = useState<number | null>(null);
     /** Editing: the minutes it is already linked to apps for, if it is. */
     const [appLinked, setAppLinked] = useState<number | null>(null);
+    /** Apps chosen in Apple's picker for this habit (by its id, made up front for a new one). */
+    const [appsCount, setAppsCount] = useState(0);
+    const [newId, setNewId] = useState(generateId);
     const savingRef = useRef(false);
 
     const current = habit ?? editing;
@@ -222,6 +226,8 @@ export const HabitSheet: React.FC<{
         setTrackPick(null);
         setTrackMins(null);
         setAppLinked(null);
+        setAppsCount(0);
+        setNewId(generateId());
     }
 
     useEffect(() => {
@@ -304,29 +310,28 @@ export const HabitSheet: React.FC<{
     useEffect(() => {
         if (!isOpen || !current) return;
         void getAppTime().then(all => setAppLinked(all[current.id] ?? null)).catch(() => undefined);
+        void appsChosen(current.id).then(setAppsCount);
     }, [isOpen, current]);
     const everyOption: AutoTrackOption[] = (() => {
         const quit = draft.habitType === 'quit';
         const all = allTrackOptions(quit).filter(option => option.kind !== 'app' || appsAvailable);
-        // Already linked to apps chosen before: kept as "Your apps" until changed.
-        if (appLinked) {
-            const idea = { ...(APP_TIME_IDEAS.find(item => item.quit === quit) ?? APP_TIME_IDEAS[0]), id: 'linked', pick: 'Your apps', minutes: appLinked };
-            all.unshift({ kind: 'app', key: 'app:linked', idea, label: 'Your apps', detail: idea.detail });
-        }
         return all;
     })();
     // What it uses now, when editing.
     const stayPlace = draft.places.find(place => place.trigger === 'stay');
     const currentKey = current
-        ? current.healthKitMetric ? `health:${current.healthKitMetric}` : appLinked ? 'app:linked' : current.locationReminders?.some(place => place.trigger === 'stay') ? 'place' : 'off'
+        ? current.healthKitMetric ? `health:${current.healthKitMetric}` : appLinked ? 'app' : current.locationReminders?.some(place => place.trigger === 'stay') ? 'place' : 'off'
         : suggestions[0]?.key ?? 'off';
     const trackKey = trackPick ?? currentKey;
     const tracking: AutoTrackOption | null = trackKey === 'off' ? null
         : suggestions.find(option => option.key === trackKey) ?? everyOption.find(option => option.key === trackKey) ?? null;
-    const minutes = trackMins
-        ?? (tracking?.kind === 'app' && tracking.key === 'app:linked' ? appLinked ?? tracking.idea.minutes
-            : tracking?.kind === 'place' && stayPlace?.stayMinutes ? stayPlace.stayMinutes
-            : tracking ? trackMinutes(tracking, said) : 30);
+    // Apps: the habit's own time (its amount in minutes, else its length), 30 minutes when it says none.
+    const habitMinutes = tracking ? trackMinutes(tracking, said) : 30;
+    const minutesFromHabit = !!(said.durationMinutes || (said.amount && /^(min|mins|minutes?|h|hr|hrs|hours?)$/i.test(said.unit ?? '')));
+    const minutes = tracking?.kind === 'app' ? (minutesFromHabit ? habitMinutes : appLinked ?? 30)
+        : trackMins ?? (tracking?.kind === 'place' && stayPlace?.stayMinutes ? stayPlace.stayMinutes : habitMinutes);
+    const habitId = current?.id ?? newId;
+    const addApps = () => { void chooseApps(habitId, 'Apps').then(count => { if (count >= 0) setAppsCount(count); }); };
     const chooseTracking = (key: string, from: 'hint' | 'chip' = 'chip') => {
         setTrackPick(key);
         setTrackMins(null);
@@ -419,15 +424,15 @@ export const HabitSheet: React.FC<{
             // Time in apps: Screen Time's own picker, over the sheet, to choose Libby, Kindle…
             const linkApps = async (id: string) => {
                 if (tracking?.kind === 'app') {
-                    if (tracking.key === 'app:linked') await setAppTime(id, minutes);
-                    else if (await chooseApps(id, tracking.idea.pick) > 0) await setAppTime(id, minutes);
+                    // None added yet: the picker now, so it is never saved tracking nothing.
+                    if (appsCount > 0 || await chooseApps(id, 'Apps') > 0) await setAppTime(id, minutes);
                 } else if (appLinked) await setAppTime(id, null);
             };
             if (current) {
                 await updateHabit({ id: current.id, ...linked });
                 await linkApps(current.id);
             } else {
-                const made = await addHabit(linked, { autoTrack: false });
+                const made = await addHabit({ ...linked, id: newId }, { autoTrack: false });
                 if (!made?.id) throw new Error('not saved');
                 await linkApps(made.id);
                 // After it exists, and never blocking: the habit is saved, and
@@ -525,8 +530,7 @@ export const HabitSheet: React.FC<{
                     options={everyOption} chosen={tracking ? everyOption.find(option => option.key === tracking.key) ?? tracking : null}
                     onChoose={key => chooseTracking(key)} minutes={minutes} onMinutes={setMinutes} accent={accent}
                     placeName={stayPlace?.name} onPickPlace={() => setOpenRow('reminder')}
-                    appsLinked={tracking?.key === 'app:linked'}
-                    onChangeApps={current ? () => { void chooseApps(current.id, 'Your apps').then(count => { if (count > 0) void setAppTime(current.id, minutes); }); } : undefined}
+                    onAddApps={addApps} appsCount={appsCount} minutesFromHabit={minutesFromHabit}
                     appsAvailable={appsAvailable} healthAvailable={draft.habitType !== 'quit'}
                 />
             ),

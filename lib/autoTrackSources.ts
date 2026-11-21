@@ -60,7 +60,7 @@ export function trackMinutes(option: AutoTrackOption, said?: { amount?: number; 
     if (said?.amount && /^(min|mins|minutes?)$/.test(unit)) return Math.round(said.amount);
     if (said?.amount && /^(h|hr|hrs|hours?)$/.test(unit)) return Math.round(said.amount * 60);
     if (said?.durationMinutes) return Math.round(said.durationMinutes);
-    return option.kind === 'app' ? option.idea.minutes : 30;
+    return 30;
 }
 
 const minutesSaid = (minutes: number) => (minutes >= 60 && minutes % 60 === 0 ? `${minutes / 60} h` : `${minutes} min`);
@@ -78,7 +78,7 @@ export function autoTrackOptions(name: string, said?: { amount?: number; unit?: 
         const quit = QUIT_APP.find(([pattern]) => pattern.test(text));
         const idea = quit && APP_TIME_IDEAS.find(item => item.id === quit[1]);
         if (quit && idea) {
-            const option: AutoTrackOption = { kind: 'app', key: `app:${idea.id}`, idea, label: `Time in ${quit[2]}`, detail: '' };
+            const option: AutoTrackOption = { kind: 'app', key: 'app', idea, label: `Time in ${quit[2]}`, detail: '' };
             option.detail = `Kept when the day ends under ${minutesSaid(trackMinutes(option, said))}`;
             options.push(option);
         }
@@ -88,7 +88,7 @@ export function autoTrackOptions(name: string, said?: { amount?: number; unit?: 
     // Reading, a language: time in the app is the truest count, so it comes first.
     const app = BY_APP.find(([pattern]) => pattern.test(text));
     const idea = app && APP_TIME_IDEAS.find(item => item.id === app[1]);
-    const appOption: AutoTrackOption | null = app && idea ? { kind: 'app', key: `app:${idea.id}`, idea, label: `Time in ${app[2]}`, detail: '' } : null;
+    const appOption: AutoTrackOption | null = app && idea ? { kind: 'app', key: 'app', idea, label: `Time in ${app[2]}`, detail: '' } : null;
     if (appOption) appOption.detail = `Ticks itself after ${minutesSaid(trackMinutes(appOption, said))} in them`;
 
     const metric = guessHealthMetric(text, said?.unit);
@@ -127,9 +127,9 @@ export function allTrackOptions(quit: boolean): AutoTrackOption[] {
     const health: AutoTrackOption[] = quit ? [] : HEALTH_METRICS.map(info => ({
         kind: 'health' as const, key: `health:${info.id}`, metric: info.id, label: info.label, detail: healthSource(info.id),
     }));
-    const apps: AutoTrackOption[] = APP_TIME_IDEAS.filter(idea => idea.quit === quit).map(idea => ({
-        kind: 'app' as const, key: `app:${idea.id}`, idea, label: idea.pick, detail: idea.detail,
-    }));
+    // Time in apps: one way; which apps is chosen in Apple's picker, how long comes from the habit.
+    const idea = APP_TIME_IDEAS.find(item => item.quit === quit) ?? APP_TIME_IDEAS[0];
+    const apps: AutoTrackOption[] = [{ kind: 'app', key: 'app', idea, label: 'Apps', detail: idea.detail }];
     const place: AutoTrackOption = { kind: 'place', key: 'place', place: 'a place', label: 'A place', detail: 'Ticks itself after time there' };
     return [...health, ...apps, place];
 }

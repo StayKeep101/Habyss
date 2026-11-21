@@ -48,6 +48,12 @@ export async function chooseApps(habitId: string, title: string): Promise<number
     try { return Number(await native().pickAppTimeApps(habitId, title)); } catch { return -1; }
 }
 
+/** How many apps (or categories) are chosen for this habit; 0 when none. */
+export async function appsChosen(habitId: string): Promise<number> {
+    if (!appTimeSupported() || typeof native()?.appTimeChosen !== 'function') return 0;
+    try { return Number(await native().appTimeChosen(habitId)) || 0; } catch { return 0; }
+}
+
 /** Links a habit to its apps for `minutes` a day (null unlinks it), and restarts the watch. */
 export async function setAppTime(habitId: string, minutes: number | null): Promise<void> {
     const all = await getAppTime();
