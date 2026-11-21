@@ -172,7 +172,7 @@ export function DayHourglass({ marks }: { marks: number }) {
                 Plain figures, no pill: they are read, not pressed, so they do not look like buttons. */}
             <View style={styles.clockPill}>
                 <AppIcon name="sunny" size={CLOCK_ICON} color={t.color.textMuted} />
-                <Text style={[styles.clock, { color: t.color.textMuted }]} accessibilityLabel={`${pastWords} of today gone`}>
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.clock, { color: t.color.textMuted }]} accessibilityLabel={`${pastWords} of today gone`}>
                     {glass.resting === 'night' ? '—' : clockLabel(glass.past)}
                 </Text>
             </View>
@@ -198,7 +198,7 @@ export function DayHourglass({ marks }: { marks: number }) {
             </Pressable>
             <View style={styles.clockPill}>
                 <AppIcon name="moon" size={CLOCK_ICON} color={t.color.accentText} />
-                <Text style={[styles.clock, { color: t.color.accentText }]} accessibilityLabel={`${leftWords} left today`}>
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.clock, { color: t.color.accentText }]} accessibilityLabel={`${leftWords} left today`}>
                     {glass.resting === 'night' ? '—' : clockLabel(glass.left)}
                 </Text>
             </View>
@@ -260,7 +260,9 @@ const styles = StyleSheet.create({
     stage: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: -GLASS_HEIGHT / 2 },
     // The same figures as the stats bar: Lexend bold, tabular, on the app's matte pill.
     // Bigger figures, the icon before them, the same inner spacing all round (8 / 12).
-    clockPill: { width: s(128), marginBottom: GLASS_HEIGHT / 4 - s(20), paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
+    // The two clocks share what is left equally, so the glass is always exactly in the middle
+    // (where the carousel and Focus stand it): never pushed aside on a narrow phone.
+    clockPill: { flex: 1, flexBasis: 0, marginBottom: GLASS_HEIGHT / 4 - s(20), paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs },
     clock: { fontFamily: FontFamily.bold, fontSize: s(19), fontVariant: ['tabular-nums'] },
     glassBox: { alignItems: 'center', justifyContent: 'center' },
