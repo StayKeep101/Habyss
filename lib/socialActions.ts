@@ -4,8 +4,10 @@ import { SOCIAL_ACTION } from './notificationActions';
 /**
  * A button pressed on a Community push (lib/notificationActions.ts): "On it"
  * on a nudge tells the friend, "Reply" on a comment answers in its thread,
- * "Accept" or "Decline" on a duel answers it, and "Let's do it" or "No
- * thanks" on a shared habit, task or goal answers that offer. The push names who it is from
+ * "Accept" or "Decline" on a duel answers it, "Let's do it" or "No
+ * thanks" on a shared habit, task or goal answers that offer, "Accept" or
+ * "Decline" on a friend request answers it, and "Join" or "Decline" on a
+ * challenge invite answers that. The push names who it is from
  * (data.from); a friend pair has one duel at a time, and a reply goes under
  * their latest comment. False when the button is not one of these.
  */
@@ -23,6 +25,25 @@ export async function handleSocialResponse(response: Notifications.NotificationR
         if (offer) {
             if (action === SOCIAL_ACTION.shareYes) await FriendsService.acceptShareRequest(offer.type, offer.itemId, from);
             else await FriendsService.declineShareRequest(offer.type, offer.itemId, from);
+        }
+    } else if (action === SOCIAL_ACTION.friendAccept || action === SOCIAL_ACTION.friendDecline) {
+        // Their request to you, still waiting: accepted (you are friends) or declined.
+        const { FriendsService } = require('./friendsService') as typeof import('./friendsService');
+        const relation = await FriendsService.relationTo(from);
+        if (relation.kind === 'incoming' && relation.requestId) {
+            if (action === SOCIAL_ACTION.friendAccept) await FriendsService.acceptFriendRequest(relation.requestId);
+            else await FriendsService.declineFriendRequest(relation.requestId);
+        }
+    } else if (action === SOCIAL_ACTION.challengeJoin || action === SOCIAL_ACTION.challengeDecline) {
+        // Their invite still open: joined (its habits come into your plan) or declined.
+        const challenges = require('./challenges') as typeof import('./challenges');
+        const { localDateKey } = require('./habitSchedule') as typeof import('./habitSchedule');
+        const today = localDateKey(new Date());
+        const open = (await challenges.myChallenges()).filter(run => run.myStatus === 'invited' && challenges.canAnswer(run, today));
+        const run = open.find(item => item.members.some(member => member.id === from)) ?? open[0];
+        if (run) {
+            await challenges.respondChallenge(run.runId, action === SOCIAL_ACTION.challengeJoin);
+            void challenges.syncChallenges();
         }
     } else if (action === SOCIAL_ACTION.onIt) {
         const { FriendsService } = require('./friendsService') as typeof import('./friendsService');

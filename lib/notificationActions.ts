@@ -56,6 +56,8 @@ export const COMMENT_CATEGORY = 'HABYSS_COMMENT';
 export const DUEL_CATEGORY = 'HABYSS_DUEL';
 /** A habit, task or goal offered to you: "No thanks" or "Let's do it", which puts it on your list. */
 export const SHARE_CATEGORY = 'HABYSS_SHARE';
+export const FRIEND_REQUEST_CATEGORY = 'HABYSS_FRIEND_REQUEST';
+export const CHALLENGE_CATEGORY = 'HABYSS_CHALLENGE';
 export const SOCIAL_ACTION = {
     shareYes: 'HABYSS_SHARE_YES',
     shareNo: 'HABYSS_SHARE_NO',
@@ -63,6 +65,10 @@ export const SOCIAL_ACTION = {
     reply: 'HABYSS_REPLY',
     accept: 'HABYSS_DUEL_ACCEPT',
     decline: 'HABYSS_DUEL_DECLINE',
+    friendAccept: 'HABYSS_FRIEND_ACCEPT',
+    friendDecline: 'HABYSS_FRIEND_DECLINE',
+    challengeJoin: 'HABYSS_CHALLENGE_JOIN',
+    challengeDecline: 'HABYSS_CHALLENGE_DECLINE',
 } as const;
 
 /** Energy, one tap: low, okay, high (stored as 2, 3 and 5 on the 1–5 scale). */
@@ -118,6 +124,16 @@ export const CATEGORIES: { id: string; buttons: Button[] }[] = [
     { id: SHARE_CATEGORY, buttons: [
         button(SOCIAL_ACTION.shareNo, 'No thanks', { opensAppToForeground: false, isDestructive: true }),
         button(SOCIAL_ACTION.shareYes, 'Let’s do it', { opensAppToForeground: false }),
+    ] },
+    // A friend request, answered on the notification: Accept makes you friends, Decline turns it down.
+    { id: FRIEND_REQUEST_CATEGORY, buttons: [
+        button(SOCIAL_ACTION.friendDecline, 'Decline', { opensAppToForeground: false, isDestructive: true }),
+        button(SOCIAL_ACTION.friendAccept, 'Accept', { opensAppToForeground: false }),
+    ] },
+    // A challenge you were invited to: Join puts you in it (its habits join your plan), Decline says no.
+    { id: CHALLENGE_CATEGORY, buttons: [
+        button(SOCIAL_ACTION.challengeDecline, 'Decline', { opensAppToForeground: false, isDestructive: true }),
+        button(SOCIAL_ACTION.challengeJoin, 'Join', { opensAppToForeground: false }),
     ] },
     // Answered without opening the app: the answer is all Echo needs.
     { id: ENERGY_CATEGORY, buttons: [

@@ -113,6 +113,16 @@ export function setTodayFlow(day: string, flow: DayFlow) {
 
 let queue: Promise<unknown> = Promise.resolve();
 let lastSent = '';
+/** When the card iOS will start by itself drops down (ms), if one is waiting: its start notification is not sent too. */
+let dropsAt: number | null = null;
+/**
+ * The start the Live Activity covers: on iOS 26 a scheduled card drops down at
+ * its start, like a notification, so that start's notification is left out
+ * (lib/notificationService.ts). Null when no card is waiting to start.
+ */
+export function liveDropStart(now = Date.now()): number | null {
+    return dropsAt !== null && dropsAt > now ? dropsAt : null;
+}
 export function refreshScheduledActivities() {
     if (engagementLifecycle.paused) return Promise.resolve();
     const next = queue.catch(() => undefined).then(async () => {
@@ -136,6 +146,9 @@ export function refreshScheduledActivities() {
         if (signature === lastSent) return;
         const result = await HabyssLiveActivity!.reconcileScheduledActivities!(payload);
         lastSent = signature;
+        // Scheduled for later, and accepted: it will drop down at its start.
+        const ahead = payload.find(item => item.start > Date.now());
+        dropsAt = scheduledActivitiesCapability() === 'scheduled' && ahead && !result.failed && HabyssLiveActivity?.areActivitiesEnabled?.() !== false ? ahead.start : null;
         if (result.failed) console.warn(`[Live Activities] iOS could not schedule ${result.failed} card(s).`);
         return result;
     });

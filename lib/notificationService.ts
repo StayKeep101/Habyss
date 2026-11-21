@@ -287,9 +287,12 @@ export class NotificationService {
               clearAlarms = true;
               void setNotificationPrefs({ alarms: false });
             }
+            // The start a Live Activity drops down for (iOS 26): that one is not a notification too.
+            const live = (require('./scheduledActivities') as typeof import('./scheduledActivities')).liveDropStart(now.getTime());
             for (const moment of guideMoments(flow, now.getHours() * 60 + now.getMinutes(), { sleep, before })) {
               const date = new Date(midnight.getTime() + moment.at * 60000);
               if (isAsleep(date, dayWindow)) continue;
+              if (live !== null && (moment.kind === 'now' || moment.kind === 'handover') && Math.abs(date.getTime() - live) < 90_000) continue;
               // Done ticks the one whose time just ended; a tap opens what is on now.
               const ticks = moment.done ? { [moment.done.kind === 'task' ? 'taskId' : 'habitId']: moment.done.id, scheduledDate: todayKey } : null;
               // Echo says it, when chosen (Settings → Notifications → Echo announces): start, time's up, leave.

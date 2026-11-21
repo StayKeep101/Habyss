@@ -2,7 +2,22 @@ const mockAnswerNudge = jest.fn(async () => true);
 const mockReplyToLatestFrom = jest.fn(async () => null);
 const mockAccept = jest.fn(async () => true);
 const mockDecline = jest.fn(async () => true);
+const mockAcceptFriend = jest.fn(async () => true);
+const mockDeclineFriend = jest.fn(async () => true);
+const mockRespond = jest.fn(async () => undefined);
+jest.mock('../challenges', () => ({
+    myChallenges: async () => [
+        { runId: 'other', myStatus: 'invited', members: [{ id: 'alex' }], starts: '2099-01-01', status: 'proposed' },
+        { runId: 'run1', myStatus: 'invited', members: [{ id: 'sam' }], starts: '2099-01-01', status: 'proposed' },
+    ],
+    canAnswer: () => true,
+    respondChallenge: mockRespond,
+    syncChallenges: async () => undefined,
+}));
 jest.mock('../friendsService', () => ({ FriendsService: {
+    relationTo: async () => ({ kind: 'incoming', requestId: 'req1' }),
+    acceptFriendRequest: mockAcceptFriend,
+    declineFriendRequest: mockDeclineFriend,
     answerNudge: mockAnswerNudge,
     acceptShareRequest: mockAccept,
     declineShareRequest: mockDecline,
@@ -53,5 +68,19 @@ describe('Community buttons', () => {
         const reply = CATEGORIES.find(category => category.id === COMMENT_CATEGORY)!.buttons[0];
         expect(reply.textInput?.submitButtonTitle).toBe('Send');
         expect(reply.options.opensAppToForeground).toBe(false);
+    });
+
+    it('answers a friend request from the notification', async () => {
+        await handleSocialResponse(press(SOCIAL_ACTION.friendAccept));
+        expect(mockAcceptFriend).toHaveBeenCalledWith('req1');
+        await handleSocialResponse(press(SOCIAL_ACTION.friendDecline));
+        expect(mockDeclineFriend).toHaveBeenCalledWith('req1');
+    });
+
+    it("joins or declines that friend's challenge", async () => {
+        await handleSocialResponse(press(SOCIAL_ACTION.challengeJoin));
+        expect(mockRespond).toHaveBeenCalledWith('run1', true);
+        await handleSocialResponse(press(SOCIAL_ACTION.challengeDecline));
+        expect(mockRespond).toHaveBeenLastCalledWith('run1', false);
     });
 });
