@@ -15,6 +15,9 @@ export const styles = StyleSheet.create({
     // Centred on the screen itself, not on what is left under the top buttons:
     // the bottom padding matches the top row, so it never sits low.
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.section, paddingHorizontal: Spacing.xl, paddingBottom: Control.hitTarget },
+    /** The hourglass, pinned where Home's camera lands; and what stands under it. */
+    glassPin: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+    belowGlass: { position: 'absolute', left: 0, right: 0, alignItems: 'center', gap: Spacing.xl, paddingHorizontal: Spacing.xl },
     clockStack: { alignItems: 'center', gap: Spacing.xl },
     /** On its side: the ring on the left, everything else in a column on the right. */
     sideways: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.section, paddingHorizontal: Spacing.xl, paddingBottom: Control.hitTarget },

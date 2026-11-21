@@ -26,9 +26,12 @@ export function RankHourglass({ rank, size, look }: { rank: string; size: number
             <View style={box} accessible accessibilityLabel={look === 'shadow' ? `${rank} hourglass, not reached yet` : `${rank} hourglass`}>
                 {look === 'shadow' ? null : <Image source={art} resizeMode="contain" accessibilityIgnoresInvertColors style={box} />}
                 {shade > 0 ? <Image source={art} resizeMode="contain" accessibilityIgnoresInvertColors
-                    style={[StyleSheet.absoluteFill, { tintColor: Colors.common.black, opacity: shade }]} /> : null}
+                    style={[styles.over, box, { tintColor: Colors.common.black, opacity: shade }]} /> : null}
             </View>
         );
     }
     return <Hourglass design={glassDesign(rank)} size={size} ran={sand} running={false} />;
 }
+
+// Its own size, given, not stretched: an image sized only by its edges draws at the art's full size.
+const styles = StyleSheet.create({ over: { position: 'absolute', top: 0, left: 0 } });

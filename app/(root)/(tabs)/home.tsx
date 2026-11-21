@@ -17,8 +17,9 @@ import { Colors } from '@/theme/colors';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
-import { focusLeave, focusTurn, setFocusStage } from '@/lib/focusStage';
-import { EASE, FOCUS_ENTRY, FOCUS_EXIT, OVERLAY, timingFor } from '@/theme/motion';
+import { dolly, focusGlassPlace, focusLeave, focusTurn, setFocusStage } from '@/lib/focusStage';
+import { CEREMONY, EASE, FOCUS_ENTRY, FOCUS_EXIT, OVERLAY, timingFor } from '@/theme/motion';
+import { FOCUS_BAR } from '@/components/Focus/FocusHourglass';
 import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
 import { proveTick } from '@/lib/challengeProof';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
@@ -86,6 +87,9 @@ import { useTimeOff, useTimeOffPeriods } from '@/hooks/useTimeOff';
 import { TimeOffCard } from '@/components/Home/TimeOffCard';
 
 /** A colour with no opacity, so a fade to it never passes through grey. */
+// The camera flying in on the podium for the carousel, and back out (built once, outside worklets).
+const CAMERA_IN = timingFor(CEREMONY.reveal, EASE.move);
+const CAMERA_OUT = timingFor(FOCUS_EXIT.return, EASE.move);
 const clearOf = (color: string) => (/^#[0-9a-f]{6}$/i.test(color) ? `${color}00` : 'transparent');
 
 const Home = () => {
@@ -618,34 +622,34 @@ const Home = () => {
   const reduceMotion = useReducedMotion();
   useFocusEffect(useCallback(() => {
     if (focusLeave.get() > 0 || focusTurn.get() > 0) {
-      focusLeave.set(withTiming(0, timingFor(FOCUS_EXIT.return, EASE.enter)));
+      focusLeave.set(withTiming(0, timingFor(FOCUS_EXIT.return, EASE.move)));
       focusTurn.set(withTiming(0, timingFor(FOCUS_EXIT.return, EASE.move)));
     }
     setFocusStage(go => {
       if (reduceMotion) { go(); return; }
       // Worked out here, in JavaScript: the callbacks below run on the UI thread, where calling a
       // helper like timingFor crashes the app natively (Jest never sees it).
-      const turnTiming = timingFor(FOCUS_ENTRY.flip, EASE.move);
-      const leaveTiming = timingFor(FOCUS_ENTRY.leave, EASE.exit);
-      focusTurn.set(withTiming(1, turnTiming, turned => {
-        'worklet';
-        if (!turned) return;
-        focusLeave.set(withTiming(1, leaveTiming, left => { 'worklet'; if (left) runOnJS(go)(); }));
-      }));
+      // One move: the camera flies in on the podium (a slow start, a soft arrival), Home's page
+      // clearing early in it; Focus then appears on the very frame it lands on.
+      const approach = timingFor(FOCUS_ENTRY.approach, EASE.move);
+      focusLeave.set(withTiming(1, approach, left => { 'worklet'; if (left) runOnJS(go)(); }));
     });
     return () => setFocusStage(null);
   }, [reduceMotion]));
-  const pageLeave = useAnimatedStyle(() => ({ transform: [{ translateY: focusLeave.get() * screenHeight }] }));
+  // The page clears in the first part of the camera's move (FOCUS_ENTRY.leave of the approach).
+  const clearShare = FOCUS_ENTRY.approach / FOCUS_ENTRY.leave;
+  const pageLeave = useAnimatedStyle(() => ({ transform: [{ translateY: Math.min(1, focusLeave.get() * clearShare) * screenHeight }] }));
   // Into Focus with the hourglass as the clock: the scene and the glass zoom in on the podium
   // to where Focus stands it (components/Focus/FocusHourglass.tsx), so the step in is one move.
   // Worked out here, in JavaScript, not inside the worklets.
-  const focusZoom = Math.min(screenWidth * 0.62, (screenHeight - insets.top - insets.bottom) * 0.42 * 0.86) / GLASS_HEIGHT;
-  const focusRise = screenHeight * 0.4 - stepY;
+  const focusPlace = focusGlassPlace(screenWidth, screenHeight, insets, FOCUS_BAR, Spacing.lg);
   // Every hourglass, opened in place on the podium: the page and the bar step aside, and the
   // scene zooms in so the podium stays under the bigger hourglass in the middle (its base on
   // the step, as on Home), where the carousel stands it.
   const [glassesOpen, setGlassesOpen] = useState(false);
   const glassesAside = useSharedValue(0);
+  // The camera's own move into the carousel: slower than the fade, like flying in.
+  const glassesCam = useSharedValue(0);
   const glassesZoom = 1.35;
   const glassesBottom = stepY + GLASS_HEIGHT / 2;
   const glassesRise = glassesBottom - GLASS_HEIGHT * glassesZoom * (1 - HOURGLASS_ART_FOOT) - stepY;
@@ -655,27 +659,37 @@ const Home = () => {
   // The glass's own centre, for zooming it about the step (its layout height, measured).
   const [glassBoxHeight, setGlassBoxHeight] = useState(GLASS_HEIGHT / 2);
   const glassCentre = stepY - GLASS_HEIGHT / 2 + glassSink + glassBoxHeight / 2;
+  // Focus: the step lands where Focus's glass stands on it, the scene as much bigger as its glass is.
+  const focusZoom = focusPlace.size / GLASS_HEIGHT;
+  const focusRise = focusPlace.top + focusPlace.size * (homeFrame ? homeFrame.foot / homeFrame.height : 1) - stepY;
+  // The camera, like a drone flying in: the zoom grows steadily to the eye (lib/focusStage.ts dolly),
+  // the scene's step and the glass moving with it, so the glass never slides off its podium.
+  const camera = (p: number, g: number) => {
+    'worklet';
+    const kp = dolly(p, focusZoom);
+    const kg = dolly(g, glassesZoom);
+    return { zoom: 1 + (focusZoom - 1) * kp + (glassesZoom - 1) * kg, rise: focusRise * kp + glassesRise * kg };
+  };
   const zoomIn = useAnimatedStyle(() => {
-    const p = focusLeave.get();
-    const g = glassesAside.get();
-    return { transform: [{ translateY: focusRise * p + glassesRise * g }, { scale: 1 + (focusZoom - 1) * p + (glassesZoom - 1) * g }] };
+    const { zoom, rise } = camera(focusLeave.get(), glassesCam.get());
+    return { transform: [{ translateY: rise }, { scale: zoom }] };
   });
+  // The glass zooms about the step too (its own centre is elsewhere).
   const glassZoom = useAnimatedStyle(() => {
-    const p = focusLeave.get();
-    const g = glassesAside.get();
-    const zoom = 1 + (glassesZoom - 1) * g;
-    return { transform: [{ translateY: focusRise * p + glassesRise * g + (stepY - glassCentre) * (1 - zoom) }, { scale: 1 + (focusZoom - 1) * p + (zoom - 1) }] };
+    const { zoom, rise } = camera(focusLeave.get(), glassesCam.get());
+    return { transform: [{ translateY: rise + (stepY - glassCentre) * (1 - zoom) }, { scale: zoom }] };
   });
   const onGlasses = useCallback((open: boolean) => {
     setGlassesOpen(open);
     glassesAside.set(withTiming(open ? 1 : 0, open ? OVERLAY.in : OVERLAY.out));
+    glassesCam.set(withTiming(open ? 1 : 0, open ? CAMERA_IN : CAMERA_OUT));
     if (open) homeScrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [glassesAside]);
   const asideForGlasses = useAnimatedStyle(() => ({ opacity: 1 - glassesAside.get() }));
-  const barLeave = useAnimatedStyle(() => ({
-    opacity: 1 - focusLeave.get(),
-    transform: [{ translateY: -focusLeave.get() * Math.max(1, headerHeight) }],
-  }));
+  const barLeave = useAnimatedStyle(() => {
+    const q = Math.min(1, focusLeave.get() * clearShare);
+    return { opacity: 1 - q, transform: [{ translateY: -q * Math.max(1, headerHeight) }] };
+  });
 
   return (
     <VoidShell>

@@ -7,11 +7,11 @@ const shared = (value: number) => (typeof Reanimated.makeMutable === 'function'
 
 /**
  * Stepping into Focus from Home, as one movement (theme/motion.ts FOCUS_ENTRY):
- * the hourglass turns over (`turn`, 0 to 1), then Home's page drops away while
- * the bar with your picture and stats rises out and the tab bar sinks
- * (`leave`, 0 to 1), leaving only the scene; Focus opens on that same scene
- * (app/(root)/focus.tsx), its clock and buttons appearing. Coming back, Home
- * plays it the other way.
+ * the camera flies in on the podium like a drone (`leave`, 0 to 1) while Home's
+ * page drops away, its bar rises out and the tab bar sinks, early in the move;
+ * it lands exactly on the frame Focus opens on (focusGlassPlace), so Focus's
+ * clock and buttons simply appear on the same scene. Coming back, Home plays
+ * it the other way. (`turn` is kept for callers; the glass no longer turns.)
  *
  * Home sets the stage while it is in front; from anywhere else Focus simply opens.
  */
@@ -28,4 +28,21 @@ export function setFocusStage(next: Stage | null): void { stage = next; }
 export function throughStage(go: () => void): void {
     if (stage) stage(go);
     else go();
+}
+
+/**
+ * Where Focus stands its hourglass, upright (app/(root)/focus.tsx pins it there, so it
+ * never moves): the top of its canvas in the window, and its height. Home flies
+ * the camera to exactly this frame. `top`: the safe area, the top buttons, a gap.
+ */
+export function focusGlassPlace(width: number, height: number, insets: { top: number; bottom: number }, bar: number, gap: number): { top: number; size: number } {
+    const usable = height - insets.top - insets.bottom;
+    return { top: insets.top + bar + gap, size: Math.min(width * 0.62, usable * 0.42) };
+}
+
+/** How far a dolly has come, 0 to 1, for progress `p` towards a zoom of `zoom`: steady to the eye, as a camera flying in. */
+export function dolly(p: number, zoom: number): number {
+    'worklet';
+    if (Math.abs(zoom - 1) < 0.001) return p;
+    return (Math.pow(zoom, p) - 1) / (zoom - 1);
 }

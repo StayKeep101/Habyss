@@ -6,7 +6,7 @@ import { allowAnyOrientation, applyDefaultOrientation } from '@/lib/orientation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { FocusClock, FocusDigits, FocusRing } from '@/components/Focus/FocusClock';
-import { FocusHourglass, FocusStageProvider, TempleStage } from '@/components/Focus/FocusHourglass';
+import { FOCUS_BAR, FocusHourglass, FocusStageProvider, TempleStage } from '@/components/Focus/FocusHourglass';
 import { FocusTopBar } from '@/components/Focus/FocusTopBar';
 import { keepFocusCounting, useFocusTime } from '@/context/FocusTimeContext';
 import { useFocusPlan } from '@/hooks/useFocusPlan';
@@ -26,7 +26,10 @@ import { announceChange } from '@/lib/livePulse';
 import { useFocusCrew } from '@/hooks/useFocusCrew';
 import { FeedService } from '@/lib/feedService';
 import { MIN_JOIN_SECONDS, hostOf, linkTo, linkedHost, secondsLeft, setFocusWith, togetherId } from '@/lib/focusTogether';
-import { useAccentGradient } from '@/context/AccentContext';
+import { Spacing } from '@/theme/designSystem';
+import { useAccent, useAccentGradient } from '@/context/AccentContext';
+import { focusGlassPlace } from '@/lib/focusStage';
+import { HOURGLASS_FRAMES } from '@/theme/hourglassFrames';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useClockStyle } from '@/hooks/useClockStyle';
 import { useTasks } from '@/hooks/useTasks';
@@ -69,8 +72,17 @@ export default function FocusRoute() {
     const { width, height } = useWindowDimensions();
     // The hourglass as the clock: Home's temple, closer in, its podium under the glass.
     const clockStyle = useClockStyle();
-    const [stage, setStage] = React.useState<{ y: number; size: number } | null>(null);
     const hourglass = clockStyle === 'hourglass';
+    // Opens already on the frame Home's camera lands on (lib/focusStage.ts focusGlassPlace), so
+    // stepping in from Home shows no dark frame: only the clock and buttons appear.
+    const insets = useSafeAreaInsets();
+    const { rankShown } = useAccent();
+    const [stage, setStage] = React.useState<{ y: number; size: number } | null>(() => {
+        if (width > height) return null;
+        const place = focusGlassPlace(width, height, insets, FOCUS_BAR, Spacing.lg);
+        const frame = HOURGLASS_FRAMES[rankShown ?? 'Lost'];
+        return { y: place.top + place.size * (frame ? frame.foot / frame.height : 1), size: place.size };
+    });
     return (
         <View style={[styles.screen, { backgroundColor: hourglass || background === 'landscape' ? t.color.background : Colors.common.black }]}>
             {hourglass ? <TempleStage stage={stage} /> : background === 'landscape' ? <RankScene centred={width > height} /> : null}
@@ -366,7 +378,9 @@ function FocusScreen() {
     const usable = screen.height - insets.top - insets.bottom - extras - (landscape ? 56 : 0);
     const ringSize = landscape ? Math.min(usable * 0.62, screen.width * 0.34) : Math.min(screen.width * 0.6, usable * 0.32);
     // The hourglass stands taller than the ring is wide: closer in on the podium.
-    const glassSize = Math.min(screen.width * 0.62, usable * 0.42);
+    // Pinned where Home's camera lands (lib/focusStage.ts), the same size whatever else shows: it never moves.
+    const glassPlace = focusGlassPlace(screen.width, screen.height, insets, FOCUS_BAR, Spacing.lg);
+    const glassSize = glassPlace.size;
     const digitSize = landscape ? Math.min(usable * 0.2, screen.width * 0.11) : Math.min(screen.width * 0.18, usable * 0.095);
     // Sideways there is little height: the column (name, clock, Ends at, the buttons a tap shows, a
     // friend's banner) is measured and scaled down just enough to fit, whatever is showing.
@@ -438,18 +452,30 @@ function FocusScreen() {
                         </View>
                     </View>
                 ) : (
-                    <View style={styles.center}>
-                        {clock === 'hourglass' ? null : heading}
-                        {clock === 'hourglass' ? (
-                            // The hourglass on the podium is the clock; the time, smaller, under it.
-                            <Animated.View layout={MOVE} style={styles.clockStack}>
+                    clock === 'hourglass' ? (
+                        // The hourglass on the podium is the clock, pinned: a tap, the buttons coming and going,
+                        // never move it. What it is and the time stand under it.
+                        <>
+                            <View pointerEvents="none" style={[styles.glassPin, { top: glassPlace.top }]}>
                                 <FocusHourglass size={glassSize} progress={progress} seconds={focus.timeLeft} running={!focus.isPaused} />
+                            </View>
+                            <View style={[styles.belowGlass, { top: glassPlace.top + glassSize + Spacing.lg, bottom: insets.bottom + Spacing.sm }]}>
                                 {heading}
                                 <Animated.View style={digitsGrow}>
                                     <FocusDigits seconds={focus.timeLeft} size={digitSize * 0.8} label={label} />
                                 </Animated.View>
-                            </Animated.View>
-                        ) : clock === 'ring' ? (
+                                {controls}
+                                {suggestion ? (
+                                    <FocusNearby key={suggestion.userId} friend={suggestion} accent={primary}
+                                        onTogether={() => together(suggestion.userId)}
+                                        onDismiss={() => { selectionFeedback(); setPassed(list => [...list, suggestion.userId]); }} />
+                                ) : null}
+                            </View>
+                        </>
+                    ) : (
+                    <View style={styles.center}>
+                        {heading}
+                        {clock === 'ring' ? (
                             <Animated.View layout={MOVE} style={styles.clockStack}>
                                 <FocusRing size={ringSize} progress={progress} accent={primary} running={!focus.isPaused} />
                                 <Animated.View style={digitsGrow}>
@@ -468,6 +494,7 @@ function FocusScreen() {
                                 onDismiss={() => { selectionFeedback(); setPassed(list => [...list, suggestion.userId]); }} />
                         ) : null}
                     </View>
+                    )
                 )
             ) : null}
             {summary ? (

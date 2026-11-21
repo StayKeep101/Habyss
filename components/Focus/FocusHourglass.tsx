@@ -1,3 +1,4 @@
+import { Control, Spacing } from '@/theme/designSystem';
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { Image, View, useWindowDimensions } from 'react-native';
 import { Easing, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -23,6 +24,9 @@ const StageContext = createContext<((stage: Stage) => void) | null>(null);
 export const FocusStageProvider = StageContext.Provider;
 
 const LiveGlass = skiaReady ? (require('@/components/Home/SkiaHourglass') as typeof import('@/components/Home/SkiaHourglass')).TiltingHourglass : null;
+
+/** The room Focus's top buttons take under the safe area (its padding and a button). */
+export const FOCUS_BAR = Spacing.sm + Control.hitTarget;
 
 /** One second of sand at a time, never a jump. */
 const TICK = { duration: 1000, easing: Easing.linear };

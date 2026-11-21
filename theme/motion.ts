@@ -57,14 +57,14 @@ export const CEREMONY = {
 export const timingFor = timing;
 
 /**
- * Stepping into Focus from Home (lib/focusStage.ts): the hourglass turns over,
- * then Home's page drops away and its bar rises out, leaving the scene Focus
- * opens on. Each beat in milliseconds, in order.
+ * Stepping into Focus from Home (lib/focusStage.ts): one camera move in on the
+ * podium, Home's page dropping away early in it, landing on the scene Focus
+ * opens on. Each beat in milliseconds.
  */
 export const FOCUS_ENTRY = {
-    /** The hourglass turns over. */
-    flip: 650,
-    /** Home's page drops away, the bar rises out, the tab bar sinks: only the scene is left. */
+    /** The camera flies in on the podium, like a drone approaching the hourglass. */
+    approach: 1400,
+    /** Home's page drops away, the bar rises out, the tab bar sinks (within the approach): only the scene is left. */
     leave: 520,
     /** Focus's clock and buttons appear on the scene. */
     appear: 360,

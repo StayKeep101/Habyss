@@ -8,7 +8,9 @@ import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import Animated, { Easing, useAnimatedStyle, withTiming, useSharedValue, interpolate, runOnJS, runOnUI } from 'react-native-reanimated';
 import { focusLeave } from '@/lib/focusStage';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { DURATION, EASE, timingFor } from '@/theme/motion';
+import { DURATION, EASE, FOCUS_ENTRY, timingFor } from '@/theme/motion';
+
+const DOCK_CLEAR = FOCUS_ENTRY.approach / FOCUS_ENTRY.leave;
 import { Colors } from '@/theme/colors';
 import { Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -412,10 +414,11 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     );
 
     // Stepping into Focus from Home (lib/focusStage.ts): the dock sinks out with the page.
-    const sinkStyle = useAnimatedStyle(() => ({
-        opacity: 1 - focusLeave.get(),
-        transform: [{ translateY: focusLeave.get() * 160 }],
-    }));
+    // It clears early in the camera's move (FOCUS_ENTRY.leave of the approach), with the page.
+    const sinkStyle = useAnimatedStyle(() => {
+        const q = Math.min(1, focusLeave.get() * DOCK_CLEAR);
+        return { opacity: 1 - q, transform: [{ translateY: q * 160 }] };
+    });
 
     // iPad and an open foldable: the same pill and plus, standing down the
     // left edge, the page beside them instead of under them.
