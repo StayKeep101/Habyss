@@ -3,6 +3,7 @@ import { findDeadline, findDifficulty, findPriority, findTimeRange, findTiming, 
 import { localDateKey } from './habitSchedule';
 import { NUMBER, TAKEN, shield, tidyTaken, toNumber } from './phrases';
 import { serialiseRecurrence, type Recurrence } from './recurrence';
+import { findAnchor, findGoal, findReminder, findTracking, type FoundReminder, type FoundTracking } from './settingWords';
 
 /**
  * Quick add: turn one line of plain text into a habit.
@@ -39,6 +40,14 @@ export interface ParsedHabit {
     difficulty?: 1 | 2 | 3;
     /** "at 7 sharp" (false) or "flexible" (true), when it says. */
     flexible?: boolean;
+    /** "right after work", "just before my class": held to something in the day. */
+    anchor?: { to: string; side: 'before' | 'after' };
+    /** "remind me 10 min before", "remind me at 8pm", "no reminder". */
+    reminder?: Omit<FoundReminder, 'phrase'>;
+    /** "from Apple Health", "on Libby", "at the gym": how it counts itself. */
+    tracking?: Omit<FoundTracking, 'phrase'>;
+    /** "for my Marathon goal": the goal's name as written. */
+    goal?: string;
     /** Human-readable notes about anything inferred rather than stated. */
     assumptions: string[];
     /** Which parts of the input were recognised, for highlighting. */
@@ -85,7 +94,15 @@ const tidyName = (value: string): string => {
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 };
 
-export function parseHabitText(input: string, today: Date = new Date()): ParsedHabit {
+/** What the sentence can be matched against: names already in the app. */
+export interface ParseContext {
+    /** Today's events and meals, habits and tasks: what a habit can be linked to. */
+    known?: string[];
+    /** Goal names. */
+    goals?: string[];
+}
+
+export function parseHabitText(input: string, today: Date = new Date(), context: ParseContext = {}): ParsedHabit {
     const assumptions: string[] = [];
     const matched = { days: false, time: false, duration: false, target: false };
     // Links, "Monday's", "about Saturday": not schedule words (lib/phrases.ts).
@@ -103,6 +120,22 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
     const quit = /^\s*(?:avoid|quit|stop|no|don'?t|do not|never|limit|cut out|cut back on|give up|resist|stay off|abstain from)\b/i.test(shielded.text)
         || /\bzero as the (?:daily )?target\b/i.test(shielded.text);
     if (quit) strike(/,?\s*with\s+zero\s+as\s+the\s+(?:daily\s+)?target\b/i);
+
+    /* ----------------------------------- reminder, tracking, goal (read first) */
+    // First, so "remind me 10 min before" is never a 10-minute habit, nor "at 8pm" its time.
+    const reminderFound = findReminder(rest);
+    if (reminderFound) take(reminderFound.phrase);
+    const trackingFound = findTracking(rest);
+    if (trackingFound) take(trackingFound.phrase);
+    const goalFound = findGoal(rest, context.goals);
+    if (goalFound) take(goalFound.phrase);
+    // "every 2 hours": so many times across a waking day (16 hours), not a 2-hour habit.
+    let everyHours: number | undefined;
+    const hourly = quit ? null : rest.match(new RegExp(String.raw`\bevery\s+(?:(${NUMBER})\s+)?(hours?|hrs?)\b`, 'i'));
+    if (hourly) {
+        const gap = hourly[1] ? toNumber(hourly[1]) : 1;
+        if (gap && gap > 0 && gap <= 12) { everyHours = Math.max(2, Math.floor(16 / gap)); take(hourly[0]); }
+    }
 
     /* ------------------------------------------------------- when it stops */
     // Read first: "until Friday" names a last day, not a day it repeats on.
@@ -125,6 +158,11 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
         const when = readDate(begins[1], today) ?? readDate(begins[1].replace(/(\d)(st|nd|rd|th)\b/i, '$1'), today);
         if (when) { startDate = localDateKey(when); take(begins[0]); }
     }
+
+    /* ---------------------------------------------------------------- link */
+    // "right after work", "just before my class", "after lunch" (a name the day already has).
+    const anchorFound = quit ? null : findAnchor(rest, context.known);
+    if (anchorFound) take(anchorFound.phrase);
 
     /* ------------------------------------------- priority, difficulty, timing */
     const urgency = findPriority(rest);
@@ -158,6 +196,7 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
         }
     }
     if (twoParts) { perDay = Math.max(perDay ?? 0, 2); matched.days = true; take(twoParts[0]); }
+    if (everyHours && !perDay) { perDay = everyHours; matched.days = true; }
 
     // So many times a week or month, any days: "4 times a week", "twice per
     // week", "five days a week", "once a month", "three times weekly".
@@ -432,6 +471,10 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
         difficulty: hardness?.difficulty,
         // Said "now": kept at this minute.
         flexible: saidNow ? false : timing?.flexible,
+        ...(anchorFound ? { anchor: { to: anchorFound.to, side: anchorFound.side } } : null),
+        ...(reminderFound ? { reminder: (({ phrase: _phrase, ...rest_ }) => rest_)(reminderFound) } : null),
+        ...(trackingFound ? { tracking: (({ phrase: _phrase, ...rest_ }) => rest_)(trackingFound) as Omit<FoundTracking, 'phrase'> } : null),
+        ...(goalFound ? { goal: goalFound.name } : null),
         assumptions,
         matched,
     };

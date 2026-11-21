@@ -23,6 +23,7 @@ import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
 import { LookButton } from '@/components/Create/LookButton';
 import { ReminderPicker } from '@/components/Create/ReminderPicker';
 import { AnchorPicker } from '@/components/Create/AnchorPicker';
+import { useAnchorSuggestions } from '@/hooks/useAnchorSuggestions';
 import { anchorLabel, parseAnchor, type HabitAnchor } from '@/lib/habitAnchor';
 import { describeAlerts } from '@/lib/itemAlerts';
 import { MeasureField } from '@/components/Create/MeasureField';
@@ -40,6 +41,7 @@ import { smartParseHabit } from '@/lib/smartParse';
 import { parseHabitText } from '@/lib/habitParser';
 import { addHabit, updateHabit, getGoals, withAutoTrack, type Habit, type LocationReminder } from '@/lib/habitsSQLite';
 import { allTrackOptions, autoTrackOptions, trackMinutes, type AutoTrackOption } from '@/lib/autoTrackSources';
+import { guessHealthMetric } from '@/lib/autoTrackGuess';
 import { TrackingPicker } from '@/components/Create/TrackingPicker';
 import { appTimeSupported, appsChosen, chooseApps, getAppTime, setAppTime } from '@/lib/appTime';
 import { generateId } from '@/lib/database';
@@ -253,7 +255,10 @@ export const HabitSheet: React.FC<{
 
     // What the sentence says, read by rules at once and by the model a moment
     // later. Anything it finds fills the rows in, where it can still be changed.
-    const rules = useMemo(() => (text.trim() ? parseHabitText(text) : null), [text]);
+    // What the sentence can point at: goals by name; for a link, the day's events, meals, habits and tasks.
+    const anchorNames = useAnchorSuggestions(isOpen);
+    const linkNames = useMemo(() => [...anchorNames, ...goals.map(goal => goal.name)], [anchorNames, goals]);
+    const rules = useMemo(() => (text.trim() ? parseHabitText(text, new Date(), { known: anchorNames, goals: goals.map(goal => goal.name) }) : null), [text, linkNames]);
     // Opening an existing habit must not rewrite it. "Run everyday" reads as a
     // habit called "Run" that repeats daily, which is right for a sentence
     // someone just typed and wrong for a name they chose and saved. So nothing
@@ -294,9 +299,14 @@ export const HabitSheet: React.FC<{
             difficulty: rules?.difficulty ?? start.difficulty,
             // A time said in the words ("Gym at 6") is a time to keep, unless the words say it can move.
             flexible: rules?.flexible ?? (parsed.startTime ? false : start.flexible),
+            // "right after work", "remind me 10 min before", "for my Marathon goal": read by the rules.
+            anchor: rules?.anchor ? { to: rules.anchor.to, side: rules.anchor.side, gap: 0 } : start.anchor,
+            alerts: rules?.reminder ? (rules.reminder.alerts ?? []) : start.alerts,
+            reminder: rules?.reminder ? rules.reminder.at : start.reminder,
+            goalId: (rules?.goal && goals.find(goal => goal.name.toLowerCase() === rules.goal!.toLowerCase())?.id) || start.goalId,
         } : start;
         return { ...read, ...edits };
-    }, [current, eventGoal, parsed, edits, rules]);
+    }, [current, eventGoal, parsed, edits, rules, goals]);
     // Everything in the sheet wears the colour chosen for this goal or habit:
     // the chosen chips, the bar's open chip, the calendar — not the app accent.
     // How it ticks itself (lib/autoTrackSources.ts): suggested from its name as it is
@@ -323,7 +333,13 @@ export const HabitSheet: React.FC<{
     const currentKey = current
         ? current.healthKitMetric ? `health:${current.healthKitMetric}` : appLinked ? 'app' : current.locationReminders?.some(place => place.trigger === 'stay') ? 'place' : 'off'
         : suggestions[0]?.key ?? 'off';
-    const trackKey = trackPick ?? currentKey;
+    // Said in the sentence: "from Apple Health", "on Libby", "at the gym".
+    const saidTracking = rules?.tracking;
+    const saidKey = current || !canTrack || !saidTracking || saidTracking.kind === 'auto' ? undefined
+        : saidTracking.kind === 'health' ? `health:${guessHealthMetric(draft.name || text, draft.unit) ?? 'workout'}`
+        : saidTracking.kind === 'app' ? (appsAvailable ? 'app' : undefined)
+        : 'place';
+    const trackKey = trackPick ?? saidKey ?? currentKey;
     const tracking: AutoTrackOption | null = trackKey === 'off' ? null
         : suggestions.find(option => option.key === trackKey) ?? everyOption.find(option => option.key === trackKey) ?? null;
     // Apps: the habit's own time (its amount in minutes, else its length), 30 minutes when it says none.

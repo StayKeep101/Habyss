@@ -214,3 +214,32 @@ describe('"now"', () => {
         expect(parsed.flexible).toBe(false);
     });
 });
+
+describe('every setting, said the way people say it', () => {
+    const { parseHabitText } = require('../habitParser');
+    const day = new Date(2026, 10, 21, 10, 0);
+    const read = (text: string) => parseHabitText(text, day, { known: ['Lunch', 'Accounting'], goals: ['Marathon'] });
+    it('links it right before or right after something', () => {
+        expect(read('Gym right after work 45 min')).toMatchObject({ name: 'Gym', anchor: { to: 'Work', side: 'after' }, durationMinutes: 45 });
+        expect(read('Walk after lunch')).toMatchObject({ name: 'Walk', anchor: { to: 'Lunch', side: 'after' } });
+        expect(read('Review notes just before Accounting')).toMatchObject({ name: 'Review notes', anchor: { to: 'Accounting', side: 'before' } });
+    });
+    it('reads a reminder without mistaking it for a length or a time', () => {
+        expect(read('Run 5k, remind me 10 min before')).toMatchObject({ name: 'Run 5k', reminder: { alerts: [10] } });
+        expect(read('Run 5k, remind me 10 min before').durationMinutes).toBeUndefined();
+        expect(read('Pills every day, remind me at 9pm')).toMatchObject({ name: 'Pills', reminder: { at: '21:00' } });
+        expect(read('Pills every day, remind me at 9pm').startTime).toBeUndefined();
+    });
+    it('reads "every 2 hours" as times a day', () => {
+        expect(read('Remind me to drink water every 2 hours')).toMatchObject({ name: 'Drink water', targetValue: 8, targetUnit: 'times' });
+    });
+    it('reads how it tracks itself and which goal it is for', () => {
+        expect(read('Read on Libby 30 min')).toMatchObject({ name: 'Read', tracking: { kind: 'app', app: 'Libby' }, targetValue: 30 });
+        expect(read('Lift at the gym')).toMatchObject({ name: 'Lift', tracking: { kind: 'place' } });
+        expect(read('Run 30 min from Apple Health for my Marathon goal')).toMatchObject({ name: 'Run', tracking: { kind: 'health' }, goal: 'Marathon' });
+    });
+    it('reads anytime words as Anytime', () => {
+        expect(read('Journal whenever')).toMatchObject({ name: 'Journal', flexible: true });
+        expect(read('Stretch any time of day')).toMatchObject({ name: 'Stretch', flexible: true });
+    });
+});

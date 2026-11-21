@@ -4,17 +4,15 @@ import { AppButton, ChoicePill, ChoiceRow, MatteInput } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAnchorSuggestions } from '@/hooks/useAnchorSuggestions';
-import { ANCHOR_GAPS, anchorLabel, type HabitAnchor } from '@/lib/habitAnchor';
+import { anchorLabel, type HabitAnchor } from '@/lib/habitAnchor';
 
 const SIDES: { id: 'before' | 'after'; label: string }[] = [{ id: 'before', label: 'Before' }, { id: 'after', label: 'After' }];
-const gapLabel = (minutes: number) => (minutes === 0 ? 'Right then' : minutes === 60 ? '1 hr' : `${minutes} min`);
 
 /**
- * A habit held to something in the day (lib/habitAnchor.ts), in three steps,
+ * A habit held to something in the day (lib/habitAnchor.ts), in two steps,
  * top to bottom, with the result said as one sentence above them:
- *   1. What to: a class, a meal or an event from your day, or typed.
- *   2. Before or after it.
- *   3. How long between.
+ *   1. What to: a habit, a task, a class, a meal or an event, or typed.
+ *   2. Right before or right after it.
  * Until something is chosen, only the first step shows. Unlink takes it away.
  * On a day the linked thing happens, the timeline places the habit against it;
  * other days it fits in where there is room.
@@ -27,7 +25,8 @@ export function AnchorPicker({ value, onChange, accent }: {
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
     const suggestions = useAnchorSuggestions(true);
-    const set = (patch: Partial<HabitAnchor>) => onChange({ to: value?.to ?? '', side: value?.side ?? 'after', gap: value?.gap ?? 0, ...patch });
+    // Right before or right after: no gap to choose.
+    const set = (patch: Partial<HabitAnchor>) => onChange({ to: value?.to ?? '', side: value?.side ?? 'after', ...patch, gap: 0 });
     const name = value?.to.trim();
     const step = (text: string) => <Text style={[t.type.caption, { color: t.color.textMuted }]}>{text}</Text>;
 
@@ -43,7 +42,7 @@ export function AnchorPicker({ value, onChange, accent }: {
             {step('1 · Link it to')}
             {suggestions.length ? (
                 <View style={[styles.wrap, { gap: t.space.sm }]}>
-                    {suggestions.map(suggestion => (
+                    {suggestions.slice(0, 12).map(suggestion => (
                         <ChoicePill key={suggestion} label={suggestion} on={name?.toLowerCase() === suggestion.toLowerCase()} color={accent}
                             onPress={() => { selectionFeedback(); set({ to: suggestion }); }} />
                     ))}
@@ -55,17 +54,8 @@ export function AnchorPicker({ value, onChange, accent }: {
 
             {name && value ? (
                 <>
-                    {step('2 · Before or after it')}
+                    {step('2 · Right before or right after')}
                     <ChoiceRow accessibilityLabel="Before or after" options={SIDES} value={value.side} onChange={side => set({ side })} color={accent} />
-
-                    {step('3 · How long between')}
-                    <View style={[styles.wrap, { gap: t.space.sm }]}>
-                        {ANCHOR_GAPS.map(gap => (
-                            <ChoicePill key={gap} label={gapLabel(gap)} on={value.gap === gap} color={accent}
-                                accessibilityLabel={gap === 0 ? `Right ${value.side}` : `${gapLabel(gap)} ${value.side}`}
-                                onPress={() => { selectionFeedback(); set({ gap }); }} />
-                        ))}
-                    </View>
 
                     <Text style={[t.type.caption, { color: t.color.textMuted }]}>
                         {`On days with ${name}, it goes there, whatever time ${name} is. Other days it fits in where there's room.`}

@@ -150,10 +150,11 @@ export function findDifficulty(text: string): { difficulty: 1 | 2 | 3; phrase: s
         + `|\\b(?:${words})\\s+(?:one|task|habit|goal|difficulty|effort)\\b`
         + `|[,(]\\s*(?:${words})\\s*(?=[,)])`
         + `|(?:[,(-]|\\s)\\s*(?:${words})\\s*\\)?\\s*$)`, 'i');
-    const hard = text.match(said('hard|difficult|tough|challenging')) ?? text.match(/\b(?:high\s+effort|(?:difficulty|effort)\s*:?\s*(?:high|3))\b/i);
+    const hard = text.match(said('hard|difficult|tough|challenging|brutal|intense|hardcore|demanding|gruel(?:l)?ing|heavy')) ?? text.match(/\b(?:high\s+effort|(?:difficulty|effort)\s*:?\s*(?:high|3))\b/i);
     if (hard) return { difficulty: 3, phrase: hard[0] };
     const easy = text.match(said('easy'))
-        ?? text.match(/\b(?:it'?s|its|is)\s+(?:really\s+|very\s+|pretty\s+)?(?:simple|light)\b|\b(?:simple|light)\s+(?:one|task|habit)\b/i) ?? text.match(/\b(?:low\s+effort|(?:difficulty|effort)\s*:?\s*(?:low|1))\b/i);
+        ?? text.match(/\b(?:it'?s|its|is)\s+(?:really\s+|very\s+|pretty\s+)?(?:simple|light|chill)\b|\b(?:simple|light|chill)\s+(?:one|task|habit)\b/i)
+        ?? text.match(/\b(?:low[\s-]effort|no[\s-]brainer|piece\s+of\s+cake|quick\s+win|(?:difficulty|effort)\s*:?\s*(?:low|1))\b/i);
     if (easy) return { difficulty: 1, phrase: easy[0] };
     const medium = text.match(said('medium|moderate|normal'));
     if (medium) return { difficulty: 2, phrase: medium[0] };
@@ -162,9 +163,10 @@ export function findDifficulty(text: string): { difficulty: 1 | 2 | 3; phrase: s
 
 /** Exact or flexible, when the sentence says: "at 3pm sharp", "exactly at 9", "flexible", "anytime". */
 export function findTiming(text: string): { flexible: boolean; phrase: string } | null {
-    const exact = text.match(/\b(?:sharp|exactly|on the dot|fixed time|exact time|not flexible)\b/i);
+    const exact = text.match(/\b(?:sharp|exactly|precisely|on the dot|on time|fixed time|exact time|set time|not flexible|strictly(?=\s+at\b)|no matter what)\b/i);
     if (exact) return { flexible: false, phrase: exact[0] };
-    const loose = text.match(/\b(?:flexible|flexibly|any\s?time|whenever i can|roughly|around)\b/i);
+    // Anytime: no hour of its own; the day finds room for it.
+    const loose = text.match(/\b(?:flexible|flexibly|any\s?time(?:\s+of\s+(?:the\s+)?day)?|whenever(?:\s+i\s+(?:can|want|like|feel\s+like\s+it))?|sometime(?:\s+(?:today|tomorrow|this\s+week))?|at\s+some\s+point|no\s+set\s+time|(?:when(?:ever)?\s+)?i(?:'m|\s+am)?\s+free|roughly|around)\b/i);
     if (loose) return { flexible: true, phrase: loose[0] };
     return null;
 }
@@ -174,10 +176,11 @@ export function findPriority(text: string): { priority: 1 | 2 | 3; phrase: strin
     // "Maybe this isn't actually important" is a thought, not a priority.
     if (/\b(?:isn'?t|is not|wasn'?t|was not|aren'?t|are not)\s+(?:\w+\s+)?(?:urgent|important)\b/i.test(text)) return null;
     // "Not urgent" before "urgent", so the "urgent" inside it is not read as high.
-    const low = text.match(/\b(?:low\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*low|not\s+(?:very\s+|that\s+|really\s+)?(?:urgent|important)|no\s+rush|no\s+hurry|p3)\b/i)
-        ?? text.match(/(?:^|[,(;-]\s*|\s)(?:sometime|whenever|eventually)\s*[.!)]*\s*$/i);
+    const low = text.match(/\b(?:low\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*low|not\s+(?:very\s+|that\s+|really\s+)?(?:urgent|important)|not\s+a\s+priority|no\s+rush|no\s+hurry|no\s+pressure|if\s+i\s+(?:have|get|find)\s+(?:the\s+)?time|nice\s+to\s+have|optional(?:ly)?|someday|one\s+day|low[\s-]?key|(?:on\s+the\s+)?back\s?burner|whenever\s+possible|p3)\b/i)
+        ?? text.match(/(?:^|[,(;-]\s*|\s)eventually\s*[.!)]*\s*$/i);
     if (low) return { priority: 3, phrase: low[0] };
-    const high = text.match(/\b(?:(?:very\s+|super\s+|really\s+)?urgent|urgently|asap|high\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*high|top\s+priority|must\s+do|p1)\b/i)
+    const high = text.match(/\b(?:(?:very\s+|super\s+|really\s+)?urgent|urgently|asap|a\.s\.a\.p|high\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*high|top\s+priority|must[\s-]do|need\s+to\s+do\s+(?:this|it)\s+today|time[\s-]sensitive|crucial|essential|priority\s+(?:one|1|#1)|p1)\b/i)
+        ?? text.match(/!{2,}\s*$/)
         ?? text.match(/(?:^|[,(;-]\s*|\bit'?s\s+|\bvery\s+|\bsuper\s+|\breally\s+)(?:important|critical)\b|\b(?:important|critical)[!.\s)]*$/i);
     if (high) return { priority: 1, phrase: high[0] };
     const normal = text.match(/\b(?:(?:normal|medium)\s+(?:priority|urgency)|(?:urgency|priority)\s*:?\s*(?:normal|medium)|p2)\b/i);

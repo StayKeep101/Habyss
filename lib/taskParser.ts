@@ -3,6 +3,7 @@ import { formatDuration } from './habitMeasurement';
 import type { TaskPriority } from './tasks';
 import { findDeadline, findDifficulty, findPriority, findTimeRange, findTiming } from './dateWords';
 import { NUMBER, TAKEN, afterCorrection, shield, tidyTaken, toNumber } from './phrases';
+import { findGoal, findReminder, findSubtasks, type FoundReminder } from './settingWords';
 
 /**
  * Task parser.
@@ -33,6 +34,12 @@ export interface ParsedTaskText {
     difficulty?: 1 | 2 | 3;
     /** "at 3pm sharp" (false) or "flexible" (true), when it says. */
     flexible?: boolean;
+    /** "remind me 10 min before", "remind me at 8am", "no reminder". */
+    reminder?: Omit<FoundReminder, 'phrase'>;
+    /** "for my Launch goal": the goal's name as written. */
+    goal?: string;
+    /** "Groceries: milk, eggs, bread", "steps: draft, edit, send". */
+    subtasks?: string[];
     /** Which parts of the sentence were recognised, for the preview. */
     matched: { date: boolean; time: boolean; estimate: boolean; priority: boolean; deadline?: boolean; difficulty?: boolean; timing?: boolean };
 }
@@ -72,7 +79,7 @@ const WORD_HOURS: Record<string, number> = {
 };
 const WORD_MINUTES: Record<string, string> = { fifteen: '15', thirty: '30', fortyfive: '45' };
 
-export function parseTaskText(input: string, today: Date = new Date()): ParsedTaskText {
+export function parseTaskText(input: string, today: Date = new Date(), context: { goals?: string[] } = {}): ParsedTaskText {
     const matched: ParsedTaskText['matched'] = { date: false, time: false, estimate: false, priority: false };
     // "Monday's meeting", "about Saturday", links: not dates (lib/phrases.ts).
     const shielded = shield((input ?? '').trim());
@@ -83,6 +90,16 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
     const corrected = afterCorrection(rest);
     const base = new Date(today);
     base.setHours(12, 0, 0, 0);
+
+    /* ------------------------------------ steps, reminder, goal (read first) */
+    // First: "Groceries: milk, eggs" keeps its list out of the title, and "remind me at 8am"
+    // is a reminder, not the time to do it.
+    const stepsFound = findSubtasks(rest.trim());
+    if (stepsFound) take(stepsFound.phrase);
+    const reminderFound = findReminder(rest);
+    if (reminderFound) take(reminderFound.phrase);
+    const goalFound = findGoal(rest, context.goals);
+    if (goalFound) take(goalFound.phrase);
 
     /* ------------------------------------------------------------- deadline */
     // "due by Friday", "by Dec 5", "before next week": when it must be done by.
@@ -323,6 +340,9 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
         difficulty: hardness?.difficulty,
         // Said how it is ("flexible", "sharp"), else fixed when a clock time was said.
         flexible: timing?.flexible ?? (exactTime ? false : undefined),
+        ...(reminderFound ? { reminder: (({ phrase: _phrase, ...said }) => said)(reminderFound) } : null),
+        ...(goalFound ? { goal: goalFound.name } : null),
+        ...(stepsFound ? { subtasks: stepsFound.subtasks } : null),
         matched,
     };
 }

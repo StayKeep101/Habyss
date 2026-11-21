@@ -200,7 +200,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
 
     // Rules read the sentence instantly; the model's reading replaces theirs
     // once it arrives. Neither overwrites anything already tapped.
-    const rules = useMemo(() => (text.trim() ? parseTaskText(text) : null), [text]);
+    const goalNames = useMemo(() => goals.map(goal => goal.name), [goals]);
+    const rules = useMemo(() => (text.trim() ? parseTaskText(text, new Date(), { goals: goalNames }) : null), [text, goalNames]);
     const smart = useSmartParse(text, smartParseTask);
     // An existing task keeps the title and the day it was saved with until the
     // sentence is actually changed. Re-reading it would move its date.
@@ -215,7 +216,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             : { title: '', priority: 2, dueDate: startDay ?? localDateKey(new Date()), goalId: eventGoal, measure: 'done', estimate: DEFAULT_LENGTH.task, places: [] };
         const read: Draft = parsed ? {
             ...start,
-            title: parsed.title || start.title,
+            // The rules take out steps, a reminder and a goal; the model may leave them in the title.
+            title: (rules && (rules.subtasks || rules.reminder || rules.goal) ? rules.title : parsed.title) || start.title,
             // With a deadline the rules know the day to do it apart from the
             // day it is due; the model only knows one date.
             dueDate: (rules?.matched.deadline || (rules && /\bnow\b/i.test(text)) ? rules.dueDate : parsed.dueDate) ?? start.dueDate,
@@ -228,9 +230,14 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             difficulty: rules?.difficulty ?? start.difficulty,
             // A time said in the words ("Gym at 6") is a time to keep, unless the words say it can move.
             flexible: rules?.flexible ?? (parsed.dueTime ? false : start.flexible),
+            // "Groceries: milk, eggs", "remind me 15 min before", "for my Launch goal".
+            subtasks: rules?.subtasks ? rules.subtasks.map((title, index) => ({ id: `said-${index}`, title, done: false })) : start.subtasks,
+            alerts: rules?.reminder ? (rules.reminder.alerts ?? []) : start.alerts,
+            reminder: rules?.reminder ? rules.reminder.at : start.reminder,
+            goalId: (rules?.goal && goals.find(goal => goal.name.toLowerCase() === rules.goal!.toLowerCase())?.id) || start.goalId,
         } : start;
         return { ...read, ...edits };
-    }, [current, eventGoal, parsed, edits, rules, startDay]);
+    }, [current, eventGoal, parsed, edits, rules, startDay, goals, text]);
 
     const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));

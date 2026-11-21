@@ -46,7 +46,9 @@ describe('reading a task from one line', () => {
 
     it('hears urgency without being told a number', () => {
         expect(parse('Urgent: fix the build').priority).toBe(1);
-        expect(parse('Tidy the loft sometime').priority).toBe(3);
+        // "Sometime" is when (Anytime), not how much it matters; "if I have time" is.
+        expect(parse('Tidy the loft sometime')).toMatchObject({ title: 'Tidy the loft', flexible: true, priority: 2 });
+        expect(parse('Tidy the loft if I have time').priority).toBe(3);
         expect(parse('Water the plants').priority).toBe(2);
     });
 
@@ -179,5 +181,22 @@ describe('"now"', () => {
         expect(parsed.dueTime).toBe('14:37');
         expect(parsed.dueDate).toBe('2026-11-21');
         expect(parsed.flexible).toBe(false);
+    });
+});
+
+describe('every task setting, said the way people say it', () => {
+    const { parseTaskText } = require('../taskParser');
+    const day = new Date(2026, 10, 21, 10, 0);
+    const read = (text: string) => parseTaskText(text, day, { goals: ['Launch'] });
+    it('reads steps, a reminder and a goal, and keeps them out of the title', () => {
+        expect(read('Buy groceries: milk, eggs and bread')).toMatchObject({ title: 'Buy groceries', subtasks: ['milk', 'eggs', 'bread'] });
+        expect(read('Call mom tomorrow at 5, remind me 15 min before')).toMatchObject({ title: 'Call mom', dueTime: '17:00', reminder: { alerts: [15] } });
+        expect(read('Fix the bug for my Launch goal')).toMatchObject({ title: 'Fix the bug', goal: 'Launch' });
+    });
+    it('reads low priority and anytime words', () => {
+        expect(read('Clean room if I have time').priority).toBe(3);
+        expect(read('Water plants nice to have').priority).toBe(3);
+        expect(read('Fix login asap').priority).toBe(1);
+        expect(read('Call the bank sometime today')).toMatchObject({ title: 'Call the bank', flexible: true });
     });
 });

@@ -563,11 +563,15 @@ export function flowInputs(input: {
             return { title: event.title, start: event.start, minutes: event.minutes, before: travel?.before, after: travel?.after };
         }),
         ...(input.meals ?? []).map(meal => ({ title: meal.name, start: meal.start, minutes: meal.minutes })),
+        // Other habits and today's tasks, where they have a time of their own.
+        ...input.habits.filter(habit => habit.startTime).map(habit => ({ title: habit.name, start: toMinutes(habit.startTime)!, minutes: habitMinutes(habit) || DEFAULT_LENGTH.habit })),
+        ...input.tasks.filter(task => task.dueTime && task.status !== 'cancelled').map(task => ({ title: task.title, start: toMinutes(task.dueTime)!, minutes: Number(task.estimatedMinutes) || DEFAULT_LENGTH.task })),
     ];
     for (const habit of input.habits) {
         // Pinned at an exact time wins; else, held to today's class or meal when there is one.
         const pinned = !!habit.startTime && habit.flexible === false;
-        const anchorAt = !pinned && habit.anchor ? anchoredStart(habit.anchor, habitMinutes(habit) || DEFAULT_LENGTH.habit, anchors) : null;
+        // Never held to itself.
+        const anchorAt = !pinned && habit.anchor ? anchoredStart(habit.anchor, habitMinutes(habit) || DEFAULT_LENGTH.habit, anchors.filter(block => block.title !== habit.name)) : null;
         items.push({
             id: habit.id, kind: 'habit', title: habit.name,
             start: anchorAt ?? toMinutes(habit.startTime), locked: pinned || anchorAt !== null,
