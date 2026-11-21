@@ -1,15 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /** How the focus clock looks (Settings → Focus clock). */
-/** Two looks: the ring, or the digits alone. (Minimal, a third, was taken out.) */
-export type ClockStyle = 'digital' | 'ring';
+/**
+ * Three looks: your hourglass on Home's podium, its sand falling for the time
+ * (the default); the ring; or the digits alone. (Minimal was taken out.)
+ */
+export type ClockStyle = 'hourglass' | 'digital' | 'ring';
 export const CLOCK_STYLES: { id: ClockStyle; label: string }[] = [
-    { id: 'ring', label: 'Ring' }, { id: 'digital', label: 'Digital' },
+    { id: 'hourglass', label: 'Hourglass' }, { id: 'ring', label: 'Ring' }, { id: 'digital', label: 'Digital' },
 ];
 
 const KEY = 'habyss_focus_clock';
-// The ring, with Habyss's mark in it, unless you choose otherwise.
-let style: ClockStyle = 'ring';
+// The hourglass, unless you choose otherwise.
+let style: ClockStyle = 'hourglass';
 let loaded = false;
 const listeners = new Set<() => void>();
 export const currentClockStyle = (): ClockStyle => style;
@@ -23,7 +26,7 @@ export async function loadClockStyle(): Promise<ClockStyle> {
     try {
         const stored = await AsyncStorage.getItem(KEY);
         // A Minimal chosen before it was taken out opens as the ring.
-        if (stored === 'digital' || stored === 'ring') { style = stored; listeners.forEach(l => l()); }
+        if (stored === 'digital' || stored === 'ring' || stored === 'hourglass') { style = stored; listeners.forEach(l => l()); }
     } catch { /* default */ }
     return style;
 }

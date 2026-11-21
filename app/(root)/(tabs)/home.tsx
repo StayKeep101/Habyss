@@ -634,6 +634,15 @@ const Home = () => {
     return () => setFocusStage(null);
   }, [reduceMotion]));
   const pageLeave = useAnimatedStyle(() => ({ transform: [{ translateY: focusLeave.get() * screenHeight }] }));
+  // Into Focus with the hourglass as the clock: the scene and the glass zoom in on the podium
+  // to where Focus stands it (components/Focus/FocusHourglass.tsx), so the step in is one move.
+  // Worked out here, in JavaScript, not inside the worklets.
+  const focusZoom = Math.min(screenWidth * 0.62, (screenHeight - insets.top - insets.bottom) * 0.42 * 0.86) / GLASS_HEIGHT;
+  const focusRise = screenHeight * 0.4 - stepY;
+  const zoomIn = useAnimatedStyle(() => {
+    const p = focusLeave.get();
+    return { transform: [{ translateY: focusRise * p }, { scale: 1 + (focusZoom - 1) * p }] };
+  });
   // Every hourglass, opened in place on the podium: the page and the bar step aside, the scene stays.
   const [glassesOpen, setGlassesOpen] = useState(false);
   const glassesAside = useSharedValue(0);
@@ -651,13 +660,13 @@ const Home = () => {
   return (
     <VoidShell>
       {/* Transit-style: your rank's scene is the map, fixed behind everything (components/Home/DuneScene.tsx). */}
-      <Animated.View style={[homeStyles.scene, sceneFade]} pointerEvents="none">
+      <Animated.View style={[homeStyles.scene, { transformOrigin: [screenWidth / 2, stepY, 0] }, sceneFade, zoomIn]} pointerEvents="none">
         <Image source={TEMPLE.image} style={{ width: screenWidth, height: sceneHeight }} accessibilityIgnoresInvertColors />
         {/* Its foot melts into the page's colour. */}
         <LinearGradient colors={[clearOf(colors.background), colors.background]} style={[homeStyles.sceneFoot, { top: sceneHeight * 0.72, height: sceneHeight * 0.28 }]} />
       </Animated.View>
       {/* The day's hourglass on the podium's top step: it never moves; the cards rise over it. */}
-      <Animated.View pointerEvents="none" style={[homeStyles.glassStage, { top: stepY - GLASS_HEIGHT / 2, left: horizontalPadding, right: horizontalPadding }, sceneFade, asideForGlasses]}>
+      <Animated.View pointerEvents="none" style={[homeStyles.glassStage, { top: stepY - GLASS_HEIGHT / 2, left: horizontalPadding, right: horizontalPadding }, sceneFade, asideForGlasses, zoomIn]}>
         <DayHourglass marks={marks.total} />
       </Animated.View>
       <Animated.ScrollView

@@ -40,6 +40,17 @@ export function FocusClock({ seconds, progress, style, accent, label, running = 
     const long = text.length > 5;
     const digits = (landscape ? width * 0.2 : width * 0.21) * (long ? 0.78 : 1);
 
+    if (style === 'hourglass') {
+        // The hourglass on Home's podium (components/Focus/FocusHourglass.tsx), the time under it.
+        const { FocusHourglass } = require('./FocusHourglass') as typeof import('./FocusHourglass');
+        const glass = Math.min(width, height) * (landscape ? 0.6 : 0.62);
+        return (
+            <View style={landscape ? styles.side : styles.center}>
+                <FocusHourglass size={glass} progress={progress} seconds={seconds} running={running} />
+                <FocusDigits seconds={seconds} size={digits * 0.75} label={label} gap={landscape ? 0 : glass * 0.04} />
+            </View>
+        );
+    }
     if (style === 'ring') {
         const ring = Math.min(width, height) * (landscape ? 0.6 : 0.66);
         return (

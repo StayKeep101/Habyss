@@ -6,6 +6,7 @@ import { allowAnyOrientation, applyDefaultOrientation } from '@/lib/orientation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { FocusClock, FocusDigits, FocusRing } from '@/components/Focus/FocusClock';
+import { FocusHourglass, FocusStageProvider, TempleStage } from '@/components/Focus/FocusHourglass';
 import { FocusTopBar } from '@/components/Focus/FocusTopBar';
 import { keepFocusCounting, useFocusTime } from '@/context/FocusTimeContext';
 import { useFocusPlan } from '@/hooks/useFocusPlan';
@@ -66,11 +67,17 @@ export default function FocusRoute() {
     useFocusEffect(React.useCallback(() => { allowAnyOrientation(); return applyDefaultOrientation; }, []));
     // Sideways, the scene is far taller than the screen: its middle (the moon, the dunes) is what shows.
     const { width, height } = useWindowDimensions();
+    // The hourglass as the clock: Home's temple, closer in, its podium under the glass.
+    const clockStyle = useClockStyle();
+    const [stage, setStage] = React.useState<{ y: number; size: number } | null>(null);
+    const hourglass = clockStyle === 'hourglass';
     return (
-        <View style={[styles.screen, { backgroundColor: background === 'landscape' ? t.color.background : Colors.common.black }]}>
-            {background === 'landscape' ? <RankScene centred={width > height} /> : null}
+        <View style={[styles.screen, { backgroundColor: hourglass || background === 'landscape' ? t.color.background : Colors.common.black }]}>
+            {hourglass ? <TempleStage stage={stage} /> : background === 'landscape' ? <RankScene centred={width > height} /> : null}
             {/* The clock and its buttons appear on the scene. */}
-            <Animated.View style={styles.screen} entering={FadeIn.duration(FOCUS_ENTRY.appear).reduceMotion(ReduceMotion.System)}><FocusStep /></Animated.View>
+            <FocusStageProvider value={setStage}>
+                <Animated.View style={styles.screen} entering={FadeIn.duration(FOCUS_ENTRY.appear).reduceMotion(ReduceMotion.System)}><FocusStep /></Animated.View>
+            </FocusStageProvider>
         </View>
     );
 }
@@ -358,6 +365,8 @@ function FocusScreen() {
     const extras = (suggestion ? 76 : 0) + (crew.length || note ? 40 : 0);
     const usable = screen.height - insets.top - insets.bottom - extras - (landscape ? 56 : 0);
     const ringSize = landscape ? Math.min(usable * 0.62, screen.width * 0.34) : Math.min(screen.width * 0.6, usable * 0.32);
+    // The hourglass stands taller than the ring is wide: closer in on the podium.
+    const glassSize = Math.min(screen.width * 0.62, usable * 0.42);
     const digitSize = landscape ? Math.min(usable * 0.2, screen.width * 0.11) : Math.min(screen.width * 0.18, usable * 0.095);
     // Sideways there is little height: the column (name, clock, Ends at, the buttons a tap shows, a
     // friend's banner) is measured and scaled down just enough to fit, whatever is showing.
@@ -410,12 +419,13 @@ function FocusScreen() {
             {active ? (
                 landscape ? (
                     <View style={styles.sideways}>
-                        {clock === 'ring' ? <FocusRing size={ringSize} progress={progress} accent={primary} running={!focus.isPaused} /> : null}
+                        {clock === 'ring' ? <FocusRing size={ringSize} progress={progress} accent={primary} running={!focus.isPaused} />
+                            : clock === 'hourglass' ? <FocusHourglass size={ringSize} progress={progress} seconds={focus.timeLeft} running={!focus.isPaused} /> : null}
                         <View style={styles.sideColumn} onLayout={event => setSideRoom(event.nativeEvent.layout.height)}>
                           <View style={[styles.sideContent, { transform: [{ scale: sideScale }] }]} onLayout={event => setSideContent(event.nativeEvent.layout.height)}>
                             {heading}
                             <Animated.View layout={MOVE} style={digitsGrow}>
-                                {clock === 'ring' ? <FocusDigits seconds={focus.timeLeft} size={digitSize} label={label} />
+                                {clock === 'ring' || clock === 'hourglass' ? <FocusDigits seconds={focus.timeLeft} size={digitSize} label={label} />
                                     : <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary} running={!focus.isPaused} label={label} />}
                             </Animated.View>
                             {controls}
@@ -430,7 +440,15 @@ function FocusScreen() {
                 ) : (
                     <View style={styles.center}>
                         {heading}
-                        {clock === 'ring' ? (
+                        {clock === 'hourglass' ? (
+                            // The hourglass on the podium is the clock; the time, smaller, under it.
+                            <Animated.View layout={MOVE} style={styles.clockStack}>
+                                <FocusHourglass size={glassSize} progress={progress} seconds={focus.timeLeft} running={!focus.isPaused} />
+                                <Animated.View style={digitsGrow}>
+                                    <FocusDigits seconds={focus.timeLeft} size={digitSize * 0.8} label={label} />
+                                </Animated.View>
+                            </Animated.View>
+                        ) : clock === 'ring' ? (
                             <Animated.View layout={MOVE} style={styles.clockStack}>
                                 <FocusRing size={ringSize} progress={progress} accent={primary} running={!focus.isPaused} />
                                 <Animated.View style={digitsGrow}>

@@ -1,11 +1,16 @@
 import React, { useEffect, useMemo } from 'react';
-import { useDerivedValue, useReducedMotion, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import { useAnimatedReaction, useDerivedValue, useReducedMotion, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import {
     BlurMask, Canvas, ClipOp, Group, LinearGradient, Path, Picture, RoundedRect, Skia, createPicture, useClock, vec,
 } from '@shopify/react-native-skia';
 import { mixHex } from '@/lib/colorContrast';
 import { Colors } from '@/theme/colors';
 import { HOURGLASS_INK } from '@/theme/hourglassArt';
+import { DURATION, EASE } from '@/theme/motion';
+
+// Built once, outside any worklet: the slide of an avalanche, and the heaps settling back.
+const AVALANCHE = { duration: DURATION.base, easing: EASE.enter };
+const SETTLE_BACK = { duration: DURATION.base + 60, easing: EASE.move };
 
 /**
  * Home's hourglass, drawn live with Skia in the design of the blue hourglass
@@ -27,8 +32,21 @@ const GLASS_BOTTOM = 747;
 const TOP_FULL = 175;
 const PILE_FULL = 170;
 /** Grains in the air at once, and how long one takes to fall (ms). */
-const GRAINS = 14;
-const FALL_MS = 900;
+const GRAINS = 36;
+const FALL_MS = 700;
+/**
+ * Sand's angle of repose, on screen: the steepest a heap's side can stand, so
+ * the slope of the funnel in the top bulb and of the cone below. And the tilt
+ * the heaps hold through before they slide: sand keeps its shape when the
+ * glass leans a little, then gives way all at once, unlike water.
+ */
+const REPOSE = 0.62;
+const HOLD = 0.35;
+/** The grain of the sand: fixed specks over both heaps, [x, y, light?] on the art's grid. */
+const SPECKS: [number, number, boolean][] = Array.from({ length: 260 }, (_, i) => {
+    const a = Math.sin(i * 127.1) * 43758.5453, b = Math.sin(i * 311.7) * 24634.6345;
+    return [80 + (a - Math.floor(a)) * (W - 160), GLASS_TOP + (b - Math.floor(b)) * (GLASS_BOTTOM - GLASS_TOP), i % 3 === 0];
+});
 
 /** The glass's outline, traced from the art: [y, left, right] on the art's grid. */
 const OUTLINE: [number, number, number][] = [
@@ -79,13 +97,23 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
     const light = useMemo(() => mixHex(sand[0], Colors.common.white, 0.2), [sand]);
     const deep = sand[1];
 
+    // How the heaps lie: held where they are until the glass leans past what sand
+    // holds, then a quick slide (an avalanche) to the new angle, and still again.
+    const settled = useSharedValue(0);
+    useAnimatedReaction(() => (reduced ? 0 : lean.value), angle => {
+        const gap = angle - settled.value;
+        if (Math.abs(gap) > HOLD) settled.value = withTiming(angle - Math.sign(gap) * HOLD * 0.6, AVALANCHE);
+        else if (Math.abs(angle) < 0.04 && Math.abs(settled.value) > 0 && Math.abs(gap) > HOLD * 0.5) settled.value = withTiming(0, SETTLE_BACK);
+    });
+
     // The living sand, recorded fresh each frame on the UI thread.
     const picture = useDerivedValue(() => {
         const t = reduced ? 0 : clock.value;
         const r = Math.min(1, Math.max(0, ran.value));
-        // The phone's tilt as an angle: gravity's slope across the screen (sand settles level with the ground).
+        // Gravity, for what falls (grains drop straight down); the heaps' own lie, for what rests.
         const angle = reduced ? 0 : Math.max(-0.7, Math.min(0.7, lean.value));
         const slope = Math.tan(angle);
+        const rest = Math.tan(settled.value) * 0.45;
         return createPicture(canvas => {
             const paint = Skia.Paint();
             paint.setAntiAlias(true);
@@ -95,44 +123,81 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
                 [Skia.Color(light), Skia.Color(deep)], null, 0);
             paint.setShader(shader);
 
-            // The top: a surface that sways a little and sinks to the neck as the day runs.
+            // The top: sand drains from its middle, so its surface is a funnel over the
+            // neck, its sides at the angle of repose, deepening as the bulb empties.
             const level = TOP_FULL + (NECK - TOP_FULL) * r;
-            const sway = 9 * (1 - r);
+            const crater = Math.min(NECK - level, 16 + 44 * r);
             const top = Skia.Path.Make();
             top.moveTo(60, NECK + 4);
-            for (let x = 60; x <= W - 60; x += 16) {
-                const y = level + sway * Math.sin(x * 0.018 + t * 0.0012) + slope * (x - CX);
-                top.lineTo(x, y);
+            for (let x = 60; x <= W - 60; x += 8) {
+                const dip = Math.max(0, crater - REPOSE * Math.abs(x - CX));
+                top.lineTo(x, Math.min(NECK + 2, level + dip + rest * (x - CX)));
             }
             top.lineTo(W - 60, NECK + 4);
             top.close();
             canvas.drawPath(top, paint);
 
-            // The pile: a soft mound that grows, its peak leaning with the tilt.
-            const height = PILE_FULL * r;
-            // Grains fall straight down (towards the ground), so they land along gravity's line from the neck.
-            const peakX = CX + slope * (GLASS_BOTTOM - height - NECK);
+            // The pile: a cone where the grains land (straight down from the neck, along
+            // gravity), its sides at the angle of repose, spreading to the walls as it grows.
+            const height = PILE_FULL * Math.sqrt(r);
+            // Grains drop with gravity, but the stream leaves through a narrow neck: the peak shifts, not swings.
+            const peakX = CX + slope * 0.4 * (GLASS_BOTTOM - height - NECK);
+            const peakY = GLASS_BOTTOM - height * 1.15;
             const pile = Skia.Path.Make();
             pile.moveTo(60, GLASS_BOTTOM + 4);
-            pile.lineTo(60, GLASS_BOTTOM - height * 0.35 + slope * (60 - CX) * 0.5);
-            pile.quadTo(peakX, GLASS_BOTTOM - height * 1.65, W - 60, GLASS_BOTTOM - height * 0.35 + slope * (W - 60 - CX) * 0.5);
+            for (let x = 60; x <= W - 60; x += 8) {
+                const dx = x - peakX;
+                pile.lineTo(x, Math.min(GLASS_BOTTOM + 4, peakY + REPOSE * Math.abs(dx) + rest * dx));
+            }
             pile.lineTo(W - 60, GLASS_BOTTOM + 4);
             pile.close();
             canvas.drawPath(pile, paint);
             paint.setShader(null);
 
+            // The grain: specks of light and shade over both heaps, never on the glass.
+            const specks = Skia.Path.Make();
+            specks.addPath(top);
+            specks.addPath(pile);
+            canvas.save();
+            canvas.clipPath(specks, ClipOp.Intersect, true);
+            for (const [x, y, bright] of SPECKS) {
+                paint.setColor(Skia.Color(bright ? light : deep));
+                paint.setAlphaf(bright ? 0.55 : 0.4);
+                canvas.drawCircle(x, y, bright ? 2.2 : 2.6, paint);
+            }
+            paint.setAlphaf(1);
+            canvas.restore();
+
             if (running && !reduced && r > 0.001 && r < 0.999) {
-                // The drip through the neck, then grains falling under gravity onto the mound.
+                // The stream: a thin trickle through the neck, made of grains, each falling
+                // faster as it goes (gravity), a hair apart, onto the cone's peak.
                 paint.setColor(Skia.Color(light));
-                canvas.drawRect(Skia.XYWHRect(CX - 3, NECK - 14, 6, 26), paint);
-                const land = GLASS_BOTTOM - height * 0.95;
+                const land = peakY + 2;
+                paint.setAlphaf(0.35);
+                const stream = Skia.Path.Make();
+                stream.moveTo(CX - 1.6, NECK - 10);
+                stream.lineTo(CX + 1.6, NECK - 10);
+                stream.lineTo(CX + slope * 0.4 * (land - NECK) + 1.6, land);
+                stream.lineTo(CX + slope * 0.4 * (land - NECK) - 1.6, land);
+                stream.close();
+                canvas.drawPath(stream, paint);
                 for (let i = 0; i < GRAINS; i++) {
                     const phase = ((t / FALL_MS) + i / GRAINS) % 1;
-                    const fall = phase * phase;
-                    const y = NECK + 12 + fall * (land - NECK - 12);
-                    const x = CX + slope * (y - NECK) + Math.sin(i * 12.9898) * 3;
-                    paint.setAlphaf(phase < 0.1 ? phase * 10 : phase > 0.9 ? (1 - phase) * 10 : 1);
-                    canvas.drawCircle(x, y, 4.2, paint);
+                    const y = NECK - 6 + phase * phase * (land - NECK + 6);
+                    const x = CX + slope * 0.4 * (y - NECK) + Math.sin(i * 12.9898) * 1.8 * phase;
+                    paint.setAlphaf(phase > 0.92 ? (1 - phase) * 12 : 0.95);
+                    canvas.drawCircle(x, y, 2.1, paint);
+                }
+                // Now and then a grain rolls down the cone's side and stops.
+                for (let i = 0; i < 4; i++) {
+                    const phase = ((t / 1600) + i / 4) % 1;
+                    const side = i % 2 === 0 ? -1 : 1;
+                    const dx = side * phase * Math.min(150, height * 1.2 + 20);
+                    const y = peakY + REPOSE * Math.abs(dx) + rest * dx - 2.5;
+                    if (y < GLASS_BOTTOM) {
+                        paint.setAlphaf(phase < 0.8 ? 0.9 : (1 - phase) * 4.5);
+                        canvas.drawCircle(peakX + dx, y, 2.2, paint);
+                    }
                 }
                 paint.setAlphaf(1);
             }
