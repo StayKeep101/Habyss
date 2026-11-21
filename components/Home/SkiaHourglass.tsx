@@ -43,6 +43,8 @@ const FALL_MS = 700;
  * glass leans a little, then gives way all at once, unlike water.
  */
 const REPOSE = 0.62;
+/** How strongly the sand answers the phone's tilt and shaking (1: fully). */
+const SENSITIVITY = 0.5;
 const HOLD = 0.35;
 /** The grain of the sand: fixed specks over both heaps, [x, y, light?] on the art's grid. */
 const specksFor = (width: number, top: number, bottom: number): [number, number, boolean][] => Array.from({ length: 260 }, (_, i) => {
@@ -337,13 +339,14 @@ export function useSandMotion(): { tilt: SharedValue<number>; shake: SharedValue
                     const across = Math.hypot(gx, gy);
                     // Lying flat, the reading across the screen is small and means nothing: rest.
                     const weight = Math.max(0, Math.min(1, (across - 2) / 4));
-                    const target = Math.max(-0.7, Math.min(0.7, Math.atan2(gx, gy))) * weight;
+                    // Half the phone's lean: the sand answers a tilt without chasing every movement.
+                    const target = Math.max(-0.7, Math.min(0.7, Math.atan2(gx, gy) * SENSITIVITY)) * weight;
                     // Eased, so a shaky hand does not jitter the sand.
                     tilt.value = tilt.value + (target - tilt.value) * 0.25;
                 }
                 const a = event.acceleration;
                 const jolt = a ? Math.hypot(a.x, a.y, a.z) : 0;
-                shake.value = Math.min(1, shake.value * 0.93 + Math.max(0, jolt - 2.5) * 0.12);
+                shake.value = Math.min(1, shake.value * 0.93 + Math.max(0, jolt - 2.5) * 0.12 * SENSITIVITY);
             });
         } catch { /* no motion sensor: still sand */ }
         return () => sub?.remove();
