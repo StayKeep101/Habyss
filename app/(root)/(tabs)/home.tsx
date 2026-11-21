@@ -57,7 +57,7 @@ import { GlassCarousel } from '@/components/Home/GlassCarousel';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { Radius, Spacing } from '@/theme/designSystem';
 import { homeStyles } from '@/styles/screens/home.styles';
-import { HOURGLASS_ART_FOOT, TEMPLE } from '@/theme/hourglassArt';
+import { TEMPLE } from '@/theme/hourglassArt';
 import { HOURGLASS_FRAMES } from '@/theme/hourglassFrames';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -652,7 +652,9 @@ const Home = () => {
   const glassesCam = useSharedValue(0);
   const glassesZoom = 1.35;
   const glassesBottom = stepY + GLASS_HEIGHT / 2;
-  const glassesRise = glassesBottom - GLASS_HEIGHT * glassesZoom * (1 - HOURGLASS_ART_FOOT) - stepY;
+  // The carousel's glass is your frame too: the step lands where its base ends.
+  const carouselFrame = HOURGLASS_FRAMES[rankShown ?? 'Lost'];
+  const glassesRise = glassesBottom - GLASS_HEIGHT * glassesZoom * (1 - (carouselFrame ? carouselFrame.foot / carouselFrame.height : 1)) - stepY;
   // The glass stands with its base on the step, covering the step's light: its canvas sinks by the art below the base.
   const homeFrame = HOURGLASS_FRAMES[rankShown ?? 'Lost'];
   const glassSink = homeFrame ? GLASS_HEIGHT * (1 - homeFrame.foot / homeFrame.height) : 0;

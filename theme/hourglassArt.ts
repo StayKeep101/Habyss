@@ -1,25 +1,9 @@
 import type { ImageSourcePropType } from 'react-native';
 
 /**
- * Each rank's hourglass, as finished art (assets/images/hourglasses): used
- * wherever a rank is shown still (RankHourglass). The live glass on Home,
- * whose sand runs with the day, is still drawn (theme/hourglassDesigns.ts).
+ * A rank shown still (RankHourglass) is its empty frame (theme/hourglassFrames.ts):
+ * the glass with no painted sand, as on Home.
  */
-export const HOURGLASS_ART: Record<string, ImageSourcePropType> = {
-    Lost: require('@/assets/images/hourglasses/lost.png'),
-    Beginner: require('@/assets/images/hourglasses/beginner.png'),
-    Growing: require('@/assets/images/hourglasses/growing.png'),
-    Consistent: require('@/assets/images/hourglasses/consistent.png'),
-    Disciplined: require('@/assets/images/hourglasses/disciplined.png'),
-    Focused: require('@/assets/images/hourglasses/focused.png'),
-    Master: require('@/assets/images/hourglasses/master.png'),
-    Unbreakable: require('@/assets/images/hourglasses/unbreakable.png'),
-    Timekeeper: require('@/assets/images/hourglasses/timekeeper.png'),
-    Eternal: require('@/assets/images/hourglasses/eternal.png'),
-};
-
-/** Where the art's base ends, as a share of its height (it stands on the podium there). */
-export const HOURGLASS_ART_FOOT = 0.965;
 
 /** Width over height of the art (1113 × 1413). */
 export const HOURGLASS_ART_RATIO = 1113 / 1413;

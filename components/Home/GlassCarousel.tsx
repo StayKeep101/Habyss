@@ -20,6 +20,9 @@ import { s } from '@/theme/scale';
 
 type Open = AppEvents['glass_open'];
 
+/** How much the carousel's hourglasses are dimmed into the scene. */
+const CAROUSEL_DIM = 0.3;
+
 /** Each hourglass's slot, as a share of the screen's width: the next ones peek in at the sides. */
 const SLOT = 0.54;
 
@@ -114,7 +117,7 @@ export function GlassCarousel({ stage, onOpenChange, camera }: {
                 {RANKS.map((rank, position) => (
                     <Slot key={rank.name} position={position} slot={slot} scrollX={scrollX}>
                         {/* Reached: dimmed into the scene, as on Home. Not yet: only its shadow. */}
-                        <RankHourglass rank={rank.name} size={glassSize} look={open.marks >= rank.min ? 'scene' : 'shadow'} />
+                        <RankHourglass rank={rank.name} size={glassSize} look={open.marks >= rank.min ? 'scene' : 'shadow'} dim={CAROUSEL_DIM} />
                     </Slot>
                 ))}
             </Animated.ScrollView>

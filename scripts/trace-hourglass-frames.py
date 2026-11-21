@@ -95,6 +95,9 @@ out = []
 for rank, name in FILES.items():
     im = keyed(Image.open(os.path.join(SRC, name)))
     im = im.resize((round(im.width * H / im.height), H), Image.LANCZOS)
+    # The glass 30% less see-through: what shows through anything partly clear is cut by 30%.
+    a = im.split()[3].point(lambda v: v if v in (0, 255) else round(255 - 0.7 * (255 - v)))
+    im.putalpha(a)
     im.save(f'assets/images/hourglasses/frames/{rank.lower()}.png', optimize=True)
     g = trace(im)
     rows = ', '.join(f'[{y}, {l}, {r}]' for y, l, r in g['outline'])

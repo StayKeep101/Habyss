@@ -3,25 +3,25 @@ import { Image, StyleSheet, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { Hourglass } from './Hourglass';
 import { glassDesign } from '@/theme/hourglassDesigns';
-import { HOURGLASS_ART, HOURGLASS_ART_RATIO } from '@/theme/hourglassArt';
 import { HOURGLASS_FRAMES } from '@/theme/hourglassFrames';
 import { Colors } from '@/theme/colors';
 
 /**
- * A rank, shown as its hourglass: the one picture a rank has. Its finished art
- * (theme/hourglassArt.ts) when it has some, otherwise drawn from its design
+ * A rank, shown as its hourglass: its empty frame (theme/hourglassFrames.ts, the
+ * same glass as on Home, no painted sand), otherwise drawn from its design
  * (theme/hourglassDesigns.ts), still, with some sand in each bulb. `size` is its height.
  *
- * `look`: 'scene' dims it as Home's live one is dimmed, to sit in the night
- * scene; 'shadow' shows only its black silhouette (one not reached yet).
+ * `look`: 'scene' dims it into the night scene (by `dim`, else as Home's live
+ * one is dimmed); 'shadow' shows only its black silhouette (one not reached yet).
  */
-export function RankHourglass({ rank, size, look }: { rank: string; size: number; look?: 'scene' | 'shadow' }) {
+export function RankHourglass({ rank, size, look, dim }: { rank: string; size: number; look?: 'scene' | 'shadow'; dim?: number }) {
     const sand = useSharedValue(0.35);
-    const art = HOURGLASS_ART[rank];
-    if (art) {
-        const box = { height: size, width: size * HOURGLASS_ART_RATIO };
+    const frame = HOURGLASS_FRAMES[rank];
+    const art = frame?.image;
+    if (frame && art) {
+        const box = { height: size, width: size * frame.width / frame.height };
         // The same picture in black over it: all of it for a shadow, a share of it to dim.
-        const shade = look === 'shadow' ? 1 : look === 'scene' ? 1 - (HOURGLASS_FRAMES[rank]?.brightness ?? 0.8) : 0;
+        const shade = look === 'shadow' ? 1 : look === 'scene' ? (dim ?? 1 - frame.brightness) : 0;
         return (
             <View style={box} accessible accessibilityLabel={look === 'shadow' ? `${rank} hourglass, not reached yet` : `${rank} hourglass`}>
                 {look === 'shadow' ? null : <Image source={art} resizeMode="contain" accessibilityIgnoresInvertColors style={box} />}
