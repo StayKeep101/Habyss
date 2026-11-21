@@ -6,12 +6,12 @@ export const styles = StyleSheet.create({
     /** Export and Select, side by side in the header. */
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     flex: { flex: 1 },
-    content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: Spacing.xl },
+    content: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.xl },
     /** Room below the last thought while one is reworded, so even the last can scroll up above the keyboard. */
     contentEditing: { paddingBottom: 360 },
     composer: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.md, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm + 2, borderTopWidth: StyleSheet.hairlineWidth },
     input: { flex: 1, maxHeight: 120, fontFamily: FontFamily.medium, fontSize: 17, lineHeight: 24, paddingVertical: Spacing.sm },
-    send: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    send: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
     divider: { borderTopWidth: StyleSheet.hairlineWidth },
     selectBar: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.sm },
     selectAll: { fontFamily: FontFamily.semibold, fontSize: 14 },

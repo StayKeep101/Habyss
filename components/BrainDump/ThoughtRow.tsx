@@ -31,8 +31,9 @@ const HOLD_MS = 420;
 
 /**
  * One thought: just its words. Swipe left to delete it, tap to reword it.
- * Hold it and let go to turn it into a task, habit or goal (the only way
- * to); hold and drag to move it. While selecting, a tap ticks it instead.
+ * Hold it: it lifts and the Habit · Task · Goal dock rises; drag to move it
+ * or onto the dock to make it that; let go without moving for its menu.
+ * While selecting, a tap ticks it instead.
  */
 export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onDone, onDelete, onEdit, onEditingChange, onLayout, onDragStart, onDragMove, onDragEnd }: {
     thought: Thought;
@@ -61,24 +62,25 @@ export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onD
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(thought.text);
 
-    // Hold, then drag: the row lifts and follows the finger.
+    // Held: the row lifts at once (with a buzz) and the Habit · Task · Goal dock
+    // rises. Dragged: it follows the finger, to a new place or onto the dock.
+    // Let go without moving: its menu opens.
     const lift = useSharedValue(0);
     const dragY = useSharedValue(0);
-    // Whether this hold turned into a drag; if not, letting go opens the menu.
     const moved = useSharedValue(false);
-    const drag = Gesture.Pan()
+    const gesture = Gesture.Pan()
         .activateAfterLongPress(HOLD_MS)
-        .onStart(() => { moved.value = true; lift.value = withSpring(1); runOnJS(onDragStart)(); })
-        .onUpdate(event => { dragY.value = event.translationY; runOnJS(onDragMove)(event.translationY, event.absoluteX, event.absoluteY); })
-        .onEnd(event => { runOnJS(onDragEnd)(event.translationY, event.absoluteX, event.absoluteY); })
+        .onStart(() => { moved.value = false; lift.value = withSpring(1); runOnJS(mediumFeedback)(); runOnJS(onDragStart)(); })
+        .onUpdate(event => {
+            if (!moved.value && (Math.abs(event.translationX) > STILL || Math.abs(event.translationY) > STILL)) moved.value = true;
+            dragY.value = event.translationY;
+            runOnJS(onDragMove)(event.translationY, event.absoluteX, event.absoluteY);
+        })
+        .onEnd(event => {
+            if (moved.value) runOnJS(onDragEnd)(event.translationY, event.absoluteX, event.absoluteY);
+            else runOnJS(onHold)();
+        })
         .onFinalize(() => { dragY.value = 0; lift.value = withSpring(0); });
-    const hold = Gesture.LongPress()
-        .minDuration(HOLD_MS)
-        .maxDistance(STILL)
-        .onBegin(() => { moved.value = false; })
-        .onStart(() => { runOnJS(mediumFeedback)(); })
-        .onEnd((_event, success) => { if (success && !moved.value) runOnJS(onHold)(); });
-    const gesture = Gesture.Simultaneous(drag, hold);
     const lifted = useAnimatedStyle(() => ({
         transform: [{ translateY: dragY.value }, { scale: 1 + lift.value * 0.02 }],
         zIndex: lift.value > 0 ? 10 : 0,
@@ -108,15 +110,16 @@ export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onD
             <GestureDetector gesture={gesture}>
                 <View>
                     <SwipeRow right={selecting ? undefined : [{ icon: 'trash', label: 'Delete', color: colors.error, onPress: onDelete, destructive: true }]}>
-                        <View style={[styles.row, { backgroundColor: colors.background }]}>
+                        {/* No fill of its own: the page shows through (the delete behind it stays hidden until a swipe). */}
+                        <View style={styles.row}>
                             {/* The circle: tap it and the thought is done and goes; while
                                 selecting, it is the tick that picks it. */}
                             <Pressable onPress={selecting ? () => { selectionFeedback(); onToggle(); } : tick} hitSlop={10}
                                 accessibilityRole="checkbox" accessibilityState={{ checked: on }}
                                 accessibilityLabel={selecting ? 'Select thought' : 'Done, remove thought'}>
-                                <CheckPop active={on} color={primary} size={22}>
+                                <CheckPop active={on} color={primary} size={TICK}>
                                     <View style={[styles.tick, { borderColor: on ? primary : colors.textTertiary, backgroundColor: on ? primary : undefined }]}>
-                                        {on ? <AppIcon name="checkmark" size={14} color={textOn(primary)} /> : null}
+                                        {on ? <AppIcon name="checkmark" size={TICK - 7} color={textOn(primary)} /> : null}
                                     </View>
                                 </CheckPop>
                             </Pressable>
@@ -159,13 +162,16 @@ export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onD
     );
 }
 
+/** The circle beside a thought. */
+const TICK = 18;
+
 const styles = StyleSheet.create({
     shadow: { shadowColor: '#000', shadowRadius: 12, shadowOffset: { width: 0, height: 6 } }, // ui-allow: drag lift
     flex: { flex: 1 },
-    row: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingVertical: Spacing.md },
-    text: { flex: 1, fontFamily: FontFamily.regular, fontSize: 17, lineHeight: 24 },
+    row: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm + 2, paddingVertical: Spacing.sm + 3 },
+    text: { flex: 1, fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 21 },
     input: { padding: 0 },
     time: { fontFamily: FontFamily.regular, fontSize: 11, paddingTop: 4 },
     struck: { textDecorationLine: 'line-through' },
-    tick: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+    tick: { width: TICK, height: TICK, borderRadius: TICK / 2, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginTop: 1.5 },
 });

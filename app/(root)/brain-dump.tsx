@@ -10,6 +10,9 @@ import { AppIcon } from '@/components/ui/AppIcon';
 import { AppButton } from '@/components/ui/AppButton';
 import { IconButton } from '@/components/ui/IconButton';
 import { ThoughtRow } from '@/components/BrainDump/ThoughtRow';
+import { NewThought } from '@/components/BrainDump/NewThought';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { ThoughtActions, type ThoughtAction } from '@/components/BrainDump/ThoughtActions';
 import { ThoughtDock, type DockTarget, type ThoughtDockHandle } from '@/components/BrainDump/ThoughtDock';
 import { MorphMenu } from '@/components/ui/MorphMenu';
@@ -61,6 +64,8 @@ export default function BrainDumpScreen() {
     const input = useRef<React.ElementRef<typeof MatteInput>>(null);
 
     useEffect(() => { void getThoughts().then(setThoughts); }, []);
+    const thoughtsRef = useRef<Thought[]>([]);
+    useEffect(() => { thoughtsRef.current = thoughts; }, [thoughts]);
     // When this week's thoughts clear: the last evening of the week (Settings).
     const [clearsOn, setClearsOn] = useState('');
     useEffect(() => {
@@ -83,15 +88,20 @@ export default function BrainDumpScreen() {
     }, [draft, dictation]);
     const talk = () => { base.current = draft.trim(); written.current = dictation.listening ? written.current : draft; void dictation.toggle(); };
 
+    // The line under the last thought: tapped open, it is where a new one is written.
+    const [adding, setAdding] = useState(false);
     const save = async () => {
         const thought = await addThought(draft);
         if (!thought) return;
         lightFeedback();
         setDraft('');
-        setThoughts(prev => [thought, ...prev]);
-        // Sent: the keyboard goes down, so the list can be seen.
-        input.current?.blur();
-        Keyboard.dismiss();
+        // It lands where it was written: at the end, under the last one. The line stays open for the next.
+        setThoughts(prev => {
+            const next = [...prev.filter(item => item.id !== thought.id), thought];
+            void reorderThoughts(next.map(item => item.id));
+            return next;
+        });
+        setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 80);
     };
 
     const remove = useCallback(async (thought: Thought, said = 'Deleted') => {
@@ -242,6 +252,7 @@ export default function BrainDumpScreen() {
 
     /** Held and let go: that thought, or while selecting, every ticked one with it. */
     const held = (thought: Thought) => {
+        setCarrying(null); setHovered(null);
         const list = selecting
             ? thoughts.filter(item => picked.has(item.id) || item.id === thought.id)
             : [thought];
@@ -276,7 +287,8 @@ export default function BrainDumpScreen() {
     const navigation = useNavigation();
     useEffect(() => {
         let done = false;
-        const ready = () => { if (!done) { done = true; input.current?.focus(); } };
+        // An empty dump opens on its line, ready to write; otherwise the list, untouched.
+        const ready = () => { if (!done) { done = true; if (!thoughtsRef.current.length) setAdding(true); } };
         const arrived = navigation.addListener('transitionEnd' as never, (event: { data?: { closing?: boolean } }) => { if (!event.data?.closing) ready(); });
         const fallback = setTimeout(ready, 600);
         return () => { arrived(); clearTimeout(fallback); };
@@ -322,32 +334,73 @@ export default function BrainDumpScreen() {
         void reorderThoughts(next.map(item => item.id));
     };
 
+    // Two fingers dragged down the list pick every thought they pass, as in Mail.
+    const scrollY = useRef(0);
+    const [scrollLocked, setScrollLocked] = useState(false);
+    const sweep = useRef<{ base: Set<string>; from: number; last: number } | null>(null);
+    const rowAt = (y: number): number => {
+        const content = y + scrollY.current;
+        let found = -1;
+        thoughts.forEach((thought, index) => {
+            const top = tops.current[thought.id] ?? 0;
+            if (content >= top) found = index;
+        });
+        return Math.max(0, Math.min(thoughts.length - 1, found));
+    };
+    const sweepStart = (y: number) => {
+        if (!thoughts.length) return;
+        input.current?.blur();
+        setAdding(false);
+        setSelecting(true);
+        setScrollLocked(true);
+        const from = rowAt(y);
+        sweep.current = { base: new Set(picked), from, last: from };
+        selectionFeedback();
+        setPicked(new Set([...picked, thoughts[from].id]));
+    };
+    const sweepMove = (y: number) => {
+        const state = sweep.current;
+        if (!state) return;
+        const at = rowAt(y);
+        if (at === state.last) return;
+        state.last = at;
+        selectionFeedback();
+        const [lo, hi] = [Math.min(state.from, at), Math.max(state.from, at)];
+        setPicked(new Set([...state.base, ...thoughts.slice(lo, hi + 1).map(item => item.id)]));
+    };
+    const sweepEnd = () => { sweep.current = null; setScrollLocked(false); };
+    // Gesture callbacks run on touches, not while drawing (the lint can't tell; no compiler here).
+    const twoFingers = Gesture.Pan().minPointers(2).maxPointers(2)
+        .onStart(event => { runOnJS(sweepStart)(event.y); })
+        .onUpdate(event => { runOnJS(sweepMove)(event.y); })
+        .onFinalize(() => { runOnJS(sweepEnd)(); });
+
     return (
         <SheetScreen title="Brain dump" onBack={() => router.back()}
             rightSlot={thoughts.length ? (
                 <View style={styles.headerActions}>
                     {/* Everything, by day, out to Notion, Notes, Obsidian or anywhere. */}
                     {selecting ? null : <IconButton icon="share-outline" label="Export all thoughts" onPress={() => { lightFeedback(); void shareThoughts(thoughts); }} />}
-                    <IconButton icon={selecting ? 'close' : 'checkmark-circle-outline'} label={selecting ? 'Stop selecting' : 'Select'}
-                        onPress={() => { lightFeedback(); if (selecting) stopSelecting(); else { input.current?.blur(); setSelecting(true); } }} />
+                    {/* Selecting starts with two fingers dragged down the list; this ends it. */}
+                    {selecting ? <IconButton icon="close" label="Stop selecting" onPress={() => { lightFeedback(); stopSelecting(); }} /> : null}
                 </View>
             ) : undefined}>
             <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}>
-                <ScrollView ref={scroller} contentContainerStyle={[styles.content, editingId !== null && styles.contentEditing]} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>
+                <GestureDetector gesture={twoFingers}>
+                <ScrollView ref={scroller} scrollEnabled={!scrollLocked} onScroll={event => { scrollY.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}
+                    contentContainerStyle={[styles.content, (editingId !== null || adding) && styles.contentEditing]} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>
                     {selecting ? (
                         <View style={styles.selectBar}>
                             <Text style={[styles.clears, styles.flex, { color: colors.textTertiary }]}>
-                                {picked.size ? `${picked.size} selected` : 'Tap thoughts to select them'}
+                                {picked.size ? `${picked.size} selected` : 'Tap or drag two fingers to select'}
                             </Text>
                             <Text onPress={() => { lightFeedback(); setPicked(allPicked ? new Set() : new Set(thoughts.map(item => item.id))); }}
                                 style={[styles.selectAll, { color: primary }]} accessibilityRole="button">{allPicked ? 'Deselect all' : 'Select all'}</Text>
                         </View>
                     ) : thoughts.length > 0 && clearsOn ? (
-                        <Text style={[styles.clears, { color: colors.textTertiary }]}>Clears {clearsOn} night · hold a thought to turn it into something</Text>
+                        <Text style={[styles.clears, { color: colors.textTertiary }]}>Clears {clearsOn} night · hold a thought to move it or make it something · two fingers to select</Text>
                     ) : null}
-                    {thoughts.length === 0 ? (
-                        <Text style={[styles.empty, { color: colors.textTertiary }]}>Empty head. Nice.</Text>
-                    ) : thoughts.map((thought, index) => (
+                    {thoughts.map((thought, index) => (
                         <View key={thought.id} style={index > 0 ? [styles.divider, { borderTopColor: colors.border }] : undefined}
                             onLayout={event => { tops.current[thought.id] = event.nativeEvent.layout.y; }}>
                             <ThoughtRow
@@ -375,7 +428,22 @@ export default function BrainDumpScreen() {
                             />
                         </View>
                     ))}
+                    {/* The space under the last thought: tap it to write the next one. */}
+                    {selecting ? null : (
+                        <View style={thoughts.length ? [styles.divider, { borderTopColor: colors.border }] : undefined}>
+                            <NewThought open={adding} onOpen={() => { lightFeedback(); setAdding(true); }} value={draft} onChange={setDraft}
+                                onSubmit={() => void save()} onClose={() => { setAdding(false); dictation.cancel(); }} inputRef={input} empty={!thoughts.length}
+                                placeholder={isTablet() ? 'New thought, or write with Apple Pencil' : 'New thought'}
+                                trailing={draft.trim() && !dictation.listening ? (
+                                    <Pressable onPress={() => void save()} accessibilityRole="button" accessibilityLabel="Save thought"
+                                        style={[styles.send, { backgroundColor: primary }]}>
+                                        <AppIcon name="arrow-up" size={16} color={textOn(primary)} />
+                                    </Pressable>
+                                ) : dictation.available ? <MicButton listening={dictation.listening} onPress={talk} /> : null} />
+                        </View>
+                    )}
                 </ScrollView>
+                </GestureDetector>
 
                 {/* Docked on the keyboard: write, then the arrow (or return) saves;
                     with nothing written, the mic is there instead. */}
@@ -395,34 +463,6 @@ export default function BrainDumpScreen() {
                             ]} />
                         ) : null}
                     </View>
-                ) : editingId === null ? (
-                <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
-                    <MatteInput
-                        bare
-                        ref={input}
-                        multiline
-                        value={draft}
-                        onChangeText={setDraft}
-                        // On an iPad, Scribble turns Apple Pencil handwriting in
-                        // this field into text: write straight into it.
-                        placeholder={isTablet() ? 'What’s on your mind? Type or write with Apple Pencil' : 'What’s on your mind?'}
-                        placeholderTextColor={colors.textTertiary}
-                        returnKeyType="send"
-                        submitBehavior="submit"
-                        onSubmitEditing={() => void save()}
-                        selectionColor={primary}
-                        style={[styles.input, { color: colors.textPrimary }]}
-                        accessibilityLabel="New thought"
-                    />
-                    {draft.trim() && !dictation.listening ? (
-                        <Pressable onPress={() => void save()} accessibilityRole="button" accessibilityLabel="Save thought"
-                            style={[styles.send, { backgroundColor: primary }]}>
-                            <AppIcon name="arrow-up" size={18} color={textOn(primary)} />
-                        </Pressable>
-                    ) : dictation.available ? (
-                        <MicButton listening={dictation.listening} onPress={talk} />
-                    ) : null}
-                </View>
                 ) : null}
                 <SortThoughtSheet text={sorting?.text ?? null} onClose={() => setSorting(null)} onCreate={pieces => void createSorted(pieces)} />
                 {carrying ? <ThoughtDock hovered={hovered} dockRef={dock} /> : null}
