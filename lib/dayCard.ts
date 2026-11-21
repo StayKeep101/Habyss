@@ -24,6 +24,14 @@ export interface DayCardLine {
     waiting?: boolean;
     /** The photo taken when it was ticked (lib/tickPhotos.ts), for friends to see. */
     photo?: string;
+    /** A habit or a task (older cards: unknown). */
+    kind?: 'habit' | 'task';
+    /** Minutes it was planned to take: a habit's length, a task's estimate. */
+    planned?: number;
+    /** What counted it, when something did: "6240 of 10000 steps, from Apple Health". */
+    tracked?: { value: number; target: number; unit: string; source?: string };
+    /** "HH:MM" it was done. */
+    at?: string;
 }
 
 /** What the card can say about each item beyond done or not, read by the poster's phone. */
@@ -36,6 +44,10 @@ export interface DayCardFacts {
     photoOf?: (id: string) => string | undefined;
     /** The day's most important tasks (Today's 3 or 5, lib/dailyFocus.ts), in order. */
     top?: string[];
+    /** What counted it that day (Apple Health, its apps, a number typed in). */
+    trackedOf?: (id: string) => DayCardLine['tracked'] | undefined;
+    /** "HH:MM" it was ticked or finished. */
+    atOf?: (id: string) => string | undefined;
 }
 
 /** The card, plus what made the day stand out (lib/dayMoments.ts): optional, so older cards still read. */
@@ -74,6 +86,12 @@ export function buildDayCard(input: {
 
     const habitName = new Map(input.habits.map(habit => [habit.id, habit.name]));
     const taskName = new Map(input.tasks.map(task => [task.id, task.title]));
+    // What each was planned to take: a habit's length, a task's estimate.
+    const plannedFor = new Map<string, number>([
+        ...input.habits.filter(habit => habit.durationMinutes).map(habit => [habit.id, habit.durationMinutes!] as [string, number]),
+        ...input.tasks.filter(task => task.estimatedMinutes).map(task => [task.id, task.estimatedMinutes!] as [string, number]),
+    ]);
+    const kindOf = (id: string): 'habit' | 'task' => (habitName.has(id) ? 'habit' : 'task');
     const facts = input.facts ?? {};
     // A line, with the minutes focused on it and who it was with when there is
     // anything to say. A shared one only you have done waits (not counted).
@@ -82,10 +100,15 @@ export function buildDayCard(input: {
         const people = facts.withOf?.(id) ?? [];
         const waiting = !!extra.done && !!facts.waitingOf?.(id);
         const photo = extra.done ? facts.photoOf?.(id) : undefined;
+        const planned = plannedFor.get(id);
+        const tracked = facts.trackedOf?.(id);
+        const at = extra.done ? facts.atOf?.(id) : undefined;
         return {
             name, done: false, ...extra, ...(waiting ? { done: false, waiting: true } : null),
+            kind: kindOf(id),
             ...(minutes > 0 ? { minutes } : null), ...(people.length ? { with: people } : null),
-            ...(photo ? { photo } : null),
+            ...(photo ? { photo } : null), ...(planned ? { planned } : null),
+            ...(tracked ? { tracked } : null), ...(at ? { at } : null),
         };
     };
     const named = (ids: string[], names: Map<string, string>, extra: Partial<DayCardLine>) =>

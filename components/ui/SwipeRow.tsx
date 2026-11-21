@@ -224,8 +224,12 @@ const RightActions: React.FC<{
         [commit],
     );
 
+    // Kept in the space the row has slid out of, never under it: a row with no
+    // fill of its own (a thought on the page) would otherwise show them through.
+    const width = slot * actions.length + GAP;
+    const pinned = useAnimatedStyle(() => ({ transform: [{ translateX: Math.max(0, width + translation.value) }] }));
     return (
-        <View style={[styles.side, { paddingRight: GAP }]}>
+        <Animated.View style={[styles.side, { paddingRight: GAP }, pinned]}>
             {actions.map((action, index) => (
                 <Drop
                     key={action.label}
@@ -242,7 +246,7 @@ const RightActions: React.FC<{
                     onPress={() => onRun(action)}
                 />
             ))}
-        </View>
+        </Animated.View>
     );
 };
 

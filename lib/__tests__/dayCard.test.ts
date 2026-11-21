@@ -26,9 +26,9 @@ describe('the day card', () => {
 
     it('names what was done and what was not, habits and tasks', () => {
         expect(card.habits).toEqual([
-            { name: 'Run', done: true }, { name: 'Read', done: false }, { name: 'Swim', done: false, skipped: true },
+            { name: 'Run', done: true, kind: 'habit' }, { name: 'Read', done: false, kind: 'habit' }, { name: 'Swim', done: false, skipped: true, kind: 'habit' },
         ]);
-        expect(card.tasks).toEqual([{ name: 'Call mum', done: true }, { name: 'Taxes', done: false }]);
+        expect(card.tasks).toEqual([{ name: 'Call mum', done: true, kind: 'task' }, { name: 'Taxes', done: false, kind: 'task' }]);
     });
 
     it('counts a skipped habit as neither done nor asked for', () => {

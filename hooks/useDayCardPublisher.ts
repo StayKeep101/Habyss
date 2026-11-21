@@ -54,8 +54,34 @@ export function useDayCardPublisher() {
 
     useEffect(() => {
         if (!habits || !data.tasksLoaded || !data.historyLoaded) return;
-        const timer = setTimeout(() => {
+        const timer = setTimeout(() => { void (async () => {
             const { streak, completedDates } = streakFrom(habits, data.tasks, data.history, data.skips, data.today);
+            // For the deck a friend swipes through: when each was done, and what counted it.
+            const hhmm = (iso: string) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+            const at = new Map<string, string>();
+            try {
+                const { getCompletionTicks } = require('@/lib/habitsSQLite') as typeof import('@/lib/habitsSQLite');
+                for (const tick of await getCompletionTicks(1)) if (tick.date === data.today) at.set(tick.habitId, hhmm(tick.at));
+            } catch { /* no times, still a card */ }
+            for (const task of data.tasks) if (task.completedAt && task.completedAt.slice(0, 10) <= data.today) at.set(task.id, hhmm(task.completedAt));
+            const tracked = new Map<string, NonNullable<import('@/lib/dayCard').DayCardLine['tracked']>>();
+            try {
+                const { getHabitMeasurement } = require('@/lib/habitsSQLite') as typeof import('@/lib/habitsSQLite');
+                const { getAppTime, appTimeProgress } = require('@/lib/appTime') as typeof import('@/lib/appTime');
+                const apps = await getAppTime();
+                for (const habit of habits) {
+                    if (habit.isGoal || habit.isArchived) continue;
+                    if (apps[habit.id]) {
+                        const minutes = await appTimeProgress(habit.id);
+                        if (minutes !== null) tracked.set(habit.id, { value: minutes, target: apps[habit.id], unit: 'min', source: 'in its apps' });
+                        continue;
+                    }
+                    if (!habit.healthKitMetric && habit.trackingMethod !== 'numeric') continue;
+                    const target = habit.healthKitTarget || habit.goalValue || 1;
+                    const value = await getHabitMeasurement(habit.id, target, data.today).catch(() => 0);
+                    if (value > 0) tracked.set(habit.id, { value, target, unit: habit.unit && habit.unit !== 'time' ? habit.unit : '', source: habit.healthKitMetric ? 'Apple Health' : undefined });
+                }
+            } catch { /* tracked values are extra */ }
             const day = data.today;
             // Minutes focused on each thing today, from the focus sessions.
             const minutes = new Map<string, number>();
@@ -70,6 +96,8 @@ export function useDayCardPublisher() {
                         withOf: id => othersOn(id).flatMap(person => (names[person] ? [names[person]] : [])),
                         waitingOf: id => !counts(id, day),
                         photoOf: id => tickPhotoUrl(id, day),
+                        trackedOf: id => tracked.get(id),
+                        atOf: id => at.get(id),
                         // Today's 3 (or 5), the tasks that mattered most (lib/dailyFocus.ts).
                         top: dailyFocus(data.tasks, target, day, day).rows.slice(0, target).map(task => task.id),
                     },
@@ -83,7 +111,7 @@ export function useDayCardPublisher() {
             void FeedService.publishDayCard(data.today, card).then(result => {
                 if (result === 'saved') last.current = { day: data.today, card };
             });
-        }, SETTLE_MS);
+        })(); }, SETTLE_MS);
         return () => clearTimeout(timer);
     }, [habits, data, focusTick, target, names, photoTick]);
 }
