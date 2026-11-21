@@ -64,7 +64,7 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
     running: boolean;
     /** The rank's sand: [light, deep]. */
     sand: [string, string];
-    /** The phone's sideways tilt, −1 to 1 (0 when still, or with Reduce Motion). */
+    /** The phone's sideways tilt in radians, gravity's direction across the screen (0 when still). */
     tilt?: SharedValue<number>;
 }) {
     const reduced = useReducedMotion();
@@ -83,7 +83,9 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
     const picture = useDerivedValue(() => {
         const t = reduced ? 0 : clock.value;
         const r = Math.min(1, Math.max(0, ran.value));
-        const tiltX = reduced ? 0 : Math.max(-1, Math.min(1, lean.value));
+        // The phone's tilt as an angle: gravity's slope across the screen (sand settles level with the ground).
+        const angle = reduced ? 0 : Math.max(-0.7, Math.min(0.7, lean.value));
+        const slope = Math.tan(angle);
         return createPicture(canvas => {
             const paint = Skia.Paint();
             paint.setAntiAlias(true);
@@ -99,7 +101,7 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
             const top = Skia.Path.Make();
             top.moveTo(60, NECK + 4);
             for (let x = 60; x <= W - 60; x += 16) {
-                const y = level + sway * Math.sin(x * 0.018 + t * 0.0012) + tiltX * (x - CX) * 0.22;
+                const y = level + sway * Math.sin(x * 0.018 + t * 0.0012) + slope * (x - CX);
                 top.lineTo(x, y);
             }
             top.lineTo(W - 60, NECK + 4);
@@ -108,11 +110,12 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
 
             // The pile: a soft mound that grows, its peak leaning with the tilt.
             const height = PILE_FULL * r;
-            const peakX = CX + tiltX * 60;
+            // Grains fall straight down (towards the ground), so they land along gravity's line from the neck.
+            const peakX = CX + slope * (GLASS_BOTTOM - height - NECK);
             const pile = Skia.Path.Make();
             pile.moveTo(60, GLASS_BOTTOM + 4);
-            pile.lineTo(60, GLASS_BOTTOM - height * 0.35 + tiltX * 20);
-            pile.quadTo(peakX, GLASS_BOTTOM - height * 1.65, W - 60, GLASS_BOTTOM - height * 0.35 - tiltX * 20);
+            pile.lineTo(60, GLASS_BOTTOM - height * 0.35 + slope * (60 - CX) * 0.5);
+            pile.quadTo(peakX, GLASS_BOTTOM - height * 1.65, W - 60, GLASS_BOTTOM - height * 0.35 + slope * (W - 60 - CX) * 0.5);
             pile.lineTo(W - 60, GLASS_BOTTOM + 4);
             pile.close();
             canvas.drawPath(pile, paint);
@@ -127,7 +130,7 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
                     const phase = ((t / FALL_MS) + i / GRAINS) % 1;
                     const fall = phase * phase;
                     const y = NECK + 12 + fall * (land - NECK - 12);
-                    const x = CX + tiltX * fall * 46 + Math.sin(i * 12.9898) * 3;
+                    const x = CX + slope * (y - NECK) + Math.sin(i * 12.9898) * 3;
                     paint.setAlphaf(phase < 0.1 ? phase * 10 : phase > 0.9 ? (1 - phase) * 10 : 1);
                     canvas.drawCircle(x, y, 4.2, paint);
                 }
@@ -136,7 +139,7 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
 
             // A band of light drifting across the glass, a little further with the tilt.
             if (!reduced) {
-                const drift = ((t / 7000) % 1) * (W + 300) - 150 + tiltX * 80;
+                const drift = ((t / 7000) % 1) * (W + 300) - 150 + slope * 80;
                 const sheen = Skia.Shader.MakeLinearGradient(vec(drift - 90, 0), vec(drift + 90, H),
                     [Skia.Color('rgba(255,255,255,0)'), Skia.Color('rgba(255,255,255,0.10)'), Skia.Color('rgba(255,255,255,0)')], null, 0);
                 const band = Skia.Paint();
@@ -181,7 +184,7 @@ export function SkiaHourglass({ size, ran, running, sand, tilt }: {
     );
 }
 
-/** The phone's sideways tilt, −1 to 1, while mounted (nothing with Reduce Motion). */
+/** The phone's sideways tilt, as an angle in radians (gravity's direction across the screen), while mounted; 0 with Reduce Motion. */
 export function useTilt(): SharedValue<number> {
     const tilt = useSharedValue(0);
     const reduced = useReducedMotion();
@@ -194,7 +197,8 @@ export function useTilt(): SharedValue<number> {
             sub = DeviceMotion.addListener(event => {
                 const gamma = event.rotation?.gamma ?? 0;
                 // Eased towards the reading, so a shaky hand does not jitter the sand.
-                tilt.value = tilt.value + (Math.max(-1, Math.min(1, gamma / 0.8)) - tilt.value) * 0.2;
+                // Tilting left reads as a positive gamma here, and the sand must fall left: the angle is −gamma.
+                tilt.value = tilt.value + (Math.max(-0.7, Math.min(0.7, -gamma)) - tilt.value) * 0.2;
             });
         } catch { /* no motion sensor: still sand */ }
         return () => sub?.remove();
