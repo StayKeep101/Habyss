@@ -172,18 +172,27 @@ private func echoLine(usage: Usage, picked: DayUsage?) -> String {
 struct UsageView: View {
     let usage: Usage
     @State private var picked: Date?
+    /// Where the current drag began, once it has moved the pick.
+    @State private var dragFrom: Date?
     private let theme = Theme.load()
 
     private var pickedDay: DayUsage? { picked.flatMap { day in usage.days.first { $0.day == day } } }
     private var today: Date { Calendar.current.startOfDay(for: Date()) }
 
+    // The whole page scrolls here, inside the report: iOS draws it in its own
+    // process, so the app's scroll view never sees a finger that lands on it.
+    // Pinned to the top, so there is never a gap above the figure.
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            hero
-            bars
-            wentTo
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 20) {
+                hero
+                bars
+                wentTo
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 48)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     // The big figure: the daily average, or the day you tapped; Echo's line under it.
@@ -197,33 +206,63 @@ struct UsageView: View {
             Text(pickedDay.map { longDay($0.day) } ?? "Daily average")
                 .font(lexend(15, "Medium"))
                 .foregroundColor(theme.muted)
+            // Always two lines' room, used or not, so the chart never jumps as days are picked.
             Text(echoLine(usage: usage, picked: pickedDay))
                 .font(lexend(15, "Regular"))
                 .foregroundColor(theme.subtle)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(2, reservesSpace: true)
         }
         .padding(.top, 6)
     }
 
-    // A bar a day: tap one to read it, tap it again for the average.
+    /// The day under the finger, from where it is across the chart.
+    private func day(at x: CGFloat, width: CGFloat) -> Date? {
+        guard !usage.days.isEmpty, width > 0 else { return nil }
+        let index = min(usage.days.count - 1, max(0, Int(x / width * CGFloat(usage.days.count))))
+        return usage.days[index].day
+    }
+
+    // A bar a day, as on the Focus page: drag a finger across to read each day; the
+    // day stays when you let go. Tap the picked day again for the average.
     private var bars: some View {
         let ceiling = max(1, usage.days.map(\.seconds).max() ?? 1)
         return VStack(spacing: 4) {
-            HStack(alignment: .bottom, spacing: 4) {
-                ForEach(usage.days) { day in
-                    let lit = picked.map { $0 == day.day } ?? (day.day == today)
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(day.seconds > 0 ? theme.accent : theme.border)
-                        .opacity(picked == nil ? (lit ? 1 : 0.75) : (lit ? 1 : 0.35))
-                        .frame(height: max(4, 150 * day.seconds / ceiling))
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
-                        .onTapGesture { picked = picked == day.day ? nil : day.day }
-                        .accessibilityLabel("\(longDay(day.day)), \(duration(day.seconds))")
-                        .accessibilityAddTraits(.isButton)
+            GeometryReader { proxy in
+                HStack(alignment: .bottom, spacing: 4) {
+                    ForEach(usage.days) { day in
+                        let lit = picked.map { $0 == day.day } ?? (day.day == today)
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(day.seconds > 0 ? theme.accent : theme.border)
+                            .opacity(picked == nil ? (lit ? 1 : 0.75) : (lit ? 1 : 0.35))
+                            .frame(height: max(4, 150 * day.seconds / ceiling))
+                            .frame(maxWidth: .infinity)
+                            .accessibilityLabel("\(longDay(day.day)), \(duration(day.seconds))")
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction { picked = picked == day.day ? nil : day.day }
+                    }
                 }
+                .frame(width: proxy.size.width, height: 150, alignment: .bottom)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            let start = self.day(at: value.startLocation.x, width: proxy.size.width)
+                            let now = self.day(at: value.location.x, width: proxy.size.width)
+                            // Pressed on the day already picked and not moved off it yet: wait for the release.
+                            if now == start, start == picked, dragFrom == nil { return }
+                            dragFrom = start
+                            if now != picked { picked = now }
+                        }
+                        .onEnded { value in
+                            let start = self.day(at: value.startLocation.x, width: proxy.size.width)
+                            let end = self.day(at: value.location.x, width: proxy.size.width)
+                            // A tap on the picked day: back to the average.
+                            if dragFrom == nil, start == end, start == picked { picked = nil }
+                            dragFrom = nil
+                        }
+                )
             }
-            .frame(height: 150, alignment: .bottom)
+            .frame(height: 150)
             if usage.days.count <= 7 {
                 HStack(spacing: 4) {
                     ForEach(usage.days) { day in

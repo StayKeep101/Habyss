@@ -35,7 +35,6 @@ const SIDES = [
     { id: 'screen' as Side, icon: 'phone-portrait-outline' as const, label: 'Screen time' },
 ] as const;
 /** Room for the report: the number, the bars and eight apps. */
-const REPORT_HEIGHT = 820;
 const dayLetter = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'narrow' });
 const longDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 const shortDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
@@ -146,9 +145,10 @@ export default function FocusStatsScreen() {
     return (
         <SheetScreen title={side === 'focus' ? 'Focus' : 'Screen time'} onBack={() => router.back()}
             rightSlot={<IconToggle options={SIDES} value={side} onChange={next => { selectionFeedback(); setSide(next); setPage(0); setPicked(null); }} />}>
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {side === 'screen' ? (
-                    <>
+            {side === 'screen' ? (
+                // Screen time: the controls, then the report filling the rest. It scrolls by itself:
+                // a page scroll around it never gets a finger that lands on it.
+                <View style={[styles.content, styles.reportPage]}>
                         <ChoiceRow accessibilityLabel="Days shown" value={range} onChange={setRange}
                             options={[{ id: 7 as Range, label: '7 days' }, { id: 30 as Range, label: '30 days' }]} />
                         <View style={styles.window}>
@@ -158,9 +158,11 @@ export default function FocusStatsScreen() {
                             </Text>
                             <IconButton icon="chevron-forward" label={range === 7 ? 'Next week' : 'Next 30 days'} diameter={32} size={16} disabled={page === 0} onPress={() => turn(-1)} />
                         </View>
-                        <ScreenTimeReport days={range} offset={page} weekStart={weekStart} height={REPORT_HEIGHT} />
-                    </>
-                ) : (<>
+                        <ScreenTimeReport days={range} offset={page} weekStart={weekStart} />
+                </View>
+            ) : (
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <>
                 <View style={styles.hero}>
                     {/* The week, or the day under your finger. */}
                     {pickedDay ? (
@@ -242,8 +244,9 @@ export default function FocusStatsScreen() {
                         ) : null}
                     </>
                 )}
-                </>)}
+                </>
             </ScrollView>
+            )}
         </SheetScreen>
     );
 }

@@ -29,9 +29,12 @@ const NativeReport = REPORT_IN_BUILD && UIManager.hasViewManagerConfig?.('Screen
     ? requireNativeComponent<NativeProps>('ScreenTimeReportView')
     : null;
 
+const FILL = { flex: 1 } as const;
+
 export const screenTimeReportSupported = (): boolean => !!NativeReport;
 
-export function ScreenTimeReport({ days, offset, weekStart, height }: { days: 7 | 30; offset: number; weekStart: WeekStart; height: number }) {
+/** Fills what it is given (flex 1): the report scrolls inside itself (iOS draws it in its own process). */
+export function ScreenTimeReport({ days, offset, weekStart }: { days: 7 | 30; offset: number; weekStart: WeekStart }) {
     const [allowed, setAllowed] = useState<boolean | null>(null);
     const t = useTokens();
     const { theme } = useTheme();
@@ -59,6 +62,6 @@ export function ScreenTimeReport({ days, offset, weekStart, height }: { days: 7 
                 actionLabel="Allow Screen Time" onAction={() => void ScreenTimeService.requestAuthorization().then(setAllowed)} />
         );
     }
-    if (allowed === null) return <View style={{ height }} />;
-    return <NativeReport days={days} offset={offset} weekStart={weekStart === 'sunday' ? 0 : 1} style={{ height }} />;
+    if (allowed === null) return <View style={FILL} />;
+    return <NativeReport days={days} offset={offset} weekStart={weekStart === 'sunday' ? 0 : 1} style={FILL} />;
 }

@@ -5,6 +5,8 @@ import { s, vs, ms } from '@/theme/scale';
 /** The look of app/(root)/focus-stats.tsx (the same layout as task-stats). */
 export const styles = StyleSheet.create({
     content: { paddingHorizontal: Spacing.xl, paddingBottom: vs(48), gap: vs(20) },
+    /** Screen time: the report takes all the room below its controls (and scrolls inside). */
+    reportPage: { flex: 1, paddingBottom: 0 },
     hero: { gap: vs(4), marginTop: vs(6) },
     heroValue: { fontFamily: FontFamily.bold, fontSize: ms(56), lineHeight: ms(62), letterSpacing: -2, fontVariant: ['tabular-nums'] },
     heroLabel: { fontSize: ms(15), fontFamily: FontFamily.medium },
