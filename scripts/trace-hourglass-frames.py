@@ -89,24 +89,29 @@ def trace(im):
     light = round(max(0.25, min(0.75, 0.75 - (glass - 0.25) * 2.5)), 2)
     # Where the base ends: it stands on the podium there, covering the step's light.
     foot = max(yy for yy in range(h) if any(a[x, yy] > 128 for x in range(0, w, 3)))
-    return dict(width=w, height=h, cx=cx, neck=neck, top=top, bottom=bottom, light=light, foot=foot, outline=outline)
+    return dict(width=w, height=h, cx=cx, neck=neck, top=top, bottom=bottom, light=light, foot=foot, outline=outline, rows={yy: rows[yy] for yy in range(top, bottom + 1)})
 
 out = []
 for rank, name in FILES.items():
     im = keyed(Image.open(os.path.join(SRC, name)))
     im = im.resize((round(im.width * H / im.height), H), Image.LANCZOS)
-    # The glass 30% less see-through: what shows through anything partly clear is cut by 30%.
-    a = im.split()[3].point(lambda v: v if v in (0, 255) else round(255 - 0.7 * (255 - v)))
-    im.putalpha(a)
-    im.save(f'assets/images/hourglasses/frames/{rank.lower()}.png', optimize=True)
     g = trace(im)
+    # The glass 30% less see-through: inside the traced glass only, what shows through is cut by
+    # 30%. Never outside it, where the art's faint specks would turn into dark spots.
+    al = im.split()[3]; ap = al.load()
+    for yy, l, r in [(y, *v) for y, v in g['rows'].items()]:
+        for x in range(l, r + 1):
+            v = ap[x, yy]
+            if 0 < v < 255: ap[x, yy] = round(255 - 0.7 * (255 - v))
+    im.putalpha(al)
+    im.save(f'assets/images/hourglasses/frames/{rank.lower()}.png', optimize=True)
     rows = ', '.join(f'[{y}, {l}, {r}]' for y, l, r in g['outline'])
     out.append(f"""    {rank}: {{
         image: require('@/assets/images/hourglasses/frames/{rank.lower()}.png'),
         width: {g['width']}, height: {g['height']}, cx: {g['cx']}, neck: {g['neck']}, top: {g['top']}, bottom: {g['bottom']}, light: {g['light']}, foot: {g['foot']}, brightness: {BRIGHTNESS.get(rank, 0.8)},
         outline: [{rows}],
     }},""")
-    print(rank, {k: v for k, v in g.items() if k != 'outline'})
+    print(rank, {k: v for k, v in g.items() if k not in ('outline', 'rows')})
 
 open('theme/hourglassFrames.ts', 'w').write("""import type { ImageSourcePropType } from 'react-native';
 
