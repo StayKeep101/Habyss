@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { IconButton } from '@/components/ui/IconButton';
@@ -8,6 +8,8 @@ import { ChoicePill } from '@/components/ui/ChoicePill';
 import { DurationWheels } from '@/components/Create/DurationWheels';
 import { ALERT_CHOICES } from '@/lib/itemAlerts';
 import { PlaceSheet } from '@/components/Create/PlaceSheet';
+import { PlaceMap, hasPlaceMap } from '@/components/Create/PlaceMap';
+import { usePanelRoom } from '@/components/Create/DetailBar';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
 import { textOn } from '@/theme/tokens';
@@ -58,6 +60,35 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
     const [chosen, setChosen] = useState<Mode | null>(null);
     const mode = chosen ?? derived;
     const [picking, setPicking] = useState(false);
+    // The little map: centred on you until a place is chosen; tapped, the place goes there.
+    const room = usePanelRoom();
+    const mapHeight = Math.max(140, Math.min(240, room - 150));
+    const [here, setHere] = useState<{ latitude: number; longitude: number } | null>(null);
+    useEffect(() => {
+        if (mode !== 'place' || remindAt || here) return;
+        const timer = setTimeout(() => {
+            void (async () => {
+                try {
+                    const Location = require('expo-location') as typeof import('expo-location');
+                    const { status } = await Location.requestForegroundPermissionsAsync();
+                    if (status !== 'granted') return;
+                    const fix = await Location.getCurrentPositionAsync({});
+                    setHere({ latitude: fix.coords.latitude, longitude: fix.coords.longitude });
+                } catch { /* the map starts where it does */ }
+            })();
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [mode, remindAt, here]);
+    const pinAt = async (point: { latitude: number; longitude: number }) => {
+        let name = 'Pinned place';
+        try {
+            const Location = require('expo-location') as typeof import('expo-location');
+            const [found] = await Location.reverseGeocodeAsync(point);
+            name = found?.name || found?.street || found?.city || name;
+        } catch { /* the plain name */ }
+        selectionFeedback();
+        onChange({ places: [...stays, { name, ...point, radius: 150, trigger: remindAt?.trigger ?? 'arrive' }] });
+    };
 
     const pick = (next: Mode) => {
         setChosen(next);
@@ -102,12 +133,22 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
             ) : null}
 
             {mode === 'place' ? (
-                // The place on a map as big as the phone allows (components/Create/PlaceSheet.tsx); here, what it is and when.
+                // The little map, right here: tap it where the place is. Expand opens it as big as the
+                // phone allows (components/Create/PlaceSheet.tsx), for a place that needs a closer look.
                 <View style={styles.block}>
+                    {hasPlaceMap() ? (
+                        <View>
+                            <PlaceMap key={remindAt ? `${remindAt.latitude},${remindAt.longitude}` : here ? 'here' : 'start'} center={remindAt ?? here}
+                                places={remindAt ? [remindAt] : []} accent={accent} height={mapHeight} onPick={point => void pinAt(point)} />
+                            <View style={styles.expand}>
+                                <IconButton icon="expand" label="Open the map full size" diameter={32} size={15} onPress={() => { selectionFeedback(); setPicking(true); }} />
+                            </View>
+                        </View>
+                    ) : null}
                     <Pressable accessibilityRole="button" onPress={() => { selectionFeedback(); setPicking(true); }}>
                         <MatteSurface radius={Radius.control} level="control" style={styles.here}>
-                            <AppIcon name="map" size={14} color={accent} />
-                            <Text numberOfLines={1} style={[styles.placeName, { color: colors.textPrimary }]}>{remindAt ? remindAt.name : 'Choose on the map'}</Text>
+                            <AppIcon name="location" size={14} color={accent} />
+                            <Text numberOfLines={1} style={[styles.placeName, { color: colors.textPrimary }]}>{remindAt ? remindAt.name : 'Tap the map where it is'}</Text>
                             <AppIcon name="chevron-forward" size={14} color={colors.textTertiary} />
                         </MatteSurface>
                     </Pressable>
@@ -163,4 +204,6 @@ const styles = StyleSheet.create({
     pill: { paddingHorizontal: Spacing.md, paddingVertical: 6 },
     pillText: { fontFamily: FontFamily.medium, fontSize: 13 },
     here: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm + 2 },
+    /** The full-size map button, in the little map's corner. */
+    expand: { position: 'absolute', top: Spacing.sm, right: Spacing.sm },
 });
