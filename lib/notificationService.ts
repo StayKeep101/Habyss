@@ -267,6 +267,7 @@ export class NotificationService {
         // bedtime, and each habit's or task's own reminders before it.
         const prefs = await getNotificationPrefs().catch(() => DEFAULT_PREFS);
         let clearAlarms = false;
+        let guideSent = false;
         if (allowed && prefs.dayGuide) {
           const { currentTodayFlow }: typeof import('./todayFlow') = require('./todayFlow');
           const { guideMoments }: typeof import('./dayGuide') = require('./dayGuide');
@@ -289,6 +290,10 @@ export class NotificationService {
             }
             // The start a Live Activity drops down for (iOS 26): that one is not a notification too.
             const live = (require('./scheduledActivities') as typeof import('./scheduledActivities')).liveDropStart(now.getTime());
+            // With Screen Time allowed (1.0.8), the monitor says each one under one name, so a new
+            // one replaces the last in Notification Center instead of piling up (NowGuide, GateShared.swift).
+            const nowGuide = await (require('./nowGuide') as typeof import('./nowGuide')).nowGuideReady();
+            const guided: import('./nowGuide').GuideMoment[] = [];
             for (const moment of guideMoments(flow, now.getHours() * 60 + now.getMinutes(), { sleep, before })) {
               const date = new Date(midnight.getTime() + moment.at * 60000);
               if (isAsleep(date, dayWindow)) continue;
@@ -297,15 +302,25 @@ export class NotificationService {
               const ticks = moment.done ? { [moment.done.kind === 'task' ? 'taskId' : 'habitId']: moment.done.id, scheduledDate: todayKey } : null;
               // Echo says it, when chosen (Settings → Notifications → Echo announces): start, time's up, leave.
               const spoken = moment.kind === 'leave' ? 'leave' : moment.kind === 'end' ? 'end' : moment.kind === 'now' || moment.kind === 'handover' ? 'start' : null;
+              const sound = prefs.echoVoice && spoken ? echoSound(spoken, voice) : 'default';
+              if (nowGuide) {
+                guided.push({ at: date.getTime() / 1000, title: moment.title, body: moment.body,
+                  category: ticks ? (moment.kind === 'handover' ? HANDOVER_CATEGORY : DONE_CATEGORY) : null,
+                  sound: typeof sound === 'string' && sound !== 'default' ? sound : null,
+                  data: { kind: 'day-guide', moment: moment.kind, url: moment.itemId && (moment.kind === 'now' || moment.kind === 'handover') ? '/(root)/focus?day=1' : '/(root)/(tabs)/roadmap',
+                    ...(ticks ? Object.fromEntries(Object.entries(ticks).map(([key, value]) => [key, String(value)])) : null) } });
+                continue;
+              }
               candidates.push({ identifier: moment.id, date, content: {
                 title: moment.title, body: moment.body,
-                sound: prefs.echoVoice && spoken ? echoSound(spoken, voice) : 'default',
+                sound,
                 // The moments you truly need break through Focus modes, reach the Watch, and are read out on AirPods.
                 interruptionLevel: 'timeSensitive' as const,
                 ...(ticks ? { categoryIdentifier: moment.kind === 'handover' ? HANDOVER_CATEGORY : DONE_CATEGORY } : null),
                 data: { kind: 'day-guide', moment: moment.kind, url: moment.itemId && (moment.kind === 'now' || moment.kind === 'handover') ? '/(root)/focus?day=1' : '/(root)/(tabs)/roadmap', ...ticks },
               } });
             }
+            if (nowGuide) { (require('./nowGuide') as typeof import('./nowGuide')).setNowPlan(guided); guideSent = true; }
           }
         }
         // Halfway through the day (lib/middayRecap.ts): at the middle of your waking hours, what
@@ -328,6 +343,8 @@ export class NotificationService {
             title, body, sound: 'default', data: { kind: 'day-review', url: '/(root)/(tabs)/home' },
           } });
         }
+        // Day guide off, or nothing planned: the monitor has nothing left to say.
+        if (!guideSent) (require('./nowGuide') as typeof import('./nowGuide')).setNowPlan([]);
         if (clearAlarms) void syncMomentAlarms([]);
         // The same words at the same minute are one notification, even when two
         // copies of a habit or task (a restore, a share) asked for it.

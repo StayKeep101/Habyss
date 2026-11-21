@@ -2,6 +2,7 @@ import Foundation
 import DeviceActivity
 import FamilyControls
 import ManagedSettings
+import UserNotifications
 
 /// "Earn your scroll": the apps you chose stay blocked until today's top 3 are
 /// done, or for an hour bought with 100 Shards. One copy of the rule, compiled
@@ -487,5 +488,79 @@ enum AppTime {
         // Only the real end of the day: a restart can end an interval early.
         guard Calendar.current.component(.hour, from: now) >= 23 else { return }
         if recorded(habit.id) == nil { record(habit.id, "kept") }
+    }
+}
+
+// MARK: - The day's starts, one notification at a time (NowGuide)
+
+/// What starts when, as the app plans it (lib/notificationService.ts): each
+/// start, hand-over, time's up and leave-now of the day. The monitor delivers
+/// each one at its time under one name, so a new one replaces the last in
+/// Notification Center instead of piling up, even with Habyss closed. iOS wakes
+/// the monitor at each start (a short DeviceActivity interval beginning then);
+/// it says the moment, then books the next.
+@available(iOS 16.0, *)
+enum NowGuide {
+    static let activity = DeviceActivityName("habyss.now")
+    static let planKey = "HabyssNowPlan"
+    static let saidKey = "HabyssNowSaid"
+    /// The one name every start is delivered under: a new one replaces the last.
+    static let identifier = "habyss.now"
+
+    struct Moment: Codable {
+        /// When, in seconds since 1970.
+        let at: Double
+        let title: String
+        let body: String
+        /// The notification's buttons (Done, Last one done), or none.
+        let category: String?
+        /// A sound file's name, or nil for the default sound.
+        let sound: String?
+        /// What the app reads on a tap or a button (lib/notificationService.ts).
+        let data: [String: String]
+    }
+
+    static func plan() -> [Moment] {
+        guard let data = UserDefaults(suiteName: Gate.groupId)?.data(forKey: planKey) else { return [] }
+        return ((try? JSONDecoder().decode([Moment].self, from: data)) ?? []).sorted { $0.at < $1.at }
+    }
+
+    /// The app's new plan: saved, and the next moment booked.
+    static func setPlan(_ list: [Moment]) {
+        if let data = try? JSONEncoder().encode(list) { UserDefaults(suiteName: Gate.groupId)?.set(data, forKey: planKey) }
+        bookNext()
+    }
+
+    /// Asks iOS to wake the monitor at the next moment still to come (or stops when there is none).
+    static func bookNext(after now: Date = Date()) {
+        let center = DeviceActivityCenter()
+        center.stopMonitoring([activity])
+        guard let next = plan().first(where: { $0.at > now.timeIntervalSince1970 + 5 }) else { return }
+        let start = Date(timeIntervalSince1970: next.at)
+        // iOS wants an interval of 15 minutes or more; only its start matters here.
+        let end = start.addingTimeInterval(16 * 60)
+        let parts: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second]
+        let schedule = DeviceActivitySchedule(intervalStart: Calendar.current.dateComponents(parts, from: start),
+                                              intervalEnd: Calendar.current.dateComponents(parts, from: end), repeats: false)
+        try? center.startMonitoring(activity, during: schedule)
+    }
+
+    /// The monitor, woken at a moment: the latest one now due is said (replacing the one before), then the next is booked.
+    static func fire(now: Date = Date()) -> UNNotificationRequest? {
+        defer { bookNext(after: now) }
+        let defaults = UserDefaults(suiteName: Gate.groupId)
+        let said = defaults?.double(forKey: saidKey) ?? 0
+        let due = plan().filter { $0.at <= now.timeIntervalSince1970 + 60 && $0.at > now.timeIntervalSince1970 - 180 && $0.at > said }
+        guard let moment = due.last else { return nil }
+        defaults?.set(moment.at, forKey: saidKey)
+        let content = UNMutableNotificationContent()
+        content.title = moment.title
+        content.body = moment.body
+        content.sound = moment.sound.map { UNNotificationSound(named: UNNotificationSoundName($0)) } ?? .default
+        content.interruptionLevel = .timeSensitive
+        if let category = moment.category { content.categoryIdentifier = category }
+        // Where expo-notifications reads a notification's data.
+        content.userInfo = ["body": moment.data]
+        return UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
     }
 }

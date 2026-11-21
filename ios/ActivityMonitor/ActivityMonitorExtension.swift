@@ -15,6 +15,11 @@ final class ActivityMonitorExtension: DeviceActivityMonitor {
     override func intervalDidStart(for activity: DeviceActivityName) {
         super.intervalDidStart(for: activity)
         if activity.rawValue.hasPrefix(AppTime.prefix) { return }
+        // A start of the day (NowGuide): said under one name, replacing the last one, then the next booked.
+        if activity == NowGuide.activity {
+            if let request = NowGuide.fire() { UNUserNotificationCenter.current().add(request) }
+            return
+        }
         if activity.rawValue == Gate.scrollActivity { Gate.resetScrolled(); return }
         // Bedtime: the night's block goes up (and stays through midnight).
         if activity.rawValue.hasPrefix("habyss.night") { Night.apply(); return }
@@ -24,6 +29,7 @@ final class ActivityMonitorExtension: DeviceActivityMonitor {
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
         if activity.rawValue.hasPrefix(AppTime.prefix) { AppTime.dayEnded(activity); return }
+        if activity == NowGuide.activity { return }
         if activity.rawValue == Gate.scrollActivity { return }
         // Wake: a moment ahead, so the night never lifts a hair early, nor lingers.
         if activity.rawValue.hasPrefix("habyss.night") { Night.apply(now: Date().addingTimeInterval(5)); return }

@@ -138,6 +138,13 @@ class ScreenTimeModule: NSObject {
         if #available(iOS 16.0, *) { resolve(AppTime.progressToday(habitId)) } else { resolve(0) }
     }
 
+    /// The day's starts, said by the monitor one at a time under one name (NowGuide).
+    @objc func setNowPlan(_ json: String) {
+        guard #available(iOS 16.0, *), let data = json.data(using: .utf8),
+              let list = try? JSONDecoder().decode([NowGuide.Moment].self, from: data) else { return }
+        NowGuide.setPlan(list)
+    }
+
     @objc func appTimeChosen(_ habitId: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         if #available(iOS 16.0, *) { resolve(AppTime.chosenCount(habitId)) } else { resolve(0) }
     }
