@@ -6,7 +6,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { RankHourglass } from './RankHourglass';
 import { RankScene } from './RankScene';
-import { AppButton, AppIcon, IconButton, Text } from '@/components/ui';
+import { AppButton, IconButton, Text } from '@/components/ui';
 import { useAccent } from '@/context/AccentContext';
 import { chooseRankLook } from '@/lib/rankLook';
 import { setThemeChoice } from '@/lib/themeChoice';
@@ -75,7 +75,9 @@ export function GlassCarousel({ stage, onOpenChange }: {
     };
 
     const onScroll = useAnimatedScrollHandler(event => { scrollX.set(event.contentOffset.x); });
-    const layerStyle = useAnimatedStyle(() => ({ opacity: shown.get(), transform: [{ scale: 0.94 + shown.get() * 0.06 }] }));
+    // On Home the scene itself zooms in to it, so the carousel only fades; on its own it settles in.
+    const onStage = !!stage;
+    const layerStyle = useAnimatedStyle(() => ({ opacity: shown.get(), transform: [{ scale: onStage ? 1 : 0.94 + shown.get() * 0.06 }] }));
     const glassSize = stage?.size ?? s(270);
 
     if (!open) return null;
@@ -105,14 +107,8 @@ export function GlassCarousel({ stage, onOpenChange }: {
                 }}>
                 {RANKS.map((rank, position) => (
                     <Slot key={rank.name} position={position} slot={slot} scrollX={scrollX}>
-                        <View style={{ opacity: open.marks >= rank.min ? 1 : 0.55 }}>
-                            <RankHourglass rank={rank.name} size={glassSize} />
-                        </View>
-                        {open.marks < rank.min ? (
-                            <View style={[styles.lockBadge, { backgroundColor: t.color.surfaceRaised }]}>
-                                <AppIcon name="lock-closed" size={t.space.lg} color={t.color.textPrimary} />
-                            </View>
-                        ) : null}
+                        {/* Reached: dimmed into the scene, as on Home. Not yet: only its shadow. */}
+                        <RankHourglass rank={rank.name} size={glassSize} look={open.marks >= rank.min ? 'scene' : 'shadow'} />
                     </Slot>
                 ))}
             </Animated.ScrollView>
@@ -160,7 +156,6 @@ const styles = StyleSheet.create({
     flex: { flex: 1 },
     top: { flexDirection: 'row', alignItems: 'center' },
     slot: { alignItems: 'center', justifyContent: 'center' },
-    lockBadge: { position: 'absolute', width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
     caption: { alignItems: 'center' },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     dots: { flexDirection: 'row' },

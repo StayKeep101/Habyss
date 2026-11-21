@@ -18,6 +18,9 @@ export const HOURGLASS_ART: Record<string, ImageSourcePropType> = {
     Eternal: require('@/assets/images/hourglasses/eternal.png'),
 };
 
+/** Where the art's base ends, as a share of its height (it stands on the podium there). */
+export const HOURGLASS_ART_FOOT = 0.965;
+
 /** Width over height of the art (1113 × 1413). */
 export const HOURGLASS_ART_RATIO = 1113 / 1413;
 

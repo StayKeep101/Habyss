@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { useAnimatedReaction, useDerivedValue, useReducedMotion, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import {
-    BlurMask, Canvas, ClipOp, Group, Image as SkiaImage, LinearGradient, Path, Picture, RoundedRect, Skia, createPicture, useClock, useImage, vec,
+    BlurMask, Canvas, ClipOp, ColorMatrix, Group, Paint, Image as SkiaImage, LinearGradient, Path, Picture, RoundedRect, Skia, createPicture, useClock, useImage, vec,
 } from '@shopify/react-native-skia';
 import { mixHex } from '@/lib/colorContrast';
 import { Colors } from '@/theme/colors';
@@ -62,13 +62,13 @@ const OUTLINE: [number, number, number][] = [
 ];
 
 /** The drawn blue hourglass, as a frame without art. */
-const DRAWN: Omit<GlassFrame, 'image' | 'light'> = { width: W, height: H, cx: 312, neck: 435, top: GLASS_TOP, bottom: GLASS_BOTTOM, outline: OUTLINE };
+const DRAWN: Omit<GlassFrame, 'image' | 'light' | 'foot' | 'brightness'> = { width: W, height: H, cx: 312, neck: 435, top: GLASS_TOP, bottom: GLASS_BOTTOM, outline: OUTLINE };
 
 /**
  * Everything the sand needs from a frame: each bulb's inside, column by column;
  * all the sand there is (the top bulb full to TOP_FULL); the grain; the glass.
  */
-function geometry(frame: Omit<GlassFrame, 'image' | 'light'>) {
+function geometry(frame: Omit<GlassFrame, 'image' | 'light' | 'foot' | 'brightness'>) {
     const bulbs = makeBulbs(frame.outline, frame.cx, frame.neck, INSET);
     const full = frame.top + (frame.neck - frame.top) * TOP_FULL;
     return {
@@ -260,7 +260,12 @@ export function SkiaHourglass({ size, ran, running, sand, tilt, shake, frame }: 
     return (
         <Canvas style={{ width, height: size }}>
             {frame ? (
-                <Group transform={[{ scale }]}>
+                // Dimmed as a whole (frame and sand) to sit in the night scene.
+                <Group transform={[{ scale }]} layer={(
+                    <Paint>
+                        <ColorMatrix matrix={[frame.brightness, 0, 0, 0, 0, 0, frame.brightness, 0, 0, 0, 0, 0, frame.brightness, 0, 0, 0, 0, 0, 1, 0]} />
+                    </Paint>
+                )}>
                     {/* The rank's frame; the sand inside its glass; then the glass's own light back over the sand. */}
                     {art ? <SkiaImage image={art} x={0} y={0} width={FW} height={FH} fit="fill" /> : null}
                     <Picture picture={picture} />

@@ -56,7 +56,8 @@ import { GlassCarousel } from '@/components/Home/GlassCarousel';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { Radius, Spacing } from '@/theme/designSystem';
 import { homeStyles } from '@/styles/screens/home.styles';
-import { TEMPLE } from '@/theme/hourglassArt';
+import { HOURGLASS_ART_FOOT, TEMPLE } from '@/theme/hourglassArt';
+import { HOURGLASS_FRAMES } from '@/theme/hourglassFrames';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShardsWallet } from '@/components/Shards/ShardsWallet';
@@ -640,13 +641,31 @@ const Home = () => {
   // Worked out here, in JavaScript, not inside the worklets.
   const focusZoom = Math.min(screenWidth * 0.62, (screenHeight - insets.top - insets.bottom) * 0.42 * 0.86) / GLASS_HEIGHT;
   const focusRise = screenHeight * 0.4 - stepY;
-  const zoomIn = useAnimatedStyle(() => {
-    const p = focusLeave.get();
-    return { transform: [{ translateY: focusRise * p }, { scale: 1 + (focusZoom - 1) * p }] };
-  });
-  // Every hourglass, opened in place on the podium: the page and the bar step aside, the scene stays.
+  // Every hourglass, opened in place on the podium: the page and the bar step aside, and the
+  // scene zooms in so the podium stays under the bigger hourglass in the middle (its base on
+  // the step, as on Home), where the carousel stands it.
   const [glassesOpen, setGlassesOpen] = useState(false);
   const glassesAside = useSharedValue(0);
+  const glassesZoom = 1.35;
+  const glassesBottom = stepY + GLASS_HEIGHT / 2;
+  const glassesRise = glassesBottom - GLASS_HEIGHT * glassesZoom * (1 - HOURGLASS_ART_FOOT) - stepY;
+  // The glass stands with its base on the step, covering the step's light: its canvas sinks by the art below the base.
+  const homeFrame = HOURGLASS_FRAMES[rankShown ?? 'Lost'];
+  const glassSink = homeFrame ? GLASS_HEIGHT * (1 - homeFrame.foot / homeFrame.height) : 0;
+  // The glass's own centre, for zooming it about the step (its layout height, measured).
+  const [glassBoxHeight, setGlassBoxHeight] = useState(GLASS_HEIGHT / 2);
+  const glassCentre = stepY - GLASS_HEIGHT / 2 + glassSink + glassBoxHeight / 2;
+  const zoomIn = useAnimatedStyle(() => {
+    const p = focusLeave.get();
+    const g = glassesAside.get();
+    return { transform: [{ translateY: focusRise * p + glassesRise * g }, { scale: 1 + (focusZoom - 1) * p + (glassesZoom - 1) * g }] };
+  });
+  const glassZoom = useAnimatedStyle(() => {
+    const p = focusLeave.get();
+    const g = glassesAside.get();
+    const zoom = 1 + (glassesZoom - 1) * g;
+    return { transform: [{ translateY: focusRise * p + glassesRise * g + (stepY - glassCentre) * (1 - zoom) }, { scale: 1 + (focusZoom - 1) * p + (zoom - 1) }] };
+  });
   const onGlasses = useCallback((open: boolean) => {
     setGlassesOpen(open);
     glassesAside.set(withTiming(open ? 1 : 0, open ? OVERLAY.in : OVERLAY.out));
@@ -667,7 +686,8 @@ const Home = () => {
         <LinearGradient colors={[clearOf(colors.background), colors.background]} style={[homeStyles.sceneFoot, { top: sceneHeight * 0.72, height: sceneHeight * 0.28 }]} />
       </Animated.View>
       {/* The day's hourglass on the podium's top step: it never moves; the cards rise over it. */}
-      <Animated.View pointerEvents="none" style={[homeStyles.glassStage, { top: stepY - GLASS_HEIGHT / 2, left: horizontalPadding, right: horizontalPadding }, sceneFade, asideForGlasses, zoomIn]}>
+      <Animated.View pointerEvents="none" onLayout={event => setGlassBoxHeight(event.nativeEvent.layout.height)}
+        style={[homeStyles.glassStage, { top: stepY - GLASS_HEIGHT / 2 + glassSink, left: horizontalPadding, right: horizontalPadding }, sceneFade, asideForGlasses, glassZoom]}>
         <DayHourglass marks={marks.total} />
       </Animated.View>
       <Animated.ScrollView
@@ -695,7 +715,7 @@ const Home = () => {
           {/* Tap the hourglass for every hourglass: the glass sits under the page, so the page takes the tap where it stands. */}
           <Pressable accessibilityRole="button" accessibilityLabel="See every hourglass"
             onPress={() => { lightFeedback(); emit('glass_open', { rank: rankShown ?? 'Lost', marks: marks.total }); }}
-            style={[homeStyles.glassTap, { top: stepY - GLASS_HEIGHT, width: GLASS_HEIGHT, height: GLASS_HEIGHT, marginLeft: -GLASS_HEIGHT / 2 }]} />
+            style={[homeStyles.glassTap, { top: stepY - GLASS_HEIGHT + glassSink, width: GLASS_HEIGHT, height: GLASS_HEIGHT, marginLeft: -GLASS_HEIGHT / 2 }]} />
           {/* The panel: everything of the day, rising over the scene; the hourglass on its edge. */}
           <View style={[homeStyles.panel, { paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, minHeight: screenHeight - headerHeight }]}>
             {/* Its top edge is a shadow of its own colour, melting into the night. */}
@@ -751,7 +771,7 @@ const Home = () => {
           </View>
       </Animated.ScrollView>
       {/* Every hourglass, on this podium, over this scene (components/Home/GlassCarousel.tsx). */}
-      <GlassCarousel stage={{ glassBottom: stepY + GLASS_HEIGHT / 2, size: GLASS_HEIGHT * 1.35, captionTop: stepY + GLASS_HEIGHT / 2 + Spacing.xl }} onOpenChange={onGlasses} />
+      <GlassCarousel stage={{ glassBottom: glassesBottom, size: GLASS_HEIGHT * glassesZoom, captionTop: stepY + GLASS_HEIGHT / 2 + Spacing.xl }} onOpenChange={onGlasses} />
 
       {/* The floating stats bar: your picture and the three stats, fixed over everything, the cards passing under. */}
       {/* Plain dark behind the picture and the stats, no shadow: the page stops at its edge

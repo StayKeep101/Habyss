@@ -12,6 +12,9 @@ from PIL import Image
 
 SRC = sys.argv[1]
 FILES = {
+    'Lost': '../Empty Stone Hourglass Icon.png',
+    'Beginner': '../Empty Purple-Glass Hourglass Emblem.png',
+    'Consistent': '../Empty Blue Hourglass Icon.png',
     'Growing': 'Empty Ornate Bronze Hourglass Icon.png',
     'Disciplined': 'Futuristic Empty Hourglass Emblem.png',
     'Focused': 'Empty Teal Hourglass Emblem.png',
@@ -21,6 +24,20 @@ FILES = {
     'Eternal': 'Empty Iridescent Crystal Hourglass.png',
 }
 H = 840
+# How bright each frame stands on Home's night scene: 80%, and the three darker-born
+# ones (on black, brighter glass) 70%, so every frame sits in the scene alike.
+BRIGHTNESS = {'Lost': 0.7, 'Beginner': 0.7, 'Consistent': 0.7}
+
+def keyed(im):
+    """Art drawn on black instead of transparency: the black made clear, softly at its edge."""
+    if im.mode == 'RGBA' and im.getextrema()[3][0] < 250: return im
+    im = im.convert('RGBA'); px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, _ = px[x, y]
+            m = max(r, g, b)
+            if m < 12: px[x, y] = (r, g, b, max(0, (m - 3) * 255 // 9))
+    return im
 STEP = 12
 
 def trace(im):
@@ -70,18 +87,20 @@ def trace(im):
     lum = [sum(px[x, yy][:3]) / 765 for yy in range(top + 20, bottom - 20, 6) for x in range(rows[yy][0] + 15, rows[yy][1] - 15, 6)]
     glass = sum(lum) / len(lum)
     light = round(max(0.25, min(0.75, 0.75 - (glass - 0.25) * 2.5)), 2)
-    return dict(width=w, height=h, cx=cx, neck=neck, top=top, bottom=bottom, light=light, outline=outline)
+    # Where the base ends: it stands on the podium there, covering the step's light.
+    foot = max(yy for yy in range(h) if any(a[x, yy] > 128 for x in range(0, w, 3)))
+    return dict(width=w, height=h, cx=cx, neck=neck, top=top, bottom=bottom, light=light, foot=foot, outline=outline)
 
 out = []
 for rank, name in FILES.items():
-    im = Image.open(os.path.join(SRC, name)).convert('RGBA')
+    im = keyed(Image.open(os.path.join(SRC, name)))
     im = im.resize((round(im.width * H / im.height), H), Image.LANCZOS)
     im.save(f'assets/images/hourglasses/frames/{rank.lower()}.png', optimize=True)
     g = trace(im)
     rows = ', '.join(f'[{y}, {l}, {r}]' for y, l, r in g['outline'])
     out.append(f"""    {rank}: {{
         image: require('@/assets/images/hourglasses/frames/{rank.lower()}.png'),
-        width: {g['width']}, height: {g['height']}, cx: {g['cx']}, neck: {g['neck']}, top: {g['top']}, bottom: {g['bottom']}, light: {g['light']},
+        width: {g['width']}, height: {g['height']}, cx: {g['cx']}, neck: {g['neck']}, top: {g['top']}, bottom: {g['bottom']}, light: {g['light']}, foot: {g['foot']}, brightness: {BRIGHTNESS.get(rank, 0.8)},
         outline: [{rows}],
     }},""")
     print(rank, {k: v for k, v in g.items() if k != 'outline'})
@@ -106,6 +125,10 @@ export interface GlassFrame {
     bottom: number;
     /** How much of the glass's own light goes back over the sand (less for light glass). */
     light: number;
+    /** Where the base ends (it stands on the podium there). */
+    foot: number;
+    /** How bright the whole hourglass stands in the night scene (1 is as drawn). */
+    brightness: number;
     outline: [number, number, number][];
 }
 
