@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { requireNativeComponent, UIManager, View, type ViewStyle } from 'react-native';
 import { EmptyState } from '@/components/ui/EmptyState';
+import SharedDefaults from '@/lib/SharedDefaults';
+import { useTokens } from '@/hooks/useTokens';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
+import { surfaceFor } from '@/theme/designSystem';
 import { ScreenTimeService, screenTimeAllowedBefore } from '@/lib/ScreenTimeService';
 import type { WeekStart } from '@/lib/weekStart';
 
@@ -28,6 +33,17 @@ export const screenTimeReportSupported = (): boolean => !!NativeReport;
 
 export function ScreenTimeReport({ days, offset, weekStart, height }: { days: 7 | 30; offset: number; weekStart: WeekStart; height: number }) {
     const [allowed, setAllowed] = useState<boolean | null>(null);
+    const t = useTokens();
+    const { theme } = useTheme();
+    const { primary } = useAccentGradient();
+    // The report draws in the app's own colours: handed over through the App Group as they change.
+    useEffect(() => {
+        const tone = surfaceFor(theme);
+        void SharedDefaults.set('habyss_report_theme', JSON.stringify({
+            text: t.color.textPrimary, muted: t.color.textMuted, subtle: t.color.textSubtle, border: t.color.border,
+            accent: primary, cardTop: tone.top, cardFill: tone.fill, cardBottom: tone.bottom,
+        })).catch(() => false);
+    }, [t, theme, primary]);
     useEffect(() => {
         // Start from what this phone already allowed, then confirm with iOS (it can be slow to say just after launch).
         void screenTimeAllowedBefore().then(before => { if (before) setAllowed(current => current ?? true); });
