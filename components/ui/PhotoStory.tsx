@@ -5,8 +5,17 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { Colors } from '@/theme/colors';
 import { Radius, Spacing } from '@/theme/designSystem';
 import { useTokens } from '@/hooks/useTokens';
+import { textOn } from '@/theme/tokens';
+import { AppIcon } from './AppIcon';
+import { PopIn } from './Motion';
 
-export interface StoryPhoto { uri: string; caption?: string }
+export interface StoryPhoto {
+    uri: string;
+    /** What it is a photo of: the habit or task's name. */
+    caption?: string;
+    /** A word on it under the name: "Habit", "Task · 45m". */
+    detail?: string;
+}
 
 /**
  * Photos one at a time, like a story: thin segments across the top show how
@@ -35,7 +44,7 @@ export function PhotoStory({ photos, ratio = 4 / 5 }: { photos: StoryPhoto[]; ra
     return (
         <View style={[styles.frame, { aspectRatio: ratio }]} onLayout={event => setWidth(event.nativeEvent.layout.width)}
             accessible accessibilityRole="adjustable"
-            accessibilityLabel={`Photo ${index + 1} of ${photos.length}${current?.caption ? `: ${current.caption}` : ''}`}
+            accessibilityLabel={`Photo ${index + 1} of ${photos.length}${current?.caption ? `: ${current.caption}, done` : ''}${current?.detail ? `, ${current.detail}` : ''}`}
             accessibilityActions={[{ name: 'increment', label: 'Next photo' }, { name: 'decrement', label: 'Previous photo' }]}
             onAccessibilityAction={event => go(index + (event.nativeEvent.actionName === 'increment' ? 1 : -1))}>
             {width ? (
@@ -65,7 +74,16 @@ export function PhotoStory({ photos, ratio = 4 / 5 }: { photos: StoryPhoto[]; ra
             {current?.caption ? (
                 <View style={styles.captionArea} pointerEvents="none">
                     <LinearGradient colors={[`${Colors.common.black}00`, `${Colors.common.black}B3`]} style={StyleSheet.absoluteFill} />
-                    <RNText numberOfLines={1} style={[t.type.heading, { color: white }]}>{current.caption}</RNText>
+                    {/* What it shows, done: a tick in the app's blue, the name, and a word on it. Pops in fresh on every photo. */}
+                    <PopIn key={index} index={0} style={styles.caption}>
+                        <View style={[styles.tick, { backgroundColor: t.color.cobalt }]}>
+                            <AppIcon name="checkmark" size={Spacing.lg} color={textOn(t.color.cobalt)} />
+                        </View>
+                        <View style={styles.captionText}>
+                            <RNText numberOfLines={1} style={[t.type.title, { color: white }]}>{current.caption}</RNText>
+                            {current.detail ? <RNText numberOfLines={1} style={[t.type.caption, { color: white, opacity: 0.8 }]}>{current.detail}</RNText> : null}
+                        </View>
+                    </PopIn>
                 </View>
             ) : null}
         </View>
@@ -76,5 +94,8 @@ const styles = StyleSheet.create({
     frame: { width: '100%', borderRadius: Radius.card, overflow: 'hidden' },
     segments: { position: 'absolute', top: Spacing.sm, left: Spacing.sm, right: Spacing.sm, flexDirection: 'row', gap: Spacing.xs },
     segment: { flex: 1, height: 3, borderRadius: Radius.pill },
-    captionArea: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: Spacing.lg, paddingTop: Spacing.section, paddingBottom: Spacing.md },
+    captionArea: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: Spacing.lg, paddingTop: Spacing.bottom, paddingBottom: Spacing.lg },
+    caption: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+    tick: { width: Spacing.section, height: Spacing.section, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+    captionText: { flex: 1 },
 });

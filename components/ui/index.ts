@@ -33,7 +33,7 @@
  *   GameCard (a bet, duel or challenge: face, name, a pill for how it stands, then the contest),
  *   VersusBar (two sides on one line, "22% Long ━━ 78% Short": the split glides, the leader in full colour),
  *   CardRail (cards swiped side by side, the next peeking in),
- *   PhotoStory (photos one at a time, like a story), PostCard (a Community post of any kind: face, name, rank, kind; one big figure; a visual; stats; details on demand),
+ *   PhotoStory (photos one at a time, like a story), ShutterButton (the camera shutter, over the photo), PostCard (a Community post of any kind: face, name, rank, kind; one big figure; a visual; stats; details on demand),
  *   PeopleFilter (whose progress to show on something shared: all together, or one person, each in their own colour),
  *   LevelTags (how urgent and how hard a habit or task is, on its card: "Urgent · Hard"; nothing when ordinary),
  *   SegmentBar (a bar in pieces, one per thing to do, lit in cobalt as it arrives),
@@ -108,6 +108,7 @@ export { VersusBar, type VersusSide } from './VersusBar';
 export { CardRail } from './CardRail';
 export { PostCard, type PostStat } from './PostCard';
 export { PhotoStory, type StoryPhoto } from './PhotoStory';
+export { ShutterButton } from './ShutterButton';
 export { SegmentBar } from './SegmentBar';
 export { StepTrack } from './StepTrack';
 export { Receipt } from './Receipt';

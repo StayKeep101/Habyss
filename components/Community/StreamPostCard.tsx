@@ -128,7 +128,14 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
     const topNames = new Set((card.top ?? []).map(line => line.name));
     const rest = lines.filter(line => !topNames.has(line.name));
     const did = lines.filter(line => line.done).map(line => (post.mine ? line.name : maskObjectionable(line.name)));
-    const photos = [...lines, ...(card.top ?? [])].filter((line, index, all) => line.photo && all.findIndex(other => other.photo === line.photo) === index);
+    // Each photo with what it is of: a habit, or a task (Today's 3 are tasks too).
+    const habitNames = new Set((card.habits ?? []).map(line => line.name));
+    const photos = [...lines, ...(card.top ?? [])].filter((line, index, all) => line.photo && all.findIndex(other => other.photo === line.photo) === index)
+        .map(line => ({
+            uri: line.photo!,
+            caption: post.mine ? line.name : maskObjectionable(line.name),
+            detail: [habitNames.has(line.name) ? 'Habit' : 'Task', line.minutes ? `${focusDuration(line.minutes * 60)} focused` : null].filter(Boolean).join(' · '),
+        }));
 
     // One format for every post, so a friend's day always reads the same way: how much of
     // the day was done, out of what, and the bar of it. What made this post (a milestone, a
@@ -171,7 +178,7 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
             {visual}
             {/* The photos taken as things were ticked, one at a time like a story: swipe or tap through. */}
             {photos.length ? (
-                <PhotoStory photos={photos.map(line => ({ uri: line.photo!, caption: post.mine ? line.name : maskObjectionable(line.name) }))} />
+                <PhotoStory photos={photos} />
             ) : null}
             {/* The day's most important tasks, when it had them; otherwise a line of what was done. */}
             {card.top?.length ? <TopTasks lines={card.top} mine={post.mine} /> : did.length ? (
