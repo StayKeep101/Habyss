@@ -430,7 +430,24 @@ enum AppTime {
     static func progressSteps(_ target: Int) -> [Int] {
         guard target > 5 else { return [] }
         let step = max(5, Int((Double(target) / 12.0 / 5.0).rounded(.up)) * 5)
-        return Array(stride(from: step, to: target, by: step))
+        // Always 5: the moment it is said that the habit is being tracked.
+        return Array(Set([5] + Array(stride(from: step, to: target, by: step)))).sorted()
+    }
+
+    static func startSaidKey(_ id: String) -> String { "HabyssAppTimeStartedSaid.\(id)" }
+
+    /// The monitor: five minutes in, once a day. What to say that it is being tracked, or nil.
+    static func started(_ activity: DeviceActivityName, minutes: Int) -> (title: String, body: String)? {
+        guard minutes == 5, let habit = habit(for: activity) else { return nil }
+        let defaults = UserDefaults(suiteName: Gate.groupId)
+        if defaults?.string(forKey: startSaidKey(habit.id)) == Gate.today() { return nil }
+        defaults?.set(Gate.today(), forKey: startSaidKey(habit.id))
+        // iOS replays thresholds already passed right after a restart: noted, not said.
+        let restarted = defaults?.double(forKey: startedKey) ?? 0
+        if Date().timeIntervalSince1970 - restarted < 60 { return nil }
+        return habit.quit
+            ? ("\(habit.name): counting now.", "5 of your \(habit.minutes) min today. Keep it under.")
+            : ("\(habit.name): tracking started.", "5 of \(habit.minutes) min so far. It ticks itself at \(habit.minutes).")
     }
 
     static func progressKey(_ id: String) -> String { "HabyssAppTimeProgress.\(id)" }
@@ -461,7 +478,7 @@ enum AppTime {
         if Date().timeIntervalSince1970 - started < 60 { return nil }
         return habit.quit
             ? ("\(habit.name): gone for today.", "Over \(habit.minutes) min. Put it down. Tomorrow's a clean slate.")
-            : ("\(habit.name): done.", "\(habit.minutes) min in your apps. Not a single tap.")
+            : ("Congrats, your \(habit.name) habit is completed.", "\(habit.minutes) min, ticked by itself. Not a single tap.")
     }
 
     /// The monitor: the day ended. A habit being broken that never went over is kept.

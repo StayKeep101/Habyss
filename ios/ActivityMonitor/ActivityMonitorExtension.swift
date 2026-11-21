@@ -38,6 +38,14 @@ final class ActivityMonitorExtension: DeviceActivityMonitor {
             // A step on the way: noted for the habit's page, nothing said.
             if event.rawValue.hasPrefix("p."), let minutes = Int(event.rawValue.dropFirst(2)) {
                 AppTime.progress(activity, minutes: minutes)
+                // Five minutes in: said once a day, so you know it is being counted.
+                guard let line = AppTime.started(activity, minutes: minutes) else { return }
+                let content = UNMutableNotificationContent()
+                content.title = line.title
+                content.body = line.body
+                content.sound = .default
+                content.userInfo = ["body": ["type": "app_time", "url": "/(root)/(tabs)/roadmap"], "type": "app_time"]
+                UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "habyss.apptime.start.\(activity.rawValue)", content: content, trigger: nil))
                 return
             }
             guard let line = AppTime.reached(activity) else { return }
