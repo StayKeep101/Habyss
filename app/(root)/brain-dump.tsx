@@ -14,7 +14,6 @@ import { NewThought } from '@/components/BrainDump/NewThought';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { ThoughtActions, type ThoughtAction } from '@/components/BrainDump/ThoughtActions';
-import { ThoughtDock, type DockTarget, type ThoughtDockHandle } from '@/components/BrainDump/ThoughtDock';
 import { MorphMenu } from '@/components/ui/MorphMenu';
 import { shareThoughts } from '@/lib/thoughtExport';
 import { Colors } from '@/theme/colors';
@@ -34,7 +33,7 @@ import { SortThoughtSheet } from '@/components/BrainDump/SortThoughtSheet';
 import { copyText } from '@/lib/copyText';
 import { localDateKey } from '@/lib/habitSchedule';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
-import { addThought, getThoughts, moveItem, removeThought, reorderThoughts, restoreThought, updateThought, type Thought } from '@/lib/brainDump';
+import { addThought, getThoughts, removeThought, reorderThoughts, restoreThought, updateThought, type Thought } from '@/lib/brainDump';
 import { styles } from '@/styles/screens/brain-dump.styles';
 
 const UNDO_MS = 4000;
@@ -56,7 +55,7 @@ export default function BrainDumpScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
-    const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
+    const { lightFeedback, selectionFeedback } = useHaptics();
     const [thoughts, setThoughts] = useState<Thought[]>([]);
     const [draft, setDraft] = useState('');
     const [undo, setUndo] = useState<{ thought: Thought; index: number; said: string } | null>(null);
@@ -232,7 +231,26 @@ export default function BrainDumpScreen() {
         return () => clearTimeout(hide);
     }, [notice]);
 
-    const goals = useGoalsInsights().habits.filter(habit => habit.isGoal && !habit.isArchived);
+    const insights = useGoalsInsights();
+    const goals = insights.habits.filter(habit => habit.isGoal && !habit.isArchived);
+    // Tasks a thought can go under as a subtask: the open ones, soonest first.
+    const openTasks = insights.tasks.filter(task => task.status === 'open')
+        .sort((a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'))
+        .map(task => ({ id: task.id, title: task.title }));
+
+    /** Each thought a subtask of that task, at the end of its list. */
+    const intoSubtasks = async (list: Thought[], taskId: string) => {
+        const task = insights.tasks.find(item => item.id === taskId);
+        if (!task) return;
+        const { updateTask } = require('@/lib/tasks') as typeof import('@/lib/tasks');
+        const added = list.map((item, index) => ({ id: `${Date.now().toString(36)}-${index}`, title: item.text.trim(), done: false }));
+        await updateTask(taskId, { subtasks: [...(task.subtasks ?? []), ...added] });
+        emit('tasks_changed');
+        lightFeedback();
+        setNotice(list.length === 1 ? `Added to ${task.title}` : `${list.length} added to ${task.title}`);
+        await removeMany(list);
+        stopSelecting();
+    };
 
     // The sheet a held thought opens (or the selection's "Add to a goal").
     const [acting, setActing] = useState<{ list: Thought[]; goals: boolean } | null>(null);
@@ -243,7 +261,6 @@ export default function BrainDumpScreen() {
         const one = list.length === 1 ? list[0] : null;
         if (action === 'copy') { void copy(list); return; }
         if (action === 'share') { void shareThoughts(list); return; }
-        if (action === 'sort') { if (one) setTimeout(() => setSorting(one), 250); return; }
         if (one && !selecting) { setTimeout(() => turnInto(one, action), 250); return; }
         if (action === 'task') void intoTasks(list);
         else if (action === 'habit') void intoHabits(list);
@@ -252,7 +269,6 @@ export default function BrainDumpScreen() {
 
     /** Held and let go: that thought, or while selecting, every ticked one with it. */
     const held = (thought: Thought) => {
-        setCarrying(null); setHovered(null);
         const list = selecting
             ? thoughts.filter(item => picked.has(item.id) || item.id === thought.id)
             : [thought];
@@ -306,34 +322,6 @@ export default function BrainDumpScreen() {
         const soon = setTimeout(bring, 50);
         return () => { shown.remove(); clearTimeout(soon); };
     }, [editingId]);
-    const dropAt = (from: number, dy: number): number => {
-        let to = from;
-        let travelled = dy;
-        if (dy > 0) {
-            while (to < thoughts.length - 1 && travelled > (heights.current[thoughts[to + 1].id] ?? 48) / 2) {
-                travelled -= heights.current[thoughts[to + 1].id] ?? 48;
-                to += 1;
-            }
-        } else {
-            while (to > 0 && -travelled > (heights.current[thoughts[to - 1].id] ?? 48) / 2) {
-                travelled += heights.current[thoughts[to - 1].id] ?? 48;
-                to -= 1;
-            }
-        }
-        return to;
-    };
-    // A thought carried: the Habit · Task · Goal dock, and which one is under the finger.
-    const [carrying, setCarrying] = useState<string | null>(null);
-    const [hovered, setHovered] = useState<DockTarget | null>(null);
-    const dock = useRef<ThoughtDockHandle>(null);
-    const drop = (from: number, dy: number) => {
-        const to = dropAt(from, dy);
-        if (to === from) return;
-        const next = moveItem(thoughts, from, to);
-        setThoughts(next);
-        void reorderThoughts(next.map(item => item.id));
-    };
-
     // Two fingers dragged down the list pick every thought they pass, as in Mail.
     const scrollY = useRef(0);
     const [scrollLocked, setScrollLocked] = useState(false);
@@ -398,7 +386,7 @@ export default function BrainDumpScreen() {
                                 style={[styles.selectAll, { color: primary }]} accessibilityRole="button">{allPicked ? 'Deselect all' : 'Select all'}</Text>
                         </View>
                     ) : thoughts.length > 0 && clearsOn ? (
-                        <Text style={[styles.clears, { color: colors.textTertiary }]}>Clears {clearsOn} night · hold a thought to move it or make it something · two fingers to select</Text>
+                        <Text style={[styles.clears, { color: colors.textTertiary }]}>Clears {clearsOn} night · hold a thought to turn it into something · two fingers to select</Text>
                     ) : null}
                     {thoughts.map((thought, index) => (
                         <View key={thought.id} style={index > 0 ? [styles.divider, { borderTopColor: colors.border }] : undefined}
@@ -414,17 +402,6 @@ export default function BrainDumpScreen() {
                                 onEdit={text => void edit(thought, text)}
                                 onEditingChange={editing => setEditingId(current => editing ? thought.id : current === thought.id ? null : current)}
                                 onLayout={measure(thought.id)}
-                                onDragStart={() => { if (!selecting) setCarrying(thought.id); }}
-                                onDragMove={(_dy, x, y) => {
-                                    const target = dock.current?.targetAt(x, y) ?? null;
-                                    if (target !== hovered) { if (target) selectionFeedback(); setHovered(target); }
-                                }}
-                                onDragEnd={(dy, x, y) => {
-                                    const target = carrying ? dock.current?.targetAt(x, y) ?? null : null;
-                                    setCarrying(null); setHovered(null);
-                                    // Let go on Habit, Task or Goal: it becomes that. Anywhere else: it moves.
-                                    if (target) { successFeedback(); act([thought], target); } else drop(index, dy);
-                                }}
                             />
                         </View>
                     ))}
@@ -465,13 +442,13 @@ export default function BrainDumpScreen() {
                     </View>
                 ) : null}
                 <SortThoughtSheet text={sorting?.text ?? null} onClose={() => setSorting(null)} onCreate={pieces => void createSorted(pieces)} />
-                {carrying ? <ThoughtDock hovered={hovered} dockRef={dock} /> : null}
                 <ThoughtActions visible={!!acting} count={acting?.list.length ?? 0}
                     caption={acting?.list.length === 1 ? acting.list[0].text : undefined}
-                    goals={goals} startWithGoals={acting?.goals}
+                    goals={goals} startWithGoals={acting?.goals} tasks={openTasks}
                     onClose={() => setActing(null)}
                     onAction={action => acting && act(acting.list, action)}
-                    onAddToGoal={goalId => { const list = acting?.list ?? []; setActing(null); void intoTasks(list, goalId); }} />
+                    onAddToGoal={goalId => { const list = acting?.list ?? []; setActing(null); void intoTasks(list, goalId); }}
+                    onAddSubtask={taskId => { const list = acting?.list ?? []; setActing(null); void intoSubtasks(list, taskId); }} />
                 {notice ? (
                     <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={[styles.undo, { backgroundColor: colors.surfaceTertiary }]}>
                         <Text numberOfLines={1} style={[styles.undoText, { color: colors.textSecondary }]}>{notice}</Text>

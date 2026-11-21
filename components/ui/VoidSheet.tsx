@@ -52,6 +52,8 @@ export const VoidSheet: React.FC<{
     children: React.ReactNode;
     /** Pinned under the content, outside the scroll: usually one button. */
     footer?: React.ReactNode;
+    /** Small actions beside the title, on the right (a copy and a share icon, say). */
+    accessory?: React.ReactNode;
     /** The most of the screen it may take (0–1). Two thirds by default. */
     maxShare?: number;
     /**
@@ -59,7 +61,7 @@ export const VoidSheet: React.FC<{
      * drags the sheet down, so scrolling back up never closes it.
      */
     scrollable?: boolean;
-}> = ({ visible, onClose, title, caption, children, footer, maxShare = 0.68, scrollable = false }) => {
+}> = ({ visible, onClose, title, caption, children, footer, accessory, maxShare = 0.68, scrollable = false }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const tone = surfaceFor(theme);
@@ -189,6 +191,7 @@ export const VoidSheet: React.FC<{
                                         <Text numberOfLines={1} style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
                                         {caption ? <Text numberOfLines={1} style={[styles.caption, { color: colors.textTertiary }]}>{caption}</Text> : null}
                                     </View>
+                                    {accessory}
                                 </View>
                             </GestureDetector>
                         ) : (
@@ -199,6 +202,7 @@ export const VoidSheet: React.FC<{
                                         <Text numberOfLines={1} style={[styles.caption, { color: colors.textTertiary }]}>{caption}</Text>
                                     ) : null}
                                 </View>
+                                {accessory}
                             </View>
                         )}
 

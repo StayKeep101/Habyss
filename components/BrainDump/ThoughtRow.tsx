@@ -31,17 +31,16 @@ const HOLD_MS = 420;
 
 /**
  * One thought: just its words. Swipe left to delete it, tap to reword it.
- * Hold it: it lifts and the Habit · Task · Goal dock rises; drag to move it
- * or onto the dock to make it that; let go without moving for its menu.
+ * Hold it: its sheet opens (task, habit, goal, into a goal, a subtask).
  * While selecting, a tap ticks it instead.
  */
-export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onDone, onDelete, onEdit, onEditingChange, onLayout, onDragStart, onDragMove, onDragEnd }: {
+export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onDone, onDelete, onEdit, onEditingChange, onLayout }: {
     thought: Thought;
     /** Choosing several thoughts: a tap ticks this one. */
     selecting: boolean;
     selected: boolean;
     onToggle: () => void;
-    /** Held and let go without moving: the menu for turning it into something. */
+    /** Held: the sheet for turning it into something, opened as the hold lands. */
     onHold: () => void;
     /** The circle beside it, tapped: dealt with, so it goes. */
     onDone: () => void;
@@ -50,10 +49,6 @@ export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onD
     /** Rewording in place starts or ends, so the page can hide its own field. */
     onEditingChange?: (editing: boolean) => void;
     onLayout: (event: LayoutChangeEvent) => void;
-    onDragStart: () => void;
-    /** How far it moved, and where the finger is on screen (for the Habit · Task · Goal dock). */
-    onDragMove: (dy: number, x: number, y: number) => void;
-    onDragEnd: (dy: number, x: number, y: number) => void;
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -62,27 +57,16 @@ export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onD
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(thought.text);
 
-    // Held: the row lifts at once (with a buzz) and the Habit · Task · Goal dock
-    // rises. Dragged: it follows the finger, to a new place or onto the dock.
-    // Let go without moving: its menu opens.
+    // Held: the row lifts a little, with a buzz, and its sheet opens right then,
+    // while the finger is still down.
     const lift = useSharedValue(0);
-    const dragY = useSharedValue(0);
-    const moved = useSharedValue(false);
-    const gesture = Gesture.Pan()
-        .activateAfterLongPress(HOLD_MS)
-        .onStart(() => { moved.value = false; lift.value = withSpring(1); runOnJS(mediumFeedback)(); runOnJS(onDragStart)(); })
-        .onUpdate(event => {
-            if (!moved.value && (Math.abs(event.translationX) > STILL || Math.abs(event.translationY) > STILL)) moved.value = true;
-            dragY.value = event.translationY;
-            runOnJS(onDragMove)(event.translationY, event.absoluteX, event.absoluteY);
-        })
-        .onEnd(event => {
-            if (moved.value) runOnJS(onDragEnd)(event.translationY, event.absoluteX, event.absoluteY);
-            else runOnJS(onHold)();
-        })
-        .onFinalize(() => { dragY.value = 0; lift.value = withSpring(0); });
+    const gesture = Gesture.LongPress()
+        .minDuration(HOLD_MS)
+        .maxDistance(STILL)
+        .onStart(() => { lift.value = withSpring(1); runOnJS(mediumFeedback)(); runOnJS(onHold)(); })
+        .onFinalize(() => { lift.value = withSpring(0); });
     const lifted = useAnimatedStyle(() => ({
-        transform: [{ translateY: dragY.value }, { scale: 1 + lift.value * 0.02 }],
+        transform: [{ scale: 1 + lift.value * 0.02 }],
         zIndex: lift.value > 0 ? 10 : 0,
         shadowOpacity: lift.value * 0.25,
     }));
