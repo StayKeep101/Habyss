@@ -38,9 +38,10 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSmartParse } from '@/hooks/useSmartParse';
 import { smartParseHabit } from '@/lib/smartParse';
 import { parseHabitText } from '@/lib/habitParser';
-import { addHabit, updateHabit, getGoals, type Habit, type LocationReminder } from '@/lib/habitsSQLite';
-import { autoTrackOptions, trackMinutes } from '@/lib/autoTrackSources';
-import { appTimeSupported, chooseApps, setAppTime } from '@/lib/appTime';
+import { addHabit, updateHabit, getGoals, withAutoTrack, type Habit, type LocationReminder } from '@/lib/habitsSQLite';
+import { allTrackOptions, autoTrackOptions, trackMinutes, type AutoTrackOption } from '@/lib/autoTrackSources';
+import { TrackingPicker } from '@/components/Create/TrackingPicker';
+import { APP_TIME_IDEAS, appTimeSupported, chooseApps, getAppTime, setAppTime } from '@/lib/appTime';
 import { AutoTrackHint } from '@/components/Create/AutoTrackHint';
 import { localDateKey } from '@/lib/habitSchedule';
 import { NotificationService } from '@/lib/notificationService';
@@ -196,6 +197,10 @@ export const HabitSheet: React.FC<{
     const [error, setError] = useState<string | null>(null);
     /** How it tracks itself: an option's key, 'off', or null for the best one. */
     const [trackPick, setTrackPick] = useState<string | null>(null);
+    /** For apps and a place: minutes before it counts, when changed here. */
+    const [trackMins, setTrackMins] = useState<number | null>(null);
+    /** Editing: the minutes it is already linked to apps for, if it is. */
+    const [appLinked, setAppLinked] = useState<number | null>(null);
     const savingRef = useRef(false);
 
     const current = habit ?? editing;
@@ -215,6 +220,8 @@ export const HabitSheet: React.FC<{
         setAmountText(null);
         setError(null);
         setTrackPick(null);
+        setTrackMins(null);
+        setAppLinked(null);
     }
 
     useEffect(() => {
@@ -285,22 +292,63 @@ export const HabitSheet: React.FC<{
     }, [current, eventGoal, parsed, edits, rules]);
     // Everything in the sheet wears the colour chosen for this goal or habit:
     // the chosen chips, the bar's open chip, the calendar — not the app accent.
-    // What could tick it by itself, read from its name as it is written (lib/autoTrackSources.ts).
-    // New habits only: one already saved keeps whatever it is linked to.
+    // How it ticks itself (lib/autoTrackSources.ts): suggested from its name as it is
+    // written (new habits), every way in the Tracking chip, and what it already uses.
     const said = { amount: draft.amount, unit: draft.unit, durationMinutes: draft.durationMinutes, quit: draft.habitType === 'quit' };
-    const trackOptions = useMemo(() => (current || Platform.OS !== 'ios' ? []
-        : autoTrackOptions(draft.name || text, said).filter(option => option.kind !== 'app' || appTimeSupported())),
+    const canTrack = Platform.OS === 'ios' && !current?.isGoal;
+    const appsAvailable = appTimeSupported();
+    const suggestions = useMemo(() => (current || !canTrack ? []
+        : autoTrackOptions(draft.name || text, said).filter(option => option.kind !== 'app' || appsAvailable)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [current, draft.name, text, draft.amount, draft.unit, draft.durationMinutes, draft.habitType]);
-    const tracking = trackPick === 'off' ? null : trackOptions.find(option => option.key === trackPick) ?? trackOptions[0] ?? null;
-    const chooseTracking = (key: string) => {
+    [current, canTrack, draft.name, text, draft.amount, draft.unit, draft.durationMinutes, draft.habitType]);
+    useEffect(() => {
+        if (!isOpen || !current) return;
+        void getAppTime().then(all => setAppLinked(all[current.id] ?? null)).catch(() => undefined);
+    }, [isOpen, current]);
+    const everyOption: AutoTrackOption[] = (() => {
+        const quit = draft.habitType === 'quit';
+        const all = allTrackOptions(quit).filter(option => option.kind !== 'app' || appsAvailable);
+        // Already linked to apps chosen before: kept as "Your apps" until changed.
+        if (appLinked) {
+            const idea = { ...(APP_TIME_IDEAS.find(item => item.quit === quit) ?? APP_TIME_IDEAS[0]), id: 'linked', pick: 'Your apps', minutes: appLinked };
+            all.unshift({ kind: 'app', key: 'app:linked', idea, label: 'Your apps', detail: idea.detail });
+        }
+        return all;
+    })();
+    // What it uses now, when editing.
+    const stayPlace = draft.places.find(place => place.trigger === 'stay');
+    const currentKey = current
+        ? current.healthKitMetric ? `health:${current.healthKitMetric}` : appLinked ? 'app:linked' : current.locationReminders?.some(place => place.trigger === 'stay') ? 'place' : 'off'
+        : suggestions[0]?.key ?? 'off';
+    const trackKey = trackPick ?? currentKey;
+    const tracking: AutoTrackOption | null = trackKey === 'off' ? null
+        : suggestions.find(option => option.key === trackKey) ?? everyOption.find(option => option.key === trackKey) ?? null;
+    const minutes = trackMins
+        ?? (tracking?.kind === 'app' && tracking.key === 'app:linked' ? appLinked ?? tracking.idea.minutes
+            : tracking?.kind === 'place' && stayPlace?.stayMinutes ? stayPlace.stayMinutes
+            : tracking ? trackMinutes(tracking, said) : 30);
+    const chooseTracking = (key: string, from: 'hint' | 'chip' = 'chip') => {
         setTrackPick(key);
-        const option = trackOptions.find(item => item.key === key);
-        // A place: straight to the map, to tap where it is.
-        if (option?.kind === 'place') setOpenRow('reminder');
-        // Away from a place: the place stays a reminder, not a stay.
-        else if (draft.places.some(place => place.trigger === 'stay')) change({ places: [] });
+        setTrackMins(null);
+        const option = everyOption.find(item => item.key === key) ?? suggestions.find(item => item.key === key);
+        if (option?.kind === 'place') {
+            // A place already set as a reminder now counts time there.
+            if (draft.places.length && !stayPlace) change({ places: draft.places.map(place => ({ ...place, trigger: 'stay' as const, stayMinutes: place.stayMinutes ?? 30 })) });
+            // From the line under the sentence: straight to the map, to tap where it is.
+            else if (from === 'hint' && !draft.places.length) setOpenRow('reminder');
+        } else if (stayPlace) {
+            // Away from a place: it stays a reminder for arriving, not a stay.
+            change({ places: draft.places.map(place => (place.trigger === 'stay' ? { ...place, trigger: 'arrive' as const } : place)) });
+        }
     };
+    const setMinutes = (value: number) => {
+        setTrackMins(value);
+        if (tracking?.kind === 'place' && stayPlace) change({ places: draft.places.map(place => (place.trigger === 'stay' ? { ...place, stayMinutes: value } : place)) });
+    };
+    const trackingValue = !tracking ? undefined
+        : tracking.kind === 'health' ? `Health · ${everyOption.find(option => option.key === tracking.key)?.label ?? tracking.label}`
+        : tracking.kind === 'app' ? `Apps · ${minutes} min`
+        : stayPlace ? `${stayPlace.name} · ${minutes} min` : 'A place';
     const accent = draft.color || appAccent;
     const accentText = readableAccent(accent, colors.background);
 
@@ -354,25 +402,34 @@ export const HabitSheet: React.FC<{
                 // Held to a class or meal; an empty name holds it to nothing.
                 anchor: parseAnchor(draft.anchor ?? null) ?? null,
                 locationReminders: draft.places,
-                // Dropped when the unit no longer measures what Health does, so
-                // an edit cannot leave a step count answering for pages.
-                // Linked to Health when it was made (addHabit); an edit keeps that link.
-                healthKitMetric: current?.healthKitMetric,
-                healthKitTarget: current?.healthKitTarget,
+                // Health: what the Tracking chip says (below); cleared when it says otherwise.
+                healthKitMetric: undefined,
+                healthKitTarget: undefined,
                 goalPeriod: current?.goalPeriod ?? 'daily',
                 category: current?.category ?? 'personal',
                 startDate: draft.startDate ?? current?.startDate ?? localDateKey(new Date()),
             };
 
-            if (current) await updateHabit({ id: current.id, ...fields });
-            else {
-                const made = await addHabit(fields, { autoTrack: tracking?.kind === 'health' });
-                if (!made?.id) throw new Error('not saved');
-                // Time in apps: Screen Time's own picker, over the sheet, to choose Libby, Kindle…
+            // Apple Health, as chosen: the same link kept, a new one set up (unit and target), or none.
+            const linked = tracking?.kind === 'health'
+                ? tracking.metric === current?.healthKitMetric
+                    ? { ...fields, healthKitMetric: current.healthKitMetric, healthKitTarget: current.healthKitTarget }
+                    : withAutoTrack(fields, tracking.metric)
+                : fields;
+            // Time in apps: Screen Time's own picker, over the sheet, to choose Libby, Kindle…
+            const linkApps = async (id: string) => {
                 if (tracking?.kind === 'app') {
-                    const chosen = await chooseApps(made.id, tracking.idea.pick);
-                    if (chosen > 0) await setAppTime(made.id, trackMinutes(tracking, said));
-                }
+                    if (tracking.key === 'app:linked') await setAppTime(id, minutes);
+                    else if (await chooseApps(id, tracking.idea.pick) > 0) await setAppTime(id, minutes);
+                } else if (appLinked) await setAppTime(id, null);
+            };
+            if (current) {
+                await updateHabit({ id: current.id, ...linked });
+                await linkApps(current.id);
+            } else {
+                const made = await addHabit(linked, { autoTrack: false });
+                if (!made?.id) throw new Error('not saved');
+                await linkApps(made.id);
                 // After it exists, and never blocking: the habit is saved, and
                 // an invitation that did not reach a friend is not a lost habit.
                 await share.applyTo(made.id);
@@ -460,6 +517,20 @@ export const HabitSheet: React.FC<{
                 </>
             ),
         },
+        // How it ticks itself: by hand, Apple Health, time in apps, or time at a place.
+        ...(canTrack ? [{
+            id: 'tracking', icon: 'flash-outline' as const, label: 'Tracking', value: trackingValue,
+            content: (
+                <TrackingPicker
+                    options={everyOption} chosen={tracking ? everyOption.find(option => option.key === tracking.key) ?? tracking : null}
+                    onChoose={key => chooseTracking(key)} minutes={minutes} onMinutes={setMinutes} accent={accent}
+                    placeName={stayPlace?.name} onPickPlace={() => setOpenRow('reminder')}
+                    appsLinked={tracking?.key === 'app:linked'}
+                    onChangeApps={current ? () => { void chooseApps(current.id, 'Your apps').then(count => { if (count > 0) void setAppTime(current.id, minutes); }); } : undefined}
+                    appsAvailable={appsAvailable} healthAvailable={draft.habitType !== 'quit'}
+                />
+            ),
+        }] : []),
         {
             id: 'reminder', icon: 'notifications-outline', label: 'Reminder', value: describeReminder(draft),
             content: (
@@ -468,7 +539,7 @@ export const HabitSheet: React.FC<{
                     value={{ reminder: draft.reminder, reminderOffset: draft.reminderOffset, places: draft.places, alerts: draft.alerts }}
                     accent={accent}
                     onError={setError}
-                    trackPlace={tracking?.kind === 'place' ? { minutes: trackMinutes(tracking, said) } : undefined}
+                    trackPlace={tracking?.kind === 'place' ? { minutes } : undefined}
                     onChange={patch => change(patch)}
                 />
             ),
@@ -567,7 +638,10 @@ export const HabitSheet: React.FC<{
                         </TypingPlaceholder>
                     </DictateField>
 
-                    <AutoTrackHint options={trackOptions} chosen={tracking?.key ?? 'off'} onChoose={chooseTracking} accent={accentText} />
+                    {/* The suggestion, while it is one: picked something else in the Tracking chip, the line steps aside. */}
+                    {!current && (trackPick === null || trackPick === 'off' || suggestions.some(option => option.key === trackPick)) ? (
+                        <AutoTrackHint options={suggestions} chosen={tracking?.key ?? 'off'} onChoose={key => chooseTracking(key, 'hint')} accent={accentText} />
+                    ) : null}
 
 
                     {error ? (

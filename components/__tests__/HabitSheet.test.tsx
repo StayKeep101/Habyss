@@ -13,6 +13,7 @@ jest.mock('@/lib/notificationService', () => ({ NotificationService: { refreshRe
 jest.mock('@/lib/habitsSQLite', () => ({
     addHabit: jest.fn().mockResolvedValue({ id: 'h1' }),
     updateHabit: jest.fn().mockResolvedValue(undefined),
+    withAutoTrack: jest.fn((habit: object, metric?: string) => ({ ...habit, healthKitMetric: metric })),
     getGoals: jest.fn().mockResolvedValue([]),
 }));
 
@@ -270,5 +271,25 @@ describe('how often a habit comes round', () => {
         fireEvent.press(screen.getByText('Weekly'));
         fireEvent.press(within(screen.getByTestId('repeat-every')).getByLabelText('2'));
         expect(screen.getAllByText(/every 2 weeks/).length).toBeGreaterThan(0);
+    });
+});
+
+describe('tracking', () => {
+    it('a habit Health can count is linked to it, and turned off it is not', async () => {
+        (addHabit as jest.Mock).mockClear();
+        const first = render(<HabitSheet visible onClose={jest.fn()} />);
+        fireEvent.changeText(first.getByLabelText('Describe the habit'), 'Run');
+        await act(async () => { fireEvent.press(first.getByText('Add habit')); });
+        await waitFor(() => expect(addHabit).toHaveBeenCalled());
+        expect((addHabit as jest.Mock).mock.calls[0][0]).toMatchObject({ healthKitMetric: 'run' });
+        first.unmount();
+
+        (addHabit as jest.Mock).mockClear();
+        const second = render(<HabitSheet visible onClose={jest.fn()} />);
+        fireEvent.changeText(second.getByLabelText('Describe the habit'), 'Run');
+        fireEvent.press(second.getByText('Off'));
+        await act(async () => { fireEvent.press(second.getByText('Add habit')); });
+        await waitFor(() => expect(addHabit).toHaveBeenCalled());
+        expect((addHabit as jest.Mock).mock.calls[0][0].healthKitMetric).toBeUndefined();
     });
 });

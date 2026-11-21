@@ -248,15 +248,18 @@ export async function getGoals(): Promise<Habit[]> {
  * steps", "Meditate"): the source, its unit when the habit has none, and a target.
  * Not a goal, not a habit being broken, not one already linked; and only on iOS.
  */
-export function withAutoTrack(habit: Partial<Habit>): Partial<Habit> {
-    if (habit.healthKitMetric || habit.isGoal || habit.type === 'quit' || !habit.name) return habit;
+export function withAutoTrack(habit: Partial<Habit>, chosen?: HealthMetric): Partial<Habit> {
+    // Chosen in the Tracking chip: linked to that, whatever the name says.
+    if ((habit.healthKitMetric && !chosen) || habit.isGoal || habit.type === 'quit' || !habit.name) return habit;
     const { Platform } = require('react-native') as typeof import('react-native');
     if (Platform.OS !== 'ios') return habit;
     const { guessHealthMetric, autoTrackDefaults } = require('./autoTrackGuess') as typeof import('./autoTrackGuess');
-    const metric = guessHealthMetric(habit.name, habit.unit);
+    const metric = chosen ?? guessHealthMetric(habit.name, habit.unit);
     if (!metric) return habit;
     const defaults = autoTrackDefaults(metric);
-    const keepsItsOwn = !!habit.unit?.trim() && habit.trackingMethod === 'numeric' && (habit.goalValue ?? 0) > 0;
+    // Its own amount stays only when Health can read it in that unit (30 minutes of a run, not 30 pages).
+    const { metricsForUnit } = require('./healthMetrics') as typeof import('./healthMetrics');
+    const keepsItsOwn = !!habit.unit?.trim() && habit.trackingMethod === 'numeric' && (habit.goalValue ?? 0) > 0 && metricsForUnit(habit.unit).includes(metric);
     const target = keepsItsOwn ? habit.goalValue! : defaults.target;
     // Health is asked for (and workouts with it) right away, while the habit is fresh in mind.
     setTimeout(() => {

@@ -1,5 +1,5 @@
 import { guessHealthMetric } from './autoTrackGuess';
-import { isWorkoutMetric, type HealthMetric } from './healthMetrics';
+import { HEALTH_METRICS, isWorkoutMetric, type HealthMetric } from './healthMetrics';
 import { APP_TIME_IDEAS, type AppTimeIdea } from './appTime';
 
 /**
@@ -98,7 +98,7 @@ export function autoTrackOptions(name: string, said?: { amount?: number; unit?: 
         : null;
 
     const place = BY_PLACE.find(([pattern]) => pattern.test(text));
-    const placeOption: AutoTrackOption | null = place ? { kind: 'place', key: `place:${place[1]}`, place: place[1], label: `At ${place[1]}`, detail: '' } : null;
+    const placeOption: AutoTrackOption | null = place ? { kind: 'place', key: 'place', place: place[1], label: `At ${place[1]}`, detail: '' } : null;
     if (placeOption) placeOption.detail = `Ticks itself after ${minutesSaid(trackMinutes(placeOption, said))} there`;
 
     // Meditation counts best from Health (the apps write mindful minutes); a workout from
@@ -108,4 +108,28 @@ export function autoTrackOptions(name: string, said?: { amount?: number; unit?: 
         : [appOption, healthOption, placeOption];
     for (const option of order) if (option && options.length < 2) options.push(option);
     return options;
+}
+
+/** What feeds a Health metric: the apps that save it, else what it counts. */
+export function healthSource(metric: HealthMetric): string {
+    const from = HEALTH_FROM[metric];
+    if (from) return `${from.apps}, anything that saves to Health`;
+    return HEALTH_METRICS.find(item => item.id === metric)?.detail ?? 'From Apple Health';
+}
+
+/**
+ * Every way a habit can track itself, for the Tracking chip: each Health
+ * metric, each kind of app time (the ones for breaking a habit when it is
+ * being broken), and a place. Keys match autoTrackOptions', so a suggestion
+ * and the chip agree on what is chosen.
+ */
+export function allTrackOptions(quit: boolean): AutoTrackOption[] {
+    const health: AutoTrackOption[] = quit ? [] : HEALTH_METRICS.map(info => ({
+        kind: 'health' as const, key: `health:${info.id}`, metric: info.id, label: info.label, detail: healthSource(info.id),
+    }));
+    const apps: AutoTrackOption[] = APP_TIME_IDEAS.filter(idea => idea.quit === quit).map(idea => ({
+        kind: 'app' as const, key: `app:${idea.id}`, idea, label: idea.pick, detail: idea.detail,
+    }));
+    const place: AutoTrackOption = { kind: 'place', key: 'place', place: 'a place', label: 'A place', detail: 'Ticks itself after time there' };
+    return [...health, ...apps, place];
 }
