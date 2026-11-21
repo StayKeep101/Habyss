@@ -119,6 +119,16 @@ async function hereNow(): Promise<{ latitude: number; longitude: number } | null
     } catch { return null; }
 }
 
+/** Whether a habit ticks itself: linked to Apple Health, to time in apps, or to time at a place. */
+export async function tracksItself(habit: Pick<Habit, 'id' | 'healthKitMetric' | 'locationReminders'>): Promise<boolean> {
+    if (habit.healthKitMetric) return true;
+    if (habit.locationReminders?.some(place => place.trigger === 'stay')) return true;
+    try {
+        const { getAppTime } = require('./appTime') as typeof import('./appTime');
+        return !!(await getAppTime())[habit.id];
+    } catch { return false; }
+}
+
 const titleOf = (item: ProofItem) => (item.kind === 'habit' ? item.habit.name : item.task.title);
 
 /**
@@ -132,8 +142,9 @@ export async function proveTick(item: ProofItem, day: string, done = true): Prom
     if (rule === 'none') {
         // Every habit ticked by hand: the camera opens for a photo of it, skippable (the tick stands
         // either way). Kept in the habit's history and shown to friends on your day (lib/tickPhotos.ts).
+        // Not for a habit that tracks itself (Apple Health, time in apps, time at a place): its own record is the proof.
         const photos = require('./tickPhotos') as typeof import('./tickPhotos');
-        if (item.kind === 'habit' && asker && await photos.tickPhotoOn()) {
+        if (item.kind === 'habit' && asker && !(await tracksItself(item.habit)) && await photos.tickPhotoOn()) {
             const uri = await new Promise<string | null>(resolve => asker!({ title: titleOf(item), resolve, optional: true }));
             if (uri) void photos.keepTickPhoto(item.habit.id, day, uri);
         }

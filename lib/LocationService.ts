@@ -119,6 +119,14 @@ async function tickForStay(item: StayItem, place: StayPlace, stayedMs: number, a
     await tellAutoTicked(`${item.kind}:${item.id}`, `${outcome.name}: done.`, `${minutesLabel(stayedMs / 60000)} at ${place.name}. Not a single tap.`);
 }
 
+/** Minutes you have been at this item's place so far (arrived, not left yet), or null when not there. */
+export async function minutesHereFor(itemId: string): Promise<number | null> {
+    const all = await arrivals();
+    const now = Date.now();
+    const here = Object.values(all).find(arrival => arrival.item.id === itemId && now - arrival.at <= STAY_CEILING_MS);
+    return here ? Math.max(0, Math.round((now - here.at) / 60000)) : null;
+}
+
 /** Metres between two points (haversine). */
 function metresBetween(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
     const rad = (deg: number) => (deg * Math.PI) / 180;

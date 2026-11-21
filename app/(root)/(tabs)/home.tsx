@@ -18,7 +18,7 @@ import { VoidShell } from '@/components/ui/VoidShell';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { focusLeave, focusTurn, setFocusStage } from '@/lib/focusStage';
-import { EASE, FOCUS_ENTRY, FOCUS_EXIT, timingFor } from '@/theme/motion';
+import { EASE, FOCUS_ENTRY, FOCUS_EXIT, OVERLAY, timingFor } from '@/theme/motion';
 import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
 import { proveTick } from '@/lib/challengeProof';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
@@ -51,6 +51,7 @@ import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
 import { DayHourglass, GLASS_HEIGHT } from '@/components/Home/DayHourglass';
+import { GlassCarousel } from '@/components/Home/GlassCarousel';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { Radius, Spacing } from '@/theme/designSystem';
 import { homeStyles } from '@/styles/screens/home.styles';
@@ -96,6 +97,7 @@ const Home = () => {
   const [measuredHeader, setHeaderHeight] = useState(0);
   const headerHeight = measuredHeader || insets.top + topSpacing + s(64) + Spacing.lg;
   const homeScrollY = useSharedValue(0);
+  const homeScrollRef = useRef<Animated.ScrollView>(null);
   const onHomeScroll = useAnimatedScrollHandler(event => { homeScrollY.set(event.contentOffset.y); });
   // The temple scene (assets/images/scenes/temple.jpg, 1199 × 1312) at the screen's width: the hourglass
   // stands on its podium's top step, and the cards start just below the stairs.
@@ -632,6 +634,15 @@ const Home = () => {
     return () => setFocusStage(null);
   }, [reduceMotion]));
   const pageLeave = useAnimatedStyle(() => ({ transform: [{ translateY: focusLeave.get() * screenHeight }] }));
+  // Every hourglass, opened in place on the podium: the page and the bar step aside, the scene stays.
+  const [glassesOpen, setGlassesOpen] = useState(false);
+  const glassesAside = useSharedValue(0);
+  const onGlasses = useCallback((open: boolean) => {
+    setGlassesOpen(open);
+    glassesAside.set(withTiming(open ? 1 : 0, open ? OVERLAY.in : OVERLAY.out));
+    if (open) homeScrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, [glassesAside]);
+  const asideForGlasses = useAnimatedStyle(() => ({ opacity: 1 - glassesAside.get() }));
   const barLeave = useAnimatedStyle(() => ({
     opacity: 1 - focusLeave.get(),
     transform: [{ translateY: -focusLeave.get() * Math.max(1, headerHeight) }],
@@ -646,15 +657,17 @@ const Home = () => {
         <LinearGradient colors={[clearOf(colors.background), colors.background]} style={[homeStyles.sceneFoot, { top: sceneHeight * 0.72, height: sceneHeight * 0.28 }]} />
       </Animated.View>
       {/* The day's hourglass on the podium's top step: it never moves; the cards rise over it. */}
-      <Animated.View pointerEvents="none" style={[homeStyles.glassStage, { top: stepY - GLASS_HEIGHT / 2, left: horizontalPadding, right: horizontalPadding }, sceneFade]}>
+      <Animated.View pointerEvents="none" style={[homeStyles.glassStage, { top: stepY - GLASS_HEIGHT / 2, left: horizontalPadding, right: horizontalPadding }, sceneFade, asideForGlasses]}>
         <DayHourglass marks={marks.total} />
       </Animated.View>
       <Animated.ScrollView
+        ref={homeScrollRef}
+        pointerEvents={glassesOpen ? 'none' : 'auto'}
         onScroll={onHomeScroll}
         scrollEventThrottle={16}
         // The page stops at the bar's edge: nothing scrolls under your picture and the stats,
         // so Echo's line can never run into them. The fade under the bar softens the edge.
-        style={pageLeave}
+        style={[pageLeave, asideForGlasses]}
         automaticallyAdjustContentInsets={false}
         // The page scrolls up under the bar's fade (it starts below it), so there is no hard line where it stops.
         contentContainerStyle={{ paddingTop: panelTop }}
@@ -727,11 +740,13 @@ const Home = () => {
 
           </View>
       </Animated.ScrollView>
+      {/* Every hourglass, on this podium, over this scene (components/Home/GlassCarousel.tsx). */}
+      <GlassCarousel stage={{ glassBottom: stepY + GLASS_HEIGHT / 2, size: GLASS_HEIGHT * 1.35, captionTop: stepY + GLASS_HEIGHT / 2 + Spacing.xl }} onOpenChange={onGlasses} />
 
       {/* The floating stats bar: your picture and the three stats, fixed over everything, the cards passing under. */}
       {/* Plain dark behind the picture and the stats, no shadow: the page stops at its edge
           and slips under a short fade into it, so there is never a hard line. */}
-      <Animated.View style={[homeStyles.bar, { paddingTop: insets.top }, barLeave]} pointerEvents="box-none"
+      <Animated.View style={[homeStyles.bar, { paddingTop: insets.top }, barLeave, asideForGlasses]} pointerEvents={glassesOpen ? 'none' : 'box-none'}
         onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}>
         {/* No background: the page colour at the very top (the status bar reads on it), fading out
             by the bar's foot, so the sky shows behind your picture and stats, as on Community. */}

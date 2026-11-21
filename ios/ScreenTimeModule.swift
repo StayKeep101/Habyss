@@ -133,6 +133,11 @@ class ScreenTimeModule: NSObject {
         }
     }
 
+    /// Minutes in a habit's apps so far today (in steps of 5 or so; the full time once reached).
+    @objc func appTimeProgress(_ habitId: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        if #available(iOS 16.0, *) { resolve(AppTime.progressToday(habitId)) } else { resolve(0) }
+    }
+
     @objc func appTimeChosen(_ habitId: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         if #available(iOS 16.0, *) { resolve(AppTime.chosenCount(habitId)) } else { resolve(0) }
     }

@@ -48,6 +48,12 @@ export async function chooseApps(habitId: string, title: string): Promise<number
     try { return Number(await native().pickAppTimeApps(habitId, title)); } catch { return -1; }
 }
 
+/** Minutes in a habit's apps so far today, or null on a build that cannot tell (before 1.0.6). */
+export async function appTimeProgress(habitId: string): Promise<number | null> {
+    if (!appTimeSupported() || typeof native()?.appTimeProgress !== 'function') return null;
+    try { return Number(await native().appTimeProgress(habitId)) || 0; } catch { return null; }
+}
+
 /** How many apps (or categories) are chosen for this habit; 0 when none. */
 export async function appsChosen(habitId: string): Promise<number> {
     if (!appTimeSupported() || typeof native()?.appTimeChosen !== 'function') return 0;

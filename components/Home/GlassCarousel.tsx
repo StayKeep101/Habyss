@@ -32,7 +32,15 @@ const SLOT = 0.54;
  * Picking one you have reached dresses the app in its palette (and turns on the
  * Hourglass theme, Settings → Appearance): Home's hourglass and scene take it too.
  */
-export function GlassCarousel() {
+export function GlassCarousel({ stage, onOpenChange }: {
+    /**
+     * Opened in place on Home, over its own scene: where the podium's hourglass
+     * stands (its bottom edge, in points from the top), how big the one in the
+     * middle is, and where the words under it start. The page's background stays.
+     */
+    stage?: { glassBottom: number; size: number; captionTop: number };
+    onOpenChange?: (open: boolean) => void;
+} = {}) {
     const t = useTokens();
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
@@ -53,19 +61,22 @@ export function GlassCarousel() {
             setIndex(start);
             scrollX.set(start * slot);
             setOpen(event);
+            onOpenChange?.(true);
             shown.set(withTiming(1, OVERLAY.in));
         });
         return () => sub.remove();
-    }, [shown, scrollX, slot]);
+    }, [shown, scrollX, slot, onOpenChange]);
 
     const close = () => {
         lightFeedback();
+        onOpenChange?.(false);
         const gone = () => setOpen(null);
         shown.set(withTiming(0, OVERLAY.out, finished => { if (finished) runOnJS(gone)(); }));
     };
 
     const onScroll = useAnimatedScrollHandler(event => { scrollX.set(event.contentOffset.x); });
     const layerStyle = useAnimatedStyle(() => ({ opacity: shown.get(), transform: [{ scale: 0.94 + shown.get() * 0.06 }] }));
+    const glassSize = stage?.size ?? s(270);
 
     if (!open) return null;
     const yours = Math.max(0, RANKS.findIndex(rank => rank.name === open.rank));
@@ -73,9 +84,9 @@ export function GlassCarousel() {
     const reached = open.marks >= current.min;
 
     return (
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: t.color.background }, layerStyle]}>
-            {/* The scene of the hourglass in the middle, as Opal sets each gem in its cave. */}
-            <RankScene rank={RANKS[index].name} fill />
+        <Animated.View style={[StyleSheet.absoluteFill, stage ? null : { backgroundColor: t.color.background }, layerStyle]}>
+            {/* On its own, the scene of the hourglass in the middle; on Home, Home's scene stays behind. */}
+            {stage ? null : <RankScene rank={RANKS[index].name} fill />}
             <View style={[styles.top, { paddingTop: insets.top + t.space.sm, paddingHorizontal: t.space.lg }]}>
                 <View style={styles.flex}>
                     <Text variant="title" accessibilityRole="header">Hourglasses</Text>
@@ -86,7 +97,8 @@ export function GlassCarousel() {
 
             <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}
                 snapToInterval={slot} decelerationRate="fast" contentOffset={{ x: yours * slot, y: 0 }}
-                contentContainerStyle={{ paddingHorizontal: side, alignItems: 'center' }} style={styles.flex}
+                contentContainerStyle={stage ? { paddingHorizontal: side, alignItems: 'flex-end' } : { paddingHorizontal: side, alignItems: 'center' }}
+                style={stage ? { position: 'absolute', left: 0, right: 0, top: stage.glassBottom - glassSize - t.space['3xl'], height: glassSize + t.space['3xl'] } : styles.flex}
                 onMomentumScrollEnd={event => {
                     const next = Math.round(event.nativeEvent.contentOffset.x / slot);
                     if (next !== index) { selectionFeedback(); setIndex(Math.max(0, Math.min(RANKS.length - 1, next))); }
@@ -94,7 +106,7 @@ export function GlassCarousel() {
                 {RANKS.map((rank, position) => (
                     <Slot key={rank.name} position={position} slot={slot} scrollX={scrollX}>
                         <View style={{ opacity: open.marks >= rank.min ? 1 : 0.55 }}>
-                            <RankHourglass rank={rank.name} size={s(270)} />
+                            <RankHourglass rank={rank.name} size={glassSize} />
                         </View>
                         {open.marks < rank.min ? (
                             <View style={[styles.lockBadge, { backgroundColor: t.color.surfaceRaised }]}>
@@ -106,7 +118,7 @@ export function GlassCarousel() {
             </Animated.ScrollView>
 
             {/* The one in the middle: whose it is. */}
-            <View style={[styles.caption, { paddingBottom: insets.bottom + t.space.xl, gap: t.space.xs }]} accessibilityLiveRegion="polite">
+            <View style={[styles.caption, stage ? { position: 'absolute', left: 0, right: 0, top: stage.captionTop, gap: t.space.xs } : { paddingBottom: insets.bottom + t.space.xl, gap: t.space.xs }]} accessibilityLiveRegion="polite">
                 <View style={styles.nameRow}>
                     <Text variant="screenTitle">{current.name}</Text>
                 </View>

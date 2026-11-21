@@ -100,7 +100,7 @@ interface Draft {
 }
 
 const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
-    { id: 'flexible', label: 'Flexible' },
+    { id: 'flexible', label: 'Anytime' },
     { id: 'exact', label: 'Exact time' },
 ];
 
@@ -281,7 +281,8 @@ export const HabitSheet: React.FC<{
                 : start.rule),
             // Only ever switches to quit; editing a quit habit's words never makes it a build one.
             habitType: rules?.habitType === 'quit' ? 'quit' : start.habitType,
-            startTime: parsed.startTime ?? start.startTime,
+            // The model may miss "now"; the rules never do.
+            startTime: parsed.startTime ?? rules?.startTime ?? start.startTime,
             durationMinutes: parsed.durationMinutes ?? start.durationMinutes,
             amount: parsed.targetValue ?? start.amount,
             unit: parsed.targetUnit ?? start.unit,
@@ -470,7 +471,7 @@ export const HabitSheet: React.FC<{
             id: 'time', icon: 'time-outline', label: 'Time',
             value: exact
                 ? (draft.startTime ? `${draft.durationMinutes ? `${draft.startTime} → ${endTime(draft.startTime, draft.durationMinutes)}` : draft.startTime}` : undefined)
-                : draft.durationMinutes ? `Flexible · ${lengthLabel(draft.durationMinutes)}` : undefined,
+                : draft.durationMinutes ? `Anytime · ${lengthLabel(draft.durationMinutes)}` : undefined,
             content: (
                 <>
                     {/* First: may the timeline move it, or does it stay at its time? Flexible has no time of day,

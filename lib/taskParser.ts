@@ -270,6 +270,18 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
         break;
     }
 
+    // "now", "right now": today, at this very minute.
+    if (!dueTime) {
+        const nowWord = rest.match(/\b(?:right\s+)?now\b/i);
+        if (nowWord) {
+            dueTime = `${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
+            exactTime = true;
+            due = base;
+            matched.time = true;
+            matched.date = true;
+            strike(new RegExp(escapeRegex(nowWord[0]), 'i'));
+        }
+    }
     if (!dueTime && saidTonight) { dueTime = '19:00'; matched.time = true; }
     if (!dueTime) {
         for (const word of wordTimes) {

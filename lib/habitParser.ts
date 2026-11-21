@@ -278,6 +278,7 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
 
     /* ------------------------------------------------- "from 7 to 8am" */
     let startTime: string | undefined = endOfDayTime;
+    let saidNow = false;
     let durationMinutes: number | undefined;
     const range = quit ? null : findTimeRange(rest);
     if (range) {
@@ -370,6 +371,18 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
         break;
     }
 
+    /* ------------------------------------------------------------ "now" */
+    // "now", "right now": at this very minute, kept there (not moved by the timeline).
+    if (!quit && !startTime) {
+        const nowWord = rest.match(/\b(?:right\s+)?now\b/i);
+        if (nowWord) {
+            startTime = `${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
+            matched.time = true;
+            saidNow = true;
+            take(nowWord[0]);
+        }
+    }
+
     /* ------------------------------------------------------- part of the day */
     // "each morning", "every night", "in the evening": a time, and with
     // every/each, every day. Only a starting hour when none was given; never
@@ -417,7 +430,8 @@ export function parseHabitText(input: string, today: Date = new Date()): ParsedH
         habitType: quit ? 'quit' : 'build',
         priority: urgency?.priority,
         difficulty: hardness?.difficulty,
-        flexible: timing?.flexible,
+        // Said "now": kept at this minute.
+        flexible: saidNow ? false : timing?.flexible,
         assumptions,
         matched,
     };

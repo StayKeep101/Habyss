@@ -20,6 +20,7 @@ import { useTokens } from '@/hooks/useTokens';
 import { consistencyFrom } from '@/lib/habitRecord';
 import { friendHistory, peopleColors, togetherHistory } from '@/lib/sharedProgress';
 import { SectionTitle } from '@/components/ui/SectionTitle';
+import { HabitTracking } from '@/components/Habit/HabitTracking';
 import { HabitPhotos } from '@/components/Habit/HabitPhotos';
 import { useWeekStart } from '@/hooks/useWeekStart';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
@@ -248,6 +249,7 @@ export default function HabitDetailScreen() {
                     </Animated.View>
                     <HabitToday done={doneToday} skipped={skippedToday} scheduled={scheduledToday} color={accent} onDone={markDone} onSkip={skip} onFocus={focus}
                         waiting={shared && waitingOnOthers(shared, doneToday) ? waitingLabel(shared) : null} />
+                    <HabitTracking habit={habit} color={accent} />
                     <HabitStats record={record} color={accent} />
 
                     {/* How it has gone, day by day: the heat map. */}

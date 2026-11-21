@@ -170,3 +170,14 @@ describe('a date typed in the past', () => {
         expect(day('dishes Nov 11')).toBe('2026-11-11');
     });
 });
+
+describe('"now"', () => {
+    it('is today at this minute', () => {
+        const { parseTaskText } = require('../taskParser');
+        const parsed = parseTaskText('Call mom now', new Date(2026, 10, 21, 14, 37));
+        expect(parsed.title).toBe('Call mom');
+        expect(parsed.dueTime).toBe('14:37');
+        expect(parsed.dueDate).toBe('2026-11-21');
+        expect(parsed.flexible).toBe(false);
+    });
+});

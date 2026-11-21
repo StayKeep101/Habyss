@@ -415,9 +415,41 @@ enum AppTime {
             let name = DeviceActivityName(prefix + habit.id)
             let event = DeviceActivityEvent(applications: chosen.applicationTokens, categories: chosen.categoryTokens,
                                             webDomains: chosen.webDomainTokens, threshold: DateComponents(minute: habit.minutes))
+            var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [DeviceActivityEvent.Name("reached"): event]
+            // On the way there, a step at a time, so the habit's page can say how far along today is.
+            for minutes in progressSteps(habit.minutes) {
+                events[DeviceActivityEvent.Name("p.\(minutes)")] = DeviceActivityEvent(applications: chosen.applicationTokens, categories: chosen.categoryTokens,
+                                                                                       webDomains: chosen.webDomainTokens, threshold: DateComponents(minute: minutes))
+            }
             center.stopMonitoring([name])
-            try? center.startMonitoring(name, during: schedule, events: [DeviceActivityEvent.Name("reached"): event])
+            try? center.startMonitoring(name, during: schedule, events: events)
         }
+    }
+
+    /// Minutes to note on the way to the habit's time: every 5 (or more, at most 12 steps).
+    static func progressSteps(_ target: Int) -> [Int] {
+        guard target > 5 else { return [] }
+        let step = max(5, Int((Double(target) / 12.0 / 5.0).rounded(.up)) * 5)
+        return Array(stride(from: step, to: target, by: step))
+    }
+
+    static func progressKey(_ id: String) -> String { "HabyssAppTimeProgress.\(id)" }
+
+    /// The monitor: this many minutes in the habit's apps so far today.
+    static func progress(_ activity: DeviceActivityName, minutes: Int) {
+        guard let habit = habit(for: activity) else { return }
+        let defaults = UserDefaults(suiteName: Gate.groupId)
+        let saved = defaults?.dictionary(forKey: progressKey(habit.id))
+        let before = saved?["day"] as? String == Gate.today() ? saved?["minutes"] as? Int ?? 0 : 0
+        defaults?.set(["day": Gate.today(), "minutes": max(before, minutes)], forKey: progressKey(habit.id))
+    }
+
+    /// Minutes in the habit's apps today, as far as the steps have told (the full time once reached).
+    static func progressToday(_ id: String) -> Int {
+        let saved = UserDefaults(suiteName: Gate.groupId)?.dictionary(forKey: progressKey(id))
+        let noted = saved?["day"] as? String == Gate.today() ? saved?["minutes"] as? Int ?? 0 : 0
+        if recorded(id) != nil, let habit = habits().first(where: { $0.id == id }) { return max(noted, habit.minutes) }
+        return noted
     }
 
     /// The monitor: the time was reached today.

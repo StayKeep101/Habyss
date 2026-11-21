@@ -204,3 +204,13 @@ describe('habits as people write them (the 400-case pass)', () => {
         expect(parsedToHabit(read('Avoid sugary drinks on weekdays'), '2026-10-26').type).toBe('quit');
     });
 });
+
+describe('"now"', () => {
+    it('starts at this minute, kept there', () => {
+        const { parseHabitText } = require('../habitParser');
+        const parsed = parseHabitText('Meditate right now', new Date(2026, 10, 21, 9, 5));
+        expect(parsed.name).toBe('Meditate');
+        expect(parsed.startTime).toBe('09:05');
+        expect(parsed.flexible).toBe(false);
+    });
+});

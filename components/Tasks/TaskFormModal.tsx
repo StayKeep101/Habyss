@@ -57,7 +57,7 @@ interface Props {
 }
 
 const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
-    { id: 'flexible', label: 'Flexible' },
+    { id: 'flexible', label: 'Anytime' },
     { id: 'exact', label: 'Exact time' },
 ];
 
@@ -218,8 +218,9 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             title: parsed.title || start.title,
             // With a deadline the rules know the day to do it apart from the
             // day it is due; the model only knows one date.
-            dueDate: (rules?.matched.deadline ? rules.dueDate : parsed.dueDate) ?? start.dueDate,
-            dueTime: parsed.dueTime ?? start.dueTime,
+            dueDate: (rules?.matched.deadline || (rules && /\bnow\b/i.test(text)) ? rules.dueDate : parsed.dueDate) ?? start.dueDate,
+            // "now" is read by the rules (the model may miss it): this minute, today.
+            dueTime: (rules && /\bnow\b/i.test(text) ? rules.dueTime : undefined) ?? parsed.dueTime ?? start.dueTime,
             estimate: parsed.estimatedMinutes ?? start.estimate,
             priority: parsed.priority ?? start.priority,
             // Read by the rules alone: "due by Friday", "hard", "at 3 sharp".
@@ -343,7 +344,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             id: 'time', icon: 'time-outline', label: 'Time',
             value: exact
                 ? (draft.dueTime ? `${draft.estimate ? `${draft.dueTime} → ${endTime(draft.dueTime, draft.estimate)}` : draft.dueTime}` : undefined)
-                : draft.estimate ? `Flexible · ${lengthLabel(draft.estimate)}` : undefined,
+                : draft.estimate ? `Anytime · ${lengthLabel(draft.estimate)}` : undefined,
             content: (
                 <>
                     {/* First: may the timeline move it, or does it stay at its time? Flexible has no time of day,

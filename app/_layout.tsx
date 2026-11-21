@@ -34,10 +34,10 @@ import { FreezeAskHost } from '@/components/Echo/FreezeAskHost';
 import { OpenBetHost } from '@/components/Market/OpenBetHost';
 import { ChallengeHost } from '@/components/Challenge/ChallengeHost';
 import { ProofCameraHost } from '@/components/Proof/ProofCameraHost';
+import { BedtimeNudgeHost } from '@/components/Echo/BedtimeNudgeHost';
 import { DayCompleteCelebration } from '@/components/Celebrations/DayCompleteCelebration';
 import { MilestoneCelebration } from '@/components/Celebrations/MilestoneCelebration';
 import { HabitSheet } from '@/components/Create/HabitSheet';
-import { GlassCarousel } from '@/components/Home/GlassCarousel';
 import { GlassRipple } from '@/components/Home/GlassRipple';
 import { GoalSheet } from '@/components/Create/GoalSheet';
 import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
@@ -503,6 +503,8 @@ function InnerLayout() {
         <OpenBetHost />
         <ChallengeHost />
         <ProofCameraHost />
+        {/* Past bedtime with the app open: Echo, now and then, sending you to bed. */}
+        <BedtimeNudgeHost />
         {/* Hold the create button and speak. */}
         <VoiceCapture />
         <HabitSheet listenToGlobalEvents />
@@ -512,7 +514,6 @@ function InnerLayout() {
             something should never depend on being on the right screen. */}
         <FeedbackSheet />
         {/* Every hourglass you can earn, opened from the day's hourglass, over every screen. */}
-        <GlassCarousel />
         {/* The morning flip's rings, rolling out over every screen and the tab bar. */}
         <GlassRipple />
         {/* The first-run tour, over every screen. */}

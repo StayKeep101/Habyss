@@ -35,6 +35,11 @@ final class ActivityMonitorExtension: DeviceActivityMonitor {
         super.eventDidReachThreshold(event, activity: activity)
         // A habit timed in its apps (AppTime): ticked, or lost, and said.
         if activity.rawValue.hasPrefix(AppTime.prefix) {
+            // A step on the way: noted for the habit's page, nothing said.
+            if event.rawValue.hasPrefix("p."), let minutes = Int(event.rawValue.dropFirst(2)) {
+                AppTime.progress(activity, minutes: minutes)
+                return
+            }
             guard let line = AppTime.reached(activity) else { return }
             let content = UNMutableNotificationContent()
             content.title = line.title
