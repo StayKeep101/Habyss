@@ -45,6 +45,12 @@ const FALL_MS = 700;
 const REPOSE = 0.62;
 /** How strongly the sand answers the phone's tilt and shaking (1: fully). */
 const SENSITIVITY = 0.5;
+/**
+ * The top bulb's sand, as in a real glass: a flat surface (no dent over the neck)
+ * that barely shifts when the phone leans; only the heap below answers the tilt.
+ */
+const TOP_LEAN = 0.01;
+const TOP_DIP = 0;
 const HOLD = 0.35;
 /** The grain of the sand: fixed specks over both heaps, [x, y, light?] on the art's grid. */
 const specksFor = (width: number, top: number, bottom: number): [number, number, boolean][] => Array.from({ length: 260 }, (_, i) => {
@@ -76,7 +82,7 @@ function geometry(frame: Omit<GlassFrame, 'image' | 'light' | 'foot' | 'brightne
     return {
         ...frame,
         bulbs,
-        total: topArea(-full, 0, 0, REPOSE, bulbs),
+        total: topArea(-full, 0, 0, REPOSE, bulbs, TOP_DIP),
         specks: specksFor(frame.width, frame.top, frame.bottom),
         outer: glassPath(frame.outline, 0),
         inner: glassPath(frame.outline, INSET),
@@ -159,13 +165,14 @@ export function SkiaHourglass({ size, ran, running, sand, tilt, shake, frame }: 
             paint.setShader(shader);
 
             // The top bulb: what is left of the sand, level but for the funnel over the drain.
-            const L = solveTop((1 - r) * TOTAL, rest, gravity, repose, BULBS, TOP);
+            const topRest = rest * TOP_LEAN;
+            const L = solveTop((1 - r) * TOTAL, topRest, gravity, repose, BULBS, TOP, TOP_DIP);
             const quiver = (x: number) => loose * 5 * Math.sin(x * 0.21 + t * 0.06);
             const top = Skia.Path.Make();
             top.moveTo(BULBS.xs[0], NECK + 4);
             const topEdge = Skia.Path.Make();
             for (const x of BULBS.xs) {
-                const y = Math.min(NECK + 2, topSurface(x, L, rest, gravity, repose, BULBS) + quiver(x));
+                const y = Math.min(NECK + 2, topSurface(x, L, topRest, gravity, repose, BULBS, TOP_DIP) + quiver(x) * TOP_LEAN);
                 top.lineTo(x, y);
                 if (x === BULBS.xs[0]) topEdge.moveTo(x, y); else topEdge.lineTo(x, y);
             }

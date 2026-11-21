@@ -62,24 +62,24 @@ export const DIP = 26;
  * at the angle of repose, its point `DIP` below the level, over the drain (in
  * the resting sand's frame, never below the drain itself).
  */
-export function topSurface(x: number, L: number, rest: number, _gravity: number, repose: number, b: Bulbs): number {
+export function topSurface(x: number, L: number, rest: number, _gravity: number, repose: number, b: Bulbs, dip = DIP): number {
     'worklet';
     // All in the resting sand's own frame: the dimple is part of its surface.
     const c = Math.cos(rest), sn = Math.sin(rest);
     const level = (-L - x * sn) / c;
     const wD = b.cx * c - b.neck * sn;
-    const hD = Math.max(-(b.cx * sn + b.neck * c), L - DIP);
+    const hD = Math.max(-(b.cx * sn + b.neck * c), L - dip);
     const a = -(hD + repose * x * c - repose * wD + x * sn) / (c - repose * sn);
     const bb = -(hD - repose * x * c + repose * wD + x * sn) / (c + repose * sn);
     return Math.max(level, Math.min(a, bb));
 }
 
-export function topArea(L: number, rest: number, gravity: number, repose: number, b: Bulbs): number {
+export function topArea(L: number, rest: number, gravity: number, repose: number, b: Bulbs, dip = DIP): number {
     'worklet';
     let area = 0;
     const dx = b.xs.length > 1 ? b.xs[1] - b.xs[0] : 1;
     for (let i = 0; i < b.xs.length; i++) {
-        const start = Math.max(b.topLo[i], topSurface(b.xs[i], L, rest, gravity, repose, b));
+        const start = Math.max(b.topLo[i], topSurface(b.xs[i], L, rest, gravity, repose, b, dip));
         area += Math.max(0, b.topHi[i] - start) * dx;
     }
     return area;
@@ -117,13 +117,13 @@ export function heapArea(hP: number, rest: number, gravity: number, repose: numb
 }
 
 /** Solves for the top bulb's level holding `volume` of sand. */
-export function solveTop(volume: number, rest: number, gravity: number, repose: number, b: Bulbs, glassTop: number): number {
+export function solveTop(volume: number, rest: number, gravity: number, repose: number, b: Bulbs, glassTop: number, dip = DIP): number {
     'worklet';
     // Height is −y (more or less): from the neck (empty) up past the top of the glass (full).
     let lo = -b.neck - 400, hi = -glassTop + 400;
     for (let i = 0; i < 22; i++) {
         const mid = (lo + hi) / 2;
-        if (topArea(mid, rest, gravity, repose, b) < volume) lo = mid; else hi = mid;
+        if (topArea(mid, rest, gravity, repose, b, dip) < volume) lo = mid; else hi = mid;
     }
     return (lo + hi) / 2;
 }
