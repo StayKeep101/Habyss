@@ -31,3 +31,11 @@ describe('which habits track themselves', () => {
         expect(autoTrackDefaults('sleep')).toEqual({ unit: 'hours', target: 7.5 });
     });
 });
+
+describe('the sheet\'s plain units', () => {
+    it('a habit saved as "time" still links by its name', () => {
+        const { guessHealthMetric } = require('../autoTrackGuess');
+        expect(guessHealthMetric('Run', 'time')).toBe('run');
+        expect(guessHealthMetric('Meditate', 'times')).toBe('mindful');
+    });
+});

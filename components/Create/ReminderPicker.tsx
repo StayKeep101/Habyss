@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { IconButton } from '@/components/ui/IconButton';
@@ -40,8 +40,10 @@ export interface ReminderValue {
  * Its start is always told as well (lib/dayGuide.ts). No message: Echo
  * writes it in your voice.
  */
-export function ReminderPicker({ startTime, value, onChange, accent, onError }: {
+export function ReminderPicker({ startTime, value, onChange, accent, onError, trackPlace }: {
     startTime?: string;
+    /** Opened to make the habit tick itself at a place: starts on the map, and a place chosen counts time there ("Stay"). */
+    trackPlace?: { minutes: number };
     value: ReminderValue;
     onChange: (patch: Partial<ReminderValue>) => void;
     accent: string;
@@ -54,7 +56,7 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
     const room = usePanelRoom();
     const lead = value.alerts?.[0];
     const derived: Mode = value.places.length ? 'place' : lead || value.reminder ? 'before' : 'off';
-    const [chosen, setChosen] = useState<Mode | null>(null);
+    const [chosen, setChosen] = useState<Mode | null>(trackPlace ? 'place' : null);
     const mode = chosen ?? derived;
     const [here, setHere] = useState<{ latitude: number; longitude: number } | null>(null);
     const [finding, setFinding] = useState(false);
@@ -88,6 +90,11 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
         }
     };
 
+    // Opened to track a place: centre the map on where you are, ready for a tap.
+    useEffect(() => {
+        if (trackPlace && !value.places.length) void locate(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const addPlace = async (point: { latitude: number; longitude: number }) => {
         const already = value.places.some(item => Math.abs(item.latitude - point.latitude) < 0.0005 && Math.abs(item.longitude - point.longitude) < 0.0005);
         if (already) return;
@@ -99,7 +106,8 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
         } catch { /* keep the plain name */ }
         selectionFeedback();
         // One place per habit keeps it simple: choosing another moves it.
-        onChange({ places: [{ name, ...point, radius: 150, trigger: value.places[0]?.trigger ?? 'arrive' }] });
+        onChange({ places: [{ name, ...point, radius: 150, trigger: value.places[0]?.trigger ?? (trackPlace ? 'stay' : 'arrive'),
+            stayMinutes: value.places[0]?.stayMinutes ?? (trackPlace ? trackPlace.minutes : undefined) }] });
     };
 
     const options = [

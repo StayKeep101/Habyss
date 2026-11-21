@@ -248,7 +248,7 @@ export async function getGoals(): Promise<Habit[]> {
  * steps", "Meditate"): the source, its unit when the habit has none, and a target.
  * Not a goal, not a habit being broken, not one already linked; and only on iOS.
  */
-function withAutoTrack(habit: Partial<Habit>): Partial<Habit> {
+export function withAutoTrack(habit: Partial<Habit>): Partial<Habit> {
     if (habit.healthKitMetric || habit.isGoal || habit.type === 'quit' || !habit.name) return habit;
     const { Platform } = require('react-native') as typeof import('react-native');
     if (Platform.OS !== 'ios') return habit;
@@ -276,11 +276,12 @@ function withAutoTrack(habit: Partial<Habit>): Partial<Habit> {
     };
 }
 
-export async function addHabit(input: Partial<Habit>): Promise<Habit | null> {
+export async function addHabit(input: Partial<Habit>, options?: { autoTrack?: boolean }): Promise<Habit | null> {
     const uid = await getUserId();
     if (!uid) return null;
-    // Every new habit tracks itself when Apple Health can count it (lib/autoTrackGuess.ts).
-    const habitData = withAutoTrack(input);
+    // Every new habit tracks itself when Apple Health can count it (lib/autoTrackGuess.ts),
+    // unless the sheet was told otherwise (time in apps, a place, or off).
+    const habitData = options?.autoTrack === false ? input : withAutoTrack(input);
 
     const now = new Date().toISOString();
 

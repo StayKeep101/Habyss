@@ -2,7 +2,7 @@ import { goalCompletedOn } from '@/lib/goalInsights';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAutoReschedule } from '@/context/AppSettingsContext';
 import { DEFAULT_LENGTH } from '@/lib/dayFlow';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
@@ -39,6 +39,9 @@ import { useSmartParse } from '@/hooks/useSmartParse';
 import { smartParseHabit } from '@/lib/smartParse';
 import { parseHabitText } from '@/lib/habitParser';
 import { addHabit, updateHabit, getGoals, type Habit, type LocationReminder } from '@/lib/habitsSQLite';
+import { autoTrackOptions, trackMinutes } from '@/lib/autoTrackSources';
+import { appTimeSupported, chooseApps, setAppTime } from '@/lib/appTime';
+import { AutoTrackHint } from '@/components/Create/AutoTrackHint';
 import { localDateKey } from '@/lib/habitSchedule';
 import { NotificationService } from '@/lib/notificationService';
 import { emit, on } from '@/lib/appEvents';
@@ -191,6 +194,8 @@ export const HabitSheet: React.FC<{
     const [goals, setGoals] = useState<Habit[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    /** How it tracks itself: an option's key, 'off', or null for the best one. */
+    const [trackPick, setTrackPick] = useState<string | null>(null);
     const savingRef = useRef(false);
 
     const current = habit ?? editing;
@@ -209,6 +214,7 @@ export const HabitSheet: React.FC<{
         setOpenRow(null);
         setAmountText(null);
         setError(null);
+        setTrackPick(null);
     }
 
     useEffect(() => {
@@ -279,6 +285,22 @@ export const HabitSheet: React.FC<{
     }, [current, eventGoal, parsed, edits, rules]);
     // Everything in the sheet wears the colour chosen for this goal or habit:
     // the chosen chips, the bar's open chip, the calendar — not the app accent.
+    // What could tick it by itself, read from its name as it is written (lib/autoTrackSources.ts).
+    // New habits only: one already saved keeps whatever it is linked to.
+    const said = { amount: draft.amount, unit: draft.unit, durationMinutes: draft.durationMinutes, quit: draft.habitType === 'quit' };
+    const trackOptions = useMemo(() => (current || Platform.OS !== 'ios' ? []
+        : autoTrackOptions(draft.name || text, said).filter(option => option.kind !== 'app' || appTimeSupported())),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [current, draft.name, text, draft.amount, draft.unit, draft.durationMinutes, draft.habitType]);
+    const tracking = trackPick === 'off' ? null : trackOptions.find(option => option.key === trackPick) ?? trackOptions[0] ?? null;
+    const chooseTracking = (key: string) => {
+        setTrackPick(key);
+        const option = trackOptions.find(item => item.key === key);
+        // A place: straight to the map, to tap where it is.
+        if (option?.kind === 'place') setOpenRow('reminder');
+        // Away from a place: the place stays a reminder, not a stay.
+        else if (draft.places.some(place => place.trigger === 'stay')) change({ places: [] });
+    };
     const accent = draft.color || appAccent;
     const accentText = readableAccent(accent, colors.background);
 
@@ -334,8 +356,9 @@ export const HabitSheet: React.FC<{
                 locationReminders: draft.places,
                 // Dropped when the unit no longer measures what Health does, so
                 // an edit cannot leave a step count answering for pages.
-                // Filling a habit from Apple Health (sleep and the like) is gone from the forms.
-                healthKitMetric: undefined,
+                // Linked to Health when it was made (addHabit); an edit keeps that link.
+                healthKitMetric: current?.healthKitMetric,
+                healthKitTarget: current?.healthKitTarget,
                 goalPeriod: current?.goalPeriod ?? 'daily',
                 category: current?.category ?? 'personal',
                 startDate: draft.startDate ?? current?.startDate ?? localDateKey(new Date()),
@@ -343,8 +366,13 @@ export const HabitSheet: React.FC<{
 
             if (current) await updateHabit({ id: current.id, ...fields });
             else {
-                const made = await addHabit(fields);
+                const made = await addHabit(fields, { autoTrack: tracking?.kind === 'health' });
                 if (!made?.id) throw new Error('not saved');
+                // Time in apps: Screen Time's own picker, over the sheet, to choose Libby, Kindle…
+                if (tracking?.kind === 'app') {
+                    const chosen = await chooseApps(made.id, tracking.idea.pick);
+                    if (chosen > 0) await setAppTime(made.id, trackMinutes(tracking, said));
+                }
                 // After it exists, and never blocking: the habit is saved, and
                 // an invitation that did not reach a friend is not a lost habit.
                 await share.applyTo(made.id);
@@ -440,6 +468,7 @@ export const HabitSheet: React.FC<{
                     value={{ reminder: draft.reminder, reminderOffset: draft.reminderOffset, places: draft.places, alerts: draft.alerts }}
                     accent={accent}
                     onError={setError}
+                    trackPlace={tracking?.kind === 'place' ? { minutes: trackMinutes(tracking, said) } : undefined}
                     onChange={patch => change(patch)}
                 />
             ),
@@ -537,6 +566,8 @@ export const HabitSheet: React.FC<{
                             )}
                         </TypingPlaceholder>
                     </DictateField>
+
+                    <AutoTrackHint options={trackOptions} chosen={tracking?.key ?? 'off'} onChoose={chooseTracking} accent={accentText} />
 
 
                     {error ? (

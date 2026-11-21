@@ -212,7 +212,7 @@ describe('shared habit controls', () => {
         fireEvent.changeText(screen.getByLabelText('Unit search'), 'books');
         fireEvent.press(screen.getByLabelText('Unit Books'));
         await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
-        expect(addHabit).toHaveBeenCalledWith(expect.objectContaining({ goalValue: 1, unit: 'books', trackingMethod: 'numeric' }));
+        expect(addHabit).toHaveBeenCalledWith(expect.objectContaining({ goalValue: 1, unit: 'books', trackingMethod: 'numeric' }), expect.anything());
     });
     it('keeps midnight rather than falling back to a default hour', async () => {
         // 00:00 is falsy in every obvious check, which is how it used to turn

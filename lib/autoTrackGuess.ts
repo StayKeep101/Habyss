@@ -26,7 +26,8 @@ const BY_NAME: [RegExp, HealthMetric][] = [
 export function guessHealthMetric(name: string, unit?: string | null): HealthMetric | null {
     const text = name.toLowerCase();
     const byName = BY_NAME.find(([pattern]) => pattern.test(text))?.[1] ?? null;
-    if (!unit?.trim()) return byName;
+    // "time", "times", "sessions": the sheet's way of saying no unit, not a measure.
+    if (!unit?.trim() || /^(time|times|sessions?|count|x)$/i.test(unit.trim())) return byName;
     // A unit narrows it: only a source that can be read in that unit.
     const fits = metricsForUnit(unit);
     if (byName && fits.includes(byName)) return byName;
