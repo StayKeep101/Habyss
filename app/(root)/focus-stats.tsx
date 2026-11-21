@@ -130,9 +130,11 @@ export default function FocusStatsScreen() {
         const now = mean(elapsed);
         return { now, change: now - mean(before.days.slice(0, count)) };
     }, [shown, before, today]);
-    // One plain sentence: "1h 13m less than last week".
-    const previous = range === 7 ? (page === 0 ? 'last week' : 'the week before') : 'the 30 days before';
+    // Short enough to stay on the label's line, whatever the figure: "1h 13m vs last week".
+    const previous = range === 7 ? 'last week' : 'prior 30 days';
     const changeLine = average.change === 0 ? `Same as ${previous}`
+        : `${focusDuration(Math.abs(average.change))} vs ${previous}`;
+    const changeSaid = average.change === 0 ? `Same as ${previous}`
         : `${focusDuration(Math.abs(average.change))} ${average.change > 0 ? 'more' : 'less'} than ${previous}`;
 
     const up = average.change > 0;
@@ -166,12 +168,13 @@ export default function FocusStatsScreen() {
                     ) : (
                         <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={focusDuration(average.now)} replay={replay} />
                     )}
+                    {/* One line, always: the average and its change, or the picked day. Never wraps, so nothing below moves. */}
                     <View style={styles.trendRow}>
-                        <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{pickedDay ? longDay(pickedDay.date) : 'Daily average'}</Text>
+                        <Text numberOfLines={1} style={[styles.heroLabel, { color: colors.textSecondary }]}>{pickedDay ? longDay(pickedDay.date) : 'Daily average'}</Text>
                         {pickedDay ? null : (
-                            <View style={styles.trend} accessible accessibilityLabel={changeLine}>
+                            <View style={styles.trend} accessible accessibilityLabel={changeSaid}>
                                 <AppIcon name={up ? 'caret-up' : down ? 'caret-down' : 'remove'} size={11} color={trendColor} />
-                                <Text style={[styles.trendText, { color: colors.textTertiary }]}>{changeLine}</Text>
+                                <Text numberOfLines={1} style={[styles.trendText, { color: colors.textTertiary }]}>{changeLine}</Text>
                             </View>
                         )}
                     </View>

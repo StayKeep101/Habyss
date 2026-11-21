@@ -8,9 +8,9 @@ export const styles = StyleSheet.create({
     hero: { gap: vs(4), marginTop: vs(6) },
     heroValue: { fontFamily: FontFamily.bold, fontSize: ms(56), lineHeight: ms(62), letterSpacing: -2, fontVariant: ['tabular-nums'] },
     heroLabel: { fontSize: ms(15), fontFamily: FontFamily.medium },
-    trendRow: { flexDirection: 'row', alignItems: 'center', gap: s(10), flexWrap: 'wrap' },
+    trendRow: { flexDirection: 'row', alignItems: 'center', gap: s(10) },
     /** The change on last week, as a ticker reads: a caret, the signed figure, a quiet label. */
-    trend: { flexDirection: 'row', alignItems: 'center', gap: s(4) },
+    trend: { flexDirection: 'row', alignItems: 'center', gap: s(4), flexShrink: 1 },
     trendValue: { fontSize: ms(15), fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
     trendText: { fontSize: ms(15), fontFamily: FontFamily.regular, marginLeft: s(2) },
     /** Which days the chart shows, or the tapped day and its total. */
