@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text as RNText, StyleSheet, View } from 'react-native';
+import { Image, Pressable, Text as RNText, StyleSheet, View } from 'react-native';
 import { AppIcon, Avatar, CountUp, MatteSurface, PopIn, PostCard, SegmentBar, Text, type PostStat } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { textOn } from '@/theme/tokens';
@@ -128,6 +128,7 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
     const topNames = new Set((card.top ?? []).map(line => line.name));
     const rest = lines.filter(line => !topNames.has(line.name));
     const did = lines.filter(line => line.done).map(line => (post.mine ? line.name : maskObjectionable(line.name)));
+    const photos = [...lines, ...(card.top ?? [])].filter((line, index, all) => line.photo && all.findIndex(other => other.photo === line.photo) === index);
 
     // One format for every post, so a friend's day always reads the same way: how much of
     // the day was done, out of what, and the bar of it. What made this post (a milestone, a
@@ -168,6 +169,15 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
             onReport={post.mine ? undefined : () => ctx.onReport(post)}
             footer={<Footer item={item} ctx={ctx} />}>
             {visual}
+            {/* The photos taken as things were ticked: the proof, at a glance. */}
+            {photos.length ? (
+                <View style={styles.photos}>
+                    {photos.slice(0, 4).map(line => (
+                        <Image key={line.photo} source={{ uri: line.photo }} style={styles.photo}
+                            accessibilityLabel={`Photo of ${post.mine ? line.name : maskObjectionable(line.name)}`} />
+                    ))}
+                </View>
+            ) : null}
             {/* The day's most important tasks, when it had them; otherwise a line of what was done. */}
             {card.top?.length ? <TopTasks lines={card.top} mine={post.mine} /> : did.length ? (
                 <Text variant="bodySmall" tone="muted" numberOfLines={1}>
@@ -243,5 +253,7 @@ const styles = StyleSheet.create({
     facts: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexShrink: 1, maxWidth: '50%' },
     top: { gap: Spacing.xs },
     topRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: Spacing.xxl },
+    photos: { flexDirection: 'row', gap: Spacing.sm },
+    photo: { width: Spacing.section * 2, height: Spacing.section * 2, borderRadius: Radius.small },
     rank: { width: Spacing.xl, height: Spacing.xl, borderRadius: Spacing.xl / 2, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
 });

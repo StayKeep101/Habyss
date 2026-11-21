@@ -243,9 +243,44 @@ export async function getGoals(): Promise<Habit[]> {
     return habits.filter(h => h.isGoal);
 }
 
-export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null> {
+/**
+ * A new habit, linked to what can count it when its name says so ("Run", "Walk 8000
+ * steps", "Meditate"): the source, its unit when the habit has none, and a target.
+ * Not a goal, not a habit being broken, not one already linked; and only on iOS.
+ */
+function withAutoTrack(habit: Partial<Habit>): Partial<Habit> {
+    if (habit.healthKitMetric || habit.isGoal || habit.type === 'quit' || !habit.name) return habit;
+    const { Platform } = require('react-native') as typeof import('react-native');
+    if (Platform.OS !== 'ios') return habit;
+    const { guessHealthMetric, autoTrackDefaults } = require('./autoTrackGuess') as typeof import('./autoTrackGuess');
+    const metric = guessHealthMetric(habit.name, habit.unit);
+    if (!metric) return habit;
+    const defaults = autoTrackDefaults(metric);
+    const keepsItsOwn = !!habit.unit?.trim() && habit.trackingMethod === 'numeric' && (habit.goalValue ?? 0) > 0;
+    const target = keepsItsOwn ? habit.goalValue! : defaults.target;
+    // Health is asked for (and workouts with it) right away, while the habit is fresh in mind.
+    setTimeout(() => {
+        try {
+            const { HealthKitService } = require('./HealthKitService') as typeof import('./HealthKitService');
+            const { isWorkoutMetric } = require('./healthMetrics') as typeof import('./healthMetrics');
+            void (isWorkoutMetric(metric) ? HealthKitService.wantWorkouts() : HealthKitService.init()).catch(() => false);
+        } catch { /* no Health here */ }
+    }, 600);
+    return {
+        ...habit,
+        healthKitMetric: metric,
+        healthKitTarget: target,
+        trackingMethod: 'numeric',
+        unit: keepsItsOwn ? habit.unit : defaults.unit,
+        goalValue: target,
+    };
+}
+
+export async function addHabit(input: Partial<Habit>): Promise<Habit | null> {
     const uid = await getUserId();
     if (!uid) return null;
+    // Every new habit tracks itself when Apple Health can count it (lib/autoTrackGuess.ts).
+    const habitData = withAutoTrack(input);
 
     const now = new Date().toISOString();
 

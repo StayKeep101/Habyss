@@ -11,6 +11,7 @@ import { dailyFocus } from '@/lib/dailyFocus';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { FriendsService } from '@/lib/friendsService';
 import { rememberDayCard } from '@/lib/dayCardLatest';
+import { loadTickPhotos, onTickPhotos, tickPhotoUrl } from '@/lib/tickPhotos';
 
 /** Waits for a burst of ticks to settle before writing, so one card goes up, not ten. */
 const SETTLE_MS = 4000;
@@ -37,6 +38,13 @@ export function useDayCardPublisher() {
         return () => stop?.();
     }, []);
 
+    // Photos of what was ticked: the card is sent again once one has uploaded.
+    const [photoTick, setPhotoTick] = useState(0);
+    useEffect(() => {
+        void loadTickPhotos().then(() => setPhotoTick(tick => tick + 1)).catch(() => undefined);
+        return onTickPhotos(() => setPhotoTick(tick => tick + 1));
+    }, []);
+
     // Focus sessions, for the Chronos facts on the card.
     const [focusTick, setFocusTick] = useState(0);
     useEffect(() => {
@@ -61,6 +69,7 @@ export function useDayCardPublisher() {
                         minutesOf: id => minutes.get(id) ?? 0,
                         withOf: id => othersOn(id).flatMap(person => (names[person] ? [names[person]] : [])),
                         waitingOf: id => !counts(id, day),
+                        photoOf: id => tickPhotoUrl(id, day),
                         // Today's 3 (or 5), the tasks that mattered most (lib/dailyFocus.ts).
                         top: dailyFocus(data.tasks, target, day, day).rows.slice(0, target).map(task => task.id),
                     },
@@ -76,5 +85,5 @@ export function useDayCardPublisher() {
             });
         }, SETTLE_MS);
         return () => clearTimeout(timer);
-    }, [habits, data, focusTick, target, names]);
+    }, [habits, data, focusTick, target, names, photoTick]);
 }

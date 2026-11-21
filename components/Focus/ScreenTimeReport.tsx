@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { requireNativeComponent, UIManager, View, type ViewStyle } from 'react-native';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { ScreenTimeService } from '@/lib/ScreenTimeService';
+import { ScreenTimeService, screenTimeAllowedBefore } from '@/lib/ScreenTimeService';
 import type { WeekStart } from '@/lib/weekStart';
 
 type NativeProps = { days: number; offset: number; weekStart: number; style?: ViewStyle };
@@ -28,7 +28,11 @@ export const screenTimeReportSupported = (): boolean => !!NativeReport;
 
 export function ScreenTimeReport({ days, offset, weekStart, height }: { days: 7 | 30; offset: number; weekStart: WeekStart; height: number }) {
     const [allowed, setAllowed] = useState<boolean | null>(null);
-    useEffect(() => { void ScreenTimeService.isAuthorized().then(setAllowed).catch(() => setAllowed(false)); }, []);
+    useEffect(() => {
+        // Start from what this phone already allowed, then confirm with iOS (it can be slow to say just after launch).
+        void screenTimeAllowedBefore().then(before => { if (before) setAllowed(current => current ?? true); });
+        void ScreenTimeService.isAuthorized().then(setAllowed).catch(() => setAllowed(false));
+    }, []);
 
     if (!NativeReport) {
         return <EmptyState icon="phone-portrait-outline" title="Screen time is on its way" message="Where your hours go, app by app, arrives in a coming update." />;

@@ -22,6 +22,8 @@ export interface DayCardLine {
     with?: string[];
     /** Shared, your part done, the others' not yet: shown with a minus and not counted as done. */
     waiting?: boolean;
+    /** The photo taken when it was ticked (lib/tickPhotos.ts), for friends to see. */
+    photo?: string;
 }
 
 /** What the card can say about each item beyond done or not, read by the poster's phone. */
@@ -30,6 +32,8 @@ export interface DayCardFacts {
     withOf?: (id: string) => string[];
     /** Done by you on a shared item, still waiting on someone else that day. */
     waitingOf?: (id: string) => boolean;
+    /** The photo of it that day, if one was taken and uploaded. */
+    photoOf?: (id: string) => string | undefined;
     /** The day's most important tasks (Today's 3 or 5, lib/dailyFocus.ts), in order. */
     top?: string[];
 }
@@ -77,9 +81,11 @@ export function buildDayCard(input: {
         const minutes = Math.round(facts.minutesOf?.(id) ?? 0);
         const people = facts.withOf?.(id) ?? [];
         const waiting = !!extra.done && !!facts.waitingOf?.(id);
+        const photo = extra.done ? facts.photoOf?.(id) : undefined;
         return {
             name, done: false, ...extra, ...(waiting ? { done: false, waiting: true } : null),
             ...(minutes > 0 ? { minutes } : null), ...(people.length ? { with: people } : null),
+            ...(photo ? { photo } : null),
         };
     };
     const named = (ids: string[], names: Map<string, string>, extra: Partial<DayCardLine>) =>

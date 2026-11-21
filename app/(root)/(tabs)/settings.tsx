@@ -138,8 +138,6 @@ export default function ProfileScreen() {
                             onPress={() => router.push('/(root)/task-settings' as never)} />
                         <SettingsRow icon="repeat" color="#FF9F0A" label="Habits" keywords="habit names friends see shared"
                             onPress={() => router.push('/(root)/habit-settings' as never)} />
-                        <SettingsRow icon="sparkles" color="#30D158" label="Automatic habits" keywords="health steps sleep exercise meditate mindful distance stairs calories auto track automatic apple health watch"
-                            onPress={() => router.push('/(root)/auto-habits' as never)} />
                         <SettingsRow icon="airplane" color="#64D2FF" label="Time off" keywords="sick ill vacation holiday away travel pause rest break streak safe"
                             value={timeOff ? (timeOff.kind === 'sick' ? 'Sick' : 'Vacation') : undefined} onPress={() => router.push('/(root)/time-off' as never)} />
                         <SettingsRow icon="timer" color="#FF375F" label="Focus" keywords="clock style ring digital block"

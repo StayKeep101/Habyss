@@ -135,10 +135,6 @@ export default function RootLayout() {
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
-          name="auto-habits"
-          options={{ headerShown: false, presentation: 'modal' }}
-        />
-        <Stack.Screen
           name="time-off"
           options={{ headerShown: false, presentation: 'modal' }}
         />

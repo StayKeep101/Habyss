@@ -76,8 +76,8 @@ export default function FocusStatsScreen() {
     const end = range === 7 ? shiftDay(weekFrom, 6 - page * 7) : shiftDay(today, -page * range);
     const shown = useMemo(() => focusSummary(records, end, range), [records, end, range]);
     const turn = (by: number) => { selectionFeedback(); setPage(current => Math.max(0, current + by)); setPicked(null); };
-    // Press and hold the bars: the day under the finger shows, drag to read the
-    // others; let go and it goes back to the average of the week (or 30 days).
+    // Tap a bar: that day shows (drag to read the others) and stays until you tap
+    // it again, which goes back to the average of the week (or 30 days).
     const { selectionFeedback } = useHaptics();
     const chartWidth = useRef(1);
     const dayAt = (x: number) => {
@@ -92,9 +92,21 @@ export default function FocusStatsScreen() {
     };
     // Picked the moment the finger lands (onBegin), followed sideways, let go on release;
     // a vertical drag fails it, so the page still scrolls.
+    // A day stays picked after you let go, so it can be read; the same day again goes back to the average.
+    const pickedNow = useRef<string | null>(null);
+    pickedNow.current = picked;
+    const press = useRef({ day: null as string | null, wasPicked: false, moved: false });
     const touch = Gesture.Pan().runOnJS(true).activeOffsetX([-6, 6]).failOffsetY([-12, 12])
-        .onBegin(event => follow(event.x)).onUpdate(event => follow(event.x))
-        .onFinalize(() => setPicked(null));
+        .onBegin(event => {
+            const day = dayAt(event.x);
+            press.current = { day, wasPicked: !!day && day === pickedNow.current, moved: false };
+            if (!press.current.wasPicked) follow(event.x);
+        })
+        .onUpdate(event => {
+            if (dayAt(event.x) !== press.current.day) press.current.moved = true;
+            follow(event.x);
+        })
+        .onFinalize(() => { if (press.current.wasPicked && !press.current.moved) setPicked(null); });
     const pickedDay = picked ? shown.days.find(day => day.date === picked) : undefined;
     const dayItems = useMemo(() => {
         if (!picked) return null;
@@ -183,7 +195,7 @@ export default function FocusStatsScreen() {
                             <View style={styles.chart} onLayout={event => { chartWidth.current = Math.max(1, event.nativeEvent.layout.width); }}
                                 accessible accessibilityRole="adjustable"
                                 accessibilityLabel={`Focus per day: ${shown.days.map(day => `${longDay(day.date)} ${focusDuration(day.seconds)}`).join(', ')}`}
-                                accessibilityHint="Touch and hold a bar to read that day"
+                                accessibilityHint="Tap a bar to read that day; tap it again for the average"
                                 accessibilityActions={[{ name: 'increment', label: 'Later' }, { name: 'decrement', label: 'Earlier' }]}
                                 onAccessibilityAction={event => turn(event.nativeEvent.actionName === 'decrement' ? 1 : -1)}>
                                 {shown.days.map((day, index) => (

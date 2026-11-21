@@ -20,6 +20,7 @@ import { useTokens } from '@/hooks/useTokens';
 import { consistencyFrom } from '@/lib/habitRecord';
 import { friendHistory, peopleColors, togetherHistory } from '@/lib/sharedProgress';
 import { SectionTitle } from '@/components/ui/SectionTitle';
+import { HabitPhotos } from '@/components/Habit/HabitPhotos';
 import { useWeekStart } from '@/hooks/useWeekStart';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { habitRecord } from '@/lib/habitRecord';
@@ -265,6 +266,8 @@ export default function HabitDetailScreen() {
                         <SectionTitle first>Consistency</SectionTitle>
                         <HabitConsistency series={series} replay={viewer} />
                     </View>
+                    {/* The photos taken as it was ticked. */}
+                    <HabitPhotos habitId={habit.id} />
                 </Animated.ScrollView>
             )}
 

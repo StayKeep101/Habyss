@@ -4,8 +4,9 @@ import { on } from './appEvents';
 import type { Habit } from './habitsSQLite';
 
 /**
- * Proof, for challenges and bets only: everything else is ticked as always,
- * on your word.
+ * Proof, for challenges and bets. Everything else is ticked on your word,
+ * and a habit ticked by hand opens the camera for a photo you can skip
+ * (kept in its history and shown to friends, lib/tickPhotos.ts).
  *
  *   - A habit or task a challenge put in your plan (lib/challenges.ts).
  *   - A habit or task of a goal you opened to bets (lib/market.ts).
@@ -104,7 +105,7 @@ export async function ruleFor(item: ProofItem): Promise<{ rule: ProofRule; runId
 // ------------------------------------------------------------------ the tick
 
 /** The camera, opened by components/Proof/ProofCameraHost.tsx: resolves with the photo, or null when closed. */
-type PhotoAsk = { title: string; resolve: (uri: string | null) => void };
+type PhotoAsk = { title: string; resolve: (uri: string | null) => void; optional?: boolean };
 let asker: ((ask: PhotoAsk) => void) | null = null;
 export function setPhotoAsker(next: ((ask: PhotoAsk) => void) | null): void { asker = next; }
 
@@ -128,7 +129,15 @@ const titleOf = (item: ProofItem) => (item.kind === 'habit' ? item.habit.name : 
 export async function proveTick(item: ProofItem, day: string, done = true): Promise<boolean> {
     if (!done) return true;
     const { rule, runId } = await ruleFor(item);
-    if (rule === 'none') return true;
+    if (rule === 'none') {
+        // Every habit ticked by hand: the camera opens for a photo of it, skippable (the tick stands
+        // either way). Kept in the habit's history and shown to friends on your day (lib/tickPhotos.ts).
+        if (item.kind === 'habit' && asker) {
+            const uri = await new Promise<string | null>(resolve => asker!({ title: titleOf(item), resolve, optional: true }));
+            if (uri) void (require('./tickPhotos') as typeof import('./tickPhotos')).keepTickPhoto(item.habit.id, day, uri);
+        }
+        return true;
+    }
     if (rule === 'health') {
         Alert.alert('Apple Health ticks this one', 'It counts for a challenge, so it fills itself from Health as you go. No need to tick it.');
         return false;
@@ -151,6 +160,7 @@ export async function proveTick(item: ProofItem, day: string, done = true): Prom
     if (!asker) return false;
     const uri = await new Promise<string | null>(resolve => asker!({ title: titleOf(item), resolve }));
     if (!uri) return false;
+    if (item.kind === 'habit') void (require('./tickPhotos') as typeof import('./tickPhotos')).keepTickPhoto(item.habit.id, day, uri);
     if (runId) {
         const { shareProofPhoto } = require('./challenges') as typeof import('./challenges');
         void shareProofPhoto(runId, day, titleOf(item), uri);

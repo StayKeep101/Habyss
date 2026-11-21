@@ -1,6 +1,22 @@
 import { Platform, NativeModules } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { ScreenTimeModule } = NativeModules;
+
+/** Screen Time was allowed on this phone, so a "no" right after launch is iOS not having read it yet. */
+const ALLOWED_KEY = 'habyss_screen_time_allowed';
+let allowedKnown: boolean | null = null;
+function rememberAllowed() {
+    if (allowedKnown) return;
+    allowedKnown = true;
+    void AsyncStorage.setItem(ALLOWED_KEY, '1').catch(() => undefined);
+}
+async function allowedBefore(): Promise<boolean> {
+    if (allowedKnown === null) allowedKnown = (await AsyncStorage.getItem(ALLOWED_KEY).catch(() => null)) === '1';
+    return allowedKnown;
+}
+/** The last known answer, for a screen to start from without flashing "Allow". */
+export const screenTimeAllowedBefore = allowedBefore;
 
 /**
  * ScreenTimeService — Wraps native ScreenTimeModule for app blocking during focus sessions.
@@ -18,7 +34,9 @@ export const ScreenTimeService = {
     async requestAuthorization(): Promise<boolean> {
         if (Platform.OS !== 'ios' || !ScreenTimeModule) return false;
         try {
-            return await ScreenTimeModule.requestAuthorization();
+            const granted = await ScreenTimeModule.requestAuthorization();
+            if (granted) rememberAllowed();
+            return granted;
         } catch (error) {
             console.warn('ScreenTime: Authorization failed', error);
             return false;
@@ -30,11 +48,16 @@ export const ScreenTimeService = {
      */
     async isAuthorized(): Promise<boolean> {
         if (Platform.OS !== 'ios' || !ScreenTimeModule) return false;
-        try {
-            return await ScreenTimeModule.isAuthorized();
-        } catch (error) {
-            return false;
+        const ask = async () => { try { return !!(await ScreenTimeModule.isAuthorized()); } catch { return false; } };
+        if (await ask()) { rememberAllowed(); return true; }
+        // Just after launch iOS can still say "not decided" before it has read the real answer:
+        // once allowed on this phone, ask again for a moment before believing a no.
+        if (!(await allowedBefore())) return false;
+        for (let attempt = 0; attempt < 6; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 250));
+            if (await ask()) return true;
         }
+        return false;
     },
 
     /**
