@@ -23,7 +23,7 @@ const RING_DISC = 'rgba(255,255,255,0.035)';
  * in large figures under it. Digital is the figures alone; Minimal, thin
  * figures over a hairline.
  */
-export function FocusClock({ seconds, progress, style, accent, label, running = true }: {
+export function FocusClock({ seconds, progress, style, accent, label, running = true, heading }: {
     /** What to show: time left for a timer, time spent for a stopwatch. */
     seconds: number;
     /** 0–1 for a timer; null for a stopwatch. */
@@ -33,6 +33,8 @@ export function FocusClock({ seconds, progress, style, accent, label, running = 
     label?: string;
     /** False while paused: the mark rests. */
     running?: boolean;
+    /** What is being focused on: under the hourglass (on its podium), above any other clock. */
+    heading?: React.ReactNode;
 }) {
     const { width, height } = useWindowDimensions();
     const landscape = width > height;
@@ -47,6 +49,7 @@ export function FocusClock({ seconds, progress, style, accent, label, running = 
         return (
             <View style={landscape ? styles.side : styles.center}>
                 <FocusHourglass size={glass} progress={progress} seconds={seconds} running={running} />
+                {heading}
                 <FocusDigits seconds={seconds} size={digits * 0.75} label={label} gap={landscape ? 0 : glass * 0.04} />
             </View>
         );
@@ -55,6 +58,7 @@ export function FocusClock({ seconds, progress, style, accent, label, running = 
         const ring = Math.min(width, height) * (landscape ? 0.6 : 0.66);
         return (
             <View style={landscape ? styles.side : styles.center}>
+                {heading}
                 <FocusRing size={ring} progress={progress} accent={accent} running={running} />
                 <FocusDigits seconds={seconds} size={digits * 0.92} label={label} gap={landscape ? 0 : ring * 0.08} />
             </View>
@@ -62,6 +66,7 @@ export function FocusClock({ seconds, progress, style, accent, label, running = 
     }
     return (
         <View style={styles.center}>
+            {heading}
             <SteadyTime text={text} size={digits} color={FOCUS_TEXT} />
             {label ? <Text style={[styles.label, { color: FOCUS_LABEL }]}>{label}</Text> : null}
         </View>

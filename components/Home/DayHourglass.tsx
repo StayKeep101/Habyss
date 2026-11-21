@@ -15,7 +15,6 @@ import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useOnScreen } from '@/hooks/useOnScreen';
 import { useNowStep } from '@/hooks/useNowStep';
-import { focusTurn } from '@/lib/focusStage';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { useAccent } from '@/context/AccentContext';
 import { cachedDayWindow, getDayWindow, DEFAULT_DAY, type DayWindow } from '@/lib/echo';
@@ -138,8 +137,6 @@ export function DayHourglass({ marks }: { marks: number }) {
         transform: [
             { translateY: -20 * lift.get() },
             { scale: 1 + 0.25 * lift.get() },
-            // Its morning flip, and the turn into Focus (lib/focusStage.ts).
-            { rotate: `${180 * (turn.get() + focusTurn.get())}deg` },
         ],
     }));
     const ringStyle = useAnimatedStyle(() => ({

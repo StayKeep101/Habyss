@@ -36,7 +36,10 @@ export function FocusHourglass({ size, progress, seconds, running }: { size: num
     const ran = useSharedValue(0);
     const share = progress ?? ((seconds % 3600) / 3600);
     useEffect(() => { ran.set(withTiming(Math.max(0, Math.min(1, share)), TICK)); }, [share, ran]);
-    const measure = () => ref.current?.measureInWindow((_x, y, _w, h) => { if (h) report?.({ y: y + h / 2, size }); });
+    // The podium's top step goes where the glass's base ends, so it stands on it (covering the step's light).
+    const frame = HOURGLASS_FRAMES[rankShown ?? 'Lost'];
+    const foot = frame ? frame.foot / frame.height : 1;
+    const measure = () => ref.current?.measureInWindow((_x, y, _w, h) => { if (h) report?.({ y: y + h / 2 + size / 2 * (2 * foot - 1), size }); });
     return (
         <View ref={ref} onLayout={measure} collapsable={false} style={{ height: size, alignItems: 'center', justifyContent: 'center' }}
             accessible accessibilityRole="progressbar"

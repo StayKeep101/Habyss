@@ -72,13 +72,6 @@ export function FocusBlock({ kind, id, title, from, until, nextKind }: { kind: s
                 { label: 'Stop focusing the day', icon: 'close-circle', destructive: true, onPress: stop },
             ]} />
             <View style={styles.center}>
-                {/* What this step is, set out as Focus on a habit or task sets out its name. */}
-                {waitingFor ? null : (
-                    <View style={styles.heading}>
-                        <Text style={[styles.eyebrow, { color: primary }]}>{kind === 'meal' ? 'Meal' : kind === 'event' ? 'Event' : 'Focus'}</Text>
-                        <Text numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75} style={styles.name} accessibilityRole="header">{title}</Text>
-                    </View>
-                )}
                 {waitingFor ? (
                     // Free time: just the words and how long it lasts. No ring, no mark.
                     <>
@@ -86,7 +79,14 @@ export function FocusBlock({ kind, id, title, from, until, nextKind }: { kind: s
                         <FocusDigits seconds={left} size={Math.min(screen.width * 0.16, screen.height * 0.08)} label={line} />
                     </>
                 ) : (
-                    <FocusClock seconds={left} progress={before ? null : 1 - left / span} style={clock} accent={primary} label={line} />
+                    <FocusClock seconds={left} progress={before ? null : 1 - left / span} style={clock} accent={primary} label={line}
+                        heading={(
+                            // What this step is, set out as Focus on a habit or task sets out its name (under the hourglass).
+                            <View style={styles.heading}>
+                                <Text style={[styles.eyebrow, { color: primary }]}>{kind === 'meal' ? 'Meal' : kind === 'event' ? 'Event' : 'Focus'}</Text>
+                                <Text numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75} style={styles.name} accessibilityRole="header">{title}</Text>
+                            </View>
+                        )} />
                 )}
             </View>
             <View style={[styles.next, { paddingHorizontal: Spacing.xxl, paddingBottom: Spacing.xxl }]}>

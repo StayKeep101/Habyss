@@ -439,11 +439,12 @@ function FocusScreen() {
                     </View>
                 ) : (
                     <View style={styles.center}>
-                        {heading}
+                        {clock === 'hourglass' ? null : heading}
                         {clock === 'hourglass' ? (
                             // The hourglass on the podium is the clock; the time, smaller, under it.
                             <Animated.View layout={MOVE} style={styles.clockStack}>
                                 <FocusHourglass size={glassSize} progress={progress} seconds={focus.timeLeft} running={!focus.isPaused} />
+                                {heading}
                                 <Animated.View style={digitsGrow}>
                                     <FocusDigits seconds={focus.timeLeft} size={digitSize * 0.8} label={label} />
                                 </Animated.View>
