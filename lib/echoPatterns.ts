@@ -6,6 +6,7 @@ import { checkInDay } from './checkIns';
 import { habitDays, keptRate, shiftDay, type HabitDay, type HistoryDay } from './habitDays';
 import { localDateKey } from './habitSchedule';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { deepPatterns } from './behaviorPatterns';
 
 /**
  * What Echo finds in everything you record: sleep, energy, mood, focus, and
@@ -22,7 +23,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type PatternKind =
     | 'sleep_energy' | 'sleep_habits' | 'task_hour' | 'habit_hour' | 'weekday'
-    | 'mood_habit' | 'energy_habits' | 'focus_habits' | 'focus_hour' | 'keystone' | 'energy_time';
+    | 'mood_habit' | 'energy_habits' | 'focus_habits' | 'focus_hour' | 'keystone' | 'energy_time'
+    // How you work (lib/behaviorPatterns.ts).
+    | 'chain' | 'miss_spiral' | 'relapse' | 'comeback' | 'drift' | 'overload' | 'weekend' | 'trend' | 'habit_window' | 'task_decay' | 'risk_today';
 
 export interface Pattern {
     id: string;
@@ -321,6 +324,8 @@ export function findPatterns(input: PatternInput): Pattern[] {
         });
     }
 
+    // And how you work: chains, spirals, capacity, drift, today's risk (lib/behaviorPatterns.ts).
+    try { out.push(...deepPatterns(input)); } catch { /* the first read stands on its own */ }
     return out.sort((a, b) => b.strength - a.strength);
 }
 
