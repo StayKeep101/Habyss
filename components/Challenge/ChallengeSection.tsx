@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { AppButton, Avatar, CardRail, GameCard, IconButton, IconTile, ListItem, SectionTitle, Text, VoidSheet } from '@/components/ui';
+import { AppButton, Avatar, CardRail, GameCard, IconTile, ListItem, Text, VoidSheet } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { emit, on } from '@/lib/appEvents';
@@ -56,7 +56,7 @@ export function ChallengeSection({ style }: { style?: StyleProp<ViewStyle> }) {
     const ended = runs.filter(run => run.status === 'won' || run.status === 'failed');
     return (
         <View style={[styles.section, style]}>
-            <SectionTitle first right={live.length || invites.length ? <IconButton icon="add" label="Pick a challenge" onPress={pick} /> : undefined}>Your challenges</SectionTitle>
+            {/* No title: the page's own heading says Challenges. Another one is picked from the + button. */}
             {invites.map(run => <ListItem key={run.runId}><Invite run={run} onPress={() => show(run)} /></ListItem>)}
             {live.length ? (
                 <CardRail>{live.map(run => <Running key={run.runId} run={run} onPress={() => show(run)} />)}</CardRail>

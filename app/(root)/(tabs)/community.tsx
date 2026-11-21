@@ -45,7 +45,6 @@ import { MarketSection } from '@/components/Market/MarketSection';
 import { ChallengeSection } from '@/components/Challenge/ChallengeSection';
 import { WidgetService } from '@/lib/widgetService';
 import { widgetRace } from '@/lib/widgetRace';
-import { WalletHero } from '@/components/Market/WalletHero';
 import { PageDots } from '@/components/ui/PageDots';
 import { MarksRace } from '@/components/Community/MarksRace';
 import { faceAt, type RaceFace, type Racer } from '@/lib/marksRace';
@@ -623,7 +622,7 @@ export default function CommunityScreen() {
                 {/* The same page continuing: the race falls into it, no edge, no grabber; the title is a section heading. */}
                 <LinearGradient pointerEvents="none" colors={['transparent', colors.background]} style={styles.blend} />
                 <View style={[styles.sheetTop, { backgroundColor: colors.background, paddingHorizontal: horizontalPadding }]}>
-                    <SectionTitle first after={page === 1 ? <WalletHero compact /> : undefined} right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
+                    <SectionTitle first right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
                 </View>
                 <View style={{ backgroundColor: colors.background, minHeight: screen.height - insets.top, paddingBottom: tabBarClearance }}>
                     <Animated.ScrollView ref={pager} horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={{ height: pageHeight }}
@@ -639,7 +638,7 @@ export default function CommunityScreen() {
             <Animated.View style={[styles.sticky, { paddingTop: insets.top, backgroundColor: colors.background }, stickyStyle]}>
                 {/* No line and no shadow under it: the cards pass beneath a heading of the same colour. */}
                 <View style={[styles.sheetTop, { paddingHorizontal: horizontalPadding }]}>
-                    <SectionTitle first after={page === 1 ? <WalletHero compact /> : undefined} right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
+                    <SectionTitle first right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
                 </View>
             </Animated.View>
             {/* On the race's level, whole; they fade as the page rises to them (actionsStyle). */}
