@@ -32,9 +32,9 @@ export function CalendarRow({ label = 'Use my calendar' }: { label?: string }) {
                 toggle={on} onToggle={value => void toggle(value)}
                 onPress={() => router.push('/(root)/calendars' as never)} />
             {/* Reminder lists, on their own page. */}
-            {on && lists.length ? (
+            {on ? (
                 <SettingsRow icon="list" color={t.color.warning} label="Reminders" keywords="reminders lists apple"
-                    value={`${counted(lists)} of ${lists.length}`}
+                    value={lists.length ? `${counted(lists)} of ${lists.length}` : undefined}
                     onPress={() => router.push('/(root)/reminders' as never)} />
             ) : null}
         </>

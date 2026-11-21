@@ -121,6 +121,18 @@ function calendar(): typeof import('expo-calendar/legacy') | null {
 }
 
 export const calendarAvailable = () => !!calendar();
+
+/** Asks iOS for Reminders (their own permission, apart from the calendar's); true when allowed. */
+export async function allowReminders(): Promise<boolean> {
+    const api = calendar();
+    if (!api) return false;
+    try {
+        const { status } = await api.requestRemindersPermissionsAsync();
+        cache.clear();
+        changed();
+        return status === 'granted';
+    } catch { return false; }
+}
 export const calendarOn = () => on === true;
 export function subscribeCalendar(listener: () => void): () => void {
     listeners.add(listener);
