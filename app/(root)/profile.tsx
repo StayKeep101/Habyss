@@ -13,6 +13,12 @@ import { ageFrom, initials, saveProfile, type Profile } from '@/lib/profile';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { FreezeCard } from '@/components/Profile/FreezeCard';
+import { FollowCounts } from '@/components/Profile/FollowCounts';
+import { YearHeatmap } from '@/components/Profile/YearHeatmap';
+import { VoidSheet } from '@/components/ui/VoidSheet';
+import { useFreezes } from '@/hooks/useCheckIns';
+import { yearDays } from '@/lib/progressMonth';
+import { useAccentGradient } from '@/context/AccentContext';
 import { GoalsDoneSheet } from '@/components/Profile/GoalsDoneSheet';
 import { UsernameCard, UsernameInline, UsernamePill } from '@/components/Profile/UsernameCard';
 import { FeedService } from '@/lib/feedService';
@@ -54,6 +60,12 @@ export default function ProfileScreen() {
 
     // The same Marks Home shows and friends see, as your level.
     const goalsData = useGoalsInsights();
+    // A year of days for the heatmap, from the same summary the Streak page uses.
+    const year = React.useMemo(() => (goalsData.loaded ? yearDays({ habits: goalsData.habits, tasks: goalsData.tasks, history: goalsData.history, skips: goalsData.skips, today: goalsData.today }) : []),
+        [goalsData.loaded, goalsData.habits, goalsData.tasks, goalsData.history, goalsData.skips, goalsData.today]);
+    const { primary } = useAccentGradient();
+    const freezes = useFreezes();
+    const [freezesOpen, setFreezesOpen] = useState(false);
     const marks = useMarks(goalsData);
     // The same streak Home and the Streak page show (hooks/useStreak.ts).
     const { streak, bestStreak } = useStreak(goalsData);
@@ -128,6 +140,8 @@ export default function ProfileScreen() {
                     numbers={{ streak, bestStreak, goalsCompleted }}
                     onGoalsDone={() => { selectionFeedback(); setGoalsOpen(true); }}
                     onStreak={() => { selectionFeedback(); router.push('/(root)/progress' as never); }}
+                    freezes={{ count: freezes.count, onPress: () => { selectionFeedback(); setFreezesOpen(true); } }}
+                    social={myId ? <FollowCounts /> : null}
                     edit={{
                         onName: name => setDraft(current => ({ ...current, name })),
                         onNameDone: () => change({ name: profile.name.trim() }),
@@ -140,11 +154,17 @@ export default function ProfileScreen() {
                         ]),
                     }}
                 >
-                    {/* Yours alone: friends' view of your profile never shows it. */}
-                    <FreezeCard />
+                    {/* A year of days, as GitHub shows a year of work. */}
+                    <View style={styles.year}>
+                        <YearHeatmap days={year} color={primary} today={goalsData.today} />
+                    </View>
                 </ProfileView>
 
             </ScrollView>
+            {/* The freezes, opened from the snowflake on the streak. Yours alone. */}
+            <VoidSheet visible={freezesOpen} onClose={() => setFreezesOpen(false)} title="Streak freezes">
+                <View style={styles.freezeSheet}><FreezeCard /></View>
+            </VoidSheet>
             <GoalsDoneSheet visible={goalsOpen} finished={goalsData.finished} onClose={() => setGoalsOpen(false)}
                 onOpen={goalId => { setGoalsOpen(false); router.push({ pathname: '/goal-detail', params: { goalId } }); }} />
             {/* Floats over the backdrop, below the status bar: this is a

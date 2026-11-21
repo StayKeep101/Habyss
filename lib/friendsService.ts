@@ -697,6 +697,25 @@ export class FriendsService {
         }));
     }
 
+    /** People you asked and who have not answered yet: on your profile, among those you follow. */
+    static async getSentRequests(): Promise<{ userId: string; name: string; username?: string; avatarUrl?: string }[]> {
+        const ctx = await signedIn();
+        if (!ctx) return [];
+        const { data } = await ctx.sb.from('friend_requests')
+            .select('to_user_id, created_at')
+            .eq('from_user_id', ctx.me)
+            .eq('status', 'pending')
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false });
+        const people = await profiles(ctx, (data ?? []).map((row: any) => row.to_user_id));
+        return (data ?? []).map((row: any) => ({
+            userId: row.to_user_id,
+            name: nameOf(people.get(row.to_user_id)),
+            username: people.get(row.to_user_id)?.username ?? undefined,
+            avatarUrl: people.get(row.to_user_id)?.avatar_url ?? undefined,
+        }));
+    }
+
     static async acceptFriendRequest(requestId: string): Promise<boolean> {
         const ctx = await signedIn();
         if (!ctx) return false;

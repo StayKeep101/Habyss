@@ -1,7 +1,6 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { CountUp, PopIn } from '@/components/ui/Motion';
-import { LevelCard } from './LevelCard';
 import { MarksBackdrop } from './MarksBackdrop';
 import { StatusBadge } from '@/components/Community/StatusBadge';
 import { STATUS_LABEL, type FriendStatus } from '@/lib/presence';
@@ -9,7 +8,6 @@ import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanima
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCachedImage } from '@/hooks/useCachedImage';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import { VoidCard } from '@/components/ui/VoidCard';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { IconTile } from '@/components/ui/IconTile';
 import { textOn, tint } from '@/theme/tokens';
@@ -77,9 +75,13 @@ export const ProfileView: React.FC<{
     onGoalsDone?: () => void;
     /** Tapping a streak opens the Streak page (yours only). */
     onStreak?: () => void;
+    /** Streak freezes held (yours only): a small snowflake on the streak tile that opens them. */
+    freezes?: { count: number; onPress: () => void };
+    /** Under the name and bio: Following and Followers (yours). */
+    social?: React.ReactNode;
     /** Anything the page wants under the numbers. */
     children?: React.ReactNode;
-}> = ({ name, bio, meta, avatar, initials, status, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, onGoalsDone, onStreak, children }) => {
+}> = ({ name, bio, meta, avatar, initials, status, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, onGoalsDone, onStreak, freezes, social, children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
@@ -208,23 +210,18 @@ export const ProfileView: React.FC<{
                     ) : bio ? (
                         <Text style={[styles.bio, { color: colors.textSecondary }]}>{bio}</Text>
                     ) : null}
+                    {social}
                 </View>
             </Animated.View>
 
-            {/* The rank on its own card, then three tiles of things to be proud
-                of: the run going now, the best run, the goals reached. */}
+            {/* Two tiles of things to be proud of: the run going now (its best is
+                said on it, and the freezes ride on its corner), and the goals reached. */}
             <View style={styles.statsBlock}>
-                {marks !== undefined ? (
-                    <VoidCard style={styles.card}>
-                        <LevelCard marks={marks} />
-                    </VoidCard>
-                ) : null}
                 {numbers ? (
                     <View style={styles.tiles}>
                         {[
                             { key: 'streak', label: 'Day streak', value: numbers.streak, icon: 'flame', color: colors.warning, lit: numbers.streak > 0, onPress: onStreak,
                                 note: numbers.streak > 0 && numbers.streak >= numbers.bestStreak ? 'Best yet' : undefined },
-                            { key: 'best', label: 'Best streak', value: numbers.bestStreak, icon: 'trophy', color: primary, lit: numbers.bestStreak > 0, onPress: onStreak },
                             { key: 'goals', label: 'Goals done', value: numbers.goalsCompleted, icon: 'flag', color: colors.success, lit: numbers.goalsCompleted > 0, onPress: onGoalsDone },
                         ].map((stat, index) => (
                             <PopIn key={stat.key} index={index} style={styles.tileSlot}>
@@ -245,6 +242,15 @@ export const ProfileView: React.FC<{
                                         ) : null}
                                     </MatteSurface>
                                 </Pressable>
+                                {stat.key === 'streak' && freezes ? (
+                                    // The freezes: a snowflake and how many, small, on the streak's corner.
+                                    <Pressable onPress={freezes.onPress} hitSlop={s(10)} accessibilityRole="button"
+                                        accessibilityLabel={`${freezes.count} streak freeze${freezes.count === 1 ? '' : 's'}`}
+                                        style={[styles.freeze, { backgroundColor: colors.surfaceSecondary, borderColor: colors.background }]}>
+                                        <Ionicons name="snow" size={s(12)} color={primary} />
+                                        <Text style={[styles.freezeText, { color: colors.textPrimary }]}>{freezes.count}</Text>
+                                    </Pressable>
+                                ) : null}
                             </PopIn>
                         ))}
                     </View>
@@ -287,6 +293,8 @@ const styles = StyleSheet.create({
     card: { padding: s(20) },
     tiles: { flexDirection: 'row', gap: s(10) },
     tileSlot: { flex: 1 },
+    freeze: { position: 'absolute', top: s(10), right: s(10), flexDirection: 'row', alignItems: 'center', gap: s(3), paddingHorizontal: s(8), paddingVertical: s(4), borderRadius: 999, borderWidth: StyleSheet.hairlineWidth },
+    freezeText: { fontSize: ms(12), fontFamily: FontFamily.semibold },
     tilePress: { flex: 1 },
     tile: { flex: 1, padding: s(14), gap: vs(6), minHeight: 44 },
     tileValue: { fontSize: ms(28), lineHeight: ms(34), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'], marginTop: vs(4) },

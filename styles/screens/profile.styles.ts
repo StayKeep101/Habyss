@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, Spacing } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';
 
 /** The look of app/(root)/profile.tsx. Values are exactly what the screen used. */
@@ -11,4 +11,7 @@ export const styles = StyleSheet.create({
     // rather than a photograph with a card under it.
     // No box: a bio reads as a sentence about someone, not as a filled field.
     footnote: { fontSize: ms(11), lineHeight: ms(16), fontFamily: FontFamily.regular, textAlign: 'center', marginTop: vs(8), marginHorizontal: s(20) },
+    /** The year's heatmap, under the numbers. */
+    year: { marginHorizontal: Spacing.xl, marginTop: Spacing.xxl },
+    freezeSheet: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md },
 });

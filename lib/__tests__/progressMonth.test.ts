@@ -119,3 +119,15 @@ describe('a month of progress', () => {
         expect(dayFill(days[0])).toBe(1);
     });
 });
+
+describe('yearDays', () => {
+    it('gives a year of days, none in the future, filled by what was kept', () => {
+        const { yearDays } = require('../progressMonth');
+        const habit = { id: 'h', name: 'Run', startDate: '2026-01-01', createdAt: '2026-01-01', taskDays: [], frequency: 'daily' };
+        const days = yearDays({ habits: [habit], tasks: [], history: { '2026-11-20': ['h'] }, today: '2026-11-21' });
+        expect(days.length).toBeGreaterThan(360);
+        expect(days[days.length - 1].date).toBe('2026-11-21');
+        expect(days.find((day: { date: string }) => day.date === '2026-11-20').fill).toBe(1);
+        expect(days.find((day: { date: string }) => day.date === '2026-11-19').fill).toBe(0);
+    });
+});

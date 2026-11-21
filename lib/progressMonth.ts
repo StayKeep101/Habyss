@@ -165,3 +165,18 @@ export function dayFill(day: DaySummary): number {
     if (day.scheduled === 0) return day.tasks.length > 0 ? 1 : 0;
     return day.done.length / day.scheduled;
 }
+
+/**
+ * The last year, day by day, for the profile's heatmap: how much of each day
+ * was kept (`dayFill`), from the same summary the Streak page uses. Future
+ * days are left out.
+ */
+export function yearDays(input: Omit<MonthInput, 'month'>): { date: string; fill: number }[] {
+    const end = new Date(`${input.today}T12:00:00`);
+    const out: { date: string; fill: number }[] = [];
+    for (let back = 12; back >= 0; back--) {
+        const month = new Date(end.getFullYear(), end.getMonth() - back, 15, 12);
+        for (const day of monthDays({ ...input, month })) if (!day.future) out.push({ date: day.date, fill: dayFill(day) });
+    }
+    return out;
+}
