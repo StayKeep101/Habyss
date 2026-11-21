@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { IconButton } from '@/components/ui/IconButton';
@@ -9,7 +9,7 @@ import { useStreak } from '@/hooks/useStreak';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { useMarks } from '@/hooks/useMarks';
 import { seriesForProfile } from '@/lib/marksSync';
-import { ageFrom, initials, saveProfile, type Profile } from '@/lib/profile';
+import { ageFrom, initials, type Profile } from '@/lib/profile';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { FreezeCard } from '@/components/Profile/FreezeCard';
@@ -20,15 +20,10 @@ import { useFreezes } from '@/hooks/useCheckIns';
 import { yearDays } from '@/lib/progressMonth';
 import { useAccentGradient } from '@/context/AccentContext';
 import { GoalsDoneSheet } from '@/components/Profile/GoalsDoneSheet';
-import { UsernameCard, UsernameInline, UsernamePill } from '@/components/Profile/UsernameCard';
 import { FeedService } from '@/lib/feedService';
-import { getMyUsername } from '@/lib/friendsService';
 import { styles } from '@/styles/screens/profile.styles';
 
 
-/** Loaded lazily: a build without the picker should still show the page. */
-let ImagePicker: typeof import('expo-image-picker') | null = null;
-try { ImagePicker = require('expo-image-picker'); } catch { ImagePicker = null; }
 
 /**
  * You, as the rest of the app has you.
@@ -44,17 +39,10 @@ try { ImagePicker = require('expo-image-picker'); } catch { ImagePicker = null; 
  */
 export default function ProfileScreen() {
     const router = useRouter();
-    const { lightFeedback, selectionFeedback } = useHaptics();
+    const { selectionFeedback } = useHaptics();
 
-    // The one profile store; only what is being typed right now is held here.
-    const stored = useMyProfile();
-    const [draft, setDraft] = useState<{ name?: string; bio?: string }>({});
-    const profile: Profile = { ...stored, ...draft };
-
-    /** Saved to the store (every screen updates at once), then the draft is dropped. */
-    const change = useCallback((patch: Partial<Profile>) => {
-        void saveProfile(patch).then(() => setDraft({}));
-    }, []);
+    // Shown, never edited here: Settings → Account is where it changes.
+    const profile: Profile = useMyProfile();
 
     const insets = useSafeAreaInsets();
 
@@ -74,39 +62,9 @@ export default function ProfileScreen() {
     const [goalsOpen, setGoalsOpen] = useState(false);
 
 
-    /** One picker for both images; the crop is what tells them apart. */
-    const pickPhoto = async (which: 'avatar' | 'cover') => {
-        if (!ImagePicker) { Alert.alert('Not available', 'Photos need the full app build.'); return; }
-        lightFeedback();
-        try {
-            // A profile photo is framed in a square crop step, so it fills
-            // its circle exactly and comes back as a real JPEG; without it the
-            // whole photo (any shape, often HEIC) was used and could show bars.
-            // A cover keeps the whole photo: it is framed to the top of the page.
-            const result = await ImagePicker.launchImageLibraryAsync(which === 'avatar'
-                ? { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 }
-                : {
-                    mediaTypes: ['images'], allowsEditing: false, quality: 0.8,
-                    preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
-                });
-            if (!result.canceled && result.assets?.[0]?.uri) change({ [which]: result.assets[0].uri });
-        } catch {
-            Alert.alert('Could not open your photos', 'Please try again.');
-        }
-    };
-
-    const removePhoto = (which: 'avatar' | 'cover') => {
-        selectionFeedback();
-        change({ [which]: null });
-    };
-
     const age = profile.birthday ? ageFrom(profile.birthday) : null;
     const [myId, setMyId] = useState<string | null>(null);
     useEffect(() => { void FeedService.me().then(setMyId); }, []);
-    // undefined while loading; null when there is none yet — then it is asked for.
-    const [handle, setHandle] = useState<string | null | undefined>(undefined);
-    const [editingHandle, setEditingHandle] = useState(false);
-    useEffect(() => { void getMyUsername().then(found => setHandle(found ?? null)).catch(() => undefined); }, []);
 
     return (
         <VoidShell look="sheet">
@@ -116,22 +74,8 @@ export default function ProfileScreen() {
                     quietly lying about one of the two. */}
                 <ProfileView
                     name={profile.name}
-                    bio={profile.bio}
-                    meta={age ? `${age}` : ''}
-                    subline={handle === undefined ? null : (handle && editingHandle) ? (
-                        <UsernameInline current={handle} onSaved={name => { setHandle(name); setEditingHandle(false); }} onCancel={() => setEditingHandle(false)} />
-                    ) : handle === null ? (
-                        <UsernameCard
-                            flush
-                            current={handle}
-                            signedIn={!!myId}
-                            onSaved={name => { setHandle(name); setEditingHandle(false); }}
-                            onCancel={handle ? () => setEditingHandle(false) : undefined}
-                            onSignIn={() => router.push('/(root)/account')}
-                        />
-                    ) : (
-                        <UsernamePill username={handle} onEdit={() => { selectionFeedback(); setEditingHandle(true); }} />
-                    )}
+                    bio=""
+                    meta={[profile.occupation?.trim(), age ? `${age}` : null].filter(Boolean).join(' · ')}
                     avatar={profile.avatar}
                     initials={initials(profile)}
                     topInset={insets.top}
@@ -141,24 +85,16 @@ export default function ProfileScreen() {
                     onGoalsDone={() => { selectionFeedback(); setGoalsOpen(true); }}
                     onStreak={() => { selectionFeedback(); router.push('/(root)/progress' as never); }}
                     freezes={{ count: freezes.count, onPress: () => { selectionFeedback(); setFreezesOpen(true); } }}
-                    social={myId ? <FollowCounts /> : null}
-                    edit={{
-                        onName: name => setDraft(current => ({ ...current, name })),
-                        onNameDone: () => change({ name: profile.name.trim() }),
-                        onBio: bio => setDraft(current => ({ ...current, bio })),
-                        onBioDone: () => change({ bio: profile.bio.trim() }),
-                        onPick: which => void pickPhoto(which),
-                        onRemove: which => Alert.alert(which === 'avatar' ? 'Remove your picture?' : 'Remove your cover?', undefined, [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Remove', style: 'destructive', onPress: () => removePhoto(which) },
-                        ]),
-                    }}
-                >
-                    {/* A year of days, as GitHub shows a year of work. */}
-                    <View style={styles.year}>
-                        <YearHeatmap days={year} color={primary} today={goalsData.today} />
-                    </View>
-                </ProfileView>
+                    // Following and followers, then the year of days right under them.
+                    social={(
+                        <>
+                            {myId ? <FollowCounts /> : null}
+                            <View style={styles.year}>
+                                <YearHeatmap days={year} color={primary} today={goalsData.today} />
+                            </View>
+                        </>
+                    )}
+                />
 
             </ScrollView>
             {/* The freezes, opened from the snowflake on the streak. Yours alone. */}
@@ -171,6 +107,10 @@ export default function ProfileScreen() {
                 full-screen page, not a sheet, so it clears the clock itself. */}
             <View style={[styles.back, { top: insets.top + 8 }]}>
                 <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} diameter={40} size={24} />
+            </View>
+            {/* Settings, in the top-right corner: everything about you is changed from there (Account). */}
+            <View style={[styles.settings, { top: insets.top + 8 }]}>
+                <IconButton icon="settings-outline" label="Settings" onPress={() => { selectionFeedback(); router.push('/(root)/settings' as never); }} diameter={40} size={22} />
             </View>
         </VoidShell>
     );

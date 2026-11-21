@@ -575,7 +575,7 @@ const Home = () => {
   // Handlers
   const handleProfilePress = () => {
     selectionFeedback();
-    router.push('/(root)/(tabs)/settings');
+    router.push('/(root)/profile');
   };
 
   // Live Activity Init

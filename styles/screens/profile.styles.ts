@@ -7,11 +7,13 @@ export const styles = StyleSheet.create({
     // The banner runs to both edges, so the page's padding cannot apply to it.
     content: { paddingBottom: vs(40), gap: vs(12) },
     back: { position: 'absolute', left: 20 },
+    /** Settings, opposite the back button. */
+    settings: { position: 'absolute', right: 20 },
     // Half on the banner, half off it: the overlap is what makes it a profile
     // rather than a photograph with a card under it.
     // No box: a bio reads as a sentence about someone, not as a filled field.
     footnote: { fontSize: ms(11), lineHeight: ms(16), fontFamily: FontFamily.regular, textAlign: 'center', marginTop: vs(8), marginHorizontal: s(20) },
     /** The year's heatmap, under the numbers. */
-    year: { marginHorizontal: Spacing.xl, marginTop: Spacing.xxl },
+    year: { marginTop: Spacing.xl, alignSelf: 'stretch' },
     freezeSheet: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md },
 });

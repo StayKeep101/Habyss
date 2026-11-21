@@ -19,7 +19,7 @@ export default function OnboardingScreen() {
     const preview = useLocalSearchParams<{ preview?: string }>().preview === '1';
 
     const end = useCallback(async ({ state }: AscentEnd) => {
-        if (preview) { router.replace('/(root)/(tabs)/settings'); return; }
+        if (preview) { router.replace('/(root)/settings' as never); return; }
         await setOnboardingComplete();
         await forgetAscent();
         if (state.created) {

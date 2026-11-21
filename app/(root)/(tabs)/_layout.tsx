@@ -64,12 +64,6 @@ export default function TabLayout() {
           title: "Community"
         }}
       />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Profile"
-        }}
-      />
     </Tabs>
   );
 }

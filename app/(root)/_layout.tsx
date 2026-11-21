@@ -166,6 +166,15 @@ export default function RootLayout() {
           name="habit-settings"
           options={{ headerShown: false, presentation: 'modal' }}
         />
+        {/* Settings: a page now (opened from the profile's corner), no longer a tab. */}
+        <Stack.Screen
+          name="settings"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="account-settings"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
         <Stack.Screen
           name="calendars"
           options={{ headerShown: false, presentation: 'modal' }}

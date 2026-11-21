@@ -46,6 +46,7 @@ Home, Paywall, Goal stats and Goal plan have no page-level styles: they are buil
 | `app/(root)/ranks.tsx` | `styles/screens/ranks.styles.ts` |
 | `app/(root)/focus-stats.tsx` | `styles/screens/focus-stats.styles.ts` |
 | `app/(root)/meals.tsx` | `styles/screens/meals.styles.ts` |
+| `app/(root)/account-settings.tsx` | `styles/screens/account-settings.styles.ts` |
 | `app/(root)/calendars.tsx` | `styles/screens/calendars.styles.ts` |
 | `app/(root)/reminders.tsx` | `styles/screens/calendars.styles.ts` (shared, via components/Calendar/CalendarSources.tsx) |
 | `app/(root)/connect.tsx` | `styles/screens/connect.styles.ts` |

@@ -1,6 +1,7 @@
-import { FontFamily } from '@/theme/designSystem';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
+import { Spacing } from '@/theme/designSystem';
 import { SettingsGroup, SettingsRow, SettingsSearch } from '@/components/ui/SettingsList';
 import { AppTextField } from '@/components/ui/AppTextField';
 import { searchDeep } from '@/lib/settingsSearch';
@@ -8,7 +9,6 @@ import { VoidShell } from '@/components/ui/VoidShell';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
 import { on } from '@/lib/appEvents';
 import { useMyProfile } from '@/hooks/useMyProfile';
@@ -40,7 +40,7 @@ import { useTimeOff } from '@/hooks/useTimeOff';
 export default function ProfileScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { horizontalPadding, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
+    const { horizontalPadding, topSpacing, isCompactWidth } = useResponsiveLayout();
 
     // User state
     const { selectionFeedback } = useHaptics();
@@ -61,7 +61,6 @@ export default function ProfileScreen() {
     const stopSearching = () => { setQuery(''); setSearching(false); };
     const deep = searchDeep(query);
     const username = me.name;
-    const avatarUri = me.avatar;
 
     // Settings state - use global context
     const {
@@ -84,11 +83,11 @@ export default function ProfileScreen() {
     return (
         <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                {/* Header - No Settings Button */}
+                {/* A page now, opened from the profile's corner: back on the left, search on the right. */}
                 <View style={[styles.header, { paddingHorizontal: horizontalPadding, paddingTop: topSpacing * 0.4 }]}>
-                    <View style={{ width: isCompactWidth ? 32 : 40 }} />
+                    <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} />
                     <Text style={[styles.headerTitle, { color: colors.textPrimary, fontSize: isCompactWidth ? 26 : 30 }]}>Settings</Text>
-                    <View style={{ width: isCompactWidth ? 32 : 40 }} />
+                    <IconButton icon="search" label="Search settings" onPress={() => { selectionFeedback(); setSearching(true); scroll.current?.scrollTo({ y: 0, animated: true }); }} />
                 </View>
 
                 {searching ? (
@@ -99,33 +98,16 @@ export default function ProfileScreen() {
                 ) : null}
 
                 <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
-                    contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance, paddingHorizontal: horizontalPadding }]} showsVerticalScrollIndicator={false}>
+                    contentContainerStyle={[styles.scrollContent, { paddingBottom: Spacing.bottom * 2, paddingHorizontal: horizontalPadding }]} showsVerticalScrollIndicator={false}>
                     <SettingsSearch value={query}>
-                    {/* Who you are, small: a settings screen is a list, not a poster. */}
-                    {query.trim() ? null : <TouchableOpacity
-                        accessibilityRole="button"
-                        accessibilityLabel="Edit your profile"
-                        activeOpacity={0.85}
-                        onPress={() => { selectionFeedback(); router.push('/(root)/profile'); }}
-                        style={styles.profileRow}
-                    >
-                        <View style={[styles.avatar, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
-                            {avatarUri ? (
-                                <Image source={{ uri: avatarUri }} style={{ width: 56, height: 56 }} />
-                            ) : (
-                                <Text style={{ fontSize: 20, fontFamily: FontFamily.bold, color: colors.textPrimary }}>
-                                    {username[0]?.toUpperCase() || 'U'}
-                                </Text>
-                            )}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text numberOfLines={1} style={[styles.profileName, { color: colors.textPrimary }]}>{username || 'You'}</Text>
-                            <Text numberOfLines={1} style={[styles.profileMeta, { color: colors.textTertiary }]}>
-                                {accountEmail ?? 'Not signed in'}
-                            </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                    </TouchableOpacity>}
+                    {/* Your account first: who you are (name, @, what you do, age, picture) is edited
+                        there, so the profile only shows it and nothing changes by a stray tap. */}
+                    <SettingsGroup title="Account">
+                        <SettingsRow icon="person-circle" color="#0A84FF" label="Account" keywords="name username display name occupation job age birthday picture photo delete account"
+                            value={username || undefined} onPress={() => router.push('/(root)/account-settings' as never)} />
+                        <SettingsRow icon="finger-print" color="#8A8A94" label="Privacy & security" keywords="sign in sign out backup face id lock export"
+                            value={accountEmail ? undefined : 'Sign in'} onPress={() => router.push('/(root)/privacy')} />
+                    </SettingsGroup>
 
                     {/* One topic per group, each setting in exactly one place, named by the question
                         people come with: when is my day, what gets blocked, when does my phone buzz.
@@ -166,12 +148,6 @@ export default function ProfileScreen() {
                         {hasAnyIntegration() ? (
                             <SettingsRow icon="extension-puzzle" color="#0A84FF" label="Connected apps" onPress={() => router.push('/(root)/integrations')} />
                         ) : null}
-                    </SettingsGroup>
-
-                    {/* Your account and its safety on one page: signed in as, backup, sign out, Face ID, export, delete. */}
-                    <SettingsGroup title="Account">
-                        <SettingsRow icon="finger-print" color="#8A8A94" label="Privacy & security" keywords="account sign in sign out backup face id lock export delete"
-                            value={accountEmail ? undefined : 'Sign in'} onPress={() => router.push('/(root)/privacy')} />
                     </SettingsGroup>
 
                     <SettingsGroup title="Help">

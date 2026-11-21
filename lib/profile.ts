@@ -22,9 +22,11 @@ export interface Profile {
     cover: string | null;
     birthday: string | null;
     gender: string | null;
+    /** What you do: "Student", "Designer". Shown under your name. */
+    occupation: string;
 }
 
-export const EMPTY_PROFILE: Profile = { name: '', bio: '', avatar: null, cover: null, birthday: null, gender: null };
+export const EMPTY_PROFILE: Profile = { name: '', bio: '', avatar: null, cover: null, birthday: null, gender: null, occupation: '' };
 
 const KEYS = {
     name: 'profile_nickname',
@@ -33,6 +35,7 @@ const KEYS = {
     cover: 'profile_cover',
     birthday: 'profile_birthday',
     gender: 'profile_gender',
+    occupation: 'profile_occupation',
     age: 'profile_age',
 } as const;
 
@@ -60,7 +63,7 @@ export function subscribeProfile(listener: () => void): () => void {
 
 async function readStored(): Promise<Profile> {
     try {
-        const pairs = await AsyncStorage.multiGet([KEYS.name, KEYS.bio, KEYS.avatar, KEYS.cover, KEYS.birthday, KEYS.gender]);
+        const pairs = await AsyncStorage.multiGet([KEYS.name, KEYS.bio, KEYS.avatar, KEYS.cover, KEYS.birthday, KEYS.gender, KEYS.occupation]);
         const found = Object.fromEntries(pairs) as Record<string, string | null>;
         return {
             name: found[KEYS.name] ?? '',
@@ -69,6 +72,7 @@ async function readStored(): Promise<Profile> {
             cover: found[KEYS.cover] || null,
             birthday: found[KEYS.birthday] || null,
             gender: found[KEYS.gender] || null,
+            occupation: found[KEYS.occupation] ?? '',
         };
     } catch {
         return EMPTY_PROFILE;
@@ -104,6 +108,7 @@ export async function saveProfile(changes: Partial<Profile>): Promise<void> {
     put(KEYS.avatar, changes.avatar);
     put(KEYS.cover, changes.cover);
     put(KEYS.gender, changes.gender);
+    put(KEYS.occupation, changes.occupation);
     if (changes.birthday !== undefined) {
         put(KEYS.birthday, changes.birthday);
         // The stored age is derived, and kept for profiles saved before
@@ -122,6 +127,7 @@ export async function saveProfile(changes: Partial<Profile>): Promise<void> {
         cover: changes.cover !== undefined ? clean(changes.cover, false) ?? null : base.cover,
         birthday: changes.birthday !== undefined ? changes.birthday || null : base.birthday,
         gender: changes.gender !== undefined ? changes.gender || null : base.gender,
+        occupation: clean(changes.occupation, true) ?? base.occupation,
     };
     publish(next);
 

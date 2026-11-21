@@ -23,6 +23,6 @@ it('test mode opens on Echo in the dark, and closing it saves nothing and goes b
     // Preview has no "I already have an account": it would leave the test run.
     expect(screen.queryByText('I already have an account')).toBeNull();
     await act(async () => { fireEvent.press(screen.getByLabelText('Close preview')); });
-    expect(mockRouter.replace).toHaveBeenCalledWith('/(root)/(tabs)/settings');
+    expect(mockRouter.replace).toHaveBeenCalledWith('/(root)/settings');
     expect(setOnboardingComplete).not.toHaveBeenCalled();
 });
