@@ -224,6 +224,14 @@ const CalendarScreen = () => {
         [tasks],
     );
     const { stateFor: sharedTaskFor } = useSharedItems(taskIds, taskDone, 'task');
+    // The Shared filter: one friend (only what you share with them), or everything shared.
+    const [sharedWith, setSharedWith] = useState<string | null>(null);
+    const sharedFriends = useMemo(() => {
+        const found = new Map<string, string>();
+        for (const id of habitIds) for (const person of sharedFor(id)?.people ?? []) if (!person.isYou) found.set(person.userId, person.username);
+        for (const id of taskIds) for (const person of sharedTaskFor(id)?.people ?? []) if (!person.isYou) found.set(person.userId, person.username);
+        return [...found].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    }, [habitIds, taskIds, sharedFor, sharedTaskFor]);
 
     // UI State
     const [showFilter, setShowFilter] = useState(false);
@@ -246,7 +254,8 @@ const CalendarScreen = () => {
         void loadRoadmapFilter().then(saved => {
             setFilterReady(true);
             setShown(saved.shown); setSharedOnly(saved.sharedOnly); setActiveSort(saved.sort);
-            setSortDirection(saved.direction); setActiveTimeFilter(saved.time); setRoadmapView(saved.view);
+            // The time of day filter is gone (the timeline shows when): never restored.
+            setSortDirection(saved.direction); setActiveTimeFilter('all'); setRoadmapView(saved.view);
             filterLoaded.current = true;
         });
     }, []);
@@ -915,7 +924,7 @@ const CalendarScreen = () => {
         // the rows draw their faces from, so the filter and the faces can never
         // disagree about what "shared" means.
         if (sharedOnly) {
-            filtered = filtered.filter(h => !!sharedFor(h.id));
+            filtered = filtered.filter(h => { const state = sharedFor(h.id); return !!state && (!sharedWith || state.people.some(p => p.userId === sharedWith)); });
         }
 
         const order = compareBySort(activeSort, sortDirection);
@@ -930,7 +939,7 @@ const CalendarScreen = () => {
         });
 
         return { allHabits: filtered, habitsByGoal: byGoal };
-    }, [habitsStore, selectedDate, selectedGoalFilter, selectedCategoryFilter, activeTimeFilter, activeSort, sortDirection, completions, sharedOnly, sharedFor]);
+    }, [habitsStore, selectedDate, selectedGoalFilter, selectedCategoryFilter, activeTimeFilter, activeSort, sortDirection, completions, sharedOnly, sharedFor, sharedWith]);
 
     // Habits are already filtered to the day being looked at; tasks were not,
     // so everything ever written sat in every day's list. A task belongs to the
@@ -944,12 +953,12 @@ const CalendarScreen = () => {
         // "Shared only" means the whole plan, not only its rhythms: a filter
         // that hid shared habits' neighbours but left every private task in
         // place would not be showing what is shared.
-        const shownTasks = sharedOnly ? due.filter(task => !!sharedTaskFor(task.id)) : due;
+        const shownTasks = sharedOnly ? due.filter(task => { const state = sharedTaskFor(task.id); return !!state && (!sharedWith || state.people.some(p => p.userId === sharedWith)); }) : due;
         // Created keeps the day's own order (by when it is due); the others sort as habits and goals do.
         if (activeSort === 'default') return shownTasks;
         const order = compareBySort(activeSort, sortDirection);
         return [...shownTasks].sort((a, b) => order({ ...a, name: a.title, done: a.status === 'done' }, { ...b, name: b.title, done: b.status === 'done' }));
-    }, [tasks, selectedDate, sharedOnly, sharedTaskFor, activeSort, sortDirection]);
+    }, [tasks, selectedDate, sharedOnly, sharedTaskFor, activeSort, sortDirection, sharedWith]);
 
     // The waking day, as set in Notifications; re-read whenever the tab shows.
     const [dayWindow, setDayWindow] = useState<DayWindow>(() => cachedDayWindow() ?? DEFAULT_DAY);
@@ -1621,7 +1630,7 @@ const CalendarScreen = () => {
                                         <TouchableOpacity accessibilityRole="button" accessibilityLabel="All habits" onPress={() => router.push('/(root)/all-habits')} style={styles.headerLink}>
                                             <Text style={[styles.headerLinkText, { color: colors.textTertiary }]}>See all</Text>
                                         </TouchableOpacity>
-                                    }>{looseOnly ? 'Other habits' : 'Habits'}</SectionTitle>}
+                                    }>Habits</SectionTitle>}
 
                                     {listedHabits.map(habit => {
                                         // Find associated goal name for habit
@@ -1692,6 +1701,7 @@ const CalendarScreen = () => {
                         shown={shown} onToggleShown={toggleKind} focus={activeTimeFilter} onFocus={setActiveTimeFilter}
                         goal={selectedGoalFilter} onGoal={setSelectedGoalFilter}
                         sharedOnly={sharedOnly} onSharedOnly={setSharedOnly}
+                        friends={sharedFriends} sharedWith={sharedWith} onSharedWith={setSharedWith}
                         order={activeSort} direction={sortDirection}
                         onOrder={value => { if (value === activeSort) setSortDirection(direction => direction === 1 ? -1 : 1); else { setActiveSort(value); setSortDirection(1); } }}
                         onReset={resetFilters} />

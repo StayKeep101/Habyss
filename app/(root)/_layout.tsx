@@ -171,6 +171,10 @@ export default function RootLayout() {
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
+          name="reminders"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
           name="focus-settings"
           options={{ headerShown: false, presentation: 'modal' }}
         />

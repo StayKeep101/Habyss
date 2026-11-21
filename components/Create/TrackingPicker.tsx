@@ -4,6 +4,7 @@ import { AppButton, ChoicePill, ChoiceRow, Text } from '@/components/ui';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Spacing } from '@/theme/designSystem';
 import type { AutoTrackOption } from '@/lib/autoTrackSources';
+import { PlaceSheet, type PickedPlace } from '@/components/Create/PlaceSheet';
 
 type Way = 'off' | 'health' | 'app' | 'place';
 const WAYS: { id: Way; label: string }[] = [
@@ -20,7 +21,7 @@ const PLACE_MINUTES = [10, 15, 20, 30, 45, 60, 90];
  * unless it says otherwise; or from time at a place, and for
  * how long. What each means is said under it, in one line.
  */
-export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, accent, placeName, onPickPlace, onAddApps, appsCount, minutesFromHabit, appsAvailable, healthAvailable }: {
+export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, accent, stayPlace, reminderPlace, onStayPlace, onAddApps, appsCount, minutesFromHabit, appsAvailable, healthAvailable }: {
     /** Every option (lib/autoTrackSources.ts allTrackOptions). */
     options: AutoTrackOption[];
     chosen: AutoTrackOption | null;
@@ -29,8 +30,10 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, 
     minutes: number;
     onMinutes: (minutes: number) => void;
     accent: string;
-    placeName?: string;
-    onPickPlace: () => void;
+    /** The place it counts time at, and a reminder's place to offer as the same. */
+    stayPlace: PickedPlace | null;
+    reminderPlace: PickedPlace | null;
+    onStayPlace: (place: PickedPlace | null) => void;
     /** Opens Apple's app picker. */
     onAddApps: () => void;
     /** How many apps are chosen so far. */
@@ -41,6 +44,7 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, 
     healthAvailable: boolean;
 }) {
     const { selectionFeedback } = useHaptics();
+    const [picking, setPicking] = React.useState(false);
     const way: Way = chosen?.kind ?? 'off';
     const ways = WAYS.filter(item => (item.id !== 'health' || healthAvailable) && (item.id !== 'app' || appsAvailable) && (item.id !== 'health' || options.some(option => option.kind === 'health')));
     const of = (kind: Way) => options.filter(option => option.kind === kind);
@@ -91,9 +95,13 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, 
                         ))}
                     </View>
                     <Text variant="caption" tone="muted">
-                        {placeName ? `Ticks itself after ${minutesSaid(minutes)} at ${placeName}.` : `Ticks itself after ${minutesSaid(minutes)} there.`}
+                        {stayPlace ? `Ticks itself after ${minutesSaid(minutes)} at ${stayPlace.name}.` : `Ticks itself after ${minutesSaid(minutes)} there.`}
                     </Text>
-                    <AppButton label={placeName ? 'Change the place' : 'Choose the place'} icon="location" onPress={onPickPlace} />
+                    <AppButton label={stayPlace ? stayPlace.name : 'Choose on the map'} icon="map" onPress={() => { selectionFeedback(); setPicking(true); }} />
+                    <PlaceSheet visible={picking} title="Count time at" initial={stayPlace}
+                        shortcut={reminderPlace ? { label: `Same as your reminder: ${reminderPlace.name}`, place: reminderPlace } : null}
+                        onClose={() => setPicking(false)}
+                        onDone={place => { setPicking(false); onStayPlace(place); }} />
                 </>
             ) : null}
         </View>

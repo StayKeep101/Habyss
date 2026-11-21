@@ -34,6 +34,9 @@ interface Props {
     goal: string | null; onGoal: (value: string | null) => void;
     /** Only the habits, tasks and goals somebody else is on too. */
     sharedOnly: boolean; onSharedOnly: (value: boolean) => void;
+    /** Friends you share something with, to show only what you share with one of them. */
+    friends?: { id: string; name: string }[];
+    sharedWith?: string | null; onSharedWith?: (id: string | null) => void;
     order: Order; direction: 1 | -1; onOrder: (value: Order) => void; onReset: () => void;
 }
 
@@ -143,15 +146,18 @@ export const RoadmapFilters = (props: Props) => {
                             ))}
                         </Group>
 
-                        <Group label="Time">
-                            {(['morning', 'afternoon', 'evening'] as const).map((id, index) => (
-                                <Pill key={id} label={['Morning', 'Noon', 'Evening'][index]} on={props.focus === id}
-                                    onPress={() => props.onFocus(props.focus === id ? 'all' : id)} />
+                        {/* Shared: everything you share, or only what you share with one friend. */}
+                        <Group label="Shared" scroll>
+                            <Pill label="All shared" on={props.sharedOnly && !props.sharedWith}
+                                onPress={() => { props.onSharedWith?.(null); props.onSharedOnly(!(props.sharedOnly && !props.sharedWith)); }} />
+                            {(props.friends ?? []).map(friend => (
+                                <Pill key={friend.id} label={friend.name} on={props.sharedOnly && props.sharedWith === friend.id}
+                                    onPress={() => {
+                                        const on = props.sharedOnly && props.sharedWith === friend.id;
+                                        props.onSharedWith?.(on ? null : friend.id);
+                                        props.onSharedOnly(!on);
+                                    }} />
                             ))}
-                        </Group>
-
-                        <Group label="Shared">
-                            <Pill label="Only shared" on={props.sharedOnly} onPress={() => props.onSharedOnly(!props.sharedOnly)} />
                         </Group>
 
                         {/* Sorting always has an answer; tapping the chosen one flips it. */}

@@ -193,10 +193,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, onPin, sharedFor,
             {edges && dueToday?.length ? (
                 <Chips label="Due today" items={dueToday} onOpen={onOpen} />
             ) : null}
-            {/* Auto-reschedule off: what has no time is not placed for you. A tap ticks it, a long press opens it. */}
-            {edges && flow.anytime.length ? (
-                <Chips label="Anytime" heading={{ icon: 'time', tint: t.color.textMuted }} items={flow.anytime} onOpen={onOpen} onToggle={onToggle} />
-            ) : null}
+            {/* Auto-reschedule off: what has no time stays off the timeline; the List view has it. */}
             {edges && wake !== undefined ? <Edge size={size} icon="sunny" label="Wake up" at={wake} link={flow.timeline.length > 0} /> : null}
             {flow.timeline.length ? flow.timeline.map((item, index) => {
                 const next = flow.timeline[index + 1];

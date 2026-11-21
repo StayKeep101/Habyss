@@ -22,7 +22,7 @@ const changed = () => { version += 1; listeners.forEach(listener => listener());
 export const calendarVersion = () => version;
 
 /** One of the phone's calendars: iCloud, Google, Outlook, subscribed ones. */
-export interface CalendarInfo { id: string; title: string; color?: string; source: string }
+export interface CalendarInfo { id: string; title: string; color?: string; source: string; /** An event calendar, or a reminder list. */ kind: 'event' | 'reminder' }
 
 /** Calendars the user switched off: their events stay off the timeline. */
 const HIDDEN_KEY = 'habyss_calendar_hidden';
@@ -49,12 +49,45 @@ export async function setCalendarShown(id: string, shown: boolean): Promise<void
     changed();
 }
 
+/**
+ * Whole accounts switched off, per kind ("event:iCloud", "reminder:Gmail"): every
+ * calendar or list in them stays off, whatever its own switch says, and comes back
+ * as it was when the account is switched on again.
+ */
+const ACCOUNTS_KEY = 'habyss_calendar_hidden_accounts';
+let accountsOff: Set<string> | null = null;
+async function loadAccountsOff(): Promise<Set<string>> {
+    if (accountsOff) return accountsOff;
+    try {
+        const parsed = JSON.parse((await AsyncStorage.getItem(ACCOUNTS_KEY)) ?? '[]');
+        accountsOff = new Set(Array.isArray(parsed) ? parsed.filter((key): key is string => typeof key === 'string') : []);
+    } catch { accountsOff = new Set(); }
+    return accountsOff;
+}
+export const accountKey = (kind: 'event' | 'reminder', source: string) => `${kind}:${source}`;
+export const accountShown = (kind: 'event' | 'reminder', source: string) => !(accountsOff ?? new Set<string>()).has(accountKey(kind, source));
+
+/** Shows or hides a whole account's calendars (or reminder lists) on the timeline. */
+export async function setAccountShown(kind: 'event' | 'reminder', source: string, shown: boolean): Promise<void> {
+    const next = new Set(await loadAccountsOff());
+    if (shown) next.delete(accountKey(kind, source)); else next.add(accountKey(kind, source));
+    accountsOff = next;
+    cache.clear();
+    await AsyncStorage.setItem(ACCOUNTS_KEY, JSON.stringify([...next])).catch(() => undefined);
+    changed();
+}
+
+/** Whether a calendar's events (or a list's reminders) reach the timeline: its account on, and itself on. */
+const usable = (item: { id: string; source?: { name?: string } }, kind: 'event' | 'reminder', off: Set<string>, accounts: Set<string>) =>
+    !off.has(item.id) && !accounts.has(accountKey(kind, item.source?.name || 'Other'));
+
 /** The phone's event calendars, by account then name; empty without access. */
 export async function listCalendars(): Promise<CalendarInfo[]> {
     const api = calendar();
     if (!api) return [];
     try {
         await loadHidden();
+        await loadAccountsOff();
         const { status } = await api.getCalendarPermissionsAsync();
         if (status !== 'granted') return [];
         const calendars = await api.getCalendarsAsync(api.EntityTypes.EVENT);
@@ -62,8 +95,8 @@ export async function listCalendars(): Promise<CalendarInfo[]> {
         const { REMINDERS_ENABLED } = require('@/constants/features') as typeof import('@/constants/features');
         const lists = REMINDERS_ENABLED && (await api.getRemindersPermissionsAsync().catch(() => null))?.status === 'granted'
             ? await api.getCalendarsAsync(api.EntityTypes.REMINDER).catch(() => []) : [];
-        return [...calendars, ...lists]
-            .map(item => ({ id: item.id, title: item.title || 'Calendar', color: item.color, source: item.source?.name || 'Other' }))
+        return [...calendars.map(item => ({ item, kind: 'event' as const })), ...lists.map(item => ({ item, kind: 'reminder' as const }))]
+            .map(({ item, kind }) => ({ id: item.id, title: item.title || (kind === 'event' ? 'Calendar' : 'Reminders'), color: item.color, source: item.source?.name || 'Other', kind }))
             .sort((a, b) => a.source.localeCompare(b.source) || a.title.localeCompare(b.title));
     } catch {
         return [];
@@ -182,7 +215,8 @@ async function remindersFor(day: string, off: Set<string>): Promise<CalendarSlot
     try {
         const { status } = await api.getRemindersPermissionsAsync();
         if (status !== 'granted') return [];
-        const lists = (await api.getCalendarsAsync(api.EntityTypes.REMINDER)).filter(item => !off.has(item.id));
+        const accounts = await loadAccountsOff();
+        const lists = (await api.getCalendarsAsync(api.EntityTypes.REMINDER)).filter(item => usable(item, 'reminder', off, accounts));
         if (!lists.length) return [];
         const colors = new Map(lists.map(item => [item.id, item.color]));
         const from = new Date(`${day}T00:00:00`);
@@ -211,7 +245,8 @@ export async function eventsFor(day: string, fresh = false): Promise<CalendarSlo
         if (status !== 'granted') return [];
         // Only the calendars left on in Settings → Integrations.
         const off = await loadHidden();
-        const calendars = (await api.getCalendarsAsync(api.EntityTypes.EVENT)).filter(item => !off.has(item.id));
+        const accounts = await loadAccountsOff();
+        const calendars = (await api.getCalendarsAsync(api.EntityTypes.EVENT)).filter(item => usable(item, 'event', off, accounts));
         if (!calendars.length) { cache.set(day, []); return []; }
         const colors = new Map(calendars.map(item => [item.id, item.color]));
         const from = new Date(`${day}T00:00:00`);

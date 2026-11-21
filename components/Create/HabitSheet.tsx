@@ -59,7 +59,7 @@ const DAYS: { id: string; label: string }[] = [
     { id: 'thu', label: 'T' }, { id: 'fri', label: 'F' }, { id: 'sat', label: 'S' }, { id: 'sun', label: 'S' },
 ];
 const EVERY_DAY = DAYS.map(day => day.id);
-type Row = 'repeat' | 'time' | 'anchor' | 'target' | 'reminder' | 'importance' | 'goal' | 'look' | 'notes' | null;
+type Row = 'repeat' | 'time' | 'anchor' | 'target' | 'tracking' | 'reminder' | 'importance' | 'goal' | 'look' | 'notes' | null;
 
 interface Draft {
     name: string;
@@ -354,13 +354,11 @@ export const HabitSheet: React.FC<{
         setTrackMins(null);
         const option = everyOption.find(item => item.key === key) ?? suggestions.find(item => item.key === key);
         if (option?.kind === 'place') {
-            // A place already set as a reminder now counts time there.
-            if (draft.places.length && !stayPlace) change({ places: draft.places.map(place => ({ ...place, trigger: 'stay' as const, stayMinutes: place.stayMinutes ?? 30 })) });
-            // From the line under the sentence: straight to the map, to tap where it is.
-            else if (from === 'hint' && !draft.places.length) setOpenRow('reminder');
+            // From the line under the sentence: to the Tracking chip, where the map is a tap away.
+            if (from === 'hint' && !stayPlace) setOpenRow('tracking');
         } else if (stayPlace) {
-            // Away from a place: it stays a reminder for arriving, not a stay.
-            change({ places: draft.places.map(place => (place.trigger === 'stay' ? { ...place, trigger: 'arrive' as const } : place)) });
+            // Away from a place: its time there no longer counts (a reminder there stays).
+            change({ places: draft.places.filter(place => place.trigger !== 'stay') });
         }
     };
     const setMinutes = (value: number) => {
@@ -546,7 +544,9 @@ export const HabitSheet: React.FC<{
                 <TrackingPicker
                     options={everyOption} chosen={tracking ? everyOption.find(option => option.key === tracking.key) ?? tracking : null}
                     onChoose={key => chooseTracking(key)} minutes={minutes} onMinutes={setMinutes} accent={accent}
-                    placeName={stayPlace?.name} onPickPlace={() => setOpenRow('reminder')}
+                    stayPlace={stayPlace ?? null} reminderPlace={draft.places.find(place => place.trigger !== 'stay') ?? null}
+                    onStayPlace={place => change({ places: [...draft.places.filter(item => item.trigger !== 'stay'),
+                        ...(place ? [{ ...place, trigger: 'stay' as const, stayMinutes: minutes }] : [])] })}
                     onAddApps={addApps} appsCount={appsCount} minutesFromHabit={minutesFromHabit}
                     appsAvailable={appsAvailable} healthAvailable={draft.habitType !== 'quit'}
                 />
@@ -560,7 +560,6 @@ export const HabitSheet: React.FC<{
                     value={{ reminder: draft.reminder, reminderOffset: draft.reminderOffset, places: draft.places, alerts: draft.alerts }}
                     accent={accent}
                     onError={setError}
-                    trackPlace={tracking?.kind === 'place' ? { minutes } : undefined}
                     onChange={patch => change(patch)}
                 />
             ),

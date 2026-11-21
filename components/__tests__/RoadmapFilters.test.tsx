@@ -38,12 +38,12 @@ describe('the roadmap filter menu', () => {
     it('in the timeline, offers only the view: the rest means nothing there', () => {
         const screen = render(<RoadmapFilters {...props({ view: 'timeline' })} />);
         expect(screen.getByText('Timeline')).toBeTruthy();
-        for (const label of ['Goals', 'Morning', 'Only shared', 'Created', 'Reset']) expect(screen.queryByText(label)).toBeNull();
+        for (const label of ['Goals', 'All shared', 'Created', 'Reset']) expect(screen.queryByText(label)).toBeNull();
     });
 
     it('shows every choice at once, without a page of its own', () => {
         const screen = render(<RoadmapFilters {...props()} />);
-        for (const label of ['Goals', 'Habits', 'Tasks', 'Only shared', 'Morning', 'Noon', 'Evening', 'Created', 'Name', 'Progress']) {
+        for (const label of ['Goals', 'Habits', 'Tasks', 'All shared', 'Created', 'Name', 'Progress']) {
             expect(screen.getByText(label)).toBeTruthy();
         }
         // No per-goal row: the filter is about what kind of thing, and when.
@@ -104,12 +104,6 @@ describe('nothing chosen is how you say "no filter"', () => {
         expect(screen.getByLabelText('Tasks').props.accessibilityState).toEqual({ selected: true });
     });
 
-    it('clears the time of day the same way', () => {
-        const onFocus = jest.fn();
-        const screen = render(<RoadmapFilters {...props({ focus: 'morning', onFocus })} />);
-        fireEvent.press(screen.getByText('Morning'));
-        expect(onFocus).toHaveBeenCalledWith('all');
-    });
 
     it('still reverses the sort rather than clearing it', () => {
         // There is no unsorted list, so Sort is the one row where tapping the
@@ -124,21 +118,35 @@ describe('nothing chosen is how you say "no filter"', () => {
 describe('filtering to what is shared', () => {
     it('offers it alongside the rest', () => {
         const screen = render(<RoadmapFilters {...props()} />);
-        expect(screen.getByText('Only shared')).toBeTruthy();
+        expect(screen.getByText('All shared')).toBeTruthy();
     });
 
     it('reports the choice', () => {
         const onSharedOnly = jest.fn();
         const screen = render(<RoadmapFilters {...props({ onSharedOnly })} />);
-        fireEvent.press(screen.getByText('Only shared'));
+        fireEvent.press(screen.getByText('All shared'));
         expect(onSharedOnly).toHaveBeenCalledWith(true);
     });
 
     it('turns itself off the second time, being one toggle rather than two', () => {
         const onSharedOnly = jest.fn();
         const screen = render(<RoadmapFilters {...props({ sharedOnly: true, onSharedOnly })} />);
-        fireEvent.press(screen.getByText('Only shared'));
+        fireEvent.press(screen.getByText('All shared'));
         expect(onSharedOnly).toHaveBeenCalledWith(false);
+    });
+
+    it('lists the friends you share with, to show only what you share with one of them', () => {
+        const onSharedOnly = jest.fn();
+        const onSharedWith = jest.fn();
+        const screen = render(<RoadmapFilters {...props({ onSharedOnly, onSharedWith, friends: [{ id: 'k', name: 'sourkiwi' }, { id: 't', name: 'tom' }] })} />);
+        fireEvent.press(screen.getByText('sourkiwi'));
+        expect(onSharedWith).toHaveBeenCalledWith('k');
+        expect(onSharedOnly).toHaveBeenCalledWith(true);
+    });
+
+    it('offers no time of day: the timeline already shows when', () => {
+        const screen = render(<RoadmapFilters {...props()} />);
+        for (const label of ['Morning', 'Noon', 'Evening']) expect(screen.queryByText(label)).toBeNull();
     });
 
     it('counts as an active filter, so Reset lights up', () => {

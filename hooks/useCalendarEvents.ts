@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
-import { calendarOn, calendarVersion, checkCalendarAccess, eventsFor, hiddenCalendars, listCalendars, loadCalendarSetting, setCalendarShown, subscribeCalendar, type CalendarInfo, type CalendarSlot } from '@/lib/calendarEvents';
+import { accountShown, setAccountShown, calendarOn, calendarVersion, checkCalendarAccess, eventsFor, hiddenCalendars, listCalendars, loadCalendarSetting, setCalendarShown, subscribeCalendar, type CalendarInfo, type CalendarSlot } from '@/lib/calendarEvents';
 
 /** Whether the calendar is connected (Settings → Timeline). */
 export function useCalendarOn(): boolean {
@@ -25,7 +25,10 @@ export function useCalendarEvents(day: string): CalendarSlot[] {
 }
 
 /** The phone's calendars and which are shown, for choosing what reaches the timeline. */
-export function useCalendars(): { calendars: CalendarInfo[]; shown: (id: string) => boolean; setShown: (id: string, shown: boolean) => void } {
+export function useCalendars(): {
+    calendars: CalendarInfo[]; shown: (id: string) => boolean; setShown: (id: string, shown: boolean) => void;
+    accountShown: (kind: 'event' | 'reminder', source: string) => boolean; setAccountShown: (kind: 'event' | 'reminder', source: string, shown: boolean) => void;
+} {
     const on = useCalendarOn();
     const version = useSyncExternalStore(subscribeCalendar, calendarVersion, calendarVersion);
     const [calendars, setCalendars] = useState<CalendarInfo[]>([]);
@@ -39,5 +42,7 @@ export function useCalendars(): { calendars: CalendarInfo[]; shown: (id: string)
         calendars,
         shown: id => !hiddenCalendars().has(id),
         setShown: (id, shown) => void setCalendarShown(id, shown),
+        accountShown,
+        setAccountShown: (kind, source, shown) => void setAccountShown(kind, source, shown),
     };
 }
