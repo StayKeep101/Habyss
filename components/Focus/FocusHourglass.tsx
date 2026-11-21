@@ -7,6 +7,7 @@ import { useTokens } from '@/hooks/useTokens';
 import { skiaReady } from '@/lib/skiaReady';
 import { glassDesign } from '@/theme/hourglassDesigns';
 import { TEMPLE } from '@/theme/hourglassArt';
+import { HOURGLASS_FRAMES } from '@/theme/hourglassFrames';
 import { GLASS_HEIGHT } from '@/components/Home/DayHourglass';
 
 /**
@@ -40,7 +41,7 @@ export function FocusHourglass({ size, progress, seconds, running }: { size: num
         <View ref={ref} onLayout={measure} collapsable={false} style={{ height: size, alignItems: 'center', justifyContent: 'center' }}
             accessible accessibilityRole="progressbar"
             accessibilityValue={progress === null ? undefined : { min: 0, max: 100, now: Math.round(share * 100) }}>
-            {LiveGlass ? <LiveGlass size={size} ran={ran} running={running} sand={design.sand} /> : null}
+            {LiveGlass ? <LiveGlass frame={HOURGLASS_FRAMES[rankShown ?? 'Lost']} size={size} ran={ran} running={running} sand={design.sand} /> : null}
         </View>
     );
 }

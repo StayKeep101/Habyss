@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo } from 'react';
 import { useAnimatedReaction, useDerivedValue, useReducedMotion, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import {
-    BlurMask, Canvas, ClipOp, Group, LinearGradient, Path, Picture, RoundedRect, Skia, createPicture, useClock, vec,
+    BlurMask, Canvas, ClipOp, Group, Image as SkiaImage, LinearGradient, Path, Picture, RoundedRect, Skia, createPicture, useClock, useImage, vec,
 } from '@shopify/react-native-skia';
 import { mixHex } from '@/lib/colorContrast';
 import { Colors } from '@/theme/colors';
 import { HOURGLASS_INK } from '@/theme/hourglassArt';
+import type { GlassFrame } from '@/theme/hourglassFrames';
 import { DURATION, EASE } from '@/theme/motion';
 import { heapPeak, heapSurface, makeBulbs, solveHeap, solveTop, topArea, topSurface } from '@/lib/sandPhysics';
 
@@ -13,9 +14,11 @@ import { heapPeak, heapSurface, makeBulbs, solveHeap, solveTop, topArea, topSurf
 const AVALANCHE = { duration: DURATION.base, easing: EASE.enter };
 
 /**
- * Home's hourglass, drawn live with Skia in the design of the blue hourglass
- * (its outline traced from the art, on the art's own grid, 622 × 836). The
- * frame is still; the sand is alive: its surface sways and sinks as the day
+ * Home's hourglass, live with Skia: the rank's own frame (theme/hourglassFrames.ts,
+ * the art with its glass traced), or for a rank without one, the blue
+ * hourglass drawn (its outline traced from the art, on its grid, 622 × 836).
+ * Over an art frame, the art's own glass light is laid back over the sand, so
+ * the sand sits inside the glass, not on it. The frame is still; the sand is alive: its surface sways and sinks as the day
  * runs, grains fall under gravity onto a mound that grows, and both lean with
  * the phone's tilt. A band of light drifts across the glass. Only the sand is
  * the rank's colour. Reduce Motion: the sand sits still at the right level.
@@ -24,12 +27,12 @@ const AVALANCHE = { duration: DURATION.base, easing: EASE.enter };
  */
 const W = 622;
 const H = 836;
-const CX = 312;
-const NECK = 435;
 const GLASS_TOP = 87;
 const GLASS_BOTTOM = 747;
-/** Where the top sand starts the day, and how tall the pile ends it. */
-const TOP_FULL = 175;
+/** How far down its bulb the top sand starts the day. */
+const TOP_FULL = 0.25;
+/** The rim, inside which the sand stays (art units). */
+const INSET = 9;
 /** Grains in the air at once, and how long one takes to fall (ms). */
 const GRAINS = 36;
 const FALL_MS = 700;
@@ -42,9 +45,9 @@ const FALL_MS = 700;
 const REPOSE = 0.62;
 const HOLD = 0.35;
 /** The grain of the sand: fixed specks over both heaps, [x, y, light?] on the art's grid. */
-const SPECKS: [number, number, boolean][] = Array.from({ length: 260 }, (_, i) => {
+const specksFor = (width: number, top: number, bottom: number): [number, number, boolean][] => Array.from({ length: 260 }, (_, i) => {
     const a = Math.sin(i * 127.1) * 43758.5453, b = Math.sin(i * 311.7) * 24634.6345;
-    return [80 + (a - Math.floor(a)) * (W - 160), GLASS_TOP + (b - Math.floor(b)) * (GLASS_BOTTOM - GLASS_TOP), i % 3 === 0];
+    return [80 + (a - Math.floor(a)) * (width - 160), top + (b - Math.floor(b)) * (bottom - top), i % 3 === 0];
 });
 
 /** The glass's outline, traced from the art: [y, left, right] on the art's grid. */
@@ -58,15 +61,31 @@ const OUTLINE: [number, number, number][] = [
     [735, 102, 519], [747, 110, 511],
 ];
 
-/** Each bulb's inside, column by column, and all the sand there is (the top bulb full, level at TOP_FULL). */
-const BULBS = makeBulbs(OUTLINE, CX, NECK, 9);
-const TOTAL = topArea(-TOP_FULL, 0, 0, REPOSE, BULBS);
+/** The drawn blue hourglass, as a frame without art. */
+const DRAWN: Omit<GlassFrame, 'image' | 'light'> = { width: W, height: H, cx: 312, neck: 435, top: GLASS_TOP, bottom: GLASS_BOTTOM, outline: OUTLINE };
+
+/**
+ * Everything the sand needs from a frame: each bulb's inside, column by column;
+ * all the sand there is (the top bulb full to TOP_FULL); the grain; the glass.
+ */
+function geometry(frame: Omit<GlassFrame, 'image' | 'light'>) {
+    const bulbs = makeBulbs(frame.outline, frame.cx, frame.neck, INSET);
+    const full = frame.top + (frame.neck - frame.top) * TOP_FULL;
+    return {
+        ...frame,
+        bulbs,
+        total: topArea(-full, 0, 0, REPOSE, bulbs),
+        specks: specksFor(frame.width, frame.top, frame.bottom),
+        outer: glassPath(frame.outline, 0),
+        inner: glassPath(frame.outline, INSET),
+    };
+}
 
 /** A smooth closed path through the outline, brought in by `inset` from the rim. */
-function glassPath(inset: number) {
+function glassPath(outline: [number, number, number][], inset: number) {
     const path = Skia.Path.Make();
-    const right = OUTLINE.map(([y, , r]) => [r - inset, y] as const);
-    const left = [...OUTLINE].reverse().map(([y, l]) => [l + inset, y] as const);
+    const right = outline.map(([y, , r]) => [r - inset, y] as const);
+    const left = [...outline].reverse().map(([y, l]) => [l + inset, y] as const);
     const points = [...right, ...left];
     path.moveTo(points[0][0], points[0][1] + inset);
     for (let i = 1; i < points.length; i++) {
@@ -78,9 +97,11 @@ function glassPath(inset: number) {
     return path;
 }
 
-export function SkiaHourglass({ size, ran, running, sand, tilt, shake }: {
-    /** Height in points; the width follows the art (622 : 836). */
+export function SkiaHourglass({ size, ran, running, sand, tilt, shake, frame }: {
+    /** Height in points; the width follows the art. */
     size: number;
+    /** The rank's frame (theme/hourglassFrames.ts); without one, the blue hourglass drawn. */
+    frame?: GlassFrame;
     ran: SharedValue<number>;
     running: boolean;
     /** The rank's sand: [light, deep]. */
@@ -94,13 +115,16 @@ export function SkiaHourglass({ size, ran, running, sand, tilt, shake }: {
     const clock = useClock();
     const still = useSharedValue(0);
     const lean = tilt ?? still;
-    const scale = size / H;
-    const width = W * scale;
-
-    const outer = useMemo(() => glassPath(0), []);
-    const inner = useMemo(() => glassPath(9), []);
+    const geo = useMemo(() => geometry(frame ?? DRAWN), [frame]);
+    const art = useImage(frame?.image as number | undefined);
+    const scale = size / geo.height;
+    const width = geo.width * scale;
+    const { outer, inner, bulbs: BULBS, total: TOTAL, specks: SPECKS, cx: CX, neck: NECK, top: TOP, bottom: BOTTOM, width: FW, height: FH } = geo;
     const light = useMemo(() => mixHex(sand[0], Colors.common.white, 0.2), [sand]);
     const deep = sand[1];
+    // Light glass (the crystal) shows light sand by its edge: the surface in a shade of the sand.
+    const edged = !!frame && frame.light < 0.5;
+    const edge = useMemo(() => mixHex(sand[1], Colors.common.black, 0.45), [sand]);
 
     // How the resting sand lies: held where it is until the glass leans past what sand
     // holds, then a quick slide (an avalanche) towards gravity, and still again. Shaken,
@@ -128,27 +152,37 @@ export function SkiaHourglass({ size, ran, running, sand, tilt, shake }: {
             paint.setAntiAlias(true);
             canvas.save();
             canvas.clipPath(inner, ClipOp.Intersect, true);
-            const shader = Skia.Shader.MakeLinearGradient(vec(0, GLASS_TOP), vec(0, GLASS_BOTTOM),
+            const shader = Skia.Shader.MakeLinearGradient(vec(0, TOP), vec(0, BOTTOM),
                 [Skia.Color(light), Skia.Color(deep)], null, 0);
             paint.setShader(shader);
 
             // The top bulb: what is left of the sand, level but for the funnel over the drain.
-            const L = solveTop((1 - r) * TOTAL, rest, gravity, repose, BULBS, GLASS_TOP);
+            const L = solveTop((1 - r) * TOTAL, rest, gravity, repose, BULBS, TOP);
             const quiver = (x: number) => loose * 5 * Math.sin(x * 0.21 + t * 0.06);
             const top = Skia.Path.Make();
             top.moveTo(BULBS.xs[0], NECK + 4);
-            for (const x of BULBS.xs) top.lineTo(x, Math.min(NECK + 2, topSurface(x, L, rest, gravity, repose, BULBS) + quiver(x)));
+            const topEdge = Skia.Path.Make();
+            for (const x of BULBS.xs) {
+                const y = Math.min(NECK + 2, topSurface(x, L, rest, gravity, repose, BULBS) + quiver(x));
+                top.lineTo(x, y);
+                if (x === BULBS.xs[0]) topEdge.moveTo(x, y); else topEdge.lineTo(x, y);
+            }
             top.lineTo(BULBS.xs[BULBS.xs.length - 1], NECK + 4);
             top.close();
             canvas.drawPath(top, paint);
 
             // The bottom bulb: a heap holding exactly what fell, peaking where the grains land.
-            const hP = solveHeap(r * TOTAL, rest, gravity, repose, BULBS, GLASS_BOTTOM);
+            const hP = solveHeap(r * TOTAL, rest, gravity, repose, BULBS, BOTTOM);
             const peak = heapPeak(hP, rest, gravity, BULBS);
             const pile = Skia.Path.Make();
-            pile.moveTo(BULBS.xs[0], GLASS_BOTTOM + 4);
-            for (const x of BULBS.xs) pile.lineTo(x, Math.max(NECK + 6, heapSurface(x, hP, peak.w, rest, repose) + quiver(x + 40)));
-            pile.lineTo(BULBS.xs[BULBS.xs.length - 1], GLASS_BOTTOM + 4);
+            pile.moveTo(BULBS.xs[0], BOTTOM + 4);
+            const pileEdge = Skia.Path.Make();
+            for (const x of BULBS.xs) {
+                const y = Math.max(NECK + 6, heapSurface(x, hP, peak.w, rest, repose) + quiver(x + 40));
+                pile.lineTo(x, y);
+                if (x === BULBS.xs[0]) pileEdge.moveTo(x, y); else pileEdge.lineTo(x, y);
+            }
+            pile.lineTo(BULBS.xs[BULBS.xs.length - 1], BOTTOM + 4);
             pile.close();
             canvas.drawPath(pile, paint);
             paint.setShader(null);
@@ -166,12 +200,22 @@ export function SkiaHourglass({ size, ran, running, sand, tilt, shake }: {
             }
             paint.setAlphaf(1);
             canvas.restore();
+            if (edged) {
+                const line = Skia.Paint();
+                line.setAntiAlias(true);
+                line.setStyle(1);
+                line.setStrokeWidth(5);
+                line.setColor(Skia.Color(edge));
+                line.setAlphaf(0.55);
+                if (r < 0.995) canvas.drawPath(topEdge, line);
+                if (r > 0.005) canvas.drawPath(pileEdge, line);
+            }
 
             if (running && !reduced && r > 0.001 && r < 0.999) {
                 // The stream: grains leave the neck and fall straight along gravity, faster as
                 // they go, to where they meet the heap (its peak sits on that line).
                 paint.setColor(Skia.Color(light));
-                const land = Math.max(NECK + 12, Math.min(GLASS_BOTTOM, peak.y));
+                const land = Math.max(NECK + 12, Math.min(BOTTOM, peak.y));
                 const along = (y: number) => CX + tg * (y - NECK);
                 paint.setAlphaf(0.35);
                 const stream = Skia.Path.Make();
@@ -192,7 +236,7 @@ export function SkiaHourglass({ size, ran, running, sand, tilt, shake }: {
                     const phase = ((t / 1600) + i / 4) % 1;
                     const x = peak.x + (i % 2 === 0 ? -1 : 1) * phase * 120;
                     const y = heapSurface(x, hP, peak.w, rest, repose) - 2.5;
-                    if (y < GLASS_BOTTOM - 4 && x > BULBS.xs[0] && x < BULBS.xs[BULBS.xs.length - 1]) {
+                    if (y < BOTTOM - 4 && x > BULBS.xs[0] && x < BULBS.xs[BULBS.xs.length - 1]) {
                         paint.setAlphaf(phase < 0.8 ? 0.9 : (1 - phase) * 4.5);
                         canvas.drawCircle(x, y, 2.2, paint);
                     }
@@ -202,19 +246,31 @@ export function SkiaHourglass({ size, ran, running, sand, tilt, shake }: {
 
             // A band of light drifting across the glass, a little further with the tilt.
             if (!reduced) {
-                const drift = ((t / 7000) % 1) * (W + 300) - 150 + tg * 80;
-                const sheen = Skia.Shader.MakeLinearGradient(vec(drift - 90, 0), vec(drift + 90, H),
+                const drift = ((t / 7000) % 1) * (FW + 300) - 150 + tg * 80;
+                const sheen = Skia.Shader.MakeLinearGradient(vec(drift - 90, 0), vec(drift + 90, FH),
                     [Skia.Color('rgba(255,255,255,0)'), Skia.Color('rgba(255,255,255,0.10)'), Skia.Color('rgba(255,255,255,0)')], null, 0);
                 const band = Skia.Paint();
                 band.setShader(sheen);
-                canvas.drawRect(Skia.XYWHRect(0, GLASS_TOP, W, GLASS_BOTTOM - GLASS_TOP), band);
+                canvas.drawRect(Skia.XYWHRect(0, TOP, FW, BOTTOM - TOP), band);
             }
             canvas.restore();
-        }, Skia.XYWHRect(0, 0, W, H));
+        }, Skia.XYWHRect(0, 0, FW, FH));
     });
 
     return (
         <Canvas style={{ width, height: size }}>
+            {frame ? (
+                <Group transform={[{ scale }]}>
+                    {/* The rank's frame; the sand inside its glass; then the glass's own light back over the sand. */}
+                    {art ? <SkiaImage image={art} x={0} y={0} width={FW} height={FH} fit="fill" /> : null}
+                    <Picture picture={picture} />
+                    {art ? (
+                        <Group clip={inner}>
+                            <SkiaImage image={art} x={0} y={0} width={FW} height={FH} fit="fill" blendMode="screen" opacity={frame.light} />
+                        </Group>
+                    ) : null}
+                </Group>
+            ) : (
             <Group transform={[{ scale }]}>
                 {/* Pillars, then the glass and its glowing rim, then the caps over the ends. */}
                 {[38, 548].map(x => (
@@ -243,6 +299,7 @@ export function SkiaHourglass({ size, ran, running, sand, tilt, shake }: {
                     </RoundedRect>
                 ))}
             </Group>
+            )}
         </Canvas>
     );
 }

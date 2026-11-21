@@ -10,6 +10,7 @@ import { Hourglass } from './Hourglass';
 import { ArtHourglass } from './ArtHourglass';
 import { CRAFTED_HOURGLASS, HOME_PREVIEW_ART, LIVE_HOURGLASS_ART } from '@/theme/hourglassArt';
 import { CraftedHourglass } from './CraftedHourglass';
+import { HOURGLASS_FRAMES, type GlassFrame } from '@/theme/hourglassFrames';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useOnScreen } from '@/hooks/useOnScreen';
@@ -32,7 +33,7 @@ import { tint } from '@/theme/tokens';
 export const GLASS_HEIGHT = s(128);
 
 /** The live Skia hourglass, on a build that has Skia; null keeps the still pictures. */
-const LiveGlass: React.ComponentType<{ size: number; ran: import('react-native-reanimated').SharedValue<number>; running: boolean; sand: [string, string] }> | null =
+const LiveGlass: React.ComponentType<{ size: number; ran: import('react-native-reanimated').SharedValue<number>; running: boolean; sand: [string, string]; frame?: GlassFrame }> | null =
     skiaReady ? (require('./SkiaHourglass') as typeof import('./SkiaHourglass')).TiltingHourglass : null;
 const FLIP_KEY = 'habyss_glass_flipped';
 
@@ -185,7 +186,7 @@ export function DayHourglass({ marks }: { marks: number }) {
                 <Animated.View style={[styles.ring, { borderColor: design.sand[0] }, echoRingStyle]} pointerEvents="none" />
                 <Animated.View ref={glassRef} collapsable={false} style={glassStyle}>
                     {LiveGlass ? (
-                        <LiveGlass size={GLASS_HEIGHT} ran={ran} running={!flipping && glass.resting !== 'night'} sand={design.sand} />
+                        <LiveGlass frame={HOURGLASS_FRAMES[rankShown ?? 'Lost']} size={GLASS_HEIGHT} ran={ran} running={!flipping && glass.resting !== 'night'} sand={design.sand} />
                     ) : HOME_PREVIEW_ART[rankShown ?? 'Lost'] ? (
                         <Image source={HOME_PREVIEW_ART[rankShown ?? 'Lost'].image} resizeMode="contain" accessibilityIgnoresInvertColors
                             style={{ height: GLASS_HEIGHT, width: GLASS_HEIGHT * HOME_PREVIEW_ART[rankShown ?? 'Lost'].ratio }} />
