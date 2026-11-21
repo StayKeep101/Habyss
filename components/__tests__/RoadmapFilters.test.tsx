@@ -1,3 +1,5 @@
+// These cover goals themselves, which are switched off for the first release (constants/features.ts).
+jest.mock('@/constants/features', () => ({ ...jest.requireActual('@/constants/features'), GOALS_ENABLED: true, MARKET_ENABLED: true }));
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { RoadmapFilters } from '../Home/RoadmapFilters';

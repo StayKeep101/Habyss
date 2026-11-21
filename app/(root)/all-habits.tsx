@@ -1,3 +1,4 @@
+import { GOALS_ENABLED } from '@/constants/features';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -57,7 +58,7 @@ export default function AllScreen() {
     const { primary: accent } = useAccentGradient();
     const { lightFeedback } = useHaptics();
     const params = useLocalSearchParams<{ kind?: string }>();
-    const kind: Kind = params.kind === 'tasks' || params.kind === 'goals' ? params.kind : 'habits';
+    const kind: Kind = params.kind === 'tasks' || (params.kind === 'goals' && GOALS_ENABLED) ? params.kind : 'habits';
     const tasks = useTasks();
     // Goals come from the one shared list, so "Current" is exactly what the Roadmap shows.
     const { goals: activeGoals, finished } = useGoalsInsights();

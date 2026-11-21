@@ -1,4 +1,5 @@
 import { FontFamily } from '@/theme/designSystem';
+import { GOALS_ENABLED } from '@/constants/features';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Overlay } from '@/components/ui/Overlay';
@@ -140,8 +141,8 @@ export const RoadmapFilters = (props: Props) => {
                     {props.view === 'list' ? (<>
                         {/* Each kind is a switch: lit means shown. */}
                         <Group label="Show">
-                            {(['goals', 'habits', 'tasks'] as const).map((kind, index) => (
-                                <Pill key={kind} label={['Goals', 'Habits', 'Tasks'][index]} on={props.shown[kind]}
+                            {(['goals', 'habits', 'tasks'] as const).filter(kind => kind !== 'goals' || GOALS_ENABLED).map(kind => (
+                                <Pill key={kind} label={{ goals: 'Goals', habits: 'Habits', tasks: 'Tasks' }[kind]} on={props.shown[kind]}
                                     onPress={() => props.onToggleShown(kind)} />
                             ))}
                         </Group>

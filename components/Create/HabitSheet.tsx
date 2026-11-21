@@ -1,3 +1,4 @@
+import { GOALS_ENABLED } from '@/constants/features';
 import { goalCompletedOn } from '@/lib/goalInsights';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAutoReschedule } from '@/context/AppSettingsContext';
@@ -303,7 +304,7 @@ export const HabitSheet: React.FC<{
             anchor: rules?.anchor ? { to: rules.anchor.to, side: rules.anchor.side, gap: 0 } : start.anchor,
             alerts: rules?.reminder ? (rules.reminder.alerts ?? []) : start.alerts,
             reminder: rules?.reminder ? rules.reminder.at : start.reminder,
-            goalId: (rules?.goal && goals.find(goal => goal.name.toLowerCase() === rules.goal!.toLowerCase())?.id) || start.goalId,
+            goalId: (GOALS_ENABLED && rules?.goal && goals.find(goal => goal.name.toLowerCase() === rules.goal!.toLowerCase())?.id) || start.goalId,
         } : start;
         return { ...read, ...edits };
     }, [current, eventGoal, parsed, edits, rules, goals]);
@@ -571,7 +572,7 @@ export const HabitSheet: React.FC<{
             value: importanceLabel(draft.priority, draft.difficulty),
             content: <ImportancePicker priority={draft.priority} difficulty={draft.difficulty} onChange={change} />,
         },
-        ...(goals.length > 0 ? [{
+        ...(GOALS_ENABLED && goals.length > 0 ? [{
             id: 'goal', icon: 'flag-outline' as const, label: 'Goal', value: goalName,
             content: (
                 <Choices

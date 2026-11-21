@@ -1,3 +1,4 @@
+import { GOALS_ENABLED } from '@/constants/features';
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { CountUp, PopIn } from '@/components/ui/Motion';
@@ -222,7 +223,8 @@ export const ProfileView: React.FC<{
                         {[
                             { key: 'streak', label: 'Day streak', value: numbers.streak, icon: 'flame', color: colors.warning, lit: numbers.streak > 0, onPress: onStreak,
                                 note: numbers.streak > 0 && numbers.streak >= numbers.bestStreak ? 'Best yet' : undefined },
-                            { key: 'goals', label: 'Goals done', value: numbers.goalsCompleted, icon: 'flag', color: colors.success, lit: numbers.goalsCompleted > 0, onPress: onGoalsDone },
+                            // Goals are off for now (constants/features.ts).
+                            ...(GOALS_ENABLED ? [{ key: 'goals', label: 'Goals done', value: numbers.goalsCompleted, icon: 'flag', color: colors.success, lit: numbers.goalsCompleted > 0, onPress: onGoalsDone }] : []),
                         ].map((stat, index) => (
                             <PopIn key={stat.key} index={index} style={styles.tileSlot}>
                                 <Pressable disabled={!stat.onPress} onPress={stat.onPress} style={styles.tilePress}

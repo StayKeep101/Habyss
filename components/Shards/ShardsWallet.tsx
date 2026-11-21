@@ -1,3 +1,4 @@
+import { GOALS_ENABLED } from '@/constants/features';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ShardIcon } from '@/components/ui/ShardIcon';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -162,14 +163,14 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
                             <View style={[styles.table, { backgroundColor: t.color.surfaceRaised }]}>
                                 <View style={styles.tableRow}>
                                     <View style={styles.first} />
-                                    {(['Habit', 'Task', 'Goal'] as const).map(label => (
+                                    {(GOALS_ENABLED ? ['Habit', 'Task', 'Goal'] as const : ['Habit', 'Task'] as const).map(label => (
                                         <View key={label} style={styles.cell}><Text variant="caption" tone="muted" align="right">{label}</Text></View>
                                     ))}
                                 </View>
                                 {(['add', 'complete', 'miss'] as const).map(kind => (
                                     <View key={kind} style={styles.tableRow}>
                                         <View style={styles.first}><Text variant="bodySmall" tone="muted">{VERB[kind]}</Text></View>
-                                        {(['habit', 'task', 'goal'] as const).map(item => {
+                                        {(GOALS_ENABLED ? ['habit', 'task', 'goal'] as const : ['habit', 'task'] as const).map(item => {
                                             const points = rules[kind][item];
                                             return (
                                                 <View key={item} style={styles.cell}>

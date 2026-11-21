@@ -1,3 +1,5 @@
+// These cover goals themselves, which are switched off for the first release (constants/features.ts).
+jest.mock('@/constants/features', () => ({ ...jest.requireActual('@/constants/features'), GOALS_ENABLED: true, MARKET_ENABLED: true }));
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined) }));
 
 import { DeviceEventEmitter } from 'react-native';

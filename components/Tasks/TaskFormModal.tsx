@@ -1,3 +1,4 @@
+import { GOALS_ENABLED } from '@/constants/features';
 import { goalCompletedOn } from '@/lib/goalInsights';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAutoReschedule } from '@/context/AppSettingsContext';
@@ -234,7 +235,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             subtasks: rules?.subtasks ? rules.subtasks.map((title, index) => ({ id: `said-${index}`, title, done: false })) : start.subtasks,
             alerts: rules?.reminder ? (rules.reminder.alerts ?? []) : start.alerts,
             reminder: rules?.reminder ? rules.reminder.at : start.reminder,
-            goalId: (rules?.goal && goals.find(goal => goal.name.toLowerCase() === rules.goal!.toLowerCase())?.id) || start.goalId,
+            goalId: (GOALS_ENABLED && rules?.goal && goals.find(goal => goal.name.toLowerCase() === rules.goal!.toLowerCase())?.id) || start.goalId,
         } : start;
         return { ...read, ...edits };
     }, [current, eventGoal, parsed, edits, rules, startDay, goals, text]);
@@ -407,7 +408,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             value: importanceLabel(draft.priority, draft.difficulty),
             content: <ImportancePicker priority={draft.priority} difficulty={draft.difficulty} onChange={change} />,
         },
-        ...(goals.length > 0 ? [{
+        ...(GOALS_ENABLED && goals.length > 0 ? [{
             id: 'goal', icon: 'trophy-outline' as const, label: 'Goal', value: goalName,
             content: (
                 <Choices

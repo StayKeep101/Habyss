@@ -1,3 +1,4 @@
+import { GOALS_ENABLED } from '@/constants/features';
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { VoidSheet } from '@/components/ui/VoidSheet';
@@ -45,8 +46,11 @@ export function ThoughtActions({ visible, count, caption, goals, tasks, startWit
     const tiles: { id: ThoughtAction | 'into_goal' | 'subtask'; label: string; icon: string; color: string }[] = [
         { id: 'task', label: many ? `${count} tasks` : 'Task', icon: 'checkbox', color: t.color.warning },
         { id: 'habit', label: many ? `${count} habits` : 'Habit', icon: 'repeat', color: t.color.accent },
-        { id: 'goal', label: many ? `${count} goals` : 'Goal', icon: 'flag', color: t.color.success },
-        { id: 'into_goal', label: 'Into a goal', icon: 'flag-outline', color: t.color.success },
+        // Goals are off for now (constants/features.ts).
+        ...(GOALS_ENABLED ? [
+            { id: 'goal' as const, label: many ? `${count} goals` : 'Goal', icon: 'flag', color: t.color.success },
+            { id: 'into_goal' as const, label: 'Into a goal', icon: 'flag-outline', color: t.color.success },
+        ] : []),
         { id: 'subtask', label: 'Subtask', icon: 'list', color: t.color.warning },
     ];
     const press = (id: typeof tiles[number]['id']) => {

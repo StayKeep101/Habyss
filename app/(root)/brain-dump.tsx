@@ -1,3 +1,4 @@
+import { GOALS_ENABLED } from '@/constants/features';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
@@ -435,8 +436,10 @@ export default function BrainDumpScreen() {
                             <MorphMenu label="More actions" title={`${picked.size} selected`} titleIcon="checkmark" diameter={54} items={[
                                 { label: picked.size === 1 ? 'Make a task' : `Make ${picked.size} tasks`, icon: 'checkbox-outline', onPress: () => act(pickedList, 'task') },
                                 { label: picked.size === 1 ? 'Make a habit' : `Make ${picked.size} habits`, icon: 'repeat', onPress: () => act(pickedList, 'habit') },
-                                { label: picked.size === 1 ? 'Make a goal' : `Make ${picked.size} goals`, icon: 'flag-outline', onPress: () => act(pickedList, 'goal') },
-                                { label: 'Add to a goal', icon: 'flag', onPress: () => setActing({ list: pickedList, goals: true }) },
+                                ...(GOALS_ENABLED ? [
+                                    { label: picked.size === 1 ? 'Make a goal' : `Make ${picked.size} goals`, icon: 'flag-outline' as const, onPress: () => act(pickedList, 'goal') },
+                                    { label: 'Add to a goal', icon: 'flag' as const, onPress: () => setActing({ list: pickedList, goals: true }) },
+                                ] : []),
                             ]} />
                         ) : null}
                     </View>

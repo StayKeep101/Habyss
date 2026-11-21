@@ -45,6 +45,7 @@ import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useFocusSession } from '@/context/FocusTimeContext';
+import { GOALS_ENABLED } from '@/constants/features';
 import { RoadmapFilters, type FilterAnchor } from '@/components/Home/RoadmapFilters';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Alert } from 'react-native';
@@ -1247,7 +1248,8 @@ const CalendarScreen = () => {
     useLayoutEffect(() => { onPageSettledRef.current = onPageSettled; });
     const pagerHeight = paging ? Math.max(pageHeights[0], pageHeights[1]) : pageHeights[pageAt];
 
-    const showGoals = shown.goals && !scrubbing;
+    // Goals are off for now (constants/features.ts): their section never shows.
+    const showGoals = GOALS_ENABLED && shown.goals && !scrubbing;
     const showHabits = shown.habits || scrubbing;
     const showTasks = shown.tasks || scrubbing;
     /** Habits and tasks under a goal sit inside its card; with goals hidden they are listed on their own. */

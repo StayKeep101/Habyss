@@ -1,3 +1,4 @@
+import { GOALS_ENABLED } from '@/constants/features';
 import React from 'react';
 import { Pressable, Text as RNText, StyleSheet, View } from 'react-native';
 import { AppIcon, Avatar, CountUp, MatteSurface, PopIn, PostCard, SegmentBar, Text, type PostStat } from '@/components/ui';
@@ -155,7 +156,7 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
     const stats: PostStat[] = [];
     if (card.streak > 0) stats.push({ icon: 'flame', value: String(card.streak), label: 'day streak' });
     if (card.focusMinutes) stats.push({ icon: 'hourglass', value: focusDuration(card.focusMinutes * 60), label: 'focus' });
-    if (card.goalsMoved) stats.push({ icon: 'flag', value: String(card.goalsMoved), label: card.goalsMoved === 1 ? 'goal' : 'goals' });
+    if (GOALS_ENABLED && card.goalsMoved) stats.push({ icon: 'flag', value: String(card.goalsMoved), label: card.goalsMoved === 1 ? 'goal' : 'goals' });
 
     const avatar = post.mine ? ctx.myAvatar : post.avatarUrl;
     return (

@@ -13,7 +13,6 @@ struct HabyssWidgetBundle: WidgetBundle {
     var body: some Widget {
         HabyssWidget()
         HabyssHeatmapWidget()
-        HabyssGoalsWidget()
         HabyssDayWidget()
         HabyssShardsWidget()
         HabyssQuickAddWidget()

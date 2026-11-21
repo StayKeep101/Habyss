@@ -47,6 +47,7 @@ import { useEchoPatterns } from '@/hooks/useEchoPatterns';
 import { useTheme } from '@/context/ThemeContext';
 
 import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
+import { GOALS_ENABLED } from '@/constants/features';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
@@ -710,8 +711,8 @@ const Home = () => {
           {/* Spacer after header */}
           <View style={{ height: sectionGap }} />
 
-          {/* Goals Progress Bar */}
-          <Animated.View>
+          {/* Goals Progress Bar (goals are off for now: constants/features.ts) */}
+          {GOALS_ENABLED ? <Animated.View>
             <View ref={goalsRef} collapsable={false}>
             <GoalsProgressBar
               progress={avgGoalProgress}
@@ -720,7 +721,7 @@ const Home = () => {
               onPress={() => router.push('/goals-overview')}
             />
           </View>
-          </Animated.View>
+          </Animated.View> : null}
 
           {/* Off sick or on vacation: what is running, that the streak is safe, and "I'm back". */}
           {timeOff ? <View style={{ marginTop: sectionGap }}><TimeOffCard /></View> : null}

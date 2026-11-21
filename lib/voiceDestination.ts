@@ -1,3 +1,4 @@
+import { GOALS_ENABLED } from '@/constants/features';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
@@ -16,7 +17,8 @@ export const VOICE_DESTINATIONS: { id: VoiceDestination; label: string }[] = [
     { id: 'thought', label: 'Dump' },
     { id: 'task', label: 'Task' },
     { id: 'habit', label: 'Habit' },
-    { id: 'goal', label: 'Goal' },
+    // Goals are off for now (constants/features.ts).
+    ...(GOALS_ENABLED ? [{ id: 'goal' as VoiceDestination, label: 'Goal' }] : []),
 ];
 
 /** The choice as last read or set, so Settings opens already showing it. */

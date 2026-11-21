@@ -43,13 +43,18 @@ export const DEFAULT_PLUS: Record<PlusTab, PlusActionId[]> = {
 export const MAX_PLUS = 5;
 
 const KEY = 'habyss_plus_actions';
-const isAction = (id: unknown): id is PlusActionId => typeof id === 'string' && id in PLUS_ACTIONS;
+/** Goal and Bet on a goal are offered only while goals are on (constants/features.ts). */
+export const plusOffered = (id: PlusActionId): boolean => {
+    const { GOALS_ENABLED, MARKET_ENABLED } = require('@/constants/features') as typeof import('@/constants/features');
+    return id === 'goal' ? GOALS_ENABLED : id === 'bet' ? GOALS_ENABLED && MARKET_ENABLED : true;
+};
+const isAction = (id: unknown): id is PlusActionId => typeof id === 'string' && id in PLUS_ACTIONS && plusOffered(id as PlusActionId);
 
 /** A saved choice, cleaned: known actions, in catalogue order, at most five; a tab never empty. */
 export function cleanPlus(raw: unknown): Record<PlusTab, PlusActionId[]> {
     const saved = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
     const order = Object.keys(PLUS_ACTIONS) as PlusActionId[];
-    const out = { ...DEFAULT_PLUS };
+    const out = Object.fromEntries((Object.keys(DEFAULT_PLUS) as PlusTab[]).map(tab => [tab, DEFAULT_PLUS[tab].filter(plusOffered)])) as Record<PlusTab, PlusActionId[]>;
     for (const tab of Object.keys(DEFAULT_PLUS) as PlusTab[]) {
         // Duels became challenges: a saved "duel" is the challenge now.
         const list = Array.isArray(saved[tab]) ? (saved[tab] as unknown[]).map(id => (id === 'duel' ? 'challenge' : id)).filter(isAction) : null;
@@ -66,7 +71,7 @@ export function togglePlus(current: Record<PlusTab, PlusActionId[]>, tab: PlusTa
     return cleanPlus({ ...current, [tab]: next });
 }
 
-let state: Record<PlusTab, PlusActionId[]> = DEFAULT_PLUS;
+let state: Record<PlusTab, PlusActionId[]> = cleanPlus(null);
 let loaded = false;
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach(listener => listener());

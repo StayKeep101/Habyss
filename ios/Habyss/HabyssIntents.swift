@@ -292,6 +292,8 @@ struct AddHabitIntent: AppIntent {
 
 @available(iOS 16.0, *)
 struct AddGoalIntent: AppIntent {
+    /// Goals are off for the first release (constants/features.ts): not offered in Shortcuts.
+    static var isDiscoverable: Bool = false
     static var title: LocalizedStringResource = "Add Goal"
     static var description = IntentDescription("Add a goal in Habyss, in your own words")
     static var openAppWhenRun: Bool = false
@@ -714,13 +716,13 @@ struct HabyssShortcuts: AppShortcutsProvider {
             systemImageName: "plus.circle"
         )
         AppShortcut(
-            intent: AddGoalIntent(),
+            intent: MoveLeftoversIntent(),
             phrases: [
-                "Add a goal in \(.applicationName)",
-                "New goal in \(.applicationName)"
+                "Move what's left to tomorrow in \(.applicationName)",
+                "Push the rest to tomorrow in \(.applicationName)"
             ],
-            shortTitle: "Add Goal",
-            systemImageName: "flag"
+            shortTitle: "Move Leftovers",
+            systemImageName: "arrow.uturn.forward"
         )
         AppShortcut(
             intent: StartFocusIntent(),
