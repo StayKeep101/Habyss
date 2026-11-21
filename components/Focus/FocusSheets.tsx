@@ -20,14 +20,14 @@ export function useFocusBackground(): FocusBackground {
     return useSyncExternalStore(subscribeFocusBackground, currentFocusBackground, currentFocusBackground);
 }
 
-/** The landscape (Home's scene) or the default, plain black: the same row in Settings → Focus and on the focus page. */
+/** The landscape (Home's scene, the temple for the hourglass) or none, plain black: the same row in Settings → Focus and on the focus page. */
 export function FocusBackgroundRow() {
     const t = useTokens();
     const { lightFeedback } = useHaptics();
     const background = useFocusBackground();
     return (
         <SettingsRow icon="image" color={t.color.accent} label="Background"
-            choices={[{ id: 'landscape', label: 'Landscape' }, { id: 'plain', label: 'Default' }]} chosen={background}
+            choices={[{ id: 'landscape', label: 'Landscape' }, { id: 'plain', label: 'None' }]} chosen={background}
             onChoose={id => { lightFeedback(); setFocusBackground(id as FocusBackground); }} />
     );
 }

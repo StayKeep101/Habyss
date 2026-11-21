@@ -84,8 +84,9 @@ export default function FocusRoute() {
         return { y: place.top + place.size * (frame ? frame.foot / frame.height : 1), size: place.size };
     });
     return (
-        <View style={[styles.screen, { backgroundColor: hourglass || background === 'landscape' ? t.color.background : Colors.common.black }]}>
-            {hourglass ? <TempleStage stage={stage} /> : background === 'landscape' ? <RankScene centred={width > height} /> : null}
+        <View style={[styles.screen, { backgroundColor: background === 'landscape' ? t.color.background : Colors.common.black }]}>
+            {/* No background (Focus settings): the clock, the hourglass too, on plain black. */}
+            {background !== 'landscape' ? null : hourglass ? <TempleStage stage={stage} /> : <RankScene centred={width > height} />}
             {/* The clock and its buttons appear on the scene. */}
             <FocusStageProvider value={setStage}>
                 <Animated.View style={styles.screen} entering={FadeIn.duration(FOCUS_ENTRY.appear).reduceMotion(ReduceMotion.System)}><FocusStep /></Animated.View>
