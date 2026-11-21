@@ -162,6 +162,8 @@ export default function MobileLayout() {
   useEffect(() => watchForUpdates(), []);
   // Challenges and bets: their items in your plan, days kept reported, and what a tick must prove (lib/challengeProof.ts).
   useEffect(() => (require('@/lib/challengeProof') as typeof import('@/lib/challengeProof')).watchProof(), []);
+  // One "what's on now" in Notification Center at a time (lib/dayGuideTidy.ts).
+  useEffect(() => (require('@/lib/dayGuideTidy') as typeof import('@/lib/dayGuideTidy')).watchDayGuide(), []);
 
   // Your profile and its photo, read as the app opens, so the profile page
   // shows the picture at once rather than after a download.
