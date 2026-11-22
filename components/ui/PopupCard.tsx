@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View, KeyboardAvoidingView, Platform } from 'react-native';
 import Animated, { interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,7 +19,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * that rises from the bottom with a big icon half out of its top edge, a
  * title, a line, and whatever choices it carries. Tap outside to close.
  */
-export function PopupCard({ visible, onClose, icon, iconColor, title, body, children, badge: picture }: {
+export function PopupCard({ visible, onClose, icon, iconColor, title, body, children, badge: picture, typing = false }: {
     visible: boolean;
     onClose: () => void;
     icon: string;
@@ -29,6 +29,8 @@ export function PopupCard({ visible, onClose, icon, iconColor, title, body, chil
     children?: React.ReactNode;
     /** Drawn on the top edge in place of the icon: a face, for a card about a person. */
     badge?: React.ReactNode;
+    /** Something is typed in it: the card rides up on the keyboard. */
+    typing?: boolean;
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -58,7 +60,7 @@ export function PopupCard({ visible, onClose, icon, iconColor, title, body, chil
 
     return (
         <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-            <View style={styles.root}>
+            <KeyboardAvoidingView style={styles.root} behavior={typing && Platform.OS === 'ios' ? 'padding' : undefined} enabled={typing}>
                 <AnimatedPressable accessibilityLabel="Close" onPress={close} style={[StyleSheet.absoluteFill, scrim, { backgroundColor: colors.background }]} />
                 <Animated.View style={[styles.card, card, elevationFor(theme, 'floating'), { paddingBottom: sheetBottom(insets.bottom), backgroundColor: tone.fill }]}>
                     <View pointerEvents="none" style={styles.material}>
@@ -71,7 +73,7 @@ export function PopupCard({ visible, onClose, icon, iconColor, title, body, chil
                     {body ? <Text style={[styles.body, { color: colors.textSecondary }]}>{body}</Text> : null}
                     {children}
                 </Animated.View>
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 }

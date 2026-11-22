@@ -1,5 +1,5 @@
 import { GOALS_ENABLED } from '@/constants/features';
-import React from 'react';
+import React, { useSyncExternalStore } from 'react';
 import { Pressable, Text as RNText, StyleSheet, View } from 'react-native';
 import { AppIcon, Avatar, CountUp, MatteSurface, PopIn, SegmentBar, Text } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
@@ -17,6 +17,7 @@ import { bestComments, splitMentions, type Comment } from '@/lib/comments';
 import { StatusBadge } from './StatusBadge';
 import { DayPack, type PackPage } from './DayPack';
 import { DeckCardFace } from './DeckCardFace';
+import { dayNote, subscribeDayNotes } from '@/lib/dayNote';
 import { deckCards } from '@/lib/dayDeck';
 import { ReactionBar } from './ReactionBar';
 
@@ -79,36 +80,6 @@ function Line({ item, mine }: { item: DayCardLine; mine: boolean }) {
 }
 
 /**
- * Today's 3 (or 5): the tasks that mattered most, numbered in order. Each
- * circle fills as the card arrives, one after another; a finished one shows
- * its tick and how long it took, so a friend sees not just that it was done
- * but what it cost.
- */
-function TopTasks({ lines, mine }: { lines: DayCardLine[]; mine: boolean }) {
-    const t = useTokens();
-    const done = lines.filter(line => line.done).length;
-    return (
-        <View style={styles.top} accessible accessibilityLabel={`Today's ${lines.length}: ${done} of ${lines.length} done. ${lines.map(line =>
-            `${mine ? line.name : maskObjectionable(line.name)}, ${line.done ? 'done' : line.waiting ? 'waiting on a friend' : 'not done'}${line.minutes ? `, ${focusDuration(line.minutes * 60)}` : ''}`).join('. ')}`}>
-            <Text variant="caption" tone="muted">{`Today's ${lines.length}`}</Text>
-            {lines.map((line, index) => (
-                <PopIn key={`${line.name}-${index}`} index={index * 2} style={styles.topRow}>
-                    <View style={[styles.rank, line.done || line.waiting
-                        ? { backgroundColor: t.color.cobalt, borderColor: t.color.cobalt }
-                        : { borderColor: t.color.border }]}>
-                        {line.done ? <AppIcon name="checkmark" size={Spacing.md} color={textOn(t.color.cobalt)} />
-                            : line.waiting ? <AppIcon name="remove" size={Spacing.md} color={textOn(t.color.cobalt)} />
-                            : <RNText style={[t.type.caption, { color: t.color.textMuted }]}>{index + 1}</RNText>}
-                    </View>
-                    <Text variant="bodySmall" tone={line.done ? 'primary' : 'muted'} grow numberOfLines={1}>{mine ? line.name : maskObjectionable(line.name)}</Text>
-                    <LineFacts item={line} />
-                </PopIn>
-            ))}
-        </View>
-    );
-}
-
-/**
  * A day, as a pack of cards (components/Community/DayPack.tsx), the same
  * whichever of the five kinds it is. The cover says whose day it is and how
  * much of it was done (the kind's reason beside it: a milestone, a record, a
@@ -124,8 +95,6 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
     const total = card.habitsTotal + card.tasksTotal;
     const name = post.mine ? 'You' : post.name;
     const lines = [...(card.habits ?? []), ...(card.tasks ?? [])].sort((a, b) => Number(b.done) - Number(a.done));
-    const topNames = new Set((card.top ?? []).map(line => line.name));
-    const rest = lines.filter(line => !topNames.has(line.name));
     const did = lines.filter(line => line.done).map(line => (post.mine ? line.name : maskObjectionable(line.name)));
     // The day as a deck of cards: photos first, then what was counted, then the rest (lib/dayDeck.ts).
     const deck = deckCards(card).map(entry => (post.mine ? entry : { ...entry, title: maskObjectionable(entry.title) }));
@@ -143,6 +112,9 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
     } else if (total && done === total) {
         highlight = 'All done';
     }
+    // Your own note shows as soon as it is written; a friend's comes with their card.
+    const localNote = useSyncExternalStore(subscribeDayNotes, () => dayNote(post.day), () => '');
+    const note = post.mine ? (localNote || card.note) : card.note ? maskObjectionable(card.note) : undefined;
     const avatar = post.mine ? ctx.myAvatar : post.avatarUrl;
     const rank = ctx.rankOf(post.userId);
     const status = post.mine ? undefined : ctx.statusOf(post.userId);
@@ -201,16 +173,23 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
         </MatteSurface>
     );
 
-    // The whole day, as a list: Today's 3 first, then everything else.
-    const list = (width: number, height: number) => (
+    // The last card: what did not get done, then their few words about the day.
+    const missed = [...(card.top ?? []), ...lines].filter((line, index, all) => !line.done && all.findIndex(other => other.name === line.name) === index);
+    const shownMissed = note ? 5 : 9;
+    const last = (width: number, height: number) => (
         <MatteSurface radius={Radius.card} elevation="floating" style={{ width, height }}>
             <View style={styles.listCard}>
-                <Text variant="title">{post.mine ? 'Your day' : `${post.name}’s day`}</Text>
-                {card.top?.length ? <TopTasks lines={card.top} mine={post.mine} /> : null}
-                {rest.length ? (
+                {missed.length ? (
                     <View style={styles.lines}>
-                        {rest.slice(0, card.top?.length ? 6 : 9).map((line, index) => <Line key={`${line.name}-${index}`} item={line} mine={post.mine} />)}
-                        {rest.length > (card.top?.length ? 6 : 9) ? <Text variant="caption" tone="muted">{`+${rest.length - (card.top?.length ? 6 : 9)} more`}</Text> : null}
+                        <Text variant="title">Didn’t get to</Text>
+                        {missed.slice(0, shownMissed).map((line, index) => <Line key={`${line.name}-${index}`} item={line} mine={post.mine} />)}
+                        {missed.length > shownMissed ? <Text variant="caption" tone="muted">{`+${missed.length - shownMissed} more`}</Text> : null}
+                    </View>
+                ) : <Text variant="title">{total ? 'Everything done' : 'The day'}</Text>}
+                {note ? (
+                    <View style={[styles.note, { borderLeftColor: t.color.accent }]}>
+                        <Text variant="caption" tone="muted">{post.mine ? 'Your thoughts' : `${post.name.split(' ')[0]}’s thoughts`}</Text>
+                        <Text variant="body" numberOfLines={missed.length ? 6 : 12}>{note}</Text>
                     </View>
                 ) : null}
             </View>
@@ -222,7 +201,7 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
             onLongPress: post.mine ? undefined : () => ctx.onReport(post), render: cover },
         ...deck.map(entry => ({ key: entry.key, label: [entry.kind === 'task' ? 'Task' : entry.kind === 'habit' ? 'Habit' : null, entry.title, entry.took ? `took ${entry.took}` : null, entry.when].filter(Boolean).join(', '),
             render: (width: number, height: number) => <DeckCardFace card={entry} width={width} height={height} /> })),
-        ...(lines.length || card.top?.length ? [{ key: 'list', label: `${name}'s whole day`, render: list }] : []),
+        ...(missed.length || note ? [{ key: 'last', label: [missed.length ? `Didn't get to: ${missed.map(line => (post.mine ? line.name : maskObjectionable(line.name))).join(', ')}` : null, note ? `Thoughts: ${note}` : null].filter(Boolean).join('. '), render: last }] : []),
     ];
 
     return (
@@ -297,7 +276,8 @@ const styles = StyleSheet.create({
     coverFoot: { gap: Spacing.md },
     stats: { flexDirection: 'row', gap: Spacing.xl },
     stat: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-    listCard: { flex: 1, padding: Spacing.xl, gap: Spacing.md },
+    listCard: { flex: 1, padding: Spacing.xl, gap: Spacing.lg },
+    note: { gap: Spacing.xs, borderLeftWidth: Spacing.xs - 1, paddingLeft: Spacing.md },
     footer: { gap: Spacing.md },
     previews: { gap: Spacing.xs },
     commentPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, minWidth: Control.hitTarget - Spacing.xs, minHeight: Control.hitTarget - Spacing.xs, paddingHorizontal: Spacing.md },

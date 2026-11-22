@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { scheduleDayNotePrompt } from '@/lib/dayNote';
 import { ActivityIndicator, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
@@ -34,7 +35,12 @@ export default function SharingScreen() {
     useEffect(() => { void FeedService.shareSettings().then(found => { if (found) setPost(found); }); }, []);
     const changePost = (change: { time?: string; enabled?: boolean }) => {
         selectionFeedback();
-        setPost(current => ({ ...current, ...change }));
+        setPost(current => {
+            const next = { ...current, ...change };
+            // The note prompt follows the post time (lib/dayNote.ts).
+            void scheduleDayNotePrompt(next.time, next.enabled);
+            return next;
+        });
         void FeedService.setShareSettings(change);
     };
 

@@ -12,6 +12,7 @@ import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { FriendsService } from '@/lib/friendsService';
 import { rememberDayCard } from '@/lib/dayCardLatest';
 import { loadTickPhotos, onTickPhotos, tickPhotoUrl } from '@/lib/tickPhotos';
+import { dayNote, loadDayNotes, subscribeDayNotes } from '@/lib/dayNote';
 
 /** Waits for a burst of ticks to settle before writing, so one card goes up, not ten. */
 const SETTLE_MS = 4000;
@@ -43,6 +44,13 @@ export function useDayCardPublisher() {
     useEffect(() => {
         void loadTickPhotos().then(() => setPhotoTick(tick => tick + 1)).catch(() => undefined);
         return onTickPhotos(() => setPhotoTick(tick => tick + 1));
+    }, []);
+
+    // Your note on the day: the card goes again when you write it.
+    const [noteTick, setNoteTick] = useState(0);
+    useEffect(() => {
+        void loadDayNotes().then(() => setNoteTick(tick => tick + 1)).catch(() => undefined);
+        return subscribeDayNotes(() => setNoteTick(tick => tick + 1));
     }, []);
 
     // Focus sessions, for the Chronos facts on the card.
@@ -104,6 +112,7 @@ export function useDayCardPublisher() {
                 }),
                 // What made today stand out: a comeback, a best, a milestone, the focus (lib/dayMoments.ts).
                 ...dayMoments({ today: data.today, streak, completedDates, focus: currentFocusRecords() }),
+                ...(dayNote(day) ? { note: dayNote(day) } : null),
             };
             // Kept for the Developer page's preview (lib/dayCardLatest.ts).
             rememberDayCard(data.today, card);
@@ -113,5 +122,5 @@ export function useDayCardPublisher() {
             });
         })(); }, SETTLE_MS);
         return () => clearTimeout(timer);
-    }, [habits, data, focusTick, target, names, photoTick]);
+    }, [habits, data, focusTick, target, names, photoTick, noteTick]);
 }

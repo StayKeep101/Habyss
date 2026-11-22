@@ -8,9 +8,14 @@ export const styles = StyleSheet.create({
     month: { fontSize: 22, fontFamily: FontFamily.bold },
     monthArrows: { flexDirection: 'row', gap: Spacing.sm },
     grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: Spacing.sm },
-    weekday: { textAlign: 'center', fontSize: 12, fontFamily: FontFamily.semibold },
-    /** A day: a tall pill, its ring at the top, the date under it. */
-    pill: { alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, borderWidth: StyleSheet.hairlineWidth },
+    weekday: { width: '14.2857%', textAlign: 'center', fontSize: 12, fontFamily: FontFamily.semibold },
+    cell: { width: '14.2857%', alignItems: 'center', paddingVertical: 5 },
+    // The band joining perfect days in a row: half a cell each side, so two
+    // neighbours' halves meet into one stretch. Faint, behind the discs.
+    band: { position: 'absolute', top: 5, width: '50%', opacity: 0.28 },
+    bandLeft: { left: 0 },
+    bandRight: { right: 0 },
+    dayButton: { alignItems: 'center', justifyContent: 'center' },
     ringSvg: { position: 'absolute', top: 0, left: 0 },
     dayNumber: { fontSize: 14, fontVariant: ['tabular-nums'] },
     /** The streak, centred: the figure and its flame, what it means, your best. */

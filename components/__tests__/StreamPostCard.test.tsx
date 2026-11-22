@@ -67,13 +67,14 @@ it('shows the best comments on the card and opens the conversation', () => {
     expect(context.onOpenComments).toHaveBeenCalledWith(expect.objectContaining({ userId: 'ana' }), true);
 });
 
-it("shows Today's top tasks with how long each took", () => {
+it("ends on what didn't get done (with whom it waits) and the day's thoughts", () => {
     const top = [{ name: 'Ship it', done: true, minutes: 90 }, { name: 'Gym', done: false, waiting: true, with: ['Sam'] }, { name: 'Read', done: false }];
-    const screen = render(<StreamPostCard item={day('daily', { top })} ctx={ctx()} />);
+    const screen = render(<StreamPostCard item={day('daily', { top, note: 'Long day, shipped anyway.' })} ctx={ctx()} />);
     toLastCard(screen);
-    expect(screen.getByText("Today's 3")).toBeTruthy();
-    expect(screen.queryByText('1 of 3')).toBeNull();
-    expect(screen.getByText('1h 30m')).toBeTruthy();
+    expect(screen.getByText('Didn’t get to')).toBeTruthy();
+    expect(screen.getByText('Gym')).toBeTruthy();
     expect(screen.getByText('with Sam')).toBeTruthy();
-    expect(screen.queryByText(/waiting on/)).toBeNull();
+    expect(screen.queryByText('Ship it')).toBeNull();
+    expect(screen.getByText('Long day, shipped anyway.')).toBeTruthy();
+    expect(screen.getByText('Ana’s thoughts')).toBeTruthy();
 });

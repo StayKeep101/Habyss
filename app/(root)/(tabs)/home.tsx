@@ -48,6 +48,8 @@ import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { GOALS_ENABLED } from '@/constants/features';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
+import { DayNotePopup } from '@/components/Echo/DayNotePopup';
+import { MorningPopup } from '@/components/Echo/MorningPopup';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { Radius, Spacing } from '@/theme/designSystem';
@@ -275,7 +277,9 @@ const Home = () => {
     // Sometimes Echo asks something instead (when is learned from when you
     // answer): it says so on its line first, then the pop-up opens once the
     // line has finished typing.
-    const kind = pickQuestion(await loadCheckIns(), new Date());
+    // Not while the morning's card about last night is about to ask (components/Echo/MorningPopup.tsx).
+    const { isMorning } = require('@/lib/nightCheck') as typeof import('@/lib/nightCheck');
+    const kind = isMorning(new Date()) ? null : pickQuestion(await loadCheckIns(), new Date());
     if (kind) {
       void markAsked(kind);
       pendingQuestion.current = kind;
@@ -725,6 +729,9 @@ const Home = () => {
               if (better && quoteRef.current === reply) { quoteRef.current = better; setLineTurn(turn => turn + 1); setMotivationalQuote(better); }
             })();
           } } : undefined} />
+        {/* Your day is up: how did it go? And each morning, last night (components/Echo). */}
+        <DayNotePopup />
+        <MorningPopup />
         <CheckInPopup kind={question} onClose={() => setQuestion(null)}
           onAnswer={(kind, value) => { void answerCheckIn(kind, value); setQuestion(null); successFeedback(); }} />
 

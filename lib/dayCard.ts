@@ -66,6 +66,8 @@ export interface DayCardData extends DayMoments {
     goalsMoved?: number;
     /** Today's 3 (or 5): the tasks that mattered most, with how long each took. */
     top?: DayCardLine[];
+    /** Your few words about the day (lib/dayNote.ts), on the pack's last card. */
+    note?: string;
 }
 
 export function buildDayCard(input: {

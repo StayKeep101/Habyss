@@ -24,6 +24,7 @@ import { AddFriendModal } from '@/components/Community/AddFriendModal';
 import type { RailFriend } from '@/components/Community/FriendsRail';
 import { StreamPostCard, type StreamContext } from '@/components/Community/StreamPostCard';
 import { PagerGesture } from '@/components/Community/DayPack';
+import { scheduleDayNotePrompt } from '@/lib/dayNote';
 import { buildStream } from '@/lib/communityStream';
 import { listenToComments, loadThreads, threadKey, type Comment } from '@/lib/comments';
 import { CommentSheet, type CommentTarget } from '@/components/Community/CommentSheet';
@@ -194,6 +195,8 @@ export default function CommunityScreen() {
             setEndReached(feed.length < PAGE);
             setRank(board.find(row => row.isMe)?.rank ?? null);
             setShareTime(settings?.enabled ? settings.time : null);
+            // The note prompt rings at that time each day (lib/dayNote.ts).
+            void scheduleDayNotePrompt(settings?.time ?? null, !!settings?.enabled);
             setUnread(unreadCount);
         } finally {
             loading.current = false;

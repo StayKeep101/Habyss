@@ -12,7 +12,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
-import { tint } from '@/theme/tokens';
+import { textOn } from '@/theme/tokens';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
@@ -171,17 +171,15 @@ export default function ProgressScreen() {
     const { height, width } = useWindowDimensions();
     const heroSize = Math.round(Math.min(112, height * 0.12));
     const rows = Math.ceil((firstWeekday + days.length) / 7);
-    const columnGap = Spacing.sm;
-    const pillWidth = (width - Spacing.xl * 2 - columnGap * 6) / 7;
-    // The room under the month's name, measured: the weekday letters, then the weeks sharing the rest.
+    // Seven columns across, the weeks sharing the height left under the month's name (measured).
+    const cellWidth = (width - Spacing.xl * 2) / 7;
     const [viewport, setViewport] = useState(0);
     const [calendarTop, setCalendarTop] = useState(0);
     const room = viewport && calendarTop ? viewport - calendarTop - Spacing.section - Spacing.sm : 0;
     const weekdayRow = Spacing.xl;
-    const pillHeight = room
-        ? Math.max(pillWidth * 1.1, Math.min(pillWidth * 1.7, (room - weekdayRow - columnGap * rows) / rows))
-        : pillWidth * 1.4;
-    const ring = Math.round(pillWidth * 0.72);
+    const rowHeight = room ? Math.max(cellWidth * 0.9, Math.min(cellWidth * 1.5, (room - weekdayRow) / rows)) : cellWidth;
+    const ring = Math.round(Math.min(cellWidth * 0.84, rowHeight - Spacing.sm));
+    const gap = Math.round((rowHeight - ring) / 2);
     return (
         <SheetScreen title="Streak" align="start"
             rightSlot={
@@ -215,23 +213,25 @@ export default function ProgressScreen() {
 
                 <View onLayout={event => setCalendarTop(event.nativeEvent.layout.y)}>
                 <GestureDetector gesture={swipeMonth}>
-                <Animated.View key={offset} style={[styles.grid, { rowGap: columnGap, columnGap }, gridMotion]}>
+                <Animated.View key={offset} style={[styles.grid, gridMotion]}>
                     {(mondayFirst ? MONDAY_FIRST : SUNDAY_FIRST).map((label, index) => (
-                        <Text key={index} style={[styles.weekday, { width: pillWidth, height: weekdayRow - columnGap, color: colors.textTertiary }]}>{label}</Text>
+                        <Text key={index} style={[styles.weekday, { height: weekdayRow, color: colors.textTertiary }]}>{label}</Text>
                     ))}
-                    {Array.from({ length: firstWeekday }, (_, index) => <View key={`blank${index}`} style={{ width: pillWidth, height: pillHeight }} />)}
+                    {Array.from({ length: firstWeekday }, (_, index) => <View key={`blank${index}`} style={[styles.cell, { paddingVertical: gap }]} />)}
                     {days.map((day, index) => (
                         <DayCell
                             key={day.date}
                             index={index}
+                            column={(firstWeekday + index) % 7}
+                            prevPerfect={index > 0 && !days[index - 1].future && dayFill(days[index - 1]) >= 1}
+                            nextPerfect={index < days.length - 1 && !days[index + 1].future && dayFill(days[index + 1]) >= 1}
                             day={day}
                             today={today}
                             accent={accent}
                             colors={colors}
                             onOpen={openDay}
                             size={ring}
-                            width={pillWidth}
-                            height={pillHeight}
+                            gap={gap}
                         />
                     ))}
                 </Animated.View>
@@ -267,50 +267,57 @@ export default function ProgressScreen() {
 }
 
 /**
- * One day as a pill with its ring, the way Activity draws them: a faint
- * track, and an arc that closes as much of it as the day was done (half the
- * day's habits and tasks, half a ring; all of them, a closed ring); the date
- * under it. A perfect day is a solid disc, its pill lit in the accent; today's
- * pill is raised. Days to come are quiet.
+ * One day as a ring, the way Activity draws them: a faint track, and an arc
+ * that closes as much of it as the day was done — half the day's habits and
+ * tasks, half a ring; all of them, a closed ring.
+ *
+ * A perfect day (everything asked for done) is a solid disc instead, and
+ * perfect days in a row are joined by a band behind them, along the week, so
+ * a run reads at a glance as one unbroken stretch.
  */
-const DayCell = React.memo(function DayCell({ day, index, today, accent, colors, onOpen, size, width, height }: {
+const DayCell = React.memo(function DayCell({ day, index, today, accent, colors, onOpen, column, prevPerfect, nextPerfect, size, gap }: {
     day: DaySummary; index: number; today: string; accent: string; colors: typeof Colors.light;
+    /** 0 (the week's first day) to 6: the band never wraps onto the next row. */
+    column: number;
+    prevPerfect: boolean;
+    nextPerfect: boolean;
     onOpen: (day: DaySummary, frame: LayoutRectangle) => void;
-    /** The ring's size, and the pill's. */
+    /** The ring's size and the room around it, from the screen's height. */
     size: number;
-    width: number;
-    height: number;
+    gap: number;
 }) {
     const ref = React.useRef<View>(null);
     const fill = day.future ? 0 : dayFill(day);
     const closed = fill >= 1;
     const isToday = day.date === today;
-    const stroke = Math.max(3.5, size / 9);
+    const stroke = 3.5;
     const radius = (size - stroke) / 2;
     const circumference = 2 * Math.PI * radius;
     // Each ring closes after the one before it, so a month fills in like a wave.
     const shown = useProgress(fill, Math.min(index, 31) * (MOTION.stagger / 2));
     const arc = useAnimatedProps(() => ({ strokeDashoffset: circumference * (1 - shown.get()) }));
 
+    const bandLeft = closed && prevPerfect && column > 0;
+    const bandRight = closed && nextPerfect && column < 6;
+
     return (
-        <Pressable
-            ref={ref}
-            accessibilityRole="button"
-            accessibilityLabel={`${day.date}${isToday ? ', today' : ''}. ${closed ? 'Perfect day' : `${Math.round(fill * 100)}% done`}: ${day.done.length} of ${day.scheduled} habits, ${day.tasks.length} tasks`}
-            disabled={day.future}
-            onPress={() => ref.current?.measureInWindow((x, y, w, h) => onOpen(day, { x, y, width: w, height: h }))}
-            style={[styles.pill, {
-                width, height, borderRadius: width / 2,
-                borderColor: closed ? tint(accent, 'border') : colors.border,
-                backgroundColor: closed ? tint(accent, 'subtle') : isToday ? colors.surfaceTertiary : 'transparent',
-                opacity: day.future ? 0.4 : 1,
-            }]}
-        >
-            <View style={{ width: size, height: size }}>
-                {closed ? (
-                    // A perfect day: filled, not ringed.
-                    <View style={[StyleSheet.absoluteFill, { borderRadius: size / 2, backgroundColor: accent }]} />
-                ) : (
+        <View style={[styles.cell, { paddingVertical: gap }]}>
+            {/* The run's band, from this day's centre to its neighbours'. */}
+            {bandLeft ? <View pointerEvents="none" style={[styles.band, styles.bandLeft, { top: gap, height: size, backgroundColor: accent }]} /> : null}
+            {bandRight ? <View pointerEvents="none" style={[styles.band, styles.bandRight, { top: gap, height: size, backgroundColor: accent }]} /> : null}
+            <Pressable
+                ref={ref}
+                accessibilityRole="button"
+                accessibilityLabel={`${day.date}. ${Math.round(fill * 100)}% done: ${day.done.length} of ${day.scheduled} habits, ${day.tasks.length} tasks`}
+                disabled={day.future}
+                onPress={() => ref.current?.measureInWindow((x, y, width, height) => onOpen(day, { x, y, width, height }))}
+                style={[styles.dayButton, { opacity: day.future ? 0.3 : 1 }]}
+            >
+                <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+                    {closed ? (
+                        // A perfect day: filled, not ringed.
+                        <View style={[StyleSheet.absoluteFill, { borderRadius: size / 2, backgroundColor: accent }]} />
+                    ) : (
                     <Svg width={size} height={size} style={styles.ringSvg}>
                         <Circle cx={size / 2} cy={size / 2} r={radius} stroke={accent} strokeOpacity={0.16} strokeWidth={stroke} fill="none" />
                         {fill > 0 ? (
@@ -319,20 +326,23 @@ const DayCell = React.memo(function DayCell({ day, index, today, accent, colors,
                                 stroke={accent} strokeWidth={stroke} fill="none"
                                 strokeDasharray={`${circumference} ${circumference}`}
                                 animatedProps={arc}
-                                strokeLinecap="round"
+                                strokeLinecap={closed ? 'butt' : 'round'}
                                 rotation={-90} origin={`${size / 2}, ${size / 2}`}
                             />
                         ) : null}
                     </Svg>
-                )}
-            </View>
-            <Text style={[styles.dayNumber, {
-                color: isToday ? accent : colors.textSecondary,
-                fontFamily: closed || isToday ? FontFamily.bold : FontFamily.medium,
-            }]}>
-                {Number(day.date.slice(-2))}
-            </Text>
-        </Pressable>
+                    )}
+                    <Text style={[styles.dayNumber, {
+                        // The date grows with the ring, as the month fills the page.
+                        fontSize: Math.max(14, Math.round(size * 0.3)),
+                        color: closed ? textOn(accent) : isToday ? accent : colors.textSecondary,
+                        fontFamily: closed || isToday ? FontFamily.bold : FontFamily.regular,
+                    }]}>
+                        {Number(day.date.slice(-2))}
+                    </Text>
+                </View>
+            </Pressable>
+        </View>
     );
 });
 
