@@ -1,18 +1,15 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { Gesture, GestureDetector, type GestureType } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { usePagerGesture } from '@/components/ui/PagerGesture';
 import Animated, { interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useTokens } from '@/hooks/useTokens';
 import { DURATION, EASE } from '@/theme/motion';
 import { Radius, Spacing } from '@/theme/designSystem';
 
-/**
- * The page swiper around the feed (Community's Accountability ↔ Challenges),
- * as a gesture: a pack waits for nothing, and the pages wait for a pack, so a
- * sideways swipe that starts on a card moves the cards, not the page.
- */
-export const PagerGesture = createContext<GestureType | null>(null);
+/** The pager around the feed (components/ui/PagerGesture.ts): a swipe that starts on a card moves the cards. */
+export { PagerGesture } from '@/components/ui/PagerGesture';
 
 export interface PackPage {
     key: string;
@@ -32,7 +29,7 @@ export interface PackPage {
 export function DayPack({ pages }: { pages: PackPage[] }) {
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
-    const pager = useContext(PagerGesture);
+    const pager = usePagerGesture();
     // The feed's width to start with (drawn on the first frame), then exactly what it is given.
     const screen = useWindowDimensions();
     const [width, setWidth] = useState(Math.max(0, screen.width - Spacing.xl * 2));

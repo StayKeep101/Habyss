@@ -49,20 +49,38 @@ const meta = (move: ShardMove) => {
 export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun }: {
     visible: boolean; onClose: () => void; wallet: Wallet; multiplier: number; perfectRun: number;
 }) {
+    const [info, setInfo] = useState(false);
+    return (
+        <VoidModal visible={visible} onClose={onClose}>
+            <ModalHeader title="Wallet" onAction={() => setInfo(true)} actionIcon="information-circle-outline" actionLabel="How Shards work" />
+            <WalletView wallet={wallet} multiplier={multiplier} perfectRun={perfectRun} active={visible} info={info} onInfo={setInfo} />
+        </VoidModal>
+    );
+}
+
+/** The wallet itself, without its sheet: its own page in the Wallet · Streak · Missed sheet (components/Home/StatsSheet.tsx). */
+export function WalletView({ wallet, multiplier, perfectRun, active, info, onInfo }: {
+    wallet: Wallet; multiplier: number; perfectRun: number;
+    /** Shown now: the line keeps moving to the minute only while it is. */
+    active: boolean;
+    /** How Shards work, opened from the header's ⓘ. */
+    info: boolean;
+    onInfo: (open: boolean) => void;
+}) {
     const t = useTokens();
     // Only today's moves are listed; the chart shows the rest.
     const todayMoves = useMemo(() => { const today = localDateKey(new Date()); return wallet.activity.filter(move => move.date === today); }, [wallet.activity]);
     const [range, setRange] = useState<WalletRange>('24H');
     const [scrub, setScrub] = useState<GoalPoint | null>(null);
-    const [info, setInfo] = useState(false);
+    const setInfo = onInfo;
     // The line ends at now: moved on every minute while the wallet is open.
     const [now, setNow] = useState(() => Date.now());
     useEffect(() => {
-        if (!visible) return;
+        if (!active) return;
         const opened = setTimeout(() => setNow(Date.now()), 0);
         const timer = setInterval(() => setNow(Date.now()), 60_000);
         return () => { clearTimeout(opened); clearInterval(timer); };
-    }, [visible]);
+    }, [active]);
 
     // The range drawn point by point: every 2 minutes over an hour, every 30 over a day, and so on.
     const series = useMemo<GoalPoint[]>(
@@ -79,8 +97,7 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
     const rules = SHARDS.rules;
 
     return (
-        <VoidModal visible={visible} onClose={onClose}>
-            <ModalHeader title="Wallet" onAction={() => setInfo(true)} actionIcon="information-circle-outline" actionLabel="How Shards work" />
+        <View style={styles.page}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* The balance: a big Shard, as tall as the figure, then the figure and what it is counted in. */}
                 <View style={styles.balance}>
@@ -215,11 +232,12 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
                     </VoidCard>
                 </Animated.View>
             ) : null}
-        </VoidModal>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
+    page: { flex: 1 },
     content: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.section + Spacing.lg, gap: Spacing.lg },
     balance: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
     label: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },

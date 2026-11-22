@@ -30,7 +30,20 @@ const HANDOVER = 24;
  * a button that puts it on today. Scroll past the count and the header says
  * it instead: "16 missed".
  */
-export const MissedModal: React.FC<{ visible: boolean; onClose: () => void; missed: Missed; habits: Habit[] }> = ({ visible, onClose, missed }) => {
+export const MissedModal: React.FC<{ visible: boolean; onClose: () => void; missed: Missed; habits: Habit[] }> = ({ visible, onClose, missed }) => (
+    <VoidModal visible={visible} onClose={onClose}>
+        <MissedView missed={missed} active={visible} onLeave={onClose} header />
+    </VoidModal>
+);
+
+/**
+ * What is missed, without its sheet: its own page in the Wallet · Streak ·
+ * Missed sheet (components/Home/StatsSheet.tsx). `header`: its own title,
+ * which takes the count over as it scrolls (the sheet around it has one).
+ */
+export function MissedView({ missed, active, onLeave, header = false }: { missed: Missed; active: boolean; onLeave: () => void; header?: boolean }) {
+    const visible = active;
+    const onClose = onLeave;
     const t = useTokens();
     const { lightFeedback, successFeedback } = useHaptics();
     const total = missed.items.length;
@@ -64,8 +77,8 @@ export const MissedModal: React.FC<{ visible: boolean; onClose: () => void; miss
     };
 
     return (
-        <VoidModal visible={visible} onClose={onClose}>
-            <ModalHeader title="Missed" titleStyle={titleStyle} altTitle={`${total} missed`} altStyle={altStyle} />
+        <View style={styles.flex}>
+            {header ? <ModalHeader title="Missed" titleStyle={titleStyle} altTitle={`${total} missed`} altStyle={altStyle} /> : null}
             <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16}
                 contentContainerStyle={{ paddingHorizontal: t.space.xl, paddingBottom: Spacing.bottom }} showsVerticalScrollIndicator={false}>
                 <View style={[styles.hero, { gap: t.space.sm, paddingTop: t.space.sm, paddingBottom: t.space.xl }]}>
@@ -150,9 +163,9 @@ export const MissedModal: React.FC<{ visible: boolean; onClose: () => void; miss
                     </View>
                 ) : null}
             </Animated.ScrollView>
-        </VoidModal>
+        </View>
     );
-};
+}
 
 const styles = StyleSheet.create({
     hero: { alignItems: 'center' },

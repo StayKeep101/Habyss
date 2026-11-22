@@ -56,7 +56,7 @@ import { Radius, Spacing } from '@/theme/designSystem';
 import { homeStyles } from '@/styles/screens/home.styles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ShardsWallet } from '@/components/Shards/ShardsWallet';
+import { StatsSheet, type StatsPage } from '@/components/Home/StatsSheet';
 import { useWallet } from '@/hooks/useWallet';
 import { useMarks } from '@/hooks/useMarks';
 import { useDailyFocus, useDailyTarget } from '@/hooks/useDailyFocus';
@@ -72,7 +72,6 @@ import { FocusWeekCard } from '@/components/Home/FocusWeekCard';
 import { localDateKey } from '@/lib/habitSchedule';
 import { echoWeek } from '@/lib/echoInsights';
 import { MissedCard } from '@/components/Home/MissedCard';
-import { MissedModal } from '@/components/Home/MissedModal';
 import { missed as missedFrom } from '@/lib/missed';
 import { useMovedTasks } from '@/hooks/useMovedTasks';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -118,7 +117,8 @@ const Home = () => {
 
   // UI state
   const [showCelebration, setShowCelebration] = useState(false);
-  const [showMissed, setShowMissed] = useState(false);
+  // Wallet, Streak or Missed, open in the one sheet; null when closed.
+  const [stats, setStats] = useState<StatsPage | null>(null);
   // Your Marks, for links that open the hourglasses (read outside render).
   const marksTotalRef = useRef(0);
   // Your photo, from the one profile store (lib/profile.ts).
@@ -458,12 +458,11 @@ const Home = () => {
     });
     return () => sub.remove();
   }, [playLevelUp]);
-  const [showWallet, setShowWallet] = useState(false);
   // habyss:///home?open=missed (or wallet, or glasses): a link straight to one of Home's sheets.
   const { open: openSheet } = useLocalSearchParams<{ open?: string }>();
   useEffect(() => {
-    if (openSheet === 'missed') setShowMissed(true);
-    if (openSheet === 'wallet') setShowWallet(true);
+    if (openSheet === 'missed') setStats('missed');
+    if (openSheet === 'wallet') setStats('wallet');
     // Every hourglass now lives on your profile (its awards).
     if (openSheet === 'glasses') router.push('/(root)/profile');
   }, [openSheet]);
@@ -691,18 +690,18 @@ const Home = () => {
             {/* Three stats, each its own pill: they are three different things. */}
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: s(8) }}>
               <MatteSurface radius={Radius.pill} level="control" elevation="floating" style={homeStyles.statPill}>
-                <ShardsCard wallet={wallet} onPress={() => setShowWallet(true)} />
+                <ShardsCard wallet={wallet} onPress={() => { lightFeedback(); setStats('wallet'); }} />
               </MatteSurface>
               {/* Measured by the first-run walkthrough ("Keep the streak"). */}
               <View ref={streakRef} collapsable={false}>
                 <MatteSurface radius={Radius.pill} level="control" elevation="floating" style={homeStyles.statPill}>
                   <StreakCard streak={streak} completionTier={completionTier}
-                    onPress={() => { lightFeedback(); router.push('/(root)/progress'); }} />
+                    onPress={() => { lightFeedback(); setStats('streak'); }} />
                 </MatteSurface>
               </View>
               <View ref={missedRef} collapsable={false}>
                 <MatteSurface radius={Radius.pill} level="control" elevation="floating" style={homeStyles.statPill}>
-                  <MissedCard missed={missed} onPress={() => { lightFeedback(); setShowMissed(true); }} />
+                  <MissedCard missed={missed} onPress={() => { lightFeedback(); setStats('missed'); }} />
                 </MatteSurface>
               </View>
             </View>
@@ -735,13 +734,8 @@ const Home = () => {
         <CheckInPopup kind={question} onClose={() => setQuestion(null)}
           onAnswer={(kind, value) => { void answerCheckIn(kind, value); setQuestion(null); successFeedback(); }} />
 
-        <MissedModal
-          visible={showMissed}
-          onClose={() => setShowMissed(false)}
-          missed={missed}
-          habits={habits}
-        />
-        <ShardsWallet visible={showWallet} onClose={() => setShowWallet(false)} wallet={wallet} multiplier={marks.multiplier} perfectRun={marks.perfectRun} />
+        {/* Wallet, Streak and Missed: one sheet, swiped between (components/Home/StatsSheet.tsx). */}
+        <StatsSheet open={stats} onClose={() => setStats(null)} wallet={wallet} multiplier={marks.multiplier} perfectRun={marks.perfectRun} missed={missed} />
         <ClimbMomentOverlay moment={climbMoment} onDone={() => setClimbMoment(null)} />
         {/* The end of the Ascent: rising out of its light, then the first step. */}
         <AscentArrival />

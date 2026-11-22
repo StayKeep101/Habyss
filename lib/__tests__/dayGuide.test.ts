@@ -13,11 +13,11 @@ describe('the day, told as it happens', () => {
     const find = (id: string) => moments.find(moment => moment.id.startsWith(id));
 
     it('says when the first thing starts', () => {
-        expect(find('guide:now:Study')).toMatchObject({ at: 600, kind: 'now', title: 'Study', body: 'Start now.' });
+        expect(find('guide:now:Study')).toMatchObject({ at: 600, kind: 'now', title: 'Study', body: 'Start Study now.' });
         expect(find('guide:now:Study')?.done).toBeUndefined();
     });
     it('one ending as the next begins is one notification: only what starts is said, and its button ticks the one that ended', () => {
-        expect(find('guide:handover:Emails')).toMatchObject({ at: 660, title: 'Emails', body: 'Start now.', done: { id: 'Study', kind: 'task' } });
+        expect(find('guide:handover:Emails')).toMatchObject({ at: 660, title: 'Emails', body: 'Start Emails now.', done: { id: 'Study', kind: 'task' } });
         expect(moments.filter(moment => moment.at === 660)).toHaveLength(1);
     });
     it("time's up with a gap after: its own notification, with Done", () => {

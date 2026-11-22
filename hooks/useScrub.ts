@@ -5,6 +5,7 @@ import {
     Easing, type SharedValue,
 } from 'react-native-reanimated';
 import { useHaptics } from '@/hooks/useHaptics';
+import { usePagerGesture } from '@/components/ui/PagerGesture';
 
 /**
  * Reading a chart with your finger, the way a portfolio does it.
@@ -137,6 +138,7 @@ export function useScrub({ count, width, mode = 'points', gap = 0, onIndex, onRe
     accents?: number[];
 }): Scrub {
     const { selectionFeedback, softFeedback, rigidFeedback } = useHaptics();
+    const pager = usePagerGesture();
     const lastTick = useSharedValue(0);
     const marked = useSharedValue<number[]>([]);
     useEffect(() => { marked.set(accents ?? []); }, [accents, marked]);
@@ -172,7 +174,7 @@ export function useScrub({ count, width, mode = 'points', gap = 0, onIndex, onRe
             x.set(centreOf(found, width, count, mode, gap));
         };
 
-        return Gesture.Pan()
+        const pan = Gesture.Pan()
             // Begin fires on touch down, before the gesture has won anything, so
             // the crosshair is there from the first frame. If the page turns out
             // to be scrolling instead, the finalizer takes it away again.
@@ -207,7 +209,9 @@ export function useScrub({ count, width, mode = 'points', gap = 0, onIndex, onRe
                 active.set(withTiming(0, FADE));
                 index.set(-1);
             });
-    }, [count, width, mode, gap, onRelease, sticky, x, index, active, dragged, haptics, marked, lastTick, softFeedback]);
+        // Inside a sideways pager, reading the chart holds the pager off (components/ui/PagerGesture.ts).
+        return pager ? pan.blocksExternalGesture(pager) : pan;
+    }, [count, width, mode, gap, onRelease, sticky, x, index, active, dragged, haptics, marked, lastTick, softFeedback, pager]);
 
     /** Puts the mark away. For a sticky chart, whoever decides it is finished. */
     const clear = useCallback(() => {

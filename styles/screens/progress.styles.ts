@@ -3,6 +3,9 @@ import { FontFamily, Spacing } from '@/theme/designSystem';
 
 /** The look of app/(root)/progress.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
+    page: { flex: 1 },
+    /** Whose streak, at the top right of the page. */
+    whose: { flexDirection: 'row', justifyContent: 'flex-end' },
     content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: Spacing.section + Spacing.sm },
     monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
     month: { fontSize: 22, fontFamily: FontFamily.bold },
