@@ -87,10 +87,11 @@ export function guideMoments(flow: DayFlow, now: number, options: GuideOptions =
         out.push({
             id: `guide:${ended ? 'handover' : 'now'}:${item.id}:${item.start}`, at: item.start, kind: ended ? 'handover' : 'now',
             ...ref(item),
-            // Only its name: arriving as it starts already says "now", and the
-            // Live Activity shows how long is left. Its button still ticks the last one.
+            // Its name, then "Start now." (read out as one line by AirPods and the Watch:
+            // "Study. Start now."). The Live Activity shows how long is left; its button
+            // still ticks the last one.
             title: item.kind === 'meal' ? mealTitle(item) : item.title,
-            body: '',
+            body: item.kind === 'meal' ? '' : 'Start now.',
             ...(ended ? { done: { id: ended.id, kind: ended.kind as 'habit' | 'task' } } : null),
         });
     }

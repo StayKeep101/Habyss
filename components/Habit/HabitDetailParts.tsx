@@ -102,11 +102,12 @@ export function HabitToday({ done, skipped, scheduled, color, onDone, onSkip, on
     );
 }
 
-/** Four numbers in type, split by hairlines. */
+/** Four numbers in type, split by hairlines; the streak with its flame. */
 export function HabitStats({ record, color }: { record: HabitRecord; color: string }) {
     const t = useTokens();
     const items = [
-        { label: 'Streak', value: String(record.streak), tone: record.streak > 0 ? color : t.color.textPrimary },
+        // The streak with its flame, as everywhere else: lit while the run is going.
+        { label: 'Streak', value: String(record.streak), flame: true },
         { label: 'Best', value: String(record.best) },
         { label: '30 days', value: record.rate30 === null ? '—' : `${record.rate30}%` },
         { label: 'Days done', value: String(record.done) },
@@ -115,7 +116,10 @@ export function HabitStats({ record, color }: { record: HabitRecord; color: stri
         <MatteSurface radius={Radius.card} style={styles.stats}>
             {items.map((item, index) => (
                 <PopIn key={item.label} index={index} style={[styles.stat, index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: t.color.border }]}>
-                    <CountUp style={[styles.statValue, { color: item.tone ?? t.color.textPrimary }]} value={item.value} />
+                    <View style={styles.statFigure}>
+                        {'flame' in item ? <AppIcon name="flame" filled size={styles.statValue.fontSize} color={record.streak > 0 ? t.color.warning : t.color.textSubtle} /> : null}
+                        <CountUp style={[styles.statValue, { color: t.color.textPrimary }]} value={item.value} />
+                    </View>
                     <Text style={[styles.statLabel, { color: t.color.textMuted }]}>{item.label}</Text>
                 </PopIn>
             ))}
@@ -191,6 +195,7 @@ const styles = StyleSheet.create({
     stats: { flexDirection: 'row', paddingVertical: Spacing.lg },
     stat: { flex: 1, alignItems: 'center', gap: 2 },
     statValue: { fontSize: 22, lineHeight: 28, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
+    statFigure: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs / 2 },
     statLabel: { fontSize: 12, fontFamily: FontFamily.regular },
     week: { flexDirection: 'row', justifyContent: 'space-between' },
     weekDay: { alignItems: 'center', gap: Spacing.xs, flex: 1 },

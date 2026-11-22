@@ -1,10 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import { AnimatedFill, CountUp, ListItem, useProgress } from '@/components/ui/Motion';
-import { AppIcon } from '@/components/ui/AppIcon';
+import { AnimatedFill, CountUp, ListItem } from '@/components/ui/Motion';
 import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { IconButton } from '@/components/ui/IconButton';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -42,9 +40,9 @@ const shortDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateStri
 /**
  * Where your focus time goes.
  *
- * The big number is the average day across the days shown (this week, a
- * week gone by, or 30 days), and beside it the change against the same days
- * of the window before, in one plain sentence. Underneath, a bar per day: the
+ * Which days at the top (7 or 30, and back in time), as on the Screen time
+ * side. The big number is the average day across the days shown (this week, a
+ * week gone by, or 30 days). Underneath, a bar per day: the
  * week, Monday (or Sunday) to its end, or the last 30 days. Press a bar and the
  * big number is that day (drag to read the others); let go and it is the
  * average again. The arrows go back in time. Under it,
@@ -119,26 +117,26 @@ export default function FocusStatsScreen() {
     const listReplay = `${replay}-${picked ?? ''}`;
     const nameOf = (id: string) => habits.find(habit => habit.id === id)?.name ?? tasks.find(task => task.id === id)?.title ?? 'Removed';
 
-    // With no day picked: the average day across the days shown (up to today),
-    // against the average of the same days in the window before.
-    const before = useMemo(() => focusSummary(records, shiftDay(end, -range), range), [records, end, range]);
+    // With no day picked: the average day across the days shown (up to today).
     const average = useMemo(() => {
         const elapsed = shown.days.filter(day => day.date <= today);
-        const count = Math.max(1, elapsed.length);
-        const mean = (days: { seconds: number }[]) => Math.round(days.reduce((sum, day) => sum + day.seconds, 0) / count);
-        const now = mean(elapsed);
-        return { now, change: now - mean(before.days.slice(0, count)) };
-    }, [shown, before, today]);
-    // Short enough to stay on the label's line, whatever the figure: "1h 13m vs last week".
-    const previous = range === 7 ? 'last week' : 'prior 30 days';
-    const changeLine = average.change === 0 ? `Same as ${previous}`
-        : `${focusDuration(Math.abs(average.change))} vs ${previous}`;
-    const changeSaid = average.change === 0 ? `Same as ${previous}`
-        : `${focusDuration(Math.abs(average.change))} ${average.change > 0 ? 'more' : 'less'} than ${previous}`;
-
-    const up = average.change > 0;
-    const down = average.change < 0;
-    const trendColor = up ? colors.success : down ? colors.error : colors.textTertiary;
+        return Math.round(elapsed.reduce((sum, day) => sum + day.seconds, 0) / Math.max(1, elapsed.length));
+    }, [shown, today]);
+    // Which days: 7 or 30, and the arrows back through time. At the top on both sides (the
+    // Screen time report draws its figure, bars and list itself, under them).
+    const controls = (
+        <>
+            <ChoiceRow accessibilityLabel="Days shown" value={range} onChange={setRange}
+                options={[{ id: 7 as Range, label: '7 days' }, { id: 30 as Range, label: '30 days' }]} />
+            <View style={styles.window}>
+                <IconButton icon="chevron-back" label={range === 7 ? 'Previous week' : 'Previous 30 days'} diameter={32} size={16} onPress={() => turn(1)} />
+                <Text style={[styles.windowLabel, { color: colors.textSecondary }]}>
+                    {page === 0 ? (range === 7 ? 'This week' : 'Last 30 days') : `${shortDay(shown.days[0].date)} – ${shortDay(shown.days[shown.days.length - 1].date)}`}
+                </Text>
+                <IconButton icon="chevron-forward" label={range === 7 ? 'Next week' : 'Next 30 days'} diameter={32} size={16} disabled={page === 0} onPress={() => turn(-1)} />
+            </View>
+        </>
+    );
     const ceiling = Math.max(1, ...shown.days.map(day => day.seconds));
     const topItem = listed[0]?.seconds ?? 1;
 
@@ -149,53 +147,28 @@ export default function FocusStatsScreen() {
                 // Screen time: the controls, then the report filling the rest. It scrolls by itself:
                 // a page scroll around it never gets a finger that lands on it.
                 <View style={[styles.content, styles.reportPage]}>
-                        <ChoiceRow accessibilityLabel="Days shown" value={range} onChange={setRange}
-                            options={[{ id: 7 as Range, label: '7 days' }, { id: 30 as Range, label: '30 days' }]} />
-                        <View style={styles.window}>
-                            <IconButton icon="chevron-back" label={range === 7 ? 'Previous week' : 'Previous 30 days'} diameter={32} size={16} onPress={() => turn(1)} />
-                            <Text style={[styles.windowLabel, { color: colors.textSecondary }]}>
-                                {page === 0 ? (range === 7 ? 'This week' : 'Last 30 days') : `${shortDay(shown.days[0].date)} – ${shortDay(shown.days[shown.days.length - 1].date)}`}
-                            </Text>
-                            <IconButton icon="chevron-forward" label={range === 7 ? 'Next week' : 'Next 30 days'} diameter={32} size={16} disabled={page === 0} onPress={() => turn(-1)} />
-                        </View>
+                        {controls}
                         <ScreenTimeReport days={range} offset={page} weekStart={weekStart} />
                 </View>
             ) : (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <>
+                {summary.sessions === 0 ? null : controls}
                 <View style={styles.hero}>
                     {/* The week, or the day under your finger. */}
                     {pickedDay ? (
                         <Text style={[styles.heroValue, { color: colors.textPrimary }]}>{focusDuration(pickedDay.seconds)}</Text>
                     ) : (
-                        <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={focusDuration(average.now)} replay={replay} />
+                        <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={focusDuration(average)} replay={replay} />
                     )}
-                    {/* One line, always: the average and its change, or the picked day. Never wraps, so nothing below moves. */}
-                    <View style={styles.trendRow}>
-                        <Text numberOfLines={1} style={[styles.heroLabel, { color: colors.textSecondary }]}>{pickedDay ? longDay(pickedDay.date) : 'Daily average'}</Text>
-                        {pickedDay ? null : (
-                            <View style={styles.trend} accessible accessibilityLabel={changeSaid}>
-                                <AppIcon name={up ? 'caret-up' : down ? 'caret-down' : 'remove'} size={11} color={trendColor} />
-                                <Text numberOfLines={1} style={[styles.trendText, { color: colors.textTertiary }]}>{changeLine}</Text>
-                            </View>
-                        )}
-                    </View>
+                    {/* The average, or the day picked. */}
+                    <Text numberOfLines={1} style={[styles.heroLabel, { color: colors.textSecondary }]}>{pickedDay ? longDay(pickedDay.date) : 'Daily average'}</Text>
                 </View>
 
                 {summary.sessions === 0 ? (
                     <EmptyState icon="timer-outline" title="Zero minutes of focus" message="Start focus on a habit or a task. Every session lands here." />
                 ) : (
                     <>
-                        <ChoiceRow accessibilityLabel="Days shown" value={range} onChange={setRange}
-                            options={[{ id: 7 as Range, label: '7 days' }, { id: 30 as Range, label: '30 days' }]} />
-                        <View style={styles.window}>
-                            <IconButton icon="chevron-back" label={range === 7 ? 'Previous week' : 'Previous 30 days'} diameter={32} size={16} onPress={() => turn(1)} />
-                            <Text style={[styles.windowLabel, { color: colors.textSecondary }]}>
-                                {page === 0 ? (range === 7 ? 'This week' : 'Last 30 days')
-                                    : `${shortDay(shown.days[0].date)} – ${shortDay(shown.days[shown.days.length - 1].date)}`}
-                            </Text>
-                            <IconButton icon="chevron-forward" label={range === 7 ? 'Next week' : 'Next 30 days'} diameter={32} size={16} disabled={page === 0} onPress={() => turn(-1)} />
-                        </View>
                         <GestureDetector gesture={touch}>
                             <View style={styles.chart} onLayout={event => { chartWidth.current = Math.max(1, event.nativeEvent.layout.width); }}
                                 accessible accessibilityRole="adjustable"

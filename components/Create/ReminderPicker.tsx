@@ -7,7 +7,6 @@ import { MatteSurface } from '@/components/ui/MatteSurface';
 import { ChoicePill } from '@/components/ui/ChoicePill';
 import { DurationWheels } from '@/components/Create/DurationWheels';
 import { ALERT_CHOICES } from '@/lib/itemAlerts';
-import { PlaceSheet } from '@/components/Create/PlaceSheet';
 import { PlaceMap, hasPlaceMap } from '@/components/Create/PlaceMap';
 import { usePanelRoom } from '@/components/Create/DetailBar';
 import { Colors } from '@/theme/colors';
@@ -59,10 +58,24 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
     const derived: Mode = remindAt ? 'place' : lead || value.reminder ? 'before' : 'off';
     const [chosen, setChosen] = useState<Mode | null>(null);
     const mode = chosen ?? derived;
-    const [picking, setPicking] = useState(false);
-    // The little map: centred on you until a place is chosen; tapped, the place goes there.
+    // The map, right in the panel (no full-size map on top): centred on you until a place is
+    // chosen; tapped, the place goes there. As big as the panel can grow, which grows the card with it.
     const room = usePanelRoom();
-    const mapHeight = Math.max(140, Math.min(240, room - 150));
+    const mapHeight = Math.max(200, Math.min(340, room - 110));
+    const [finding, setFinding] = useState(false);
+    const pinHere = async () => {
+        if (finding) return;
+        setFinding(true);
+        try {
+            const Location = require('expo-location') as typeof import('expo-location');
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') return;
+            const fix = await Location.getCurrentPositionAsync({});
+            const point = { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
+            setHere(point);
+            await pinAt(point);
+        } catch { /* stays where it was */ } finally { setFinding(false); }
+    };
     const [here, setHere] = useState<{ latitude: number; longitude: number } | null>(null);
     useEffect(() => {
         if (mode !== 'place' || remindAt || here) return;
@@ -95,7 +108,7 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
         if (next === 'off') onChange({ reminder: undefined, reminderOffset: undefined, places: stays, alerts: [] });
         if (next === 'before') onChange({ reminder: undefined, reminderOffset: undefined, places: stays, alerts: [lead ?? 10] });
         // A place fires on arriving or leaving, never "before": nobody can know when you will get there.
-        if (next === 'place') { onChange({ reminder: undefined, reminderOffset: undefined, alerts: [] }); if (!remindAt) setPicking(true); }
+        if (next === 'place') onChange({ reminder: undefined, reminderOffset: undefined, alerts: [] });
     };
     /** One lead at a time: a shortcut sets it, the wheels fine-tune it. */
     const setLead = (minutes: number) => onChange({ alerts: minutes > 0 ? [minutes] : [] });
@@ -133,25 +146,22 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
             ) : null}
 
             {mode === 'place' ? (
-                // The little map, right here: tap it where the place is. Expand opens it as big as the
-                // phone allows (components/Create/PlaceSheet.tsx), for a place that needs a closer look.
+                // The map, right here: tap it where the place is; the arrow pins where you are now.
                 <View style={styles.block}>
                     {hasPlaceMap() ? (
                         <View>
                             <PlaceMap key={remindAt ? `${remindAt.latitude},${remindAt.longitude}` : here ? 'here' : 'start'} center={remindAt ?? here}
                                 places={remindAt ? [remindAt] : []} accent={accent} height={mapHeight} onPick={point => void pinAt(point)} />
                             <View style={styles.expand}>
-                                <IconButton icon="expand" label="Open the map full size" diameter={32} size={15} onPress={() => { selectionFeedback(); setPicking(true); }} />
+                                <IconButton icon={finding ? 'hourglass-outline' : 'navigate'} label="Use where I am now" diameter={32} size={15}
+                                    onPress={() => { selectionFeedback(); void pinHere(); }} />
                             </View>
                         </View>
                     ) : null}
-                    <Pressable accessibilityRole="button" onPress={() => { selectionFeedback(); setPicking(true); }}>
-                        <MatteSurface radius={Radius.control} level="control" style={styles.here}>
-                            <AppIcon name="location" size={14} color={accent} />
-                            <Text numberOfLines={1} style={[styles.placeName, { color: colors.textPrimary }]}>{remindAt ? remindAt.name : 'Tap the map where it is'}</Text>
-                            <AppIcon name="chevron-forward" size={14} color={colors.textTertiary} />
-                        </MatteSurface>
-                    </Pressable>
+                    <MatteSurface radius={Radius.control} level="control" style={styles.here}>
+                        <AppIcon name="location" size={14} color={accent} />
+                        <Text numberOfLines={1} style={[styles.placeName, { color: remindAt ? colors.textPrimary : colors.textTertiary }]}>{remindAt ? remindAt.name : 'Tap the map where it is'}</Text>
+                    </MatteSurface>
                     {remindAt ? (
                         <View style={styles.placeRow}>
                             {(['arrive', 'leave'] as const).map(trigger => {
@@ -171,9 +181,6 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
                                 onPress={() => { lightFeedback(); onChange({ places: stays }); }} />
                         </View>
                     ) : null}
-                    <PlaceSheet visible={picking} title="Remind me at" initial={remindAt}
-                        onClose={() => setPicking(false)}
-                        onDone={picked => { setPicking(false); onChange({ places: [...stays, { ...picked, trigger: remindAt?.trigger ?? 'arrive' }] }); }} />
                 </View>
             ) : null}
         </View>

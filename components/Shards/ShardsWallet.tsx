@@ -82,13 +82,11 @@ export function ShardsWallet({ visible, onClose, wallet, multiplier, perfectRun 
         <VoidModal visible={visible} onClose={onClose}>
             <ModalHeader title="Wallet" onAction={() => setInfo(true)} actionIcon="information-circle-outline" actionLabel="How Shards work" />
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {/* The balance, and what it is counted in beside it. */}
+                {/* The balance: a big Shard, as tall as the figure, then the figure and what it is counted in. */}
                 <View style={styles.balance}>
+                    <ShardIcon size={Control.icon * 2.5} />
                     <CountUp style={[t.type.display, { color: t.color.textPrimary }]} value={end.toLocaleString()} />
-                    <View style={styles.label}>
-                        <ShardIcon size={Control.icon} />
-                        <Text variant="heading" tone="muted">Shards</Text>
-                    </View>
+                    <Text variant="heading" tone="muted">Shards</Text>
                 </View>
                 <View style={styles.change}>
                     {scrub ? (

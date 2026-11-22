@@ -116,10 +116,6 @@ export default function ProfileScreen() {
                         {/* Wake and bed times, planning, calendar and meals: what the timeline is built around. */}
                         <SettingsRow icon="time" color="#FF9F0A" label="Day & calendar" keywords="wake bedtime sleep meals tasks a day week starts auto-reschedule calendar"
                             value={dayHours} onPress={() => router.push('/(root)/meals' as never)} />
-                        <SettingsRow icon="checkmark-done" color="#FF453A" label="Tasks" keywords="tasks a day three five friends see"
-                            onPress={() => router.push('/(root)/task-settings' as never)} />
-                        <SettingsRow icon="repeat" color="#FF9F0A" label="Habits" keywords="habit names friends see shared"
-                            onPress={() => router.push('/(root)/habit-settings' as never)} />
                         <SettingsRow icon="airplane" color="#64D2FF" label="Time off" keywords="sick ill vacation holiday away travel pause rest break streak safe"
                             value={timeOff ? (timeOff.kind === 'sick' ? 'Sick' : 'Vacation') : undefined} onPress={() => router.push('/(root)/time-off' as never)} />
                         <SettingsRow icon="timer" color="#FF375F" label="Focus" keywords="clock style ring digital block"

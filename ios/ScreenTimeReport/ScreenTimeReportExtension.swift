@@ -9,8 +9,8 @@ import SwiftUI
 /// itself never reads anyone's app usage. The app picks the days
 /// (ScreenTimeReportView in ios/ScreenTimeModule.swift) and hands over its
 /// colours (components/Focus/ScreenTimeReport.tsx); this draws the average, a
-/// bar per day (tap one to read it, tap it again for the average), what Echo
-/// makes of it, and where the time went.
+/// bar per day (tap one to read it, tap it again for the average) and where the
+/// time went, exactly as the Focus side draws focus time.
 @main
 struct ScreenTimeReportExtension: DeviceActivityReportExtension {
     var body: some DeviceActivityReportScene {
@@ -145,30 +145,6 @@ private func duration(_ seconds: TimeInterval) -> String {
 private func longDay(_ day: Date) -> String { day.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)) }
 private func shortDay(_ day: Date) -> String { day.formatted(.dateTime.day().month(.abbreviated)) }
 
-/// What Echo makes of it: plain numbers, a little deadpan, never more than two lines.
-private func echoLine(usage: Usage, picked: DayUsage?) -> String {
-    if let day = picked {
-        let top = usage.apps(in: [day]).first
-        let lead = top.map { "\($0.name) took \(duration($0.seconds)) of it." } ?? "Barely touched it. Respect."
-        return day.pickups > 0 ? "\(lead) Picked up \(day.pickups) times." : lead
-    }
-    let days = usage.elapsed
-    guard !days.isEmpty, usage.average >= 60 else { return "Almost no screen time. Suspiciously good." }
-    var parts: [String] = []
-    let apps = usage.apps(in: days)
-    let total = days.reduce(0) { $0 + $1.seconds }
-    if let top = apps.first, total > 0 {
-        let share = Int((top.seconds / total * 100).rounded())
-        parts.append(share >= 30 ? "\(top.name) is \(share)% of it. That's the leak." : "\(top.name) leads, at \(duration(top.seconds / Double(days.count))) a day.")
-    }
-    let pickups = days.reduce(0) { $0 + $1.pickups } / max(1, days.count)
-    if pickups > 0 { parts.append("You pick it up \(pickups) times a day.") }
-    if days.count >= 3, let worst = days.max(by: { $0.seconds < $1.seconds }) {
-        parts.append("\(worst.day.formatted(.dateTime.weekday(.wide))) was the worst: \(duration(worst.seconds)).")
-    }
-    return parts.prefix(2).joined(separator: " ")
-}
-
 struct UsageView: View {
     let usage: Usage
     @State private var picked: Date?
@@ -195,7 +171,7 @@ struct UsageView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    // The big figure: the daily average, or the day you tapped; Echo's line under it.
+    // The big figure: the daily average, or the day you tapped (as on the Focus side).
     private var hero: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(duration(pickedDay?.seconds ?? usage.average))
@@ -206,11 +182,6 @@ struct UsageView: View {
             Text(pickedDay.map { longDay($0.day) } ?? "Daily average")
                 .font(lexend(15, "Medium"))
                 .foregroundColor(theme.muted)
-            // Always two lines' room, used or not, so the chart never jumps as days are picked.
-            Text(echoLine(usage: usage, picked: pickedDay))
-                .font(lexend(15, "Regular"))
-                .foregroundColor(theme.subtle)
-                .lineLimit(2, reservesSpace: true)
         }
         .padding(.top, 6)
     }
@@ -233,7 +204,7 @@ struct UsageView: View {
                         let lit = picked.map { $0 == day.day } ?? (day.day == today)
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .fill(day.seconds > 0 ? theme.accent : theme.border)
-                            .opacity(picked == nil ? (lit ? 1 : 0.75) : (lit ? 1 : 0.35))
+                            .opacity(lit ? 1 : (picked == nil ? 0.6 : 0.3))
                             .frame(height: max(4, 150 * day.seconds / ceiling))
                             .frame(maxWidth: .infinity)
                             .accessibilityLabel("\(longDay(day.day)), \(duration(day.seconds))")
@@ -288,7 +259,7 @@ struct UsageView: View {
         if !apps.isEmpty {
             let top = max(1, apps.first?.seconds ?? 1)
             VStack(alignment: .leading, spacing: 12) {
-                Text(pickedDay.map { "\(shortDay($0.day)) went to" } ?? (usage.days.count <= 7 ? "This week went to" : "These days went to"))
+                Text(pickedDay.map { "\(shortDay($0.day)) went to" } ?? (usage.days.count <= 7 ? "This week went to" : "The last 30 days went to"))
                     .font(lexend(20, "Bold"))
                     .tracking(-0.3)
                     .foregroundColor(theme.text)

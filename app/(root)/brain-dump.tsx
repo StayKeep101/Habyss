@@ -11,6 +11,7 @@ import { AppIcon } from '@/components/ui/AppIcon';
 import { AppButton } from '@/components/ui/AppButton';
 import { IconButton } from '@/components/ui/IconButton';
 import { ThoughtRow } from '@/components/BrainDump/ThoughtRow';
+import { BrainDumpHowTo } from '@/components/BrainDump/BrainDumpHowTo';
 import { NewThought } from '@/components/BrainDump/NewThought';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
@@ -47,8 +48,9 @@ const UNDO_MS = 4000;
  * is there instead — tap it and say it. Below, just the words. Swipe left to delete
  * (with a moment to undo), tap to reword, hold and drag to move. Holding a
  * thought and letting go opens everything that can be done to it: copy, turn
- * it into a task, habit or goal, file it under a goal, delete. Select (top
- * right) picks several, or all, and every one of those works on them together.
+ * it into a task, habit or goal, file it under a goal, delete. Two fingers
+ * dragged down the list select several, and every one of those works on them
+ * together. The info button (top right) says all of this, and exports.
  * Private: it stays on this phone.
  */
 export default function BrainDumpScreen() {
@@ -359,23 +361,30 @@ export default function BrainDumpScreen() {
     };
     const sweepEnd = () => { sweep.current = null; setScrollLocked(false); };
     // Gesture callbacks run on touches, not while drawing (the lint can't tell; no compiler here).
-    const twoFingers = Gesture.Pan().minPointers(2).maxPointers(2)
+    // The list's own scrolling, as a gesture: two fingers run alongside it (they never wait for
+    // it to give up, which it never did: the reason two fingers used to do nothing), and the list
+    // stops scrolling the moment a sweep starts.
+    const listScroll = Gesture.Native();
+    const twoFingers = Gesture.Pan().minPointers(2).maxPointers(2).simultaneousWithExternalGesture(listScroll)
         .onStart(event => { runOnJS(sweepStart)(event.y); })
         .onUpdate(event => { runOnJS(sweepMove)(event.y); })
         .onFinalize(() => { runOnJS(sweepEnd)(); });
+    const [howTo, setHowTo] = useState(false);
 
     return (
         <SheetScreen title="Brain dump" onBack={() => router.back()}
-            rightSlot={thoughts.length ? (
+            rightSlot={(
                 <View style={styles.headerActions}>
-                    {/* Everything, by day, out to Notion, Notes, Obsidian or anywhere. */}
-                    {selecting ? null : <IconButton icon="share-outline" label="Export all thoughts" onPress={() => { lightFeedback(); void shareThoughts(thoughts); }} />}
+                    {/* How to use it: every gesture, and when it clears. */}
+                    {selecting ? null : <IconButton icon="information-circle-outline" label="How the brain dump works" onPress={() => { lightFeedback(); setHowTo(true); }} />}
                     {/* Selecting starts with two fingers dragged down the list; this ends it. */}
                     {selecting ? <IconButton icon="close" label="Stop selecting" onPress={() => { lightFeedback(); stopSelecting(); }} /> : null}
                 </View>
-            ) : undefined}>
+            )}>
             <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}>
                 <GestureDetector gesture={twoFingers}>
+                <View style={styles.flex}>
+                <GestureDetector gesture={listScroll}>
                 <ScrollView ref={scroller} scrollEnabled={!scrollLocked} onScroll={event => { scrollY.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}
                     contentContainerStyle={[styles.content, (editingId !== null || adding) && styles.contentEditing]} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>
                     {selecting ? (
@@ -386,8 +395,6 @@ export default function BrainDumpScreen() {
                             <Text onPress={() => { lightFeedback(); setPicked(allPicked ? new Set() : new Set(thoughts.map(item => item.id))); }}
                                 style={[styles.selectAll, { color: primary }]} accessibilityRole="button">{allPicked ? 'Deselect all' : 'Select all'}</Text>
                         </View>
-                    ) : thoughts.length > 0 && clearsOn ? (
-                        <Text style={[styles.clears, { color: colors.textTertiary }]}>Clears {clearsOn} night · hold a thought to turn it into something · two fingers to select</Text>
                     ) : null}
                     {thoughts.map((thought, index) => (
                         <View key={thought.id} style={index > 0 ? [styles.divider, { borderTopColor: colors.border }] : undefined}
@@ -421,6 +428,8 @@ export default function BrainDumpScreen() {
                         </View>
                     )}
                 </ScrollView>
+                </GestureDetector>
+                </View>
                 </GestureDetector>
 
                 {/* Docked on the keyboard: write, then the arrow (or return) saves;
@@ -464,6 +473,8 @@ export default function BrainDumpScreen() {
                     </Animated.View>
                 ) : null}
             </KeyboardAvoidingView>
+            <BrainDumpHowTo visible={howTo} clearsOn={clearsOn || null} onClose={() => setHowTo(false)}
+                onExport={thoughts.length ? () => { setHowTo(false); void shareThoughts(thoughts); } : undefined} />
         </SheetScreen>
     );
 }

@@ -158,14 +158,6 @@ export default function RootLayout() {
           name="meals"
           options={{ headerShown: false, presentation: 'modal' }}
         />
-        <Stack.Screen
-          name="task-settings"
-          options={{ headerShown: false, presentation: 'modal' }}
-        />
-        <Stack.Screen
-          name="habit-settings"
-          options={{ headerShown: false, presentation: 'modal' }}
-        />
         {/* Settings: a page now (opened from the profile's corner), no longer a tab. */}
         <Stack.Screen
           name="settings"

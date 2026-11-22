@@ -5,37 +5,20 @@ import { FontFamily, Spacing } from '@/theme/designSystem';
 export const styles = StyleSheet.create({
     content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: Spacing.section + Spacing.sm },
     monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
-    month: { fontSize: 17, fontFamily: FontFamily.semibold },
-    statRule: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginVertical: Spacing.xs },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-    weekday: { width: '14.2857%', textAlign: 'center', fontSize: 12, fontFamily: FontFamily.semibold, marginBottom: 10 },
-    cell: { width: '14.2857%', alignItems: 'center', paddingVertical: 5 },
-    // The band joining perfect days in a row: half a cell each side, so two
-    // neighbours' halves meet into one stretch. Faint, behind the discs.
-    band: { position: 'absolute', top: 5, width: '50%', opacity: 0.28 },
-    bandLeft: { left: 0 },
-    bandRight: { right: 0 },
-    dayButton: { alignItems: 'center', justifyContent: 'center' },
+    month: { fontSize: 22, fontFamily: FontFamily.bold },
+    monthArrows: { flexDirection: 'row', gap: Spacing.sm },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: Spacing.sm },
+    weekday: { textAlign: 'center', fontSize: 12, fontFamily: FontFamily.semibold },
+    /** A day: a tall pill, its ring at the top, the date under it. */
+    pill: { alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, borderWidth: StyleSheet.hairlineWidth },
     ringSvg: { position: 'absolute', top: 0, left: 0 },
     dayNumber: { fontSize: 14, fontVariant: ['tabular-nums'] },
-    /** The streak, centred: flame, the figure, what it means, your best. */
-    /** The run on the left, the month's numbers two by two on the right. */
-    // Both columns the same height: the run on the left, the grid stretched beside it.
-    top: { flexDirection: 'row', alignItems: 'stretch', gap: Spacing.lg },
-    hero: { flex: 0.9, alignItems: 'flex-start', justifyContent: 'center' },
+    /** The streak, centred: the figure and its flame, what it means, your best. */
+    hero: { alignItems: 'center', paddingBottom: Spacing.lg },
     // The flame sits on the number's baseline, not floating at its middle.
     heroRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.xs + 2 },
     heroValue: { fontSize: 96, lineHeight: 104, fontFamily: FontFamily.bold, letterSpacing: -4, fontVariant: ['tabular-nums'] },
     heroLabel: { fontSize: 17, lineHeight: 22, fontFamily: FontFamily.medium },
-    heroBest: { fontSize: 13, lineHeight: 18, fontFamily: FontFamily.medium, marginTop: Spacing.xs },
-    stats: { flex: 1.1, justifyContent: 'center', padding: Spacing.xs },
-    statsRow: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm },
-    statsDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: Spacing.md },
-    stat: { flex: 1, alignItems: 'center', gap: Spacing.xs / 2 },
-    statTop: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
-    statChange: { fontSize: 11, fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
-    statValue: { fontSize: 20, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
-    statLabel: { fontSize: 12, fontFamily: FontFamily.regular },
     card: { position: 'absolute', overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 12 },
     cardBody: { flex: 1, padding: 16 },
     cardHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 },
