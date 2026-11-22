@@ -17,6 +17,7 @@ import { FollowCounts } from '@/components/Profile/FollowCounts';
 import { YearHeatmap } from '@/components/Profile/YearHeatmap';
 import { HourglassAwards } from '@/components/Profile/HourglassAwards';
 import { RankEmblem } from '@/components/Profile/RankEmblem';
+import { DayJournal } from '@/components/Profile/DayJournal';
 import { SleepCard } from '@/components/Home/SleepCard';
 import { ActivityCard } from '@/components/Home/ActivityCard';
 import { VoidSheet } from '@/components/ui/VoidSheet';
@@ -106,6 +107,8 @@ export default function ProfileScreen() {
                         <SleepCard />
                         <ActivityCard />
                         <HourglassAwards marks={marks.total} choose />
+                        {/* Every day card you have posted, as a journal (read from your posts, nothing kept here). */}
+                        {myId ? <DayJournal userId={myId} /> : null}
                     </View>
                 </ProfileView>
 
