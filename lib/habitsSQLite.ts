@@ -12,7 +12,7 @@ import { Platform } from 'react-native';
 import { getLocalUserId } from './localUser';
 import { NotificationService } from './notificationService';
 import type { HealthMetric } from './healthMetrics';
-import { isHabitScheduledForDate, localDateKey, parseHabitDate } from './habitSchedule';
+import { firstDueDay, isHabitScheduledForDate, localDateKey, parseHabitDate } from './habitSchedule';
 import { addDays } from './goalInsights';
 import { measurementFor } from './habitMeasurement';
 import { emit } from './appEvents';
@@ -287,6 +287,10 @@ export async function addHabit(input: Partial<Habit>, options?: { autoTrack?: bo
     const habitData = options?.autoTrack === false ? input : withAutoTrack(input);
 
     const now = new Date().toISOString();
+    // Its own day, not UTC's (an evening habit made in Toronto would start tomorrow);
+    // then its first occurrence, as a calendar starts a series (lib/habitSchedule.ts firstDueDay).
+    const chosenStart = habitData.startDate || localDateKey(new Date());
+    const firstDay = firstDueDay({ ...habitData, startDate: chosenStart, createdAt: now, taskDays: habitData.taskDays ?? [], frequency: habitData.frequency ?? 'daily' } as Habit) ?? chosenStart;
 
     // Try SQLite first (offline-capable)
     if (isSQLiteAvailable()) {
@@ -318,7 +322,7 @@ export async function addHabit(input: Partial<Habit>, options?: { autoTrack?: bo
                     habitData.goalId || null,
                     JSON.stringify(habitData.taskDays || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']),
                     JSON.stringify(habitData.reminders || []),
-                    habitData.startDate || now.split('T')[0],
+                    firstDay,
                     habitData.endDate || null,
                     habitData.durationMinutes || null,
                     habitData.startTime || null,
@@ -374,7 +378,7 @@ export async function addHabit(input: Partial<Habit>, options?: { autoTrack?: bo
                     taskDays: habitData.taskDays || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
                     reminders: habitData.reminders || [],
                     chartType: habitData.chartType || 'bar',
-                    startDate: habitData.startDate || now.split('T')[0],
+                    startDate: firstDay,
                     endDate: habitData.endDate,
                     isArchived: habitData.isArchived || false,
                     showMemo: habitData.showMemo || false,
@@ -991,67 +995,6 @@ export function inferTrackingStyle(unit?: string, goalValue?: number): 'timer' |
     return 'boolean';
 }
 
-export async function calculateGoalProgress(goal: Habit): Promise<number> {
-    const uid = await getUserId();
-    if (!uid || !goal.isGoal) return 0;
-
-    const habits = await getHabits();
-    const linked = habits.filter(h => h.goalId === goal.id && !h.isArchived);
-
-    if (linked.length === 0) return 0;
-
-    const startDate = new Date(goal.startDate || goal.createdAt);
-    const targetDate = goal.targetDate ? new Date(goal.targetDate) : new Date();
-
-    const startStr = startDate.toISOString().split('T')[0];
-    const endStr = targetDate.toISOString().split('T')[0];
-
-    // Use SQLite to get completions for linked habits
-    let totalCompleted = 0;
-    if (isSQLiteAvailable()) {
-        try {
-            const db = await getDatabase();
-            if (db) {
-                const linkedIds = linked.map(h => h.id);
-                const placeholders = linkedIds.map(() => '?').join(',');
-                const rows = await db.getAllAsync(
-                    `SELECT habit_id, date FROM completions WHERE habit_id IN (${placeholders}) AND date >= ? AND date <= ? AND deleted = 0`,
-                    ...linkedIds, startStr, endStr
-                );
-                totalCompleted = rows.length;
-            }
-        } catch (e) {
-            console.error('[Habits] SQLite goal progress query failed:', e);
-            return 0;
-        }
-    }
-
-    let totalExpected = 0;
-
-    const current = new Date(startDate);
-    if (current > targetDate) return 0;
-
-    while (current <= targetDate) {
-        const dayName = current.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-        const dateStr = current.toISOString().split('T')[0];
-
-        linked.forEach(habit => {
-            const hCreated = new Date(habit.createdAt);
-            if (new Date(dateStr) >= new Date(hCreated.toISOString().split('T')[0])) {
-                if (habit.taskDays.includes(dayName)) {
-                    totalExpected++;
-                }
-            }
-        });
-
-        current.setDate(current.getDate() + 1);
-    }
-
-    if (totalExpected === 0) return 0;
-
-    return Math.round((totalCompleted / totalExpected) * 100);
-}
-
 export async function getHeatmapData(): Promise<{ date: string; count: number }[]> {
     const uid = await getUserId();
     const endDate = new Date();
@@ -1243,4 +1186,20 @@ export async function syncHealthKitData(): Promise<number> {
 
     if (filled > 0) emit('habit_completion_updated', {});
     return filled;
+}
+
+/**
+ * A habit that has not had a single due day yet starts on its first one, so
+ * its every-N count runs from there (lib/habitSchedule.ts firstDueDay). Fixes
+ * habits saved before that rule; one already under way is left as it is, so
+ * no past week changes.
+ */
+export async function alignUnstartedHabits(habits: Habit[], today: string): Promise<void> {
+    for (const habit of habits) {
+        if (habit.isGoal || habit.isArchived || !habit.startDate) continue;
+        const start = parseHabitDate(habit.startDate);
+        if (!start) continue;
+        const first = firstDueDay(habit);
+        if (first && first >= today && first > localDateKey(start)) await updateHabit({ id: habit.id, startDate: first }).catch(() => undefined);
+    }
 }

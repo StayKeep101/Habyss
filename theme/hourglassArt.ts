@@ -52,14 +52,15 @@ export const HOME_PREVIEW_ART: Record<string, { image: ImageSourcePropType; rati
 
 /**
  * Home's scene: a temple at night, the hourglass on its podium. On the image's
- * own grid: its size, the podium's top step (where the hourglass stands) and
+ * own grid: its size, the podium's top step (where the hourglass stands: the
+ * bottom of its lit edge, 888–901, so it covers the light and none shines under it) and
  * where the stairs end (the cards start below them).
  */
 export const TEMPLE = {
     image: require('@/assets/images/scenes/temple.jpg') as ImageSourcePropType,
     width: 1199,
     height: 1312,
-    step: 912,
+    step: 901,
     stairsEnd: 1075,
 };
 

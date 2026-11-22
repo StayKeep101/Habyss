@@ -23,7 +23,8 @@ export function parseHabitDate(value: string | undefined): Date | null {
 
 // UTC is used only for calendar arithmetic, avoiding 23/25-hour DST days.
 const calendarDay = (date: Date) => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / MS_PER_DAY;
-const startOfWeek = (date: Date) => calendarDay(date) - date.getDay();
+// Weeks start on Monday, as in lib/recurrence.ts (RFC 5545's default WKST=MO), so every rule agrees which fortnight it is.
+const startOfWeek = (date: Date) => calendarDay(date) - ((date.getDay() + 6) % 7);
 const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
 
 /**
@@ -86,10 +87,15 @@ function quotaState(habit: Habit, quota: Quota, key: string, doneOn: (key: strin
     }
     const ends = [habit.endDate, habit.targetDate].map(parseHabitDate).filter((value): value is Date => value !== null);
     if (ends.length) to = Math.min(to, ...ends.map(calendarDay));
-    from = Math.max(from, calendarDay(start));
+    const periodLength = to - from + 1;
+    // A habit started part-way through its first week or month asks for its share
+    // of it ("3 a week" started on Saturday: 1), never more than the days it had.
+    const startDay = calendarDay(start);
+    const times = startDay > from ? Math.ceil(quota.times * (to - startDay + 1) / periodLength) : quota.times;
+    from = Math.max(from, startDay);
     let done = 0;
     for (let at = from; at < day; at++) if (doneOn(keyAt(at))) done++;
-    const needed = quota.times - done;
+    const needed = times - done;
     const daysLeft = to - day + 1;
     return { offered: needed > 0 || doneOn(key), required: needed > 0 && needed >= daysLeft };
 }
@@ -128,6 +134,26 @@ export function createHabitRequirement(habit: Habit): (key: string, doneOn?: (ke
         if (!quota) return true;
         return quotaState(habit, quota, key, doneOn ?? historyDone(habit.id)).required;
     };
+}
+
+/**
+ * The first day a habit is due, on or after its start: what its start date
+ * should be. As in every calendar (RFC 5545, where DTSTART is the series' first
+ * occurrence), "every 4 weeks on Thursday" made on a Sunday starts on the coming
+ * Thursday and counts its 4 weeks from there, not from the week it was made in.
+ * Null when nothing is due within ten years (or the dates do not parse).
+ */
+export function firstDueDay(habit: Pick<Habit, 'startDate' | 'createdAt' | 'recurrence' | 'frequency' | 'taskDays' | 'weekInterval' | 'endDate' | 'targetDate'>): string | null {
+    const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
+    if (!start) return null;
+    const from = localDateKey(start);
+    // Try each day as the start: the first one the rule itself asks for, counted from that day.
+    for (let offset = 0; offset < 3660; offset++) {
+        const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + offset, 12);
+        const key = localDateKey(day);
+        if (createHabitSchedule({ ...habit, startDate: key } as Habit)(day)) return offset === 0 ? from : key;
+    }
+    return null;
 }
 
 /** Compile once when evaluating years of history for the same habit. */

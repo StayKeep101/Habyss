@@ -80,10 +80,13 @@ const tasksLoader = serial(async () => {
     publish({ tasks: tasks ?? snapshot.tasks, tasksLoaded: true });
 });
 
+let aligned = false;
 const historyLoader = serial(async () => {
-    const { getHabits, getLastNDaysCompletions }: typeof import('./habitsSQLite') = require('./habitsSQLite');
+    const { alignUnstartedHabits, getHabits, getLastNDaysCompletions }: typeof import('./habitsSQLite') = require('./habitsSQLite');
     const today = localDateKey(new Date());
     const habits = await getHabits().catch(() => []);
+    // Once a launch: a habit not started yet begins on its first due day (habitsSQLite alignUnstartedHabits).
+    if (!aligned && typeof alignUnstartedHabits === 'function') { aligned = true; void alignUnstartedHabits(habits, today).catch(() => undefined); }
     const starts = habits
         .map(habit => parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt))
         .filter((date): date is Date => date !== null)

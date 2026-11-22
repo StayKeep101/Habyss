@@ -47,7 +47,7 @@ import { TrackingPicker } from '@/components/Create/TrackingPicker';
 import { appTimeSupported, appsChosen, chooseApps, getAppTime, setAppTime } from '@/lib/appTime';
 import { generateId } from '@/lib/database';
 import { AutoTrackHint } from '@/components/Create/AutoTrackHint';
-import { localDateKey } from '@/lib/habitSchedule';
+import { firstDueDay, localDateKey } from '@/lib/habitSchedule';
 import { NotificationService } from '@/lib/notificationService';
 import { emit, on } from '@/lib/appEvents';
 
@@ -445,7 +445,12 @@ export const HabitSheet: React.FC<{
                 } else if (appLinked) await setAppTime(id, null);
             };
             if (current) {
-                await updateHabit({ id: current.id, ...linked });
+                // Not started yet (its first due day is still ahead): it starts on its first due day under the new schedule.
+                const today = localDateKey(new Date());
+                const first = (current.startDate ?? '') >= today || (firstDueDay(current) ?? '') >= today
+                    ? firstDueDay({ ...current, ...linked, startDate: linked.startDate && linked.startDate >= today ? linked.startDate : today })
+                    : null;
+                await updateHabit({ id: current.id, ...linked, ...(first ? { startDate: first } : null) });
                 await linkApps(current.id);
             } else {
                 const made = await addHabit({ ...linked, id: newId }, { autoTrack: false });
