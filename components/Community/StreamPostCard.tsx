@@ -1,7 +1,7 @@
 import { GOALS_ENABLED } from '@/constants/features';
 import React from 'react';
 import { Pressable, Text as RNText, StyleSheet, View } from 'react-native';
-import { AppIcon, Avatar, CountUp, MatteSurface, PopIn, PostCard, SegmentBar, Text, type PostStat } from '@/components/ui';
+import { AppIcon, Avatar, CountUp, MatteSurface, PopIn, SegmentBar, Text } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { textOn } from '@/theme/tokens';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
@@ -15,7 +15,8 @@ import type { FriendStatus } from '@/lib/presence';
 import type { Reaction } from '@/lib/reactions';
 import { bestComments, splitMentions, type Comment } from '@/lib/comments';
 import { StatusBadge } from './StatusBadge';
-import { DayDeck } from './DayDeck';
+import { DayPack, type PackPage } from './DayPack';
+import { DeckCardFace } from './DeckCardFace';
 import { deckCards } from '@/lib/dayDeck';
 import { ReactionBar } from './ReactionBar';
 
@@ -44,18 +45,6 @@ const postedLabel = (postedAt: string) => {
     if (date.toDateString() === yesterday.toDateString()) return `Yesterday ${time}`;
     return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 };
-
-/** The big figure and what it counts: "75%  of the day". */
-function Hero({ value, unit, caption }: { value: string; unit?: string; caption?: string }) {
-    const t = useTokens();
-    return (
-        <View style={styles.hero}>
-            <CountUp value={value} style={[t.type.screenTitle, { color: t.color.textPrimary }]} />
-            {unit ? <Text variant="body" tone="muted">{unit}</Text> : null}
-            {caption ? <Text variant="caption" tone="muted" grow align="right" numberOfLines={1}>{caption}</Text> : null}
-        </View>
-    );
-}
 
 /** How long it took and who it was with: "45m · with Sam". Nothing when there is nothing to say. */
 function LineFacts({ item }: { item: DayCardLine }) {
@@ -119,24 +108,28 @@ function TopTasks({ lines, mine }: { lines: DayCardLine[]; mine: boolean }) {
     );
 }
 
-/** A day card: the same format whichever of the five day kinds it is (the kind says why it was posted). */
+/**
+ * A day, as a pack of cards (components/Community/DayPack.tsx), the same
+ * whichever of the five kinds it is. The cover says whose day it is and how
+ * much of it was done (the kind's reason beside it: a milestone, a record, a
+ * comeback, a long focus), the streak and the focus; then a card for each
+ * thing done (photos first, then what something counted); then the whole
+ * list. Swipe through; the reactions and comments stay under the pack.
+ */
 function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
+    const t = useTokens();
     const { post } = item;
     const card = post.card;
     const done = card.habitsDone + card.tasksDone;
     const total = card.habitsTotal + card.tasksTotal;
     const name = post.mine ? 'You' : post.name;
     const lines = [...(card.habits ?? []), ...(card.tasks ?? [])].sort((a, b) => Number(b.done) - Number(a.done));
-    // The rest of the day, under the chevron: what Today's 3 already shows is not listed twice.
     const topNames = new Set((card.top ?? []).map(line => line.name));
     const rest = lines.filter(line => !topNames.has(line.name));
     const did = lines.filter(line => line.done).map(line => (post.mine ? line.name : maskObjectionable(line.name)));
     // The day as a deck of cards: photos first, then what was counted, then the rest (lib/dayDeck.ts).
-    const deck = deckCards(card).map(item => (post.mine ? item : { ...item, title: maskObjectionable(item.title) }));
+    const deck = deckCards(card).map(entry => (post.mine ? entry : { ...entry, title: maskObjectionable(entry.title) }));
 
-    // One format for every post, so a friend's day always reads the same way: how much of
-    // the day was done, out of what, and the bar of it. What made this post (a milestone, a
-    // record, a comeback, a long focus) is said in the caption beside the figure.
     let highlight: string | undefined;
     if (item.kind === 'milestone' && card.milestone) {
         const next = STREAK_MILESTONES.find(value => value > card.milestone!) ?? card.milestone * 2;
@@ -150,38 +143,93 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
     } else if (total && done === total) {
         highlight = 'All done';
     }
-    const hero = <Hero value={`${done}/${total}`} unit="done" caption={highlight} />;
-    const visual = <SegmentBar done={done} total={total} />;
-
-    const stats: PostStat[] = [];
-    if (card.streak > 0) stats.push({ icon: 'flame', value: String(card.streak), label: 'day streak' });
-    if (card.focusMinutes) stats.push({ icon: 'hourglass', value: focusDuration(card.focusMinutes * 60), label: 'focus' });
-    if (GOALS_ENABLED && card.goalsMoved) stats.push({ icon: 'flag', value: String(card.goalsMoved), label: card.goalsMoved === 1 ? 'goal' : 'goals' });
-
     const avatar = post.mine ? ctx.myAvatar : post.avatarUrl;
+    const rank = ctx.rankOf(post.userId);
+    const status = post.mine ? undefined : ctx.statusOf(post.userId);
+
+    const cover = (width: number, height: number) => (
+        <MatteSurface radius={Radius.card} elevation="floating" style={{ width, height }}>
+            <View style={styles.cover}>
+                {/* Whose day, and when it was posted. */}
+                <Pressable style={styles.who} onPress={() => ctx.openPerson(post.userId)} accessibilityRole="button" accessibilityLabel={`Open ${name}'s profile`}>
+                    <Avatar name={post.mine ? ctx.myName : post.name} uri={avatar} size={Control.hitTarget}
+                        badge={status ? <StatusBadge status={status} size={16} /> : undefined} />
+                    <View style={styles.flex}>
+                        <View style={styles.nameRow}>
+                            <Text variant="heading" numberOfLines={1}>{name}</Text>
+                            {rank ? <Text variant="caption" tone="muted">{`#${rank}`}</Text> : null}
+                        </View>
+                        <Text variant="caption" tone="muted">{postedLabel(post.postedAt)}</Text>
+                    </View>
+                </Pressable>
+                {/* How much of the day was done. */}
+                <View style={styles.coverMiddle}>
+                    <View style={styles.hero}>
+                        <CountUp value={`${done}/${total}`} style={[t.type.display, { color: t.color.textPrimary }]} />
+                        <Text variant="body" tone="muted">done</Text>
+                    </View>
+                    {highlight ? <Text variant="bodySmall" tone="accent">{highlight}</Text> : null}
+                    <SegmentBar done={done} total={total} />
+                </View>
+                {/* The streak and the focus, then what was done. */}
+                <View style={styles.coverFoot}>
+                    <View style={styles.stats}>
+                        {card.streak > 0 ? (
+                            <View style={styles.stat} accessible accessibilityLabel={`${card.streak} day streak`}>
+                                <AppIcon name="flame" filled size={Spacing.lg + Spacing.xs} color={t.color.warning} />
+                                <Text variant="title" numeric>{String(card.streak)}</Text>
+                            </View>
+                        ) : null}
+                        {card.focusMinutes ? (
+                            <View style={styles.stat} accessible accessibilityLabel={`${focusDuration(card.focusMinutes * 60)} of focus`}>
+                                <AppIcon name="hourglass" filled size={Spacing.lg + Spacing.xs} color={t.color.accentText} />
+                                <Text variant="title" numeric>{focusDuration(card.focusMinutes * 60)}</Text>
+                            </View>
+                        ) : null}
+                        {GOALS_ENABLED && card.goalsMoved ? (
+                            <View style={styles.stat}>
+                                <AppIcon name="flag" filled size={Spacing.lg + Spacing.xs} color={t.color.success} />
+                                <Text variant="title" numeric>{String(card.goalsMoved)}</Text>
+                            </View>
+                        ) : null}
+                    </View>
+                    {did.length ? (
+                        <Text variant="bodySmall" tone="muted" numberOfLines={2}>{`${did.slice(0, 3).join(', ')}${did.length > 3 ? ` +${did.length - 3}` : ''}`}</Text>
+                    ) : null}
+                </View>
+            </View>
+        </MatteSurface>
+    );
+
+    // The whole day, as a list: Today's 3 first, then everything else.
+    const list = (width: number, height: number) => (
+        <MatteSurface radius={Radius.card} elevation="floating" style={{ width, height }}>
+            <View style={styles.listCard}>
+                <Text variant="title">{post.mine ? 'Your day' : `${post.name}’s day`}</Text>
+                {card.top?.length ? <TopTasks lines={card.top} mine={post.mine} /> : null}
+                {rest.length ? (
+                    <View style={styles.lines}>
+                        {rest.slice(0, card.top?.length ? 6 : 9).map((line, index) => <Line key={`${line.name}-${index}`} item={line} mine={post.mine} />)}
+                        {rest.length > (card.top?.length ? 6 : 9) ? <Text variant="caption" tone="muted">{`+${rest.length - (card.top?.length ? 6 : 9)} more`}</Text> : null}
+                    </View>
+                ) : null}
+            </View>
+        </MatteSurface>
+    );
+
+    const pages: PackPage[] = [
+        { key: 'cover', label: `${name}: ${done} of ${total} done${highlight ? `, ${highlight}` : ''}${card.streak > 0 ? `, ${card.streak} day streak` : ''}`,
+            onLongPress: post.mine ? undefined : () => ctx.onReport(post), render: cover },
+        ...deck.map(entry => ({ key: entry.key, label: [entry.kind === 'task' ? 'Task' : entry.kind === 'habit' ? 'Habit' : null, entry.title, entry.took ? `took ${entry.took}` : null, entry.when].filter(Boolean).join(', '),
+            render: (width: number, height: number) => <DeckCardFace card={entry} width={width} height={height} /> })),
+        ...(lines.length || card.top?.length ? [{ key: 'list', label: `${name}'s whole day`, render: list }] : []),
+    ];
+
     return (
-        <PostCard
-            lead={<Avatar name={post.mine ? ctx.myName : post.name} uri={avatar} size={Control.hitTarget}
-                badge={post.mine ? undefined : (() => { const status = ctx.statusOf(post.userId); return status ? <StatusBadge status={status} size={16} /> : undefined; })()} />}
-            name={name} rank={ctx.rankOf(post.userId)}
-            when={postedLabel(post.postedAt)}
-            hero={hero}
-            stats={stats}
-            details={rest.length ? <View style={styles.lines}>{rest.map((line, index) => <Line key={`${line.name}-${index}`} item={line} mine={post.mine} />)}</View> : undefined}
-            detailsLabel={rest.length ? (card.top?.length ? `${rest.length} more` : `All ${rest.length}`) : undefined}
-            onOpenAuthor={() => ctx.openPerson(post.userId)}
-            onReport={post.mine ? undefined : () => ctx.onReport(post)}
-            footer={<Footer item={item} ctx={ctx} />}>
-            {visual}
-            {/* The day as a deck: open it, then one card at a time, each with what was planned and what it took. */}
-            <DayDeck cards={deck} owner={post.mine ? 'Your' : `${post.name}’s`} />
-            {/* The day's most important tasks, when it had them; otherwise a line of what was done. */}
-            {card.top?.length ? <TopTasks lines={card.top} mine={post.mine} /> : did.length ? (
-                <Text variant="bodySmall" tone="muted" numberOfLines={1}>
-                    {`${did.slice(0, 3).join(', ')}${did.length > 3 ? ` +${did.length - 3}` : ''}`}
-                </Text>
-            ) : null}
-        </PostCard>
+        <View style={styles.post}>
+            <DayPack pages={pages} />
+            <Footer item={item} ctx={ctx} />
+        </View>
     );
 }
 
@@ -240,6 +288,16 @@ export function StreamPostCard({ item, ctx }: { item: StreamPost; ctx: StreamCon
 }
 
 const styles = StyleSheet.create({
+    flex: { flex: 1 },
+    post: { gap: Spacing.md },
+    cover: { flex: 1, padding: Spacing.xl, justifyContent: 'space-between' },
+    who: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+    nameRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm },
+    coverMiddle: { gap: Spacing.sm },
+    coverFoot: { gap: Spacing.md },
+    stats: { flexDirection: 'row', gap: Spacing.xl },
+    stat: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+    listCard: { flex: 1, padding: Spacing.xl, gap: Spacing.md },
     footer: { gap: Spacing.md },
     previews: { gap: Spacing.xs },
     commentPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, minWidth: Control.hitTarget - Spacing.xs, minHeight: Control.hitTarget - Spacing.xs, paddingHorizontal: Spacing.md },

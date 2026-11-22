@@ -20,16 +20,25 @@ const post = (card = {}): FeedPost => ({
 });
 const day = (kind: StreamPost['kind'], card = {}): StreamPost => ({ kind, key: 'k', at: 'x', post: post(card) } as StreamPost);
 
-it('draws a day with its share, rank, what was done, details on demand, and reactions', () => {
+/** Swipes (as VoiceOver does) to the pack's last card: the whole day as a list. */
+const toLastCard = (screen: ReturnType<typeof render>) => {
+    for (let turn = 0; turn < 12; turn++) {
+        const top = screen.getByLabelText(/Card \d+ of \d+/);
+        const [, at, of] = /Card (\d+) of (\d+)/.exec(top.props.accessibilityLabel)!;
+        if (at === of) return;
+        fireEvent(top, 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+    }
+};
+
+it('draws a day as a pack: whose it is, how much was done, a card a thing, the list last, and reactions', () => {
     const context = ctx();
     const screen = render(<StreamPostCard item={day('daily')} ctx={context} />);
     expect(screen.getByText('#2')).toBeTruthy();
     expect(screen.getByText('done')).toBeTruthy();
-    // One count of the day (the figure and the bar), no ring saying it again.
-    expect(screen.queryByLabelText(/Day score/)).toBeNull();
     expect(screen.getByText('Run, Read, Stretch')).toBeTruthy();
+    expect(screen.getByLabelText(/Card 1 of 5/)).toBeTruthy();
     expect(screen.queryByText('Journal')).toBeNull();
-    fireEvent.press(screen.getByLabelText('Show All 4'));
+    toLastCard(screen);
     expect(screen.getByText('Journal')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('On fire, 2'));
     expect(context.onReact).toHaveBeenCalledWith(expect.objectContaining({ userId: 'ana' }), 'fire');
@@ -61,6 +70,7 @@ it('shows the best comments on the card and opens the conversation', () => {
 it("shows Today's top tasks with how long each took", () => {
     const top = [{ name: 'Ship it', done: true, minutes: 90 }, { name: 'Gym', done: false, waiting: true, with: ['Sam'] }, { name: 'Read', done: false }];
     const screen = render(<StreamPostCard item={day('daily', { top })} ctx={ctx()} />);
+    toLastCard(screen);
     expect(screen.getByText("Today's 3")).toBeTruthy();
     expect(screen.queryByText('1 of 3')).toBeNull();
     expect(screen.getByText('1h 30m')).toBeTruthy();

@@ -23,6 +23,7 @@ import { FriendsGate } from '@/components/Community/FriendsGate';
 import { AddFriendModal } from '@/components/Community/AddFriendModal';
 import type { RailFriend } from '@/components/Community/FriendsRail';
 import { StreamPostCard, type StreamContext } from '@/components/Community/StreamPostCard';
+import { PagerGesture } from '@/components/Community/DayPack';
 import { buildStream } from '@/lib/communityStream';
 import { listenToComments, loadThreads, threadKey, type Comment } from '@/lib/comments';
 import { CommentSheet, type CommentTarget } from '@/components/Community/CommentSheet';
@@ -232,6 +233,7 @@ export default function CommunityScreen() {
     const stage = Math.round(screen.height * 0.46);
     const pageWidth = screen.width;
     const pager = useAnimatedRef<Animated.ScrollView>();
+    const pagerGesture = useMemo(() => Gesture.Native(), []);
     const pagePosition = useSharedValue(0);
     const lift = useSharedValue(0);
     // The race plays through the month once, the first time Community opens after
@@ -625,6 +627,9 @@ export default function CommunityScreen() {
                     <SectionTitle first right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
                 </View>
                 <View style={{ backgroundColor: colors.background, minHeight: screen.height - insets.top, paddingBottom: tabBarClearance }}>
+                    {/* The pages, as a gesture the day packs can hold off (a sideways swipe on a card turns cards). */}
+                    <PagerGesture.Provider value={pagerGesture}>
+                    <GestureDetector gesture={pagerGesture}>
                     <Animated.ScrollView ref={pager} horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={{ height: pageHeight }}
                         onScroll={onPager} scrollEventThrottle={16} onMomentumScrollEnd={event => settle(Math.round(event.nativeEvent.contentOffset.x / pageWidth))}>
                         <View style={styles.pages}>
@@ -632,6 +637,8 @@ export default function CommunityScreen() {
                             {challengesPage}
                         </View>
                     </Animated.ScrollView>
+                    </GestureDetector>
+                    </PagerGesture.Provider>
                 </View>
             </Animated.ScrollView>
             {/* The title bar, stuck under the status bar once the page reaches it: Accountability or Challenges, and the dots. */}
