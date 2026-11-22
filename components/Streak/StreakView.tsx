@@ -28,6 +28,27 @@ import { dateAt } from '@/lib/goalInsights';
 import { styles } from '@/styles/screens/progress.styles';
 import { usePagerGesture } from '@/components/ui/PagerGesture';
 
+/** Whose streak it shows: every habit and task together (null), or one habit; and whether its chooser is open. */
+export interface StreakWhose { only: string | null; setOnly: (id: string | null) => void; choosing: boolean; setChoosing: (open: boolean) => void }
+export function useStreakWhose(): StreakWhose {
+    const [only, setOnly] = useState<string | null>(null);
+    const [choosing, setChoosing] = useState(false);
+    return { only, setOnly, choosing, setChoosing };
+}
+
+/** Whose streak, for the header beside "Streak": All habits, or the one chosen; tap to choose. */
+export function StreakWhosePill({ whose }: { whose: StreakWhose }) {
+    const { primary: accent } = useAccentGradient();
+    const { selectionFeedback } = useHaptics();
+    const { habits } = useGoalsInsights();
+    const picked = whose.only ? habits.find(habit => habit.id === whose.only) ?? null : null;
+    return (
+        <ChoicePill label={picked ? picked.name : 'All habits'} icon="chevron-down" on={false} color={accent} role="button"
+            onPress={() => { selectionFeedback(); whose.setChoosing(true); }}
+            accessibilityLabel={`Streak for ${picked ? picked.name : 'all habits and tasks'}. Change`} />
+    );
+}
+
 /** Inside a sideways pager, a gesture that holds it off while it has the finger (components/ui/PagerGesture.ts). */
 const withPager = <G extends ReturnType<typeof Gesture.Pan>>(gesture: G, pager: ReturnType<typeof usePagerGesture>) => (pager ? gesture.blocksExternalGesture(pager) : gesture);
 
@@ -45,7 +66,7 @@ const CLOSE = { duration: 220, easing: Easing.in(Easing.cubic) };
  * card that tells you what you did, and shrinks back into the ring when you are
  * done, so you never lose track of which day you are looking at.
  */
-export function StreakView() {
+export function StreakView({ whose }: { whose: StreakWhose }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -56,8 +77,7 @@ export function StreakView() {
     const allTasks = useTasks();
     // One habit's streak, or the whole day's (tasks included). The same streakFrom
     // either way: given one habit and no tasks, it is that habit's run.
-    const [only, setOnly] = useState<string | null>(null);
-    const [choosing, setChoosing] = useState(false);
+    const { only, setOnly, choosing, setChoosing } = whose;
     const picked = only ? allHabits.find(habit => habit.id === only) ?? null : null;
     const habits = useMemo(() => (picked ? [picked] : allHabits), [picked, allHabits]);
     const tasks = useMemo(() => (picked ? [] : allTasks), [picked, allTasks]);
@@ -195,11 +215,6 @@ export function StreakView() {
         <View ref={root} style={styles.page} collapsable={false}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!selected}
                 onLayout={event => setViewport(event.nativeEvent.layout.height)}>
-                {/* Whose streak: every habit and task together, or one habit. */}
-                <View style={styles.whose}>
-                    <ChoicePill label={picked ? picked.name : 'All habits'} icon="chevron-down" on={false} color={accent} role="button" onPress={() => { selectionFeedback(); setChoosing(true); }}
-                        accessibilityLabel={`Streak for ${picked ? picked.name : 'all habits and tasks'}. Change`} />
-                </View>
                 {/* The run going now, big, with the flame; your best under it. */}
                 <View style={styles.hero} accessible accessibilityLabel={`${streak} ${streak === 1 ? 'day' : 'days'} in a row. Best ${best}.`}>
                     <View style={styles.heroRow}>

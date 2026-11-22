@@ -25,7 +25,8 @@ it('reads like a brokerage account: balance, the period’s change, what is on b
     const screen = render(<ShardsWallet visible onClose={jest.fn()} wallet={wallet} multiplier={1} perfectRun={0} />);
     expect(screen.getByText('Shards')).toBeTruthy();
     expect(screen.getByText('+40 (40.0%)')).toBeTruthy();
-    expect(screen.getByText('Past 24 hours')).toBeTruthy();
+    // The range is not written out (the chips say it); VoiceOver still hears it.
+    expect(screen.getByLabelText('Up 40 Shards, past 24 hours')).toBeTruthy();
     // Every range a trading app has, no candles.
     ['1H', '24H', '1W', '1M', '1Y', 'All'].forEach(label => expect(screen.getByText(label)).toBeTruthy());
     expect(screen.getByText('On bets')).toBeTruthy();
