@@ -1,20 +1,29 @@
-import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { AppIcon, PopIn, SectionTitle, Text } from '@/components/ui';
+import React, { useSyncExternalStore } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { PopIn, SectionTitle, Text } from '@/components/ui';
 import { RankHourglass } from '@/components/Home/RankHourglass';
-import { useTokens } from '@/hooks/useTokens';
-import { RANKS } from '@/lib/marks';
+import { useHaptics } from '@/hooks/useHaptics';
+import { RANKS, rankFor } from '@/lib/marks';
+import { chooseRankLook, shownRankLook, subscribeRankLook } from '@/lib/rankLook';
+import { setThemeChoice } from '@/lib/themeChoice';
 import { Spacing } from '@/theme/designSystem';
 
 const GLASS = Spacing.section * 2.6;
+/** As in the carousel: a reached hourglass dimmed into the night by this much. */
+const DIM = 0.3;
 
 /**
- * Awards: the hourglasses, one for every rank. Those reached stand lit with
- * their name; the rest wait dimmed, with how many Marks are still to go. The
- * newest one earned comes first, then the next to earn.
+ * Awards: the hourglasses, one for every rank, as the carousel showed them.
+ * Those reached stand in full with their name; the rest are only their black
+ * shadow, with how many Marks are still to go. Yours (`choose`): tap a reached
+ * one to make it your hourglass (on your profile and in Focus); "In use"
+ * under the one you use.
  */
-export function HourglassAwards({ marks }: { marks: number }) {
-    const t = useTokens();
+export function HourglassAwards({ marks, choose = false }: { marks: number; choose?: boolean }) {
+    const { selectionFeedback } = useHaptics();
+    const shown = useSyncExternalStore(subscribeRankLook, shownRankLook, shownRankLook);
+    const yours = rankFor(marks).rank.name;
+    const inUse = shown ?? yours;
     const reached = RANKS.filter(rank => marks >= rank.min).length;
     return (
         <View style={styles.wrap}>
@@ -22,19 +31,20 @@ export function HourglassAwards({ marks }: { marks: number }) {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
                 {RANKS.map((rank, index) => {
                     const earned = marks >= rank.min;
+                    const using = choose && earned && rank.name === inUse;
+                    const tappable = choose && earned && !using;
                     return (
                         <PopIn key={rank.name} index={index} style={styles.award}>
-                            <View accessible accessibilityLabel={earned ? `${rank.name}, earned` : `${rank.name}, ${(rank.min - marks).toLocaleString()} Marks to go`}
-                                style={{ opacity: earned ? 1 : 0.4 }}>
-                                <RankHourglass rank={rank.name} size={GLASS} />
-                            </View>
-                            {earned ? null : (
-                                <View style={[styles.lock, { backgroundColor: t.color.surfaceRaised }]}>
-                                    <AppIcon name="lock-closed" size={Spacing.md} color={t.color.textMuted} />
-                                </View>
-                            )}
-                            <Text variant="caption" tone={earned ? 'primary' : 'muted'} align="center" numberOfLines={1}>{rank.name}</Text>
-                            {earned ? null : <Text variant="caption" tone="muted" align="center" numberOfLines={1}>{`${(rank.min - marks).toLocaleString()} to go`}</Text>}
+                            <Pressable disabled={!tappable} accessibilityRole={tappable ? 'button' : undefined}
+                                accessibilityLabel={earned ? `${rank.name}, earned${using ? ', in use' : ''}` : `${rank.name}, not reached yet, ${(rank.min - marks).toLocaleString()} Marks to go`}
+                                accessibilityHint={tappable ? 'Use this hourglass' : undefined}
+                                onPress={() => { selectionFeedback(); chooseRankLook(rank.name === yours ? null : rank.name); setThemeChoice('hourglass'); }}
+                                style={styles.press}>
+                                <RankHourglass rank={rank.name} size={GLASS} look={earned ? 'scene' : 'shadow'} dim={DIM} />
+                                <Text variant="caption" tone={earned ? 'primary' : 'muted'} align="center" numberOfLines={1}>{rank.name}</Text>
+                                {using ? <Text variant="caption" tone="accent" align="center" numberOfLines={1}>In use</Text>
+                                    : earned ? null : <Text variant="caption" tone="muted" align="center" numberOfLines={1}>{`${(rank.min - marks).toLocaleString()} to go`}</Text>}
+                            </Pressable>
                         </PopIn>
                     );
                 })}
@@ -46,6 +56,6 @@ export function HourglassAwards({ marks }: { marks: number }) {
 const styles = StyleSheet.create({
     wrap: { gap: Spacing.sm },
     row: { gap: Spacing.lg, paddingRight: Spacing.lg },
-    award: { width: GLASS, alignItems: 'center', gap: Spacing.xs },
-    lock: { position: 'absolute', top: GLASS / 2 - Spacing.md, width: Spacing.xl + Spacing.xs, height: Spacing.xl + Spacing.xs, borderRadius: Spacing.lg, alignItems: 'center', justifyContent: 'center' },
+    award: { width: GLASS },
+    press: { alignItems: 'center', gap: Spacing.xs, minHeight: Spacing.section },
 });

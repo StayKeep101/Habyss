@@ -16,12 +16,13 @@ import { FreezeCard } from '@/components/Profile/FreezeCard';
 import { FollowCounts } from '@/components/Profile/FollowCounts';
 import { YearHeatmap } from '@/components/Profile/YearHeatmap';
 import { HourglassAwards } from '@/components/Profile/HourglassAwards';
+import { RankEmblem } from '@/components/Profile/RankEmblem';
 import { SleepCard } from '@/components/Home/SleepCard';
 import { ActivityCard } from '@/components/Home/ActivityCard';
 import { VoidSheet } from '@/components/ui/VoidSheet';
 import { useFreezes } from '@/hooks/useCheckIns';
 import { yearDays } from '@/lib/progressMonth';
-import { useAccentGradient } from '@/context/AccentContext';
+import { useAccent, useAccentGradient } from '@/context/AccentContext';
 import { GoalsDoneSheet } from '@/components/Profile/GoalsDoneSheet';
 import { FeedService } from '@/lib/feedService';
 import { styles } from '@/styles/screens/profile.styles';
@@ -55,6 +56,7 @@ export default function ProfileScreen() {
     const year = React.useMemo(() => (goalsData.loaded ? yearDays({ habits: goalsData.habits, tasks: goalsData.tasks, history: goalsData.history, skips: goalsData.skips, today: goalsData.today }) : []),
         [goalsData.loaded, goalsData.habits, goalsData.tasks, goalsData.history, goalsData.skips, goalsData.today]);
     const { primary } = useAccentGradient();
+    const { rankShown } = useAccent();
     const freezes = useFreezes();
     const [freezesOpen, setFreezesOpen] = useState(false);
     const marks = useMarks(goalsData);
@@ -98,11 +100,12 @@ export default function ProfileScreen() {
                         </>
                     )}
                >
-                    {/* Sleep and workouts, as on Home; then the hourglasses earned, as awards. */}
+                    {/* Your hourglass, to admire; sleep and workouts; then the hourglasses earned, as awards (tap one to use it). */}
                     <View style={styles.more}>
+                        <RankEmblem marks={marks.total} rank={rankShown} />
                         <SleepCard />
                         <ActivityCard />
-                        <HourglassAwards marks={marks.total} />
+                        <HourglassAwards marks={marks.total} choose />
                     </View>
                 </ProfileView>
 

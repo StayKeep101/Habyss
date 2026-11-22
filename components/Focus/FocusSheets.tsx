@@ -6,7 +6,8 @@ import { useTokens } from '@/hooks/useTokens';
 import { useClockStyle } from '@/hooks/useClockStyle';
 import { CLOCK_STYLES, setClockStyle, type ClockStyle } from '@/lib/focusClock';
 import { MUSIC_SOURCES, currentFocusMusic, loadFocusMusic, setFocusMusicSource, subscribeFocusMusic } from '@/lib/focusMusic';
-import { currentFocusBackground, loadFocusBackground, setFocusBackground, subscribeFocusBackground, type FocusBackground } from '@/lib/focusBackground';
+import { PLAIN, currentFocusBackground, loadFocusBackground, setFocusBackground, subscribeFocusBackground, type FocusBackground } from '@/lib/focusBackground';
+import { FOCUS_BACKGROUNDS } from '@/theme/focusBackgrounds';
 
 /** Focus music, on or off and where it comes from, kept in step everywhere (lib/focusMusic.ts). */
 export function useFocusMusic() {
@@ -20,14 +21,16 @@ export function useFocusBackground(): FocusBackground {
     return useSyncExternalStore(subscribeFocusBackground, currentFocusBackground, currentFocusBackground);
 }
 
-/** The landscape (Home's scene, the temple for the hourglass) or none, plain black: the same row in Settings → Focus and on the focus page. */
+/** None (plain black) or one of your pictures (theme/focusBackgrounds.ts): the same row in Settings → Focus and on the focus page. */
 export function FocusBackgroundRow() {
     const t = useTokens();
     const { lightFeedback } = useHaptics();
     const background = useFocusBackground();
+    // No pictures added yet: nothing to choose, so no row.
+    if (!FOCUS_BACKGROUNDS.length) return null;
     return (
         <SettingsRow icon="image" color={t.color.accent} label="Background"
-            choices={[{ id: 'landscape', label: 'Landscape' }, { id: 'plain', label: 'None' }]} chosen={background}
+            choices={[{ id: PLAIN, label: 'None' }, ...FOCUS_BACKGROUNDS.map(picture => ({ id: picture.id, label: picture.label }))]} chosen={background}
             onChoose={id => { lightFeedback(); setFocusBackground(id as FocusBackground); }} />
     );
 }

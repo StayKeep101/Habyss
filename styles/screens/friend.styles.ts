@@ -9,7 +9,7 @@ export const styles = StyleSheet.create({
     status: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs + 2, paddingTop: Spacing.xs },
     /** Their year and awards, laid out as on your own profile. */
     year: { marginTop: Spacing.xl, alignSelf: 'stretch' },
-    awards: { marginHorizontal: Spacing.xl, marginTop: Spacing.xxl },
+    awards: { marginHorizontal: Spacing.xl, marginTop: Spacing.xxl, gap: Spacing.xl },
     statusText: { fontFamily: FontFamily.semibold, fontSize: 13 },
     actions: { marginHorizontal: Spacing.xl, marginTop: Spacing.lg },
 });

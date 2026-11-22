@@ -16,10 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/theme/colors';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
-import { arrived, dolly, focusGlassPlace, focusLeave, focusTurn, setFocusStage } from '@/lib/focusStage';
-import { CEREMONY, EASE, FOCUS_ENTRY, FOCUS_EXIT, OVERLAY, timingFor } from '@/theme/motion';
-import { FOCUS_BAR } from '@/components/Focus/FocusHourglass';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
 import { proveTick } from '@/lib/challengeProof';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
@@ -29,7 +26,7 @@ import { useSounds } from '@/hooks/useSounds';
 
 import { useFocusEffect } from 'expo-router';
 import { useAppSettings } from '@/context/AppSettingsContext';
-import { useAccent, useAccentGradient } from '@/context/AccentContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
 import { nextEchoLine, type EchoStats } from '@/lib/echoLines';
 import { pressureLines, pressureSpeaks } from '@/lib/taskPressure';
@@ -52,13 +49,9 @@ import { GOALS_ENABLED } from '@/constants/features';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
-import { DayHourglass, GLASS_HEIGHT } from '@/components/Home/DayHourglass';
-import { GlassCarousel } from '@/components/Home/GlassCarousel';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { Radius, Spacing } from '@/theme/designSystem';
 import { homeStyles } from '@/styles/screens/home.styles';
-import { TEMPLE } from '@/theme/hourglassArt';
-import { HOURGLASS_FRAMES } from '@/theme/hourglassFrames';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShardsWallet } from '@/components/Shards/ShardsWallet';
@@ -86,12 +79,6 @@ import { RANKS } from '@/lib/marks';
 import { useTimeOff, useTimeOffPeriods } from '@/hooks/useTimeOff';
 import { TimeOffCard } from '@/components/Home/TimeOffCard';
 
-/** A colour with no opacity, so a fade to it never passes through grey. */
-// The camera flying in on the podium for the carousel, and back out (built once, outside worklets).
-const CAMERA_IN = timingFor(CEREMONY.reveal, EASE.move);
-const CAMERA_OUT = timingFor(FOCUS_EXIT.return, EASE.move);
-const clearOf = (color: string) => (/^#[0-9a-f]{6}$/i.test(color) ? `${color}00` : 'transparent');
-
 const Home = () => {
   const router = useRouter();
   const { theme } = useTheme();
@@ -105,22 +92,8 @@ const Home = () => {
   const homeScrollY = useSharedValue(0);
   const homeScrollRef = useRef<Animated.ScrollView>(null);
   const onHomeScroll = useAnimatedScrollHandler(event => { homeScrollY.set(event.contentOffset.y); });
-  // The temple scene (assets/images/scenes/temple.jpg, 1199 × 1312) at the screen's width: the hourglass
-  // stands on its podium's top step, and the cards start just below the stairs.
-  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
-  const sceneScale = screenWidth / TEMPLE.width;
-  const sceneHeight = TEMPLE.height * sceneScale;
-  const stepY = TEMPLE.step * sceneScale;
-  const panelTop = TEMPLE.stairsEnd * sceneScale + Spacing.md;
-  // As you scroll, the temple and its hourglass dissolve into the night: no panel edge sliding over
-  // them, just the picture fading, eased so it starts and ends softly (smoothstep).
-  const fadeOver = panelTop * 0.45;
-  const sceneFade = useAnimatedStyle(() => {
-    const t = Math.min(1, Math.max(0, homeScrollY.get() / fadeOver));
-    return { opacity: 1 - t * t * (3 - 2 * t) };
-  });
+  const { height: screenHeight } = useWindowDimensions();
   const { primary: accentColor } = useAccentGradient();
-  const { rankShown } = useAccent();
   const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
   const { playComplete, playLevelUp } = useSounds();
 
@@ -487,10 +460,8 @@ const Home = () => {
   useEffect(() => {
     if (openSheet === 'missed') setShowMissed(true);
     if (openSheet === 'wallet') setShowWallet(true);
-    if (openSheet === 'glasses') {
-      const { currentRankLook } = require('@/lib/rankLook') as typeof import('@/lib/rankLook');
-      emit('glass_open', { rank: currentRankLook().rank ?? 'Lost', marks: marksTotalRef.current });
-    }
+    // Every hourglass now lives on your profile (its awards).
+    if (openSheet === 'glasses') router.push('/(root)/profile');
   }, [openSheet]);
 
 
@@ -616,109 +587,17 @@ const Home = () => {
     }
   }, [habits.length, streak, profileAvatar]); // Minimized dependencies to avoid loops
 
-  // Into Focus from here (lib/focusStage.ts): the hourglass turns over, then the page drops
-  // away while the bar rises out (the tab bar sinks with them), leaving only the scene that
-  // Focus opens on. Coming back, Home settles into place again, the hourglass turning back.
-  const reduceMotion = useReducedMotion();
-  useFocusEffect(useCallback(() => {
-    if (focusLeave.get() > 0 || focusTurn.get() > 0) {
-      focusLeave.set(withTiming(0, timingFor(FOCUS_EXIT.return, EASE.move)));
-      focusTurn.set(withTiming(0, timingFor(FOCUS_EXIT.return, EASE.move)));
-    }
-    setFocusStage(go => {
-      if (reduceMotion) { go(); return; }
-      // Worked out here, in JavaScript: the callbacks below run on the UI thread, where calling a
-      // helper like timingFor crashes the app natively (Jest never sees it).
-      // One move: the camera flies in on the podium (a slow start, a soft arrival), Home's page
-      // clearing early in it; Focus then appears on the very frame it lands on.
-      const approach = timingFor(FOCUS_ENTRY.approach, EASE.move);
-      focusLeave.set(withTiming(1, approach, left => { 'worklet'; if (left) runOnJS(go)(); }));
-    });
-    return () => setFocusStage(null);
-  }, [reduceMotion]));
-  // The page clears in the first part of the camera's move (FOCUS_ENTRY.leave of the approach).
-  const clearShare = FOCUS_ENTRY.approach / FOCUS_ENTRY.leave;
-  const pageLeave = useAnimatedStyle(() => ({ transform: [{ translateY: Math.min(1, focusLeave.get() * clearShare) * screenHeight }] }));
-  // Into Focus with the hourglass as the clock: the scene and the glass zoom in on the podium
-  // to where Focus stands it (components/Focus/FocusHourglass.tsx), so the step in is one move.
-  // Worked out here, in JavaScript, not inside the worklets.
-  const focusPlace = focusGlassPlace(screenWidth, screenHeight, insets, FOCUS_BAR, Spacing.lg);
-  // Every hourglass, opened in place on the podium: the page and the bar step aside, and the
-  // scene zooms in so the podium stays under the bigger hourglass in the middle (its base on
-  // the step, as on Home), where the carousel stands it.
-  const [glassesOpen, setGlassesOpen] = useState(false);
-  const glassesAside = useSharedValue(0);
-  // The camera's own move into the carousel: slower than the fade, like flying in.
-  const glassesCam = useSharedValue(0);
-  const glassesZoom = 1.35;
-  const glassesBottom = stepY + GLASS_HEIGHT / 2;
-  // The carousel's glass is your frame too: the step lands where its base ends.
-  const carouselFrame = HOURGLASS_FRAMES[rankShown ?? 'Lost'];
-  const glassesRise = glassesBottom - GLASS_HEIGHT * glassesZoom * (1 - (carouselFrame ? carouselFrame.foot / carouselFrame.height : 1)) - stepY;
-  // The glass stands with its base on the step, covering the step's light: its canvas sinks by the art below the base.
-  const homeFrame = HOURGLASS_FRAMES[rankShown ?? 'Lost'];
-  const glassSink = homeFrame ? GLASS_HEIGHT * (1 - homeFrame.foot / homeFrame.height) : 0;
-  // The glass's own centre, for zooming it about the step (its layout height, measured).
-  const [glassBoxHeight, setGlassBoxHeight] = useState(GLASS_HEIGHT / 2);
-  const glassCentre = stepY - GLASS_HEIGHT / 2 + glassSink + glassBoxHeight / 2;
-  // Focus: the step lands where Focus's glass stands on it, the scene as much bigger as its glass is.
-  const focusZoom = focusPlace.size / GLASS_HEIGHT;
-  const focusRise = focusPlace.top + focusPlace.size * (homeFrame ? homeFrame.foot / homeFrame.height : 1) - stepY;
-  // The camera, like a drone flying in: the zoom grows steadily to the eye (lib/focusStage.ts dolly),
-  // the scene's step and the glass moving with it, so the glass never slides off its podium.
-  const camera = (p: number, g: number) => {
-    'worklet';
-    const kp = dolly(p, focusZoom);
-    const kg = dolly(g, glassesZoom);
-    return { zoom: 1 + (focusZoom - 1) * kp + (glassesZoom - 1) * kg, rise: focusRise * kp + glassesRise * kg };
-  };
-  const zoomIn = useAnimatedStyle(() => {
-    const { zoom, rise } = camera(focusLeave.get(), glassesCam.get());
-    return { transform: [{ translateY: rise }, { scale: zoom }] };
-  });
-  // The glass zooms about the step too (its own centre is elsewhere).
-  const glassZoom = useAnimatedStyle(() => {
-    const { zoom, rise } = camera(focusLeave.get(), glassesCam.get());
-    return { transform: [{ translateY: rise + (stepY - glassCentre) * (1 - zoom) }, { scale: zoom }] };
-  });
-  const onGlasses = useCallback((open: boolean) => {
-    setGlassesOpen(open);
-    glassesAside.set(withTiming(open ? 1 : 0, open ? OVERLAY.in : OVERLAY.out));
-    glassesCam.set(withTiming(open ? 1 : 0, open ? CAMERA_IN : CAMERA_OUT));
-    if (open) homeScrollRef.current?.scrollTo({ y: 0, animated: true });
-  }, [glassesAside]);
-  const asideForGlasses = useAnimatedStyle(() => ({ opacity: 1 - glassesAside.get() }));
-  // Home's glass rides the camera in, handing over to the carousel's only as the camera arrives.
-  const glassHandOver = useAnimatedStyle(() => ({ opacity: 1 - arrived(glassesCam.get()) }));
-  const barLeave = useAnimatedStyle(() => {
-    const q = Math.min(1, focusLeave.get() * clearShare);
-    return { opacity: 1 - q, transform: [{ translateY: -q * Math.max(1, headerHeight) }] };
-  });
-
   return (
     <VoidShell>
-      {/* Transit-style: your rank's scene is the map, fixed behind everything (components/Home/DuneScene.tsx). */}
-      <Animated.View style={[homeStyles.scene, { transformOrigin: [screenWidth / 2, stepY, 0] }, sceneFade, zoomIn]} pointerEvents="none">
-        <Image source={TEMPLE.image} style={{ width: screenWidth, height: sceneHeight }} accessibilityIgnoresInvertColors />
-        {/* Its foot melts into the page's colour. */}
-        <LinearGradient colors={[clearOf(colors.background), colors.background]} style={[homeStyles.sceneFoot, { top: sceneHeight * 0.72, height: sceneHeight * 0.28 }]} />
-      </Animated.View>
-      {/* The day's hourglass on the podium's top step: it never moves; the cards rise over it. */}
-      <Animated.View pointerEvents="none" onLayout={event => setGlassBoxHeight(event.nativeEvent.layout.height)}
-        style={[homeStyles.glassStage, { top: stepY - GLASS_HEIGHT / 2 + glassSink, left: horizontalPadding, right: horizontalPadding }, sceneFade, glassHandOver, glassZoom]}>
-        <DayHourglass marks={marks.total} />
-      </Animated.View>
       <Animated.ScrollView
         ref={homeScrollRef}
-        pointerEvents={glassesOpen ? 'none' : 'auto'}
         onScroll={onHomeScroll}
         scrollEventThrottle={16}
         // The page stops at the bar's edge: nothing scrolls under your picture and the stats,
         // so Echo's line can never run into them. The fade under the bar softens the edge.
-        style={[pageLeave, asideForGlasses]}
         automaticallyAdjustContentInsets={false}
         // The page scrolls up under the bar's fade (it starts below it), so there is no hard line where it stops.
-        contentContainerStyle={{ paddingTop: panelTop }}
+        contentContainerStyle={{ paddingTop: headerHeight }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -730,10 +609,6 @@ const Home = () => {
           />
         }
       >
-          {/* Tap the hourglass for every hourglass: the glass sits under the page, so the page takes the tap where it stands. */}
-          <Pressable accessibilityRole="button" accessibilityLabel="See every hourglass"
-            onPress={() => { lightFeedback(); emit('glass_open', { rank: rankShown ?? 'Lost', marks: marks.total }); }}
-            style={[homeStyles.glassTap, { top: stepY - GLASS_HEIGHT + glassSink, width: GLASS_HEIGHT, height: GLASS_HEIGHT, marginLeft: -GLASS_HEIGHT / 2 }]} />
           {/* The panel: everything of the day, rising over the scene; the hourglass on its edge. */}
           <View style={[homeStyles.panel, { paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, minHeight: screenHeight - headerHeight }]}>
             {/* Its top edge is a shadow of its own colour, melting into the night. */}
@@ -788,13 +663,10 @@ const Home = () => {
 
           </View>
       </Animated.ScrollView>
-      {/* Every hourglass, on this podium, over this scene (components/Home/GlassCarousel.tsx). */}
-      <GlassCarousel stage={{ glassBottom: glassesBottom, size: GLASS_HEIGHT * glassesZoom, captionTop: stepY + GLASS_HEIGHT / 2 + Spacing.xl }} onOpenChange={onGlasses} camera={glassesCam} />
-
       {/* The floating stats bar: your picture and the three stats, fixed over everything, the cards passing under. */}
       {/* Plain dark behind the picture and the stats, no shadow: the page stops at its edge
           and slips under a short fade into it, so there is never a hard line. */}
-      <Animated.View style={[homeStyles.bar, { paddingTop: insets.top }, barLeave, asideForGlasses]} pointerEvents={glassesOpen ? 'none' : 'box-none'}
+      <Animated.View style={[homeStyles.bar, { paddingTop: insets.top }]} pointerEvents="box-none"
         onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}>
         {/* No background: the page colour at the very top (the status bar reads on it), fading out
             by the bar's foot, so the sky shows behind your picture and stats, as on Community. */}

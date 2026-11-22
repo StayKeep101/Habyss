@@ -10,6 +10,7 @@ import { MorphMenu, type MorphMenuItem } from '@/components/ui/MorphMenu';
 import { ProfileView, type ProfileNumbers } from '@/components/Profile/ProfileView';
 import { YearHeatmap, type HeatDay } from '@/components/Profile/YearHeatmap';
 import { HourglassAwards } from '@/components/Profile/HourglassAwards';
+import { RankEmblem } from '@/components/Profile/RankEmblem';
 import { friendYear } from '@/lib/friendYear';
 import { localDateKey } from '@/lib/habitSchedule';
 import { Colors } from '@/theme/colors';
@@ -179,9 +180,12 @@ export default function FriendScreen() {
                         <View style={styles.year}><YearHeatmap days={year} color={primary} today={localDateKey(new Date())} /></View>
                     ) : null}
                 >
-                    {/* Their awards, as on yours (when they share them). */}
+                    {/* Their hourglass and their awards, as on yours (when they share them). */}
                     {isFriend && shares.awards && marks !== undefined ? (
-                        <View style={styles.awards}><HourglassAwards marks={marks} /></View>
+                        <View style={styles.awards}>
+                            <RankEmblem marks={marks} />
+                            <HourglassAwards marks={marks} />
+                        </View>
                     ) : null}
                 </ProfileView>
 

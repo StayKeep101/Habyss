@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { allowAnyOrientation, applyDefaultOrientation } from '@/lib/orientation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { FocusClock, FocusDigits, FocusRing } from '@/components/Focus/FocusClock';
-import { FOCUS_BAR, FocusHourglass, FocusStageProvider, TempleStage } from '@/components/Focus/FocusHourglass';
+import { FOCUS_BAR, FocusHourglass, FocusStageProvider } from '@/components/Focus/FocusHourglass';
 import { FocusTopBar } from '@/components/Focus/FocusTopBar';
 import { keepFocusCounting, useFocusTime } from '@/context/FocusTimeContext';
 import { useFocusPlan } from '@/hooks/useFocusPlan';
@@ -17,9 +17,8 @@ import { FocusCrew } from '@/components/Focus/FocusCrew';
 import { FocusSummary } from '@/components/Focus/FocusSummary';
 import { MARKS } from '@/lib/marks';
 import { FocusNearby } from '@/components/Focus/FocusNearby';
-import { RankScene } from '@/components/Home/RankScene';
 import { useFocusBackground } from '@/components/Focus/FocusSheets';
-import { useTokens } from '@/hooks/useTokens';
+import { focusPicture } from '@/lib/focusBackground';
 import { FOCUS_ENTRY } from '@/theme/motion';
 import { Colors } from '@/theme/colors';
 import { announceChange } from '@/lib/livePulse';
@@ -27,9 +26,8 @@ import { useFocusCrew } from '@/hooks/useFocusCrew';
 import { FeedService } from '@/lib/feedService';
 import { MIN_JOIN_SECONDS, hostOf, linkTo, linkedHost, secondsLeft, setFocusWith, togetherId } from '@/lib/focusTogether';
 import { Spacing } from '@/theme/designSystem';
-import { useAccent, useAccentGradient } from '@/context/AccentContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { focusGlassPlace } from '@/lib/focusStage';
-import { HOURGLASS_FRAMES } from '@/theme/hourglassFrames';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useClockStyle } from '@/hooks/useClockStyle';
 import { useTasks } from '@/hooks/useTasks';
@@ -61,32 +59,17 @@ import { styles } from '@/styles/screens/focus.styles';
  * closing, no "done" screen in between.
  */
 export default function FocusRoute() {
-    // Behind every step of the day: the landscape, the same scene as Home, so stepping in from
-    // Home (lib/focusStage.ts) shows no seam; or the default, plain black (Focus settings).
-    const t = useTokens();
-    const background = useFocusBackground();
+    // Behind every step of the day: plain black (the default), or one of your pictures (Focus settings).
+    const picture = focusPicture(useFocusBackground());
     // Any way round while Focus is open, whatever step it is on (a task, a meal, a class, the
     // day's start or end); portrait again on leaving. Here, not in one step's view, so every step turns.
     useFocusEffect(React.useCallback(() => { allowAnyOrientation(); return applyDefaultOrientation; }, []));
-    // Sideways, the scene is far taller than the screen: its middle (the moon, the dunes) is what shows.
-    const { width, height } = useWindowDimensions();
-    // The hourglass as the clock: Home's temple, closer in, its podium under the glass.
-    const clockStyle = useClockStyle();
-    const hourglass = clockStyle === 'hourglass';
-    // Opens already on the frame Home's camera lands on (lib/focusStage.ts focusGlassPlace), so
-    // stepping in from Home shows no dark frame: only the clock and buttons appear.
-    const insets = useSafeAreaInsets();
-    const { rankShown } = useAccent();
-    const [stage, setStage] = React.useState<{ y: number; size: number } | null>(() => {
-        if (width > height) return null;
-        const place = focusGlassPlace(width, height, insets, FOCUS_BAR, Spacing.lg);
-        const frame = HOURGLASS_FRAMES[rankShown ?? 'Lost'];
-        return { y: place.top + place.size * (frame ? frame.foot / frame.height : 1), size: place.size };
-    });
+    // Where the hourglass stands, reported by it (components/Focus/FocusHourglass.tsx); kept for whatever is drawn on it.
+    const [, setStage] = React.useState<{ y: number; size: number } | null>(null);
     return (
-        <View style={[styles.screen, { backgroundColor: background === 'landscape' ? t.color.background : Colors.common.black }]}>
-            {/* No background (Focus settings): the clock, the hourglass too, on plain black. */}
-            {background !== 'landscape' ? null : hourglass ? <TempleStage stage={stage} /> : <RankScene centred={width > height} />}
+        <View style={[styles.screen, { backgroundColor: Colors.common.black }]}>
+            {/* Your picture, filling the screen, cropped to it; with None, plain black. */}
+            {picture ? <Image source={picture.image} resizeMode="cover" style={StyleSheet.absoluteFill} accessibilityIgnoresInvertColors /> : null}
             {/* The clock and its buttons appear on the scene. */}
             <FocusStageProvider value={setStage}>
                 <Animated.View style={styles.screen} entering={FadeIn.duration(FOCUS_ENTRY.appear).reduceMotion(ReduceMotion.System)}><FocusStep /></Animated.View>
