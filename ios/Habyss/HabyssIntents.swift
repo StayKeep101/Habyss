@@ -323,22 +323,23 @@ struct BrainDumpIntent: AppIntent {
     }
 }
 
-/// "Tell Habyss": say it freely ("call mom tomorrow and run every morning");
-/// Habyss reads the tasks, habits and goals in it (lib/voicePlan.ts rules),
-/// anything unclear kept in the brain dump.
+/// "Tell Echo": say it freely ("call mom tomorrow and run every morning");
+/// Echo reads the tasks and habits in it (lib/voicePlan.ts rules), anything
+/// unclear kept in the brain dump. Echo is Habyss's other name for Siri
+/// (INAlternativeAppNames in Info.plist), so every phrase works with either.
 @available(iOS 16.0, *)
 struct TellHabyssIntent: AppIntent {
-    static var title: LocalizedStringResource = "Tell Habyss"
-    static var description = IntentDescription("Say tasks, habits or goals in your own words; Habyss sorts them out")
+    static var title: LocalizedStringResource = "Tell Echo"
+    static var description = IntentDescription("Say what's on your mind in your own words; Echo sorts it into your plan")
     static var openAppWhenRun: Bool = false
 
-    @Parameter(title: "What to add", requestValueDialog: "What should I add?")
+    @Parameter(title: "What to add", requestValueDialog: "I'm listening. What's on your mind?")
     var text: String
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard QuickAddQueue.append(kind: "any", title: text) else { return .result(dialog: "Open Habyss once, then try again.") }
-        return .result(dialog: "On it. It'll be in your plan.")
+        return .result(dialog: "Got it. It's in your plan.")
     }
 }
 
@@ -701,9 +702,11 @@ struct HabyssShortcuts: AppShortcutsProvider {
             intent: TellHabyssIntent(),
             phrases: [
                 "Tell \(.applicationName)",
-                "Plan with \(.applicationName)"
+                "Talk to \(.applicationName)",
+                "Plan with \(.applicationName)",
+                "Ask \(.applicationName)"
             ],
-            shortTitle: "Tell Habyss",
+            shortTitle: "Tell Echo",
             systemImageName: "text.bubble"
         )
         AppShortcut(
