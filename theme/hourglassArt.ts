@@ -5,8 +5,15 @@ import type { ImageSourcePropType } from 'react-native';
  * the glass with no painted sand, as on Home.
  */
 
-/** How opaque every hourglass stands in the scene (Home, Focus, the carousel): the scene shows through. */
+/**
+ * How opaque every hourglass stands in the scene (Home, Focus, the carousel): at
+ * its top the scene shows through (HOURGLASS_OPACITY); towards its base it turns
+ * solid, so the podium's light does not shine up through the foot.
+ */
 export const HOURGLASS_OPACITY = 0.7;
+
+/** The fade as a mask, top to bottom: only its alpha counts. */
+export const HOURGLASS_FADE = [`rgba(0,0,0,${HOURGLASS_OPACITY})`, 'rgba(0,0,0,1)'] as const;
 
 /** Width over height of the art (1113 × 1413). */
 export const HOURGLASS_ART_RATIO = 1113 / 1413;

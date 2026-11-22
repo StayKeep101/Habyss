@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { useAnimatedReaction, useDerivedValue, useReducedMotion, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import {
-    BlurMask, Canvas, ClipOp, ColorMatrix, Group, Paint, Image as SkiaImage, LinearGradient, Path, Picture, RoundedRect, Skia, createPicture, useClock, useImage, vec,
+    BlurMask, Canvas, ClipOp, ColorMatrix, Group, Paint, Image as SkiaImage, LinearGradient, Path, Picture, Rect, RoundedRect, Skia, createPicture, useClock, useImage, vec,
 } from '@shopify/react-native-skia';
 import { mixHex } from '@/lib/colorContrast';
 import { Colors } from '@/theme/colors';
-import { HOURGLASS_INK, HOURGLASS_OPACITY } from '@/theme/hourglassArt';
+import { HOURGLASS_FADE, HOURGLASS_INK } from '@/theme/hourglassArt';
 import type { GlassFrame } from '@/theme/hourglassFrames';
 import { DURATION, EASE } from '@/theme/motion';
 import { heapPeak, heapSurface, makeBulbs, solveHeap, solveTop, topArea, topSurface } from '@/lib/sandPhysics';
@@ -270,10 +270,10 @@ export function SkiaHourglass({ size, ran, running, sand, tilt, shake, frame }: 
     return (
         <Canvas style={{ width, height: size }}>
             {frame ? (
-                // Dimmed and see-through as a whole (frame and sand) to sit in the night scene.
+                // Dimmed as a whole (frame and sand) to sit in the night scene; see-through at the top, solid at the foot.
                 <Group transform={[{ scale }]} layer={(
                     <Paint>
-                        <ColorMatrix matrix={[frame.brightness, 0, 0, 0, 0, 0, frame.brightness, 0, 0, 0, 0, 0, frame.brightness, 0, 0, 0, 0, 0, HOURGLASS_OPACITY, 0]} />
+                        <ColorMatrix matrix={[frame.brightness, 0, 0, 0, 0, 0, frame.brightness, 0, 0, 0, 0, 0, frame.brightness, 0, 0, 0, 0, 0, 1, 0]} />
                     </Paint>
                 )}>
                     {/* The rank's frame; the sand inside its glass; then the glass's own light back over the sand. */}
@@ -284,6 +284,9 @@ export function SkiaHourglass({ size, ran, running, sand, tilt, shake, frame }: 
                             <SkiaImage image={art} x={0} y={0} width={FW} height={FH} fit="fill" blendMode="screen" opacity={frame.light} />
                         </Group>
                     ) : null}
+                    <Rect x={0} y={0} width={FW} height={FH} blendMode="dstIn">
+                        <LinearGradient start={vec(0, 0)} end={vec(0, FH)} colors={[...HOURGLASS_FADE]} />
+                    </Rect>
                 </Group>
             ) : (
             <Group transform={[{ scale }]}>
