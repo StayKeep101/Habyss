@@ -1,7 +1,7 @@
 import { GOALS_ENABLED } from '@/constants/features';
 import React from 'react';
+import { HomeStatCard } from '@/components/Home/HomeStatCard';
 import { Image, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import { CountUp, PopIn } from '@/components/ui/Motion';
 import { MarksBackdrop } from './MarksBackdrop';
 import { StatusBadge } from '@/components/Community/StatusBadge';
 import { STATUS_LABEL, type FriendStatus } from '@/lib/presence';
@@ -10,10 +10,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useCachedImage } from '@/hooks/useCachedImage';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { MatteSurface } from '@/components/ui/MatteSurface';
-import { IconTile } from '@/components/ui/IconTile';
-import { textOn, tint } from '@/theme/tokens';
 import { Colors } from '@/theme/colors';
-import { FontFamily, Radius } from '@/theme/designSystem';
+import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
@@ -215,46 +213,23 @@ export const ProfileView: React.FC<{
                 </View>
             </Animated.View>
 
-            {/* Two tiles of things to be proud of: the run going now (its best is
-                said on it, and the freezes ride on its corner), and the goals reached. */}
+            {/* The run going now, as on Home: the flame and the number beside it
+                (tap for the Streak page); your freezes the same way beside it. */}
             <View style={styles.statsBlock}>
                 {numbers ? (
-                    <View style={styles.tiles}>
-                        {[
-                            { key: 'streak', label: 'Day streak', value: numbers.streak, icon: 'flame', color: colors.warning, lit: numbers.streak > 0, onPress: onStreak,
-                                note: numbers.streak > 0 && numbers.streak >= numbers.bestStreak ? 'Best yet' : undefined },
-                            // Goals are off for now (constants/features.ts).
-                            ...(GOALS_ENABLED ? [{ key: 'goals', label: 'Goals done', value: numbers.goalsCompleted, icon: 'flag', color: colors.success, lit: numbers.goalsCompleted > 0, onPress: onGoalsDone }] : []),
-                        ].map((stat, index) => (
-                            <PopIn key={stat.key} index={index} style={styles.tileSlot}>
-                                <Pressable disabled={!stat.onPress} onPress={stat.onPress} style={styles.tilePress}
-                                    accessibilityRole={stat.onPress ? 'button' : undefined}
-                                    accessibilityLabel={`${stat.value} ${stat.label.toLowerCase()}${stat.note ? `, ${stat.note.toLowerCase()}` : ''}`}>
-                                    <MatteSurface radius={Radius.card} tint={stat.key === 'streak' && stat.lit ? tint(stat.color, 'subtle') : undefined} style={styles.tile}>
-                                        <IconTile icon={stat.icon} color={stat.color} size={s(30)} muted={!stat.lit} />
-                                        <CountUp style={[styles.tileValue, { color: colors.textPrimary }]} value={stat.value} />
-                                        <View style={styles.statLabelRow}>
-                                            <Text numberOfLines={1} style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
-                                            {stat.onPress ? <Ionicons name="chevron-forward" size={s(11)} color={colors.textTertiary} /> : null}
-                                        </View>
-                                        {stat.note ? (
-                                            <View style={[styles.note, { backgroundColor: stat.color }]}>
-                                                <Text style={[styles.noteText, { color: textOn(stat.color) }]}>{stat.note}</Text>
-                                            </View>
-                                        ) : null}
-                                    </MatteSurface>
-                                </Pressable>
-                                {stat.key === 'streak' && freezes ? (
-                                    // The freezes: a snowflake and how many, small, on the streak's corner.
-                                    <Pressable onPress={freezes.onPress} hitSlop={s(10)} accessibilityRole="button"
-                                        accessibilityLabel={`${freezes.count} streak freeze${freezes.count === 1 ? '' : 's'}`}
-                                        style={[styles.freeze, { backgroundColor: colors.surfaceSecondary, borderColor: colors.background }]}>
-                                        <Ionicons name="snow" size={s(12)} color={primary} />
-                                        <Text style={[styles.freezeText, { color: colors.textPrimary }]}>{freezes.count}</Text>
-                                    </Pressable>
-                                ) : null}
-                            </PopIn>
-                        ))}
+                    <View style={styles.stats}>
+                        <HomeStatCard icon="flame" tint={numbers.streak > 0 ? colors.warning : colors.textTertiary} value={numbers.streak}
+                            onPress={onStreak ?? (() => undefined)}
+                            accessibilityLabel={`${numbers.streak} day streak${numbers.streak > 0 && numbers.streak >= numbers.bestStreak ? ', your best yet' : ''}${onStreak ? '. Open your streak.' : ''}`} />
+                        {freezes ? (
+                            <HomeStatCard icon="snow" tint={primary} value={freezes.count} onPress={freezes.onPress}
+                                accessibilityLabel={`${freezes.count} streak freeze${freezes.count === 1 ? '' : 's'}`} />
+                        ) : null}
+                        {/* Goals are off for now (constants/features.ts). */}
+                        {GOALS_ENABLED ? (
+                            <HomeStatCard icon="flag" tint={numbers.goalsCompleted > 0 ? colors.success : colors.textTertiary} value={numbers.goalsCompleted}
+                                onPress={onGoalsDone ?? (() => undefined)} accessibilityLabel={`${numbers.goalsCompleted} goals done`} />
+                        ) : null}
                     </View>
                 ) : (
                     <Text style={[styles.private, { color: colors.textTertiary }]}>{hiddenNote ?? 'Progress is private'}</Text>
@@ -292,17 +267,8 @@ const styles = StyleSheet.create({
     bioInput: { paddingTop: vs(10), paddingBottom: vs(10), paddingHorizontal: s(14) },
     bioCount: { position: 'absolute', right: s(12), bottom: -vs(18), fontSize: ms(11), fontFamily: FontFamily.regular, fontVariant: ['tabular-nums'] },
     statsBlock: { marginHorizontal: s(20), marginTop: vs(16), gap: vs(12) },
+    // Centred under the profile, spaced like Home's header stats.
+    stats: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.xl },
     card: { padding: s(20) },
-    tiles: { flexDirection: 'row', gap: s(10) },
-    tileSlot: { flex: 1 },
-    freeze: { position: 'absolute', top: s(10), right: s(10), flexDirection: 'row', alignItems: 'center', gap: s(3), paddingHorizontal: s(8), paddingVertical: s(4), borderRadius: 999, borderWidth: StyleSheet.hairlineWidth },
-    freezeText: { fontSize: ms(12), fontFamily: FontFamily.semibold },
-    tilePress: { flex: 1 },
-    tile: { flex: 1, padding: s(14), gap: vs(6), minHeight: 44 },
-    tileValue: { fontSize: ms(28), lineHeight: ms(34), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'], marginTop: vs(4) },
-    statLabel: { fontSize: ms(12), fontFamily: FontFamily.medium, flexShrink: 1 },
-    statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: s(2) },
-    note: { position: 'absolute', top: s(12), right: s(10), borderRadius: 999, paddingHorizontal: s(6), paddingVertical: 1 },
-    noteText: { fontSize: ms(11), fontFamily: FontFamily.bold },
     private: { fontSize: ms(13), fontFamily: FontFamily.regular, textAlign: 'center', paddingVertical: vs(12) },
 });

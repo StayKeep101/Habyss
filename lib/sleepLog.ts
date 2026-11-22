@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { localDateKey } from './habitSchedule';
+import type { SleepNight } from './sleepMath';
 
 /**
  * The last two weeks of sleep, from Apple Health, kept on this phone.
@@ -23,6 +24,8 @@ export interface SleepState {
      * starts again would otherwise get every old night back, with its Marks.
      */
     since?: string;
+    /** The last week's nights in full (stages, bed and wake), by morning, for the charts. */
+    details?: Record<string, SleepNight>;
 }
 
 const KEY = 'habyss_sleep_log';
@@ -73,6 +76,7 @@ export function refreshSleep(): Promise<void> {
         // this rule starts today too: nothing older is this account's.
         const since = state.since ?? localDateKey(today);
         const nights: Record<string, number> = {};
+        const details: Record<string, SleepNight> = { ...(state.details ?? {}) };
         for (const [key, minutes] of Object.entries(state.nights)) if (key >= since) nights[key] = minutes;
         for (let back = 0; back < DAYS; back++) {
             const date = new Date(today);
@@ -82,12 +86,20 @@ export function refreshSleep(): Promise<void> {
             if (back > 7 && nights[key] !== undefined) continue;
             const minutes = await HealthKitService.read('sleep', date).catch(() => null);
             if (minutes !== null && minutes > 0) nights[key] = Math.round(minutes);
+            // This week's nights in full, for the stages and the bed and wake times.
+            if (back <= 7) {
+                const night = await HealthKitService.sleepNight(date).catch(() => null);
+                if (night) details[key] = night; else delete details[key];
+            }
         }
         const oldest = new Date(today);
         oldest.setDate(today.getDate() - 60);
         const floor = localDateKey(oldest);
         for (const key of Object.keys(nights)) if (key < floor) delete nights[key];
-        await save({ ...state, nights, connected: true, since });
+        const weekAgo = new Date(today);
+        weekAgo.setDate(today.getDate() - 14);
+        for (const key of Object.keys(details)) if (key < localDateKey(weekAgo) || key < since) delete details[key];
+        await save({ ...state, nights, details, connected: true, since });
     })().finally(() => { refreshing = null; });
     return refreshing;
 }

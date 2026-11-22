@@ -20,11 +20,11 @@ const since = (iso: string | null): string => {
 };
 
 /**
- * Your account, as rows: who is signed in, Back up now and Sign out; signed
- * out, one row to sign in (the Account page, which is also where every "Sign
- * in" in the app leads). Shown at the top of Privacy & security and on Account.
+ * Your account's actions, for any page that offers them (this list, and
+ * Settings → Account): who is signed in, Back up now (and when it last did),
+ * and Sign out (backed up first; asks before losing anything not backed up).
  */
-export function AccountRows() {
+export function useAccountActions() {
     const { lightFeedback, successFeedback } = useHaptics();
     const [account, setAccount] = useState<Account | null>(() => knownAccount() ?? null);
     const [busy, setBusy] = useState<null | 'sync' | 'signout'>(null);
@@ -89,12 +89,22 @@ export function AccountRows() {
             ]);
     };
 
+    return { account, busy, message, lastSync: since(lastSync), backUpNow, confirmSignOut, signIn: () => { lightFeedback(); router.push('/(root)/account'); } };
+}
+
+/**
+ * Your account, as rows: who is signed in, Back up now and Sign out; signed
+ * out, one row to sign in (the Account page, which is also where every "Sign
+ * in" in the app leads). Shown at the top of Privacy & security and on Account.
+ */
+export function AccountRows() {
+    const { account, busy, message, lastSync, backUpNow, confirmSignOut, signIn } = useAccountActions();
     if (!isCloudConfigured()) return null;
     if (!account) {
         return (
             <SettingsGroup title="Account">
                 <SettingsRow icon="person-circle" color="#5B8CFF" label="Sign in" value="Back up your plan"
-                    onPress={() => { lightFeedback(); router.push('/(root)/account'); }} />
+                    onPress={signIn} />
             </SettingsGroup>
         );
     }
@@ -103,7 +113,7 @@ export function AccountRows() {
             <SettingsGroup title="Account">
                 <SettingsRow icon="person-circle" color="#5B8CFF" label={account.email ?? 'Signed in'} />
                 <SettingsRow icon="cloud-upload" color="#30D158" label={busy === 'sync' ? 'Backing up…' : 'Back up now'}
-                    value={since(lastSync)} disabled={!!busy} onPress={() => void backUpNow()} />
+                    value={lastSync} disabled={!!busy} onPress={() => void backUpNow()} />
                 <SettingsRow icon="log-out" color="#8A8A94" label={busy === 'signout' ? 'Signing out…' : 'Sign out'}
                     disabled={!!busy} onPress={confirmSignOut} />
             </SettingsGroup>

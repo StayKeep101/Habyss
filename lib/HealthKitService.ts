@@ -1,7 +1,7 @@
 import { NativeModules, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { HealthMetric } from './healthMetrics';
-import { minutesAsleep, type SleepSample } from './sleepMath';
+import { minutesAsleep, sleepNight, type SleepNight, type SleepSample } from './sleepMath';
 
 /**
  * Reading Apple Health, which is where every other device already writes.
@@ -236,6 +236,18 @@ export class HealthKitService {
      * on — a night beginning at 23:40 is not two nights, and asking Health for
      * "today" would split it in half.
      */
+    /** Last night in full: stages, and when it began and ended (lib/sleepMath.ts sleepNight). Same window as `sleep`. */
+    static async sleepNight(date: Date): Promise<SleepNight | null> {
+        const start = new Date(date);
+        start.setDate(start.getDate() - 1);
+        start.setHours(18, 0, 0, 0);
+        const end = new Date(date);
+        end.setHours(18, 0, 0, 0);
+        return ask('getSleepSamples',
+            { startDate: start.toISOString(), endDate: end.toISOString(), limit: 1000 },
+            (rows: SleepSample[]) => sleepNight(rows));
+    }
+
     private static async sleep(date: Date): Promise<number | null> {
         const start = new Date(date);
         start.setDate(start.getDate() - 1);

@@ -11,7 +11,8 @@ import { localDateKey } from './habitSchedule';
  * once Health is connected; the first read on a phone that connected for
  * sleep only asks iOS once for the activity types too.
  */
-export interface ActivityDay { minutes: number; steps: number }
+/** A day: exercise minutes, steps, and active energy (kcal, when Health has it). */
+export interface ActivityDay { minutes: number; steps: number; energy?: number }
 export interface ActivityState {
     days: Record<string, ActivityDay>;
     /** Exercise goal, in minutes a day. */
@@ -77,12 +78,13 @@ export function refreshActivity(): Promise<void> {
             const key = localDateKey(date);
             if (key < since) break;
             if (back > 7 && days[key] !== undefined) continue;
-            const [minutes, steps] = await Promise.all([
+            const [minutes, steps, energy] = await Promise.all([
                 HealthKitService.exerciseMinutes(date).catch(() => null),
                 HealthKitService.steps(date).catch(() => null),
+                HealthKitService.activeEnergy(date).catch(() => null),
             ]);
             if (minutes === null && steps === null) continue;
-            days[key] = { minutes: minutes ?? 0, steps: steps ?? 0 };
+            days[key] = { minutes: minutes ?? 0, steps: steps ?? 0, ...(energy !== null ? { energy } : null) };
         }
         const oldest = new Date(today);
         oldest.setDate(today.getDate() - 60);

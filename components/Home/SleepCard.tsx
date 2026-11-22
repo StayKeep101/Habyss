@@ -1,44 +1,36 @@
-import React, { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import Animated, { runOnJS, useAnimatedStyle } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { useHaptics } from '@/hooks/useHaptics';
-import { VoidCard } from '@/components/ui/VoidCard';
-import { IconTile } from '@/components/ui/IconTile';
-import { AppIcon } from '@/components/ui/AppIcon';
-import { CountUp, useProgress } from '@/components/ui/Motion';
-import { Colors } from '@/theme/colors';
-import { FontFamily, Spacing } from '@/theme/designSystem';
-import { useTheme } from '@/context/ThemeContext';
-import { useAccentGradient } from '@/context/AccentContext';
+import { AppIcon, CountUp, IconTile, StatTile, Text, VoidCard, WeekBars } from '@/components/ui';
+import { Spacing } from '@/theme/designSystem';
+import { useTokens } from '@/hooks/useTokens';
 import { useSleep } from '@/hooks/useSleep';
 import { formatSleep } from '@/lib/sleepLog';
+import { formatClockMinutes, sleepWeek } from '@/lib/healthStats';
 import { MARKS } from '@/lib/marks';
 import { localDateKey } from '@/lib/habitSchedule';
 import { startOfWeek } from '@/lib/weekStart';
 import { useWeekStart } from '@/hooks/useWeekStart';
-
-const BAR_HEIGHT = 56;
+import { EarnedChip } from './EarnedChip';
+import { SleepStages } from './SleepStages';
 
 /**
- * Last night's sleep, from Apple Health, and this week so far: one bar per
- * night, starting on the day the week starts (Settings), days still to come
- * left empty. A new week starts with a clean row. A night that
+ * Last night's sleep, from Apple Health, drawn the way sleep apps do: how long
+ * and from when to when; its stages (Awake, REM, Core, Deep) when the watch or
+ * ring records them; this week as bars against the goal (drag across to read
+ * any night: the figures and stages show that night); and the week in three
+ * figures (average, nights at the goal, when you usually fall asleep). The week
+ * starts on the day set in Settings; days still to come are left empty. A night that
  * reaches your goal earns 20 Marks; a recorded night short of it costs 20. The goal is set
  * in Settings, and so is whether this card shows at all. With no sleep data
  * yet, it says how to get some rather than vanishing.
  */
 export function SleepCard() {
-    const { theme } = useTheme();
-    const colors = Colors[theme];
-    const { primary } = useAccentGradient();
+    const t = useTokens();
     const sleep = useSleep();
     const weekStart = useWeekStart();
-    const { selectionFeedback } = useHaptics();
     // A finger on the week: the night under it, until it lets go (then last night again).
     const [picked, setPicked] = useState<number | null>(null);
-    const barsWidth = useRef(0);
 
     if (sleep.showCard === false) return null;
     // No sleep data yet (Health not connected, or nothing that records sleep):
@@ -47,16 +39,16 @@ export function SleepCard() {
         return (
             <VoidCard style={styles.card}>
                 <View style={styles.head}>
-                    <IconTile icon="moon" color={primary} size={32} />
-                    <Text style={[styles.title, styles.flex, { color: colors.textPrimary }]}>Sleep</Text>
+                    <IconTile icon="moon" color={t.color.accent} size={Spacing.xxl + Spacing.sm} />
+                    <Text variant="heading" grow>Sleep</Text>
                 </View>
-                <Text style={[styles.sub, { color: colors.textSecondary }]}>
-                    {sleep.connected ? 'No sleep recorded yet. Any watch or ring that writes sleep to Apple Health works.' : 'Connect Apple Health to see your nights here. Reaching your sleep goal earns 20 Marks.'}
+                <Text variant="bodySmall" tone="muted">
+                    {sleep.connected ? 'No sleep recorded yet. Any watch or ring that writes sleep to Apple Health works.' : 'Connect Apple Health to see your nights here. Reaching your sleep goal earns 20 Shards.'}
                 </Text>
                 {!sleep.connected ? (
-                    <Pressable accessibilityRole="button" onPress={() => router.push('/(root)/integrations' as never)} style={styles.connect}>
-                        <Text style={[styles.earnedText, { color: primary }]}>Connect Apple Health</Text>
-                        <AppIcon name="chevron-forward" size={12} color={primary} />
+                    <Pressable accessibilityRole="button" onPress={() => router.push('/(root)/integrations' as never)} style={styles.connect} hitSlop={Spacing.md}>
+                        <Text variant="bodySmall" tone="accent">Connect Apple Health</Text>
+                        <AppIcon name="chevron-forward" size={Spacing.md} color={t.color.accent} />
                     </Pressable>
                 ) : null}
             </VoidCard>
@@ -76,98 +68,59 @@ export function SleepCard() {
     // named by the evening it began ("Tuesday night"), the morning before it.
     const shownDay = picked !== null && !mornings[picked].ahead ? mornings[picked] : mornings.find(day => day.isToday) ?? mornings[0];
     const last = sleep.nights[shownDay.key];
+    const night = sleep.details?.[shownDay.key];
     const met = last !== undefined && last >= sleep.target;
     const evening = new Date(`${shownDay.key}T12:00:00`); evening.setDate(evening.getDate() - 1);
     const nightName = shownDay.isToday ? 'Last night' : `${evening.toLocaleDateString(undefined, { weekday: 'long' })} night`;
-    const pick = (x: number) => {
-        const index = Math.max(0, Math.min(6, Math.floor((x / Math.max(1, barsWidth.current)) * 7)));
-        if (mornings[index].ahead) return;
-        setPicked(previous => {
-            if (previous !== index) selectionFeedback();
-            return index;
-        });
-    };
-    const scrub = Gesture.Pan()
-        .activeOffsetX([-4, 4])
-        .failOffsetY([-12, 12])
-        .onBegin(event => { runOnJS(pick)(event.x); })
-        .onUpdate(event => { runOnJS(pick)(event.x); })
-        .onFinalize(() => { runOnJS(setPicked)(null); });
-    const ceiling = Math.max(sleep.target * 1.25, ...mornings.map(day => sleep.nights[day.key] ?? 0));
+    const clock = (at: number) => new Date(at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    const week = sleepWeek(mornings.filter(day => !day.ahead).map(day => day.key), sleep.nights, sleep.details, sleep.target);
 
     return (
         <VoidCard style={styles.card}>
             <View style={styles.head}>
-                <IconTile icon="moon" color={primary} size={32} />
-                <Text style={[styles.title, styles.flex, { color: colors.textPrimary }]}>Sleep</Text>
-                {last !== undefined ? (
-                    // What last night did to your Shards: +20 at your goal, −20 short of it.
-                    <View style={[styles.earned, { backgroundColor: (met ? colors.success : colors.error) + '22' }]}>{/* ui-allow: tint */}
-                        <AppIcon name={met ? 'sparkles' : 'trending-down'} size={12} color={met ? colors.success : colors.error} />
-                        <Text style={[styles.earnedText, { color: met ? colors.success : colors.error }]}>
-                            {met ? `+${MARKS.complete.sleep}` : `${MARKS.miss.sleep}`} Shards
-                        </Text>
-                    </View>
-                ) : null}
+                <IconTile icon="moon" color={t.color.accent} size={Spacing.xxl + Spacing.sm} />
+                <Text variant="heading" grow>Sleep</Text>
+                {/* What the night did to your Shards: +20 at your goal, −20 short of it. */}
+                {last !== undefined ? <EarnedChip amount={met ? MARKS.complete.sleep : MARKS.miss.sleep} /> : null}
             </View>
 
-            <View style={styles.body}>
-                <View style={styles.flex}>
-                    <CountUp style={[styles.value, { color: colors.textPrimary }]} value={last !== undefined ? formatSleep(last) : '—'} />
-                    <Text style={[styles.sub, { color: colors.textTertiary }]} accessibilityLiveRegion="polite">{last !== undefined ? nightName : `No sleep recorded ${nightName.toLowerCase()}`}</Text>
-                    {/* The goal is set in Settings. */}
-                    <Text style={[styles.goalText, { color: colors.textSecondary }]}>Goal {formatSleep(sleep.target)}</Text>
+            {/* The night: how long, and from when to when. */}
+            <View accessibilityLiveRegion="polite">
+                <CountUp style={[t.type.screenTitle, { color: t.color.textPrimary }]} value={last !== undefined ? formatSleep(last) : '—'} />
+                <Text variant="bodySmall" tone="muted">
+                    {last === undefined ? `No sleep recorded ${nightName.toLowerCase()}` : night ? `${nightName} · ${clock(night.bed)} – ${clock(night.wake)}` : nightName}
+                </Text>
+            </View>
+
+            {/* Its stages, when the watch or ring records them. */}
+            {night?.staged ? <SleepStages night={night} /> : null}
+
+            <View style={styles.section}>
+                <View style={styles.sectionHead}>
+                    <Text variant="caption" tone="muted" grow>This week</Text>
+                    <Text variant="caption" tone="muted">{`Goal ${formatSleep(sleep.target)}`}</Text>
                 </View>
-                <GestureDetector gesture={scrub}>
-                <View style={styles.bars} accessible onLayout={event => { barsWidth.current = event.nativeEvent.layout.width; }}
-                    accessibilityLabel={`This week: ${mornings.filter(day => !day.ahead).map(day => sleep.nights[day.key] ? formatSleep(sleep.nights[day.key]) : 'no data').join(', ')}`}>
-                    {mornings.map((day, index) => {
-                        const minutes = sleep.nights[day.key];
-                        return (
-                            <View key={day.key} style={[styles.barCol, picked !== null && picked !== index && styles.barDim]}>
-                                {day.ahead ? <View style={styles.barTrack} /> : (
-                                    <Bar share={minutes ? minutes / ceiling : 0} index={index} replay={weekStart}
-                                        color={minutes === undefined ? colors.surfaceTertiary : minutes >= sleep.target ? colors.success : primary} />
-                                )}
-                                <Text style={[styles.barLabel, { color: day.isToday ? colors.textPrimary : colors.textTertiary }, day.isToday && styles.barLabelToday]}>{day.label}</Text>
-                            </View>
-                        );
-                    })}
-                </View>
-                </GestureDetector>
+                <WeekBars replay={weekStart} goal={sleep.target} color={t.color.accent} metColor={t.color.success} picked={picked} onPick={setPicked}
+                    days={mornings.map(day => ({ key: day.key, label: day.label, value: sleep.nights[day.key] ?? null, ahead: day.ahead, today: day.isToday }))}
+                    accessibilityLabel={`This week: ${mornings.filter(day => !day.ahead).map(day => sleep.nights[day.key] ? formatSleep(sleep.nights[day.key]) : 'no data').join(', ')}`} />
+            </View>
+
+            {/* The week in three figures: how long on average, how often at the goal, when you usually fall asleep. */}
+            <View style={styles.stats}>
+                <StatTile value={week.average !== null ? formatSleep(week.average) : '—'} label="Average" />
+                <StatTile value={`${week.met}/${week.recorded}`} label="At goal" />
+                <StatTile value={week.bedtime !== null ? formatClockMinutes(week.bedtime) : '—'} label="Asleep at"
+                    detail={week.spread !== null ? `±${week.spread} min` : undefined} />
             </View>
         </VoidCard>
     );
 }
 
-function Bar({ share, index, color, replay }: { share: number; index: number; color: string; replay?: unknown }) {
-    const grown = useProgress(Math.max(0.06, Math.min(1, share)), index * 40, replay);
-    const style = useAnimatedStyle(() => ({ height: grown.get() * BAR_HEIGHT }));
-    return (
-        <View style={styles.barTrack}>
-            <Animated.View style={[styles.bar, { backgroundColor: color }, style]} />
-        </View>
-    );
-}
-
 const styles = StyleSheet.create({
-    flex: { flex: 1 },
     connect: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, alignSelf: 'flex-start' },
-    card: { padding: Spacing.lg, gap: Spacing.md },
-    head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + 2 },
-    title: { fontFamily: FontFamily.semibold, fontSize: 16 },
-    sub: { fontFamily: FontFamily.regular, fontSize: 12 },
-    earned: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.sm + 2, paddingVertical: Spacing.xs, borderRadius: 999 },
-    earnedText: { fontFamily: FontFamily.semibold, fontSize: 12 },
-    body: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.lg },
-    value: { fontFamily: FontFamily.bold, fontSize: 30, lineHeight: 36, letterSpacing: -0.6, fontVariant: ['tabular-nums'] },
-    goalText: { fontFamily: FontFamily.medium, fontSize: 13, fontVariant: ['tabular-nums'], marginTop: Spacing.sm },
-    /** The other nights, while a finger rests on one. */
-    barDim: { opacity: 0.4 },
-    bars: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.xs + 2 },
-    barCol: { alignItems: 'center', gap: Spacing.xs },
-    barTrack: { width: 10, height: BAR_HEIGHT, justifyContent: 'flex-end' },
-    bar: { width: '100%', borderRadius: 5 },
-    barLabel: { fontFamily: FontFamily.regular, fontSize: 11 },
-    barLabelToday: { fontFamily: FontFamily.semibold },
+    card: { padding: Spacing.lg, gap: Spacing.lg },
+    head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    section: { gap: Spacing.sm },
+    sectionHead: { flexDirection: 'row', alignItems: 'center' },
+    stats: { flexDirection: 'row' },
 });

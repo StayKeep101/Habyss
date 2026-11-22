@@ -10,6 +10,7 @@ import { useTokens } from '@/hooks/useTokens';
 import { ageFrom, saveProfile } from '@/lib/profile';
 import { getMyUsername } from '@/lib/friendsService';
 import { currentAccount, knownAccount, onAccountChange } from '@/lib/account';
+import { useAccountActions } from '@/components/Account/AccountRows';
 import { confirmsDeletion, deleteEverything, startOver } from '@/lib/deleteEverything';
 import { localDateKey } from '@/lib/habitSchedule';
 import { styles } from '@/styles/screens/account-settings.styles';
@@ -21,8 +22,8 @@ try { ImagePicker = require('expo-image-picker'); } catch { ImagePicker = null; 
  * Your account: everything about you that others see, and the one place it is
  * changed (the profile only shows it, so nothing changes by a stray tap).
  * Picture, display name, @username, what you do, birthday (your age is worked
- * out from it); how you are signed in. Delete account floats at the bottom and
- * asks you to type your @username first.
+ * out from it); your backup. Log out floats at the foot; Delete account sits
+ * at the very end of the page and asks you to type your @username first.
  */
 export default function AccountSettingsScreen() {
     const t = useTokens();
@@ -39,6 +40,7 @@ export default function AccountSettingsScreen() {
     const [deleting, setDeleting] = useState(false);
     const [typed, setTyped] = useState('');
     const [busy, setBusy] = useState(false);
+    const account = useAccountActions();
 
     useEffect(() => { void getMyUsername().then(found => setHandle(found ?? null)).catch(() => setHandle(null)); }, []);
     useEffect(() => {
@@ -110,17 +112,32 @@ export default function AccountSettingsScreen() {
                         onPress={() => { selectionFeedback(); setBirthday(profile.birthday ? new Date(`${profile.birthday}T12:00:00`) : new Date(2000, 0, 1)); setBirthdayOpen(true); }} />
                 </SettingsGroup>
 
-                <SettingsGroup title="Signed in">
-                    <SettingsRow icon="person-circle" color={t.color.textMuted} label={email ?? 'Not signed in'} value={email ? undefined : 'Sign in'}
-                        onPress={() => router.push('/(root)/account')} />
-                    <SettingsRow icon="finger-print" color={t.color.textMuted} label="Privacy & security" onPress={() => router.push('/(root)/privacy')} />
-                </SettingsGroup>
+                {/* Your backup: when it last ran, and Back up now; signed out, how to sign in. */}
+                {account.account ? (
+                    <SettingsGroup title="Backup">
+                        <SettingsRow icon="cloud-upload" color={t.color.success} label={account.busy === 'sync' ? 'Backing up…' : 'Back up now'}
+                            value={account.lastSync} disabled={!!account.busy} onPress={() => void account.backUpNow()} />
+                    </SettingsGroup>
+                ) : (
+                    <SettingsGroup title="Backup">
+                        <SettingsRow icon="person-circle" color={t.color.accent} label="Sign in" value="Back up your plan" onPress={account.signIn} />
+                    </SettingsGroup>
+                )}
+                {account.message ? <Text variant="caption" tone={account.message.tone === 'error' ? 'danger' : 'muted'}>{account.message.text}</Text> : null}
+
+                {/* Delete account, at the very end of the page: kept apart, and it asks for your @username first. */}
+                <View style={styles.deleteRow}>
+                    <AppButton label="Delete account" icon="trash" variant="danger" onPress={() => { lightFeedback(); setTyped(''); setDeleting(true); }} />
+                </View>
             </ScrollView>
 
-            {/* Delete account, floating at the foot: kept apart, and it asks for your @username first. */}
-            <View pointerEvents="box-none" style={[styles.floating, { paddingBottom: insets.bottom + t.space.md }]}>
-                <AppButton label="Delete account" icon="trash" variant="danger" onPress={() => { lightFeedback(); setTyped(''); setDeleting(true); }} />
-            </View>
+            {/* Log out, floating at the foot (backed up first; it asks before losing anything). */}
+            {account.account ? (
+                <View pointerEvents="box-none" style={[styles.floating, { paddingBottom: insets.bottom + t.space.md }]}>
+                    <AppButton label={account.busy === 'signout' ? 'Logging out…' : 'Log out'} icon="log-out"
+                        disabled={!!account.busy} onPress={account.confirmSignOut} />
+                </View>
+            ) : null}
 
             <VoidSheet visible={birthdayOpen} onClose={() => setBirthdayOpen(false)} title="Birthday"
                 footer={<View style={styles.sheetFoot}><AppButton label="Save" icon="checkmark" variant="primary" onPress={() => { selectionFeedback(); void saveProfile({ birthday: localDateKey(birthday) }); setBirthdayOpen(false); }} /></View>}>

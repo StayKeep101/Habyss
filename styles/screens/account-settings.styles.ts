@@ -11,6 +11,8 @@ export const styles = StyleSheet.create({
     camera: { position: 'absolute', right: 0, bottom: 0, width: Spacing.section, height: Spacing.section, borderRadius: Radius.pill, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
     fields: { gap: Spacing.md },
     floating: { position: 'absolute', left: Spacing.xl, right: Spacing.xl, bottom: 0 },
+    /** Delete account, at the end of the page, a little apart from what is above it. */
+    deleteRow: { marginTop: Spacing.xl * 3 },
     sheetBody: { paddingHorizontal: Spacing.xl, gap: Spacing.md, paddingBottom: Spacing.md },
     sheetFoot: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm },
 });

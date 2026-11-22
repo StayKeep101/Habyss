@@ -1,5 +1,5 @@
 jest.mock('../HealthKitService', () => ({
-    HealthKitService: { isAvailable: true, authorised: jest.fn(async () => true), read: jest.fn(async () => 480) },
+    HealthKitService: { isAvailable: true, authorised: jest.fn(async () => true), read: jest.fn(async () => 480), sleepNight: jest.fn(async () => null) },
 }));
 
 // Required after each reset, so the test and sleepLog share one store.

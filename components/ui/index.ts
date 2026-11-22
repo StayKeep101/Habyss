@@ -29,7 +29,7 @@
  * Content
  *   Echo (Echo, drawn: the one look it has everywhere, in a mood; a Rive Echo would replace this file),
  *   Avatar (a face: photo or initial, optional ring and badge), FaceStack (a few friends' faces, overlapping), IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
- *   StatTile, ChartCard, HabitRow, ProgressRing, HalfCircleProgress, CheckPop, ShardIcon (a Shard, the currency, as its faceted crystal), IrisFade (covers a view from the outside in as something scrolls), StruckTitle (a name dimmed and struck through as it is done, the line drawing across),
+ *   StatTile, ChartCard, WeekBars (a week as bars: goal dashed across, a finger reads a day), HabitRow, ProgressRing, HalfCircleProgress, CheckPop, ShardIcon (a Shard, the currency, as its faceted crystal), IrisFade (covers a view from the outside in as something scrolls), StruckTitle (a name dimmed and struck through as it is done, the line drawing across),
  *   GameCard (a bet, duel or challenge: face, name, a pill for how it stands, then the contest),
  *   VersusBar (two sides on one line, "22% Long ━━ 78% Short": the split glides, the leader in full colour),
  *   CardRail (cards swiped side by side, the next peeking in),
@@ -115,6 +115,7 @@ export { StepTrack } from './StepTrack';
 export { Receipt } from './Receipt';
 export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { StatTile, type StatTileProps } from './StatTile';
+export { WeekBars, type WeekBar } from './WeekBars';
 export { ChartCard, type ChartCardProps } from './ChartCard';
 export { HabitRow, type HabitRowProps } from './HabitRow';
 export { ProgressRing, type ProgressRingProps } from './ProgressRing';
