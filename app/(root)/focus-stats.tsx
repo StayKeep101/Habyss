@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
 import { AnimatedFill, CountUp, ListItem } from '@/components/ui/Motion';
@@ -22,6 +22,7 @@ import { startOfWeek } from '@/lib/weekStart';
 import { getHabits, type Habit } from '@/lib/habitsSQLite';
 import { todayKey } from '@/lib/tasks';
 import { styles } from '@/styles/screens/focus-stats.styles';
+import { Spacing } from '@/theme/designSystem';
 import { DayBar } from '@/components/Focus/FocusWeekBars';
 import { ScreenTimeReport } from '@/components/Focus/ScreenTimeReport';
 import { IconToggle } from '@/components/ui/IconToggle';
@@ -130,9 +131,14 @@ export default function FocusStatsScreen() {
                 options={[{ id: 7 as Range, label: '7 days' }, { id: 30 as Range, label: '30 days' }]} />
             <View style={styles.window}>
                 <IconButton icon="chevron-back" label={range === 7 ? 'Previous week' : 'Previous 30 days'} diameter={32} size={16} onPress={() => turn(1)} />
-                <Text style={[styles.windowLabel, { color: colors.textSecondary }]}>
-                    {page === 0 ? (range === 7 ? 'This week' : 'Last 30 days') : `${shortDay(shown.days[0].date)} – ${shortDay(shown.days[shown.days.length - 1].date)}`}
-                </Text>
+                {/* Tap the dates to come back to today. */}
+                <Pressable style={styles.windowTap} disabled={page === 0 && !picked} accessibilityRole="button"
+                    accessibilityHint={page === 0 ? undefined : 'Back to today'} hitSlop={Spacing.sm}
+                    onPress={() => { selectionFeedback(); setPage(0); setPicked(null); }}>
+                    <Text style={[styles.windowLabel, { color: page === 0 ? colors.textSecondary : primary }]}>
+                        {page === 0 ? (range === 7 ? 'This week' : 'Last 30 days') : `${shortDay(shown.days[0].date)} – ${shortDay(shown.days[shown.days.length - 1].date)}`}
+                    </Text>
+                </Pressable>
                 <IconButton icon="chevron-forward" label={range === 7 ? 'Next week' : 'Next 30 days'} diameter={32} size={16} disabled={page === 0} onPress={() => turn(-1)} />
             </View>
         </>

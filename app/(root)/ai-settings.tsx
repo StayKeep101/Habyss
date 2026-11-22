@@ -275,9 +275,6 @@ const AISettings = () => {
                             saveEcho({ ...echo, writeReminders: value });
                         }}
                     />
-                    {/* Far behind on tasks: the screen's edge goes red and Echo goes at you, in its own voice. */}
-                    <SettingsRow icon="flame" color="#FF453A" label="Demon mode" toggle={echo.demonMode !== false}
-                        onToggle={value => saveEcho({ ...echo, demonMode: value })} />
                     {/* Smarter Echo: the few lines a day that matter, written by Claude. Opt-in, after saying what is sent. */}
                     <SettingsRow icon="sparkles" color={accentSolid} label="Smarter Echo" toggle={echo.cloudVoice === true}
                         onToggle={value => {

@@ -99,24 +99,28 @@ export function WalletView({ wallet, multiplier, perfectRun, active, info, onInf
     return (
         <View style={styles.page}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {/* The balance: a big Shard, as tall as the figure, then the figure and what it is counted in. */}
+                {/* The balance: a big Shard, and beside it the figure, with the change over the range picked right under it. */}
                 <View style={styles.balance}>
                     <ShardIcon size={Control.icon * 2.5} />
-                    <CountUp style={[t.type.display, { color: t.color.textPrimary }]} value={end.toLocaleString()} />
-                    <Text variant="heading" tone="muted">Shards</Text>
-                </View>
-                <View style={styles.change}>
-                    {scrub ? (
-                        <Text variant="bodySmall" tone="muted">{momentLabel(scrub.date, range)}</Text>
-                    ) : (
-                        <>
-                            <AppIcon name={change > 0 ? 'caret-up' : change < 0 ? 'caret-down' : 'remove'} size={Spacing.md} color={tone} />
-                            <Text variant="heading" numeric tone={change > 0 ? 'success' : change < 0 ? 'danger' : 'muted'}>
-                                {`${change >= 0 ? '+' : '−'}${Math.abs(change).toLocaleString()} (${Math.abs(percent).toFixed(1)}%)`}
-                            </Text>
-                            <Text variant="bodySmall" tone="muted">{RANGE_NAME[range]}</Text>
-                        </>
-                    )}
+                    <View style={styles.figures}>
+                        <View style={styles.amount}>
+                            <CountUp style={[t.type.display, { color: t.color.textPrimary }]} value={end.toLocaleString()} />
+                            <Text variant="heading" tone="muted">Shards</Text>
+                        </View>
+                        <View style={styles.change}>
+                            {scrub ? (
+                                <Text variant="bodySmall" tone="muted">{momentLabel(scrub.date, range)}</Text>
+                            ) : (
+                                <>
+                                    <AppIcon name={change > 0 ? 'caret-up' : change < 0 ? 'caret-down' : 'remove'} size={Spacing.md} color={tone} />
+                                    <Text variant="heading" numeric tone={change > 0 ? 'success' : change < 0 ? 'danger' : 'muted'}
+                                        accessibilityLabel={`${change >= 0 ? 'Up' : 'Down'} ${Math.abs(change)} Shards, ${RANGE_NAME[range].toLowerCase()}`}>
+                                        {`${change >= 0 ? '+' : '−'}${Math.abs(change).toLocaleString()} (${Math.abs(percent).toFixed(1)}%)`}
+                                    </Text>
+                                </>
+                            )}
+                        </View>
+                    </View>
                 </View>
 
                 <View style={styles.chart}>
@@ -239,9 +243,12 @@ export function WalletView({ wallet, multiplier, perfectRun, active, info, onInf
 const styles = StyleSheet.create({
     page: { flex: 1 },
     content: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.section + Spacing.lg, gap: Spacing.lg },
-    balance: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-    label: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-    change: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: -Spacing.sm },
+    // The Shard close to its figure, as one mark.
+    balance: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+    /** The figure and its change, stacked tight beside the Shard. */
+    figures: { flex: 1 },
+    amount: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm },
+    change: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
     chart: { marginTop: Spacing.sm },
     stats: { flexDirection: 'row', paddingVertical: Spacing.lg },
     list: { paddingHorizontal: Spacing.lg },

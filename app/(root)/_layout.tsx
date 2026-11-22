@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { Dimensions } from 'react-native';
-import { DemonEdge } from '@/components/ui/DemonEdge';
-import { useTaskPressure } from '@/hooks/useTaskPressure';
 
 /**
  * How tall the habit sheet opens: room for the same things on every phone
@@ -36,8 +34,6 @@ export default function RootLayout() {
 
   // Habyss's music, while the app is open and Music is on.
 
-  const pressure = useTaskPressure();
-  const demon = pressure.level === 4 && pressure.demonAllowed;
 
   return (
     <>
@@ -247,8 +243,6 @@ export default function RootLayout() {
           options={{ headerShown: false, presentation: 'modal' }}
         />
       </Stack>
-      {/* Demon mode: far behind on tasks, the edge of the screen glows red (lib/taskPressure.ts). */}
-      <DemonEdge on={demon} />
       {/* When the day is done, Habyss sleeps until wake (the Bedtime lock). */}
       {/* Phone on its side: focus on what is due now. */}
     </>

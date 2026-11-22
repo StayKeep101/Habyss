@@ -150,6 +150,8 @@ struct UsageView: View {
     @State private var picked: Date?
     /// Where the current drag began, once it has moved the pick.
     @State private var dragFrom: Date?
+    /// 0 → 1 as the bars grow in, as the Focus side's do (theme/motion.ts: 700 ms, ease-out, 25 ms a bar).
+    @State private var grown = false
     private let theme = Theme.load()
 
     private var pickedDay: DayUsage? { picked.flatMap { day in usage.days.first { $0.day == day } } }
@@ -169,6 +171,9 @@ struct UsageView: View {
             .padding(.bottom, 48)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // Grows in once drawn, as the Focus side's bars do; a tick each time the finger lands on another day.
+        .onAppear { grown = true }
+        .modifier(SelectionTick(trigger: picked))
     }
 
     // The big figure: the daily average, or the day you tapped (as on the Focus side).
@@ -179,6 +184,8 @@ struct UsageView: View {
                 .tracking(-2)
                 .monospacedDigit()
                 .foregroundColor(theme.text)
+                .contentTransition(.numericText())
+                .animation(.easeOut(duration: 0.25), value: picked)
             Text(pickedDay.map { longDay($0.day) } ?? "Daily average")
                 .font(lexend(15, "Medium"))
                 .foregroundColor(theme.muted)
@@ -205,7 +212,8 @@ struct UsageView: View {
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .fill(day.seconds > 0 ? theme.accent : theme.border)
                             .opacity(lit ? 1 : (picked == nil ? 0.6 : 0.3))
-                            .frame(height: max(4, 150 * day.seconds / ceiling))
+                            .frame(height: grown ? max(4, 150 * day.seconds / ceiling) : 4)
+                            .animation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.7).delay(Double(usage.days.firstIndex { $0.id == day.id } ?? 0) * 0.025), value: grown)
                             .frame(maxWidth: .infinity)
                             .accessibilityLabel("\(longDay(day.day)), \(duration(day.seconds))")
                             .accessibilityAddTraits(.isButton)
@@ -277,7 +285,8 @@ struct UsageView: View {
                             GeometryReader { proxy in
                                 ZStack(alignment: .leading) {
                                     Capsule().fill(theme.border)
-                                    Capsule().fill(theme.accent).frame(width: proxy.size.width * app.seconds / top)
+                                    Capsule().fill(theme.accent).frame(width: grown ? proxy.size.width * app.seconds / top : 0)
+                                        .animation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.7), value: grown)
                                 }
                             }
                             .frame(height: 6)
@@ -293,5 +302,13 @@ struct UsageView: View {
                 )
             }
         }
+    }
+}
+
+/// A selection tick each time `trigger` changes (iOS 17 and later; earlier, nothing).
+private struct SelectionTick<T: Equatable>: ViewModifier {
+    let trigger: T
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) { content.sensoryFeedback(.selection, trigger: trigger) } else { content }
     }
 }

@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily, Spacing } from '@/theme/designSystem';
+import { Control, FontFamily, Spacing } from '@/theme/designSystem';
 import { s, vs, ms } from '@/theme/scale';
 
 /** The look of app/(root)/focus-stats.tsx (the same layout as task-stats). */
@@ -17,6 +17,8 @@ export const styles = StyleSheet.create({
     trendText: { fontSize: ms(15), fontFamily: FontFamily.regular, marginLeft: s(2) },
     /** Which days the chart shows, or the tapped day and its total. */
     window: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    /** The dates between the arrows: tapped, back to today. */
+    windowTap: { flex: 1, minHeight: Control.hitTarget, justifyContent: 'center' },
     windowLabel: { flex: 1, fontFamily: FontFamily.medium, fontSize: ms(13), textAlign: 'center' },
     chart: { flexDirection: 'row', alignItems: 'flex-end', gap: s(4), height: vs(150) },
     barTrack: { flex: 1, height: '100%', justifyContent: 'flex-end' },

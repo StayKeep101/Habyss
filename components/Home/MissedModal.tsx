@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import Animated, { interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, Extrapolation } from 'react-native-reanimated';
 import { VoidModal } from '@/components/ui/VoidModal';
@@ -44,6 +44,9 @@ export const MissedModal: React.FC<{ visible: boolean; onClose: () => void; miss
 export function MissedView({ missed, active, onLeave, header = false }: { missed: Missed; active: boolean; onLeave: () => void; header?: boolean }) {
     const visible = active;
     const onClose = onLeave;
+    // The count as big as the streak's on its page (components/Streak/StreakView.tsx).
+    const { height } = useWindowDimensions();
+    const heroSize = Math.round(Math.min(112, height * 0.12));
     const t = useTokens();
     const { lightFeedback, successFeedback } = useHaptics();
     const total = missed.items.length;
@@ -83,12 +86,13 @@ export function MissedView({ missed, active, onLeave, header = false }: { missed
                 contentContainerStyle={{ paddingHorizontal: t.space.xl, paddingBottom: Spacing.bottom }} showsVerticalScrollIndicator={false}>
                 <View style={[styles.hero, { gap: t.space.sm, paddingTop: t.space.sm, paddingBottom: t.space.xl }]}>
                     <View onLayout={event => setHeroEnd(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}>
-                        <CountUp style={[styles.heroValue, { color: t.color.textPrimary }]} value={total} replay={visible} />
+                        <CountUp style={[styles.heroValue, { fontSize: heroSize, lineHeight: Math.round(heroSize * 1.08), letterSpacing: -heroSize / 24, color: t.color.textPrimary }]} value={total} replay={visible} />
                     </View>
                     {total ? (
                         <View style={{ gap: t.space.xs }}>
+                            {/* One thought a line: the accident, then the turn, then what it becomes. */}
                             <Text style={[t.type.body, styles.quote, { color: t.color.textMuted }]}>
-                                “Missing once is an accident. Missing twice is the start of a new habit.”
+                                {'“Missing once is an accident.\nMissing twice is\nthe start of a new habit.”'}
                             </Text>
                             <Text style={[t.type.caption, styles.center, { color: t.color.textSubtle }]}>— James Clear</Text>
                         </View>
@@ -105,7 +109,7 @@ export function MissedView({ missed, active, onLeave, header = false }: { missed
                             <Text style={[t.type.bodySmall, styles.strong, { color: t.color.textPrimary }]}>Missed once</Text>
                             <Text style={[t.type.caption, { color: t.color.textMuted }]}>An accident</Text>
                         </VoidCard>
-                        <VoidCard style={[styles.splitCard, { padding: t.space.lg, gap: t.space.xs / 2, borderColor: tint(t.color.danger, missed.twice ? 'border' : 'subtle'), borderWidth: 1 }]}>
+                        <VoidCard style={[styles.splitCard, { padding: t.space.lg, gap: t.space.xs / 2, borderColor: 'transparent', borderWidth: 1 }]}>
                             <CountUp style={[styles.splitValue, { color: t.color.danger }]} value={missed.twice} replay={visible} />
                             <Text style={[t.type.bodySmall, styles.strong, { color: t.color.textPrimary }]}>Missed twice+</Text>
                             <Text style={[t.type.caption, { color: missed.twice ? t.color.danger : t.color.textMuted }]}>A new habit forming</Text>

@@ -32,7 +32,6 @@ export const DEEP_SETTINGS: SettingEntry[] = [
     { label: 'Weekly review', page: 'Notifications', route: '/(root)/notifications', icon: 'calendar', keywords: 'week reminder' },
     { label: 'Call me by name', page: 'Echo', route: '/(root)/ai-settings', icon: 'person', keywords: 'name' },
     { label: 'Echo writes reminders', page: 'Echo', route: '/(root)/ai-settings', icon: 'create', keywords: 'ai text' },
-    { label: 'Demon mode', page: 'Echo', route: '/(root)/ai-settings', icon: 'flame', keywords: 'strict harsh tough' },
     { label: 'Echo’s voice', page: 'Echo', route: '/(root)/ai-settings', icon: 'chatbubble-ellipses', keywords: 'personality tone friendly bully dad' },
     { label: 'What Echo remembers', page: 'Echo', route: '/(root)/ai-settings', icon: 'library', keywords: 'memory forget' },
     { label: 'On-device model', page: 'Echo', route: '/(root)/ai-settings', icon: 'hardware-chip', keywords: 'ai download remove llm' },
