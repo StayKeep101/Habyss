@@ -27,6 +27,9 @@ import { VoiceOrb } from './VoiceOrb';
 
 /** The dock gathering or spreading: worked out once, so the UI thread only reads it. */
 const MERGE_TIMING = timingFor(DURATION.emphasis, EASE.move);
+/** The focus bar stepping back while you speak, and returning. */
+const VOICE_BACK_IN = timingFor(DURATION.quick, EASE.exit);
+const VOICE_BACK_OUT = timingFor(DURATION.base, EASE.enter);
 import { FocusMiniBar, FOCUS_BAR_HEIGHT } from '@/components/Focus/FocusMiniBar';
 import { useWindowDimensions } from 'react-native';
 import { useUISound } from '@/hooks/useUISound';
@@ -113,10 +116,24 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     // Whether the microphone is on (VoiceCapture says so): a tap then stops it
     // rather than opening the create menu on top of it.
     const voiceOn = React.useRef(false);
+    // While you speak, the focus bar steps back behind the listening pill (faded, not tappable).
+    const [listening, setListening] = React.useState(false);
+    const voiceBack = useSharedValue(0);
     React.useEffect(() => {
-        const sub = on('voice_state', state => { voiceOn.current = !!state?.listening; });
+        const sub = on('voice_state', state => {
+            const now = !!state?.listening;
+            voiceOn.current = now;
+            setListening(now);
+            voiceBack.set(withTiming(now ? 1 : 0, now ? VOICE_BACK_IN : VOICE_BACK_OUT));
+        });
         return () => sub.remove();
-    }, []);
+    }, [voiceBack]);
+    // With Focus's way in (the bar sinks with the dock) in the same style, so neither undoes the other.
+    const focusBarStyle = useAnimatedStyle(() => {
+        const q = Math.min(1, focusLeave.get() * DOCK_CLEAR);
+        const v = voiceBack.get();
+        return { opacity: (1 - q) * (1 - v), transform: [{ translateY: q * 160 }, { scale: 1 - 0.06 * v }] };
+    });
 
     /**
      * While something in a goal is dragged on the Roadmap, the plus becomes
@@ -501,7 +518,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
             Beside the dock rather than inside it: iOS gives no touches to a
             view drawn outside its parent. After it, so the dock's fade never
             shades it. */}
-        <Animated.View pointerEvents="box-none" style={[styles.focusBar, merged ? { height: gathered } : null, barPlace, sinkStyle]}>
+        <Animated.View pointerEvents={listening ? 'none' : 'box-none'} style={[styles.focusBar, merged ? { height: gathered } : null, barPlace, focusBarStyle]}>
             <FocusMiniBar docked={merged} onShown={setBarShown} />
         </Animated.View>
         </>
