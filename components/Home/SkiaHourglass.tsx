@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { useWindowDimensions } from 'react-native';
 import { useAnimatedReaction, useDerivedValue, useReducedMotion, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import {
     BlurMask, Canvas, ClipOp, ColorMatrix, Group, Paint, Image as SkiaImage, LinearGradient, Path, Picture, RoundedRect, Skia, createPicture, useClock, useImage, vec,
@@ -322,17 +323,23 @@ export function SkiaHourglass({ size, ran, running, sand, tilt, shake, frame }: 
  * The phone's motion, for the sand: gravity's direction across the screen (from
  * the accelerometer, so it is right however the phone is held: tilt it left and
  * gravity points left), and how hard it is being shaken. Flat on a table, there
- * is no "across", and the sand rests. Still with Reduce Motion.
+ * is no "across", and the sand rests. Read against the screen as it is shown, so
+ * on its side (Focus turned sideways) down is the screen's down, not the phone's.
+ * Still with Reduce Motion.
  */
 export function useSandMotion(): { tilt: SharedValue<number>; shake: SharedValue<number> } {
     const tilt = useSharedValue(0);
     const shake = useSharedValue(0);
     const reduced = useReducedMotion();
+    const { width, height } = useWindowDimensions();
+    const sideways = useRef(width > height);
+    sideways.current = width > height;
     useEffect(() => {
         if (reduced) return;
         let sub: { remove: () => void } | null = null;
         // Which way this phone reports gravity (as a pull, or as what holds it up), learned once.
         let sign = 0;
+        let side = 1;
         try {
             const { DeviceMotion } = require('expo-sensors') as typeof import('expo-sensors');
             DeviceMotion.setUpdateInterval(33);
@@ -341,8 +348,13 @@ export function useSandMotion(): { tilt: SharedValue<number>; shake: SharedValue
                 if (g) {
                     if (!sign && Math.abs(g.y) > 5) sign = g.y < 0 ? 1 : -1;
                     const flip = sign || 1;
-                    // On screen: x to the right, y down.
-                    const gx = flip * g.x, gy = -flip * g.y;
+                    // On the phone held upright: x to the right, y down.
+                    const px = flip * g.x, py = -flip * g.y;
+                    // Turned on its side (Focus's sideways clock), the screen's down is one of the
+                    // phone's long edges: whichever gravity pulls towards, kept until it clearly changes.
+                    if (Math.abs(px) > 3) side = px > 0 ? 1 : -1;
+                    const gx = sideways.current ? -side * py : px;
+                    const gy = sideways.current ? side * px : py;
                     const across = Math.hypot(gx, gy);
                     // Lying flat, the reading across the screen is small and means nothing: rest.
                     const weight = Math.max(0, Math.min(1, (across - 2) / 4));
