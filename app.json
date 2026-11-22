@@ -13,7 +13,6 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
-        "INAlternativeAppNames": [{ "INAlternativeAppName": "Echo", "INAlternativeAppNamePronunciationHint": "Eck-oh" }],
         "NSSupportsLiveActivities": true,
         "NSSupportsLiveActivitiesFrequentUpdates": false,
         "NSUserNotificationUsageDescription": "Habyss uses notifications to remind you about your habits and help you stay consistent.",

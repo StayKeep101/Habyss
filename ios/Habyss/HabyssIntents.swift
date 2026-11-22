@@ -323,14 +323,13 @@ struct BrainDumpIntent: AppIntent {
     }
 }
 
-/// "Tell Echo": say it freely ("call mom tomorrow and run every morning");
-/// Echo reads the tasks and habits in it (lib/voicePlan.ts rules), anything
-/// unclear kept in the brain dump. Echo is Habyss's other name for Siri
-/// (INAlternativeAppNames in Info.plist), so every phrase works with either.
+/// "Tell Habyss": say it freely ("call mom tomorrow and run every morning");
+/// Habyss reads the tasks and habits in it (lib/voicePlan.ts rules), anything
+/// unclear kept in the brain dump.
 @available(iOS 16.0, *)
 struct TellHabyssIntent: AppIntent {
-    static var title: LocalizedStringResource = "Tell Echo"
-    static var description = IntentDescription("Say what's on your mind in your own words; Echo sorts it into your plan")
+    static var title: LocalizedStringResource = "Tell Habyss"
+    static var description = IntentDescription("Say what's on your mind in your own words; Habyss sorts it into your plan")
     static var openAppWhenRun: Bool = false
 
     @Parameter(title: "What to add", requestValueDialog: "I'm listening. What's on your mind?")
@@ -706,7 +705,7 @@ struct HabyssShortcuts: AppShortcutsProvider {
                 "Plan with \(.applicationName)",
                 "Ask \(.applicationName)"
             ],
-            shortTitle: "Tell Echo",
+            shortTitle: "Tell Habyss",
             systemImageName: "text.bubble"
         )
         AppShortcut(
