@@ -46,7 +46,7 @@ export const DEEP_SETTINGS: SettingEntry[] = [
     { label: 'Clock style', page: 'Focus', route: '/(root)/focus-settings', icon: 'timer', keywords: 'ring digital timer' },
     { label: 'Block apps while focusing', page: 'Focus', route: '/(root)/focus-settings', icon: 'hand-left', keywords: 'screen time' },
     { label: 'Add apps', page: 'App blocking', route: '/(root)/app-blocking', icon: 'add-circle', keywords: 'screen time choose block apps' },
-    { label: 'Remove apps', page: 'App blocking', route: '/(root)/app-blocking', icon: 'remove-circle', keywords: 'unblock wait 24 hours' },
+    { label: 'Remove apps', page: 'App blocking', route: '/(root)/app-blocking', icon: 'remove-circle', keywords: 'unblock' },
     { label: '1 hour of your apps', page: 'App blocking', route: '/(root)/app-blocking', icon: 'diamond', keywords: 'shards unlock earn your scroll gate' },
     { label: 'Block every app', page: 'App blocking', route: '/(root)/app-blocking', icon: 'moon', keywords: 'bedtime night sleep block asleep' },
     { label: 'Meals', page: 'Day & calendar', route: '/(root)/meals', icon: 'restaurant', keywords: 'lunch dinner breakfast flexible food' },

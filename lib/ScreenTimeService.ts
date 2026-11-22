@@ -184,8 +184,8 @@ export const ScreenTimeService = {
 
     /**
      * The apps to block (App blocking). Adding is always free; an app taken off
-     * the list stays on it unless `allowRemoval` (the hour after the 24-hour
-     * wait, lib/gateLock.ts). Resolves once the picker closes:
+     * the list stays on it unless `allowRemoval` (App blocking always allows it
+     * now: no wait). Resolves once the picker closes:
      * 'saved', 'held' (something was taken off and kept), 'cancelled', 'denied'
      * (no Screen Time access), or 'needsWindow' on a build from before the check,
      * where the picker can only open while removing is open (or nothing is chosen yet).

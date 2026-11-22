@@ -11,7 +11,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { ScreenTimeService } from '@/lib/ScreenTimeService';
 import { buyScrollHour, GATE_MINUTES, GATE_PRICE } from '@/lib/appGate';
 import { setBedtimeLock, useBedtimeLock } from '@/lib/bedtimeLock';
-import { askToUnlock, currentLock, relock, timeLeft, type LockState } from '@/lib/gateLock';
+import { relock } from '@/lib/gateLock';
 import { styles } from '@/styles/screens/app-blocking.styles';
 
 /** How long iOS takes to close a page sheet (the system's own animation, not ours). */
@@ -21,24 +21,16 @@ const NOT_AVAILABLE = ['Screen Time not available', 'Allow Habyss in Settings â†
 
 /**
  * App blocking: the apps you choose are always blocked, and only Shards open
- * them (an hour for 100, lib/appGate.ts). Adding apps is instant; removing one
- * waits 24 hours, then gives one hour (lib/gateLock.ts). At bedtime every app
+ * them (an hour for 100, lib/appGate.ts). Adding and removing apps are both
+ * instant, as is turning the bedtime block off (no wait). At bedtime every app
  * is blocked; calls and emergencies always work.
  */
 export default function AppBlockingScreen() {
     const t = useTokens();
     const { lightFeedback } = useHaptics();
     const bedtime = useBedtimeLock();
-    const [lock, setLock] = useState<LockState>({ kind: 'locked' });
-    const [, tick] = useState(0);
-    const readLock = useCallback(() => { void currentLock().then(setLock); }, []);
-    useEffect(() => {
-        readLock();
-        // The countdown on the row moves, and the hour closes by itself.
-        const timer = setInterval(() => { tick(n => n + 1); readLock(); }, 30_000);
-        return () => clearInterval(timer);
-    }, [readLock]);
-    const open = lock.kind === 'open';
+    // No wait to loosen the block any more: whatever was asked for before is cleared.
+    useEffect(() => { void relock(); }, []);
     // An hour of your apps, right here: hold, pay 100 Shards, open.
     const [shards, setShards] = useState<number | null>(null);
     const [openUntil, setOpenUntil] = useState(0);
@@ -58,11 +50,6 @@ export default function AppBlockingScreen() {
             .finally(() => setBuying(false));
     };
 
-    const ask = (why: string) => Alert.alert('Having second thoughts?', `${why} In 24 hours you get one hour to do it. Then it locks again.`, [
-        { text: 'Never mind', style: 'cancel' },
-        { text: 'Start the wait', onPress: () => { void askToUnlock().then(setLock); } },
-    ]);
-
     const pick = (allowRemoval: boolean) => {
         lightFeedback();
         // A build without the guarded picker presents it from the app's root, which iOS refuses
@@ -76,23 +63,10 @@ export default function AppBlockingScreen() {
         }
         void ScreenTimeService.pickApps(allowRemoval).then(result => {
             if (result === 'denied') Alert.alert(...NOT_AVAILABLE);
-            if (result === 'held') ask('Your new apps are blocked, but apps you took off stay blocked: removing waits.');
-            if (result === 'needsWindow') ask('Adding apps at once comes with the next version of Habyss. On this one, any change to the list waits.');
+
         });
     };
 
-    const removeRow = () => {
-        lightFeedback();
-        if (open) { pick(true); return; }
-        if (lock.kind === 'waiting') {
-            Alert.alert('Removing opens soon', `In ${timeLeft(lock.opensAt)}. You'll get a notification.`, [
-                { text: 'Cancel the wait', style: 'destructive', onPress: () => { void relock().then(readLock); } },
-                { text: 'OK', style: 'cancel' },
-            ]);
-            return;
-        }
-        ask('Removing apps takes patience.');
-    };
 
     const bedtimeToggle = (value: boolean) => {
         lightFeedback();
@@ -100,24 +74,15 @@ export default function AppBlockingScreen() {
             void ScreenTimeService.requestAuthorization().then(() => setBedtimeLock(true));
             return;
         }
-        if (open) { void setBedtimeLock(false); return; }
-        if (lock.kind === 'waiting') { Alert.alert('Nice try. Not yet.', `You can turn this off in ${timeLeft(lock.opensAt)}.`); return; }
-        ask('Turning this off takes patience.');
+        void setBedtimeLock(false);
     };
-
-    const removeValue = open ? `Open Â· ${timeLeft(lock.closesAt)} left`
-        : lock.kind === 'waiting' ? `Opens in ${timeLeft(lock.opensAt)}` : '24h wait';
 
     return (
         <SheetScreen title="App blocking" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <SettingsGroup title="Blocked apps">
-                    <SettingsRow icon="add-circle" color={t.color.danger} label="Add apps" value="Instant" onPress={() => pick(open)} />
-                    <SettingsRow icon="remove-circle" color={t.color.textMuted} label="Remove apps" value={removeValue} onPress={removeRow} />
-                    {lock.kind !== 'locked' ? (
-                        <SettingsRow icon="lock-closed" color={t.color.textMuted} label={open ? 'Lock now' : 'Cancel the wait'}
-                            onPress={() => { lightFeedback(); void relock().then(readLock); }} />
-                    ) : null}
+                    <SettingsRow icon="add-circle" color={t.color.danger} label="Add apps" onPress={() => pick(true)} />
+                    <SettingsRow icon="remove-circle" color={t.color.textMuted} label="Remove apps" onPress={() => pick(true)} />
                 </SettingsGroup>
 
                 <SettingsGroup title="Bedtime">
