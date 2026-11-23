@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Colors } from '@/theme/colors';
-import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
+import { Radius } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 
 type Point = { latitude: number; longitude: number };
@@ -58,15 +58,10 @@ export function PlaceMap({ center, focus, places, accent, height, onPick }: {
                     if (typeof latitude === 'number' && typeof longitude === 'number') onPick({ latitude, longitude });
                 }}
             />
-            <View pointerEvents="none" style={[styles.hint, { backgroundColor: colors.background }]}>
-                <Text style={[styles.hintText, { color: colors.textSecondary }]}>Tap the map to choose the place</Text>
-            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     frame: { borderRadius: Radius.small, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
-    hint: { position: 'absolute', left: Spacing.sm, bottom: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.pill, opacity: 0.85 },
-    hintText: { fontFamily: FontFamily.medium, fontSize: 11 },
 });

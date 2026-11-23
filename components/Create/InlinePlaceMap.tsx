@@ -119,7 +119,7 @@ export function InlinePlaceMap({ place, accent, onPick, height }: {
                 </View>
             ) : null}
             <MatteSurface radius={Radius.control} level="control" style={styles.here}>
-                <AppIcon name="location" size={14} color={accent} />
+                <AppIcon name="location" size={Spacing.lg} color={accent} />
                 <Text numberOfLines={1} style={[styles.placeName, { color: place ? colors.textPrimary : colors.textTertiary }]}>{place ? place.name : 'Tap the map where it is'}</Text>
             </MatteSurface>
         </View>
@@ -128,8 +128,8 @@ export function InlinePlaceMap({ place, accent, onPick, height }: {
 
 const styles = StyleSheet.create({
     block: { gap: Spacing.sm },
-    placeName: { flex: 1, fontFamily: FontFamily.medium, fontSize: 14 },
-    here: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm + 2 },
+    placeName: { flexShrink: 1, fontFamily: FontFamily.medium, fontSize: 15 },
+    here: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg },
     /** The locate button, in the map's corner. */
     locate: { position: 'absolute', top: Spacing.sm, right: Spacing.sm },
 });
