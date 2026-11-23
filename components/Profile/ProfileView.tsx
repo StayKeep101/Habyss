@@ -209,32 +209,31 @@ export const ProfileView: React.FC<{
                     ) : bio ? (
                         <Text style={[styles.bio, { color: colors.textSecondary }]}>{bio}</Text>
                     ) : null}
+                    {/* The run going now, as on Home: the flame and the number beside it
+                        (tap for the Streak page); your freezes the same way beside it. */}
+                    <View style={styles.statsBlock}>
+                        {numbers ? (
+                            <View style={styles.stats}>
+                                <HomeStatCard icon="flame" tint={numbers.streak > 0 ? colors.warning : colors.textTertiary} value={numbers.streak}
+                                    onPress={onStreak ?? (() => undefined)}
+                                    accessibilityLabel={`${numbers.streak} day streak${numbers.streak > 0 && numbers.streak >= numbers.bestStreak ? ', your best yet' : ''}${onStreak ? '. Open your streak.' : ''}`} />
+                                {freezes ? (
+                                    <HomeStatCard icon="snow" tint={primary} value={freezes.count} onPress={freezes.onPress}
+                                        accessibilityLabel={`${freezes.count} streak freeze${freezes.count === 1 ? '' : 's'}`} />
+                                ) : null}
+                                {/* Goals are off for now (constants/features.ts). */}
+                                {GOALS_ENABLED ? (
+                                    <HomeStatCard icon="flag" tint={numbers.goalsCompleted > 0 ? colors.success : colors.textTertiary} value={numbers.goalsCompleted}
+                                        onPress={onGoalsDone ?? (() => undefined)} accessibilityLabel={`${numbers.goalsCompleted} goals done`} />
+                                ) : null}
+                            </View>
+                        ) : (
+                            <Text style={[styles.private, { color: colors.textTertiary }]}>{hiddenNote ?? 'Progress is private'}</Text>
+                        )}
+                    </View>
                     {social}
                 </View>
             </Animated.View>
-
-            {/* The run going now, as on Home: the flame and the number beside it
-                (tap for the Streak page); your freezes the same way beside it. */}
-            <View style={styles.statsBlock}>
-                {numbers ? (
-                    <View style={styles.stats}>
-                        <HomeStatCard icon="flame" tint={numbers.streak > 0 ? colors.warning : colors.textTertiary} value={numbers.streak}
-                            onPress={onStreak ?? (() => undefined)}
-                            accessibilityLabel={`${numbers.streak} day streak${numbers.streak > 0 && numbers.streak >= numbers.bestStreak ? ', your best yet' : ''}${onStreak ? '. Open your streak.' : ''}`} />
-                        {freezes ? (
-                            <HomeStatCard icon="snow" tint={primary} value={freezes.count} onPress={freezes.onPress}
-                                accessibilityLabel={`${freezes.count} streak freeze${freezes.count === 1 ? '' : 's'}`} />
-                        ) : null}
-                        {/* Goals are off for now (constants/features.ts). */}
-                        {GOALS_ENABLED ? (
-                            <HomeStatCard icon="flag" tint={numbers.goalsCompleted > 0 ? colors.success : colors.textTertiary} value={numbers.goalsCompleted}
-                                onPress={onGoalsDone ?? (() => undefined)} accessibilityLabel={`${numbers.goalsCompleted} goals done`} />
-                        ) : null}
-                    </View>
-                ) : (
-                    <Text style={[styles.private, { color: colors.textTertiary }]}>{hiddenNote ?? 'Progress is private'}</Text>
-                )}
-            </View>
 
             {children}
         </>
@@ -266,7 +265,8 @@ const styles = StyleSheet.create({
     bioWrap: { alignSelf: 'stretch', marginTop: vs(6) },
     bioInput: { paddingTop: vs(10), paddingBottom: vs(10), paddingHorizontal: s(14) },
     bioCount: { position: 'absolute', right: s(12), bottom: -vs(18), fontSize: ms(11), fontFamily: FontFamily.regular, fontVariant: ['tabular-nums'] },
-    statsBlock: { marginHorizontal: s(20), marginTop: vs(16), gap: vs(12) },
+    // Between the name and Following · Followers.
+    statsBlock: { marginTop: Spacing.sm, alignSelf: 'stretch' },
     // Centred under the profile, spaced like Home's header stats.
     stats: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.xl },
     card: { padding: s(20) },

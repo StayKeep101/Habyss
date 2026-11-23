@@ -53,7 +53,6 @@ export function FollowCounts() {
         <>
             <View style={styles.row}>
                 {figure('following', 'Following')}
-                <View style={[styles.dot, { backgroundColor: t.color.textSubtle }]} />
                 {figure('followers', 'Followers')}
             </View>
             <VoidSheet visible={!!open} onClose={() => setOpen(null)} title={open === 'followers' ? 'Followers' : 'Following'} scrollable maxShare={0.75}>
@@ -82,9 +81,9 @@ export function FollowCounts() {
 
 const styles = StyleSheet.create({
     flex: { flex: 1 },
-    row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.lg, marginTop: Spacing.md },
+    // Just the two, side by side: nothing between them.
+    row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xxl, marginTop: Spacing.sm },
     figure: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.xs, minHeight: Control.hitTarget, justifyContent: 'center' },
-    dot: { width: Spacing.xs, height: Spacing.xs, borderRadius: Spacing.xs / 2 },
     list: { paddingHorizontal: Spacing.xl },
     person: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },
 });

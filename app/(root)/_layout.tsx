@@ -139,6 +139,14 @@ export default function RootLayout() {
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
+          name="journal"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="awards"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
           name="goal-stats"
           options={{ headerShown: false, presentation: 'modal' }}
         />

@@ -26,6 +26,8 @@ export const styles = StyleSheet.create({
     // The flame sits on the number's baseline, not floating at its middle.
     heroRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.xs + 2 },
     heroValue: { fontSize: 96, lineHeight: 104, fontFamily: FontFamily.bold, letterSpacing: -4, fontVariant: ['tabular-nums'] },
+    /** Room after the last digit: tight tracking would clip its right edge. */
+    heroRoom: { paddingRight: Spacing.sm },
     heroLabel: { fontSize: 17, lineHeight: 22, fontFamily: FontFamily.medium },
     card: { position: 'absolute', overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 12 },
     cardBody: { flex: 1, padding: 16 },

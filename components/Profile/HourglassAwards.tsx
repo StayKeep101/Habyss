@@ -1,6 +1,7 @@
 import React, { useSyncExternalStore } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { PopIn, SectionTitle, Text } from '@/components/ui';
+import { AppIcon, PopIn, SectionTitle, Text } from '@/components/ui';
+import { useTokens } from '@/hooks/useTokens';
 import { RankHourglass } from '@/components/Home/RankHourglass';
 import { useHaptics } from '@/hooks/useHaptics';
 import { RANKS, rankFor } from '@/lib/marks';
@@ -19,7 +20,8 @@ const DIM = 0.3;
  * one to make it your hourglass (on your profile and in Focus); "In use"
  * under the one you use.
  */
-export function HourglassAwards({ marks, choose = false }: { marks: number; choose?: boolean }) {
+export function HourglassAwards({ marks, choose = false, onSeeAll }: { marks: number; choose?: boolean; /** › beside the title: every award, on its own page. */ onSeeAll?: () => void }) {
+    const t = useTokens();
     const { selectionFeedback } = useHaptics();
     const shown = useSyncExternalStore(subscribeRankLook, shownRankLook, shownRankLook);
     const yours = rankFor(marks).rank.name;
@@ -27,7 +29,12 @@ export function HourglassAwards({ marks, choose = false }: { marks: number; choo
     const reached = RANKS.filter(rank => marks >= rank.min).length;
     return (
         <View style={styles.wrap}>
-            <SectionTitle first right={<Text variant="caption" tone="muted">{`${reached} of ${RANKS.length}`}</Text>}>Awards</SectionTitle>
+            <SectionTitle first right={onSeeAll ? (
+                <Pressable onPress={onSeeAll} accessibilityRole="button" accessibilityLabel={`All awards, ${reached} of ${RANKS.length} earned`} hitSlop={Spacing.md} style={styles.seeAll}>
+                    <Text variant="caption" tone="muted">{`${reached} of ${RANKS.length}`}</Text>
+                    <AppIcon name="chevron-forward" size={Spacing.md + 2} color={t.color.textSubtle} />
+                </Pressable>
+            ) : <Text variant="caption" tone="muted">{`${reached} of ${RANKS.length}`}</Text>}>Awards</SectionTitle>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
                 {RANKS.map((rank, index) => {
                     const earned = marks >= rank.min;
@@ -57,5 +64,6 @@ const styles = StyleSheet.create({
     wrap: { gap: Spacing.sm },
     row: { gap: Spacing.lg, paddingRight: Spacing.lg },
     award: { width: GLASS },
+    seeAll: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, minHeight: Spacing.section },
     press: { alignItems: 'center', gap: Spacing.xs, minHeight: Spacing.section },
 });

@@ -87,7 +87,7 @@ function Line({ item, mine }: { item: DayCardLine; mine: boolean }) {
  * thing done (photos first, then what something counted); then the whole
  * list. Swipe through; the reactions and comments stay under the pack.
  */
-function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
+function DayPost({ item, ctx, footer = true }: { item: StreamPost; ctx: StreamContext; footer?: boolean }) {
     const t = useTokens();
     const { post } = item;
     const card = post.card;
@@ -207,7 +207,7 @@ function DayPost({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
     return (
         <View style={styles.post}>
             <DayPack pages={pages} />
-            <Footer item={item} ctx={ctx} />
+            {footer ? <Footer item={item} ctx={ctx} /> : null}
         </View>
     );
 }
@@ -262,8 +262,8 @@ function Footer({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
 }
 
 /** A post in Today's feed: a friend's day, drawn as the kind of day it was. */
-export function StreamPostCard({ item, ctx }: { item: StreamPost; ctx: StreamContext }) {
-    return <DayPost item={item} ctx={ctx} />;
+export function StreamPostCard({ item, ctx, footer = true }: { item: StreamPost; ctx: StreamContext; /** Reactions and comments under it (not in your journal). */ footer?: boolean }) {
+    return <DayPost item={item} ctx={ctx} footer={footer} />;
 }
 
 const styles = StyleSheet.create({

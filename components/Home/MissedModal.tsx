@@ -86,7 +86,8 @@ export function MissedView({ missed, active, onLeave, header = false }: { missed
                 contentContainerStyle={{ paddingHorizontal: t.space.xl, paddingBottom: Spacing.bottom }} showsVerticalScrollIndicator={false}>
                 <View style={[styles.hero, { gap: t.space.sm, paddingTop: t.space.sm, paddingBottom: t.space.xl }]}>
                     <View onLayout={event => setHeroEnd(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}>
-                        <CountUp style={[styles.heroValue, { fontSize: heroSize, lineHeight: Math.round(heroSize * 1.08), letterSpacing: -heroSize / 24, color: t.color.textPrimary }]} value={total} replay={visible} />
+                        {/* No tight tracking on one big digit: iOS clips its right edge. */}
+                        <CountUp style={[styles.heroValue, styles.heroRoom, { fontSize: heroSize, lineHeight: Math.round(heroSize * 1.08), letterSpacing: 0, color: t.color.textPrimary }]} value={total} replay={visible} />
                     </View>
                     {total ? (
                         <View style={{ gap: t.space.xs }}>
@@ -174,6 +175,7 @@ export function MissedView({ missed, active, onLeave, header = false }: { missed
 const styles = StyleSheet.create({
     hero: { alignItems: 'center' },
     heroValue: { fontFamily: FontFamily.bold, fontSize: 52, lineHeight: 58, letterSpacing: -2, fontVariant: ['tabular-nums'] },
+    heroRoom: { paddingHorizontal: Spacing.sm },
     quote: { textAlign: 'center' },
     center: { textAlign: 'center' },
     strong: { fontFamily: FontFamily.semibold },

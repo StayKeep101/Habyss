@@ -9,7 +9,7 @@ import { useStreak } from '@/hooks/useStreak';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { useMarks } from '@/hooks/useMarks';
 import { seriesForProfile } from '@/lib/marksSync';
-import { ageFrom, initials, type Profile } from '@/lib/profile';
+import { initials, type Profile } from '@/lib/profile';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { FreezeCard } from '@/components/Profile/FreezeCard';
@@ -17,7 +17,7 @@ import { FollowCounts } from '@/components/Profile/FollowCounts';
 import { YearHeatmap } from '@/components/Profile/YearHeatmap';
 import { HourglassAwards } from '@/components/Profile/HourglassAwards';
 import { RankEmblem } from '@/components/Profile/RankEmblem';
-import { DayJournal } from '@/components/Profile/DayJournal';
+import { JournalRow } from '@/components/Profile/DayJournal';
 import { SleepCard } from '@/components/Home/SleepCard';
 import { ActivityCard } from '@/components/Home/ActivityCard';
 import { VoidSheet } from '@/components/ui/VoidSheet';
@@ -68,7 +68,6 @@ export default function ProfileScreen() {
     const [goalsOpen, setGoalsOpen] = useState(false);
 
 
-    const age = profile.birthday ? ageFrom(profile.birthday) : null;
     const [myId, setMyId] = useState<string | null>(null);
     useEffect(() => { void FeedService.me().then(setMyId); }, []);
 
@@ -81,7 +80,7 @@ export default function ProfileScreen() {
                 <ProfileView
                     name={profile.name}
                     bio=""
-                    meta={[profile.occupation?.trim(), age ? `${age}` : null].filter(Boolean).join(' · ')}
+                    meta={profile.occupation?.trim() ?? ''}
                     avatar={profile.avatar}
                     initials={initials(profile)}
                     topInset={insets.top}
@@ -101,14 +100,14 @@ export default function ProfileScreen() {
                         </>
                     )}
                >
-                    {/* Your hourglass, to admire; sleep and workouts; then the hourglasses earned, as awards (tap one to use it). */}
+                    {/* Right under the year: sleep and movement; then your hourglass to admire, the awards
+                        (a row; › for all of them) and your journal (a row; › for its calendar). */}
                     <View style={styles.more}>
-                        <RankEmblem marks={marks.total} rank={rankShown} />
                         <SleepCard />
                         <ActivityCard />
-                        <HourglassAwards marks={marks.total} choose />
-                        {/* Every day card you have posted, as a journal (read from your posts, nothing kept here). */}
-                        {myId ? <DayJournal userId={myId} /> : null}
+                        <RankEmblem marks={marks.total} rank={rankShown} />
+                        <HourglassAwards marks={marks.total} choose onSeeAll={() => { selectionFeedback(); router.push('/(root)/awards' as never); }} />
+                        {myId ? <JournalRow onOpen={() => { selectionFeedback(); router.push('/(root)/journal' as never); }} /> : null}
                     </View>
                 </ProfileView>
 

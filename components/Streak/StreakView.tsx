@@ -218,7 +218,7 @@ export function StreakView({ whose }: { whose: StreakWhose }) {
                 {/* The run going now, big, with the flame; your best under it. */}
                 <View style={styles.hero} accessible accessibilityLabel={`${streak} ${streak === 1 ? 'day' : 'days'} in a row. Best ${best}.`}>
                     <View style={styles.heroRow}>
-                        <CountUp style={[styles.heroValue, { fontSize: heroSize, lineHeight: Math.round(heroSize * 1.08), letterSpacing: -heroSize / 24, color: colors.textPrimary }]} value={streak} replay={only} />
+                        <CountUp style={[styles.heroValue, styles.heroRoom, { fontSize: heroSize, lineHeight: Math.round(heroSize * 1.08), letterSpacing: -heroSize / 24, color: colors.textPrimary }]} value={streak} replay={only} />
                         <Ionicons name="flame" filled size={Math.round(heroSize * 0.42)} color={streak > 0 ? colors.warning : colors.textTertiary} />
                     </View>
                     <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>
