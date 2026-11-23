@@ -202,7 +202,6 @@ export const HabitSheet: React.FC<{
     /** How it tracks itself: an option's key, 'off', or null for the best one. */
     const [trackPick, setTrackPick] = useState<string | null>(null);
     /** For apps and a place: minutes before it counts, when changed here. */
-    const [trackMins, setTrackMins] = useState<number | null>(null);
     /** Editing: the minutes it is already linked to apps for, if it is. */
     const [appLinked, setAppLinked] = useState<number | null>(null);
     /** Apps chosen in Apple's picker for this habit (by its id, made up front for a new one). */
@@ -227,7 +226,6 @@ export const HabitSheet: React.FC<{
         setAmountText(null);
         setError(null);
         setTrackPick(null);
-        setTrackMins(null);
         setAppLinked(null);
         setAppsCount(0);
         setNewId(generateId());
@@ -347,12 +345,12 @@ export const HabitSheet: React.FC<{
     const habitMinutes = tracking ? trackMinutes(tracking, said) : 30;
     const minutesFromHabit = !!(said.durationMinutes || (said.amount && /^(min|mins|minutes?|h|hr|hrs|hours?)$/i.test(said.unit ?? '')));
     const minutes = tracking?.kind === 'app' ? (minutesFromHabit ? habitMinutes : appLinked ?? 30)
-        : trackMins ?? (tracking?.kind === 'place' && stayPlace?.stayMinutes ? stayPlace.stayMinutes : habitMinutes);
+        // A place: the habit's own length there (its amount in minutes, else its length, else 30).
+        : habitMinutes;
     const habitId = current?.id ?? newId;
     const addApps = () => { void chooseApps(habitId, 'Apps').then(count => { if (count >= 0) setAppsCount(count); }); };
     const chooseTracking = (key: string, from: 'hint' | 'chip' = 'chip') => {
         setTrackPick(key);
-        setTrackMins(null);
         const option = everyOption.find(item => item.key === key) ?? suggestions.find(item => item.key === key);
         if (option?.kind === 'place') {
             // From the line under the sentence: to the Tracking chip, where the map is a tap away.
@@ -361,10 +359,6 @@ export const HabitSheet: React.FC<{
             // Away from a place: its time there no longer counts (a reminder there stays).
             change({ places: draft.places.filter(place => place.trigger !== 'stay') });
         }
-    };
-    const setMinutes = (value: number) => {
-        setTrackMins(value);
-        if (tracking?.kind === 'place' && stayPlace) change({ places: draft.places.map(place => (place.trigger === 'stay' ? { ...place, stayMinutes: value } : place)) });
     };
     const trackingValue = !tracking ? undefined
         : tracking.kind === 'health' ? `Health · ${everyOption.find(option => option.key === tracking.key)?.label ?? tracking.label}`
@@ -422,7 +416,8 @@ export const HabitSheet: React.FC<{
                 flexible: draft.startTime ? draft.flexible !== false : undefined,
                 // Held to a class or meal; an empty name holds it to nothing.
                 anchor: parseAnchor(draft.anchor ?? null) ?? null,
-                locationReminders: draft.places,
+                // A place it counts time at: as long as the habit itself takes.
+                locationReminders: draft.places.map(place => (place.trigger === 'stay' ? { ...place, stayMinutes: minutes } : place)),
                 // Health: what the Tracking chip says (below); cleared when it says otherwise.
                 healthKitMetric: undefined,
                 healthKitTarget: undefined,
@@ -544,7 +539,7 @@ export const HabitSheet: React.FC<{
             content: (
                 <TrackingPicker
                     options={everyOption} chosen={tracking ? everyOption.find(option => option.key === tracking.key) ?? tracking : null}
-                    onChoose={key => chooseTracking(key)} minutes={minutes} onMinutes={setMinutes} accent={accent}
+                    onChoose={key => chooseTracking(key)} minutes={minutes} accent={accent}
                     stayPlace={stayPlace ?? null} reminderPlace={draft.places.find(place => place.trigger !== 'stay') ?? null}
                     onStayPlace={place => change({ places: [...draft.places.filter(item => item.trigger !== 'stay'),
                         ...(place ? [{ ...place, trigger: 'stay' as const, stayMinutes: minutes }] : [])] })}

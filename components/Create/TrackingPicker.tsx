@@ -11,24 +11,22 @@ const WAYS: { id: Way; label: string }[] = [
     { id: 'off', label: 'By hand' }, { id: 'health', label: 'Health' }, { id: 'app', label: 'Apps' }, { id: 'place', label: 'Place' },
 ];
 const minutesSaid = (minutes: number) => (minutes >= 60 && minutes % 60 === 0 ? `${minutes / 60} h` : `${minutes} min`);
-const PLACE_MINUTES = [10, 15, 20, 30, 45, 60, 90];
 
 /**
  * The Tracking chip's panel: how this habit gets ticked, all of it in one
  * place. By hand; from Apple Health (any metric it counts, fed by the Watch,
  * Strava, Bevel, Oura…); from time in apps (Add apps opens Apple's own
  * picker: Libby, Kindle, Duolingo), for the habit's own time, 30 minutes
- * unless it says otherwise; or from time at a place, and for
- * how long. What each means is said under it, in one line.
+ * unless it says otherwise; or from time at a place, for that
+ * same time. What each means is said under it, in one line.
  */
-export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, accent, stayPlace, reminderPlace, onStayPlace, appsHabitId, onAddApps, appsCount, minutesFromHabit, appsAvailable, healthAvailable }: {
+export function TrackingPicker({ options, chosen, onChoose, minutes, accent, stayPlace, reminderPlace, onStayPlace, appsHabitId, onAddApps, appsCount, minutesFromHabit, appsAvailable, healthAvailable }: {
     /** Every option (lib/autoTrackSources.ts allTrackOptions). */
     options: AutoTrackOption[];
     chosen: AutoTrackOption | null;
     onChoose: (key: string) => void;
-    /** How long before it counts (apps: the habit's own time; a place: chosen here). */
+    /** How long before it counts: the habit's own time (its amount in minutes, else its length). */
     minutes: number;
-    onMinutes: (minutes: number) => void;
     accent: string;
     /** The place it counts time at, and a reminder's place to offer as the same. */
     stayPlace: PickedPlace | null;
@@ -92,11 +90,6 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, 
 
             {way === 'place' ? (
                 <>
-                    <View style={styles.pills}>
-                        {PLACE_MINUTES.map(value => (
-                            <ChoicePill key={value} label={minutesSaid(value)} on={value === minutes} color={accent} onPress={() => { selectionFeedback(); onMinutes(value); }} />
-                        ))}
-                    </View>
                     <Text variant="caption" tone="muted">
                         {stayPlace ? `Ticks itself after ${minutesSaid(minutes)} at ${stayPlace.name}.` : `Ticks itself after ${minutesSaid(minutes)} there.`}
                     </Text>
