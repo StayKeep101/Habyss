@@ -4,7 +4,7 @@ import { AppButton, AppIcons, ChoicePill, ChoiceRow, Text } from '@/components/u
 import { useHaptics } from '@/hooks/useHaptics';
 import { Spacing } from '@/theme/designSystem';
 import type { AutoTrackOption } from '@/lib/autoTrackSources';
-import { InlinePlaceMap, type PickedPlace } from '@/components/Create/InlinePlaceMap';
+import { InlinePlaceMap, usePlaceMapFit, type PickedPlace } from '@/components/Create/InlinePlaceMap';
 
 type Way = 'off' | 'health' | 'app' | 'place';
 const WAYS: { id: Way; label: string }[] = [
@@ -45,6 +45,7 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, accent, sta
 }) {
     const { selectionFeedback } = useHaptics();
     const way: Way = chosen?.kind ?? 'off';
+    const fit = usePlaceMapFit();
     const ways = WAYS.filter(item => (item.id !== 'health' || healthAvailable) && (item.id !== 'app' || appsAvailable) && (item.id !== 'health' || options.some(option => option.kind === 'health')));
     const of = (kind: Way) => options.filter(option => option.kind === kind);
     const pickWay = (next: Way) => {
@@ -57,7 +58,7 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, accent, sta
     const pick = (key: string) => { if (key !== chosen?.key) { selectionFeedback(); onChoose(key); } };
 
     return (
-        <View style={styles.wrap}>
+        <View style={styles.wrap} onLayout={way === 'place' ? fit.onLayout : undefined}>
             <ChoiceRow accessibilityLabel="How it is tracked" options={ways} value={way} onChange={pickWay} color={accent} />
 
             {way === 'off' ? (
@@ -99,7 +100,7 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, accent, sta
                                 onPress={() => { selectionFeedback(); onStayPlace(reminderPlace); }} />
                         </View>
                     ) : null}
-                    <InlinePlaceMap place={stayPlace} accent={accent} onPick={point => onStayPlace({ ...point, radius: stayPlace?.radius ?? 150 })} />
+                    <InlinePlaceMap place={stayPlace} accent={accent} onPick={point => onStayPlace({ ...point, radius: stayPlace?.radius ?? 150 })} height={fit.height} />
                 </>
             ) : null}
         </View>

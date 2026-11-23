@@ -6,7 +6,7 @@ import { MatteSurface } from '@/components/ui/MatteSurface';
 import { ChoicePill } from '@/components/ui/ChoicePill';
 import { DurationWheels } from '@/components/Create/DurationWheels';
 import { ALERT_CHOICES } from '@/lib/itemAlerts';
-import { InlinePlaceMap } from '@/components/Create/InlinePlaceMap';
+import { InlinePlaceMap, usePlaceMapFit } from '@/components/Create/InlinePlaceMap';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
 import { textOn } from '@/theme/tokens';
@@ -56,6 +56,7 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
     const derived: Mode = remindAt ? 'place' : lead || value.reminder ? 'before' : 'off';
     const [chosen, setChosen] = useState<Mode | null>(null);
     const mode = chosen ?? derived;
+    const fit = usePlaceMapFit();
     const pinAt = (point: { latitude: number; longitude: number; name: string }) =>
         onChange({ places: [...stays, { ...point, radius: 150, trigger: remindAt?.trigger ?? 'arrive' }] });
 
@@ -76,7 +77,7 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
     ];
 
     return (
-        <View style={styles.wrap}>
+        <View style={styles.wrap} onLayout={mode === 'place' ? fit.onLayout : undefined}>
             <ChoiceRow accessibilityLabel="When to remind you" options={options} value={mode} onChange={pick} color={accent} />
 
             {mode === 'before' ? (
@@ -104,7 +105,7 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
             {mode === 'place' ? (
                 // The map, right here: tap it where the place is; the arrow pins where you are now.
                 <View style={styles.block}>
-                    <InlinePlaceMap place={remindAt} accent={accent} onPick={pinAt} />
+                    <InlinePlaceMap place={remindAt} accent={accent} onPick={pinAt} height={fit.height} />
                     {remindAt ? (
                         <View style={styles.placeRow}>
                             {(['arrive', 'leave'] as const).map(trigger => {
