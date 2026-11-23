@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
@@ -20,11 +20,14 @@ function appleMaps(): any | null {
 export const hasPlaceMap = (): boolean => !!appleMaps();
 
 /**
- * A small map to choose a place: tap anywhere to drop the pin there. The
- * places already chosen show as pins with the circle they cover.
+ * A small map to choose a place: tap anywhere to drop the pin there (the map
+ * itself stays where you left it). The places already chosen show as pins
+ * with the circle they cover. `focus` glides the camera to a point (where you
+ * are, a place chosen elsewhere).
  */
-export function PlaceMap({ center, places, accent, height, onPick }: {
+export function PlaceMap({ center, focus, places, accent, height, onPick }: {
     center: Point | null;
+    focus?: Point | null;
     places: (Point & { radius?: number; name: string })[];
     accent: string;
     height: number;
@@ -33,14 +36,20 @@ export function PlaceMap({ center, places, accent, height, onPick }: {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const Maps = appleMaps();
-    const [start] = useState(() => center ?? places[0] ?? { latitude: 43.6532, longitude: -79.3832 });
+    // Set once: the map is never sent its first camera again (a fresh object each render would snap it back).
+    const [camera] = useState(() => ({ coordinates: center ?? places[0] ?? { latitude: 43.6532, longitude: -79.3832 }, zoom: 15 }));
+    const map = useRef<{ setCameraPosition?: (config: { coordinates: Point; zoom?: number }) => void } | null>(null);
+    useEffect(() => {
+        if (focus) map.current?.setCameraPosition?.({ coordinates: focus, zoom: 15 });
+    }, [focus]);
     if (!Maps) return null;
     return (
         <View style={[styles.frame, { height, borderColor: colors.border }]}>
             <Maps.View
+                ref={map}
                 style={StyleSheet.absoluteFill}
                 colorScheme={theme === 'light' ? 'LIGHT' : 'DARK'}
-                cameraPosition={{ coordinates: start, zoom: 15 }}
+                cameraPosition={camera}
                 markers={places.map((place, index) => ({ id: String(index), coordinates: place, title: place.name, tintColor: accent }))}
                 circles={places.map((place, index) => ({ id: `c${index}`, center: place, radius: place.radius ?? 150, color: `${accent}33` }))}
                 uiSettings={{ compassEnabled: false, myLocationButtonEnabled: true, scaleBarEnabled: false, togglePitchEnabled: false }}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
 import { AppIcon } from '@/components/ui/AppIcon';
@@ -50,6 +50,17 @@ export function InlinePlaceMap({ place, accent, onPick, height }: {
     const { selectionFeedback } = useHaptics();
     const [here, setHere] = useState<MapPoint | null>(null);
     const [finding, setFinding] = useState(false);
+    // Where the camera glides to. A tap on the map only moves the pin; the map never starts over.
+    const [focus, setFocus] = useState<MapPoint | null>(null);
+    const tapped = useRef<MapPoint | null>(null);
+    const placeKey = place ? `${place.latitude},${place.longitude}` : '';
+    useEffect(() => {
+        if (!place) return;
+        const same = tapped.current && tapped.current.latitude === place.latitude && tapped.current.longitude === place.longitude;
+        // A place chosen another way (Same as reminder): the camera goes to it.
+        if (!same) setTimeout(() => setFocus({ latitude: place.latitude, longitude: place.longitude }), 0);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [placeKey]);
 
     useEffect(() => {
         if (place || here) return;
@@ -60,7 +71,9 @@ export function InlinePlaceMap({ place, accent, onPick, height }: {
                     const { status } = await Location.requestForegroundPermissionsAsync();
                     if (status !== 'granted') return;
                     const fix = await Location.getCurrentPositionAsync({});
-                    setHere({ latitude: fix.coords.latitude, longitude: fix.coords.longitude });
+                    const point = { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
+                    setHere(point);
+                    setFocus(point);
                 } catch { /* the map starts where it does */ }
             })();
         }, 0);
@@ -75,6 +88,7 @@ export function InlinePlaceMap({ place, accent, onPick, height }: {
             name = found?.name || found?.street || found?.city || name;
         } catch { /* the plain name */ }
         selectionFeedback();
+        tapped.current = point;
         onPick({ name, ...point });
     };
     const pinHere = async () => {
@@ -87,6 +101,7 @@ export function InlinePlaceMap({ place, accent, onPick, height }: {
             const fix = await Location.getCurrentPositionAsync({});
             const point = { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
             setHere(point);
+            setFocus(point);
             await pinAt(point);
         } catch { /* stays where it was */ } finally { setFinding(false); }
     };
@@ -95,7 +110,7 @@ export function InlinePlaceMap({ place, accent, onPick, height }: {
         <View style={styles.block}>
             {hasPlaceMap() ? (
                 <View>
-                    <PlaceMap key={place ? `${place.latitude},${place.longitude}` : here ? 'here' : 'start'} center={place ?? here}
+                    <PlaceMap center={place ?? here} focus={focus}
                         places={place ? [place] : []} accent={accent} height={height} onPick={point => void pinAt(point)} />
                     <View style={styles.locate}>
                         <IconButton icon={finding ? 'hourglass-outline' : 'navigate'} label="Use where I am now" diameter={32} size={15}
