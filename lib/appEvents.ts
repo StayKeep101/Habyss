@@ -84,7 +84,8 @@ export interface AppEvents {
     /** Open one of your goals to bets (the + on Community). */
     show_open_bet: void;
     /** Pick a challenge from the list (the + on Community). */
-    show_challenges: void;
+    /** The challenge picker; with an id, opened on that challenge. */
+    show_challenges: { id?: string } | void;
     /** The + on Settings: search the settings. */
     show_settings_search: void;
     close_creation_modal: void;

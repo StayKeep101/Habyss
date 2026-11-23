@@ -7,7 +7,7 @@ import { useTokens } from '@/hooks/useTokens';
 import type { ChallengeItem, Difficulty, Member } from '@/lib/challenges';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
 
-export const PROOF_WORD = { health: 'Apple Health', focus: 'Focus timer', photo: 'Photo' } as const;
+export const PROOF_WORD = { health: 'Apple Health', focus: 'Focus timer', photo: 'Photo', tick: 'On your word' } as const;
 
 /** Each level's colour, always said in words beside it too. */
 export function useLevelColor(): Record<Difficulty, string> {

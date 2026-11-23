@@ -30,7 +30,9 @@ const TIMED_UNITS = ['minutes', 'minute', 'min', 'hours', 'hour', 'h', 'seconds'
  * What a tick by hand needs. `challenge`: the proof a challenge gave the item,
  * if it is one of a challenge's; `staked`: your goals open to bets. Pure.
  */
-export function proofRule(item: ProofItem, challenge: 'health' | 'focus' | 'photo' | null, staked: string[]): ProofRule {
+export function proofRule(item: ProofItem, challenge: 'health' | 'focus' | 'photo' | 'tick' | null, staked: string[]): ProofRule {
+    // On your word: a challenge's rule with nothing to show for it (a diet, water) is ticked like anything else.
+    if (challenge === 'tick') return 'none';
     if (challenge) return challenge;
     const goalId = item.kind === 'habit' ? item.habit.goalId : item.task.goalId;
     if (!goalId || !staked.includes(goalId)) return 'none';

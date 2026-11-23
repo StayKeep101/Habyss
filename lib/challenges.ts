@@ -16,7 +16,8 @@ import { localDateKey } from './habitSchedule';
  * too. Those ticks were proven on the way in (lib/challengeProof.ts).
  */
 
-export type Proof = 'health' | 'focus' | 'photo';
+/** How a rule is proven: Apple Health, the focus timer, a photo there and then, or on your word. */
+export type Proof = 'health' | 'focus' | 'photo' | 'tick';
 export interface ChallengeItem {
     kind: 'habit' | 'task';
     name: string;
@@ -40,6 +41,9 @@ export interface Challenge {
     days: number;
     reward: number;
     items: ChallengeItem[];
+    /** Written by you (or a friend, `ownerId`), not by Habyss: pays no Shards. */
+    custom?: boolean;
+    ownerId?: string | null;
 }
 
 export type RunStatus = 'open' | 'active' | 'won' | 'failed' | 'cancelled';
@@ -83,7 +87,20 @@ export async function challengeCatalog(): Promise<Challenge[]> {
     return data.map(row => ({
         id: String(row.id), title: String(row.title), summary: String(row.summary), icon: String(row.icon || 'trophy'),
         difficulty: row.difficulty as Difficulty, days: Number(row.days) || 1, reward: Number(row.reward) || 0, items: readItems(row.items),
+        custom: !!row.owner_id, ownerId: row.owner_id ?? null,
     }));
+}
+
+/** Your own challenge: a name, how many days (7 to 75), its rules (each a photo or your word). Returns its id, to start it. */
+export async function createChallenge(input: { title: string; summary?: string; icon?: string; days: number; rules: { name: string; proof: 'photo' | 'tick' }[] }): Promise<string> {
+    const ctx = await client();
+    if (!ctx) throw new Error('Sign in to make a challenge.');
+    const { data, error } = await ctx.sb.rpc('create_challenge', {
+        p_title: input.title.trim(), p_summary: input.summary?.trim() ?? '', p_icon: input.icon ?? 'trophy', p_days: input.days,
+        p_items: input.rules.filter(rule => rule.name.trim()).map(rule => ({ name: rule.name.trim(), proof: rule.proof })),
+    });
+    if (error) throw fail(error, 'The challenge could not be made. Try again in a moment.');
+    return String(data);
 }
 
 /** Yours: running, waiting on you, or ended in the last two weeks. */

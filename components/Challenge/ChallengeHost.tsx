@@ -1,17 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { AppButton, Avatar, EmptyState, ListItem, Receipt, Text, VoidSheet } from '@/components/ui';
+import { AppButton, Avatar, ListItem, Receipt, Text, VoidSheet } from '@/components/ui';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { on } from '@/lib/appEvents';
-import { challengeCatalog, DIFFICULTY_LABEL, startChallenge, type Challenge, type Difficulty } from '@/lib/challenges';
+import { challengeCatalog, startChallenge, type Challenge, type ChallengeItem } from '@/lib/challenges';
 import { FriendsService, type Friend } from '@/lib/friendsService';
-import { Control, Spacing } from '@/theme/designSystem';
-import { ChallengeIcon, Group, GroupTitle, ItemRow, PROOF_WORD, Reward } from './ChallengeParts';
+import { Control, Radius, Spacing } from '@/theme/designSystem';
+import { Group, GroupTitle, Reward, useLevelColor } from './ChallengeParts';
+import { ChallengeCard, Heartbeat } from './ChallengeCard';
+import { CreateChallenge } from './CreateChallenge';
+import { FeedService } from '@/lib/feedService';
 import { oopsTitle } from '@/lib/voice';
 
-const LEVELS: Difficulty[] = ['easy', 'medium', 'hard'];
 
 /**
  * Pick a challenge, from the + on Community or the + on Challenges: the list
@@ -21,7 +23,9 @@ const LEVELS: Difficulty[] = ['easy', 'medium', 'hard'];
  */
 export function ChallengeHost() {
     const t = useTokens();
-    const { selectionFeedback, successFeedback } = useHaptics();
+    const { selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
+    const [meId, setMeId] = useState<string | null>(null);
+    useEffect(() => { void FeedService.me().then(setMeId).catch(() => undefined); }, []);
     const [visible, setVisible] = useState(false);
     const [list, setList] = useState<Challenge[] | null>(null);
     const [chosen, setChosen] = useState<Challenge | null>(null);
@@ -29,25 +33,28 @@ export function ChallengeHost() {
     const [invited, setInvited] = useState<string[]>([]);
     const [starting, setStarting] = useState(false);
     const [started, setStarted] = useState(false);
+    // Writing your own (components/Challenge/CreateChallenge.tsx).
+    const [creating, setCreating] = useState(false);
 
     useEffect(() => {
-        const sub = on('show_challenges', () => {
+        const sub = on('show_challenges', event => {
             setVisible(true);
             setChosen(null);
+            setCreating(false);
             setInvited([]);
             setStarted(false);
-            challengeCatalog().then(setList).catch(() => setList([]));
+            const want = event && typeof event === 'object' ? event.id : undefined;
+            challengeCatalog().then(found => { setList(found); if (want) setChosen(found.find(item => item.id === want) ?? null); }).catch(() => setList([]));
             FriendsService.getFriends().then(setFriends).catch(() => setFriends([]));
         });
         return () => sub.remove();
     }, []);
 
-    const levels = useMemo(() => LEVELS.map(level => ({ level, items: (list ?? []).filter(item => item.difficulty === level) }))
-        .filter(group => group.items.length), [list]);
 
     const close = () => setVisible(false);
     const start = () => {
         if (!chosen || starting) return;
+        mediumFeedback();
         setStarting(true);
         startChallenge(chosen.id, invited)
             .then(() => { successFeedback(); setStarted(true); })
@@ -61,11 +68,11 @@ export function ChallengeHost() {
 
     return (
         <VoidSheet visible={visible} onClose={close} scrollable maxShare={0.9}
-            title={chosen && !started ? chosen.title : 'Pick a challenge'}
-            caption={chosen && !started ? `${chosen.days} days · ${DIFFICULTY_LABEL[chosen.difficulty]}` : 'Alone or with friends · all or nothing'}
+            title={creating ? 'Your own challenge' : chosen && !started ? chosen.title : 'Pick a challenge'}
+            caption={creating ? 'Your rules, your days' : chosen && !started ? `${chosen.days} days · ${chosen.items.length} rules a day · no cheat days` : 'Alone or with friends · all or nothing'}
             footer={chosen && !started ? (
                 <View style={styles.footer}>
-                    <AppButton label={invited.length ? `Start with ${invited.length} ${invited.length === 1 ? 'friend' : 'friends'}` : 'Start alone'}
+                    <AppButton label={invited.length ? `I’m in, with ${invited.length} ${invited.length === 1 ? 'friend' : 'friends'}` : 'I’m in'} icon="flame"
                         variant="primary" loading={starting} onPress={start} />
                     <AppButton label="Back" variant="ghost" onPress={() => setChosen(null)} />
                 </View>
@@ -76,14 +83,20 @@ export function ChallengeHost() {
                     onDone={close} />
             ) : chosen ? (
                 <View style={styles.body}>
-                    <View style={styles.hero}>
-                        <ChallengeIcon icon={chosen.icon} difficulty={chosen.difficulty} size={Control.height} />
-                        <Text variant="body" tone="muted" grow>{chosen.summary}</Text>
+                    {/* The stakes, said plainly, before anything else. */}
+                    <View style={[styles.warning, { backgroundColor: t.tint('subtle', t.color.danger) }]}>
+                        <Heartbeat icon="skull" color={t.color.danger} size={Spacing.xxl} />
+                        <View style={styles.grow}>
+                            <Text variant="heading">{`Day 1 starts ${invited.length ? 'tomorrow' : 'now'}.`}</Text>
+                            <Text variant="bodySmall" tone="muted">{`Miss one rule, on one day, and it’s over${invited.length ? ' for all of you' : ''}. No cheat days. No second chances. ${chosen.days} days in a row, or nothing.`}</Text>
+                        </View>
                     </View>
+                    <Text variant="body" tone="muted">{chosen.summary}</Text>
 
+                    {/* Every rule, its own card: what it is, and how it is checked. */}
                     <View style={styles.section}>
-                        <GroupTitle>In your plan</GroupTitle>
-                        <Group>{chosen.items.map(item => <ItemRow key={item.name} item={item} difficulty={chosen.difficulty} />)}</Group>
+                        <GroupTitle>{`The rules, every day`}</GroupTitle>
+                        {chosen.items.map((item, index) => <RuleCard key={item.name} item={item} index={index} />)}
                     </View>
 
                     <View style={styles.section}>
@@ -127,36 +140,69 @@ export function ChallengeHost() {
                         </View>
                     ) : null}
                 </View>
+            ) : creating ? (
+                <CreateChallenge onMade={id => { challengeCatalog().then(found => { setList(found); setChosen(found.find(item => item.id === id) ?? null); setCreating(false); }).catch(() => setCreating(false)); }}
+                    onCancel={() => setCreating(false)} />
             ) : (
                 <View style={styles.body}>
-                    {list === null ? null : list.length === 0 ? (
-                        <EmptyState icon="trophy" title="Challenges sold out" message="Fresh ones drop without an app update." />
-                    ) : levels.map(({ level, items }) => (
-                        <View key={level} style={styles.section}>
-                            <GroupTitle>{DIFFICULTY_LABEL[level]}</GroupTitle>
-                            <Group>
-                                {items.map(challenge => (
-                                    <ListItem key={challenge.id}>
-                                        <Pressable onPress={() => { selectionFeedback(); setChosen(challenge); }} style={styles.row}
-                                            accessibilityRole="button" accessibilityLabel={`${challenge.title}, ${challenge.days} days, ${DIFFICULTY_LABEL[challenge.difficulty]}, ${challenge.reward} Shards`}>
-                                            <ChallengeIcon icon={challenge.icon} difficulty={challenge.difficulty} />
-                                            <View style={styles.grow}>
-                                                <Text variant="body" numberOfLines={2}>{challenge.title}</Text>
-                                                <Text variant="caption" tone="muted" numberOfLines={1}>
-                                                    {challenge.days} days · {PROOF_WORD[challenge.items[0]?.proof ?? 'photo']}
-                                                </Text>
-                                            </View>
-                                            <Reward amount={challenge.reward} />
-                                            <AppIcon name="chevron-forward" size={Spacing.lg} color={t.color.textMuted} />
-                                        </Pressable>
-                                    </ListItem>
-                                ))}
-                            </Group>
-                        </View>
-                    ))}
+                    {list === null ? null : (
+                        <>
+                            {list.filter(item => !item.custom).map((challenge, index) => (
+                                <ListItem key={challenge.id} index={index}>
+                                    <ChallengeCard challenge={challenge} big={index === 0} onPress={() => { mediumFeedback(); setChosen(challenge); }} />
+                                </ListItem>
+                            ))}
+                            {list.some(item => item.custom) ? <GroupTitle>Yours and your friends’</GroupTitle> : null}
+                            {list.filter(item => item.custom).map((challenge, index) => (
+                                <ListItem key={challenge.id} index={index}>
+                                    <ChallengeCard challenge={challenge} by={challenge.ownerId === meId ? 'By you' : 'By a friend'} onPress={() => { mediumFeedback(); setChosen(challenge); }} />
+                                </ListItem>
+                            ))}
+                            {/* Your own: your rules, your days. */}
+                            <Pressable onPress={() => { selectionFeedback(); setCreating(true); }} accessibilityRole="button" accessibilityLabel="Create your own challenge">
+                                <View style={[styles.create, { borderColor: t.color.border }]}>
+                                    <AppIcon name="add-circle" filled size={Spacing.xxl} color={t.color.accent} />
+                                    <View style={styles.grow}>
+                                        <Text variant="heading">Create your own</Text>
+                                        <Text variant="caption" tone="muted">Your rules, 7 to 75 days, alone or with friends</Text>
+                                    </View>
+                                    <AppIcon name="chevron-forward" size={Spacing.lg} color={t.color.textSubtle} />
+                                </View>
+                            </Pressable>
+                        </>
+                    )}
                 </View>
             )}
         </VoidSheet>
+    );
+}
+
+const PROOF_ICON: Record<ChallengeItem['proof'], string> = { health: 'heart', focus: 'hourglass', photo: 'camera', tick: 'hand-right' };
+const PROOF_SAID: Record<ChallengeItem['proof'], string> = {
+    health: 'Apple Health counts it: it ticks itself',
+    focus: 'The focus timer counts it',
+    photo: 'A photo, taken there and then',
+    tick: 'On your word',
+};
+
+/** One rule of a challenge, as its own card: its number, what it is, and how it is checked. */
+function RuleCard({ item, index }: { item: ChallengeItem; index: number }) {
+    const t = useTokens();
+    const color = useLevelColor().hard;
+    const amount = item.proof === 'health' && item.target ? `${item.target} ${item.unit ?? ''}`.trim() : item.proof === 'focus' && item.minutes ? `${item.minutes} min` : null;
+    return (
+        <ListItem index={index}>
+            <View style={[styles.rule, { backgroundColor: t.color.surfaceRaised }]} accessible accessibilityLabel={`Rule ${index + 1}: ${item.name}. ${PROOF_SAID[item.proof]}`}>
+                <View style={[styles.ruleNumber, { backgroundColor: t.tint('subtle', color) }]}><AppIcon name={(item.icon ?? 'checkmark-circle') as never} filled size={Spacing.xl} color={color} /></View>
+                <View style={styles.grow}>
+                    <Text variant="heading">{item.name}</Text>
+                    <View style={styles.proof}>
+                        <AppIcon name={PROOF_ICON[item.proof] as never} filled size={Spacing.md} color={t.color.textSubtle} />
+                        <Text variant="caption" tone="muted">{`${PROOF_SAID[item.proof]}${amount ? ` · ${amount}` : ''}`}</Text>
+                    </View>
+                </View>
+            </View>
+        </ListItem>
     );
 }
 
@@ -164,7 +210,11 @@ const styles = StyleSheet.create({
     body: { gap: Spacing.xl, paddingBottom: Spacing.lg },
     section: { gap: Spacing.sm },
     footer: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, gap: Spacing.xs },
-    hero: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+    warning: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.card },
+    rule: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.card },
+    ruleNumber: { width: Control.hitTarget, height: Control.hitTarget, borderRadius: Radius.control, alignItems: 'center', justifyContent: 'center' },
+    proof: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+    create: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.card, borderWidth: 1, borderStyle: 'dashed' },
     row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: Control.height + Spacing.sm },
     rewardRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: Control.height + Spacing.sm },
     grow: { flex: 1, gap: Spacing.xs / 2 },

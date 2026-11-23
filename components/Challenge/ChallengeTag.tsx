@@ -10,6 +10,7 @@ const PROOF = {
     health: { icon: 'heart', word: 'Apple Health' },
     focus: { icon: 'hourglass', word: 'Focus timer' },
     photo: { icon: 'camera', word: 'Photo' },
+    tick: { icon: 'checkmark-circle', word: 'On your word' },
 } as const;
 
 /**

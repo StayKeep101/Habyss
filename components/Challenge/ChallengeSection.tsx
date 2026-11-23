@@ -1,14 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { AppButton, Avatar, CardRail, GameCard, IconTile, ListItem, Text, VoidSheet } from '@/components/ui';
+import { AppButton, Avatar, CardRail, GameCard, ListItem, Text, VoidSheet } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { emit, on } from '@/lib/appEvents';
-import { canAnswer, DIFFICULTY_LABEL, leaveChallenge, myChallenges, respondChallenge, type Run } from '@/lib/challenges';
+import { canAnswer, challengeCatalog, DIFFICULTY_LABEL, leaveChallenge, myChallenges, respondChallenge, type Challenge, type Run } from '@/lib/challenges';
+import { ChallengeCard, Heartbeat } from './ChallengeCard';
+import { LinearGradient } from 'expo-linear-gradient';
+import { CountUp, MatteSurface } from '@/components/ui';
 import { localDateKey } from '@/lib/habitSchedule';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
-import { ChallengeIcon, DangerLink, DayStrip, FaceStack, Group, GroupTitle, ItemRow, MemberRow, Reward } from './ChallengeParts';
+import { ChallengeIcon, DangerLink, DayStrip, FaceStack, Group, GroupTitle, ItemRow, MemberRow, Reward, useLevelColor } from './ChallengeParts';
 import { oopsTitle } from '@/lib/voice';
 
 /** Day 3 of 14, from its first day; "Starts tomorrow" before it. */
@@ -36,13 +39,15 @@ const act = (run: () => Promise<void>, done?: () => void) => run().then(done)
  * as small segments, and who's in it. The + opens the list to pick from.
  */
 export function ChallengeSection({ style }: { style?: StyleProp<ViewStyle> }) {
-    const t = useTokens();
     const [runs, setRuns] = useState<Run[] | null>(null);
     // The one opened, kept while its sheet slides away.
     const [open, setOpen] = useState<Run | null>(null);
     const [shown, setShown] = useState(false);
     const load = useCallback(() => { myChallenges().then(setRuns).catch(() => setRuns([])); }, []);
     useFocusEffect(load);
+    // The one Habyss features (75 Hard), for when nothing is running.
+    const [featured, setFeatured] = useState<Challenge | null>(null);
+    useEffect(() => { challengeCatalog().then(list => setFeatured(list.find(item => !item.custom) ?? null)).catch(() => undefined); }, []);
     useEffect(() => {
         const subs = [on('challenges_changed', load), on('market_changed', load)];
         return () => subs.forEach(sub => sub.remove());
@@ -61,9 +66,11 @@ export function ChallengeSection({ style }: { style?: StyleProp<ViewStyle> }) {
             {live.length ? (
                 <CardRail>{live.map(run => <Running key={run.runId} run={run} onPress={() => show(run)} />)}</CardRail>
             ) : !invites.length ? (
-                <GameCard onPress={pick} title="Pick a challenge" subtitle="Alone or with friends"
-                    lead={<IconTile icon="trophy" color={t.color.accent} size={Control.hitTarget} shape="square" muted />}
-                    badge={{ label: 'Up to 1000', tone: 'cobalt', icon: 'diamond' }} />
+                // Nothing running: the featured challenge, big, and the way to every other (or your own).
+                <View style={styles.featured}>
+                    {featured ? <ChallengeCard challenge={featured} big onPress={() => emit('show_challenges', { id: featured.id })} /> : null}
+                    <AppButton label="All challenges, or make your own" icon="trophy" variant="ghost" onPress={pick} />
+                </View>
             ) : null}
             {ended.map(run => (
                 <ListItem key={run.runId}>
@@ -93,20 +100,42 @@ function Invite({ run, onPress }: { run: Run; onPress: () => void }) {
     );
 }
 
-/** A challenge you're in: which day, your days as segments, and who's with you. */
+/**
+ * A challenge you're in, as a card that keeps the pressure on: which day,
+ * huge, out of how many; your days as segments; how many rules today; who's
+ * in it with you (one miss by anyone ends it for all).
+ */
 function Running({ run, onPress }: { run: Run; onPress: () => void }) {
+    const t = useTokens();
+    const color = useLevelColor()[run.difficulty];
     const kept = run.myDays.length;
+    const today = localDateKey(new Date());
+    const day = run.starts > today ? 0 : Math.min(run.days, Math.round((Date.parse(`${today}T12:00:00`) - Date.parse(`${run.starts}T12:00:00`)) / 86_400_000) + 1);
     return (
-        <GameCard onPress={onPress} lead={<ChallengeIcon icon={run.icon} difficulty={run.difficulty} />}
-            title={run.title} subtitle={`${dayOf(run)} · ${whoLine(run)}`}
-            badge={{ label: `${run.reward}`, tone: 'cobalt', icon: 'diamond' }}
+        <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${run.title}. ${dayOf(run)}. ${kept} of ${run.days} days kept. ${whoLine(run)}`}
             accessibilityHint="Shows everyone's days and photos">
-            <DayStrip kept={kept} days={run.days} />
-            <View style={styles.between}>
-                <FaceStack members={run.members} />
-                <Text variant="bodySmall" tone="muted" numeric>{kept} of {run.days} days</Text>
-            </View>
-        </GameCard>
+            <MatteSurface radius={Radius.card} elevation="floating" style={styles.running}>
+                <LinearGradient pointerEvents="none" colors={[t.tint('soft', color), 'transparent']} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} />
+                <View style={styles.between}>
+                    <Text variant="heading" numberOfLines={1} grow>{run.title}</Text>
+                    <Heartbeat icon={run.icon} color={color} size={Spacing.xxl} />
+                </View>
+                <View style={styles.dayRow}>
+                    {day > 0 ? (
+                        <>
+                            <Text variant="caption" tone="muted">Day</Text>
+                            <CountUp value={String(day)} style={[t.type.display, { color: t.color.textPrimary }]} />
+                            <Text variant="heading" tone="muted">{`of ${run.days}`}</Text>
+                        </>
+                    ) : <Text variant="title">Starts tomorrow</Text>}
+                </View>
+                <DayStrip kept={kept} days={run.days} />
+                <View style={styles.between}>
+                    <FaceStack members={run.members} />
+                    <Text variant="caption" tone="danger">{`${run.items.length} rules today · miss one, it’s over`}</Text>
+                </View>
+            </MatteSurface>
+        </Pressable>
     );
 }
 
@@ -176,6 +205,9 @@ function RunSheet({ run, visible, onClose }: { run: Run | null; visible: boolean
 
 const styles = StyleSheet.create({
     section: { gap: Spacing.md },
+    featured: { gap: Spacing.sm },
+    running: { padding: Spacing.lg, gap: Spacing.md, overflow: 'hidden' },
+    dayRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm },
     grow: { flex: 1, gap: Spacing.xs / 2 },
     buttons: { flexDirection: 'row', gap: Spacing.sm },
     between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
