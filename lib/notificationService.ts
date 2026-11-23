@@ -1,6 +1,6 @@
 import { DONE_CATEGORY, HANDOVER_CATEGORY } from './notificationActions';
 import { DEFAULT_PREFS, getNotificationPrefs, setNotificationPrefs } from './notificationPrefs';
-import { echoSound } from './echoSounds';
+import { echoSound, spokenStart } from './echoSounds';
 import * as Notifications from 'expo-notifications';
 import {Platform} from 'react-native';
 import * as Device from 'expo-device';
@@ -302,7 +302,9 @@ export class NotificationService {
               const ticks = moment.done ? { [moment.done.kind === 'task' ? 'taskId' : 'habitId']: moment.done.id, scheduledDate: todayKey } : null;
               // Echo says it, when chosen (Settings → Notifications → Echo announces): start, time's up, leave.
               const spoken = moment.kind === 'leave' ? 'leave' : moment.kind === 'end' ? 'end' : moment.kind === 'now' || moment.kind === 'handover' ? 'start' : null;
-              const sound = prefs.echoVoice && spoken ? echoSound(spoken, voice) : 'default';
+              // A start is said with its name ("Start Study now") where the phone can speak it (next build).
+              const said = prefs.echoVoice && spoken === 'start' && moment.title ? await spokenStart(moment.title) : null;
+              const sound = said ?? (prefs.echoVoice && spoken ? echoSound(spoken, voice) : 'default');
               if (nowGuide) {
                 guided.push({ at: date.getTime() / 1000, title: moment.title, body: moment.body,
                   category: ticks ? (moment.kind === 'handover' ? HANDOVER_CATEGORY : DONE_CATEGORY) : null,

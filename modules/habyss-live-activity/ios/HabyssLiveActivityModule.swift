@@ -1,4 +1,5 @@
 import ActivityKit
+import AVFoundation
 import ExpoModulesCore
 import SwiftUI
 #if canImport(AlarmKit)
@@ -113,6 +114,13 @@ private let momentAlarmsKey = "habyss_moment_alarm_ids"
 public class HabyssLiveActivityModule: Module {
   public func definition() -> ModuleDefinition {
     Name("HabyssLiveActivity")
+
+    // A notification's voice, spoken on the phone: "Start Study now" written once as a
+    // sound file in Library/Sounds (where notifications find their sounds) and played
+    // as that notification's sound. Clips from earlier days are cleared as new ones are made.
+    AsyncFunction("speakToSound") { (text: String, name: String) async -> Bool in
+      await SpokenSound.make(text: text, name: name)
+    }
 
     // Echo's morning alarm (AlarmKit, iOS 26+): a real alarm that rings through
     // Silent and Focus at wake time, every day, with Echo's line as its title.
@@ -315,6 +323,63 @@ public class HabyssLiveActivityModule: Module {
         throw ActivityNotFoundException(activityId)
       }
       await activity.end(ActivityContent(state: state.contentState, staleDate: nil), dismissalPolicy: .immediate)
+    }
+  }
+}
+
+
+/// Writes speech to a sound file a notification can play (Library/Sounds/<name>).
+enum SpokenSound {
+  static let prefix = "say_"
+  private static var synthesizer: AVSpeechSynthesizer?
+
+  static func make(text: String, name: String) async -> Bool {
+    // The App Group's Library/Sounds: found by notifications from the app and from its
+    // Screen Time monitor alike (the app's own Library/Sounds when there is no group).
+    let shared = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.habyss.data")?.appendingPathComponent("Library", isDirectory: true)
+    guard let library = shared ?? FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else { return false }
+    let folder = library.appendingPathComponent("Sounds", isDirectory: true)
+    try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    clearOld(in: folder)
+    let target = folder.appendingPathComponent(name)
+    if FileManager.default.fileExists(atPath: target.path) { return true }
+
+    let utterance = AVSpeechUtterance(string: text)
+    utterance.voice = AVSpeechSynthesisVoice(language: Locale.preferredLanguages.first ?? "en-US") ?? AVSpeechSynthesisVoice(language: "en-US")
+    utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+    let speaker = AVSpeechSynthesizer()
+    synthesizer = speaker
+    return await withCheckedContinuation { continuation in
+      var file: AVAudioFile?
+      var finished = false
+      speaker.write(utterance) { buffer in
+        guard !finished else { return }
+        guard let pcm = buffer as? AVAudioPCMBuffer else { return }
+        if pcm.frameLength == 0 {
+          // The last, empty buffer: the clip is complete.
+          finished = true
+          file = nil
+          continuation.resume(returning: FileManager.default.fileExists(atPath: target.path))
+          return
+        }
+        do {
+          if file == nil { file = try AVAudioFile(forWriting: target, settings: pcm.format.settings, commonFormat: pcm.format.commonFormat, interleaved: pcm.format.isInterleaved) }
+          try file?.write(from: pcm)
+        } catch {
+          finished = true
+          continuation.resume(returning: false)
+        }
+      }
+    }
+  }
+
+  /// Spoken clips older than two days go.
+  private static func clearOld(in folder: URL) {
+    let old = Date().addingTimeInterval(-2 * 86400)
+    let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+    for file in files where file.lastPathComponent.hasPrefix(prefix) {
+      let date = (try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+      if date < old { try? FileManager.default.removeItem(at: file) }
     }
   }
 }

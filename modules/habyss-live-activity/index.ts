@@ -35,6 +35,8 @@ type HabyssLiveActivityModule = {
   /** Leave now and Start now as alarms (AlarmKit, iOS 26+): ring through Silent and on the Watch. Replaces today's set. */
   scheduleMomentAlarms?(moments: { at: number; title: string }[]): Promise<'scheduled' | 'denied' | 'unavailable' | 'failed'>;
   listActivities(): string[];
+  /** A notification's voice: speaks `text` into Library/Sounds/<name> (next build); false when it could not. */
+  speakToSound?(text: string, name: string): Promise<boolean>;
   /** Echo's morning alarm (AlarmKit, iOS 26+). */
   alarmsAvailable?(): boolean;
   scheduleMorningAlarm?(hour: number, minute: number, title: string): Promise<'scheduled' | 'denied' | 'unavailable' | 'failed'>;
