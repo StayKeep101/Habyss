@@ -4,6 +4,7 @@ import { StreamPostCard, type StreamContext } from '../Community/StreamPostCard'
 import type { StreamPost } from '@/lib/communityStream';
 import type { FeedPost } from '@/lib/feedService';
 
+jest.mock('@/lib/supabase', () => ({ getSupabase: () => null }));
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'abyss' }) }));
 jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#6B8AF5', foreground: '#6B8AF5', buttonColors: ['#6B8AF5', '#6B8AF5'] }) }));
 
@@ -20,8 +21,12 @@ const post = (card = {}): FeedPost => ({
 });
 const day = (kind: StreamPost['kind'], card = {}): StreamPost => ({ kind, key: 'k', at: 'x', post: post(card) } as StreamPost);
 
+/** Opens the day from its closed card in the feed. */
+const openDay = (screen: ReturnType<typeof render>) => fireEvent.press(screen.getByLabelText(/Open \d+ cards/));
+
 /** Swipes (as VoiceOver does) to the pack's last card: the whole day as a list. */
 const toLastCard = (screen: ReturnType<typeof render>) => {
+    openDay(screen);
     for (let turn = 0; turn < 12; turn++) {
         const top = screen.getByLabelText(/Card \d+ of \d+/);
         const [, at, of] = /Card (\d+) of (\d+)/.exec(top.props.accessibilityLabel)!;
@@ -33,12 +38,18 @@ const toLastCard = (screen: ReturnType<typeof render>) => {
 it('draws a day as a pack: whose it is, how much was done, a card a thing, the list last, and reactions', () => {
     const context = ctx();
     const screen = render(<StreamPostCard item={day('daily')} ctx={context} />);
+    // Closed, in the feed: who, and how much of the day.
     expect(screen.getByText('#2')).toBeTruthy();
+    expect(screen.getByText('3/4 habits')).toBeTruthy();
+    expect(screen.queryByText('Journal')).toBeNull();
+    // Opened: the cover first.
+    openDay(screen);
     expect(screen.getByText('done')).toBeTruthy();
     expect(screen.getByText('Run, Read, Stretch')).toBeTruthy();
     expect(screen.getByLabelText(/Card 1 of 5/)).toBeTruthy();
-    expect(screen.queryByText('Journal')).toBeNull();
-    toLastCard(screen);
+    const top = screen.getByLabelText(/Card 1 of 5/);
+    fireEvent(top, 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
+    for (let turn = 0; turn < 4; turn++) fireEvent(screen.getByLabelText(/Card \d+ of 5/), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
     expect(screen.getByText('Journal')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('On fire, 2'));
     expect(context.onReact).toHaveBeenCalledWith(expect.objectContaining({ userId: 'ana' }), 'fire');
@@ -50,7 +61,7 @@ it('keeps one format for every day kind, saying what made it in the caption', ()
     expect(render(<StreamPostCard item={day('best', { best: { kind: 'streak', days: 9 } })} ctx={ctx()} />).getByText('Record: 9 days in a row')).toBeTruthy();
     expect(render(<StreamPostCard item={day('chronos', { focusMinutes: 135 })} ctx={ctx()} />).getByText('2h 15m focused')).toBeTruthy();
     // The same figure on every kind.
-    expect(render(<StreamPostCard item={day('comeback', { comeback: 5 })} ctx={ctx()} />).getAllByText('done').length).toBeGreaterThan(0);
+    expect(render(<StreamPostCard item={day('comeback', { comeback: 5 })} ctx={ctx()} />).getByText('3/4 habits')).toBeTruthy();
 });
 
 it('shows the best comments on the card and opens the conversation', () => {

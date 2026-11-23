@@ -1,9 +1,10 @@
 import { GOALS_ENABLED } from '@/constants/features';
-import React, { useSyncExternalStore } from 'react';
-import { Pressable, Text as RNText, StyleSheet, View } from 'react-native';
-import { AppIcon, Avatar, CountUp, MatteSurface, PopIn, SegmentBar, Text } from '@/components/ui';
+import React, { useState, useSyncExternalStore } from 'react';
+import { Image, Pressable, Text as RNText, StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useHaptics } from '@/hooks/useHaptics';
+import { AppIcon, Avatar, CountUp, MatteSurface, SegmentBar, Text } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
-import { textOn } from '@/theme/tokens';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
 import { maskObjectionable } from '@/lib/contentFilter';
 import { focusDuration } from '@/lib/focusStats';
@@ -15,7 +16,12 @@ import type { FriendStatus } from '@/lib/presence';
 import type { Reaction } from '@/lib/reactions';
 import { bestComments, splitMentions, type Comment } from '@/lib/comments';
 import { StatusBadge } from './StatusBadge';
-import { DayPack, type PackPage } from './DayPack';
+import { type PackPage } from './DayPack';
+import { DayViewer } from './DayViewer';
+
+/** How the three cards on top of the deck lean, fanned on the closed card. */
+const FAN = [{ rotate: -8, x: -Spacing.md }, { rotate: 6, x: Spacing.md }, { rotate: 0, x: 0 }];
+const THUMB = { width: Spacing.section * 2, height: Spacing.section * 2.6 };
 import { DeckCardFace } from './DeckCardFace';
 import { dayNote, subscribeDayNotes } from '@/lib/dayNote';
 import { deckCards } from '@/lib/dayDeck';
@@ -113,6 +119,8 @@ function DayPost({ item, ctx, footer = true }: { item: StreamPost; ctx: StreamCo
         highlight = 'All done';
     }
     // Your own note shows as soon as it is written; a friend's comes with their card.
+    const [open, setOpen] = useState(false);
+    const { mediumFeedback: openFeedback } = useHaptics();
     const localNote = useSyncExternalStore(subscribeDayNotes, () => dayNote(post.day), () => '');
     const note = post.mine ? (localNote || card.note) : card.note ? maskObjectionable(card.note) : undefined;
     const avatar = post.mine ? ctx.myAvatar : post.avatarUrl;
@@ -204,9 +212,61 @@ function DayPost({ item, ctx, footer = true }: { item: StreamPost; ctx: StreamCo
         ...(missed.length || note ? [{ key: 'last', label: [missed.length ? `Didn't get to: ${missed.map(line => (post.mine ? line.name : maskObjectionable(line.name))).join(', ')}` : null, note ? `Thoughts: ${note}` : null].filter(Boolean).join('. '), render: last }] : []),
     ];
 
+    // The deck's top three, fanned on the card in the feed: photos when there are.
+    const fanned = deck.slice(0, 3).reverse();
+    const habitsLine = card.habitsTotal ? `${card.habitsDone}/${card.habitsTotal} habits` : null;
+    const tasksLine = card.tasksTotal ? `${card.tasksDone}/${card.tasksTotal} tasks` : null;
     return (
         <View style={styles.post}>
-            <DayPack pages={pages} />
+            {/* The day, closed: who, how much of it, the deck fanned. Tap to open it, card by card. */}
+            <Pressable onPress={() => { openFeedback(); setOpen(true); }} onLongPress={post.mine ? undefined : () => ctx.onReport(post)} delayLongPress={450}
+                accessibilityRole="button" accessibilityLabel={`${name}'s day: ${[habitsLine, tasksLine].filter(Boolean).join(', ')}${highlight ? `, ${highlight}` : ''}. Open ${pages.length} cards`}>
+                <MatteSurface radius={Radius.card} style={styles.closed}>
+                    <LinearGradient pointerEvents="none" colors={[t.tint('subtle'), 'transparent']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                    <View style={styles.closedRow}>
+                        <View style={styles.fan}>
+                            {fanned.length ? fanned.map((entry, layer) => {
+                                const turn = FAN[layer + (3 - fanned.length)];
+                                return (
+                                    <View key={entry.key} style={[styles.thumb, { transform: [{ translateX: turn.x }, { rotate: `${turn.rotate}deg` }] }]}>
+                                        {entry.photo ? <Image source={{ uri: entry.photo }} style={StyleSheet.absoluteFill} accessibilityIgnoresInvertColors />
+                                            : <View style={[StyleSheet.absoluteFill, styles.thumbFace, { backgroundColor: t.color.surfaceRaised }]}>
+                                                <AppIcon name={entry.kind === 'task' ? 'checkbox' : 'repeat'} filled size={Spacing.lg} color={t.color.accent} />
+                                            </View>}
+                                    </View>
+                                );
+                            }) : (
+                                <View style={[styles.thumb, styles.thumbFace, { backgroundColor: t.color.surfaceRaised }]}>
+                                    <AppIcon name="layers" filled size={Spacing.lg} color={t.color.textSubtle} />
+                                </View>
+                            )}
+                        </View>
+                        <View style={styles.closedText}>
+                            <Pressable style={styles.who} onPress={() => ctx.openPerson(post.userId)} accessibilityRole="button" accessibilityLabel={`Open ${name}'s profile`} hitSlop={Spacing.xs}>
+                                <Avatar name={post.mine ? ctx.myName : post.name} uri={avatar} size={Spacing.xxl + Spacing.xs}
+                                    badge={status ? <StatusBadge status={status} size={12} /> : undefined} />
+                                <Text variant="heading" numberOfLines={1} grow>{name}</Text>
+                                {rank ? <Text variant="caption" tone="muted">{`#${rank}`}</Text> : null}
+                            </Pressable>
+                            <View style={styles.counts}>
+                                {habitsLine ? <Text variant="title" numeric>{habitsLine}</Text> : null}
+                                {tasksLine ? <Text variant="bodySmall" tone="muted" numeric>{tasksLine}</Text> : null}
+                            </View>
+                            <View style={styles.meta}>
+                                {card.streak > 0 ? (
+                                    <View style={styles.stat}>
+                                        <AppIcon name="flame" filled size={Spacing.lg} color={t.color.warning} />
+                                        <Text variant="caption" numeric>{String(card.streak)}</Text>
+                                    </View>
+                                ) : null}
+                                <Text variant="caption" tone={highlight ? 'accent' : 'muted'} numberOfLines={1} grow>{highlight ?? postedLabel(post.postedAt)}</Text>
+                                <AppIcon name="chevron-forward" size={Spacing.lg} color={t.color.textSubtle} />
+                            </View>
+                        </View>
+                    </View>
+                </MatteSurface>
+            </Pressable>
+            {open ? <DayViewer pages={pages} owner={post.mine ? 'Your day' : `${post.name.split(' ')[0]}’s day`} postUser={post.userId} day={post.day} mine={post.mine} onClose={() => setOpen(false)} /> : null}
             {footer ? <Footer item={item} ctx={ctx} /> : null}
         </View>
     );
@@ -269,6 +329,14 @@ export function StreamPostCard({ item, ctx, footer = true }: { item: StreamPost;
 const styles = StyleSheet.create({
     flex: { flex: 1 },
     post: { gap: Spacing.md },
+    closed: { overflow: 'hidden', padding: Spacing.lg },
+    closedRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg },
+    fan: { width: THUMB.width + Spacing.xl, height: THUMB.height + Spacing.sm, alignItems: 'center', justifyContent: 'center' },
+    thumb: { position: 'absolute', width: THUMB.width, height: THUMB.height, borderRadius: Radius.small, overflow: 'hidden' },
+    thumbFace: { alignItems: 'center', justifyContent: 'center' },
+    closedText: { flex: 1, gap: Spacing.sm },
+    counts: { gap: Spacing.xs / 2 },
+    meta: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     cover: { flex: 1, padding: Spacing.xl, justifyContent: 'space-between' },
     who: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
     nameRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm },
