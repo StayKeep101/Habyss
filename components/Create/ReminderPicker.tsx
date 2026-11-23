@@ -1,14 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { IconButton } from '@/components/ui/IconButton';
-import { AppIcon } from '@/components/ui/AppIcon';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { ChoicePill } from '@/components/ui/ChoicePill';
 import { DurationWheels } from '@/components/Create/DurationWheels';
 import { ALERT_CHOICES } from '@/lib/itemAlerts';
-import { PlaceMap, hasPlaceMap } from '@/components/Create/PlaceMap';
-import { usePanelRoom } from '@/components/Create/DetailBar';
+import { InlinePlaceMap } from '@/components/Create/InlinePlaceMap';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
 import { textOn } from '@/theme/tokens';
@@ -58,50 +56,8 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
     const derived: Mode = remindAt ? 'place' : lead || value.reminder ? 'before' : 'off';
     const [chosen, setChosen] = useState<Mode | null>(null);
     const mode = chosen ?? derived;
-    // The map, right in the panel (no full-size map on top): centred on you until a place is
-    // chosen; tapped, the place goes there. As big as the panel can grow, which grows the card with it.
-    const room = usePanelRoom();
-    const mapHeight = Math.max(200, Math.min(340, room - 110));
-    const [finding, setFinding] = useState(false);
-    const pinHere = async () => {
-        if (finding) return;
-        setFinding(true);
-        try {
-            const Location = require('expo-location') as typeof import('expo-location');
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') return;
-            const fix = await Location.getCurrentPositionAsync({});
-            const point = { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
-            setHere(point);
-            await pinAt(point);
-        } catch { /* stays where it was */ } finally { setFinding(false); }
-    };
-    const [here, setHere] = useState<{ latitude: number; longitude: number } | null>(null);
-    useEffect(() => {
-        if (mode !== 'place' || remindAt || here) return;
-        const timer = setTimeout(() => {
-            void (async () => {
-                try {
-                    const Location = require('expo-location') as typeof import('expo-location');
-                    const { status } = await Location.requestForegroundPermissionsAsync();
-                    if (status !== 'granted') return;
-                    const fix = await Location.getCurrentPositionAsync({});
-                    setHere({ latitude: fix.coords.latitude, longitude: fix.coords.longitude });
-                } catch { /* the map starts where it does */ }
-            })();
-        }, 0);
-        return () => clearTimeout(timer);
-    }, [mode, remindAt, here]);
-    const pinAt = async (point: { latitude: number; longitude: number }) => {
-        let name = 'Pinned place';
-        try {
-            const Location = require('expo-location') as typeof import('expo-location');
-            const [found] = await Location.reverseGeocodeAsync(point);
-            name = found?.name || found?.street || found?.city || name;
-        } catch { /* the plain name */ }
-        selectionFeedback();
-        onChange({ places: [...stays, { name, ...point, radius: 150, trigger: remindAt?.trigger ?? 'arrive' }] });
-    };
+    const pinAt = (point: { latitude: number; longitude: number; name: string }) =>
+        onChange({ places: [...stays, { ...point, radius: 150, trigger: remindAt?.trigger ?? 'arrive' }] });
 
     const pick = (next: Mode) => {
         setChosen(next);
@@ -148,20 +104,7 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
             {mode === 'place' ? (
                 // The map, right here: tap it where the place is; the arrow pins where you are now.
                 <View style={styles.block}>
-                    {hasPlaceMap() ? (
-                        <View>
-                            <PlaceMap key={remindAt ? `${remindAt.latitude},${remindAt.longitude}` : here ? 'here' : 'start'} center={remindAt ?? here}
-                                places={remindAt ? [remindAt] : []} accent={accent} height={mapHeight} onPick={point => void pinAt(point)} />
-                            <View style={styles.expand}>
-                                <IconButton icon={finding ? 'hourglass-outline' : 'navigate'} label="Use where I am now" diameter={32} size={15}
-                                    onPress={() => { selectionFeedback(); void pinHere(); }} />
-                            </View>
-                        </View>
-                    ) : null}
-                    <MatteSurface radius={Radius.control} level="control" style={styles.here}>
-                        <AppIcon name="location" size={14} color={accent} />
-                        <Text numberOfLines={1} style={[styles.placeName, { color: remindAt ? colors.textPrimary : colors.textTertiary }]}>{remindAt ? remindAt.name : 'Tap the map where it is'}</Text>
-                    </MatteSurface>
+                    <InlinePlaceMap place={remindAt} accent={accent} onPick={pinAt} />
                     {remindAt ? (
                         <View style={styles.placeRow}>
                             {(['arrive', 'leave'] as const).map(trigger => {
@@ -207,10 +150,6 @@ const styles = StyleSheet.create({
     block: { gap: Spacing.sm },
     caption: { fontFamily: FontFamily.medium, fontSize: 12, textAlign: 'center' },
     placeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-    placeName: { flex: 1, fontFamily: FontFamily.medium, fontSize: 14 },
     pill: { paddingHorizontal: Spacing.md, paddingVertical: 6 },
     pillText: { fontFamily: FontFamily.medium, fontSize: 13 },
-    here: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm + 2 },
-    /** The full-size map button, in the little map's corner. */
-    expand: { position: 'absolute', top: Spacing.sm, right: Spacing.sm },
 });

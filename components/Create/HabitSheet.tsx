@@ -497,13 +497,8 @@ export const HabitSheet: React.FC<{
                     {/* First: may the timeline move it, or does it stay at its time? Flexible has no time of day,
                         only how long it takes. Not asked when nothing moves (Auto-reschedule off). */}
                     {autoReschedule ? (
-                    <>
                     <Choices options={TIMING} value={exact ? 'exact' : 'flexible'} accent={accent}
                         onChange={id => change(id === 'exact' ? { flexible: false, startTime: draft.startTime ?? nextHour() } : { flexible: true, startTime: undefined })} />
-                    <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                        {exact ? 'Stays at this time.' : 'Moves with your day. Just say how long it takes.'}
-                    </Text>
-                    </>
                     ) : null}
                     <TimeRange
                         lengthOnly={!exact}
@@ -733,7 +728,6 @@ const styles = StyleSheet.create({
     link: { paddingVertical: 6 },
     place: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth },
     placeBody: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    hint: { fontSize: 12, fontFamily: FontFamily.regular, lineHeight: 17 },
     message: { minHeight: 40, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, fontFamily: FontFamily.regular },
     inline: { flexDirection: 'row', alignItems: 'center', gap: 14 },
     notes: { minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },

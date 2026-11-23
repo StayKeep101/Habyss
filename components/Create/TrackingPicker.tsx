@@ -4,7 +4,7 @@ import { AppButton, AppIcons, ChoicePill, ChoiceRow, Text } from '@/components/u
 import { useHaptics } from '@/hooks/useHaptics';
 import { Spacing } from '@/theme/designSystem';
 import type { AutoTrackOption } from '@/lib/autoTrackSources';
-import { PlaceSheet, type PickedPlace } from '@/components/Create/PlaceSheet';
+import { InlinePlaceMap, type PickedPlace } from '@/components/Create/InlinePlaceMap';
 
 type Way = 'off' | 'health' | 'app' | 'place';
 const WAYS: { id: Way; label: string }[] = [
@@ -46,7 +46,6 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, 
     healthAvailable: boolean;
 }) {
     const { selectionFeedback } = useHaptics();
-    const [picking, setPicking] = React.useState(false);
     const way: Way = chosen?.kind ?? 'off';
     const ways = WAYS.filter(item => (item.id !== 'health' || healthAvailable) && (item.id !== 'app' || appsAvailable) && (item.id !== 'health' || options.some(option => option.kind === 'health')));
     const of = (kind: Way) => options.filter(option => option.kind === kind);
@@ -101,11 +100,13 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, onMinutes, 
                     <Text variant="caption" tone="muted">
                         {stayPlace ? `Ticks itself after ${minutesSaid(minutes)} at ${stayPlace.name}.` : `Ticks itself after ${minutesSaid(minutes)} there.`}
                     </Text>
-                    <AppButton label={stayPlace ? stayPlace.name : 'Choose on the map'} icon="map" onPress={() => { selectionFeedback(); setPicking(true); }} />
-                    <PlaceSheet visible={picking} title="Count time at" initial={stayPlace}
-                        shortcut={reminderPlace ? { label: `Same as your reminder: ${reminderPlace.name}`, place: reminderPlace } : null}
-                        onClose={() => setPicking(false)}
-                        onDone={place => { setPicking(false); onStayPlace(place); }} />
+                    {reminderPlace && (!stayPlace || stayPlace.latitude !== reminderPlace.latitude || stayPlace.longitude !== reminderPlace.longitude) ? (
+                        <View style={styles.pills}>
+                            <ChoicePill label={`Same as reminder: ${reminderPlace.name}`} icon="location" on={false} color={accent}
+                                onPress={() => { selectionFeedback(); onStayPlace(reminderPlace); }} />
+                        </View>
+                    ) : null}
+                    <InlinePlaceMap place={stayPlace} accent={accent} onPick={point => onStayPlace({ ...point, radius: stayPlace?.radius ?? 150 })} />
                 </>
             ) : null}
         </View>

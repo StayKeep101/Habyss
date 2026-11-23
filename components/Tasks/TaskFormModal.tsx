@@ -358,13 +358,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                     {/* First: may the timeline move it, or does it stay at its time? Flexible has no time of day,
                         only how long it takes. Not asked when nothing moves (Auto-reschedule off). */}
                     {autoReschedule ? (
-                    <>
                     <Choices options={TIMING} value={exact ? 'exact' : 'flexible'} accent={accent}
                         onChange={id => change(id === 'exact' ? { flexible: false, dueTime: draft.dueTime ?? nextHour() } : { flexible: true, dueTime: undefined })} />
-                    <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                        {exact ? 'Stays at this time.' : 'Moves with your day. Just say how long it takes.'}
-                    </Text>
-                    </>
                     ) : null}
                     <TimeRange
                         lengthOnly={!exact}
@@ -551,7 +546,6 @@ const styles = StyleSheet.create({
     input: { minHeight: 64, borderWidth: 1, borderRadius: 14, padding: 14, fontSize: 16, lineHeight: 22, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
     readRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     read: { flexShrink: 1, fontSize: 11, fontFamily: FontFamily.regular },
-    hint: { fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular, marginBottom: 8 },
     link: { paddingVertical: 6 },
     picker: { alignSelf: 'flex-start' },
     notes: { minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },

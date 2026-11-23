@@ -20,6 +20,7 @@ import { MorphMenu } from '@/components/ui/MorphMenu';
 import { shareThoughts } from '@/lib/thoughtExport';
 import { Colors } from '@/theme/colors';
 import { textOn } from '@/theme/tokens';
+import { Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -103,7 +104,9 @@ export default function BrainDumpScreen() {
             void reorderThoughts(next.map(item => item.id));
             return next;
         });
-        setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 80);
+        // The list stays put: the new thought takes the line's place and the line moves down one row.
+        // Only if that pushes it under the keyboard does the list scroll, by just enough (keepLineInView).
+        following.current = true;
     };
 
     const remove = useCallback(async (thought: Thought, said = 'Deleted') => {
@@ -317,6 +320,16 @@ export default function BrainDumpScreen() {
     // Where each row sits in the list, so rewording one brings it up above
     // the keyboard instead of leaving the cursor hidden underneath.
     const scroller = useRef<ScrollView>(null);
+    // The writing line, after a thought is saved: kept in view without moving the rest of the list.
+    const viewport = useRef(0);
+    const following = useRef(false);
+    const keepLineInView = (event: LayoutChangeEvent) => {
+        if (!following.current) return;
+        following.current = false;
+        const { y, height } = event.nativeEvent.layout;
+        const under = y + height + Spacing.lg - (scrollY.current + viewport.current);
+        if (under > 0) scroller.current?.scrollTo({ y: scrollY.current + under, animated: true });
+    };
     const tops = useRef<Record<string, number>>({});
     useEffect(() => {
         if (!editingId) return;
@@ -385,7 +398,7 @@ export default function BrainDumpScreen() {
                 <GestureDetector gesture={twoFingers}>
                 <View style={styles.flex}>
                 <GestureDetector gesture={listScroll}>
-                <ScrollView ref={scroller} scrollEnabled={!scrollLocked} onScroll={event => { scrollY.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}
+                <ScrollView ref={scroller} scrollEnabled={!scrollLocked} onLayout={event => { viewport.current = event.nativeEvent.layout.height; }} onScroll={event => { scrollY.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}
                     contentContainerStyle={[styles.content, (editingId !== null || adding) && styles.contentEditing]} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>
                     {selecting ? (
                         <View style={styles.selectBar}>
@@ -415,7 +428,7 @@ export default function BrainDumpScreen() {
                     ))}
                     {/* The space under the last thought: tap it to write the next one. */}
                     {selecting ? null : (
-                        <View style={thoughts.length ? [styles.divider, { borderTopColor: colors.border }] : undefined}>
+                        <View style={thoughts.length ? [styles.divider, { borderTopColor: colors.border }] : undefined} onLayout={keepLineInView}>
                             <NewThought open={adding} onOpen={() => { lightFeedback(); setAdding(true); }} value={draft} onChange={setDraft}
                                 onSubmit={() => void save()} onClose={() => { setAdding(false); dictation.cancel(); }} inputRef={input} empty={!thoughts.length}
                                 placeholder={isTablet() ? 'New thought, or write with Apple Pencil' : 'New thought'}
