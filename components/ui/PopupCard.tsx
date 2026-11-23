@@ -60,9 +60,10 @@ export function PopupCard({ visible, onClose, icon, iconColor, title, body, chil
 
     return (
         <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-            <KeyboardAvoidingView style={styles.root} behavior={typing && Platform.OS === 'ios' ? 'padding' : undefined} enabled={typing}>
+            {/* Never higher than the status bar plus the badge on its top edge, however tall the keyboard. */}
+            <KeyboardAvoidingView style={[styles.root, { paddingTop: insets.top + BADGE_ROOM }]} behavior={typing && Platform.OS === 'ios' ? 'padding' : undefined} enabled={typing}>
                 <AnimatedPressable accessibilityLabel="Close" onPress={close} style={[StyleSheet.absoluteFill, scrim, { backgroundColor: colors.background }]} />
-                <Animated.View style={[styles.card, card, elevationFor(theme, 'floating'), { paddingBottom: sheetBottom(insets.bottom), backgroundColor: tone.fill }]}>
+                <Animated.View style={[styles.card, card, elevationFor(theme, 'floating'), { paddingBottom: typing ? Spacing.lg : sheetBottom(insets.bottom), backgroundColor: tone.fill }]}>
                     <View pointerEvents="none" style={styles.material}>
                         <LinearGradient colors={[tone.top, tone.fill, tone.bottom]} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
                     </View>
@@ -77,6 +78,9 @@ export function PopupCard({ visible, onClose, icon, iconColor, title, body, chil
         </Modal>
     );
 }
+
+/** The badge stands this far above the card's edge. */
+const BADGE_ROOM = Spacing.section + Spacing.xxl;
 
 const styles = StyleSheet.create({
     root: { flex: 1, justifyContent: 'flex-end' },

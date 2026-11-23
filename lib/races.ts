@@ -36,8 +36,21 @@ export interface Race {
     myBet: { side: RaceSide; amount: number; payout: number | null } | null;
 }
 
-/** The times offered, in minutes; any between 15 minutes and 12 hours is allowed. */
-export const RACE_TIMES = [30, 60, 120, 180, 240, 360] as const;
+/** A task with no estimate is expected to take this long. */
+export const TYPICAL_TASK = 90;
+
+/** How long the chosen tasks should take: their estimates, 90 minutes each without one. */
+export const expectedMinutes = (tasks: { estimatedMinutes?: number }[]): number =>
+    tasks.reduce((sum, task) => sum + (task.estimatedMinutes && task.estimatedMinutes > 0 ? task.estimatedMinutes : TYPICAL_TASK), 0);
+
+/**
+ * The times you can race in: 15 minutes up to what the tasks should take (a
+ * race is beating the clock, never padding it), in quarter hours, at most 12 hours.
+ */
+export function raceTimes(expected: number): number[] {
+    const cap = Math.max(RACE_MIN, Math.min(RACE_MAX, Math.floor(expected / 15) * 15));
+    return Array.from({ length: cap / 15 }, (_, index) => (index + 1) * 15);
+}
 export const RACE_MIN = 15;
 export const RACE_MAX = 12 * 60;
 /** Habyss's match on a win, at most. */

@@ -1,7 +1,17 @@
 jest.mock('../supabase', () => ({ getSupabase: () => null }));
-import { betPayout, ownerWin, raceDone, raceTitle, timeLeft } from '../races';
+import { betPayout, expectedMinutes, ownerWin, raceDone, raceTimes, raceTitle, timeLeft } from '../races';
 
 describe('race the clock', () => {
+    it('only lets you race faster than the tasks should take', () => {
+        expect(expectedMinutes([{}, {}, {}])).toBe(270);
+        expect(expectedMinutes([{ estimatedMinutes: 30 }, {}])).toBe(120);
+        const times = raceTimes(270);
+        expect(times[0]).toBe(15);
+        expect(times[times.length - 1]).toBe(270);
+        expect(raceTimes(10)).toEqual([15]);
+        expect(raceTimes(5000).pop()).toBe(720);
+    });
+
     it('names a race by what it is', () => {
         expect(raceTitle(3, 180)).toBe('3 tasks in 3 hours');
         expect(raceTitle(1, 60)).toBe('1 task in 1 hour');

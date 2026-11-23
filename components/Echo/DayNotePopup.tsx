@@ -50,12 +50,12 @@ export function DayNotePopup() {
     return (
         <PopupCard visible={!!day} onClose={() => { lightFeedback(); close(); }} icon="book" iconColor={primary} typing
             title="How did today go?" body="Your day is up. A few words go on its last card.">
-            <AppTextField value={text} onChangeText={setText} multiline autoFocus maxLength={600}
+            <AppTextField value={text} onChangeText={setText} multiline autoFocus maxLength={600} style={styles.field}
                 placeholder="What happened, how it felt…" accessibilityLabel="Your thoughts on today" />
             <View style={styles.actions}>
                 <View style={styles.flex}><AppButton label="Not today" variant="ghost" onPress={() => { lightFeedback(); close(); }} /></View>
                 <View style={styles.flex}>
-                    <AppButton label="Add to my day" icon="checkmark" variant="primary" disabled={!text.trim()}
+                    <AppButton label="Add it" icon="checkmark" variant="primary" disabled={!text.trim()}
                         onPress={() => { successFeedback(); if (day) void setDayNote(day, text); setDay(null); setText(''); }} />
                 </View>
             </View>
@@ -65,5 +65,7 @@ export function DayNotePopup() {
 
 const styles = StyleSheet.create({
     flex: { flex: 1 },
+    // A few lines tall: room to write, and the card still clears the status bar over the keyboard.
+    field: { minHeight: Spacing.section * 2.5 },
     actions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
 });
