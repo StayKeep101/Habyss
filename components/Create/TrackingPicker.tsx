@@ -61,10 +61,6 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, accent, sta
         <View style={styles.wrap} onLayout={way === 'place' ? fit.onLayout : undefined}>
             <ChoiceRow accessibilityLabel="How it is tracked" options={ways} value={way} onChange={pickWay} color={accent} />
 
-            {way === 'off' ? (
-                <Text variant="caption" tone="muted">You tick it yourself. A photo, if you like.</Text>
-            ) : null}
-
             {way === 'health' ? (
                 <>
                     <View style={styles.pills}>

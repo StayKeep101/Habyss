@@ -154,7 +154,9 @@ const describeReminder = (draft: Draft): string | undefined => {
     if (draft.reminder) {
         parts.push(draft.reminderOffset ? `${shortLead(draft.reminderOffset)} ${draft.reminder}` : draft.reminder);
     }
-    if (draft.places.length) parts.push(draft.places.length === 1 ? draft.places[0].name : `${draft.places.length} places`);
+    // Only its own places: one Tracking counts time at is Tracking's, not a reminder.
+    const places = draft.places.filter(place => place.trigger !== 'stay');
+    if (places.length) parts.push(places.length === 1 ? places[0].name : `${places.length} places`);
     return parts.length ? parts.join(' · ') : undefined;
 };
 
@@ -331,7 +333,8 @@ export const HabitSheet: React.FC<{
     const stayPlace = draft.places.find(place => place.trigger === 'stay');
     const currentKey = current
         ? current.healthKitMetric ? `health:${current.healthKitMetric}` : appLinked ? 'app' : current.locationReminders?.some(place => place.trigger === 'stay') ? 'place' : 'off'
-        : suggestions[0]?.key ?? 'off';
+        // New: by hand until you choose another way (a suggestion is a tap away, never chosen for you).
+        : 'off';
     // Said in the sentence: "from Apple Health", "on Libby", "at the gym".
     const saidTracking = rules?.tracking;
     const saidKey = current || !canTrack || !saidTracking || saidTracking.kind === 'auto' ? undefined
