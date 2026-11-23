@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { AppButton, AppIcon, Text, VoidSheet } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
-import { Spacing } from '@/theme/designSystem';
+import { Radius, Spacing } from '@/theme/designSystem';
 
 /**
  * How the brain dump works, opened from its info button: every gesture, one
@@ -17,24 +17,30 @@ export function BrainDumpHowTo({ visible, clearsOn, onClose, onExport }: {
     onExport?: () => void;
 }) {
     const t = useTokens();
-    const lines: { icon: string; text: string }[] = [
-        { icon: 'create', text: 'Type at the bottom and send. Nothing typed: the mic, to say it.' },
-        { icon: 'hand-left', text: 'Tap a thought to reword it.' },
-        { icon: 'finger-print', text: 'Hold a thought, then let go: turn it into a task or a habit, copy it, or delete it.' },
-        { icon: 'reorder-three', text: 'Hold and drag to move it.' },
-        { icon: 'arrow-back', text: 'Swipe left to delete, with a moment to undo.' },
-        { icon: 'checkmark-done', text: 'Drag two fingers down the list to select several; tap to add or take one out. Hold a selected one to act on them all.' },
-        ...(clearsOn ? [{ icon: 'moon', text: `It clears every ${clearsOn} night, so the week starts empty.` }] : []),
-        { icon: 'lock-closed', text: 'It stays on this phone.' },
+    // Each gesture in a word or two, what it does under it, muted.
+    const lines: { icon: string; gesture: string; does: string }[] = [
+        { icon: 'create', gesture: 'Type or talk', does: 'Send it, or tap the mic' },
+        { icon: 'hand-left', gesture: 'Tap', does: 'Reword it' },
+        { icon: 'finger-print', gesture: 'Hold', does: 'Make it a task or habit, copy, delete' },
+        { icon: 'reorder-three', gesture: 'Hold and drag', does: 'Move it' },
+        { icon: 'arrow-back', gesture: 'Swipe left', does: 'Delete, with undo' },
+        { icon: 'checkmark-done', gesture: 'Two fingers down', does: 'Select several' },
+        ...(clearsOn ? [{ icon: 'moon', gesture: `Clears ${clearsOn} night`, does: 'Every week starts empty' }] : []),
+        { icon: 'lock-closed', gesture: 'Private', does: 'Stays on this phone' },
     ];
     return (
         <VoidSheet visible={visible} onClose={onClose} title="Brain dump"
             footer={onExport ? <View style={styles.foot}><AppButton label="Export everything" icon="share-outline" onPress={onExport} /></View> : undefined}>
             <View style={styles.body}>
                 {lines.map(line => (
-                    <View key={line.text} style={styles.line}>
-                        <AppIcon name={line.icon as never} size={Spacing.lg + Spacing.xs / 2} color={t.color.accentText} />
-                        <Text variant="body" grow>{line.text}</Text>
+                    <View key={line.gesture} style={styles.line} accessible accessibilityLabel={`${line.gesture}: ${line.does}`}>
+                        <View style={[styles.chip, { backgroundColor: t.tint('subtle', t.color.accentText) }]}>
+                            <AppIcon name={line.icon as never} filled size={Spacing.lg} color={t.color.accentText} />
+                        </View>
+                        <View style={styles.words}>
+                            <Text variant="heading" numberOfLines={1}>{line.gesture}</Text>
+                            <Text variant="bodySmall" tone="muted" numberOfLines={2}>{line.does}</Text>
+                        </View>
                     </View>
                 ))}
             </View>
@@ -44,6 +50,8 @@ export function BrainDumpHowTo({ visible, clearsOn, onClose, onExport }: {
 
 const styles = StyleSheet.create({
     body: { paddingHorizontal: Spacing.xl, gap: Spacing.lg, paddingBottom: Spacing.sm },
-    line: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
+    line: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+    chip: { width: Spacing.section + Spacing.xs, height: Spacing.section + Spacing.xs, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+    words: { flex: 1, gap: Spacing.xs / 2 },
     foot: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm },
 });
