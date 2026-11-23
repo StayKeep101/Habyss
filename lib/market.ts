@@ -112,6 +112,10 @@ export async function settleMarketFor(goalId: string, won: boolean): Promise<voi
     } catch { /* a goal is reached regardless */ }
 }
 
+/** The server's reasons, as the wallet lists them: a challenge's reward and Habyss's match on a race are payouts. */
+const asReason = (reason: unknown): LedgerEntry['reason'] =>
+    reason === 'stake' || reason === 'refund' || reason === 'unlock' ? reason : 'payout';
+
 export interface LedgerEntry { amount: number; reason: 'stake' | 'payout' | 'refund' | 'unlock'; at: string; title: string }
 
 /** What bets have moved in your wallet: the total, what is in play, what the server lets you spend, and the latest entries. */
@@ -125,7 +129,7 @@ export async function myWallet(): Promise<{ ledger: number; inPlay: number; spen
         inPlay: Number(total?.in_play) || 0,
         spendable: total?.spendable === undefined || total?.spendable === null ? null : Number(total.spendable),
         entries: Array.isArray(rows.data) ? rows.data.map((row: Record<string, unknown>) => ({
-            amount: Number(row.amount) || 0, reason: row.reason as LedgerEntry['reason'], at: String(row.created_at), title: String(row.title ?? 'A bet'),
+            amount: Number(row.amount) || 0, reason: asReason(row.reason), at: String(row.created_at), title: String(row.title ?? 'A bet'),
         })) : [],
     };
 }

@@ -24,6 +24,7 @@ import { AddFriendModal } from '@/components/Community/AddFriendModal';
 import type { RailFriend } from '@/components/Community/FriendsRail';
 import { StreamPostCard, type StreamContext } from '@/components/Community/StreamPostCard';
 import { PagerGesture } from '@/components/Community/DayPack';
+import { RaceSection } from '@/components/Challenge/RaceSection';
 import { scheduleDayNotePrompt } from '@/lib/dayNote';
 import { buildStream } from '@/lib/communityStream';
 import { listenToComments, loadThreads, threadKey, type Comment } from '@/lib/comments';
@@ -552,7 +553,8 @@ export default function CommunityScreen() {
     );
     const challengesPage = (
         <View onLayout={measure(1)} style={{ width: pageWidth, paddingHorizontal: horizontalPadding }}>
-            {/* Challenges (picked from Habyss's list, alone or with friends) and bets on goals. */}
+            {/* Race the clock (your own challenge, Shards on it), then Habyss's challenges and bets on goals. */}
+            <RaceSection style={styles.block} />
             <ChallengeSection style={styles.block} />
             {MARKET_ENABLED ? <MarketSection style={styles.block} /> : null}
         </View>

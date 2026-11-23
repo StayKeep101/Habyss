@@ -3,6 +3,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/theme/colors';
 import { GlassDock } from '@/components/TabBar/GlassDock';
 import { useDayCardPublisher } from '@/hooks/useDayCardPublisher';
+import { useRaceWatcher } from '@/hooks/useRaceWatcher';
 import { useAppSounds } from '@/hooks/useAppSounds';
 import { useLivePulse } from '@/hooks/useLivePulse';
 import { useFocusStatus, useStatusBroadcast } from '@/hooks/useStatusBroadcast';
@@ -15,6 +16,8 @@ export default function TabLayout() {
   const colors = Colors[colorScheme ?? 'light'];
   // Today's progress card, kept current for your friends' chats.
   useDayCardPublisher();
+  // Your race against the clock, won the moment its last task is ticked (hooks/useRaceWatcher.ts).
+  useRaceWatcher();
   // Sounds for the app's moments: a task done, a day closed, a goal reached.
   useAppSounds();
   // Friends see your day change as it happens.
