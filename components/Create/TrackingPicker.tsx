@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { AppButton, AppIcons, ChoicePill, ChoiceRow, Text } from '@/components/ui';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { AppIcon, AppIcons, appIconsSupported, ChoicePill, ChoiceRow, MatteSurface, Text } from '@/components/ui';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Spacing } from '@/theme/designSystem';
 import type { AutoTrackOption } from '@/lib/autoTrackSources';
@@ -10,6 +10,9 @@ type Way = 'off' | 'health' | 'app' | 'place';
 const WAYS: { id: Way; label: string }[] = [
     { id: 'off', label: 'By hand' }, { id: 'health', label: 'Health' }, { id: 'app', label: 'Apps' }, { id: 'place', label: 'Place' },
 ];
+// An app icon's size, and its rounded-square corner (as iOS draws them: 23% of the side).
+const TILE = Spacing.section + Spacing.md;
+const TILE_RADIUS = Math.round(TILE * 0.23);
 const minutesSaid = (minutes: number) => (minutes >= 60 && minutes % 60 === 0 ? `${minutes / 60} h` : `${minutes} min`);
 
 /**
@@ -74,11 +77,22 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, accent, sta
 
             {way === 'app' && chosen?.kind === 'app' ? (
                 <>
-                    {/* Which apps: Apple's own picker, opened right here. How long: the habit's own time. */}
-                    {/* The apps themselves, by their icons, once there are some. */}
-                    {appsCount && appsHabitId ? <AppIcons habitId={appsHabitId} version={appsCount} /> : null}
-                    <AppButton label={appsCount ? `${appsCount} app${appsCount > 1 ? 's' : ''} chosen · Change` : 'Add apps'} icon={appsCount ? 'apps' : 'add'}
-                        variant={appsCount ? 'default' : 'primary'} onPress={onAddApps} />
+                    {/* The apps, as their icons (up to five; past that, how many), then a rounded square with a
+                        plus that opens Apple's own picker. Tapping the icons opens it too. */}
+                    <Pressable onPress={onAddApps} accessibilityRole="button"
+                        accessibilityLabel={appsCount ? `${appsCount} app${appsCount > 1 ? 's' : ''} chosen. Change apps` : 'Add apps'} style={styles.apps}>
+                        {appsCount && appsHabitId && appsCount <= 5 && appIconsSupported() ? (
+                            <AppIcons habitId={appsHabitId} version={appsCount} size={TILE} count={appsCount} />
+                        ) : appsCount ? (
+                            <MatteSurface radius={TILE_RADIUS} level="control" style={styles.tile}>
+                                <Text variant="heading" numeric>{appsCount}</Text>
+                            </MatteSurface>
+                        ) : null}
+                        <MatteSurface radius={TILE_RADIUS} level="control" style={styles.tile}>
+                            <AppIcon name="add" size={Spacing.xxl} color={accent} />
+                        </MatteSurface>
+                        {appsCount ? null : <Text variant="body" tone="muted">Add apps</Text>}
+                    </Pressable>
                     <Text variant="caption" tone="muted">
                         {`${chosen.idea.quit ? `Kept when the day ends under ${minutesSaid(minutes)}` : `Ticks itself after ${minutesSaid(minutes)}`} in ${appsCount ? 'them' : 'the apps you add'}. ${minutesFromHabit ? '' : 'Set another time in Measure.'}`}
                     </Text>
@@ -106,4 +120,6 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, accent, sta
 const styles = StyleSheet.create({
     wrap: { gap: Spacing.md },
     pills: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+    apps: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, alignSelf: 'flex-start' },
+    tile: { width: TILE, height: TILE, alignItems: 'center', justifyContent: 'center' },
 });

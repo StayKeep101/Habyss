@@ -16,10 +16,13 @@ export const appIconsSupported = (): boolean => !!NativeIcons;
  * `version` changes after the picker closes, so a new choice shows at once.
  * Nothing on a build without it.
  */
-export function AppIcons({ habitId, version = 0, size = Spacing.section - Spacing.xs }: { habitId: string; version?: number; size?: number }) {
+export function AppIcons({ habitId, version = 0, size = Spacing.section - Spacing.xs, count }: { habitId: string; version?: number; size?: number;
+    /** How many there are: the row is then exactly as wide as them (drawn Spacing.sm apart), so something can sit right after. */
+    count?: number }) {
     if (!NativeIcons || !habitId) return null;
+    const width = count ? count * size + (count - 1) * Spacing.sm : '100%';
     return (
-        <View accessible accessibilityLabel="The apps you chose" style={{ height: size }}>
+        <View accessible accessibilityLabel="The apps you chose" style={{ height: size, width }}>
             <NativeIcons habitId={habitId} version={version} size={size} style={{ height: size, width: '100%' }} />
         </View>
     );
