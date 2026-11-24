@@ -10,6 +10,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useNowStep } from '@/hooks/useNowStep';
 import { useFocusSession, useFocusTimeLeft } from '@/context/FocusTimeContext';
 import { formatClock } from '@/lib/habitMeasurement';
+import { useBedtime } from '@/hooks/useBedtime';
 import { clockLabel } from '@/lib/dayFlow';
 import { openFocusOn } from '@/lib/openFocus';
 import { bringBack } from '@/lib/dayMemory';
@@ -67,17 +68,23 @@ function StepBar({ step, docked }: { step: NonNullable<ReturnType<typeof useNowS
     // A gap before the next thing: free time, counted down to it, the ring filling across the gap.
     // Nothing left ahead but missed ones: free time too, never an old one shown as next.
     const free = !on && ((ahead && step.freeFrom !== undefined) || (!ahead && missed.length > 0));
+    // Past bedtime, free time is sleep time: counted down to waking up, the ring filling across the night.
+    const bed = useBedtime();
+    const asleep = free && !!bed && bed.asleep(minute);
+    const night = bed ? (bed.wake - bed.sleep + 1440) % 1440 || 1440 : 1;
+    const toWake = bed ? (bed.wake - minute + 1440) % 1440 : 0;
     const span = Math.max(1, item.end - item.start);
     const gap = free && ahead ? Math.max(1, item.start - step.freeFrom!) : 1;
-    const progress = on ? (minute - item.start) / span : free && ahead ? Math.min(1, Math.max(0, (minute - step.freeFrom!) / gap)) : 0;
-    const title = free ? 'Free time' : item.title;
+    const progress = asleep ? Math.min(1, Math.max(0, 1 - toWake / night))
+        : on ? (minute - item.start) / span : free && ahead ? Math.min(1, Math.max(0, (minute - step.freeFrom!) / gap)) : 0;
+    const title = asleep ? 'Sleep time' : free ? 'Free time' : item.title;
     const fit = missed.length ? `fit in ${missed.length} missed` : null;
     // Docked beside the Roadmap disc the room is narrow: "Until 1:33 PM" says it.
-    const when = on ? (docked ? `Until ${clockLabel(item.end)}` : `Now · until ${clockLabel(item.end)}`)
+    const when = asleep ? `Until wake up · ${clockLabel(bed!.wake)}` : on ? (docked ? `Until ${clockLabel(item.end)}` : `Now · until ${clockLabel(item.end)}`)
         : free && fit ? (ahead ? `Until ${clockLabel(item.start)} · ${fit}` : `Tap to ${fit}`)
         : free ? `Until ${item.title} · ${clockLabel(item.start)}` : `Next · ${clockLabel(item.start)}`;
     const left = on ? Math.max(1, Math.round(item.end - minute)) : Math.max(0, Math.round(item.start - minute));
-    const spoken = on ? `Now: ${item.title}, ${left} minutes left. Focus on it`
+    const spoken = asleep ? `Sleep time, until you wake up at ${clockLabel(bed!.wake)}` : on ? `Now: ${item.title}, ${left} minutes left. Focus on it`
         : free && fit ? `Free time${ahead ? `, ${left} minutes until ${item.title} at ${clockLabel(item.start)}` : ''}. ${missed.length} missed: fit them in now`
         : free ? `Free time, ${left} minutes until ${item.title} at ${clockLabel(item.start)}`
         : `Next: ${item.title}, at ${clockLabel(item.start)}. Focus on it`;
@@ -100,7 +107,7 @@ function StepBar({ step, docked }: { step: NonNullable<ReturnType<typeof useNowS
                         <Text numberOfLines={1} style={[styles.meta, { color: t.color.textMuted }]}>{when}</Text>
                     </View>
                     {/* Time left while it is on; time until it starts while it is next. */}
-                    {on || ahead ? <Text style={[styles.clock, docked ? styles.clockDocked : null, { color: t.color.textPrimary }]}>{clockOf(on ? item.end - minute : item.start - minute)}</Text> : null}
+                    {on || ahead || asleep ? <Text style={[styles.clock, docked ? styles.clockDocked : null, { color: t.color.textPrimary }]}>{clockOf(asleep ? toWake : on ? item.end - minute : item.start - minute)}</Text> : null}
                 </Pressable>
             </MatteSurface>
         </Animated.View>

@@ -10,6 +10,7 @@ import { useClockStyle } from '@/hooks/useClockStyle';
 import { showFocusStep, useFocusDay } from '@/hooks/useFocusDay';
 import { useHaptics } from '@/hooks/useHaptics';
 import { clockLabel } from '@/lib/dayFlow';
+import { useBedtime } from '@/hooks/useBedtime';
 import { on } from '@/lib/appEvents';
 import { pushFocusToWatch } from '@/lib/watchSync';
 import { styles } from '@/styles/screens/focus.styles';
@@ -62,7 +63,12 @@ export function FocusBlock({ kind, id, title, from, until, nextKind }: { kind: s
     };
     nextRef.current = next;
     const stop = () => { pushFocusToWatch(null); router.back(); };
-    const line = waitingFor ? `Until ${clockLabel(Math.round(until))}, then ${title}`
+    // Past bedtime, the wait is sleep time, until you wake up.
+    const bed = useBedtime();
+    const nowMinute = new Date().getHours() * 60 + new Date().getMinutes();
+    const asleep = !!waitingFor && !!bed && bed.asleep(nowMinute);
+    const line = asleep ? `Sleep time, until you wake up at ${clockLabel(bed!.wake)}`
+        : waitingFor ? `Until ${clockLabel(Math.round(until))}, then ${title}`
         : before ? `${title} at ${clockLabel(Math.round(from))}` : `${title} until ${clockLabel(Math.round(until))}`;
     return (
         <View style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom }]}>
@@ -75,7 +81,7 @@ export function FocusBlock({ kind, id, title, from, until, nextKind }: { kind: s
                 {waitingFor ? (
                     // Free time: just the words and how long it lasts. No ring, no mark.
                     <>
-                        <Text style={styles.freeTitle} accessibilityRole="header" adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1}>Free time</Text>
+                        <Text style={styles.freeTitle} accessibilityRole="header" adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1}>{asleep ? 'Sleep time' : 'Free time'}</Text>
                         <FocusDigits seconds={left} size={Math.min(screen.width * 0.16, screen.height * 0.08)} label={line} />
                     </>
                 ) : (
