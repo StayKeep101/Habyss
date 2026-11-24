@@ -590,8 +590,11 @@ export function flowInputs(input: {
     for (const task of input.tasks) {
         if (task.status === 'cancelled') continue;
         const minutes = task.measure === 'time' && task.target ? task.target : Number(task.estimatedMinutes) || 0;
-        items.push({ id: task.id, kind: 'task', title: task.title, start: toMinutes(task.dueTime), minutes, done: task.status === 'done',
-            locked: !!task.dueTime && task.flexible === false, rescheduledAt: input.rescheduled?.[task.id],
+        // Like a habit: at an exact time wins; else held to what it is linked to, when that is on today.
+        const pinned = !!task.dueTime && task.flexible === false;
+        const anchorAt = !pinned && task.anchor ? anchoredStart(task.anchor, minutes || DEFAULT_LENGTH.task, anchors.filter(block => block.title !== task.title)) : null;
+        items.push({ id: task.id, kind: 'task', title: task.title, start: anchorAt ?? toMinutes(task.dueTime), minutes, done: task.status === 'done',
+            locked: pinned || anchorAt !== null, anchoredTo: anchorAt !== null && task.anchor ? anchorLabel(task.anchor) : undefined, rescheduledAt: input.rescheduled?.[task.id],
             priority: level(task.priority), difficulty: task.difficulty, due: task.deadline ?? task.dueDate, deadline: task.deadline,
             doneAt: task.status === 'done' ? minuteOn(task.completedAt) : undefined, subtasks: task.subtasks,
             doneStamp: task.status === 'done' ? stampOf(task.completedAt) : undefined,

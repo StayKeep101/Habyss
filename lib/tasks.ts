@@ -1,4 +1,5 @@
 import { parsePlaces, parseReminderTime, storePlaces } from './places';
+import { parseAnchor, storeAnchor, type HabitAnchor } from './habitAnchor';
 import type { LocationReminder } from './habitsSQLite';
 import { parseAlerts, storeAlerts } from './itemAlerts';
 import { generateId, getDatabase, isSQLiteAvailable, nowISO } from './database';
@@ -72,6 +73,8 @@ export interface Task {
     locationReminders?: LocationReminder[];
     /** The heading it sits under in its goal's to-do list ("Research"). Kept on this phone. */
     section?: string;
+    /** Right before or after something in the day, like a habit's (lib/habitAnchor.ts). Kept on this phone. */
+    anchor?: HabitAnchor;
     createdAt: string;
     updatedAt: string;
 }
@@ -117,6 +120,7 @@ export interface TaskInput {
     locationReminders?: LocationReminder[];
     subtasks?: Subtask[];
     section?: string;
+    anchor?: HabitAnchor | null;
 }
 
 const rowToTask = (row: any): Task => ({
@@ -145,6 +149,7 @@ const rowToTask = (row: any): Task => ({
     flexible: row.flexible === 0 ? false : row.flexible === 1 ? true : undefined,
     subtasks: parseSubtasks(row.subtasks),
     section: typeof row.section === 'string' && row.section ? row.section : undefined,
+    anchor: parseAnchor(row.anchor),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
 });
@@ -196,16 +201,16 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
     await db.runAsync(
         `INSERT INTO tasks (
             id, user_id, title, description, due_date, due_time, estimated_minutes,
-            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id, difficulty, deadline, flexible, subtasks, section, alerts, reminder, location_reminders,
+            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id, difficulty, deadline, flexible, subtasks, section, alerts, reminder, location_reminders, anchor,
             created_at, updated_at, deleted, synced
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
         id, uid, title, input.description ?? null, input.dueDate ?? null, input.dueTime ?? null,
         input.estimatedMinutes ?? null, input.priority ?? 2, input.goalId ?? null,
         input.source ?? 'app', input.externalId ?? null,
         input.measure && input.measure !== 'done' ? input.measure : null,
         input.measure && input.measure !== 'done' ? input.target ?? null : null,
         input.unit?.trim() || null, input.milestoneId ?? null, input.difficulty ?? null, input.deadline ?? null, input.flexible === undefined ? null : input.flexible ? 1 : 0,
-        input.subtasks?.length ? JSON.stringify(input.subtasks) : null, input.section?.trim() || null, storeAlerts(input.alerts), parseReminderTime(input.reminder) ?? null, storePlaces(input.locationReminders), now, now,
+        input.subtasks?.length ? JSON.stringify(input.subtasks) : null, input.section?.trim() || null, storeAlerts(input.alerts), parseReminderTime(input.reminder) ?? null, storePlaces(input.locationReminders), storeAnchor(input.anchor), now, now,
     );
 
     const row = input.externalId
@@ -229,7 +234,7 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
         source: 'source', externalId: 'external_id',
         measure: 'measure', target: 'target', unit: 'unit', amount: 'amount', milestoneId: 'milestone_id',
         difficulty: 'difficulty', deadline: 'deadline', flexible: 'flexible', subtasks: 'subtasks', section: 'section', alerts: 'alerts',
-        reminder: 'reminder', locationReminders: 'location_reminders',
+        reminder: 'reminder', locationReminders: 'location_reminders', anchor: 'anchor',
     };
 
     const sets: string[] = [];
@@ -242,6 +247,7 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
             : key === 'alerts' ? storeAlerts(raw as number[] | null)
             : key === 'locationReminders' ? storePlaces(raw as LocationReminder[] | null)
             : key === 'reminder' ? parseReminderTime(raw) ?? null
+            : key === 'anchor' ? storeAnchor(raw as HabitAnchor | null)
             : typeof raw === 'boolean' ? (raw ? 1 : 0) : raw;
         // Clearing a due date or notes must stick; clearing the title cannot.
         if (value === null && REQUIRED.includes(key)) continue;

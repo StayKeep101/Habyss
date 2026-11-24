@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 23;
+const SCHEMA_VERSION = 24;
 
 let dbInstance: any = null;
 /**
@@ -135,6 +135,7 @@ async function runMigrations(db: any): Promise<void> {
         [21, migrateToV21],
         [22, migrateToV22],
         [23, migrateToV23],
+        [24, migrateToV24],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -189,6 +190,15 @@ async function runMigrations(db: any): Promise<void> {
  * ("HH:MM"), and at places, arriving or leaving (JSON). Backed up through
  * supabase/migrations/20261109000200_task_reminders.sql.
  */
+/**
+ * Migration to version 24 — a task held before or after something in the day,
+ * like a habit (lib/habitAnchor.ts), as the same JSON. Kept on this phone.
+ */
+async function migrateToV24(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'tasks', 'anchor', 'TEXT');
+    console.log('[Database] Migrated to schema v24');
+}
+
 async function migrateToV23(db: any): Promise<void> {
     await addColumnIfMissing(db, 'tasks', 'reminder', 'TEXT');
     await addColumnIfMissing(db, 'tasks', 'location_reminders', 'TEXT');

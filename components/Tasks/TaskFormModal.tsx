@@ -1,10 +1,11 @@
 import { GOALS_ENABLED } from '@/constants/features';
 import { goalCompletedOn } from '@/lib/goalInsights';
+import { AnchorPicker } from '@/components/Create/AnchorPicker';
+import { anchorLabel, type HabitAnchor } from '@/lib/habitAnchor';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAutoReschedule } from '@/context/AppSettingsContext';
 import { DEFAULT_LENGTH } from '@/lib/dayFlow';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
 import { TimeRange, endTime, nextHour } from '@/components/Create/TimeRange';
@@ -57,9 +58,11 @@ interface Props {
     dueDate?: string;
 }
 
-const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
+const TIMING: { id: 'exact' | 'flexible' | 'link'; label: string }[] = [
     { id: 'flexible', label: 'Anytime' },
     { id: 'exact', label: 'Exact time' },
+    // Right before or after a class, a meal, an event, a task or a habit (lib/habitAnchor.ts), as a habit can.
+    { id: 'link', label: 'Link' },
 ];
 
 
@@ -89,6 +92,8 @@ interface Draft {
     /** Reminded at a time on its day, or at places: the same choices as a habit (ReminderPicker). */
     reminder?: string;
     places: LocationReminder[];
+    /** Right before or after something in the day. */
+    anchor?: HabitAnchor | null;
 }
 
 
@@ -103,6 +108,7 @@ const fromTask = (task: Task): Draft => ({
     alerts: task.alerts,
     reminder: task.reminder,
     places: task.locationReminders ?? [],
+    anchor: task.anchor ?? null,
     estimate: task.estimatedMinutes,
     priority: task.priority,
     difficulty: task.difficulty,
@@ -147,6 +153,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const [text, setText] = useState('');
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<string | null>(null);
+    // Time → Link chosen, before anything is linked.
+    const [linking, setLinking] = useState(false);
     const [goals, setGoals] = useState<Habit[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -171,6 +179,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         setText(current?.title ?? prefill);
         setPrefill('');
         setEdits({});
+        setLinking(false);
         // Whatever the opener asked to land on, or nothing.
         setOpenRow(requestedRow);
         setOpenedWith(requestedRow);
@@ -268,6 +277,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 alerts: draft.alerts ?? [],
                 reminder: draft.reminder,
                 locationReminders: draft.places,
+                anchor: linked && draft.anchor?.to.trim() ? draft.anchor : null,
             };
             if (current) await updateTask(current.id, input);
             else {
@@ -302,7 +312,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const canSave = !!text.trim();
     // At an exact time (it stays there), or flexible (the timeline places it; no time of day).
     // With Auto-reschedule off the day is a plain calendar: every time is kept.
-    const exact = !autoReschedule || draft.flexible === false;
+    const linked = autoReschedule && (linking || !!draft.anchor?.to.trim());
+    const exact = !linked && (!autoReschedule || draft.flexible === false);
     const items: DetailItem[] = [
         {
             id: 'due', icon: 'calendar-outline', label: 'Do it on', value: shortDate(draft.dueDate),
@@ -349,18 +360,27 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             ),
         },
         {
-            id: 'time', icon: 'time-outline', label: 'Time',
-            value: exact
+            id: 'time', icon: linked && draft.anchor?.to.trim() ? 'link-outline' : 'time-outline', label: 'Time',
+            value: linked
+                ? (draft.anchor?.to.trim() ? anchorLabel(draft.anchor) : undefined)
+                : exact
                 ? (draft.dueTime ? `${draft.estimate ? `${draft.dueTime} → ${endTime(draft.dueTime, draft.estimate)}` : draft.dueTime}` : undefined)
                 : draft.estimate ? `Anytime · ${lengthLabel(draft.estimate)}` : undefined,
             content: (
                 <>
-                    {/* First: may the timeline move it, or does it stay at its time? Flexible has no time of day,
-                        only how long it takes. Not asked when nothing moves (Auto-reschedule off). */}
+                    {/* May the timeline move it, does it stay at its time, or does it go with something else in the day?
+                        Not asked when nothing moves (Auto-reschedule off). */}
                     {autoReschedule ? (
-                    <Choices options={TIMING} value={exact ? 'exact' : 'flexible'} accent={accent}
-                        onChange={id => change(id === 'exact' ? { flexible: false, dueTime: draft.dueTime ?? nextHour() } : { flexible: true, dueTime: undefined })} />
+                    <Choices options={TIMING} value={linked ? 'link' : exact ? 'exact' : 'flexible'} accent={accent}
+                        onChange={id => {
+                            setLinking(id === 'link');
+                            if (id === 'link') change({ flexible: true, dueTime: undefined });
+                            else change(id === 'exact' ? { flexible: false, dueTime: draft.dueTime ?? nextHour(), anchor: null } : { flexible: true, dueTime: undefined, anchor: null });
+                        }} />
                     ) : null}
+                    {linked ? (
+                        <AnchorPicker value={draft.anchor} accent={accent} onChange={anchor => change({ anchor })} />
+                    ) : (
                     <TimeRange
                         lengthOnly={!exact}
                         start={draft.dueTime}
@@ -369,6 +389,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                         startLabel="Due at"
                         onChange={next => change({ dueTime: next.start, estimate: next.minutes })}
                     />
+                    )}
                 </>
             ),
         },
@@ -414,27 +435,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 />
             ),
         }] : []),
-        {
-            id: 'notes', icon: 'document-text-outline', label: 'Notes',
-            value: draft.description ? 'Written' : undefined,
-            content: (
-                <MatteInput
-                    // Opening the row opens the keyboard: it exists to be
-                    // typed in, and a tap to reach that is a tap too many.
-                    autoFocus
-                    value={draft.description ?? ''}
-                    onChangeText={description => change({ description })}
-                    multiline
-                    placeholder="Notes"
-                    placeholderTextColor={colors.textTertiary}
-                    accessibilityLabel="Task notes"
-                    style={[styles.notes, {
-                        color: colors.textPrimary, borderColor: colors.border,
-                        backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
-                    }]}
-                />
-            ),
-        },
     ];
 
     return (
@@ -548,7 +548,6 @@ const styles = StyleSheet.create({
     read: { flexShrink: 1, fontSize: 11, fontFamily: FontFamily.regular },
     link: { paddingVertical: 6 },
     picker: { alignSelf: 'flex-start' },
-    notes: { minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
     error: { flexDirection: 'row', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1 },
     errorText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular },
     footer: { paddingHorizontal: 16, paddingBottom: 8, paddingTop: 8 },
