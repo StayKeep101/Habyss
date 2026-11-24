@@ -52,7 +52,7 @@ export function PlaceMap({ center, focus, places, accent, height, onPick }: {
                 cameraPosition={camera}
                 markers={places.map((place, index) => ({ id: String(index), coordinates: place, title: place.name, tintColor: accent }))}
                 circles={places.map((place, index) => ({ id: `c${index}`, center: place, radius: place.radius ?? 150, color: `${accent}33` }))}
-                uiSettings={{ compassEnabled: false, myLocationButtonEnabled: true, scaleBarEnabled: false, togglePitchEnabled: false }}
+                uiSettings={{ compassEnabled: false, myLocationButtonEnabled: false, scaleBarEnabled: false, togglePitchEnabled: false }}
                 onMapClick={(event: { coordinates: Partial<Point> }) => {
                     const { latitude, longitude } = event.coordinates;
                     if (typeof latitude === 'number' && typeof longitude === 'number') onPick({ latitude, longitude });
