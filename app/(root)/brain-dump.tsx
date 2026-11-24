@@ -3,7 +3,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { isTablet } from '@/lib/orientation';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, LayoutAnimationConfig, ReduceMotion } from 'react-native-reanimated';
+import { DURATION, EASE } from '@/theme/motion';
 import { useNavigation, useRouter } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { MicButton } from '@/components/ui/MicButton';
@@ -66,7 +67,9 @@ export default function BrainDumpScreen() {
     const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const input = useRef<React.ElementRef<typeof MatteInput>>(null);
 
-    useEffect(() => { void getThoughts().then(setThoughts); }, []);
+    // Nothing drawn until the thoughts are in: the page opens on the whole list at once.
+    const [loaded, setLoaded] = useState(false);
+    useEffect(() => { void getThoughts().then(list => { setThoughts(list); setLoaded(true); }); }, []);
     const thoughtsRef = useRef<Thought[]>([]);
     useEffect(() => { thoughtsRef.current = thoughts; }, [thoughts]);
     // When this week's thoughts clear: the last evening of the week (Settings).
@@ -409,6 +412,11 @@ export default function BrainDumpScreen() {
                                 style={[styles.selectAll, { color: primary }]} accessibilityRole="button">{allPicked ? 'Deselect all' : 'Select all'}</Text>
                         </View>
                     ) : null}
+                    {/* Opening: the list as one block, fading in once, quietly; rows skip their own entrance
+                        (that is for a thought added later). */}
+                    {loaded ? (
+                    <Animated.View entering={FadeIn.duration(DURATION.base).easing(EASE.enter).reduceMotion(ReduceMotion.System)}>
+                    <LayoutAnimationConfig skipEntering>
                     {thoughts.map((thought, index) => (
                         <View key={thought.id} style={index > 0 ? [styles.divider, { borderTopColor: colors.border }] : undefined}
                             onLayout={event => { tops.current[thought.id] = event.nativeEvent.layout.y; }}>
@@ -440,6 +448,9 @@ export default function BrainDumpScreen() {
                                 ) : dictation.available ? <MicButton listening={dictation.listening} onPress={talk} /> : null} />
                         </View>
                     )}
+                    </LayoutAnimationConfig>
+                    </Animated.View>
+                    ) : null}
                 </ScrollView>
                 </GestureDetector>
                 </View>
