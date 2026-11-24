@@ -403,15 +403,6 @@ export default function BrainDumpScreen() {
                 <GestureDetector gesture={listScroll}>
                 <ScrollView ref={scroller} scrollEnabled={!scrollLocked} onLayout={event => { viewport.current = event.nativeEvent.layout.height; }} onScroll={event => { scrollY.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}
                     contentContainerStyle={[styles.content, (editingId !== null || adding) && styles.contentEditing]} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>
-                    {selecting ? (
-                        <View style={styles.selectBar}>
-                            <Text style={[styles.clears, styles.flex, { color: colors.textTertiary }]}>
-                                {picked.size ? `${picked.size} selected` : 'Tap or drag two fingers to select'}
-                            </Text>
-                            <Text onPress={() => { lightFeedback(); setPicked(allPicked ? new Set() : new Set(thoughts.map(item => item.id))); }}
-                                style={[styles.selectAll, { color: primary }]} accessibilityRole="button">{allPicked ? 'Deselect all' : 'Select all'}</Text>
-                        </View>
-                    ) : null}
                     {/* Opening: the list as one block, fading in once, quietly; rows skip their own entrance
                         (that is for a thought added later). */}
                     {loaded ? (
@@ -459,7 +450,16 @@ export default function BrainDumpScreen() {
                 {/* Docked on the keyboard: write, then the arrow (or return) saves;
                     with nothing written, the mic is there instead. */}
                 {selecting ? (
-                    <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+                    <View style={[styles.selectDock, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+                    {/* How many, and all or none: down here with the actions, so the list never moves when selecting starts. */}
+                    <View style={styles.selectBar}>
+                        <Text style={[styles.selectCount, styles.flex, { color: colors.textTertiary }]}>
+                            {picked.size ? `${picked.size} selected` : 'Tap or drag two fingers to select'}
+                        </Text>
+                        <Text onPress={() => { lightFeedback(); setPicked(allPicked ? new Set() : new Set(thoughts.map(item => item.id))); }}
+                            style={[styles.selectAll, { color: primary }]} accessibilityRole="button">{allPicked ? 'Deselect all' : 'Select all'}</Text>
+                    </View>
+                    <View style={styles.selectActions}>
                         <AppButton label="Copy" icon="copy" disabled={!picked.size}
                             onPress={() => void copy(pickedList)} style={styles.flex} />
                         <AppButton label="Delete" icon="trash" variant="danger" disabled={!picked.size}
@@ -475,6 +475,7 @@ export default function BrainDumpScreen() {
                                 ] : []),
                             ]} />
                         ) : null}
+                    </View>
                     </View>
                 ) : null}
                 <SortThoughtSheet text={sorting?.text ?? null} onClose={() => setSorting(null)} onCreate={pieces => void createSorted(pieces)} />
