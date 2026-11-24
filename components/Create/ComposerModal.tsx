@@ -141,7 +141,9 @@ export const ComposerModal: React.FC<{
                 <Animated.View pointerEvents="box-none" style={[styles.bottom, lift]}>
                     <Animated.View
                         onLayout={(event: LayoutChangeEvent) => setHeight(event.nativeEvent.layout.height)}
-                        style={[styles.card, pad, ceiling, { backgroundColor: colors.background }]}
+                        // A step lighter than the page (between it and a card), so it stands apart from what is behind;
+                        // the chips on it are cards, a step lighter again.
+                        style={[styles.card, pad, ceiling, { backgroundColor: colors.surfaceSecondary }]}
                     >
                         <ComposerSpace.Provider value={space}>{children}</ComposerSpace.Provider>
                     </Animated.View>
@@ -155,7 +157,7 @@ export const ComposerModal: React.FC<{
 
 const styles = StyleSheet.create({
     fill: { flex: 1 },
-    backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' },
+    backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },
     bottom: { flex: 1, justifyContent: 'flex-end' },
     card: {
         // No coloured outline: the card is set apart by the dimmed screen behind it.

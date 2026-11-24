@@ -119,7 +119,7 @@ export const DetailBar: React.FC<{
     const fitStyle = useAnimatedStyle(() => ({ height: fit.value }));
 
     return (
-        <View style={[styles.bar, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+        <View style={styles.bar}>
             {/* One height for every setting, sized to this phone. A panel that
                 sized itself to its contents made the whole card jump each time
                 you switched tabs or changed something inside one — the cheap,
@@ -235,7 +235,8 @@ export const Choices = <T,>({ options, value, onChange, accent, multiple, oneLin
 };
 
 const styles = StyleSheet.create({
-    bar: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, flexShrink: 1, minHeight: 0 },
+    // No line above the chips: they sit on the card itself, in its colour.
+    bar: { paddingTop: 8, flexShrink: 1, minHeight: 0 },
     // overflow hidden so the content is clipped by the sliding height rather
     // than spilling over the chips on the way open.
     panel: { paddingHorizontal: 16, overflow: 'hidden', flexShrink: 1, minHeight: 0 },
