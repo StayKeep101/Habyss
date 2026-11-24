@@ -37,7 +37,9 @@ export function usePlaceMapFit() {
  * "Place"): centred on you until a place is chosen; tap it where the place
  * is, or the arrow pins where you are now. Its name shows under it.
  */
-export function InlinePlaceMap({ place, accent, onPick, height }: {
+export function InlinePlaceMap({ place, accent, onPick, height, trailing }: {
+    /** Beside the name, on its line (Reminder's Arrive / Leave): the name then sits on the left. */
+    trailing?: React.ReactNode;
     place: (MapPoint & { name: string }) | null;
     /** From usePlaceMapFit. */
     height: number;
@@ -118,10 +120,20 @@ export function InlinePlaceMap({ place, accent, onPick, height }: {
                     </View>
                 </View>
             ) : null}
-            <MatteSurface radius={Radius.control} level="control" style={styles.here}>
-                <AppIcon name="location" size={Spacing.lg} color={accent} />
-                <Text numberOfLines={1} style={[styles.placeName, { color: place ? colors.textPrimary : colors.textTertiary }]}>{place ? place.name : 'Tap the map where it is'}</Text>
-            </MatteSurface>
+            {trailing ? (
+                <View style={styles.row}>
+                    <MatteSurface radius={Radius.control} level="control" style={[styles.here, styles.beside]}>
+                        <AppIcon name="location" size={Spacing.lg} color={accent} />
+                        <Text numberOfLines={1} style={[styles.placeName, { color: place ? colors.textPrimary : colors.textTertiary }]}>{place ? place.name : 'Tap the map where it is'}</Text>
+                    </MatteSurface>
+                    {trailing}
+                </View>
+            ) : (
+                <MatteSurface radius={Radius.control} level="control" style={styles.here}>
+                    <AppIcon name="location" size={Spacing.lg} color={accent} />
+                    <Text numberOfLines={1} style={[styles.placeName, { color: place ? colors.textPrimary : colors.textTertiary }]}>{place ? place.name : 'Tap the map where it is'}</Text>
+                </MatteSurface>
+            )}
         </View>
     );
 }
@@ -130,6 +142,9 @@ const styles = StyleSheet.create({
     block: { gap: Spacing.sm },
     placeName: { flexShrink: 1, fontFamily: FontFamily.medium, fontSize: 15 },
     here: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg },
+    row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    /** Next to other controls: the name starts at the left and takes the room left. */
+    beside: { flex: 1, justifyContent: 'flex-start', paddingHorizontal: Spacing.md },
     /** The locate button, in the map's corner. */
     locate: { position: 'absolute', top: Spacing.sm, right: Spacing.sm },
 });

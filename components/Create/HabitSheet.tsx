@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAutoReschedule } from '@/context/AppSettingsContext';
 import { DEFAULT_LENGTH } from '@/lib/dayFlow';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
 import { ShareParticipantsSheet } from '@/components/Social/ShareParticipantsSheet';
@@ -33,7 +32,7 @@ import { readableAccent } from '@/lib/colorContrast';
 import type { HealthMetric } from '@/lib/healthMetrics';
 import { shortLead } from '@/lib/leadTime';
 import { Colors } from '@/theme/colors';
-import { FontFamily, Spacing } from '@/theme/designSystem';
+import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -542,11 +541,11 @@ export const HabitSheet: React.FC<{
             content: (
                 <TrackingPicker
                     options={everyOption} chosen={tracking ? everyOption.find(option => option.key === tracking.key) ?? tracking : null}
-                    onChoose={key => chooseTracking(key)} minutes={minutes} accent={accent}
+                    onChoose={key => chooseTracking(key)} accent={accent}
                     stayPlace={stayPlace ?? null} reminderPlace={draft.places.find(place => place.trigger !== 'stay') ?? null}
                     onStayPlace={place => change({ places: [...draft.places.filter(item => item.trigger !== 'stay'),
                         ...(place ? [{ ...place, trigger: 'stay' as const, stayMinutes: minutes }] : [])] })}
-                    onAddApps={addApps} appsCount={appsCount} minutesFromHabit={minutesFromHabit} appsHabitId={habitId}
+                    onAddApps={addApps} appsCount={appsCount} appsHabitId={habitId}
                     appsAvailable={appsAvailable} healthAvailable={draft.habitType !== 'quit'}
                 />
             ),
@@ -584,28 +583,6 @@ export const HabitSheet: React.FC<{
         {
             id: 'look', icon: draft.icon, color: readableAccent(draft.color, colors.background), label: 'Look', hidden: true,
             content: <GoalLookPicker subject="Habit" icon={draft.icon} color={draft.color} onChange={change} />,
-        },
-        {
-            id: 'notes', icon: 'document-text-outline', label: 'Note',
-            value: draft.description ? 'Written' : undefined,
-            content: (
-                <MatteInput
-                    // The row exists to be typed in, so opening it opens the
-                    // keyboard. Anything else is a tap to reach the only thing
-                    // the row does.
-                    autoFocus
-                    value={draft.description ?? ''}
-                    onChangeText={description => change({ description })}
-                    multiline
-                    placeholder="Notes"
-                    placeholderTextColor={colors.textTertiary}
-                    accessibilityLabel="Note about this habit"
-                    style={[styles.notes, {
-                        color: colors.textPrimary, borderColor: colors.border,
-                        backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
-                    }]}
-                />
-            ),
         },
     ];
 
@@ -728,7 +705,6 @@ const styles = StyleSheet.create({
     placeBody: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     message: { minHeight: 40, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, fontFamily: FontFamily.regular },
     inline: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-    notes: { minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
     amountRow: { flexDirection: 'row', alignItems: 'center', gap: 18 },
     number: { width: 110, minHeight: 46, borderWidth: 1, borderRadius: 11, paddingHorizontal: 14, fontSize: 17, fontFamily: FontFamily.semibold },
     unitButton: { minWidth: 118, minHeight: 46, borderWidth: 1, borderRadius: 11, paddingHorizontal: 14, flexDirection: 'row', gap: 12, alignItems: 'center', justifyContent: 'space-between' },

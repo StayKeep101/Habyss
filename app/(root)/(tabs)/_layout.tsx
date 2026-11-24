@@ -4,6 +4,7 @@ import { Colors } from '@/theme/colors';
 import { GlassDock } from '@/components/TabBar/GlassDock';
 import { useDayCardPublisher } from '@/hooks/useDayCardPublisher';
 import { useRaceWatcher } from '@/hooks/useRaceWatcher';
+import { HabitThoughtPopup } from '@/components/Habit/HabitThoughtPopup';
 import { useAppSounds } from '@/hooks/useAppSounds';
 import { useLivePulse } from '@/hooks/useLivePulse';
 import { useFocusStatus, useStatusBroadcast } from '@/hooks/useStatusBroadcast';
@@ -32,6 +33,7 @@ export default function TabLayout() {
   useEffect(() => { void loadRoadmapFilter(); }, []);
 
   return (
+    <>
     <Tabs
       tabBar={(props) => <GlassDock {...props} />}
       screenOptions={{
@@ -68,5 +70,8 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    {/* After a tick: how did it go? (kept with the habit, read back on its page) */}
+    <HabitThoughtPopup />
+    </>
   );
 }

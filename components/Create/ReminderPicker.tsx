@@ -96,35 +96,32 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
                 <View style={styles.block}>
                     <DurationWheels parts={['hours', 'minutes']} seconds={(lead ?? 0) * 60}
                         onChange={seconds => setLead(Math.min(24 * 60, Math.round(seconds / 60)))} />
-                    <Text style={[styles.caption, { color: colors.textTertiary }]}>
-                        {lead ? `${leadLabel(lead)} before it starts` : 'Turn the wheels to choose how long before'}
-                    </Text>
                 </View>
             ) : null}
 
             {mode === 'place' ? (
                 // The map, right here: tap it where the place is; the arrow pins where you are now.
                 <View style={styles.block}>
-                    <InlinePlaceMap place={remindAt} accent={accent} onPick={pinAt} height={fit.height} />
-                    {remindAt ? (
-                        <View style={styles.placeRow}>
-                            {(['arrive', 'leave'] as const).map(trigger => {
-                                const on = (remindAt.trigger ?? 'arrive') === trigger;
-                                return (
-                                    <Pressable key={trigger} accessibilityRole="radio" accessibilityState={{ selected: on }}
-                                        accessibilityLabel={TRIGGER_SAID[trigger]} hitSlop={Spacing.sm}
-                                        onPress={() => { if (!on) { selectionFeedback(); onChange({ places: [...stays, { ...remindAt, trigger }] }); } }}>
-                                        <MatteSurface radius={Radius.pill} level="control" tint={on ? accent : undefined} style={styles.pill}>
-                                            <Text style={[styles.pillText, { color: on ? textOn(accent) : colors.textSecondary }]}>{TRIGGER_LABEL[trigger]}</Text>
-                                        </MatteSurface>
-                                    </Pressable>
-                                );
-                            })}
-                            <View style={styles.flex} />
-                            <IconButton icon="close" label={`Remove ${remindAt.name}`} diameter={26} size={13} color={colors.textTertiary}
-                                onPress={() => { lightFeedback(); onChange({ places: stays }); }} />
-                        </View>
-                    ) : null}
+                    <InlinePlaceMap place={remindAt} accent={accent} onPick={pinAt} height={fit.height}
+                        // Arrive or Leave, on the same line as the place's name.
+                        trailing={remindAt ? (
+                            <>
+                                {(['arrive', 'leave'] as const).map(trigger => {
+                                    const on = (remindAt.trigger ?? 'arrive') === trigger;
+                                    return (
+                                        <Pressable key={trigger} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                                            accessibilityLabel={TRIGGER_SAID[trigger]} hitSlop={Spacing.sm}
+                                            onPress={() => { if (!on) { selectionFeedback(); onChange({ places: [...stays, { ...remindAt, trigger }] }); } }}>
+                                            <MatteSurface radius={Radius.pill} level="control" tint={on ? accent : undefined} style={styles.pill}>
+                                                <Text style={[styles.pillText, { color: on ? textOn(accent) : colors.textSecondary }]}>{TRIGGER_LABEL[trigger]}</Text>
+                                            </MatteSurface>
+                                        </Pressable>
+                                    );
+                                })}
+                                <IconButton icon="close" label={`Remove ${remindAt.name}`} diameter={26} size={13} color={colors.textTertiary}
+                                    onPress={() => { lightFeedback(); onChange({ places: stays }); }} />
+                            </>
+                        ) : null} />
                 </View>
             ) : null}
         </View>
@@ -135,12 +132,6 @@ const TRIGGER_LABEL = { arrive: 'Arrive', leave: 'Leave', stay: 'Stay' } as cons
 const TRIGGER_SAID = { arrive: 'Remind me when I arrive', leave: 'Remind me when I leave', stay: 'Tick it after time there' } as const;
 /** How long at the place before it counts. */
 
-/** "1 hr 30 min", "45 min". */
-const leadLabel = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const rest = minutes % 60;
-    return [hours ? `${hours} hr` : '', rest ? `${rest} min` : ''].filter(Boolean).join(' ');
-};
 
 const styles = StyleSheet.create({
     wrap: { gap: Spacing.md },
@@ -149,8 +140,7 @@ const styles = StyleSheet.create({
     leadText: { fontSize: 12 },
     flex: { flex: 1 },
     block: { gap: Spacing.sm },
-    caption: { fontFamily: FontFamily.medium, fontSize: 12, textAlign: 'center' },
-    placeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-    pill: { paddingHorizontal: Spacing.md, paddingVertical: 6 },
+    // As tall as the place's name beside them.
+    pill: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
     pillText: { fontFamily: FontFamily.medium, fontSize: 13 },
 });

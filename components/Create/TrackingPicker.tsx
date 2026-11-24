@@ -13,7 +13,6 @@ const WAYS: { id: Way; label: string }[] = [
 // An app icon's size, and its rounded-square corner (as iOS draws them: 23% of the side).
 const TILE = Spacing.section + Spacing.md;
 const TILE_RADIUS = Math.round(TILE * 0.23);
-const minutesSaid = (minutes: number) => (minutes >= 60 && minutes % 60 === 0 ? `${minutes / 60} h` : `${minutes} min`);
 
 /**
  * The Tracking chip's panel: how this habit gets ticked, all of it in one
@@ -23,13 +22,11 @@ const minutesSaid = (minutes: number) => (minutes >= 60 && minutes % 60 === 0 ? 
  * unless it says otherwise; or from time at a place, for that
  * same time. What each means is said under it, in one line.
  */
-export function TrackingPicker({ options, chosen, onChoose, minutes, accent, stayPlace, reminderPlace, onStayPlace, appsHabitId, onAddApps, appsCount, minutesFromHabit, appsAvailable, healthAvailable }: {
+export function TrackingPicker({ options, chosen, onChoose, accent, stayPlace, reminderPlace, onStayPlace, appsHabitId, onAddApps, appsCount, appsAvailable, healthAvailable }: {
     /** Every option (lib/autoTrackSources.ts allTrackOptions). */
     options: AutoTrackOption[];
     chosen: AutoTrackOption | null;
     onChoose: (key: string) => void;
-    /** How long before it counts: the habit's own time (its amount in minutes, else its length). */
-    minutes: number;
     accent: string;
     /** The place it counts time at, and a reminder's place to offer as the same. */
     stayPlace: PickedPlace | null;
@@ -41,8 +38,6 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, accent, sta
     onAddApps: () => void;
     /** How many apps are chosen so far. */
     appsCount: number;
-    /** The time came from the habit itself (its amount or length), not the 30-minute default. */
-    minutesFromHabit?: boolean;
     appsAvailable: boolean;
     healthAvailable: boolean;
 }) {
@@ -93,17 +88,11 @@ export function TrackingPicker({ options, chosen, onChoose, minutes, accent, sta
                         </MatteSurface>
                         {appsCount ? null : <Text variant="body" tone="muted">Add apps</Text>}
                     </Pressable>
-                    <Text variant="caption" tone="muted">
-                        {`${chosen.idea.quit ? `Kept when the day ends under ${minutesSaid(minutes)}` : `Ticks itself after ${minutesSaid(minutes)}`} in ${appsCount ? 'them' : 'the apps you add'}. ${minutesFromHabit ? '' : 'Set another time in Measure.'}`}
-                    </Text>
                 </>
             ) : null}
 
             {way === 'place' ? (
                 <>
-                    <Text variant="caption" tone="muted">
-                        {stayPlace ? `Ticks itself after ${minutesSaid(minutes)} at ${stayPlace.name}.` : `Ticks itself after ${minutesSaid(minutes)} there.`}
-                    </Text>
                     {reminderPlace && (!stayPlace || stayPlace.latitude !== reminderPlace.latitude || stayPlace.longitude !== reminderPlace.longitude) ? (
                         <View style={styles.pills}>
                             <ChoicePill label={`Same as reminder: ${reminderPlace.name}`} icon="location" on={false} color={accent}
