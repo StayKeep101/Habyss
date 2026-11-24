@@ -7,7 +7,8 @@ import { localDateKey } from '@/lib/habitSchedule';
  * today's tasks. Read once when asked for; on the phone only.
  */
 export type AnchorKind = 'event' | 'meal' | 'task' | 'habit';
-export type AnchorOption = { kind: AnchorKind; name: string };
+/** `done`: a habit or task already done today (listed after the rest). */
+export type AnchorOption = { kind: AnchorKind; name: string; done?: boolean };
 
 /** Every name, of every kind (for reading the sentence: "after Lunch"). */
 export function useAnchorSuggestions(open: boolean): string[] {
@@ -30,15 +31,21 @@ export function useAnchorOptions(open: boolean): AnchorOption[] {
             // Your habits and today's tasks: a habit can be held to those too.
             const { getHabits } = require('@/lib/habitsSQLite') as typeof import('@/lib/habitsSQLite');
             const { getData } = require('@/lib/dataStore') as typeof import('@/lib/dataStore');
-            const habits = (await getHabits().catch(() => [])).filter(habit => !habit.isGoal && !habit.isArchived).map(habit => habit.name);
             const data = getData();
-            const tasks = data.tasks.filter(task => task.status === 'open' && (!task.dueDate || task.dueDate === data.today)).map(task => task.title);
+            const doneToday = new Set(data.history[data.today] ?? []);
+            const habits = (await getHabits().catch(() => [])).filter(habit => !habit.isGoal && !habit.isArchived)
+                .map(habit => ({ name: habit.name, done: doneToday.has(habit.id) }));
+            // Today's tasks: still to do, and those done today.
+            const tasks = data.tasks.filter(task => task.status !== 'cancelled' && (task.status === 'open'
+                ? !task.dueDate || task.dueDate === data.today
+                : (task.completedAt ?? '').slice(0, 10) === data.today))
+                .map(task => ({ name: task.title, done: task.status === 'done' }));
             const seen = new Set<string>();
             const list: AnchorOption[] = [
                 ...events.map(event => ({ kind: 'event' as const, name: event.title.trim() })),
                 ...meals.map(name => ({ kind: 'meal' as const, name })),
-                ...tasks.map(name => ({ kind: 'task' as const, name })),
-                ...habits.map(name => ({ kind: 'habit' as const, name })),
+                ...tasks.map(task => ({ kind: 'task' as const, ...task })),
+                ...habits.map(habit => ({ kind: 'habit' as const, ...habit })),
             ].filter(({ name }) => {
                 const key = name.toLowerCase();
                 if (!name || seen.has(key)) return false;

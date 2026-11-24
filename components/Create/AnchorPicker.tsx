@@ -39,7 +39,10 @@ export function AnchorPicker({ value, onChange, accent }: {
     // Always one kind showing: the one tapped, else the kind of what is linked, else the first there is.
     const linkedKind = options.find(option => option.name.toLowerCase() === name?.toLowerCase())?.kind;
     const shownKind: AnchorKind = kind && kinds.some(item => item.id === kind) ? kind : linkedKind ?? kinds[0]?.id ?? 'event';
-    const shown = options.filter(option => option.kind === shownKind).slice(0, SHOWN);
+    // Still to do first; what is already done today apart, under a label of its own.
+    const ofKind = options.filter(option => option.kind === shownKind).slice(0, SHOWN);
+    const open = ofKind.filter(option => !option.done);
+    const done = ofKind.filter(option => option.done);
     const pick = (to: string) => { selectionFeedback(); set({ to }); };
 
     return (
@@ -74,11 +77,22 @@ export function AnchorPicker({ value, onChange, accent }: {
             ) : null}
 
             <View style={styles.pills}>
-                {shown.map(option => (
+                {open.map(option => (
                     <ChoicePill key={`${option.kind}-${option.name}`} label={option.name} on={name?.toLowerCase() === option.name.toLowerCase()} color={accent}
                         onPress={() => pick(option.name)} />
                 ))}
             </View>
+            {done.length ? (
+                <>
+                    <Text style={[t.type.caption, { color: t.color.textMuted }]}>Done today</Text>
+                    <View style={styles.pills}>
+                        {done.map(option => (
+                            <ChoicePill key={`${option.kind}-${option.name}`} label={option.name} icon="checkmark-circle" on={name?.toLowerCase() === option.name.toLowerCase()} color={accent}
+                                accessibilityLabel={`${option.name}, done today`} onPress={() => pick(option.name)} />
+                        ))}
+                    </View>
+                </>
+            ) : null}
         </View>
     );
 }
