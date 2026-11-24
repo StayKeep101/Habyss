@@ -38,7 +38,6 @@ export function AutoTrackHint({ options, chosen, onChoose, accent }: {
                 ))}
                 <ChoicePill label="Off" on={!current} color={accent} onPress={() => pick('off')} />
             </View>
-            {current ? <Text variant="caption" tone="muted" numberOfLines={2}>{current.detail}</Text> : null}
         </View>
     );
 }

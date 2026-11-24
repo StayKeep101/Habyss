@@ -153,7 +153,6 @@ export const RepeatPicker: React.FC<{
                     </View>
                     <Choices options={[{ id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }]} value={value.period} accent={accent}
                         onChange={period => onChange({ ...value, period: period as 'week' | 'month', times: period === 'week' ? Math.min(value.times, 7) : value.times })} />
-                    <Text style={[styles.label, { color: colors.textTertiary }]}>Any days you like. A day only counts as missed when there aren't enough days left.</Text>
                 </Animated.View>
             ) : null}
 

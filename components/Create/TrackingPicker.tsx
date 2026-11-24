@@ -66,7 +66,6 @@ export function TrackingPicker({ options, chosen, onChoose, accent, stayPlace, r
                             <ChoicePill key={option.key} label={option.label} on={option.key === chosen?.key} color={accent} onPress={() => pick(option.key)} />
                         ))}
                     </View>
-                    {chosen ? <Text variant="caption" tone="muted">{chosen.detail}</Text> : null}
                 </>
             ) : null}
 

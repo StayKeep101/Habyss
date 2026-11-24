@@ -5,6 +5,8 @@ import { Radius } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 
 type Point = { latitude: number; longitude: number };
+/** How long after the map stops moving before a tap counts. */
+const SETTLE_MS = 450;
 
 /** The map view, when this build has it (Apple Maps, iOS 17+). Older builds fall back to "use where I am now". */
 function appleMaps(): any | null {
@@ -39,6 +41,8 @@ export function PlaceMap({ center, focus, places, accent, height, onPick }: {
     // Set once: the map is never sent its first camera again (a fresh object each render would snap it back).
     const [camera] = useState(() => ({ coordinates: center ?? places[0] ?? { latitude: 43.6532, longitude: -79.3832 }, zoom: 15 }));
     const map = useRef<{ setCameraPosition?: (config: { coordinates: Point; zoom?: number }) => void } | null>(null);
+    // A pan or pinch ending can land as a tap: a tap within a moment of the map moving is not a choice.
+    const moved = useRef(0);
     useEffect(() => {
         if (focus) map.current?.setCameraPosition?.({ coordinates: focus, zoom: 15 });
     }, [focus]);
@@ -53,7 +57,9 @@ export function PlaceMap({ center, focus, places, accent, height, onPick }: {
                 markers={places.map((place, index) => ({ id: String(index), coordinates: place, title: place.name, tintColor: accent }))}
                 circles={places.map((place, index) => ({ id: `c${index}`, center: place, radius: place.radius ?? 150, color: `${accent}33` }))}
                 uiSettings={{ compassEnabled: false, myLocationButtonEnabled: false, scaleBarEnabled: false, togglePitchEnabled: false }}
+                onCameraMove={() => { moved.current = Date.now(); }}
                 onMapClick={(event: { coordinates: Partial<Point> }) => {
+                    if (Date.now() - moved.current < SETTLE_MS) return;
                     const { latitude, longitude } = event.coordinates;
                     if (typeof latitude === 'number' && typeof longitude === 'number') onPick({ latitude, longitude });
                 }}

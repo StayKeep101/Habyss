@@ -1,21 +1,28 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { AppButton, ChoicePill, ChoiceRow, MatteInput } from '@/components/ui';
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppIcon, ChoicePill, IconButton, MatteInput, MatteSurface } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useAnchorSuggestions } from '@/hooks/useAnchorSuggestions';
-import { anchorLabel, type HabitAnchor } from '@/lib/habitAnchor';
+import { useAnchorOptions, type AnchorKind } from '@/hooks/useAnchorSuggestions';
+import { textOn } from '@/theme/tokens';
+import { Radius, Spacing } from '@/theme/designSystem';
+import type { HabitAnchor } from '@/lib/habitAnchor';
 
 const SIDES: { id: 'before' | 'after'; label: string }[] = [{ id: 'before', label: 'Before' }, { id: 'after', label: 'After' }];
+const KINDS: { id: AnchorKind; label: string; icon: string }[] = [
+    { id: 'event', label: 'Events', icon: 'calendar' },
+    { id: 'task', label: 'Tasks', icon: 'checkbox' },
+    { id: 'habit', label: 'Habits', icon: 'repeat' },
+    { id: 'meal', label: 'Meals', icon: 'restaurant' },
+];
+const SHOWN = 24;
 
 /**
- * A habit held to something in the day (lib/habitAnchor.ts), in two steps,
- * top to bottom, with the result said as one sentence above them:
- *   1. What to: a habit, a task, a class, a meal or an event, or typed.
- *   2. Right before or right after it.
- * Until something is chosen, only the first step shows. Unlink takes it away.
- * On a day the linked thing happens, the timeline places the habit against it;
- * other days it fits in where there is room.
+ * A habit held to something in the day (lib/habitAnchor.ts). Linked, one line
+ * on top: what to, Before or After, and ✕ to unlink. Below, a search and the
+ * kinds (events, tasks, habits, meals) to narrow the list; typing a name no
+ * list has links to it as written. On a day the linked thing happens, the
+ * timeline places the habit against it; other days it fits in where there is room.
  */
 export function AnchorPicker({ value, onChange, accent }: {
     value: HabitAnchor | null | undefined;
@@ -23,50 +30,77 @@ export function AnchorPicker({ value, onChange, accent }: {
     accent: string;
 }) {
     const t = useTokens();
-    const { selectionFeedback } = useHaptics();
-    const suggestions = useAnchorSuggestions(true);
+    const { selectionFeedback, lightFeedback } = useHaptics();
+    const options = useAnchorOptions(true);
+    const [query, setQuery] = useState('');
+    const [kind, setKind] = useState<AnchorKind | null>(null);
     // Right before or right after: no gap to choose.
     const set = (patch: Partial<HabitAnchor>) => onChange({ to: value?.to ?? '', side: value?.side ?? 'after', ...patch, gap: 0 });
     const name = value?.to.trim();
-    const step = (text: string) => <Text style={[t.type.caption, { color: t.color.textMuted }]}>{text}</Text>;
+    const kinds = KINDS.filter(item => options.some(option => option.kind === item.id));
+    const words = query.trim().toLowerCase();
+    const shown = useMemo(() => options
+        .filter(option => (!kind || option.kind === kind) && (!words || option.name.toLowerCase().includes(words)))
+        .slice(0, SHOWN), [options, kind, words]);
+    const typed = query.trim();
+    const exact = !typed || options.some(option => option.name.toLowerCase() === typed.toLowerCase());
+    const pick = (to: string) => { selectionFeedback(); set({ to }); setQuery(''); };
 
     return (
-        <View style={{ gap: t.space.md }}>
-            {/* The result, first: what it will do. */}
+        <View style={styles.wrap}>
+            {/* Linked: what to, before or after, unlink. */}
             {name && value ? (
-                <Text style={[t.type.heading, { color: t.color.textPrimary }]} accessibilityRole="header">{anchorLabel(value)}</Text>
-            ) : (
-                <Text style={[t.type.caption, { color: t.color.textMuted }]}>Tie it to a class, a meal or an event. It moves when that moves.</Text>
-            )}
+                <View style={styles.row}>
+                    <MatteSurface radius={Radius.control} level="control" style={styles.linked}>
+                        <AppIcon name="link" size={Spacing.lg} color={accent} />
+                        <Text numberOfLines={1} style={[t.type.body, styles.shrink, { color: t.color.textPrimary }]}>{name}</Text>
+                    </MatteSurface>
+                    {SIDES.map(side => {
+                        const on = value.side === side.id;
+                        return (
+                            <Pressable key={side.id} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`Right ${side.id} ${name}`}
+                                hitSlop={Spacing.sm} onPress={() => { if (!on) { selectionFeedback(); set({ side: side.id }); } }}>
+                                <MatteSurface radius={Radius.pill} level="control" tint={on ? accent : undefined} style={styles.side}>
+                                    <Text style={[t.type.caption, { color: on ? textOn(accent) : t.color.textMuted }]}>{side.label}</Text>
+                                </MatteSurface>
+                            </Pressable>
+                        );
+                    })}
+                    <IconButton icon="close" label="Unlink" diameter={26} size={13} color={t.color.textSubtle}
+                        onPress={() => { lightFeedback(); onChange(null); }} />
+                </View>
+            ) : null}
 
-            {step('1 · Link it to')}
-            {suggestions.length ? (
-                <View style={[styles.wrap, { gap: t.space.sm }]}>
-                    {suggestions.slice(0, 12).map(suggestion => (
-                        <ChoicePill key={suggestion} label={suggestion} on={name?.toLowerCase() === suggestion.toLowerCase()} color={accent}
-                            onPress={() => { selectionFeedback(); set({ to: suggestion }); }} />
+            <MatteInput value={query} onChangeText={setQuery} placeholder="Search" placeholderTextColor={t.color.textSubtle}
+                autoCapitalize="words" returnKeyType="done" onSubmitEditing={() => { if (typed) pick(typed); }}
+                accessibilityLabel="Search what to link it to" style={[t.type.body, { color: t.color.textPrimary }]} />
+
+            {kinds.length > 1 ? (
+                <View style={styles.pills}>
+                    {kinds.map(item => (
+                        <ChoicePill key={item.id} label={item.label} icon={item.icon} on={kind === item.id} color={accent}
+                            onPress={() => { selectionFeedback(); setKind(current => (current === item.id ? null : item.id)); }} />
                     ))}
                 </View>
             ) : null}
-            <MatteInput value={value?.to ?? ''} onChangeText={to => (to || value ? set({ to }) : undefined)} placeholder={suggestions.length ? 'Or type one: Gym, Lunch…' : 'Accounting, Gym, Lunch…'}
-                placeholderTextColor={t.color.textSubtle} autoCapitalize="words" returnKeyType="done"
-                accessibilityLabel="What it is linked to" style={[t.type.body, { color: t.color.textPrimary }]} />
 
-            {name && value ? (
-                <>
-                    {step('2 · Right before or right after')}
-                    <ChoiceRow accessibilityLabel="Before or after" options={SIDES} value={value.side} onChange={side => set({ side })} color={accent} />
-
-                    <Text style={[t.type.caption, { color: t.color.textMuted }]}>
-                        {`On days with ${name}, it goes there, whatever time ${name} is. Other days it fits in where there's room.`}
-                    </Text>
-                    <AppButton label="Unlink" icon="unlink-outline" variant="ghost" onPress={() => { selectionFeedback(); onChange(null); }} />
-                </>
-            ) : null}
+            <View style={styles.pills}>
+                {/* A name no list has: linked as written. */}
+                {!exact ? <ChoicePill label={typed} icon="add" on={false} color={accent} onPress={() => pick(typed)} /> : null}
+                {shown.map(option => (
+                    <ChoicePill key={`${option.kind}-${option.name}`} label={option.name} on={name?.toLowerCase() === option.name.toLowerCase()} color={accent}
+                        onPress={() => pick(option.name)} />
+                ))}
+            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    wrap: { flexDirection: 'row', flexWrap: 'wrap' },
+    wrap: { gap: Spacing.md },
+    row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    linked: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + Spacing.xs / 2 },
+    shrink: { flexShrink: 1 },
+    side: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
+    pills: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
 });

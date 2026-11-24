@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { localDateKey } from '@/lib/habitSchedule';
 
 /**
@@ -6,8 +6,18 @@ import { localDateKey } from '@/lib/habitSchedule';
  * events (each once, soonest first), the meals that are on, your habits and
  * today's tasks. Read once when asked for; on the phone only.
  */
+export type AnchorKind = 'event' | 'meal' | 'task' | 'habit';
+export type AnchorOption = { kind: AnchorKind; name: string };
+
+/** Every name, of every kind (for reading the sentence: "after Lunch"). */
 export function useAnchorSuggestions(open: boolean): string[] {
-    const [names, setNames] = useState<string[]>([]);
+    const options = useAnchorOptions(open);
+    return useMemo(() => options.map(option => option.name), [options]);
+}
+
+/** What a habit can be linked to, each with its kind, for the Link panel to sort by. */
+export function useAnchorOptions(open: boolean): AnchorOption[] {
+    const [names, setNames] = useState<AnchorOption[]>([]);
     useEffect(() => {
         if (!open) return;
         let live = true;
@@ -24,7 +34,12 @@ export function useAnchorSuggestions(open: boolean): string[] {
             const data = getData();
             const tasks = data.tasks.filter(task => task.status === 'open' && (!task.dueDate || task.dueDate === data.today)).map(task => task.title);
             const seen = new Set<string>();
-            const list = [...events.map(event => event.title.trim()), ...meals, ...habits, ...tasks].filter(name => {
+            const list: AnchorOption[] = [
+                ...events.map(event => ({ kind: 'event' as const, name: event.title.trim() })),
+                ...meals.map(name => ({ kind: 'meal' as const, name })),
+                ...tasks.map(name => ({ kind: 'task' as const, name })),
+                ...habits.map(name => ({ kind: 'habit' as const, name })),
+            ].filter(({ name }) => {
                 const key = name.toLowerCase();
                 if (!name || seen.has(key)) return false;
                 seen.add(key);
