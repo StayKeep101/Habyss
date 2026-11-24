@@ -1216,7 +1216,11 @@ const CalendarScreen = () => {
     const [pageHeights, setPageHeights] = useState<[number, number]>([0, 0]);
     const [paging, setPaging] = useState(false);
     const pagerAt = useRef(pageAt);
-    const gliding = useRef(false);
+    // Where the pager starts, fixed when it first draws: the view changing never moves it by a
+    // prop (a re-render arriving late used to put it back on the page it had left); the filter
+    // moves it with scrollTo.
+    const [pagerStart, setPagerStart] = useState<{ x: number; y: number } | null>(null);
+    if (filterReady && !pagerStart) setPagerStart({ x: pageAt * windowWidth, y: 0 });
     // Only the page you are on keeps up with every change (a new day, a tick); the other stays
     // on screen as it was (Frozen, above the screen) and catches up the moment a drag starts, so
     // changing day costs one view, not two. Not React's Activity: hiding and showing a page on
@@ -1231,15 +1235,15 @@ const CalendarScreen = () => {
         if (pagerAt.current === pageAt) return;
         pagerAt.current = pageAt;
         // Both pages drawn for the glide; its end (onMomentumScrollEnd) hides the one left behind.
-        gliding.current = true;
         setPaging(true);
         pagerRef.current?.scrollTo({ x: pageAt * windowWidth, animated: true });
         // In case the glide's end is never reported: settle anyway.
-        const settle = setTimeout(() => { gliding.current = false; onPageSettledRef.current(pageAt * windowWidth); }, 700);
+        const settle = setTimeout(() => onPageSettledRef.current(pageAt * windowWidth), 700);
         return () => clearTimeout(settle);
     }, [pageAt, windowWidth]);
-    const onPageSettled = useCallback((x: number) => {
-        setPaging(false);
+    // The view follows the page the pager is landing on, decided once at the moment of letting go
+    // (where iOS says the paging will stop), never guessed later from a timer.
+    const landOn = useCallback((x: number) => {
         const index = Math.round(x / Math.max(1, windowWidth)) === 0 ? 0 : 1;
         if (index === pagerAt.current) return;
         pagerAt.current = index;
@@ -1247,6 +1251,8 @@ const CalendarScreen = () => {
         selectionFeedback();
         setRoadmapView(index === 0 ? 'timeline' : 'list');
     }, [windowWidth, selectionFeedback]);
+    // Stopped: the page left behind can rest.
+    const onPageSettled = useCallback((x: number) => { setPaging(false); landOn(x); }, [landOn]);
     const onPageSettledRef = useRef(onPageSettled);
     useLayoutEffect(() => { onPageSettledRef.current = onPageSettled; });
     const pagerHeight = paging ? Math.max(pageHeights[0], pageHeights[1]) : pageHeights[pageAt];
@@ -1400,12 +1406,15 @@ const CalendarScreen = () => {
                                 directionalLockEnabled
                                 showsHorizontalScrollIndicator={false}
                                 scrollEnabled={!scrubbing && !draggingHabit && !draggingTask}
-                                contentOffset={{ x: pageAt * windowWidth, y: 0 }}
-                                onScrollBeginDrag={() => { gliding.current = false; setPaging(true); }}
-                                onMomentumScrollBegin={() => { gliding.current = true; }}
-                                // Let go with no glide (slowly, right on a page): settle here, as a glide's end would.
-                                onScrollEndDrag={event => { const x = event.nativeEvent.contentOffset.x; setTimeout(() => { if (!gliding.current) onPageSettled(x); }, 120); }}
-                                onMomentumScrollEnd={event => { gliding.current = false; onPageSettled(event.nativeEvent.contentOffset.x); }}
+                                contentOffset={pagerStart ?? { x: pageAt * windowWidth, y: 0 }}
+                                onScrollBeginDrag={() => setPaging(true)}
+                                // Let go: the view is the page it is landing on. Already resting on it (no glide): settled.
+                                onScrollEndDrag={event => {
+                                    const { contentOffset, targetContentOffset } = event.nativeEvent;
+                                    const target = targetContentOffset?.x ?? contentOffset.x;
+                                    if (Math.abs(target - contentOffset.x) < 1) onPageSettled(target); else landOn(target);
+                                }}
+                                onMomentumScrollEnd={event => onPageSettled(event.nativeEvent.contentOffset.x)}
                                 style={[styles.pager, { marginHorizontal: -horizontalPadding, width: windowWidth }, pagerHeight > 0 ? { height: pagerHeight } : null]}
                                 contentContainerStyle={styles.pagerRow}
                             >
