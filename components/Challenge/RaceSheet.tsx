@@ -143,7 +143,7 @@ export function RaceSheet() {
             <DetailBar fitContent items={items} open={panel} onToggle={setPanel} accent={t.color.accent} />
 
             <View style={styles.footer}>
-                {/* What a win pays, what a miss costs: two figures, no sentences. */}
+                {/* What a win pays over what a miss costs, beside Start, like a price beside its button. */}
                 <View style={styles.terms} accessible accessibilityLabel={`Win up to ${win} Shards, more the faster you finish; miss and lose ${stake}`}>
                     <View style={styles.term}>
                         <AppIcon name="trophy" filled size={Spacing.lg} color={t.color.success} />
@@ -154,7 +154,7 @@ export function RaceSheet() {
                         <Text variant="bodySmall" tone="danger">{`−${stake.toLocaleString()}`}</Text>
                     </View>
                 </View>
-                <AppButton label={busy ? 'Starting…' : 'Start'} icon="flash" variant="primary" loading={busy}
+                <AppButton label={busy ? 'Starting…' : 'Start'} icon="flash" variant="primary" loading={busy} style={styles.start}
                     disabled={!picked.length || busy || broke} onPress={() => void start()} />
             </View>
         </ComposerModal>
@@ -167,7 +167,8 @@ const styles = StyleSheet.create({
     listContent: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm },
     task: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: Control.hitTarget },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-    footer: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, gap: Spacing.sm },
-    terms: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.xl },
+    footer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, gap: Spacing.lg },
+    terms: { gap: Spacing.xs },
+    start: { flex: 1 },
     term: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
 });
