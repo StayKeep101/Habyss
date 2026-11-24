@@ -278,7 +278,11 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     for (const task of input.tasks) {
         record(dayOf(task.createdAt), MARKS.add.task, 'add', 'task', task.title, { id: task.id, at: task.createdAt });
         if (task.status === 'cancelled') continue;
-        if (task.status === 'done') record(dayOf(task.completedAt ?? task.updatedAt), MARKS.complete.task, 'complete', 'task', task.title, { id: task.id, since: dayOf(task.createdAt), at: task.completedAt ?? task.updatedAt });
+        // Done early pays more (lib/taskSpeed.ts), said in the transactions.
+        if (task.status === 'done') {
+            const speed = task.speed && task.speed > 1 ? task.speed : 1;
+            record(dayOf(task.completedAt ?? task.updatedAt), Math.round(MARKS.complete.task * speed), 'complete', 'task', speed > 1 ? `${task.title} · early ×${speed}` : task.title, { id: task.id, since: dayOf(task.createdAt), at: task.completedAt ?? task.updatedAt });
+        }
         // Missed once, the day after it was due — and that stands even if it is
         // finished later. Late still counts for finishing; it was still late.
         const finished = task.status === 'done' ? dayOf(task.completedAt ?? task.updatedAt) : null;

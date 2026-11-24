@@ -16,7 +16,7 @@ import { MARKS, MARKS_LIMITS } from './marks';
 export interface Point { x: number; y: number }
 /** Marks fly as round lights; Shards, the currency, as small gems to your wallet. */
 export type OrbKind = 'marks' | 'shards';
-export interface Burst { id: number; kind: OrbKind; count: number; marks: number; from: Point }
+export interface Burst { id: number; kind: OrbKind; count: number; marks: number; from: Point; /** Said above the tap as it flies: "Early ×1.5". */ label?: string }
 type Measure = (done: (target: Point | null) => void) => void;
 
 /** The most orbs drawn for one burst; a goal's fifty would be a blizzard. */
@@ -62,10 +62,10 @@ export const orbLanded = (kind: OrbKind = 'marks') => landers[kind].forEach(list
  * as Shards, to the wallet. Shards are earned by the same table as Marks
  * (lib/shards.ts), so the amount is the same; only Shards are shown flying.
  */
-export function burstMarks(marks: number, from?: Point | null): Burst | null {
+export function burstMarks(marks: number, from?: Point | null, label?: string | null): Burst | null {
     if (marks <= 0) return null;
     rewardActionAt = Date.now();
-    const burst: Burst = { id: nextId++, kind: 'shards', count: orbCount(marks), marks, from: from ?? lastTouch ?? { x: 0, y: 0 } };
+    const burst: Burst = { id: nextId++, kind: 'shards', count: orbCount(marks), marks, from: from ?? lastTouch ?? { x: 0, y: 0 }, ...(label ? { label } : null) };
     listeners.forEach(listener => listener(burst));
     return burst;
 }
@@ -98,13 +98,15 @@ export function habitDone(habitId: string, date: string, completed: boolean): nu
 }
 export const taskDone = () => MARKS.complete.task;
 /** The same for a task: one burst per finish, again after it is reopened. */
-const tasksBurst = new Set<string>();
-export function taskEarned(taskId: string, date: string, completed: boolean): number {
+const tasksBurst = new Map<string, number>();
+/** `speed`: done early, its Shards multiplied (lib/taskSpeed.ts). */
+export function taskEarned(taskId: string, date: string, completed: boolean, speed = 1): number {
     const key = `${taskId}:${date}`;
-    if (!completed) { tasksBurst.delete(key); takeBack(MARKS.complete.task); return 0; }
+    if (!completed) { const paid = tasksBurst.get(key); tasksBurst.delete(key); takeBack(paid ?? MARKS.complete.task); return 0; }
     if (tasksBurst.has(key)) return 0;
-    tasksBurst.add(key);
-    return MARKS.complete.task;
+    const earned = Math.round(MARKS.complete.task * Math.max(1, speed));
+    tasksBurst.set(key, earned);
+    return earned;
 }
 export const goalDone = () => MARKS.complete.goal;
 export const milestoneDone = () => MARKS.complete.milestone;

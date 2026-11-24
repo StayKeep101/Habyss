@@ -44,7 +44,8 @@ export interface AppEvents {
     tour_end: void;
     /** A goal's milestones were added, changed, reached or removed. */
     milestones_changed: { goalId?: string; reached?: boolean };
-    task_completed: { taskId: string };
+    /** `speed`: what its Shards are multiplied by for being done early (lib/taskSpeed.ts). */
+    task_completed: { taskId: string; speed?: number };
     /** A done task opened again: it can earn again. */
     task_reopened: { taskId: string };
     /** "Next" pressed on the watch during a focus session: finish this one, go to the next. */

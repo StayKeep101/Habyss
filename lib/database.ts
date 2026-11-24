@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 24;
+const SCHEMA_VERSION = 25;
 
 let dbInstance: any = null;
 /**
@@ -136,6 +136,7 @@ async function runMigrations(db: any): Promise<void> {
         [22, migrateToV22],
         [23, migrateToV23],
         [24, migrateToV24],
+        [25, migrateToV25],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -194,6 +195,15 @@ async function runMigrations(db: any): Promise<void> {
  * Migration to version 24 — a task held before or after something in the day,
  * like a habit (lib/habitAnchor.ts), as the same JSON. Kept on this phone.
  */
+/**
+ * Migration to version 25 — what a finished task's Shards were multiplied by
+ * for being done early (lib/taskSpeed.ts): 2, 1.5, or null. Kept on this phone.
+ */
+async function migrateToV25(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'tasks', 'speed', 'REAL');
+    console.log('[Database] Migrated to schema v25');
+}
+
 async function migrateToV24(db: any): Promise<void> {
     await addColumnIfMissing(db, 'tasks', 'anchor', 'TEXT');
     console.log('[Database] Migrated to schema v24');

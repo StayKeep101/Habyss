@@ -11,6 +11,9 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { on } from '@/lib/appEvents';
 import { counts } from '@/lib/sharedGate';
 import { localDateKey } from '@/lib/habitSchedule';
+import { speedLabel } from '@/lib/taskSpeed';
+import { textOn } from '@/theme/tokens';
+import { DURATION } from '@/theme/motion';
 import {
     burstMarks, goalDone, milestoneDone, habitDone, marksRange, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskEarned, type Burst, type OrbKind, type Point,
 } from '@/lib/marksOrbs';
@@ -24,6 +27,10 @@ const SHARD = s(18);
 const FLIGHT = 750;
 const STAGGER = 45;
 const PILL_HEIGHT = vs(34);
+
+// The early tag: how wide it may be (halved, to centre it on the tap), and how far it rises.
+const TAG_HALF = s(60);
+const TAG_LIFT = vs(40);
 
 interface Flight extends Burst { to: Point; pill: boolean; range: { from: number; to: number } | null }
 
@@ -54,8 +61,8 @@ export function MarksOrbs() {
                 if (earned && counts(event.habitId, event.date)) burstMarks(earned);
             }),
             on('task_completed', event => {
-                const earned = taskEarned(event.taskId, localDateKey(new Date()), true);
-                if (earned && counts(event.taskId, localDateKey(new Date()))) burstMarks(earned);
+                const earned = taskEarned(event.taskId, localDateKey(new Date()), true, event.speed);
+                if (earned && counts(event.taskId, localDateKey(new Date()))) burstMarks(earned, null, speedLabel(event.speed));
             }),
             on('task_reopened', event => { taskEarned(event.taskId, localDateKey(new Date()), false); }),
             on('goal_complete', () => { burstMarks(goalDone()); }),
@@ -89,6 +96,7 @@ export function MarksOrbs() {
     return (
         <Overlay>
             {flights.map(flight => <Swarm key={flight.id} flight={flight} onDone={finish} />)}
+            {flights.filter(flight => flight.label).map(flight => <BonusTag key={`tag-${flight.id}`} label={flight.label!} from={flight.from} />)}
             {pill ? <CatchPill key={pill.id} marks={pill.marks} count={pill.count} range={pill.range} top={insets.top + vs(6)} /> : null}
             {shardPill ? <CatchPill key={shardPill.id} kind="shards" marks={shardPill.marks} count={shardPill.count} range={null} top={insets.top + vs(6) + (pill ? PILL_HEIGHT + vs(6) : 0)} /> : null}
         </Overlay>
@@ -108,6 +116,32 @@ function Swarm({ flight, onDone }: { flight: Flight; onDone: (id: number) => voi
                 <Orb key={index} kind={flight.kind} index={index} count={flight.count} from={flight.from} to={flight.to} />
             ))}
         </>
+    );
+}
+
+/** Done early: "Early ×1.5" rises from the tap as the Shards fly, then fades. */
+function BonusTag({ label, from }: { label: string; from: Point }) {
+    const t = useTokens();
+    const rise = useSharedValue(0);
+    useEffect(() => {
+        rise.value = withSequence(
+            withTiming(1, { duration: DURATION.base, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System }),
+            withDelay(DURATION.emphasis * 2, withTiming(2, { duration: DURATION.exit, reduceMotion: ReduceMotion.System })),
+        );
+    }, [rise]);
+    const style = useAnimatedStyle(() => {
+        const v = rise.value;
+        return {
+            opacity: v <= 1 ? v : 2 - v,
+            transform: [{ translateX: from.x - TAG_HALF }, { translateY: from.y - TAG_LIFT * Math.min(v, 1) - TAG_LIFT / 2 }],
+        };
+    });
+    return (
+        <Animated.View pointerEvents="none" style={[styles.tagWrap, style]}>
+            <MatteSurface radius={t.radius.full} level="control" elevation="floating" tint={t.color.cobalt} style={styles.tag}>
+                <Text style={[t.type.caption, { color: textOn(t.color.cobalt) }]}>{label}</Text>
+            </MatteSurface>
+        </Animated.View>
     );
 }
 
@@ -219,4 +253,6 @@ const styles = StyleSheet.create({
     pillWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
     pill: { flexDirection: 'row', alignItems: 'center', gap: s(6), height: PILL_HEIGHT, paddingHorizontal: s(14) },
     figure: { fontVariant: ['tabular-nums'] },
+    tagWrap: { position: 'absolute', top: 0, left: 0, width: TAG_HALF * 2, alignItems: 'center' },
+    tag: { paddingHorizontal: s(10), paddingVertical: s(4) },
 });

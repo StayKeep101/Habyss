@@ -1,5 +1,6 @@
 import { parsePlaces, parseReminderTime, storePlaces } from './places';
 import { parseAnchor, storeAnchor, type HabitAnchor } from './habitAnchor';
+import { speedForTask } from './taskSpeed';
 import type { LocationReminder } from './habitsSQLite';
 import { parseAlerts, storeAlerts } from './itemAlerts';
 import { generateId, getDatabase, isSQLiteAvailable, nowISO } from './database';
@@ -75,6 +76,8 @@ export interface Task {
     section?: string;
     /** Right before or after something in the day, like a habit's (lib/habitAnchor.ts). Kept on this phone. */
     anchor?: HabitAnchor;
+    /** Done early: what its Shards were multiplied by (lib/taskSpeed.ts). Kept on this phone. */
+    speed?: number;
     createdAt: string;
     updatedAt: string;
 }
@@ -150,6 +153,7 @@ const rowToTask = (row: any): Task => ({
     subtasks: parseSubtasks(row.subtasks),
     section: typeof row.section === 'string' && row.section ? row.section : undefined,
     anchor: parseAnchor(row.anchor),
+    speed: Number.isFinite(row.speed) && row.speed > 1 ? row.speed : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
 });
@@ -271,9 +275,11 @@ export async function setTaskAmount(task: Task, amount: number): Promise<void> {
     const value = Math.max(0, Math.round(amount * 100) / 100);
     const done = !!task.target && value >= task.target;
     const now = nowISO();
+    // Finished just now: how early (lib/taskSpeed.ts); already done keeps its own; reopened has none.
+    const speed = done ? (task.status === 'done' ? task.speed ?? null : speedForTask(task)) : null;
     await db.runAsync(
-        `UPDATE tasks SET amount = ?, status = ?, completed_at = ?, updated_at = ?, synced = 0 WHERE id = ?`,
-        value, done ? 'done' : 'open', done ? (task.status === 'done' ? task.completedAt ?? now : now) : null, now, task.id,
+        `UPDATE tasks SET amount = ?, status = ?, completed_at = ?, speed = ?, updated_at = ?, synced = 0 WHERE id = ?`,
+        value, done ? 'done' : 'open', done ? (task.status === 'done' ? task.completedAt ?? now : now) : null, speed && speed > 1 ? speed : null, now, task.id,
     );
     if (done !== (task.status === 'done')) void publishIfShared(task.id, done);
 }
@@ -299,15 +305,21 @@ export async function setTaskStatus(id: string, status: TaskStatus, completedAt?
     const db = await getDatabase();
     if (!db) throw new Error('Task storage is unavailable. Your changes were not saved.');
     const now = nowISO();
+    // Done early pays more (lib/taskSpeed.ts): worked out as it is ticked, and kept with it.
+    let speed = 1;
+    if (status === 'done') {
+        const row: any = await db.getFirstAsync('SELECT id, estimated_minutes, due_time, measure, target FROM tasks WHERE id = ?', id);
+        if (row) speed = speedForTask({ id, estimatedMinutes: row.estimated_minutes ?? undefined, dueTime: row.due_time ?? undefined, measure: row.measure ?? undefined, target: row.target ?? undefined }, completedAt ? new Date(completedAt) : new Date());
+    }
     await db.runAsync(
-        'UPDATE tasks SET status = ?, completed_at = ?, updated_at = ?, synced = 0 WHERE id = ?',
-        status, status === 'done' ? completedAt ?? now : null, now, id,
+        'UPDATE tasks SET status = ?, completed_at = ?, speed = ?, updated_at = ?, synced = 0 WHERE id = ?',
+        status, status === 'done' ? completedAt ?? now : null, speed > 1 ? speed : null, now, id,
     );
     // Not awaited: the task is already saved, and somebody else's view of it is
     // not worth holding a tick behind a network call.
     void publishIfShared(id, status === 'done');
     const { emit } = require('./appEvents') as typeof import('./appEvents');
-    if (status === 'done') emit('task_completed', { taskId: id });
+    if (status === 'done') emit('task_completed', { taskId: id, speed });
     else emit('task_reopened', { taskId: id });
 }
 

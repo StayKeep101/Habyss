@@ -66,6 +66,7 @@ import { markSeen, memoryReady, rememberFlow } from '@/lib/dayMemory';
 import { planAlert, schedulePlanAlert } from '@/lib/planAlerts';
 import { setTodayFlow } from '@/lib/scheduledActivities';
 import { burstMarks, habitDone, taskEarned } from '@/lib/marksOrbs';
+import { speedForTask, speedLabel } from '@/lib/taskSpeed';
 import { counts as countsShared } from '@/lib/sharedGate';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { openInCalendar } from '@/lib/calendarEvents';
@@ -511,8 +512,10 @@ const CalendarScreen = () => {
         if (task.status !== 'done' && !(await proveTick({ kind: 'task', task }, todayKey()))) return;
         if (task.status !== 'done') {
             const day = todayKey();
-            const earned = taskEarned(task.id, day, true);
-            if (earned && countsShared(task.id, day)) burstMarks(earned);
+            // Done early pays more (lib/taskSpeed.ts); the same reckoning setTaskStatus keeps.
+            const speed = speedForTask(task);
+            const earned = taskEarned(task.id, day, true, speed);
+            if (earned && countsShared(task.id, day)) burstMarks(earned, null, speedLabel(speed));
         }
         // Shown at once, with the tap felt at once; put back if the save fails.
         const next = task.status === 'done' ? 'open' : 'done';
