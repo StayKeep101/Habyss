@@ -101,9 +101,11 @@ interface Draft {
     startDate?: string;
 }
 
-const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
+const TIMING: { id: 'exact' | 'flexible' | 'link'; label: string }[] = [
     { id: 'flexible', label: 'Anytime' },
     { id: 'exact', label: 'Exact time' },
+    // Right before or after a class, a meal, an event, a task or a habit (lib/habitAnchor.ts).
+    { id: 'link', label: 'Link' },
 ];
 
 
@@ -195,6 +197,8 @@ export const HabitSheet: React.FC<{
     const [text, setText] = useState('');
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<Row>(null);
+    // Time → Link chosen, before anything is linked.
+    const [linking, setLinking] = useState(false);
     const [amountText, setAmountText] = useState<string | null>(null);
 
     const [goals, setGoals] = useState<Habit[]>([]);
@@ -227,6 +231,7 @@ export const HabitSheet: React.FC<{
         setAmountText(null);
         setError(null);
         setTrackPick(null);
+        setLinking(false);
         setAppLinked(null);
         setAppsCount(0);
         setNewId(generateId());
@@ -477,7 +482,8 @@ export const HabitSheet: React.FC<{
 
     // At an exact time (it stays there), or flexible (the timeline places it; no time of day).
     // With Auto-reschedule off the day is a plain calendar: every time is kept.
-    const exact = !autoReschedule || draft.flexible === false;
+    const linked = autoReschedule && (linking || !!draft.anchor?.to.trim());
+    const exact = !linked && (!autoReschedule || draft.flexible === false);
     const items: DetailItem[] = [
         {
             id: 'repeat', icon: 'repeat', label: 'Repeat',
@@ -485,18 +491,27 @@ export const HabitSheet: React.FC<{
             content: <RepeatPicker value={draft.rule} accent={accent} onChange={rule => change({ rule })} />,
         },
         {
-            id: 'time', icon: 'time-outline', label: 'Time',
-            value: exact
+            id: 'time', icon: draft.anchor?.to.trim() && autoReschedule ? 'link-outline' : 'time-outline', label: 'Time',
+            value: linked
+                ? (draft.anchor?.to.trim() ? anchorLabel(draft.anchor) : undefined)
+                : exact
                 ? (draft.startTime ? `${draft.durationMinutes ? `${draft.startTime} → ${endTime(draft.startTime, draft.durationMinutes)}` : draft.startTime}` : undefined)
                 : draft.durationMinutes ? `Anytime · ${lengthLabel(draft.durationMinutes)}` : undefined,
             content: (
                 <>
-                    {/* First: may the timeline move it, or does it stay at its time? Flexible has no time of day,
-                        only how long it takes. Not asked when nothing moves (Auto-reschedule off). */}
+                    {/* May the timeline move it, does it stay at its time, or does it go with something else in the day?
+                        Not asked when nothing moves (Auto-reschedule off). */}
                     {autoReschedule ? (
-                    <Choices options={TIMING} value={exact ? 'exact' : 'flexible'} accent={accent}
-                        onChange={id => change(id === 'exact' ? { flexible: false, startTime: draft.startTime ?? nextHour() } : { flexible: true, startTime: undefined })} />
+                    <Choices options={TIMING} value={linked ? 'link' : exact ? 'exact' : 'flexible'} accent={accent}
+                        onChange={id => {
+                            setLinking(id === 'link');
+                            if (id === 'link') change({ flexible: true, startTime: undefined });
+                            else change(id === 'exact' ? { flexible: false, startTime: draft.startTime ?? nextHour(), anchor: null } : { flexible: true, startTime: undefined, anchor: null });
+                        }} />
                     ) : null}
+                    {linked ? (
+                        <AnchorPicker value={draft.anchor} accent={accent} onChange={anchor => change({ anchor })} />
+                    ) : (
                     <TimeRange
                         lengthOnly={!exact}
                         start={draft.startTime}
@@ -504,15 +519,10 @@ export const HabitSheet: React.FC<{
                         accent={accent}
                         onChange={next => change({ startTime: next.start, durationMinutes: next.minutes })}
                     />
+                    )}
                 </>
             ),
         },
-        // Before or after a class or a meal, wherever it falls that day (lib/habitAnchor.ts).
-        ...(autoReschedule ? [{
-            id: 'anchor', icon: 'link-outline' as const, label: 'Link',
-            value: draft.anchor?.to.trim() ? anchorLabel(draft.anchor) : undefined,
-            content: <AnchorPicker value={draft.anchor} accent={accent} onChange={anchor => change({ anchor })} />,
-        }] : []),
         {
             id: 'target', icon: 'stats-chart-outline', label: 'Measure',
             value: draft.amount ? `${draft.amount} ${draft.unit ?? 'times'}` : undefined,
