@@ -1,5 +1,5 @@
 jest.mock('../supabase', () => ({ getSupabase: () => null }));
-import { betPayout, expectedMinutes, ownerWin, raceDone, raceTimes, raceTitle, timeLeft } from '../races';
+import { betPayout, expectedMinutes, ownerWin, raceDone, raceTimes, raceTitle, speedBonus, timeLeft, timeUsed } from '../races';
 
 describe('race the clock', () => {
     it('only lets you race faster than the tasks should take', () => {
@@ -29,6 +29,17 @@ describe('race the clock', () => {
         expect(ownerWin(500, true)).toBe(1000);
         expect(ownerWin(2000, true)).toBe(2500);
         expect(ownerWin(500, false)).toBe(500);
+    });
+
+    it('pays more the faster it is done: as much again within half the time, nothing at the clock', () => {
+        expect(speedBonus(200, 0.3)).toBe(200);
+        expect(speedBonus(200, 0.5)).toBe(200);
+        expect(speedBonus(200, 0.75)).toBe(100);
+        expect(speedBonus(200, 1)).toBe(0);
+        expect(speedBonus(5000, 0)).toBe(500);
+        expect(ownerWin(200, true, 0.75)).toBe(500);
+        expect(timeUsed({ startsAt: 0, endsAt: 100 }, 25)).toBe(0.25);
+        expect(timeUsed({ startsAt: 0, endsAt: 100 }, 500)).toBe(1);
     });
 
     it('a bet against gets a share of the owner\'s stake when it is missed', () => {

@@ -74,8 +74,28 @@ export function raceTitle(tasks: number, minutes: number): string {
     return `${tasks === 1 ? '1 task' : `${tasks} tasks`} in ${time}`;
 }
 
-/** What you get back if you win: your stake and Habyss's match (bets against you come on top when nobody backs you). */
-export const ownerWin = (stake: number, firstToday: boolean): number => stake + (firstToday ? Math.min(stake, MATCH_CAP) : 0);
+/**
+ * Faster pays more: finished in half the time or less, Habyss adds as much
+ * again as your stake (up to the match cap); after that the bonus shrinks
+ * evenly to nothing at the clock. `used` is the share of the time gone, 0 to 1.
+ * The same sum as the server's (pay_race in supabase/migrations/20261124000100_race_speed.sql).
+ */
+export function speedBonus(stake: number, used: number): number {
+    const share = Math.max(0, Math.min(1, 2 * (1 - Math.max(0, Math.min(1, used)))));
+    return Math.min(MATCH_CAP, Math.round(stake * share));
+}
+
+/** The share of a race's time gone at `now`, 0 to 1. */
+export const timeUsed = (race: Pick<Race, 'startsAt' | 'endsAt'>, now: number): number =>
+    Math.max(0, Math.min(1, (now - race.startsAt) / Math.max(1, race.endsAt - race.startsAt)));
+
+/**
+ * What you get back if you win: your stake, Habyss's match, and the speed
+ * bonus for how much time you had left (bets against you come on top when
+ * nobody backs you). `used` defaults to the whole time: no bonus.
+ */
+export const ownerWin = (stake: number, firstToday: boolean, used = 1): number =>
+    stake + (firstToday ? Math.min(stake, MATCH_CAP) : 0) + speedBonus(stake, used);
 
 /** What a friend's bet would return if that side wins, the pool as it stands plus this bet (a miss adds the owner's stake to "against"). */
 export function betPayout(amount: number, side: RaceSide, pool: Record<RaceSide, number>, ownerStake: number, already = 0): number {

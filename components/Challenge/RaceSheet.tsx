@@ -120,7 +120,8 @@ export function RaceSheet() {
         },
     ];
 
-    const win = ownerWin(stake, firstToday);
+    // The most a win pays: done within half the time (the speed bonus in full).
+    const win = ownerWin(stake, firstToday, 0);
     return (
         <ComposerModal visible={visible} onClose={close}>
             <ModalHeader title="Race the clock" subtitle={picked.length ? raceTitle(picked.length, chosenTime) : undefined} />
@@ -143,10 +144,10 @@ export function RaceSheet() {
 
             <View style={styles.footer}>
                 {/* What a win pays, what a miss costs: two figures, no sentences. */}
-                <View style={styles.terms} accessible accessibilityLabel={`Win ${win} Shards, miss and lose ${stake}`}>
+                <View style={styles.terms} accessible accessibilityLabel={`Win up to ${win} Shards, more the faster you finish; miss and lose ${stake}`}>
                     <View style={styles.term}>
                         <AppIcon name="trophy" filled size={Spacing.lg} color={t.color.success} />
-                        <Text variant="bodySmall" tone="success">{`+${win.toLocaleString()}`}</Text>
+                        <Text variant="bodySmall" tone="success">{`Up to +${win.toLocaleString()}`}</Text>
                     </View>
                     <View style={styles.term}>
                         <AppIcon name="hourglass" filled size={Spacing.lg} color={t.color.danger} />

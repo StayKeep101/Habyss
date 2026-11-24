@@ -6,7 +6,7 @@ import { ShardIcon } from '@/components/ui/ShardIcon';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useTasks } from '@/hooks/useTasks';
 import { useTokens } from '@/hooks/useTokens';
-import { BET_CAP, BET_STAKES, betOnRace, betPayout, finishRace, timeLeft, type Race, type RaceSide } from '@/lib/races';
+import { BET_CAP, BET_STAKES, betOnRace, betPayout, finishRace, speedBonus, timeLeft, timeUsed, type Race, type RaceSide } from '@/lib/races';
 import { oopsTitle } from '@/lib/voice';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
 
@@ -79,7 +79,8 @@ export function RaceCard({ race, onChanged, onOpenPerson }: { race: Race; onChan
                 ) : (
                     <View accessible accessibilityLabel={timeLeft(race.endsAt, now)} accessibilityLiveRegion="polite">
                         <CountUp value={timeLeft(race.endsAt, now).replace(' left', '')} style={[t.type.display, { color: t.color.textPrimary }]} />
-                        <Text variant="caption" tone="muted">{race.match ? `left · a win is matched with ${race.match.toLocaleString()} more` : 'left'}</Text>
+                        {/* What a win is worth if it is done now: the match plus the speed bonus, shrinking as the clock runs. */}
+                        <Text variant="caption" tone="muted">{`left · +${(race.match + speedBonus(race.stake, timeUsed(race, now))).toLocaleString()} if done now`}</Text>
                     </View>
                 )}
 
