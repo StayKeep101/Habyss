@@ -87,6 +87,8 @@ export interface AppEvents {
     /** Pick a challenge from the list (the + on Community). */
     /** The challenge picker; with an id, opened on that challenge. */
     show_challenges: { id?: string } | void;
+    /** Set a race against the clock (components/Challenge/RaceSheet.tsx). */
+    show_race: void;
     /** The + on Settings: search the settings. */
     show_settings_search: void;
     close_creation_modal: void;

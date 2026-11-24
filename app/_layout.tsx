@@ -33,6 +33,7 @@ import { CheckInHost } from '@/components/Echo/CheckInHost';
 import { FreezeAskHost } from '@/components/Echo/FreezeAskHost';
 import { OpenBetHost } from '@/components/Market/OpenBetHost';
 import { ChallengeHost } from '@/components/Challenge/ChallengeHost';
+import { RaceSheet } from '@/components/Challenge/RaceSheet';
 import { ProofCameraHost } from '@/components/Proof/ProofCameraHost';
 import { DayCompleteCelebration } from '@/components/Celebrations/DayCompleteCelebration';
 import { MilestoneCelebration } from '@/components/Celebrations/MilestoneCelebration';
@@ -503,6 +504,7 @@ function InnerLayout() {
         <FreezeAskHost />
         <OpenBetHost />
         <ChallengeHost />
+        <RaceSheet />
         <ProofCameraHost />
         {/* Past bedtime with the app open: Echo, now and then, sending you to bed. */}
         {/* Hold the create button and speak. */}

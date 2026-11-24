@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  *
  * - Home and Roadmap: make something (goal, habit, task, thought). Mood and
  *   energy are no longer logged by hand: Echo asks;
- * - Community: put Shards on a goal, or pick a challenge;
+ * - Community: race the clock, put Shards on a goal, or pick a challenge;
  * - Settings: the + is a search lens, not a menu (see settings.tsx).
  *
  * Each tab's list can be changed in Settings → Plus button, from the same
@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type PlusTab = 'home' | 'roadmap' | 'community';
 /** Focus is not one: it is the bar over the tab bar, one tap away on every tab. */
-export type PlusActionId = 'goal' | 'habit' | 'task' | 'thought' | 'bet' | 'challenge';
+export type PlusActionId = 'goal' | 'habit' | 'task' | 'thought' | 'bet' | 'race' | 'challenge';
 
 /** Every action the + can offer, with the token colour its icon wears. */
 export const PLUS_ACTIONS: Record<PlusActionId, { label: string; icon: string; tone: 'accent' | 'success' | 'warning' | 'danger' }> = {
@@ -23,6 +23,7 @@ export const PLUS_ACTIONS: Record<PlusActionId, { label: string; icon: string; t
     habit: { label: 'Habit', icon: 'repeat', tone: 'success' },
     task: { label: 'Task', icon: 'checkmark-circle-outline', tone: 'warning' },
     thought: { label: 'Thought', icon: 'bulb-outline', tone: 'warning' },
+    race: { label: 'Race the clock', icon: 'flash-outline', tone: 'warning' },
     bet: { label: 'Bet on a goal', icon: 'diamond-outline', tone: 'accent' },
     challenge: { label: 'Pick a challenge', icon: 'trophy-outline', tone: 'warning' },
 };
@@ -36,13 +37,20 @@ export const PLUS_TABS: { id: PlusTab; label: string; icon: string }[] = [
 export const DEFAULT_PLUS: Record<PlusTab, PlusActionId[]> = {
     home: ['goal', 'habit', 'task', 'thought'],
     roadmap: ['goal', 'habit', 'task', 'thought'],
-    community: ['bet', 'challenge'],
+    community: ['race', 'bet', 'challenge'],
 };
 
 /** The most a menu holds, so it never reaches the top of the screen. */
 export const MAX_PLUS = 5;
 
 const KEY = 'habyss_plus_actions';
+/**
+ * Actions added after people may already have saved their own lists: each is
+ * put into the tabs whose default holds it, once, so it shows up without
+ * undoing anyone's choices (and stays off if they turn it off afterwards).
+ */
+const ADDED: PlusActionId[] = ['race'];
+const ADDED_KEY = 'habyss_plus_added';
 /** Goal and Bet on a goal are offered only while goals are on (constants/features.ts). */
 export const plusOffered = (id: PlusActionId): boolean => {
     const { GOALS_ENABLED, MARKET_ENABLED } = require('@/constants/features') as typeof import('@/constants/features');
@@ -71,6 +79,17 @@ export function togglePlus(current: Record<PlusTab, PlusActionId[]>, tab: PlusTa
     return cleanPlus({ ...current, [tab]: next });
 }
 
+/** New actions put into the tabs whose default holds them, if there is room. */
+export function withAdded(current: Record<PlusTab, PlusActionId[]>, added: PlusActionId[]): Record<PlusTab, PlusActionId[]> {
+    if (!added.length) return current;
+    const next = { ...current };
+    for (const tab of Object.keys(DEFAULT_PLUS) as PlusTab[]) {
+        const fresh = added.filter(id => DEFAULT_PLUS[tab].includes(id) && !next[tab].includes(id));
+        if (fresh.length && next[tab].length + fresh.length <= MAX_PLUS) next[tab] = [...next[tab], ...fresh];
+    }
+    return cleanPlus(next);
+}
+
 let state: Record<PlusTab, PlusActionId[]> = cleanPlus(null);
 let loaded = false;
 const listeners = new Set<() => void>();
@@ -85,7 +104,13 @@ export function subscribePlus(listener: () => void): () => void {
 export async function loadPlus(): Promise<Record<PlusTab, PlusActionId[]>> {
     if (loaded) return state;
     try {
-        state = cleanPlus(JSON.parse((await AsyncStorage.getItem(KEY)) ?? 'null'));
+        const saved = JSON.parse((await AsyncStorage.getItem(KEY)) ?? 'null');
+        const seen: string[] = JSON.parse((await AsyncStorage.getItem(ADDED_KEY)) ?? '[]');
+        state = withAdded(cleanPlus(saved), ADDED.filter(id => !seen.includes(id)));
+        if (ADDED.some(id => !seen.includes(id))) {
+            void AsyncStorage.setItem(ADDED_KEY, JSON.stringify(ADDED)).catch(() => undefined);
+            if (saved) void AsyncStorage.setItem(KEY, JSON.stringify(state)).catch(() => undefined);
+        }
     } catch { state = DEFAULT_PLUS; }
     loaded = true;
     notify();
@@ -112,5 +137,6 @@ export function runPlus(id: PlusActionId): void {
     else if (id === 'task') emit('show_task_form');
     else if (id === 'thought') go('/brain-dump');
     else if (id === 'bet') emit('show_open_bet');
+    else if (id === 'race') emit('show_race');
     else if (id === 'challenge') emit('show_challenges');
 }

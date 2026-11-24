@@ -25,6 +25,7 @@ import type { RailFriend } from '@/components/Community/FriendsRail';
 import { StreamPostCard, type StreamContext } from '@/components/Community/StreamPostCard';
 import { PagerGesture } from '@/components/Community/DayPack';
 import { RaceSection } from '@/components/Challenge/RaceSection';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { scheduleDayNotePrompt } from '@/lib/dayNote';
 import { buildStream } from '@/lib/communityStream';
 import { listenToComments, loadThreads, threadKey, type Comment } from '@/lib/comments';
@@ -99,6 +100,9 @@ export default function CommunityScreen() {
     const [gate, setGate] = useState<'signed_out' | 'needs_username' | null | undefined>(undefined);
     // Community in two pages you swipe between: today (who's around, their days) and challenges (Shards, challenges, bets).
     const [page, setPage] = useState(0);
+    // Whether the Challenges page has races or challenges to show; both empty, it says where new ones come from.
+    const [racesShown, setRacesShown] = useState<boolean | null>(null);
+    const [challengesShown, setChallengesShown] = useState<boolean | null>(null);
     // Everyone's Marks over the last month: the race drawn behind the pages.
     const [racers, setRacers] = useState<Racer[]>([]);
     const [betsNew, setBetsNew] = useState(false);
@@ -553,9 +557,12 @@ export default function CommunityScreen() {
     );
     const challengesPage = (
         <View onLayout={measure(1)} style={{ width: pageWidth, paddingHorizontal: horizontalPadding }}>
-            {/* Race the clock (your own challenge, Shards on it), then Habyss's challenges and bets on goals. */}
-            <RaceSection style={styles.block} />
-            <ChallengeSection style={styles.block} />
+            {/* Races (yours and friends'), then challenges and bets on goals. New ones come from the +. */}
+            <RaceSection style={styles.block} onShown={setRacesShown} />
+            <ChallengeSection style={styles.block} onShown={setChallengesShown} />
+            {racesShown === false && challengesShown === false ? (
+                <EmptyState icon="flash-outline" title="Nothing running" message="Race the clock or pick a challenge from +" />
+            ) : null}
             {MARKET_ENABLED ? <MarketSection style={styles.block} /> : null}
         </View>
     );

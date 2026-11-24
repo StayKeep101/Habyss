@@ -3,12 +3,12 @@ jest.mock('@/constants/features', () => ({ ...jest.requireActual('@/constants/fe
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined) }));
 
 import { DeviceEventEmitter } from 'react-native';
-import { DEFAULT_PLUS, MAX_PLUS, cleanPlus, plusTabOf, runPlus, togglePlus } from '../plusActions';
+import { DEFAULT_PLUS, MAX_PLUS, cleanPlus, plusTabOf, runPlus, togglePlus, withAdded } from '../plusActions';
 import { matchesSearch, searchDeep } from '../settingsSearch';
 
 describe('the + on each tab', () => {
     it('makes things on Home and Roadmap, bets on Community, searches on Settings', () => {
-        expect(DEFAULT_PLUS).toEqual({ home: ['goal', 'habit', 'task', 'thought'], roadmap: ['goal', 'habit', 'task', 'thought'], community: ['bet', 'challenge'] });
+        expect(DEFAULT_PLUS).toEqual({ home: ['goal', 'habit', 'task', 'thought'], roadmap: ['goal', 'habit', 'task', 'thought'], community: ['race', 'bet', 'challenge'] });
         expect(plusTabOf('home')).toBe('home');
         expect(plusTabOf('settings')).toBe('settings');
         expect(plusTabOf(undefined)).toBe('home');
@@ -32,13 +32,22 @@ describe('the + on each tab', () => {
         expect(togglePlus(full, 'roadmap', 'challenge')).toBe(full);
     });
 
+    it('puts a new action into a saved list once, where its default holds it and there is room', () => {
+        const saved = cleanPlus({ community: ['bet', 'challenge'] });
+        expect(withAdded(saved, ['race']).community).toEqual(['race', 'bet', 'challenge']);
+        expect(withAdded(saved, ['race']).home).toEqual(saved.home);
+        expect(withAdded(saved, [])).toBe(saved);
+    });
+
     it('opens the sheet for what was chosen', () => {
-        const asked = jest.fn(), bet = jest.fn();
-        const subs = [DeviceEventEmitter.addListener('show_quick_add', asked), DeviceEventEmitter.addListener('show_open_bet', bet)];
+        const asked = jest.fn(), bet = jest.fn(), race = jest.fn();
+        const subs = [DeviceEventEmitter.addListener('show_quick_add', asked), DeviceEventEmitter.addListener('show_open_bet', bet), DeviceEventEmitter.addListener('show_race', race)];
         runPlus('habit');
         runPlus('bet');
+        runPlus('race');
         expect(asked).toHaveBeenCalled();
         expect(bet).toHaveBeenCalled();
+        expect(race).toHaveBeenCalled();
         subs.forEach(sub => sub.remove());
     });
 });

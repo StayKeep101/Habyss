@@ -4,9 +4,9 @@ import { useFocusEffect } from 'expo-router';
 import { AppButton, Avatar, CardRail, GameCard, ListItem, Text, VoidSheet } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
-import { emit, on } from '@/lib/appEvents';
-import { canAnswer, challengeCatalog, DIFFICULTY_LABEL, leaveChallenge, myChallenges, respondChallenge, type Challenge, type Run } from '@/lib/challenges';
-import { ChallengeCard, Heartbeat } from './ChallengeCard';
+import { on } from '@/lib/appEvents';
+import { canAnswer, DIFFICULTY_LABEL, leaveChallenge, myChallenges, respondChallenge, type Run } from '@/lib/challenges';
+import { Heartbeat } from './ChallengeCard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CountUp, MatteSurface } from '@/components/ui';
 import { localDateKey } from '@/lib/habitSchedule';
@@ -38,40 +38,32 @@ const act = (run: () => Promise<void>, done?: () => void) => run().then(done)
  * then the ones you're in, side by side: its icon, which day it is, your days
  * as small segments, and who's in it. The + opens the list to pick from.
  */
-export function ChallengeSection({ style }: { style?: StyleProp<ViewStyle> }) {
+export function ChallengeSection({ style, onShown }: { style?: StyleProp<ViewStyle>; onShown?: (shown: boolean) => void }) {
     const [runs, setRuns] = useState<Run[] | null>(null);
     // The one opened, kept while its sheet slides away.
     const [open, setOpen] = useState<Run | null>(null);
-    const [shown, setShown] = useState(false);
+    const [sheetShown, setSheetShown] = useState(false);
     const load = useCallback(() => { myChallenges().then(setRuns).catch(() => setRuns([])); }, []);
     useFocusEffect(load);
-    // The one Habyss features (75 Hard), for when nothing is running.
-    const [featured, setFeatured] = useState<Challenge | null>(null);
-    useEffect(() => { challengeCatalog().then(list => setFeatured(list.find(item => !item.custom) ?? null)).catch(() => undefined); }, []);
     useEffect(() => {
         const subs = [on('challenges_changed', load), on('market_changed', load)];
         return () => subs.forEach(sub => sub.remove());
     }, [load]);
-    if (runs === null) return null;
-    const pick = () => emit('show_challenges');
-    const show = (run: Run) => { setOpen(run); setShown(true); };
     const today = localDateKey(new Date());
-    const invites = runs.filter(run => canAnswer(run, today));
-    const live = runs.filter(run => run.myStatus === 'joined' && (run.status === 'open' || run.status === 'active'));
-    const ended = runs.filter(run => run.status === 'won' || run.status === 'failed');
+    const invites = (runs ?? []).filter(run => canAnswer(run, today));
+    const live = (runs ?? []).filter(run => run.myStatus === 'joined' && (run.status === 'open' || run.status === 'active'));
+    const ended = (runs ?? []).filter(run => run.status === 'won' || run.status === 'failed');
+    // Tells the page whether there is anything here, so an empty page can say where new ones come from.
+    const shown = invites.length + live.length + ended.length > 0;
+    const loaded = runs !== null;
+    useEffect(() => { if (loaded) onShown?.(shown); }, [loaded, shown, onShown]);
+    if (!loaded) return null;
+    const show = (run: Run) => { setOpen(run); setSheetShown(true); };
     return (
         <View style={[styles.section, style]}>
-            {/* No title: the page's own heading says Challenges. Another one is picked from the + button. */}
+            {/* No title: the page's own heading says Challenges. A new one is picked from the + button. */}
             {invites.map(run => <ListItem key={run.runId}><Invite run={run} onPress={() => show(run)} /></ListItem>)}
-            {live.length ? (
-                <CardRail>{live.map(run => <Running key={run.runId} run={run} onPress={() => show(run)} />)}</CardRail>
-            ) : !invites.length ? (
-                // Nothing running: the featured challenge, big, and the way to every other (or your own).
-                <View style={styles.featured}>
-                    {featured ? <ChallengeCard challenge={featured} big onPress={() => emit('show_challenges', { id: featured.id })} /> : null}
-                    <AppButton label="All challenges, or make your own" icon="trophy" variant="ghost" onPress={pick} />
-                </View>
-            ) : null}
+            {live.length ? <CardRail>{live.map(run => <Running key={run.runId} run={run} onPress={() => show(run)} />)}</CardRail> : null}
             {ended.map(run => (
                 <ListItem key={run.runId}>
                     <GameCard lead={<ChallengeIcon icon={run.status === 'won' ? 'trophy' : run.icon} difficulty={run.difficulty} />}
@@ -79,7 +71,7 @@ export function ChallengeSection({ style }: { style?: StyleProp<ViewStyle> }) {
                         badge={run.status === 'won' ? { label: 'Won', tone: 'success', icon: 'trophy' } : { label: 'Ended', tone: 'neutral' }} />
                 </ListItem>
             ))}
-            <RunSheet run={open} visible={shown} onClose={() => setShown(false)} />
+            <RunSheet run={open} visible={sheetShown} onClose={() => setSheetShown(false)} />
         </View>
     );
 }
@@ -205,7 +197,6 @@ function RunSheet({ run, visible, onClose }: { run: Run | null; visible: boolean
 
 const styles = StyleSheet.create({
     section: { gap: Spacing.md },
-    featured: { gap: Spacing.sm },
     running: { padding: Spacing.lg, gap: Spacing.md, overflow: 'hidden' },
     dayRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm },
     grow: { flex: 1, gap: Spacing.xs / 2 },
