@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { HEALTH_GROUPS, healthInfo, type HealthGroup, type HealthMetric } from '@/lib/healthMetrics';
 import { AppIcon, AppIcons, appIconsSupported, ChoicePill, ChoiceRow, MatteSurface, Text } from '@/components/ui';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Spacing } from '@/theme/designSystem';
@@ -12,6 +13,7 @@ const WAYS: { id: Way; label: string }[] = [
 ];
 // An app icon's size, and its rounded-square corner (as iOS draws them: 23% of the side).
 const TILE = Spacing.section + Spacing.md;
+const groupOf = (metric: HealthMetric): HealthGroup => healthInfo(metric)?.group ?? 'activity';
 const TILE_RADIUS = Math.round(TILE * 0.23);
 
 /**
@@ -53,6 +55,10 @@ export function TrackingPicker({ options, chosen, onChoose, accent, stayPlace, r
         const first = of(next)[0];
         if (first) onChoose(first.key);
     };
+    // Which kind of Health number is showing: the chosen one's, until another is tapped.
+    const chosenGroup = chosen?.kind === 'health' ? groupOf(chosen.metric) : null;
+    const [shownGroup, setGroup] = React.useState<HealthGroup | null>(null);
+    const healthGroup: HealthGroup = shownGroup ?? chosenGroup ?? 'activity';
     const pick = (key: string) => { if (key !== chosen?.key) { selectionFeedback(); onChoose(key); } };
 
     return (
@@ -61,8 +67,15 @@ export function TrackingPicker({ options, chosen, onChoose, accent, stayPlace, r
 
             {way === 'health' ? (
                 <>
+                    {/* The kinds first (the day's numbers, sports, gym and studio, sleep and mind), then that kind's. */}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.row}>
+                        {HEALTH_GROUPS.map(group => (
+                            <ChoicePill key={group.id} label={group.label} icon={group.icon} on={healthGroup === group.id} color={accent}
+                                onPress={() => { selectionFeedback(); setGroup(group.id); }} />
+                        ))}
+                    </ScrollView>
                     <View style={styles.pills}>
-                        {of('health').map(option => (
+                        {of('health').filter(option => option.kind === 'health' && groupOf(option.metric) === healthGroup).map(option => (
                             <ChoicePill key={option.key} label={option.label} on={option.key === chosen?.key} color={accent} onPress={() => pick(option.key)} />
                         ))}
                     </View>
@@ -108,6 +121,7 @@ export function TrackingPicker({ options, chosen, onChoose, accent, stayPlace, r
 const styles = StyleSheet.create({
     wrap: { gap: Spacing.md },
     pills: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+    row: { flexDirection: 'row', gap: Spacing.sm },
     apps: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, alignSelf: 'flex-start' },
     tile: { width: TILE, height: TILE, alignItems: 'center', justifyContent: 'center' },
 });

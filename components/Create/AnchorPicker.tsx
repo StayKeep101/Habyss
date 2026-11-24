@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { AppIcon, ChoicePill, IconButton, MatteInput, MatteSurface } from '@/components/ui';
+import { AppIcon, ChoicePill, ChoiceRow, IconButton, MatteSurface } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAnchorOptions, type AnchorKind } from '@/hooks/useAnchorSuggestions';
@@ -19,9 +19,8 @@ const SHOWN = 24;
 
 /**
  * A habit held to something in the day (lib/habitAnchor.ts). Linked, one line
- * on top: what to, Before or After, and ✕ to unlink. Below, a search and the
- * kinds (events, tasks, habits, meals) to narrow the list; typing a name no
- * list has links to it as written. On a day the linked thing happens, the
+ * on top: what to, Before or After, and ✕ to unlink. Below, the kinds
+ * (events, tasks, habits, meals) in one row, and that kind's list. On a day the linked thing happens, the
  * timeline places the habit against it; other days it fits in where there is room.
  */
 export function AnchorPicker({ value, onChange, accent }: {
@@ -32,19 +31,16 @@ export function AnchorPicker({ value, onChange, accent }: {
     const t = useTokens();
     const { selectionFeedback, lightFeedback } = useHaptics();
     const options = useAnchorOptions(true);
-    const [query, setQuery] = useState('');
     const [kind, setKind] = useState<AnchorKind | null>(null);
     // Right before or right after: no gap to choose.
     const set = (patch: Partial<HabitAnchor>) => onChange({ to: value?.to ?? '', side: value?.side ?? 'after', ...patch, gap: 0 });
     const name = value?.to.trim();
     const kinds = KINDS.filter(item => options.some(option => option.kind === item.id));
-    const words = query.trim().toLowerCase();
-    const shown = useMemo(() => options
-        .filter(option => (!kind || option.kind === kind) && (!words || option.name.toLowerCase().includes(words)))
-        .slice(0, SHOWN), [options, kind, words]);
-    const typed = query.trim();
-    const exact = !typed || options.some(option => option.name.toLowerCase() === typed.toLowerCase());
-    const pick = (to: string) => { selectionFeedback(); set({ to }); setQuery(''); };
+    // Always one kind showing: the one tapped, else the kind of what is linked, else the first there is.
+    const linkedKind = options.find(option => option.name.toLowerCase() === name?.toLowerCase())?.kind;
+    const shownKind: AnchorKind = kind && kinds.some(item => item.id === kind) ? kind : linkedKind ?? kinds[0]?.id ?? 'event';
+    const shown = options.filter(option => option.kind === shownKind).slice(0, SHOWN);
+    const pick = (to: string) => { selectionFeedback(); set({ to }); };
 
     return (
         <View style={styles.wrap}>
@@ -71,22 +67,13 @@ export function AnchorPicker({ value, onChange, accent }: {
                 </View>
             ) : null}
 
-            <MatteInput value={query} onChangeText={setQuery} placeholder="Search" placeholderTextColor={t.color.textSubtle}
-                autoCapitalize="words" returnKeyType="done" onSubmitEditing={() => { if (typed) pick(typed); }}
-                accessibilityLabel="Search what to link it to" style={[t.type.body, { color: t.color.textPrimary }]} />
-
+            {/* The kinds, one row on any phone; that kind's list under it. */}
             {kinds.length > 1 ? (
-                <View style={styles.pills}>
-                    {kinds.map(item => (
-                        <ChoicePill key={item.id} label={item.label} icon={item.icon} on={kind === item.id} color={accent}
-                            onPress={() => { selectionFeedback(); setKind(current => (current === item.id ? null : item.id)); }} />
-                    ))}
-                </View>
+                <ChoiceRow accessibilityLabel="What to link it to" options={kinds.map(item => ({ id: item.id, label: item.label }))}
+                    value={shownKind} onChange={id => setKind(id)} color={accent} />
             ) : null}
 
             <View style={styles.pills}>
-                {/* A name no list has: linked as written. */}
-                {!exact ? <ChoicePill label={typed} icon="add" on={false} color={accent} onPress={() => pick(typed)} /> : null}
                 {shown.map(option => (
                     <ChoicePill key={`${option.kind}-${option.name}`} label={option.name} on={name?.toLowerCase() === option.name.toLowerCase()} color={accent}
                         onPress={() => pick(option.name)} />

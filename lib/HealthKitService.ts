@@ -148,7 +148,7 @@ export class HealthKitService {
      * defaults are not the app's: distance comes back in metres, and a habit
      * measured in kilometres would silently be told it had run five thousand.
      */
-    static async read(metric: HealthMetric, date = new Date()): Promise<number | null> {
+    static async read(metric: HealthMetric, date = new Date(), as?: string): Promise<number | null> {
         switch (metric) {
             case 'sleep': return this.sleep(date);
             case 'steps': return this.steps(date);
@@ -160,7 +160,11 @@ export class HealthKitService {
             default: {
                 const { WORKOUT_KINDS } = require('./healthMetrics') as typeof import('./healthMetrics');
                 const kinds = WORKOUT_KINDS[metric];
-                return kinds ? this.workoutMinutes(date, kinds) : null;
+                if (!kinds) return null;
+                // A workout counted as its distance, how many there were, or (most often) its minutes.
+                if (as === 'km') return this.workoutKm(date, kinds);
+                if (as === 'times') return this.workoutCount(date, kinds);
+                return this.workoutMinutes(date, kinds);
             }
         }
     }
@@ -181,6 +185,25 @@ export class HealthKitService {
                 // Counted on the day it started, so a run past midnight is not counted twice.
                 .filter(row => !row.start || new Date(row.start).toDateString() === date.toDateString())
                 .reduce((sum, row) => sum + Math.max(0, Number(row.duration) || 0), 0) / 60));
+    }
+
+    /** The workouts on `date` of these kinds (any kind when empty), counted on the day they started. */
+    private static async workoutsOn<T>(date: Date, kinds: readonly string[], sum: (rows: { duration?: number; distance?: number }[]) => T): Promise<T | null> {
+        if (!(await wantsWorkouts())) return null;
+        return ask('getAnchoredWorkouts', { ...this.dayRange(date), type: 'Workout' },
+            (results: { data?: { activityName?: string; duration?: number; distance?: number; start?: string }[] }) => sum((results?.data ?? [])
+                .filter(row => !kinds.length || kinds.includes(String(row.activityName)))
+                .filter(row => !row.start || new Date(row.start).toDateString() === date.toDateString())));
+    }
+
+    /** Kilometres covered in workouts of these kinds on `date` (Health gives miles). */
+    static async workoutKm(date: Date, kinds: readonly string[]): Promise<number | null> {
+        return this.workoutsOn(date, kinds, rows => Math.round(rows.reduce((sum, row) => sum + Math.max(0, Number(row.distance) || 0), 0) * 1.609344 * 100) / 100);
+    }
+
+    /** How many workouts of these kinds there were on `date`. */
+    static async workoutCount(date: Date, kinds: readonly string[]): Promise<number | null> {
+        return this.workoutsOn(date, kinds, rows => rows.length);
     }
 
     /** Mindful minutes on `date`, from every meditation app that saves them. */

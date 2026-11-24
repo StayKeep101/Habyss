@@ -1166,7 +1166,7 @@ export async function syncHealthKitData(): Promise<number> {
             // count; the link is ignored rather than acted on.
             if (habit.unit && !metricFits(habit.unit, metric)) continue;
 
-            const reading = await readHealth(metric, today);
+            const reading = await readHealth(metric, today, habit.unit);
             if (reading === null) continue;
 
             const value = inHabitUnit(reading, metric, habit.unit);

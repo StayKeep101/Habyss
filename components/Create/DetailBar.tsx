@@ -5,7 +5,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { MatteSurface } from '@/components/ui/MatteSurface';
@@ -23,6 +23,9 @@ const CLOSE = { duration: 150, easing: Easing.in(Easing.cubic), reduceMotion: Re
  * phone. A calendar, a colour wheel or a grid reads it and sizes itself to
  * fit, so a small phone sees the same thing, just smaller.
  */
+/** The widest a chip's words get before they end in "…". */
+const CHIP_TEXT_MAX = Spacing.section * 5;
+
 export const PanelRoom = createContext<number>(380);
 export const usePanelRoom = () => useContext(PanelRoom);
 
@@ -249,7 +252,8 @@ const styles = StyleSheet.create({
         // months on the third Sunday" is useless cut off at "Every 2 mont…".
         // The row scrolls sideways, so a long one costs nothing but its width.
     },
-    chipText: { fontSize: 13, fontFamily: FontFamily.medium },
+    // A long value (a linked event's whole name) stops at this width, with an ellipsis.
+    chipText: { maxWidth: CHIP_TEXT_MAX, fontSize: 13, fontFamily: FontFamily.medium },
     choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     choicesLine: { flexDirection: 'row', gap: 8 },
     choice: { paddingHorizontal: 13, paddingVertical: 9 },

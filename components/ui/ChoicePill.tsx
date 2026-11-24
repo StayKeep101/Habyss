@@ -12,7 +12,12 @@ import { MatteSurface } from './MatteSurface';
  * or habit's own colour, or the accent) once chosen, with a filled icon. Every
  * chip row in the app uses this, so a choice looks the same everywhere.
  */
-export function ChoicePill({ label, icon, on, color, onPress, radius = 999, style, pressStyle, textStyle, disabled, role = 'radio', accessibilityLabel, accessibilityHint, lines = 1 }: {
+/** How far a fitted pill's words may shrink: 15 pt to about 11. */
+const FIT_SCALE = 0.75;
+
+export function ChoicePill({ label, icon, on, color, onPress, radius = 999, style, pressStyle, textStyle, disabled, role = 'radio', accessibilityLabel, accessibilityHint, lines = 1, fit = false }: {
+    /** In a row of equal pills: the words shrink a little (never under 11 pt) rather than cut off. */
+    fit?: boolean;
     label: string;
     icon?: string;
     on: boolean;
@@ -40,7 +45,7 @@ export function ChoicePill({ label, icon, on, color, onPress, radius = 999, styl
             disabled={disabled} onPress={onPress} style={[styles.press, pressStyle]}>
             <MatteSurface radius={radius} level="control" elevation="none" tint={on ? color : undefined} style={[styles.pill, style]}>
                 {icon ? <AppIcon filled={on} name={icon} size={14} color={ink} /> : null}
-                <Text numberOfLines={lines} style={[styles.text, { color: ink }, textStyle]}>{label}</Text>
+                <Text numberOfLines={lines} adjustsFontSizeToFit={fit} minimumFontScale={fit ? FIT_SCALE : undefined} style={[styles.text, { color: ink }, textStyle]}>{label}</Text>
             </MatteSurface>
         </Pressable>
     );

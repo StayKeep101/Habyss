@@ -27,7 +27,7 @@ export function ChoiceRow<T extends string | number>({ options, value, onChange,
         <View accessibilityRole="radiogroup" accessibilityLabel={accessibilityLabel} style={styles.row}>
             {options.map(option => (
                 <ChoicePill key={String(option.id)} label={option.label} on={option.id === value} color={primary}
-                    pressStyle={styles.item}
+                    pressStyle={styles.item} fit
                     onPress={() => { if (option.id !== value) { selectionFeedback(); select(); onChange(option.id); } }} />
             ))}
         </View>

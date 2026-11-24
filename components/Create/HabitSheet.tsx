@@ -29,7 +29,7 @@ import { describeAlerts } from '@/lib/itemAlerts';
 import { MeasureField } from '@/components/Create/MeasureField';
 import { habitTextSegments } from '@/lib/creationTextHighlight';
 import { readableAccent } from '@/lib/colorContrast';
-import type { HealthMetric } from '@/lib/healthMetrics';
+import { measureUnits, metricFits, type HealthMetric } from '@/lib/healthMetrics';
 import { shortLead } from '@/lib/leadTime';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -41,7 +41,7 @@ import { smartParseHabit } from '@/lib/smartParse';
 import { parseHabitText } from '@/lib/habitParser';
 import { addHabit, updateHabit, getGoals, withAutoTrack, type Habit, type LocationReminder } from '@/lib/habitsSQLite';
 import { allTrackOptions, autoTrackOptions, trackMinutes, type AutoTrackOption } from '@/lib/autoTrackSources';
-import { guessHealthMetric } from '@/lib/autoTrackGuess';
+import { autoTrackDefaults, guessHealthMetric } from '@/lib/autoTrackGuess';
 import { TrackingPicker } from '@/components/Create/TrackingPicker';
 import { appTimeSupported, appsChosen, chooseApps, getAppTime, setAppTime } from '@/lib/appTime';
 import { generateId } from '@/lib/database';
@@ -359,6 +359,15 @@ export const HabitSheet: React.FC<{
     const chooseTracking = (key: string, from: 'hint' | 'chip' = 'chip') => {
         setTrackPick(key);
         const option = everyOption.find(item => item.key === key) ?? suggestions.find(item => item.key === key);
+        // Health: Measure in a unit it can count. One it cannot (pages for a run) becomes its own (minutes) and a usual amount.
+        if (option?.kind === 'health') {
+            const own = draft.unit === 'min' ? 'minutes' : draft.unit;
+            if (!own || !draft.amount || !metricFits(own, option.metric)) {
+                const defaults = autoTrackDefaults(option.metric);
+                change({ unit: defaults.unit === 'minutes' ? 'min' : defaults.unit, amount: defaults.target });
+                setAmountText(null);
+            }
+        }
         if (option?.kind === 'place') {
             // From the line under the sentence: to the Tracking chip, where the map is a tap away.
             if (from === 'hint' && !stayPlace) setOpenRow('tracking');
@@ -525,7 +534,7 @@ export const HabitSheet: React.FC<{
         },
         {
             id: 'target', icon: 'stats-chart-outline', label: 'Measure',
-            value: draft.amount ? `${draft.amount} ${draft.unit ?? 'times'}` : undefined,
+            value: draft.amount ? `${draft.amount} ${!draft.unit || draft.unit === 'times' ? (draft.amount === 1 ? 'time' : 'times') : draft.unit}` : undefined,
             content: (
                 <>
                     <MeasureField
@@ -539,7 +548,10 @@ export const HabitSheet: React.FC<{
                         unit={draft.unit === 'min' ? 'minutes' : draft.unit === 'times' ? 'sessions' : draft.unit}
                         onUnit={unit => change({ unit: unit === 'minutes' ? 'min' : unit === 'sessions' ? 'times' : unit, amount: draft.amount ?? 1 })}
                         accent={accentText}
-                        onClear={draft.amount !== undefined ? () => { change({ amount: undefined, unit: undefined }); setAmountText(null); } : undefined}
+                        // Counted by Apple Health: only the units it can count this in, said so above.
+                        only={tracking?.kind === 'health' ? measureUnits(tracking.metric).map(id => ({ id, label: id })) : undefined}
+                        source={tracking?.kind === 'health' ? { label: `Counted by Apple Health · ${tracking.label}`, icon: 'heart' } : undefined}
+                        onClear={draft.amount !== undefined && tracking?.kind !== 'health' ? () => { change({ amount: undefined, unit: undefined }); setAmountText(null); } : undefined}
                     />
 
                 </>
