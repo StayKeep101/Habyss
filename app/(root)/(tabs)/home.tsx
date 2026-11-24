@@ -50,6 +50,7 @@ import { GOALS_ENABLED } from '@/constants/features';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { DayNotePopup } from '@/components/Echo/DayNotePopup';
+import { AwayShards } from '@/components/Shards/AwayShards';
 import { MorningPopup } from '@/components/Echo/MorningPopup';
 import { ShardsCard } from '@/components/Shards/ShardsCard';
 import { MatteSurface } from '@/components/ui/MatteSurface';
@@ -746,6 +747,8 @@ const Home = () => {
         {/* Your day is up: how did it go? And each morning, last night (components/Echo). */}
         <DayNotePopup />
         <MorningPopup />
+        {/* Shards earned with the app closed (Health, the Lock Screen card, sleep), said on coming back. */}
+        <AwayShards moves={wallet.activity} ready={goalsData.loaded} />
         <CheckInPopup kind={question} onClose={() => setQuestion(null)}
           onAnswer={(kind, value) => { void answerCheckIn(kind, value); setQuestion(null); successFeedback(); }} />
 

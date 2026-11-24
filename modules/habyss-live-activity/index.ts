@@ -24,6 +24,8 @@ export type ScheduledPlan = {
   /** "habit:<id>" or "task:<id>": the card's Done button ticks it. */
   itemId?: string | null;
   nextTitle?: string | null; nextStart?: number | null; nextEnd?: number | null; nextItemId?: string | null; nextUrl?: string | null;
+  /** What follows the next, as JSON [{t,s,e,i,u}]: the card's Done keeps moving through them (next build). */
+  later?: string | null;
 };
 
 type HabyssLiveActivityModule = {

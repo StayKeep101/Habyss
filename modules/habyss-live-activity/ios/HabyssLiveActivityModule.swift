@@ -28,6 +28,8 @@ struct WidgetAttributes: ActivityAttributes {
     var nextEndMs: Double?
     var nextItemId: String?
     var nextUrl: String?
+    /// What follows the next, as JSON [{t,s,e,i,u}]: the card's Done moves through them.
+    var later: String?
   }
 
   var name: String
@@ -92,6 +94,7 @@ struct ScheduledActivityPlan: Record {
   @Field var nextEnd: Double? = nil
   @Field var nextItemId: String? = nil
   @Field var nextUrl: String? = nil
+  @Field var later: String? = nil
 }
 
 /// A moment that rings as an alarm (AlarmKit): Leave now, Start now.
@@ -263,7 +266,7 @@ public class HabyssLiveActivityModule: Module {
           progress: 0, profileImagePath: nil, scheduledStartDateInMilliseconds: plan.start,
           scheduledEndDateInMilliseconds: plan.end, url: plan.url, accentHex: plan.accentHex,
           itemId: plan.itemId, nextTitle: plan.nextTitle, nextStartMs: plan.nextStart, nextEndMs: plan.nextEnd,
-          nextItemId: plan.nextItemId, nextUrl: plan.nextUrl)
+          nextItemId: plan.nextItemId, nextUrl: plan.nextUrl, later: plan.later)
         // Stale at its end: the card then shows what comes next (ios/Widget/WidgetLiveActivity.swift).
         let content = ActivityContent(state: state, staleDate: end)
         if let existing = Activity<WidgetAttributes>.activities.first(where: { $0.attributes.name == name }) {

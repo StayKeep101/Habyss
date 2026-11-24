@@ -29,13 +29,15 @@ struct WidgetAttributes: ActivityAttributes {
         var nextEndMs: Double?
         var nextItemId: String?
         var nextUrl: String?
+        /// What follows the next, as JSON [{t,s,e,i,u}] (title, start ms, end ms, item id, url): Done moves through them.
+        var later: String?
 
         /// What the card is on now: itself, or once its time is up, what comes next.
         func current(stale: Bool) -> ContentState {
             guard stale, let next = nextTitle else { return self }
             return ContentState(title: next, subtitle: "", timerEndDateInMilliseconds: nil, progress: 0,
                 profileImagePath: nil, scheduledStartDateInMilliseconds: nextStartMs, scheduledEndDateInMilliseconds: nextEndMs,
-                url: nextUrl ?? url, accentHex: accentHex, itemId: nextItemId)
+                url: nextUrl ?? url, accentHex: accentHex, itemId: nextItemId, later: later)
         }
     }
 
@@ -85,16 +87,23 @@ struct CompleteNowIntent: LiveActivityIntent {
         }
         guard let activity = Activity<WidgetAttributes>.activities.first(where: { $0.attributes.name == activityName }) else { return .result() }
         let state = activity.content.state
-        // Ticked the one it had already moved on to: that is the one done, and nothing is known after it.
-        let onNext = state.nextItemId == itemId
-        if !onNext, state.nextTitle != nil {
-            var next = state.current(stale: true)
-            next.nextTitle = nil
-            let ends = next.scheduledEndDateInMilliseconds.map { Date(timeIntervalSince1970: $0 / 1000) }
-            await activity.update(ActivityContent(state: next, staleDate: ends))
-        } else {
-            await activity.end(nil, dismissalPolicy: .immediate)
-        }
+        // The day as the card knows it: what it shows, what is next, and what follows (`later`).
+        // The one ticked comes off; the card moves to the first left, with the rest behind it.
+        struct Upcoming: Codable { let t: String; let s: Double?; let e: Double?; let i: String?; let u: String? }
+        var line: [Upcoming] = [Upcoming(t: state.title, s: state.scheduledStartDateInMilliseconds, e: state.scheduledEndDateInMilliseconds, i: state.itemId, u: state.url)]
+        if let next = state.nextTitle { line.append(Upcoming(t: next, s: state.nextStartMs, e: state.nextEndMs, i: state.nextItemId, u: state.nextUrl)) }
+        if let raw = state.later, let data = raw.data(using: .utf8), let rest = try? JSONDecoder().decode([Upcoming].self, from: data) { line.append(contentsOf: rest) }
+        // Ticked: it and anything before it on the line (its time had come) are behind.
+        if let at = line.firstIndex(where: { $0.i == itemId }) { line.removeFirst(at + 1) } else if !line.isEmpty { line.removeFirst() }
+        guard let first = line.first else { await activity.end(nil, dismissalPolicy: .immediate); return .result() }
+        let second = line.count > 1 ? line[1] : nil
+        let rest = Array(line.dropFirst(2))
+        let restJson = rest.isEmpty ? nil : (try? JSONEncoder().encode(rest)).flatMap { String(data: $0, encoding: .utf8) }
+        let moved = WidgetAttributes.ContentState(title: first.t, subtitle: "", timerEndDateInMilliseconds: nil, progress: 0, profileImagePath: nil,
+            scheduledStartDateInMilliseconds: first.s, scheduledEndDateInMilliseconds: first.e, url: first.u ?? state.url, accentHex: state.accentHex,
+            itemId: first.i, nextTitle: second?.t, nextStartMs: second?.s, nextEndMs: second?.e, nextItemId: second?.i, nextUrl: second?.u, later: restJson)
+        let ends = first.e.map { Date(timeIntervalSince1970: $0 / 1000) }
+        await activity.update(ActivityContent(state: moved, staleDate: ends))
         return .result()
     }
 }

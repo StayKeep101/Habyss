@@ -48,6 +48,9 @@ export function slotsFromFlow(flow: DayFlow, day: string): FlowSlot[] {
  * to it). Where iOS can start a card on its own, the next one is scheduled for
  * its time; elsewhere it shows now, as "up next".
  */
+/** How many more after the next the card carries (a card's state must stay small: 4 KB in all). */
+const LATER = 6;
+
 export function activityPlan(slots: FlowSlot[], now: Date, _supportsScheduling: boolean) {
     const at = now.getTime();
     const slot = slots.find(item => item.start <= at && at < item.end)
@@ -59,10 +62,16 @@ export function activityPlan(slots: FlowSlot[], now: Date, _supportsScheduling: 
     // Done button moves straight to it), so it never sits on a finished thing.
     const after = slots.filter(item => item.key !== slot.key && item.start >= slot.end - 1).sort((a, b) => a.start - b.start);
     const next = doable(slot) ? pullForward(slot, after, doable) : after[0];
+    // And what follows that, a few deep: ticking on the card keeps moving through the day
+    // without opening the app (ios/Widget/LiveActivityShared.swift CompleteNowIntent).
+    const later = after.filter(item => item.key !== next?.key).slice(0, LATER).map(item => ({
+        t: item.title, s: item.start, e: item.end, i: doable(item) ? `${item.kind}:${item.id}` : null, u: urlOf(item),
+    }));
     return [{
         key: slot.key, title: slot.title, start: slot.start, end: slot.end, url: urlOf(slot), color: slot.color,
         itemId: doable(slot) ? `${slot.kind}:${slot.id}` : null,
         ...(next ? { nextTitle: next.title, nextStart: next.start, nextEnd: next.end, nextItemId: doable(next) ? `${next.kind}:${next.id}` : null, nextUrl: urlOf(next) } : null),
+        ...(later.length ? { later: JSON.stringify(later) } : null),
     }];
 }
 
