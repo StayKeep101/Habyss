@@ -2,7 +2,7 @@ import type { PersonalityModeId } from '@/constants/AIPersonalities';
 import { isNight } from './bedtimeLock';
 
 /**
- * Still in Habyss past bedtime: Echo says so, now and then, in the chosen
+ * Still in Habyss past bedtime: Echo's line on Home says so, in the chosen
  * voice. The first line as soon as bedtime passes, then one every quarter of
  * an hour, getting firmer the later it gets. Never the same line twice in a
  * row. Pure.

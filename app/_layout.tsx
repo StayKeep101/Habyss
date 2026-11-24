@@ -34,7 +34,6 @@ import { FreezeAskHost } from '@/components/Echo/FreezeAskHost';
 import { OpenBetHost } from '@/components/Market/OpenBetHost';
 import { ChallengeHost } from '@/components/Challenge/ChallengeHost';
 import { ProofCameraHost } from '@/components/Proof/ProofCameraHost';
-import { BedtimeNudgeHost } from '@/components/Echo/BedtimeNudgeHost';
 import { DayCompleteCelebration } from '@/components/Celebrations/DayCompleteCelebration';
 import { MilestoneCelebration } from '@/components/Celebrations/MilestoneCelebration';
 import { HabitSheet } from '@/components/Create/HabitSheet';
@@ -506,7 +505,6 @@ function InnerLayout() {
         <ChallengeHost />
         <ProofCameraHost />
         {/* Past bedtime with the app open: Echo, now and then, sending you to bed. */}
-        <BedtimeNudgeHost />
         {/* Hold the create button and speak. */}
         <VoiceCapture />
         <HabitSheet listenToGlobalEvents />

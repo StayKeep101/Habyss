@@ -36,7 +36,8 @@ import type { TalkQuestion } from '@/lib/echoConversation';
 import { ChoiceSheet } from '@/components/ui/ChoiceSheet';
 import { upcomingDeadlines } from '@/lib/echoBrief';
 import { useTaskPressure } from '@/hooks/useTaskPressure';
-import { getName } from '@/lib/echo';
+import { getDayWindow, getName } from '@/lib/echo';
+import { bedtimeLine, minutesPastBedtime, NUDGE_EVERY_MS } from '@/lib/bedtimeNudge';
 import { nextPatternLine } from '@/lib/echoPatterns';
 import { useEchoPatterns } from '@/hooks/useEchoPatterns';
 
@@ -174,6 +175,13 @@ const Home = () => {
       lastShownRef.current = { at: Date.now() };
       void noteSaid(line, topic);
     };
+    // Past bedtime, Echo's line says so first, in your voice, firmer the later it gets (lib/bedtimeNudge.ts).
+    const night = await getDayWindow().catch(() => null);
+    const past = night ? minutesPastBedtime(new Date(), night) : null;
+    if (past !== null) {
+      say(bedtimeLine(past, personality, said.find(item => item.topic === 'bedtime')?.line ?? null), 'bedtime');
+      return;
+    }
     const human = require('@/lib/echoHuman') as typeof import('@/lib/echoHuman');
     const saidToday = (prefix: string) => said.some(item => item.topic.startsWith(prefix) && localDateKey(new Date(item.at)) === today);
     const pressure = pressureRef.current;
@@ -264,6 +272,13 @@ const Home = () => {
   }, [aiPersonality, greetingStyle]);
   const showEchoLineRef = useRef(showEchoLine);
   useEffect(() => { showEchoLineRef.current = showEchoLine; }, [showEchoLine]);
+  // Past bedtime, a new line every quarter of an hour while the app is open.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void getDayWindow().then(night => { if (night && minutesPastBedtime(new Date(), night) !== null) void showEchoLineRef.current?.(); }).catch(() => undefined);
+    }, NUDGE_EVERY_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   // Track previous streak for celebration
 
@@ -618,7 +633,7 @@ const Home = () => {
 
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
-          {motivationalQuote ? <EchoLine key={lineTurn} text={motivationalQuote} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)} style={{ marginTop: sectionGap }}
+          {motivationalQuote ? <EchoLine key={lineTurn} text={motivationalQuote} paused={refreshing} mood={taskPressureNow.demonAllowed ? taskPressureNow.level : Math.min(3, taskPressureNow.level)} style={{ marginTop: sectionGap }}
             onDone={() => {
               const kind = pendingQuestion.current; if (kind) { pendingQuestion.current = null; setTimeout(() => setQuestion(kind), 400); }
               const asked = pendingTalk.current; if (asked) { pendingTalk.current = null; setTimeout(() => setTalk(asked), 500); }
