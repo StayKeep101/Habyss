@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { AppIcon, ChoicePill, ChoiceRow, IconButton, MatteSurface } from '@/components/ui';
+import { StyleSheet, Text, View } from 'react-native';
+import { ChoicePill, ChoiceRow, IconButton } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAnchorOptions, type AnchorKind } from '@/hooks/useAnchorSuggestions';
-import { textOn } from '@/theme/tokens';
-import { Radius, Spacing } from '@/theme/designSystem';
+import { Spacing } from '@/theme/designSystem';
 import type { HabitAnchor } from '@/lib/habitAnchor';
 
 const SIDES: { id: 'before' | 'after'; label: string }[] = [{ id: 'before', label: 'Before' }, { id: 'after', label: 'After' }];
@@ -18,9 +17,10 @@ const KINDS: { id: AnchorKind; label: string; icon: string }[] = [
 const SHOWN = 24;
 
 /**
- * A habit held to something in the day (lib/habitAnchor.ts). Linked, one line
- * on top: what to, Before or After, and ✕ to unlink. Below, the kinds
- * (events, tasks, habits, meals) in one row, and that kind's list. On a day the linked thing happens, the
+ * A habit held to something in the day (lib/habitAnchor.ts): the kinds
+ * (events, tasks, habits, meals) in one row; once one is linked, Before or
+ * After and ✕ to unlink right under them; then that kind's list, the linked
+ * one lit. On a day the linked thing happens, the
  * timeline places the habit against it; other days it fits in where there is room.
  */
 export function AnchorPicker({ value, onChange, accent }: {
@@ -47,33 +47,22 @@ export function AnchorPicker({ value, onChange, accent }: {
 
     return (
         <View style={styles.wrap}>
-            {/* Linked: what to, before or after, unlink. */}
-            {name && value ? (
-                <View style={styles.row}>
-                    <MatteSurface radius={Radius.control} level="control" style={styles.linked}>
-                        <AppIcon name="link" size={Spacing.lg} color={accent} />
-                        <Text numberOfLines={1} style={[t.type.body, styles.shrink, { color: t.color.textPrimary }]}>{name}</Text>
-                    </MatteSurface>
-                    {SIDES.map(side => {
-                        const on = value.side === side.id;
-                        return (
-                            <Pressable key={side.id} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`Right ${side.id} ${name}`}
-                                hitSlop={Spacing.sm} onPress={() => { if (!on) { selectionFeedback(); set({ side: side.id }); } }}>
-                                <MatteSurface radius={Radius.pill} level="control" tint={on ? accent : undefined} style={styles.side}>
-                                    <Text style={[t.type.caption, { color: on ? textOn(accent) : t.color.textMuted }]}>{side.label}</Text>
-                                </MatteSurface>
-                            </Pressable>
-                        );
-                    })}
-                    <IconButton icon="close" label="Unlink" diameter={26} size={13} color={t.color.textSubtle}
-                        onPress={() => { lightFeedback(); onChange(null); }} />
-                </View>
-            ) : null}
-
-            {/* The kinds, one row on any phone; that kind's list under it. */}
+            {/* The kinds, one row on any phone; that kind's list under them. */}
             {kinds.length > 1 ? (
                 <ChoiceRow accessibilityLabel="What to link it to" options={kinds.map(item => ({ id: item.id, label: item.label }))}
                     value={shownKind} onChange={id => setKind(id)} color={accent} />
+            ) : null}
+
+            {/* Linked: right before or right after it (the item lit below), and ✕ to unlink. */}
+            {name && value ? (
+                <View style={styles.row}>
+                    <View style={styles.flex}>
+                        <ChoiceRow accessibilityLabel={`Right before or right after ${name}`} options={SIDES} value={value.side}
+                            onChange={side => set({ side })} color={accent} />
+                    </View>
+                    <IconButton icon="close" label="Unlink" diameter={36} size={15} color={t.color.textSubtle}
+                        onPress={() => { lightFeedback(); onChange(null); }} />
+                </View>
             ) : null}
 
             <View style={styles.pills}>
@@ -100,8 +89,6 @@ export function AnchorPicker({ value, onChange, accent }: {
 const styles = StyleSheet.create({
     wrap: { gap: Spacing.md },
     row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-    linked: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + Spacing.xs / 2 },
-    shrink: { flexShrink: 1 },
-    side: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
+    flex: { flex: 1 },
     pills: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
 });
