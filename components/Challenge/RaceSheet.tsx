@@ -123,7 +123,7 @@ export function RaceSheet() {
     const win = ownerWin(stake, firstToday);
     return (
         <ComposerModal visible={visible} onClose={close}>
-            <ModalHeader title="Race the clock" subtitle={picked.length ? raceTitle(picked.length, chosenTime) : undefined} onBack={close} backIcon="close" />
+            <ModalHeader title="Race the clock" subtitle={picked.length ? raceTitle(picked.length, chosenTime) : undefined} />
 
             <ScrollView style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} alwaysBounceVertical={false}>
                 {open.length ? open.slice(0, 12).map(task => {

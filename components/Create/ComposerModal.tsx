@@ -141,7 +141,7 @@ export const ComposerModal: React.FC<{
                 <Animated.View pointerEvents="box-none" style={[styles.bottom, lift]}>
                     <Animated.View
                         onLayout={(event: LayoutChangeEvent) => setHeight(event.nativeEvent.layout.height)}
-                        style={[styles.card, pad, ceiling, { backgroundColor: colors.background, borderColor: colors.border }]}
+                        style={[styles.card, pad, ceiling, { backgroundColor: colors.background }]}
                     >
                         <ComposerSpace.Provider value={space}>{children}</ComposerSpace.Provider>
                     </Animated.View>
@@ -158,8 +158,8 @@ const styles = StyleSheet.create({
     backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' },
     bottom: { flex: 1, justifyContent: 'flex-end' },
     card: {
+        // No coloured outline: the card is set apart by the dimmed screen behind it.
         borderTopLeftRadius: 24, borderTopRightRadius: 24,
-        borderTopWidth: StyleSheet.hairlineWidth, borderLeftWidth: StyleSheet.hairlineWidth, borderRightWidth: StyleSheet.hairlineWidth,
         overflow: 'hidden',
     },
 });
