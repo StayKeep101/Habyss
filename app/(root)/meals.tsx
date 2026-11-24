@@ -33,7 +33,7 @@ export default function TimelineSettingsScreen() {
     const flexible = useMealsFlexible();
     const anyMeal = Object.values(meals).some(meal => meal.on);
     const weekStart = useWeekStart();
-    const { autoReschedule, setAutoReschedule } = useAppSettings();
+    const { autoReschedule, setAutoReschedule, askThoughts, setAskThoughts } = useAppSettings();
     const { lightFeedback } = useHaptics();
     // The same saved day as Notifications: one copy (lib/echo.ts), never the default first.
     const [day, setDay] = useState<DayWindow>(() => cachedDayWindow() ?? DEFAULT_DAY);
@@ -58,6 +58,9 @@ export default function TimelineSettingsScreen() {
                         everything stays at its time and what has no time waits in Anytime. */}
                     <SettingsRow icon="shuffle" color={t.color.success} label="Auto-reschedule"
                         toggle={autoReschedule} onToggle={value => { lightFeedback(); setAutoReschedule(value); }} />
+                    {/* After a habit is ticked by hand: a card asking how it went (its thoughts, kept with it). */}
+                    <SettingsRow icon="chatbubble-ellipses" color={t.color.cobalt} label="Ask how a habit went"
+                        toggle={askThoughts} onToggle={value => { lightFeedback(); setAskThoughts(value); }} />
                     {/* When a week ends: calendars start on it and the brain dump is reviewed then. */}
                     <SettingsRow icon="calendar" color={t.color.accent} label="Week starts"
                         choices={[{ id: 'monday', label: 'Mon' }, { id: 'sunday', label: 'Sun' }]} chosen={weekStart}

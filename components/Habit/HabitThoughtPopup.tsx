@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AppState, StyleSheet, View } from 'react-native';
-import { AppButton, AppTextField } from '@/components/ui';
-import { PopupCard } from '@/components/ui/PopupCard';
-import { useHaptics } from '@/hooks/useHaptics';
+import { AppState } from 'react-native';
+import { NotePopup } from '@/components/ui';
+import { useAppSettings } from '@/context/AppSettingsContext';
 import { on } from '@/lib/appEvents';
 import { getHabits } from '@/lib/habitsSQLite';
 import { localDateKey } from '@/lib/habitSchedule';
@@ -10,7 +9,6 @@ import { forgetHabitThoughts, setHabitThought } from '@/lib/habitThoughts';
 import { readableAccent } from '@/lib/colorContrast';
 import { Colors } from '@/theme/colors';
 import { DURATION } from '@/theme/motion';
-import { Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 
 type Asking = { habitId: string; name: string; color: string; icon: string; date: string };
@@ -24,7 +22,9 @@ type Asking = { habitId: string; name: string; color: string; icon: string; date
  */
 export function HabitThoughtPopup() {
     const { theme } = useTheme();
-    const { successFeedback, lightFeedback } = useHaptics();
+    const { askThoughts } = useAppSettings();
+    const askRef = useRef(askThoughts);
+    useEffect(() => { askRef.current = askThoughts; }, [askThoughts]);
     const [asking, setAsking] = useState<Asking | null>(null);
     const [text, setText] = useState('');
     const open = useRef<string | null>(null);
@@ -38,7 +38,8 @@ export function HabitThoughtPopup() {
                 if (open.current === habitId) { open.current = null; setAsking(null); setText(''); }
                 return;
             }
-            if (open.current || AppState.currentState !== 'active') return;
+            // Turned off in Settings → Day & calendar.
+            if (!askRef.current || open.current || AppState.currentState !== 'active') return;
             const today = localDateKey(new Date());
             if (date && date !== today) return;
             // A beat after the tick, so its own celebration plays first.
@@ -62,23 +63,9 @@ export function HabitThoughtPopup() {
     const close = () => { open.current = null; setAsking(null); setText(''); };
     const color = asking ? readableAccent(asking.color, Colors[theme].background) : Colors[theme].textPrimary;
     return (
-        <PopupCard visible={!!asking} onClose={() => { lightFeedback(); close(); }} icon={asking?.icon ?? 'checkmark-circle'} iconColor={color} typing
-            title={asking ? `${asking.name}, done` : ''} body="How did it go? Your thoughts stay with the habit.">
-            <AppTextField value={text} onChangeText={setText} multiline autoFocus maxLength={600} style={styles.field}
-                placeholder="What you noticed, how it felt…" accessibilityLabel={`Your thoughts on ${asking?.name ?? 'this habit'}`} />
-            <View style={styles.actions}>
-                <View style={styles.flex}><AppButton label="Skip" variant="ghost" onPress={() => { lightFeedback(); close(); }} /></View>
-                <View style={styles.flex}>
-                    <AppButton label="Keep it" icon="checkmark" variant="primary" disabled={!text.trim()}
-                        onPress={() => { successFeedback(); if (asking) void setHabitThought(asking.habitId, asking.date, text); close(); }} />
-                </View>
-            </View>
-        </PopupCard>
+        <NotePopup visible={!!asking} onClose={close} icon={asking?.icon ?? 'checkmark-circle'} iconColor={color}
+            title={asking ? `${asking.name}, done` : ''} body="How did it go?"
+            value={text} onChangeText={setText} placeholder="What you noticed, how it felt…" label={`Your thoughts on ${asking?.name ?? 'this habit'}`}
+            onSave={() => { if (asking) void setHabitThought(asking.habitId, asking.date, text); close(); }} />
     );
 }
-
-const styles = StyleSheet.create({
-    flex: { flex: 1 },
-    field: { minHeight: Spacing.section * 2.5 },
-    actions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
-});

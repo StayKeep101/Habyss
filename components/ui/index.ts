@@ -13,6 +13,7 @@
  *   VoidModal      a centred modal window
  *   VoidSheet      a bottom sheet with a grabber
  *   PopupCard      the streak-popup card: rises from the bottom, big icon on its top edge
+ *   NotePopup      a few words in a PopupCard: a roomy box, Skip and Keep it (every "how did it go?")
  *   Overlay        a layer over the whole app (menus, celebrations) without a second window
  *
  * Controls
@@ -126,6 +127,7 @@ export { MOTION, LIST_LAYOUT, ListItem, CountUp, AnimatedFill, GrowBar, Reveal, 
 export { TimeWheels } from './TimeWheels';
 export { DateWheels } from './DateWheels';
 export { PopupCard } from './PopupCard';
+export { NotePopup } from './NotePopup';
 export { DemonEdge } from './DemonEdge';
 export { DragDropProvider, Draggable, DropTarget } from './DragDrop';
 export { ChoiceSheet, type Choice } from './ChoiceSheet';

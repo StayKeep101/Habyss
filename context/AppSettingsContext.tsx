@@ -15,6 +15,8 @@ interface AppSettings {
     musicEnabled: boolean;
     /** The timeline moves habits and tasks for you (lib/dayFlow.ts); off, everything stays at its time. */
     autoReschedule: boolean;
+    /** After a habit is ticked by hand, a card asks how it went (components/Habit/HabitThoughtPopup.tsx). */
+    askThoughts: boolean;
     notificationsEnabled: boolean;
     aiPersonality: PersonalityModeId;
     cardSize: RoadMapCardSize;
@@ -28,6 +30,7 @@ interface AppSettings {
 interface AppSettingsContextType extends AppSettings {
     setHapticsEnabled: (enabled: boolean) => void;
     setAutoReschedule: (enabled: boolean) => void;
+    setAskThoughts: (enabled: boolean) => void;
     setSoundsEnabled: (enabled: boolean) => void;
     setMusicEnabled: (enabled: boolean) => void;
     setNotificationsEnabled: (enabled: boolean) => Promise<void>;
@@ -47,6 +50,7 @@ const defaultSettings: AppSettings = {
     soundsEnabled: true,
     musicEnabled: true,
     autoReschedule: true,
+    askThoughts: true,
     notificationsEnabled: true,
     aiPersonality: 'friendly',
     cardSize: 'standard',
@@ -131,6 +135,10 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
         void commit({ autoReschedule: enabled });
     };
 
+    const setAskThoughts = (enabled: boolean) => {
+        void commit({ askThoughts: enabled });
+    };
+
     const setSoundsEnabled = (enabled: boolean) => {
         void commit({ soundsEnabled: enabled });
     };
@@ -196,6 +204,7 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
                 ...settings,
                 setHapticsEnabled,
                 setAutoReschedule,
+                setAskThoughts,
                 setSoundsEnabled,
                 setMusicEnabled,
                 setNotificationsEnabled,

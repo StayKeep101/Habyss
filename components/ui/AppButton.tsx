@@ -22,6 +22,8 @@ interface AppButtonProps {
     style?: StyleProp<ViewStyle>;
     fullWidth?: boolean;
     accessibilityLabel?: string;
+    /** Smaller, for a pair of choices inside a card (still 44 pt to tap): a pill, its words a size down. */
+    compact?: boolean;
 }
 
 /**
@@ -32,7 +34,7 @@ interface AppButtonProps {
  */
 export const AppButton: React.FC<AppButtonProps> = ({
     label, onPress, variant = 'default', icon, disabled = false, loading = false,
-    style, fullWidth = true, accessibilityLabel,
+    style, fullWidth = true, accessibilityLabel, compact = false,
 }) => {
     const tap = useUISound('tap');
     const { theme } = useTheme();
@@ -41,8 +43,8 @@ export const AppButton: React.FC<AppButtonProps> = ({
     const foreground = variant === 'danger' ? colors.error : variant === 'primary' ? buttonInk : colors.textPrimary;
     const inner = (
         <>
-            {loading ? <ActivityIndicator size="small" color={foreground} /> : icon ? <Ionicons filled name={icon} size={Control.icon} color={foreground} /> : null}
-            <Text style={[Typography.button, styles.label, { color: foreground }]}>{label}</Text>
+            {loading ? <ActivityIndicator size="small" color={foreground} /> : icon ? <Ionicons filled name={icon} size={compact ? Control.icon - Spacing.xs : Control.icon} color={foreground} /> : null}
+            <Text style={[Typography.button, styles.label, compact && styles.compactLabel, { color: foreground }]}>{label}</Text>
         </>
     );
     return (
@@ -56,21 +58,21 @@ export const AppButton: React.FC<AppButtonProps> = ({
             style={[fullWidth && styles.fullWidth, style, (disabled || loading) && styles.disabled]}
         >
             {variant === 'ghost'
-                ? <ViewRow>{inner}</ViewRow>
+                ? <ViewRow compact={compact}>{inner}</ViewRow>
                 : variant === 'primary'
                 ? (
-                    <View style={[styles.button, styles.primary]}>
+                    <View style={[styles.button, styles.primary, compact && styles.compact, compact && styles.compactRound]}>
                         <LinearGradient colors={buttonColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
                         {inner}
                     </View>
                 )
-                : <MatteSurface radius={Radius.control} level="control" style={styles.button}>{inner}</MatteSurface>}
+                : <MatteSurface radius={compact ? Radius.pill : Radius.control} level="control" style={[styles.button, compact && styles.compact]}>{inner}</MatteSurface>}
         </TouchableOpacity>
     );
 };
 
 /** The words alone, laid out like a button. */
-const ViewRow = ({ children }: { children: React.ReactNode }) => <View style={styles.button}>{children}</View>;
+const ViewRow = ({ children, compact }: { children: React.ReactNode; compact?: boolean }) => <View style={[styles.button, compact && styles.compact]}>{children}</View>;
 
 const styles = StyleSheet.create({
     fullWidth: { width: '100%' },
@@ -81,4 +83,7 @@ const styles = StyleSheet.create({
     label: { flexShrink: 1, textAlign: 'center' },
     primary: { borderRadius: Radius.control, overflow: 'hidden', ...Elevation.control },
     disabled: { opacity: 0.5 },
+    compact: { minHeight: Control.hitTarget, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg },
+    compactRound: { borderRadius: Radius.pill },
+    compactLabel: { fontSize: Typography.body.fontSize },
 });

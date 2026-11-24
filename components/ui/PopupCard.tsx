@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from './AppIcon';
 import { Colors } from '@/theme/colors';
-import { FontFamily, Spacing, elevationFor, surfaceFor } from '@/theme/designSystem';
+import { FontFamily, Spacing, Typography, elevationFor, surfaceFor } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { sheetBottom } from './sheetBottom';
 import { OVERLAY } from '@/theme/motion';
@@ -70,8 +70,9 @@ export function PopupCard({ visible, onClose, icon, iconColor, title, body, chil
                     <Animated.View style={[styles.badge, badge, { shadowColor: iconColor }]}>
                         {picture ?? <AppIcon name={icon as never} filled size={76} color={iconColor} />}
                     </Animated.View>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
-                    {body ? <Text style={[styles.body, { color: colors.textSecondary }]}>{body}</Text> : null}
+                    {/* Typing: the words a size down, so the box has the room. */}
+                    <Text style={[styles.title, typing && styles.titleTyping, { color: colors.textPrimary }]} numberOfLines={typing ? 2 : undefined}>{title}</Text>
+                    {body ? <Text style={[styles.body, typing && styles.bodyTyping, { color: colors.textSecondary }]}>{body}</Text> : null}
                     {children}
                 </Animated.View>
             </KeyboardAvoidingView>
@@ -89,4 +90,6 @@ const styles = StyleSheet.create({
     badge: { position: 'absolute', top: -48, alignSelf: 'center', shadowOpacity: 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 0 } },
     title: { fontSize: 23, fontFamily: FontFamily.bold, letterSpacing: -0.4, textAlign: 'center' },
     body: { fontSize: 15, lineHeight: 21, fontFamily: FontFamily.regular, textAlign: 'center', marginBottom: Spacing.sm },
+    titleTyping: { ...Typography.sheetTitle, textAlign: 'center' },
+    bodyTyping: { ...Typography.bodySmall, textAlign: 'center', marginBottom: Spacing.xs },
 });
