@@ -47,7 +47,9 @@ export function usePlaceMapFit() {
  * and what is found lists under the field. Choosing one puts the map back,
  * pinned there; Cancel puts it back as it was.
  */
-export function InlinePlaceMap({ place, accent, onPick, height, trailing }: {
+export function InlinePlaceMap({ place, accent, onPick, height, trailing, onSearching }: {
+    /** Searching or not: the panel hides what sits above the map, so the field is first under the panel's title. */
+    onSearching?: (on: boolean) => void;
     /** Beside the name, on its line (Reminder's Arrive / Leave): the name then sits on the left. */
     trailing?: React.ReactNode;
     place: (MapPoint & { name: string }) | null;
@@ -114,8 +116,8 @@ export function InlinePlaceMap({ place, accent, onPick, height, trailing }: {
         return () => { live = false; clearTimeout(timer); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query, searching]);
-    const openSearch = () => { selectionFeedback(); setQuery(''); setFound([]); setSearching(true); };
-    const closeSearch = () => { Keyboard.dismiss(); setSearching(false); };
+    const openSearch = () => { selectionFeedback(); setQuery(''); setFound([]); setSearching(true); onSearching?.(true); };
+    const closeSearch = () => { Keyboard.dismiss(); setSearching(false); onSearching?.(false); };
     const choose = (item: FoundPlace) => {
         selectionFeedback();
         const point = { latitude: item.latitude, longitude: item.longitude };
@@ -203,7 +205,7 @@ export function InlinePlaceMap({ place, accent, onPick, height, trailing }: {
                     ))}
                     {query.trim().length >= 2 && !found.length ? (
                         <Text style={[styles.note, { color: colors.textSecondary }]} accessibilityLiveRegion="polite">
-                            {looking ? 'Searching…' : 'Nothing found. Try a street, a city or a business name.'}
+                            {looking ? 'Searching…' : 'Nothing found. Try the full name or an address.'}
                         </Text>
                     ) : null}
                 </Animated.View>

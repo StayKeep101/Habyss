@@ -57,6 +57,8 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
     const [chosen, setChosen] = useState<Mode | null>(null);
     const mode = chosen ?? derived;
     const fit = usePlaceMapFit();
+    // While a place is searched for, the choices step aside: the field sits first in the panel.
+    const [searching, setSearching] = useState(false);
     const pinAt = (point: { latitude: number; longitude: number; name: string }) =>
         onChange({ places: [...stays, { ...point, radius: 150, trigger: remindAt?.trigger ?? 'arrive' }] });
 
@@ -78,7 +80,7 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
 
     return (
         <View style={styles.wrap} onLayout={mode === 'place' ? fit.onLayout : undefined}>
-            <ChoiceRow accessibilityLabel="When to remind you" options={options} value={mode} onChange={pick} color={accent} />
+            {searching && mode === 'place' ? null : <ChoiceRow accessibilityLabel="When to remind you" options={options} value={mode} onChange={pick} color={accent} />}
 
             {mode === 'before' ? (
                 // The usual leads, one tap each; tapping the chosen one again takes it off.
@@ -102,7 +104,7 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
             {mode === 'place' ? (
                 // The map, right here: tap it where the place is; the arrow pins where you are now.
                 <View style={styles.block}>
-                    <InlinePlaceMap place={remindAt} accent={accent} onPick={pinAt} height={fit.height}
+                    <InlinePlaceMap place={remindAt} accent={accent} onPick={pinAt} height={fit.height} onSearching={setSearching}
                         // Arrive or Leave, on the same line as the place's name.
                         trailing={remindAt ? (
                             <>

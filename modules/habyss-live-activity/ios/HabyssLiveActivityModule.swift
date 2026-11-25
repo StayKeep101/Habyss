@@ -132,6 +132,7 @@ public class HabyssLiveActivityModule: Module {
     AsyncFunction("searchPlaces") { (query: String, latitude: Double, longitude: Double) async -> [[String: Any]] in
       let request = MKLocalSearch.Request()
       request.naturalLanguageQuery = query
+      request.resultTypes = [.pointOfInterest, .address]
       if latitude != 0 || longitude != 0 {
         request.region = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
                                             latitudinalMeters: 20_000, longitudinalMeters: 20_000)

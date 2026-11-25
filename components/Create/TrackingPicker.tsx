@@ -62,13 +62,15 @@ export function TrackingPicker({ options, suggested = [], chosen, onChoose, acce
     // Which kind of Health number is showing: the chosen one's, until another is tapped.
     const chosenGroup = chosen?.kind === 'health' ? groupOf(chosen.metric) : null;
     const [shownGroup, setGroup] = React.useState<HealthGroup | null>(null);
+    // While a place is searched for, the choices step aside: the field sits first in the panel.
+    const [searching, setSearching] = React.useState(false);
     const hinted = suggested.find(option => option.kind === 'health');
     const healthGroup: HealthGroup = shownGroup ?? chosenGroup ?? (hinted?.kind === 'health' ? groupOf(hinted.metric) : 'activity');
     const pick = (key: string) => { if (key !== chosen?.key) { selectionFeedback(); onChoose(key); } };
 
     return (
         <View style={styles.wrap} onLayout={way === 'place' ? fit.onLayout : undefined}>
-            <ChoiceRow accessibilityLabel="How it is tracked" options={ways} value={way} onChange={pickWay} color={accent} />
+            {searching && way === 'place' ? null : <ChoiceRow accessibilityLabel="How it is tracked" options={ways} value={way} onChange={pickWay} color={accent} />}
 
             {way === 'health' ? (
                 <>
@@ -110,13 +112,13 @@ export function TrackingPicker({ options, suggested = [], chosen, onChoose, acce
 
             {way === 'place' ? (
                 <>
-                    {reminderPlace && (!stayPlace || stayPlace.latitude !== reminderPlace.latitude || stayPlace.longitude !== reminderPlace.longitude) ? (
+                    {!searching && reminderPlace && (!stayPlace || stayPlace.latitude !== reminderPlace.latitude || stayPlace.longitude !== reminderPlace.longitude) ? (
                         <View style={styles.pills}>
                             <ChoicePill label={`Same as reminder: ${reminderPlace.name}`} icon="location" on={false} color={accent}
                                 onPress={() => { selectionFeedback(); onStayPlace(reminderPlace); }} />
                         </View>
                     ) : null}
-                    <InlinePlaceMap place={stayPlace} accent={accent} onPick={point => onStayPlace({ ...point, radius: stayPlace?.radius ?? 150 })} height={fit.height} />
+                    <InlinePlaceMap place={stayPlace} accent={accent} onPick={point => onStayPlace({ ...point, radius: stayPlace?.radius ?? 150 })} height={fit.height} onSearching={setSearching} />
                 </>
             ) : null}
         </View>
