@@ -4,13 +4,15 @@ import { useAnimatedProps } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { AppIcon } from '@/components/ui/AppIcon';
-import { AnimatedCircle, CountUp, PopIn, useProgress } from '@/components/ui/Motion';
+import { AnimatedCircle, CountUp, useProgress } from '@/components/ui/Motion';
 import { useTokens } from '@/hooks/useTokens';
 import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
 import { textOn } from '@/theme/tokens';
 import { IconTile } from '@/components/ui/IconTile';
 import type { DayState, HabitRecord } from '@/lib/habitRecord';
 
+/** The flame's size: a header button's. */
+const FLAME = 40;
 const WEEKDAY = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
 
 /**
@@ -102,28 +104,22 @@ export function HabitToday({ done, skipped, scheduled, color, onDone, onSkip, on
     );
 }
 
-/** Four numbers in type, split by hairlines; the streak with its flame. */
-export function HabitStats({ record, color }: { record: HabitRecord; color: string }) {
+/**
+ * The streak, in the header's corner: a flame with the run inside it, lit
+ * while the run is going and grey once it has stopped.
+ */
+export function StreakFlame({ streak, best }: { streak: number; best: number }) {
     const t = useTokens();
-    const items = [
-        // The streak with its flame, as everywhere else: lit while the run is going.
-        { label: 'Streak', value: String(record.streak), flame: true },
-        { label: 'Best', value: String(record.best) },
-        { label: '30 days', value: record.rate30 === null ? '—' : `${record.rate30}%` },
-        { label: 'Days done', value: String(record.done) },
-    ];
+    const lit = streak > 0;
+    const fill = lit ? t.color.warning : t.color.textSubtle;
     return (
-        <MatteSurface radius={Radius.card} style={styles.stats}>
-            {items.map((item, index) => (
-                <PopIn key={item.label} index={index} style={[styles.stat, index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: t.color.border }]}>
-                    <View style={styles.statFigure}>
-                        {'flame' in item ? <AppIcon name="flame" filled size={styles.statValue.fontSize} color={record.streak > 0 ? t.color.warning : t.color.textSubtle} /> : null}
-                        <CountUp style={[styles.statValue, { color: t.color.textPrimary }]} value={item.value} />
-                    </View>
-                    <Text style={[styles.statLabel, { color: t.color.textMuted }]}>{item.label}</Text>
-                </PopIn>
-            ))}
-        </MatteSurface>
+        <View style={styles.flame} accessible accessibilityRole="text"
+            accessibilityLabel={`Streak: ${streak} ${streak === 1 ? 'day' : 'days'}. Best: ${best}`}>
+            <AppIcon name="flame" filled size={FLAME} color={fill} />
+            <View style={styles.flameFigure} pointerEvents="none">
+                <CountUp value={String(streak)} style={[styles.flameText, { color: textOn(fill) }]} />
+            </View>
+        </View>
     );
 }
 
@@ -192,11 +188,10 @@ const styles = StyleSheet.create({
     doneButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 52 },
     doneText: { fontSize: 17, fontFamily: FontFamily.semibold },
     round: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
-    stats: { flexDirection: 'row', paddingVertical: Spacing.lg },
-    stat: { flex: 1, alignItems: 'center', gap: 2 },
-    statValue: { fontSize: 22, lineHeight: 28, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
-    statFigure: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs / 2 },
-    statLabel: { fontSize: 12, fontFamily: FontFamily.regular },
+    flame: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+    /** The number sits in the flame's round lower half. */
+    flameFigure: { position: 'absolute', left: 0, right: 0, bottom: Spacing.sm, alignItems: 'center' },
+    flameText: { fontSize: 13, lineHeight: 16, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
     week: { flexDirection: 'row', justifyContent: 'space-between' },
     weekDay: { alignItems: 'center', gap: Spacing.xs, flex: 1 },
     weekLetter: { fontSize: 12, fontFamily: FontFamily.semibold },

@@ -8,7 +8,7 @@ import { Dimensions } from 'react-native';
  * the row of stats, clear of the fade under them), about 410 pt. Half of a
  * big phone; more of a small one, so the stats never sit under the fade.
  */
-const HABIT_SHEET_OPEN = Math.min(0.8, Math.max(0.45, 410 / Dimensions.get('window').height));
+const HABIT_SHEET_OPEN = Math.min(0.8, Math.max(0.45, 440 / Dimensions.get('window').height));
 
 // A direct account/email link still needs a screen beneath its modal.
 export const unstable_settings = { anchor: '(tabs)' };
@@ -72,13 +72,14 @@ export default function RootLayout() {
           name="habit-detail"
           options={{
             headerShown: false,
-            // Opens at half (HABIT_SHEET_OPEN): the icon, the name, the tick and
-            // the stats. Pull it up (or scroll) for the rest: the heat map, settings.
+            // Opens at half (HABIT_SHEET_OPEN) and stays there: the habit today.
+            // Stats and Patterns swap the view in place; scrolling never grows
+            // the sheet. Pulling the grabber still opens it full.
             presentation: 'formSheet',
             sheetAllowedDetents: [HABIT_SHEET_OPEN, 1],
             sheetInitialDetentIndex: 0,
             sheetGrabberVisible: true,
-            sheetExpandsWhenScrolledToEdge: true,
+            sheetExpandsWhenScrolledToEdge: false,
           }}
         />
         {/* statistics removed */}

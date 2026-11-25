@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { AnimatedFill, AppIcon, AppIcons, CountUp, SectionTitle, Text, VoidCard } from '@/components/ui';
+import { AnimatedFill, AppIcon, AppIcons, CountUp, Text, VoidCard } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { useTrackingProgress } from '@/hooks/useTrackingProgress';
 import type { Habit } from '@/lib/habitsSQLite';
@@ -14,6 +14,9 @@ const minutesSaid = (minutes: number) => (minutes >= 60 && minutes % 60 === 0 ? 
  * counts. "6,240 / 10,000 steps" from Apple Health; "18 / 30 min" in its
  * apps; "12 / 30 min" at its place. A bar fills toward the target. Nothing
  * for a habit ticked by hand.
+ *
+ * It is the habit page's main view, so it leads with where the number comes
+ * from: the apps themselves, large; Health's metric; the place.
  */
 export function HabitTracking({ habit, color }: { habit: Habit; color: string }) {
     const t = useTokens();
@@ -39,7 +42,6 @@ export function HabitTracking({ habit, color }: { habit: Habit; color: string })
 
     return (
         <View>
-            <SectionTitle first>Today</SectionTitle>
             <VoidCard>
                 <View style={styles.body} accessible
                     accessibilityLabel={`${source.label}. ${known ? `${amount(value)} of ${amount(progress.target)} ${unit}` : 'Not counted yet'}. ${note}`}>
@@ -48,7 +50,7 @@ export function HabitTracking({ habit, color }: { habit: Habit; color: string })
                         <Text variant="caption" tone="muted" grow numberOfLines={1}>{source.label}</Text>
                         {reached && !(progress.kind === 'app' && progress.quit) ? <AppIcon name="checkmark-circle" filled size={Spacing.lg + 2} color={color} /> : null}
                     </View>
-                    {progress.kind === 'app' ? <AppIcons habitId={habit.id} /> : null}
+                    {progress.kind === 'app' ? <AppIcons habitId={habit.id} size={Spacing.section + Spacing.lg} /> : null}
                     <View style={styles.figure}>
                         <CountUp value={known ? amount(value) : '—'} style={[t.type.screenTitle, { color: t.color.textPrimary }]} />
                         <Text variant="body" tone="muted">{`/ ${amount(progress.target)}${unit ? ` ${unit}` : ''}`}</Text>

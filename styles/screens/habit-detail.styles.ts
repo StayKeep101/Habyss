@@ -7,6 +7,10 @@ export const styles = StyleSheet.create({
     swapped: { gap: 18 },
     /** The focus button, in the bottom-right corner. */
     focusCorner: { position: 'absolute', right: 20, bottom: 28 },
+    /** The top-left corner: the streak, Stats, Patterns. */
+    corner: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    /** One view of the sheet (today, stats or patterns). */
+    view: { gap: 24 },
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     /** The friends on a shared habit, a little apart from the buttons. */
     faces: { marginRight: 4 },

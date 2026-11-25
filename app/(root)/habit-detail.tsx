@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { markSeen } from '@/lib/dayMemory';
 import { ActivityIndicator, Alert, AppState, Pressable, Text, View } from 'react-native';
-import Animated, { Extrapolation, FadeIn, ReduceMotion, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { DURATION } from '@/theme/motion';
 import { useHabitOwner } from '@/hooks/useHabitOwner';
 import { useSharedItems } from '@/hooks/useSharedItems';
@@ -12,7 +12,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { ShareButton } from '@/components/Common/ShareButton';
 import { BottomFade } from '@/components/ui/BottomFade';
 import { SheetScreen } from '@/components/ui/SheetScreen';
-import { HabitHero, HabitMark, HabitStats, HabitToday } from '@/components/Habit/HabitDetailParts';
+import { HabitHero, HabitToday, StreakFlame } from '@/components/Habit/HabitDetailParts';
 import { HabitHeatmap } from '@/components/Habit/HabitHeatmap';
 import { HabitConsistency } from '@/components/Habit/HabitConsistency';
 import { PeopleFilter } from '@/components/ui/PeopleFilter';
@@ -52,12 +52,19 @@ import { oopsTitle } from '@/lib/voice';
 const param = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 type HistoryDay = { date: string; completed: boolean; skipped: boolean; scheduled: boolean };
 
+type View3 = 'today' | 'stats' | 'patterns';
+
 /**
- * A habit, whole: its face (icon in a ring of how much of this week is kept,
- * its name, how it repeats, the goal it serves), today as one big button with
- * skip and focus beside it, its four numbers, this week day by day, what the
- * record says, every day since it began, and its settings, each a tap from
- * being changed. Stopping or deleting it is at the very bottom.
+ * A habit, in a half-height sheet. Its main view is today: its face (icon in
+ * a ring of how much of this week is kept, its name, how it repeats, the goal
+ * it serves), one big button to mark it done with skip and focus beside it,
+ * and, for a habit that tracks itself, where today's number comes from (its
+ * apps, Apple Health, its place) and how far along it is.
+ *
+ * The top-left corner holds the rest: the streak as a flame with the run
+ * inside it, then Stats (every day since it began, how steady it is, its
+ * thoughts and photos) and Patterns (how it goes, not just how often). Each
+ * swaps the sheet's view; tapping it again comes back to today.
  */
 export default function HabitDetailScreen() {
     const router = useRouter();
@@ -79,6 +86,7 @@ export default function HabitDetailScreen() {
     const [sources, setSources] = useState<Record<string, TickSource>>({});
     const [showEditor, setShowEditor] = useState(false);
     const [showShare, setShowShare] = useState(false);
+    const [view, setView] = useState<View3>('today');
     /**
      * Whether this habit is yours to change: whoever offered a shared habit
      * owns what it is (lib/sharedAdopt.ts), so only they can edit or share it.
@@ -210,33 +218,25 @@ export default function HabitDetailScreen() {
         patchToday({ skipped: !skippedToday });
         setSkipped(habit.id, !skippedToday, today).catch(() => patchToday({ skipped: skippedToday }));
     };
-    // As the page scrolls, its big name and icon shrink and fade, and the
-    // header's title fades in to take their place.
-    const scrollY = useSharedValue(0);
-    const onScroll = useAnimatedScrollHandler(event => { scrollY.value = event.contentOffset.y; });
-    const headerTitle = useAnimatedStyle(() => ({
-        opacity: interpolate(scrollY.value, [110, 170], [0, 1], Extrapolation.CLAMP),
-        transform: [{ translateY: interpolate(scrollY.value, [110, 170], [8, 0], Extrapolation.CLAMP) }],
-    }));
-    const heroFade = useAnimatedStyle(() => ({
-        opacity: interpolate(scrollY.value, [0, 150], [1, 0], Extrapolation.CLAMP),
-        transform: [{ translateY: interpolate(scrollY.value, [0, 150], [0, -12], Extrapolation.CLAMP) }],
-    }));
+    const toggleView = (next: View3) => { selectionFeedback(); setView(current => (current === next ? 'today' : next)); };
     const focus = () => { if (habit) void (require('@/lib/openFocus') as typeof import('@/lib/openFocus')).openFocus({ kind: 'habit', id: habit.id, title: habit.name }); };
 
     const accent = habit?.color || accentSolid;
     const ink = readableAccent(accent, colors.surfaceSecondary);
-    // The same words as everywhere else (describeSchedule), so the header never disagrees with the card.
-    const schedule = habit ? describeSchedule(habit) : undefined;
 
     return (
         <SheetScreen
-            title={habit?.name || 'Habit'}
-            subtitle={schedule}
-            titleStyle={habit ? headerTitle : undefined}
-            // No close button: the sheet swipes down. Scrolled, its icon and name
-            // sit at the top from the left, where the big ones were.
-            leading={habit ? <HabitMark icon={habit.icon} color={habit.color || accentSolid} /> : undefined}
+            // The corner carries the streak and the other two views; the name is the page's own.
+            title={habit ? '' : 'Habit'}
+            leading={habit ? (
+                <View style={styles.corner}>
+                    <StreakFlame streak={record.streak} best={record.best} />
+                    {([['stats', 'stats-chart', 'Stats'], ['patterns', 'sparkles', 'Patterns']] as const).map(([id, icon, label]) => (
+                        <IconButton key={id} icon={icon} label={view === id ? `${label}, showing. Back to today` : label}
+                            color={view === id ? ink : undefined} onPress={() => toggleView(id)} />
+                    ))}
+                </View>
+            ) : undefined}
             onBack={habit ? undefined : () => router.back()}
             backIcon="close"
             rightSlot={habit && ownerKnown ? <Animated.View entering={FadeIn.duration(DURATION.quick).reduceMotion(ReduceMotion.System)} style={styles.headerActions}>
@@ -256,39 +256,46 @@ export default function HabitDetailScreen() {
             {!habit ? <View style={styles.empty}>
                 {loading ? <ActivityIndicator color={accent} /> : <><Text style={[Typography.body, { color: colors.textSecondary }]}>{error || 'This habit is unavailable.'}</Text><Pressable onPress={error ? load : () => router.back()} style={styles.retry} accessibilityRole="button"><Text style={[Typography.button, { color: ink }]}>{error ? 'Retry' : 'Go back'}</Text></Pressable></>}
             </View> : (
-                <Animated.ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
-                    <Animated.View style={heroFade}>
-                    <HabitHero icon={habit.icon} name={habit.name} schedule={describeSchedule(habit)} color={accent} weekShare={weekShare}
-                        goalName={goals.find(goal => goal.id === habit.goalId)?.name}
-                        onGoal={habit.goalId ? () => router.push({ pathname: '/goal-detail', params: { goalId: habit.goalId! } }) : undefined} />
-                    </Animated.View>
-                    <HabitToday done={doneToday} skipped={skippedToday} scheduled={scheduledToday} color={accent} onDone={markDone} onSkip={skip} onFocus={focus}
-                        waiting={shared && waitingOnOthers(shared, doneToday) ? waitingLabel(shared) : null} />
-                    <HabitTracking habit={habit} color={accent} />
-                    <HabitStats record={record} color={accent} />
-
-                    {/* How it has gone, day by day: the heat map. */}
-                    <View>
-                        <SectionTitle first>Progress</SectionTitle>
-                        {/* Shared: everyone together, or one of you at a time. */}
-                        {people.length > 1 ? (
-                            <View style={styles.people}>
-                                <PeopleFilter people={people} value={viewer} onChange={setViewer} allColor={accent} />
+                <Animated.ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                    <Animated.View key={view} entering={FadeIn.duration(DURATION.quick).reduceMotion(ReduceMotion.System)} style={styles.view}>
+                    {view === 'today' ? (
+                        <>
+                            <HabitHero icon={habit.icon} name={habit.name} schedule={describeSchedule(habit)} color={accent} weekShare={weekShare}
+                                goalName={goals.find(goal => goal.id === habit.goalId)?.name}
+                                onGoal={habit.goalId ? () => router.push({ pathname: '/goal-detail', params: { goalId: habit.goalId! } }) : undefined} />
+                            <HabitToday done={doneToday} skipped={skippedToday} scheduled={scheduledToday} color={accent} onDone={markDone} onSkip={skip} onFocus={focus}
+                                waiting={shared && waitingOnOthers(shared, doneToday) ? waitingLabel(shared) : null} />
+                            {/* Where today's number comes from, for a habit that tracks itself. */}
+                            <HabitTracking habit={habit} color={accent} />
+                        </>
+                    ) : view === 'stats' ? (
+                        <>
+                            {/* How it has gone, day by day: the heat map. */}
+                            <View>
+                                <SectionTitle first>Progress</SectionTitle>
+                                {/* Shared: everyone together, or one of you at a time. */}
+                                {people.length > 1 ? (
+                                    <View style={styles.people}>
+                                        <PeopleFilter people={people} value={viewer} onChange={setViewer} allColor={accent} />
+                                    </View>
+                                ) : null}
+                                <HabitHeatmap history={shownHistory} color={shownColor} startDate={startKey} from={fromKey} today={today} replay={viewer} />
                             </View>
-                        ) : null}
-                        <HabitHeatmap history={shownHistory} color={shownColor} startDate={startKey} from={fromKey} today={today} replay={viewer} />
-                    </View>
-                    {/* And how steady: each day's rolling week kept, over eight weeks. */}
-                    <View>
-                        <SectionTitle first>Consistency</SectionTitle>
-                        <HabitConsistency series={series} replay={viewer} />
-                    </View>
-                    {/* How it goes, not just how often: its weekdays, its hours, what a miss does, how it is logged. */}
-                    <PatternList patterns={patterns} title="Patterns" limit={6}
-                        empty="Patterns show up here after a few weeks of check-ins." />
-                    {/* The photos taken as it was ticked. */}
-                    <HabitThoughts habitId={habit.id} />
-                    <HabitPhotos habitId={habit.id} />
+                            {/* And how steady: each day's rolling week kept, over eight weeks. */}
+                            <View>
+                                <SectionTitle first>Consistency</SectionTitle>
+                                <HabitConsistency series={series} replay={viewer} />
+                            </View>
+                            {/* What was written and photographed as it was ticked. */}
+                            <HabitThoughts habitId={habit.id} />
+                            <HabitPhotos habitId={habit.id} />
+                        </>
+                    ) : (
+                        // How it goes, not just how often: its weekdays, its hours, what a miss does, how it is logged.
+                        <PatternList patterns={patterns} title="Patterns" limit={6}
+                            empty="Patterns show up here after a few weeks of check-ins." />
+                    )}
+                    </Animated.View>
                 </Animated.ScrollView>
             )}
 
