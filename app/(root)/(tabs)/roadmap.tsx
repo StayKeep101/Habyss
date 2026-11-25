@@ -24,6 +24,7 @@ import { Colors } from '@/theme/colors';
 import { CalendarStrip, type DayMarks } from '@/components/Home/CalendarStrip';
 import { useMilestoneDays } from '@/hooks/useMilestones';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
+import { useRowOpen } from '@/components/ui/SwipeRow';
 import { useSharedItems } from '@/hooks/useSharedItems';
 import { GoalTile } from '@/components/Roadmap/GoalTile';
 import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
@@ -1255,6 +1256,8 @@ const CalendarScreen = () => {
     const onPageSettled = useCallback((x: number) => { setPaging(false); landOn(x); }, [landOn]);
     const onPageSettledRef = useRef(onPageSettled);
     useLayoutEffect(() => { onPageSettledRef.current = onPageSettled; });
+    // A card standing open (Edit, Delete showing): the swipe that closes it must not turn the page.
+    const rowOpen = useRowOpen();
     const pagerHeight = paging ? Math.max(pageHeights[0], pageHeights[1]) : pageHeights[pageAt];
 
     // Goals are off for now (constants/features.ts): their section never shows.
@@ -1405,7 +1408,7 @@ const CalendarScreen = () => {
                                 bounces={false}
                                 directionalLockEnabled
                                 showsHorizontalScrollIndicator={false}
-                                scrollEnabled={!scrubbing && !draggingHabit && !draggingTask}
+                                scrollEnabled={!scrubbing && !draggingHabit && !draggingTask && !rowOpen}
                                 contentOffset={pagerStart ?? { x: pageAt * windowWidth, y: 0 }}
                                 onScrollBeginDrag={() => setPaging(true)}
                                 // Let go: the view is the page it is landing on. Already resting on it (no glide): settled.

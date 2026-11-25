@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Swipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Animated, {
@@ -74,6 +74,25 @@ const claimOpen = (next: SwipeableMethods | null) => {
 /** Closes whichever row is pulled open, before what holds it is hidden (the Roadmap changing view). */
 export function closeOpenRow(): void {
     if (openRow) { openRow.close(); openRow = null; }
+    setShowing(false);
+}
+
+/**
+ * Whether a row is standing open, its buttons showing. A horizontal pager
+ * around the rows (the Roadmap's Timeline | List) holds still while one is:
+ * the swipe that closes the row would otherwise carry on into the pager and
+ * turn the page.
+ */
+let showing = false;
+const listeners = new Set<() => void>();
+const setShowing = (next: boolean) => {
+    if (showing === next) return;
+    showing = next;
+    listeners.forEach(listener => listener());
+};
+const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
+export function useRowOpen(): boolean {
+    return useSyncExternalStore(subscribe, () => showing, () => false);
 }
 
 /** Circles sit inside the row, never taller than it. */
@@ -96,6 +115,11 @@ const BAND = 118;
 export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8, leftLook = 'drop', bandShape }) => {
     const { lightFeedback, mediumFeedback } = useHaptics();
     const row = useRef<SwipeableMethods>(null);
+    // Gone while open (deleted from its own button): nothing is standing open any more.
+    useEffect(() => {
+        const mine = row;
+        return () => { if (openRow && openRow === mine.current) { openRow = null; setShowing(false); } };
+    }, []);
     // The circles are sized from the row itself, so they fit whichever card
     // size the user has chosen instead of overflowing a compact one.
     const [height, setHeight] = useState(MAX_SIZE + 8);
@@ -172,10 +196,11 @@ export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8, l
             dragOffsetFromRightEdge={12}
             onSwipeableOpenStartDrag={() => claimOpen(row.current)}
             onSwipeableWillOpen={onWillOpen}
+            onSwipeableOpen={() => setShowing(true)}
             onSwipeableClose={() => {
                 armedNow.current = false;
                 armed.value = withTiming(0, { duration: 140 });
-                if (openRow === row.current) openRow = null;
+                if (openRow === row.current) { openRow = null; setShowing(false); }
             }}
             containerStyle={[styles.container, { borderRadius: radius }]}
             renderLeftActions={left ? renderLeft : undefined}
