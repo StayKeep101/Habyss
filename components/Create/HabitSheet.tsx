@@ -218,10 +218,13 @@ export const HabitSheet: React.FC<{
 
     // Opening the sheet on something new clears the last one. Done while
     // rendering rather than in an effect, so the first frame is already blank.
+    // Closing clears nothing: the card slides away showing exactly what it
+    // held. Wiping it as the slide began swapped it for a blank form and
+    // folded its open panel mid-slide, which is what made closing glitch.
     const session = isOpen ? `${current?.id ?? 'new'}:${prefill}` : 'closed';
     const [lastSession, setLastSession] = useState('closed');
-    if (session !== lastSession) {
-        setLastSession(session);
+    if (session !== lastSession) setLastSession(session);
+    if (session !== lastSession && session !== 'closed') {
         // Editing starts from the habit's own words, so clearing the field
         // clears it rather than falling back to the old name.
         setText(prefill || current?.name || '');
@@ -383,7 +386,8 @@ export const HabitSheet: React.FC<{
     // Deciding to do this with somebody happens while writing it, not after —
     // so the choice is held here and sent the moment the habit has an id.
     const share = useShareDraft('habit', current?.id);
-    const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); emit('creation_sheet_closed', { kind: 'habit' }); };
+    // What it was editing stays until the next opening sets its own, so the card leaves as it was.
+    const close = () => { setEventVisible(false); share.close(); onClose?.(); emit('creation_sheet_closed', { kind: 'habit' }); };
     const toggleRow = (id: string | null) => { setOpenRow(id as Row); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
 

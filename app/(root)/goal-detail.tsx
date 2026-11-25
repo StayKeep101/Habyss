@@ -57,6 +57,7 @@ import Animated, {
 import { emit } from '@/lib/appEvents';
 import { styles } from '@/styles/screens/goal-detail.styles';
 import { oopsTitle, permissionTitle } from '@/lib/voice';
+import { useLastPresent } from '@/hooks/useLastPresent';
 
 let ImagePicker: any = null;
 try { ImagePicker = require('expo-image-picker'); } catch (e) { }
@@ -163,6 +164,7 @@ const GoalDetail = () => {
   const heroBox = useMemo(() => heroFrame(aspect, pageWidth ?? width, panelTop + BUMP / 2), [aspect, panelTop, pageWidth]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  const shownEditingHabit = useLastPresent(editingHabit);
   // A new habit made from this page belongs to this goal.
   const [addingHabit, setAddingHabit] = useState(false);
   const [view, setView] = useState<'plan' | 'todo' | 'stats'>('plan');
@@ -284,6 +286,7 @@ const GoalDetail = () => {
    * here for the same reason.
    */
   const [taskForm, setTaskForm] = useState<{ task: Task | null; key: number; dueDate?: string } | null>(null);
+  const shownTaskForm = useLastPresent(taskForm);
   // Progress written straight onto the goal: how it counts follows what it is.
   const [logging, setLogging] = useState(false);
   const logSpec = (() => { try { return goal?.goalSpec ? JSON.parse(goal.goalSpec) : null; } catch { return null; } })();
@@ -653,8 +656,9 @@ const GoalDetail = () => {
       {goal && canLog ? (
         <LogProgressSheet visible={logging} goalId={goal.id} goalName={goal.name} unit={logUnit} mode={logMode} onClose={() => setLogging(false)} />
       ) : null}
-      {taskForm && goal ? (
-        <TaskFormModal key={taskForm.key} visible task={taskForm.task} goalId={goal.id} dueDate={taskForm.dueDate}
+      {/* The forms stay mounted on what they last showed, so closing slides them away rather than removing them. */}
+      {shownTaskForm && goal ? (
+        <TaskFormModal key={shownTaskForm.key} visible={!!taskForm} task={shownTaskForm.task} goalId={goal.id} dueDate={shownTaskForm.dueDate}
           onClose={() => setTaskForm(null)} onSaved={() => emit('tasks_changed')} />
       ) : null}
       {goal && insights ? (
@@ -664,10 +668,10 @@ const GoalDetail = () => {
       {goal ? (
         <MilestoneSheet visible={!!milestoneSheet} goalId={goal.id} goalEnd={goalEnd} milestone={shownMilestoneSheet?.milestone ?? null} split={split} onClose={() => setMilestoneSheet(null)} />
       ) : null}
-      {editingHabit && <HabitSheet visible habit={editingHabit} goalId={editingHabit.goalId} onClose={() => setEditingHabit(null)} />}
-      {addingHabit && <HabitSheet visible goalId={goal.id} onClose={() => setAddingHabit(false)} onSaved={() => setAddingHabit(false)} />}
-      {editingGoal && goal && (
-        <GoalSheet visible goal={goal} onClose={() => setEditingGoal(false)} onSaved={() => setEditingGoal(false)} />
+      {shownEditingHabit && <HabitSheet visible={!!editingHabit} habit={shownEditingHabit} goalId={shownEditingHabit.goalId} onClose={() => setEditingHabit(null)} />}
+      {goal && <HabitSheet visible={addingHabit} goalId={goal.id} onClose={() => setAddingHabit(false)} onSaved={() => setAddingHabit(false)} />}
+      {goal && (
+        <GoalSheet visible={editingGoal} goal={goal} onClose={() => setEditingGoal(false)} onSaved={() => setEditingGoal(false)} />
       )}
       <ShareGoalModal
         visible={showShareModal}

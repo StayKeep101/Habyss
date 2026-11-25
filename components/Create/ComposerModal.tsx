@@ -1,17 +1,19 @@
-import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CoachLayer } from '@/components/ui/CoachMarks';
 import { Keyboard, Modal, Pressable, StyleSheet, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import Animated, {
-    Easing, ReduceMotion, runOnJS, useAnimatedKeyboard, useAnimatedStyle,
+    runOnJS, useAnimatedKeyboard, useAnimatedStyle,
     useSharedValue, withTiming,
 } from 'react-native-reanimated';
+import { OVERLAY } from '@/theme/motion';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 
-const OPEN = { duration: 260, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
-const SHUT = { duration: 210, easing: Easing.in(Easing.cubic), reduceMotion: ReduceMotion.System };
+/** In and out like every sheet (theme/motion.ts). */
+const OPEN = OVERLAY.in;
+const SHUT = OVERLAY.out;
 /** Used until the card has been measured once. */
 const ASSUMED_HEIGHT = 360;
 
@@ -66,9 +68,15 @@ export const ComposerModal: React.FC<{
     const [height, setHeight] = useState(ASSUMED_HEIGHT);
     const shown = useSharedValue(0);
 
-    const unmount = useCallback(() => setMounted(false), []);
+    const [keyboardUp, setKeyboardUp] = useState(0);
+    // Leaving, the card keeps the shape it had: the keyboard going down must
+    // not re-lay it out (taller padding, a new ceiling) in the middle of its slide.
+    const leaving = useRef(false);
+    // Gone: the next opening starts from no keyboard, as the screen is now.
+    const unmount = useCallback(() => { setMounted(false); setKeyboardUp(0); }, []);
 
     useEffect(() => {
+        leaving.current = !visible;
         if (visible) {
             setMounted(true);
             shown.value = withTiming(1, OPEN);
@@ -93,13 +101,13 @@ export const ComposerModal: React.FC<{
      * card moves by transform, which costs no layout at all, and its ceiling
      * and bottom room change once per keyboard change rather than per frame.
      */
-    const [keyboardUp, setKeyboardUp] = useState(0);
     useEffect(() => {
-        const show = Keyboard.addListener('keyboardWillShow', event => setKeyboardUp(event.endCoordinates.height));
+        const keep = (height: number) => { if (!leaving.current) setKeyboardUp(height); };
+        const show = Keyboard.addListener('keyboardWillShow', event => keep(event.endCoordinates.height));
         const change = Keyboard.addListener('keyboardWillChangeFrame', event => {
-            if (event.endCoordinates.screenY < screen) setKeyboardUp(event.endCoordinates.height);
+            if (event.endCoordinates.screenY < screen) keep(event.endCoordinates.height);
         });
-        const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardUp(0));
+        const hide = Keyboard.addListener('keyboardWillHide', () => keep(0));
         return () => { show.remove(); change.remove(); hide.remove(); };
     }, [screen]);
 
@@ -140,7 +148,7 @@ export const ComposerModal: React.FC<{
 
                 <Animated.View pointerEvents="box-none" style={[styles.bottom, lift]}>
                     <Animated.View
-                        onLayout={(event: LayoutChangeEvent) => setHeight(event.nativeEvent.layout.height)}
+                        onLayout={(event: LayoutChangeEvent) => { if (!leaving.current) setHeight(event.nativeEvent.layout.height); }}
                         // A step lighter than the page (between it and a card), so it stands apart from what is behind;
                         // the chips on it are cards, a step lighter again.
                         style={[styles.card, pad, ceiling, { backgroundColor: colors.surfaceSecondary }]}

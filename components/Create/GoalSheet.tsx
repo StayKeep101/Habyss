@@ -156,11 +156,12 @@ export const GoalSheet: React.FC<{
 
     // Opening the sheet on something new clears the last one. Done while
     // rendering rather than in an effect, so the first frame is already blank.
+    // Closing clears nothing: the card slides away showing exactly what it held.
     const session = isOpen ? (current?.id ?? 'new') : 'closed';
     const [lastSession, setLastSession] = useState('closed');
     const [prefill, setPrefill] = useState('');
-    if (session !== lastSession) {
-        setLastSession(session);
+    if (session !== lastSession) setLastSession(session);
+    if (session !== lastSession && session !== 'closed') {
         // Editing starts from the goal's own words, so clearing the field
         // clears it rather than falling back to the old title.
         setText(current?.name ?? prefill);
@@ -244,7 +245,7 @@ export const GoalSheet: React.FC<{
     // so the choice is held here and sent the moment the goal has an id.
     const share = useShareDraft('goal', current?.id);
     const close = () => {
-        setEventVisible(false); setEditing(null); share.close(); onClose?.();
+        setEventVisible(false); share.close(); onClose?.();
         emit('creation_sheet_closed', { kind: 'goal' });
         // Several goals asked for at once (the brain dump): the next one opens.
         if (listenToGlobalEvents) (require('@/lib/goalQueue') as typeof import('@/lib/goalQueue')).openNextGoal();

@@ -25,6 +25,7 @@ import { useMilestones } from '@/hooks/useMilestones';
 import { useRetained } from '@/hooks/useRetained';
 import { updateMilestone, type Milestone } from '@/lib/goalMilestones';
 import { oopsTitle } from '@/lib/voice';
+import { useLastPresent } from '@/hooks/useLastPresent';
 
 /**
  * The goal's roadmap: everything that gets it done, in three plain parts.
@@ -45,6 +46,7 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readO
     const [showDone, setShowDone] = useState(false);
     const Outer: any = embedded ? View : ScrollView;
     const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+    const shownEditingHabit = useLastPresent(editingHabit);
     const [addingHabit, setAddingHabit] = useState(false);
     const milestones = useMilestones(goal?.id);
     const [milestoneSheet, setMilestoneSheet] = useState<{ milestone: Milestone | null } | null>(null);
@@ -192,12 +194,13 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean; readO
                 {!readOnly ? <View style={styles.addRow}><AddButton label="Habit" icon="repeat-outline" onPress={() => { lightFeedback(); setAddingHabit(true); }} /></View> : null}
             </Outer>
 
-            {addingHabit ? <HabitSheet visible goalId={goal.id} onClose={() => setAddingHabit(false)} onSaved={() => setAddingHabit(false)} /> : null}
+            {/* The forms stay mounted, so closing slides them away rather than removing them. */}
+            <HabitSheet visible={addingHabit} goalId={goal.id} onClose={() => setAddingHabit(false)} onSaved={() => setAddingHabit(false)} />
             <MilestoneSheet visible={!!milestoneSheet} goalId={goal.id} goalEnd={goal.targetDate ? insights.endDate : undefined}
                 milestone={shownMilestoneSheet?.milestone ?? null} onClose={() => setMilestoneSheet(null)} />
 
-            {editingHabit ? (
-                <HabitSheet visible habit={editingHabit} goalId={editingHabit.goalId} onClose={() => setEditingHabit(null)} />
+            {shownEditingHabit ? (
+                <HabitSheet visible={!!editingHabit} habit={shownEditingHabit} goalId={shownEditingHabit.goalId} onClose={() => setEditingHabit(null)} />
             ) : null}
         </>
     );

@@ -301,7 +301,8 @@ export default function HabitDetailScreen() {
 
             {habit ? <BottomFade height={64} /> : null}
 
-            {showEditor && habit && <HabitSheet visible onClose={() => setShowEditor(false)} habit={habit} goalId={habit.goalId} onSaved={load} />}
+            {/* Always there, so closing slides it away rather than removing it. */}
+            {habit && <HabitSheet visible={showEditor} onClose={() => setShowEditor(false)} habit={habit} goalId={habit.goalId} onSaved={load} />}
             {habit && habitId && <ShareHabitModal visible={showShare} habitId={habitId} habitName={habit.name} onClose={() => setShowShare(false)} />}
         </SheetScreen>
     );

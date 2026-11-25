@@ -171,11 +171,13 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
 
     // Opening on something new clears the last one, during render so the first
     // frame is already blank.
+    // Closing clears nothing: the card slides away showing exactly what it
+    // held (wiping it mid-slide is what made closing glitch).
     const session = isOpen ? (current?.id ?? 'new') : 'closed';
     const [lastSession, setLastSession] = useState('closed');
     const [prefill, setPrefill] = useState('');
-    if (session !== lastSession) {
-        setLastSession(session);
+    if (session !== lastSession) setLastSession(session);
+    if (session !== lastSession && session !== 'closed') {
         setText(current?.title ?? prefill);
         setPrefill('');
         setEdits({});
@@ -249,7 +251,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         return { ...read, ...edits };
     }, [current, eventGoal, parsed, edits, rules, startDay, goals, text]);
 
-    const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); };
+    // What it was editing stays until the next opening sets its own, so the card leaves as it was.
+    const close = () => { setEventVisible(false); share.close(); onClose?.(); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
 
     const save = async () => {
