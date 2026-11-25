@@ -49,7 +49,7 @@ it('logs a habit on the day tapped even after midnight, and duplicate delivery i
     expect(getCompletions).toHaveBeenCalledWith('2026-09-25');
     expect(toggleCompletion).toHaveBeenCalledTimes(1);
     // With the minute it was tapped, so how long it took is kept (lib/learnedLength.ts).
-    expect(toggleCompletion).toHaveBeenCalledWith('habit', '2026-09-25', new Date(1).toISOString());
+    expect(toggleCompletion).toHaveBeenCalledWith('habit', '2026-09-25', new Date(1).toISOString(), 'widget');
     add('retry', 'habit:habit', true, 3);
     await drainWidgetToggles();
     expect(toggleCompletion).toHaveBeenCalledTimes(1);

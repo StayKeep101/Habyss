@@ -1,5 +1,6 @@
 import type { Habit } from './habitsSQLite';
 import { matches as recurrenceMatches, parseRecurrence } from './recurrence';
+import { versionOn, withEra } from './scheduleHistory';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -35,7 +36,8 @@ const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0
  */
 export function isHabitScheduledForDate(habit: Habit, date: Date): boolean {
     if (!createHabitSchedule(habit)(date)) return false;
-    const quota = quotaOf(habit);
+    // The schedule that day, not today's (lib/scheduleHistory.ts).
+    const quota = quotaOf(versionOn(habit, localDateKey(date)));
     if (!quota) return true;
     return quotaState(habit, quota, localDateKey(date), historyDone(habit.id)).offered;
 }
@@ -106,7 +108,7 @@ function quotaState(habit: Habit, quota: Quota, key: string, doneOn: (key: strin
  * other habit. The row says it, so which days counted is never a guess.
  */
 export function quotaProgress(habit: Habit, key: string, doneOn: (key: string) => boolean = historyDone(habit.id)): { done: number; times: number; period: 'week' | 'month' } | null {
-    const quota = quotaOf(habit);
+    const quota = quotaOf(versionOn(habit, key));
     const date = parseHabitDate(key);
     const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
     if (!quota || !date || !start) return null;
@@ -127,10 +129,12 @@ export function quotaProgress(habit: Habit, key: string, doneOn: (key: string) =
  */
 export function createHabitRequirement(habit: Habit): (key: string, doneOn?: (key: string) => boolean) => boolean {
     const schedule = createHabitSchedule(habit);
-    const quota = quotaOf(habit);
+    const current = quotaOf(habit);
+    const past = habit.scheduleHistory;
     return (key, doneOn) => {
         const date = parseHabitDate(key);
         if (!date || !schedule(date)) return false;
+        const quota = past?.length ? quotaOf(versionOn(habit, key)) : current;
         if (!quota) return true;
         return quotaState(habit, quota, key, doneOn ?? historyDone(habit.id)).required;
     };
@@ -156,8 +160,24 @@ export function firstDueDay(habit: Pick<Habit, 'startDate' | 'createdAt' | 'recu
     return null;
 }
 
-/** Compile once when evaluating years of history for the same habit. */
+/**
+ * Compile once when evaluating years of history for the same habit. Each day
+ * is judged by the schedule the habit had then (lib/scheduleHistory.ts), so
+ * changing it only changes the days ahead.
+ */
 export function createHabitSchedule(habit: Habit): (date: Date) => boolean {
+    const current = compileSchedule(habit);
+    const past = habit.scheduleHistory;
+    if (!past?.length) return current;
+    const eras = past.map(era => ({ until: era.until, test: compileSchedule(withEra(habit, era)) }));
+    return date => {
+        if (!Number.isFinite(date.getTime())) return false;
+        const key = localDateKey(date);
+        return (eras.find(era => key <= era.until)?.test ?? current)(date);
+    };
+}
+
+function compileSchedule(habit: Habit): (date: Date) => boolean {
     const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
     if (!start) return () => false;
 

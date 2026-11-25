@@ -215,7 +215,7 @@ async function drain(): Promise<{ habits: number; tasks: number }> {
                 if (found && event.done && await (require('./challengeProof') as typeof import('./challengeProof')).holdForProof({ kind: 'habit', habit: found })) { /* held */ }
                 else if (found) {
                     const done = completions[event.day] ?? await getCompletions(event.day);
-                    if (!!done[id] !== event.done) { await toggleCompletion(id, event.day, event.done && event.timestamp > 0 ? new Date(event.timestamp).toISOString() : undefined); applied.habits++; }
+                    if (!!done[id] !== event.done) { await toggleCompletion(id, event.day, event.done && event.timestamp > 0 ? new Date(event.timestamp).toISOString() : undefined, 'widget'); applied.habits++; }
                     completions[event.day] = { ...done, [id]: event.done };
                 }
             } else {

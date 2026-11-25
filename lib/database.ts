@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 25;
+const SCHEMA_VERSION = 26;
 
 let dbInstance: any = null;
 /**
@@ -137,6 +137,7 @@ async function runMigrations(db: any): Promise<void> {
         [23, migrateToV23],
         [24, migrateToV24],
         [25, migrateToV25],
+        [26, migrateToV26],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -195,6 +196,20 @@ async function runMigrations(db: any): Promise<void> {
  * Migration to version 24 — a task held before or after something in the day,
  * like a habit (lib/habitAnchor.ts), as the same JSON. Kept on this phone.
  */
+/**
+ * Migration to version 26 — depth for every check-in and every schedule.
+ *  - completions.source: what logged it (manual, timer, health, auto, siri,
+ *    widget, watch, notification). Null on older rows, which were by hand.
+ *  - habits.schedule_history: the schedules a habit had before, so changing
+ *    one never rewrites the days already lived (lib/scheduleHistory.ts).
+ * Both kept on this phone.
+ */
+async function migrateToV26(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'completions', 'source', 'TEXT');
+    await addColumnIfMissing(db, 'habits', 'schedule_history', 'TEXT');
+    console.log('[Database] Migrated to schema v26');
+}
+
 /**
  * Migration to version 25 — what a finished task's Shards were multiplied by
  * for being done early (lib/taskSpeed.ts): 2, 1.5, or null. Kept on this phone.

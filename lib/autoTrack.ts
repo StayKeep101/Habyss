@@ -25,8 +25,8 @@ export async function autoTickHabit(habitId: string, day = localDateKey(new Date
     const { holdForProof }: typeof import('./challengeProof') = require('./challengeProof');
     if (await holdForProof({ kind: 'habit', habit })) return { result: 'held', name: habit.name };
     // An amount habit is filled to its target; a yes/no one is ticked.
-    if (habit.trackingMethod === 'numeric') await setCompletionValue(habit.id, habit.goalValue || 1, day, true);
-    else await toggleCompletion(habit.id, day);
+    if (habit.trackingMethod === 'numeric') await setCompletionValue(habit.id, habit.goalValue || 1, day, true, 'auto');
+    else await toggleCompletion(habit.id, day, undefined, 'auto');
     announce();
     return { result: 'done', name: habit.name };
 }

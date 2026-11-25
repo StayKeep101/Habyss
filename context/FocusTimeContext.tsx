@@ -409,15 +409,15 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 const day = localHabitDate(session.startedAt);
                 let total = 0;
                 if (measurement.kind === 'timer' && session.actualDuration > 0) {
-                    total = await saveHabitMeasurement(habit.id, session.actualDuration / measurement.secondsPerUnit, day, true, true);
+                    total = await saveHabitMeasurement(habit.id, session.actualDuration / measurement.secondsPerUnit, day, true, true, 'timer');
                 }
                 // A finished session counts the habit as done for the day.
                 if (session.completed) {
                     if (measurement.kind === 'boolean') {
-                        if (!(await getCompletions(day))[habit.id]) await toggleCompletion(habit.id, day);
+                        if (!(await getCompletions(day))[habit.id]) await toggleCompletion(habit.id, day, undefined, 'timer');
                     } else {
-                        if (measurement.kind === 'counter') total = await saveHabitMeasurement(habit.id, 0, day, true);
-                        if (total < measurement.target) await saveHabitMeasurement(habit.id, measurement.target, day, false, measurement.kind === 'timer');
+                        if (measurement.kind === 'counter') total = await saveHabitMeasurement(habit.id, 0, day, true, false, 'timer');
+                        if (total < measurement.target) await saveHabitMeasurement(habit.id, measurement.target, day, false, measurement.kind === 'timer', 'timer');
                     }
                 }
             } else {

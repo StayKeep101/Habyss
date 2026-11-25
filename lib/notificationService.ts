@@ -451,7 +451,7 @@ export class NotificationService {
       // "Done" from a notification ticks it, timed habits included.
       const { measurementFor }: typeof import('./habitMeasurement') = require('./habitMeasurement');
       const held = unfinished && action === ACTION.done && await (require('./challengeProof') as typeof import('./challengeProof')).holdForProof({ kind: 'habit', habit: habit! });
-      if (unfinished && action === ACTION.done && !held) await habits.setCompletionValue(data.habitId, measurementFor(habit!).target, date);
+      if (unfinished && action === ACTION.done && !held) await habits.setCompletionValue(data.habitId, measurementFor(habit!).target, date, false, 'notification');
       // A skip neither counts nor breaks the run.
       if (unfinished && action === ACTION.skip) await habits.setSkipped(data.habitId, true, date);
     }

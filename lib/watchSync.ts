@@ -192,5 +192,5 @@ async function completeFromWatch(habitId: string): Promise<void> {
     const habit = (await (require('./habitsSQLite') as typeof import('./habitsSQLite')).getHabits()).find(item => item.id === habitId);
     if (habit && await (require('./challengeProof') as typeof import('./challengeProof')).holdForProof({ kind: 'habit', habit })) return;
     // Saving announces itself, so Home, widgets and friends all follow.
-    await toggleCompletion(habitId, today);
+    await toggleCompletion(habitId, today, undefined, 'watch');
 }

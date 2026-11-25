@@ -209,7 +209,7 @@ describe('Echo Alive native scheduling and actions', () => {
         await NotificationService.handleEchoResponse({ actionIdentifier: 'ECHO_DONE', notification: { request: {
             identifier: 'echo', content: { data: { kind: 'echo-alive', habitId: 'read', scheduledDate: '2026-09-15' } },
         } } } as any);
-        expect(setCompletionValue).toHaveBeenCalledWith('read', 0.5, '2026-09-15');
+        expect(setCompletionValue).toHaveBeenCalledWith('read', 0.5, '2026-09-15', false, 'notification');
         refresh.mockRestore();
     });
     it('does not double-log an already completed habit', async () => {

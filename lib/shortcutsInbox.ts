@@ -71,7 +71,7 @@ export async function drainPendingShortcutLogs(): Promise<ShortcutDrainResult> {
 
             // toggleCompletion flips state, so it is only called when the habit
             // is not already complete for today.
-            await toggleCompletion(match.id, today);
+            await toggleCompletion(match.id, today, undefined, 'siri');
             completions[match.id] = true;
             result.logged.push(match.name);
         }

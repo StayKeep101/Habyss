@@ -11,7 +11,7 @@ import type { Pattern } from '@/lib/echoPatterns';
  * numbers it stands on underneath. Nothing shows until there is enough data.
  */
 export function PatternList({ patterns, title = 'Your patterns', limit = 6, empty }: {
-    patterns: Pattern[];
+    patterns: Pick<Pattern, 'id' | 'text' | 'evidence'>[];
     title?: string;
     limit?: number;
     /** Said when nothing is clear yet; nothing at all when left out. */

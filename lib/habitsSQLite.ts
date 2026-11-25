@@ -16,6 +16,8 @@ import { firstDueDay, isHabitScheduledForDate, localDateKey, parseHabitDate } fr
 import { addDays } from './goalInsights';
 import { measurementFor } from './habitMeasurement';
 import { emit } from './appEvents';
+import type { TickSource } from './tickSource';
+import { historyAfterChange, parseScheduleHistory, storeScheduleHistory, type ScheduleEra } from './scheduleHistory';
 export { isHabitScheduledForDate } from './habitSchedule';
 
 // Re-export types
@@ -70,6 +72,8 @@ export interface Habit {
     reminderMessage?: string;
     /** A lib/recurrence rule as JSON, when the schedule needs more than weekdays. */
     recurrence?: string;
+    /** The schedules it had before, so a change never rewrites past days (lib/scheduleHistory.ts). Kept on this phone. */
+    scheduleHistory?: ScheduleEra[];
     /** Which Apple Health metric answers for this habit; see lib/healthMetrics. */
     healthKitMetric?: HealthMetric;
     healthKitTarget?: number; // New
@@ -220,6 +224,7 @@ export async function getHabits(): Promise<Habit[]> {
                     difficulty: row.difficulty === 1 || row.difficulty === 2 || row.difficulty === 3 ? row.difficulty : undefined,
                     flexible: row.flexible === 0 ? false : row.flexible === 1 ? true : undefined,
                     recurrence: row.recurrence || undefined,
+                    scheduleHistory: parseScheduleHistory(row.schedule_history),
                     graphStyle: row.graph_style,
                     trackingMethod: row.tracking_method,
                     healthKitMetric: row.health_kit_metric,
@@ -476,6 +481,11 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'difficulty')) { setClauses.push('difficulty = ?'); params.push(updatedHabit.difficulty ?? null); }
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'flexible')) { setClauses.push('flexible = ?'); params.push(updatedHabit.flexible === undefined ? null : updatedHabit.flexible ? 1 : 0); }
 
+                // A new schedule keeps the one it replaces for the days already lived.
+                const before = (cachedHabits ?? await getHabits()).find(h => h.id === updatedHabit.id);
+                const eras = before ? historyAfterChange(before, updatedHabit, todayString()) : null;
+                if (eras) { setClauses.push('schedule_history = ?'); params.push(storeScheduleHistory(eras)); }
+
                 params.push(updatedHabit.id, uid);
 
                 const result = await db.runAsync(
@@ -488,7 +498,7 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
 
                 // Update cache
                 if (cachedHabits) {
-                    cachedHabits = cachedHabits.map(h => h.id === updatedHabit.id ? { ...h, ...updatedHabit } as Habit : h);
+                    cachedHabits = cachedHabits.map(h => h.id === updatedHabit.id ? { ...h, ...updatedHabit, ...(eras ? { scheduleHistory: eras } : {}) } as Habit : h);
                     habitsListeners.forEach(l => l(cachedHabits!));
                 }
 
@@ -760,7 +770,7 @@ export function setSkipped(habitId: string, skipped: boolean, dateISO = todayStr
  * widget, the Live Activity) and applied when the app next runs. That time is
  * how long the habit took (lib/learnedLength.ts), so it must not become "now".
  */
-export function toggleCompletion(habitId: string, dateISO = todayString(), at?: string): Promise<Record<string, boolean>> {
+export function toggleCompletion(habitId: string, dateISO = todayString(), at?: string, source: TickSource = 'manual'): Promise<Record<string, boolean>> {
     return writeProgress(async () => {
         const { uid, db } = await progressStorage();
         const now = new Date().toISOString();
@@ -784,11 +794,11 @@ export function toggleCompletion(habitId: string, dateISO = todayString(), at?: 
                 // tick's time put the habit back where it was first ticked on
                 // the timeline (9:30–9:30 for a tick made at 10:18).
                 await tx.runAsync(
-                    `INSERT INTO completions (id, user_id, habit_id, date, value, skipped, created_at, updated_at, synced, deleted)
-                     VALUES (?, ?, ?, ?, 1, 0, ?, ?, 0, 0)
+                    `INSERT INTO completions (id, user_id, habit_id, date, value, skipped, created_at, updated_at, synced, deleted, source)
+                     VALUES (?, ?, ?, ?, 1, 0, ?, ?, 0, 0, ?)
                      ON CONFLICT(habit_id, date) DO UPDATE SET
-                     value = 1, skipped = 0, created_at = excluded.created_at, updated_at = excluded.updated_at, deleted = 0, synced = 0`,
-                    `${habitId}_${dateISO}`, uid, habitId, dateISO, tickedAt, now,
+                     value = 1, skipped = 0, created_at = excluded.created_at, updated_at = excluded.updated_at, deleted = 0, synced = 0, source = excluded.source`,
+                    `${habitId}_${dateISO}`, uid, habitId, dateISO, tickedAt, now, source,
                 );
             }
         });
@@ -850,6 +860,31 @@ export async function getCompletionStamps(days: number): Promise<Record<string, 
         for (const row of (rows ?? []) as { habit_id: string; date: string; created_at: string }[]) {
             if (row.created_at) out[`${row.habit_id}:${row.date}`] = row.created_at;
         }
+        return out;
+    } catch {
+        return {};
+    }
+}
+
+/**
+ * What logged each of a habit's check-ins over the last `days` days, keyed by
+ * date: the habit page's "how it's kept". Older rows, with no source, were by hand.
+ */
+export async function getCompletionSources(habitId: string, days: number): Promise<Record<string, TickSource>> {
+    if (!isSQLiteAvailable()) return {};
+    try {
+        const uid = await getUserId();
+        const db = await getDatabase();
+        if (!db || !uid) return {};
+        const start = new Date();
+        start.setDate(start.getDate() - (days - 1));
+        const rows = await db.getAllAsync(
+            'SELECT date, source FROM completions WHERE user_id = ? AND habit_id = ? AND date >= ? AND deleted = 0 AND COALESCE(skipped, 0) = 0',
+            uid, habitId, todayString(start),
+        );
+        const { asTickSource } = require('./tickSource') as typeof import('./tickSource');
+        const out: Record<string, TickSource> = {};
+        for (const row of (rows ?? []) as { date: string; source: string | null }[]) out[row.date] = asTickSource(row.source);
         return out;
     } catch {
         return {};
@@ -1033,7 +1068,7 @@ export async function getHeatmapData(): Promise<{ date: string; count: number }[
 }
 
 /** `verified` is for values Apple Health recorded, which are real time rather than a claim. */
-export function setCompletionValue(habitId: string, value: number, dateISO = todayString(), verified = false): Promise<void> {
+export function setCompletionValue(habitId: string, value: number, dateISO = todayString(), verified = false, source: TickSource = verified ? 'health' : 'manual'): Promise<void> {
     return writeProgress(async () => {
         if (!Number.isFinite(value) || value < 0) throw new Error('Enter a valid amount.');
         const { uid, db } = await progressStorage();
@@ -1041,11 +1076,11 @@ export function setCompletionValue(habitId: string, value: number, dateISO = tod
         await progressTransaction(db, async (tx: any) => {
             await tx.runAsync('DELETE FROM habit_measurements WHERE user_id = ? AND habit_id = ? AND date = ?', uid, habitId, dateISO);
             await tx.runAsync(
-                `INSERT INTO completions (id, user_id, habit_id, date, value, skipped, created_at, updated_at, synced, deleted)
-                 VALUES (?, ?, ?, ?, ?, 0, ?, ?, 0, 0)
+                `INSERT INTO completions (id, user_id, habit_id, date, value, skipped, created_at, updated_at, synced, deleted, source)
+                 VALUES (?, ?, ?, ?, ?, 0, ?, ?, 0, 0, ?)
                  ON CONFLICT(habit_id, date) DO UPDATE SET
-                 value = excluded.value, skipped = 0, updated_at = excluded.updated_at, deleted = 0, synced = 0`,
-                `${habitId}_${dateISO}`, uid, habitId, dateISO, value, now, now,
+                 value = excluded.value, skipped = 0, updated_at = excluded.updated_at, deleted = 0, synced = 0, source = excluded.source`,
+                `${habitId}_${dateISO}`, uid, habitId, dateISO, value, now, now, source,
             );
         });
         progressSaved(habitId, dateISO, true);
@@ -1076,7 +1111,7 @@ async function readMeasurement(db: any, uid: string, habitId: string, target: nu
 
 // Serialize taps and completed focus sessions. A rejected write must not block the next one.
 /** `fromTimer` is the focus timer's own write; any amount may be set, timed habits included. */
-export function saveHabitMeasurement(habitId: string, amount: number, dateISO = todayString(), add = false, fromTimer = false): Promise<number> {
+export function saveHabitMeasurement(habitId: string, amount: number, dateISO = todayString(), add = false, fromTimer = false, source: TickSource = fromTimer ? 'timer' : 'manual'): Promise<number> {
     return writeProgress(async () => {
         if (!Number.isFinite(amount) || amount < 0 || amount > 100000000) throw new Error('Enter a valid amount.');
         const uid = await getUserId();
@@ -1102,10 +1137,10 @@ export function saveHabitMeasurement(habitId: string, amount: number, dateISO = 
             );
             if (value >= target) {
                 await tx.runAsync(
-                    `INSERT INTO completions (id, user_id, habit_id, date, value, skipped, created_at, updated_at, synced, deleted)
-                     VALUES (?, ?, ?, ?, ?, 0, ?, ?, 0, 0)
-                     ON CONFLICT(habit_id, date) DO UPDATE SET value = excluded.value, skipped = 0, deleted = 0, synced = 0, updated_at = excluded.updated_at`,
-                    `${habitId}_${dateISO}`, uid, habitId, dateISO, value, now, now,
+                    `INSERT INTO completions (id, user_id, habit_id, date, value, skipped, created_at, updated_at, synced, deleted, source)
+                     VALUES (?, ?, ?, ?, ?, 0, ?, ?, 0, 0, ?)
+                     ON CONFLICT(habit_id, date) DO UPDATE SET value = excluded.value, skipped = 0, deleted = 0, synced = 0, updated_at = excluded.updated_at, source = excluded.source`,
+                    `${habitId}_${dateISO}`, uid, habitId, dateISO, value, now, now, source,
                 );
             } else {
                 await tx.runAsync(

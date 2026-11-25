@@ -27,7 +27,11 @@ import { useWeekStart } from '@/hooks/useWeekStart';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { habitRecord } from '@/lib/habitRecord';
 import { describeSchedule } from '@/lib/goalInsights';
-import { setSkipped, toggleCompletion } from '@/lib/habitsSQLite';
+import { getCompletionSources, getCompletionTicks, setSkipped, toggleCompletion } from '@/lib/habitsSQLite';
+import { PatternList } from '@/components/Echo/PatternList';
+import { useEchoPatterns } from '@/hooks/useEchoPatterns';
+import { habitPatterns } from '@/lib/habitPatterns';
+import type { TickSource } from '@/lib/tickSource';
 import { proveTick } from '@/lib/challengeProof';
 import { ShareHabitModal } from '@/components/Social/ShareHabitModal';
 import { HabitSheet } from '@/components/Create/HabitSheet';
@@ -70,6 +74,9 @@ export default function HabitDetailScreen() {
     const [loading, setLoading] = useState(!!habitId);
     const [error, setError] = useState<string | null>(null);
     const [history, setHistory] = useState<HistoryDay[]>([]);
+    // When it was ticked and what logged it, for its patterns.
+    const [ticks, setTicks] = useState<{ date: string; at: string }[]>([]);
+    const [sources, setSources] = useState<Record<string, TickSource>>({});
     const [showEditor, setShowEditor] = useState(false);
     const [showShare, setShowShare] = useState(false);
     /**
@@ -110,6 +117,10 @@ export default function HabitDetailScreen() {
                 };
             }));
             setError(null);
+            const [allTicks, logged] = await Promise.all([getCompletionTicks(90), getCompletionSources(habitId, 90)]);
+            if (!mounted.current || request !== generation.current) return;
+            setTicks(allTicks.filter(tick => tick.habitId === habitId));
+            setSources(logged);
         } catch {
             if (mounted.current && request === generation.current) setError('Couldn’t load this habit. Tap retry to try again.');
         } finally {
@@ -128,6 +139,9 @@ export default function HabitDetailScreen() {
     useEffect(() => { void getHabits().then(all => setGoals(all.filter(item => item.isGoal))).catch(() => undefined); }, []);
     const weekStartsMonday = useWeekStart() === 'monday';
     const record = useMemo(() => habitRecord(history, today, habit?.startDate?.slice(0, 10), weekStartsMonday), [history, today, habit?.startDate, weekStartsMonday]);
+    const echoPatterns = useEchoPatterns();
+    const patterns = useMemo(() => (habitId ? habitPatterns({ habitId, days: history, ticks, sources, global: echoPatterns, today }) : []),
+        [habitId, history, ticks, sources, echoPatterns, today]);
     const todayDay = history.find(day => day.date === today);
     const doneToday = !!todayDay?.completed;
     // Shared: the friends on it beside the buttons, ringed once they have done
@@ -269,6 +283,9 @@ export default function HabitDetailScreen() {
                         <SectionTitle first>Consistency</SectionTitle>
                         <HabitConsistency series={series} replay={viewer} />
                     </View>
+                    {/* How it goes, not just how often: its weekdays, its hours, what a miss does, how it is logged. */}
+                    <PatternList patterns={patterns} title="Patterns" limit={6}
+                        empty="Patterns show up here after a few weeks of check-ins." />
                     {/* The photos taken as it was ticked. */}
                     <HabitThoughts habitId={habit.id} />
                     <HabitPhotos habitId={habit.id} />
