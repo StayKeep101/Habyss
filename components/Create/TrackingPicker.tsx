@@ -22,11 +22,14 @@ const TILE_RADIUS = Math.round(TILE * 0.23);
  * Strava, Bevel, Oura…); from time in apps (Add apps opens Apple's own
  * picker: Libby, Kindle, Duolingo), for the habit's own time, 30 minutes
  * unless it says otherwise; or from time at a place, for that
- * same time. What each means is said under it, in one line.
+ * same time. Whichever way is tapped starts on what the habit's name
+ * suggests, so a walk ticks itself from Steps with one tap.
  */
-export function TrackingPicker({ options, chosen, onChoose, accent, stayPlace, reminderPlace, onStayPlace, appsHabitId, onAddApps, appsCount, appsAvailable, healthAvailable }: {
+export function TrackingPicker({ options, suggested = [], chosen, onChoose, accent, stayPlace, reminderPlace, onStayPlace, appsHabitId, onAddApps, appsCount, appsAvailable, healthAvailable }: {
     /** Every option (lib/autoTrackSources.ts allTrackOptions). */
     options: AutoTrackOption[];
+    /** What the habit's name suggests (autoTrackOptions), best first: tapping Health, Apps or Place picks its one of that kind. */
+    suggested?: AutoTrackOption[];
     chosen: AutoTrackOption | null;
     onChoose: (key: string) => void;
     accent: string;
@@ -51,14 +54,16 @@ export function TrackingPicker({ options, chosen, onChoose, accent, stayPlace, r
     const pickWay = (next: Way) => {
         if (next === way) return;
         if (next === 'off') { onChoose('off'); return; }
-        // The first of that kind, unless one of it was already chosen.
-        const first = of(next)[0];
+        // What the name suggests of that kind (Steps for a walk), else the first of it.
+        const hint = suggested.find(option => option.kind === next && options.some(item => item.key === option.key));
+        const first = hint ?? of(next)[0];
         if (first) onChoose(first.key);
     };
     // Which kind of Health number is showing: the chosen one's, until another is tapped.
     const chosenGroup = chosen?.kind === 'health' ? groupOf(chosen.metric) : null;
     const [shownGroup, setGroup] = React.useState<HealthGroup | null>(null);
-    const healthGroup: HealthGroup = shownGroup ?? chosenGroup ?? 'activity';
+    const hinted = suggested.find(option => option.kind === 'health');
+    const healthGroup: HealthGroup = shownGroup ?? chosenGroup ?? (hinted?.kind === 'health' ? groupOf(hinted.metric) : 'activity');
     const pick = (key: string) => { if (key !== chosen?.key) { selectionFeedback(); onChoose(key); } };
 
     return (

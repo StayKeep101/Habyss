@@ -45,7 +45,6 @@ import { autoTrackDefaults, guessHealthMetric } from '@/lib/autoTrackGuess';
 import { TrackingPicker } from '@/components/Create/TrackingPicker';
 import { appTimeSupported, appsChosen, chooseApps, getAppTime, setAppTime } from '@/lib/appTime';
 import { generateId } from '@/lib/database';
-import { AutoTrackHint } from '@/components/Create/AutoTrackHint';
 import { firstDueDay, localDateKey } from '@/lib/habitSchedule';
 import { NotificationService } from '@/lib/notificationService';
 import { emit, on } from '@/lib/appEvents';
@@ -314,8 +313,8 @@ export const HabitSheet: React.FC<{
     }, [current, eventGoal, parsed, edits, rules, goals]);
     // Everything in the sheet wears the colour chosen for this goal or habit:
     // the chosen chips, the bar's open chip, the calendar — not the app accent.
-    // How it ticks itself (lib/autoTrackSources.ts): suggested from its name as it is
-    // written (new habits), every way in the Tracking chip, and what it already uses.
+    // How it ticks itself (lib/autoTrackSources.ts), all in the Tracking chip: every way,
+    // what it already uses, and for a new habit what its name suggests (Health opens on Steps for a walk).
     const said = { amount: draft.amount, unit: draft.unit, durationMinutes: draft.durationMinutes, quit: draft.habitType === 'quit' };
     const canTrack = Platform.OS === 'ios' && !current?.isGoal;
     const appsAvailable = appTimeSupported();
@@ -356,7 +355,7 @@ export const HabitSheet: React.FC<{
         : habitMinutes;
     const habitId = current?.id ?? newId;
     const addApps = () => { void chooseApps(habitId, 'Apps').then(count => { if (count >= 0) setAppsCount(count); }); };
-    const chooseTracking = (key: string, from: 'hint' | 'chip' = 'chip') => {
+    const chooseTracking = (key: string) => {
         setTrackPick(key);
         const option = everyOption.find(item => item.key === key) ?? suggestions.find(item => item.key === key);
         // Health: Measure in a unit it can count. One it cannot (pages for a run) becomes its own (minutes) and a usual amount.
@@ -368,10 +367,7 @@ export const HabitSheet: React.FC<{
                 setAmountText(null);
             }
         }
-        if (option?.kind === 'place') {
-            // From the line under the sentence: to the Tracking chip, where the map is a tap away.
-            if (from === 'hint' && !stayPlace) setOpenRow('tracking');
-        } else if (stayPlace) {
+        if (option?.kind !== 'place' && stayPlace) {
             // Away from a place: its time there no longer counts (a reminder there stays).
             change({ places: draft.places.filter(place => place.trigger !== 'stay') });
         }
@@ -563,7 +559,7 @@ export const HabitSheet: React.FC<{
             content: (
                 <TrackingPicker
                     options={everyOption} chosen={tracking ? everyOption.find(option => option.key === tracking.key) ?? tracking : null}
-                    onChoose={key => chooseTracking(key)} accent={accent}
+                    onChoose={key => chooseTracking(key)} accent={accent} suggested={suggestions}
                     stayPlace={stayPlace ?? null} reminderPlace={draft.places.find(place => place.trigger !== 'stay') ?? null}
                     onStayPlace={place => change({ places: [...draft.places.filter(item => item.trigger !== 'stay'),
                         ...(place ? [{ ...place, trigger: 'stay' as const, stayMinutes: minutes }] : [])] })}
@@ -656,10 +652,6 @@ export const HabitSheet: React.FC<{
                         </TypingPlaceholder>
                     </DictateField>
 
-                    {/* The suggestion, while it is one: picked something else in the Tracking chip, the line steps aside. */}
-                    {!current && (trackPick === null || trackPick === 'off' || suggestions.some(option => option.key === trackPick)) ? (
-                        <AutoTrackHint options={suggestions} chosen={tracking?.key ?? 'off'} onChoose={key => chooseTracking(key, 'hint')} accent={accentText} />
-                    ) : null}
 
 
                     {error ? (
