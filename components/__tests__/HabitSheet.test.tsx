@@ -275,11 +275,12 @@ describe('how often a habit comes round', () => {
 });
 
 describe('tracking', () => {
-    it('a habit Health can count is offered, by hand until it is chosen', async () => {
+    it('Health in the Tracking chip starts on what the name suggests, by hand until it is chosen', async () => {
         (addHabit as jest.Mock).mockClear();
         const first = render(<HabitSheet visible onClose={jest.fn()} />);
         fireEvent.changeText(first.getByLabelText('Describe the habit'), 'Run');
-        fireEvent.press(first.getByText('Runs from Apple Health'));
+        fireEvent.press(first.getByLabelText(/^Tracking/));
+        fireEvent.press(first.getByText('Health'));
         await act(async () => { fireEvent.press(first.getByText('Add habit')); });
         await waitFor(() => expect(addHabit).toHaveBeenCalled());
         expect((addHabit as jest.Mock).mock.calls[0][0]).toMatchObject({ healthKitMetric: 'run' });
