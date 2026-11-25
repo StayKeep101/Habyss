@@ -39,6 +39,8 @@ type HabyssLiveActivityModule = {
   listActivities(): string[];
   /** A notification's voice: speaks `text` into Library/Sounds/<name> (next build); false when it could not. */
   speakToSound?(text: string, name: string): Promise<boolean>;
+  /** Places by name near a point, as Maps finds them (MKLocalSearch, next build). */
+  searchPlaces?(query: string, latitude: number, longitude: number): Promise<{ name: string; address: string; latitude: number; longitude: number }[]>;
   /** Echo's morning alarm (AlarmKit, iOS 26+). */
   alarmsAvailable?(): boolean;
   scheduleMorningAlarm?(hour: number, minute: number, title: string): Promise<'scheduled' | 'denied' | 'unavailable' | 'failed'>;

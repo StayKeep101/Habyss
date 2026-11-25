@@ -1,6 +1,7 @@
 import ActivityKit
 import AVFoundation
 import ExpoModulesCore
+import MapKit
 import SwiftUI
 #if canImport(AlarmKit)
 import AlarmKit
@@ -123,6 +124,29 @@ public class HabyssLiveActivityModule: Module {
     // as that notification's sound. Clips from earlier days are cleared as new ones are made.
     AsyncFunction("speakToSound") { (text: String, name: String) async -> Bool in
       await SpokenSound.make(text: text, name: name)
+    }
+
+    // Places by name, as Maps finds them (next build): "gym", "Ottawa Hospital",
+    // "123 Bank St", nearest first around where the map is. Each is a name, an
+    // address line and a point. Nothing found, or a failure: [].
+    AsyncFunction("searchPlaces") { (query: String, latitude: Double, longitude: Double) async -> [[String: Any]] in
+      let request = MKLocalSearch.Request()
+      request.naturalLanguageQuery = query
+      if latitude != 0 || longitude != 0 {
+        request.region = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                                            latitudinalMeters: 20_000, longitudinalMeters: 20_000)
+      }
+      guard let response = try? await MKLocalSearch(request: request).start() else { return [] }
+      return response.mapItems.prefix(8).map { item in
+        let mark = item.placemark
+        let line = [mark.subThoroughfare, mark.thoroughfare, mark.locality].compactMap { $0 }.joined(separator: " ")
+        return [
+          "name": item.name ?? line,
+          "address": line,
+          "latitude": mark.coordinate.latitude,
+          "longitude": mark.coordinate.longitude,
+        ]
+      }
     }
 
     // Echo's morning alarm (AlarmKit, iOS 26+): a real alarm that rings through
