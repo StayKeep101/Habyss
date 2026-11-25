@@ -9,6 +9,7 @@ import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
 import { PerfectLadder } from '@/components/Marks/PerfectLadder';
 import { useTokens } from '@/hooks/useTokens';
 import { SHARDS, WALLET_RANGES, sampleRange, type ShardMove, type WalletRange } from '@/lib/shards';
+import { DAILY_STAKE } from '@/lib/market';
 import type { GoalPoint } from '@/lib/goalInsights';
 import type { Wallet } from '@/hooks/useWallet';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
@@ -224,7 +225,8 @@ export function WalletView({ wallet, multiplier, perfectRun, active, info, onInf
                             <SectionTitle>Fair play</SectionTitle>
                             {[
                                 ['shield-checkmark', `No farming: earn on the day you create and finish something. Habits ticked days late do not earn. Adding things earns at most ${SHARDS.addCap} a day, milestones ${SHARDS.milestonesPerDay} a day, and no day earns more than ${SHARDS.dailyCap}. Deleting a task, habit or goal removes its earnings. Deleting or undoing does not free up today’s earning allowance. Your balance stops at zero; you never owe Shards.`],
-                                ['trending-up', 'Bet them on friends’ goals. Win and you take a share of the other side’s Shards.'],
+                                ['alarm', `Misses are charged as the next day begins: a habit that was due and neither done nor skipped costs ${Math.abs(rules.miss.habit)}, a task past its date ${Math.abs(rules.miss.task)}. Tick yesterday’s habit today and its charge goes away. A skipped day costs nothing.`],
+                                ['trending-up', `Bet them on friends’ goals and races, or race the clock yourself. You can put up to ${DAILY_STAKE} at stake a day; there are ${DAILY_STAKE} again tomorrow.`],
                                 ['lock-closed', `Everyone starts with ${SHARDS.starter}. Never below zero.`],
                             ].map(([icon, sentence]) => (
                                 <View key={icon} style={styles.rule}>

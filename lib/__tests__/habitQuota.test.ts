@@ -31,10 +31,11 @@ describe('a "3 times a week" habit', () => {
     });
 
     it('is missed (costing Shards) only for the times the week could not fit', () => {
-        // Two done (Monday, Tuesday): one more was needed, so Sunday alone was due, and missed.
+        // Two done (Monday, Tuesday): one more was needed, so Sunday alone was due, and missed (charged Monday morning).
         const marks = computeMarks({ habits: [gym], tasks: [], history: { '2026-10-26': ['gym'], '2026-10-27': ['gym'] }, today: '2026-11-02' });
-        const misses = marks.ledger.filter(event => event.kind === 'miss' && event.date >= '2026-10-26');
-        expect(misses.map(event => event.date)).toEqual(['2026-11-01']);
+        // Charged after this week's Monday (a miss the week before is charged on Monday itself).
+        const misses = marks.ledger.filter(event => event.kind === 'miss' && event.date > '2026-10-26');
+        expect(misses.map(event => event.date)).toEqual(['2026-11-02']);
     });
 
     it('counts the week so far, that day included, and nothing for other habits', () => {

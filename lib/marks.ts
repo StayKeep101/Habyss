@@ -255,6 +255,9 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
 
     // A miss is a day the habit was due, has ended, and was neither done nor
     // deliberately skipped. Today has not ended, so it is never a miss yet.
+    // It is charged the moment it becomes one: as the next day begins, like a
+    // task past its date. Dated on the day itself, yesterday's misses landed
+    // at the start of yesterday, never in today's transactions.
     for (const habit of habits) {
         if (habit.isArchived) continue;
         // Due that day (a "3 times a week" one only once it could not wait).
@@ -270,7 +273,7 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
             if (!due(day, doneOn)) continue;
             if (input.history[day]?.includes(habit.id)) continue;
             if (input.skips?.[day]?.includes(habit.id)) continue;
-            record(day, MARKS.miss.habit, 'miss', 'habit', habit.name);
+            record(addDays(day, 1), MARKS.miss.habit, 'miss', 'habit', habit.name);
         }
     }
 

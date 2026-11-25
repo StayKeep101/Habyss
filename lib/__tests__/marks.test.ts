@@ -128,11 +128,11 @@ describe('deleting is break-even, never a way up', () => {
     });
 
     it('keeps the misses of a deleted habit, so deleting a neglected one does not raise Marks', () => {
-        // Kept Oct 1 and 2 (+10, +1 for adding), missed Oct 3 and 4 (-4): 7.
+        // Kept Oct 1 and 2 (+10, +1 for adding), missed Oct 3 and 4 (-4, each charged as the next day begins): 7.
         const input = { ...base, habits: [habit()], history: { '2026-10-01': ['h'], '2026-10-02': ['h'] } };
         const withHabit = net(computeMarks(input));
         const kept = penaltiesOf(input, { habits: ['h'] });
-        expect(kept.map(p => [p.date, p.points])).toEqual([['2026-10-04', -2], ['2026-10-03', -2]]);
+        expect(kept.map(p => [p.date, p.points])).toEqual([['2026-10-05', -2], ['2026-10-04', -2]]);
         const afterDelete = net(computeMarks({ ...base, habits: [], history: input.history, kept }));
         expect(afterDelete).toBeLessThanOrEqual(withHabit);
     });
