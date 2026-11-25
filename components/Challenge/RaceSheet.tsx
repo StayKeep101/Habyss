@@ -10,7 +10,7 @@ import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { on } from '@/lib/appEvents';
 import { dailyFocus } from '@/lib/dailyFocus';
 import { localDateKey } from '@/lib/habitSchedule';
-import { myWallet } from '@/lib/market';
+import { DAILY_STAKE, myWallet } from '@/lib/market';
 import { RACE_MAX, expectedMinutes, openRace, ownerWin, raceFeed, raceTimes, raceTitle } from '@/lib/races';
 import { todayKey } from '@/lib/tasks';
 import { oopsTitle } from '@/lib/voice';
@@ -18,8 +18,10 @@ import { Control, Spacing } from '@/theme/designSystem';
 
 /** "45 min", "2 h", "3 h 15 min". */
 const timeLabel = (minutes: number) => (minutes < 60 ? `${minutes} min` : minutes % 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes / 60} h`);
-/** Stakes offered under the balance: steps that grow, then All in. */
-const STEPS = [25, 50, 100, 250, 500, 1000, 2500, 5000];
+/** Stakes offered, out of today's 500 (lib/market.ts DAILY_STAKE). */
+const STEPS = [25, 50, 100, 250, 500];
+/** What a race starts on. */
+const USUAL_STAKE = 100;
 /** The most tasks one race holds. */
 const MOST = 10;
 
@@ -41,8 +43,10 @@ export function RaceSheet() {
     const [visible, setVisible] = useState(false);
     const [picked, setPicked] = useState<string[]>([]);
     const [minutes, setMinutes] = useState<number>(RACE_MAX);
-    const [stake, setStake] = useState(100);
+    const [stake, setStake] = useState(USUAL_STAKE);
     const [balance, setBalance] = useState<number | null>(null);
+    // What is left of today's 500 to put at stake (null: not known).
+    const [stakeLeft, setStakeLeft] = useState<number | null>(null);
     // Habyss matches only your first race of the day.
     const [firstToday, setFirstToday] = useState(true);
     const [panel, setPanel] = useState<string | null>(null);
@@ -59,9 +63,12 @@ export function RaceSheet() {
             setMinutes(RACE_MAX);
             setPanel(null);
             setVisible(true);
+            setStake(USUAL_STAKE);
             void myWallet().then(wallet => {
                 setBalance(wallet.spendable);
-                if (wallet.spendable !== null) setStake(current => Math.min(current, Math.max(1, wallet.spendable ?? 1)));
+                setStakeLeft(wallet.stakeLeft);
+                const most = Math.min(wallet.spendable ?? DAILY_STAKE, wallet.stakeLeft ?? DAILY_STAKE);
+                setStake(current => Math.max(1, Math.min(current, most)));
             }).catch(() => setBalance(null));
             const day = localDateKey(new Date());
             void raceFeed().then(races => setFirstToday(!races.some(race => race.mine && localDateKey(new Date(race.startsAt)) === day))).catch(() => undefined);
@@ -73,9 +80,12 @@ export function RaceSheet() {
     const expected = expectedMinutes(picked.map(id => open.find(task => task.id === id) ?? {}));
     const times = raceTimes(expected);
     const chosenTime = Math.min(minutes, times[times.length - 1]);
-    const steps = STEPS.filter(step => balance === null || step < balance);
-    const allIn = balance !== null && stake === balance;
-    const broke = balance !== null && balance < 1;
+    // Out of today's 500, and never more than you have.
+    const most = Math.min(balance ?? DAILY_STAKE, stakeLeft ?? DAILY_STAKE);
+    const fits = STEPS.filter(step => step <= most);
+    const steps = fits.length ? fits : most > 0 ? [most] : [];
+    const outToday = stakeLeft === 0;
+    const broke = outToday || (balance !== null && balance < 1);
     const close = () => setVisible(false);
     const toggle = (id: string) => {
         selectionFeedback();
@@ -104,17 +114,20 @@ export function RaceSheet() {
             ),
         },
         {
-            id: 'stake', icon: 'diamond-outline', label: 'Stake', value: stake.toLocaleString(),
+            id: 'stake', icon: 'diamond-outline', label: 'Stake', value: outToday ? 'None left today' : stake.toLocaleString(),
             content: (
-                <View style={styles.chips}>
-                    {steps.map(step => (
-                        <ChoicePill key={step} label={step.toLocaleString()} on={stake === step} color={t.color.accent}
-                            onPress={() => { selectionFeedback(); setStake(step); }} />
-                    ))}
-                    {balance !== null && balance > 0 ? (
-                        <ChoicePill label="All in" icon="flame" on={allIn} color={t.color.warning}
-                            onPress={() => { selectionFeedback(); setStake(balance); }} accessibilityLabel={`All in, ${balance} Shards`} />
-                    ) : null}
+                <View style={styles.stake}>
+                    <View style={styles.chips}>
+                        {steps.map(step => (
+                            <ChoicePill key={step} label={step.toLocaleString()} on={stake === step} color={t.color.accent}
+                                onPress={() => { selectionFeedback(); setStake(step); }} />
+                        ))}
+                    </View>
+                    {/* The day's budget, so a stake is always small and never everything you have. */}
+                    <Text variant="caption" tone="muted">
+                        {outToday ? `That’s today’s ${DAILY_STAKE} Shards at stake. More tomorrow.`
+                            : `${DAILY_STAKE} a day to stake · ${(stakeLeft ?? DAILY_STAKE).toLocaleString()} left today`}
+                    </Text>
                 </View>
             ),
         },
@@ -166,6 +179,7 @@ const styles = StyleSheet.create({
     list: { flexGrow: 0, flexShrink: 3 },
     listContent: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm },
     task: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: Control.hitTarget },
+    stake: { gap: Spacing.sm },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
     footer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, gap: Spacing.lg },
     terms: { gap: Spacing.xs },

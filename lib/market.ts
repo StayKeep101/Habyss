@@ -118,16 +118,32 @@ const asReason = (reason: unknown): LedgerEntry['reason'] =>
 
 export interface LedgerEntry { amount: number; reason: 'stake' | 'payout' | 'refund' | 'unlock'; at: string; title: string }
 
-/** What bets have moved in your wallet: the total, what is in play, what the server lets you spend, and the latest entries. */
-export async function myWallet(): Promise<{ ledger: number; inPlay: number; spendable: number | null; entries: LedgerEntry[] }> {
+/**
+ * 500 Shards a day to put at stake, across races, bets and duels
+ * (supabase/migrations/20261125000100_daily_stake.sql): use them or not,
+ * there are 500 again tomorrow. Never everything you have on one race.
+ */
+export const DAILY_STAKE = 500;
+
+/**
+ * What bets have moved in your wallet: the total, what is in play, what the
+ * server lets you spend, what is left of today's 500 to stake, and the latest entries.
+ */
+export async function myWallet(): Promise<{ ledger: number; inPlay: number; spendable: number | null; stakeLeft: number | null; entries: LedgerEntry[] }> {
     const ctx = await client();
-    if (!ctx) return { ledger: 0, inPlay: 0, spendable: null, entries: [] };
-    const [totals, rows] = await Promise.all([ctx.sb.rpc('my_wallet'), ctx.sb.rpc('my_ledger', { p_limit: 100 })]);
+    if (!ctx) return { ledger: 0, inPlay: 0, spendable: null, stakeLeft: null, entries: [] };
+    const [totals, rows, today] = await Promise.all([
+        ctx.sb.rpc('my_wallet'), ctx.sb.rpc('my_ledger', { p_limit: 100 }),
+        // Unknown (null) on a server without the daily budget yet.
+        Promise.resolve(ctx.sb.rpc('my_stake_today')).catch(() => ({ data: null, error: true })),
+    ]);
     const total = Array.isArray(totals.data) ? totals.data[0] : totals.data;
+    const left = today.error || today.data === null || today.data === undefined ? null : Number(today.data);
     return {
         ledger: Number(total?.ledger) || 0,
         inPlay: Number(total?.in_play) || 0,
         spendable: total?.spendable === undefined || total?.spendable === null ? null : Number(total.spendable),
+        stakeLeft: left !== null && Number.isFinite(left) ? Math.max(0, left) : null,
         entries: Array.isArray(rows.data) ? rows.data.map((row: Record<string, unknown>) => ({
             amount: Number(row.amount) || 0, reason: asReason(row.reason), at: String(row.created_at), title: String(row.title ?? 'A bet'),
         })) : [],

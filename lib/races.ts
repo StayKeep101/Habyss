@@ -53,7 +53,7 @@ export function raceTimes(expected: number): number[] {
 }
 export const RACE_MIN = 15;
 export const RACE_MAX = 12 * 60;
-/** Habyss's match on a win, at most. */
+/** Habyss's match on a win, at most: the same as the day's 500 to stake. */
 export const MATCH_CAP = 500;
 /** What one friend can put on one race. */
 export const BET_CAP = 100;

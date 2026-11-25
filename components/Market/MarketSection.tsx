@@ -12,7 +12,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { on } from '@/lib/appEvents';
 import { addDays } from '@/lib/goalInsights';
-import { MAX_STAKE, STAKES, marketFeed, myWallet, openMarket, payoutFor, placeStake, resultFor, type Market, type Side } from '@/lib/market';
+import { DAILY_STAKE, MAX_STAKE, STAKES, marketFeed, myWallet, openMarket, payoutFor, placeStake, resultFor, type Market, type Side } from '@/lib/market';
 import type { Habit } from '@/lib/habitsSQLite';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
 
@@ -29,11 +29,12 @@ export function MarketSection({ style }: { style?: StyleProp<ViewStyle> }) {
     const t = useTokens();
     const [markets, setMarkets] = useState<Market[] | null>(null);
     const [spendable, setSpendable] = useState<number | null>(null);
+    const [stakeLeft, setStakeLeft] = useState<number | null>(null);
     const [betting, setBetting] = useState<Market | null>(null);
     const [opening, setOpening] = useState(false);
     const load = useCallback(() => {
         marketFeed().then(setMarkets).catch(() => setMarkets([]));
-        myWallet().then(wallet => setSpendable(wallet.spendable)).catch(() => undefined);
+        myWallet().then(wallet => { setSpendable(wallet.spendable); setStakeLeft(wallet.stakeLeft); }).catch(() => undefined);
     }, []);
     useFocusEffect(load);
     useEffect(() => {
@@ -56,7 +57,7 @@ export function MarketSection({ style }: { style?: StyleProp<ViewStyle> }) {
             ) : null}
             {done.map(market => <ListItem key={market.id}><MarketCard market={market} onBet={() => undefined} /></ListItem>)}
 
-            {betting ? <StakeSheet market={betting} spendable={spendable} onClose={() => setBetting(null)} /> : null}
+            {betting ? <StakeSheet market={betting} spendable={spendable} stakeLeft={stakeLeft} onClose={() => setBetting(null)} /> : null}
             <OpenSheet visible={opening} openKeys={openKeys} onClose={() => setOpening(false)} />
         </View>
     );
@@ -107,12 +108,14 @@ function MarketCard({ market, onBet }: { market: Market; onBet: () => void }) {
  * The bet: pick a side (each says how the crowd leans), slide how many Shards,
  * and watch what it would win grow as you slide.
  */
-function StakeSheet({ market, spendable, onClose }: { market: Market; spendable: number | null; onClose: () => void }) {
+function StakeSheet({ market, spendable, stakeLeft, onClose }: { market: Market; spendable: number | null; stakeLeft: number | null; onClose: () => void }) {
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
     const already = market.myStake?.amount ?? 0;
     const room = MAX_STAKE - already;
-    const cap = spendable === null ? room : Math.min(room, spendable);
+    // Within this goal's 100, your balance, and what is left of today's 500 to stake.
+    const cap = Math.min(room, spendable ?? room, stakeLeft ?? room);
+    const outToday = stakeLeft === 0;
     // Your own goal is only ever backed; a side you are already on is kept.
     const locked: Side | null = market.mine ? 'make' : market.myStake?.side ?? null;
     const [side, setSide] = useState<Side>(locked ?? 'make');
@@ -179,7 +182,7 @@ function StakeSheet({ market, spendable, onClose }: { market: Market; spendable:
                     <StepSlider label="How much" values={steps} value={amount} onChange={setAmount} say={value => `${value} Shards`} />
                 ) : null}
                 {amount === 0 ? (
-                    <Text variant="body" tone="muted" align="center">{`You have ${spendable ?? 0} Shards. Finish something to earn some.`}</Text>
+                    <Text variant="body" tone="muted" align="center">{outToday ? `That’s today’s ${DAILY_STAKE} Shards at stake. More tomorrow.` : `You have ${spendable ?? 0} Shards. Finish something to earn some.`}</Text>
                 ) : market.pool[side === 'make' ? 'miss' : 'make'] ? (
                     // What it would win, growing as the slider moves.
                     <View style={styles.win} accessible accessibilityLabel={`Wins ${gain} Shards`}>
