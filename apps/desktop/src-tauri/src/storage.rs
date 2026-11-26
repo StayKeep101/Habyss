@@ -19,6 +19,7 @@ impl Store {
         conn.execute_batch(include_str!("../migrations/002_cloud.sql"))?;
         conn.execute_batch(include_str!("../migrations/003_focus.sql"))?;
         conn.execute_batch(include_str!("../migrations/005_depth.sql"))?;
+        conn.execute_batch(include_str!("../migrations/006_day_inputs.sql"))?;
         // focus_sessions keeps the seven columns of 001, so older builds that open this file (user_version 1) can still insert
         // positionally; the extras live in focus_session_extras (004). A file that 003 gave the extra columns has them copied
         // across and dropped, all in one transaction.
@@ -140,15 +141,15 @@ pub fn refine_category(i:&mut Interval,overridden:bool) {
         drop(Store::open(&path).unwrap());
         let s = Store::open(&path).unwrap();
         // Older builds open anything up to user_version 1.
-        assert_eq!(version(&s), (1, vec![1, 2, 3, 4, 5]));
+        assert_eq!(version(&s), (1, vec![1, 2, 3, 4, 5, 6]));
     }
     #[test]
     fn pre_release_version_2_opens_and_goes_back_to_1() {
         let dir = tempfile::tempdir().unwrap();let path = dir.path().join("db");
         let s = Store::open(&path).unwrap();
-        s.conn.execute_batch("DELETE FROM schema_migrations WHERE version IN (2,3,4,5); PRAGMA user_version=2;").unwrap();drop(s);
+        s.conn.execute_batch("DELETE FROM schema_migrations WHERE version IN (2,3,4,5,6); PRAGMA user_version=2;").unwrap();drop(s);
         let s = Store::open(&path).unwrap();
-        assert_eq!(version(&s), (1, vec![1, 2, 3, 4, 5]));
+        assert_eq!(version(&s), (1, vec![1, 2, 3, 4, 5, 6]));
         // A 2 from a genuinely newer schema, which records its own migrations, is still refused.
         s.conn.execute_batch("INSERT INTO schema_migrations VALUES(99,0); PRAGMA user_version=2;").unwrap();drop(s);
         assert!(Store::open(&path).is_err());
@@ -211,10 +212,10 @@ pub fn refine_category(i:&mut Interval,overridden:bool) {
     fn migrations_003_004_idempotent_and_keep_user_version_1() {
         let dir=tempfile::tempdir().unwrap();let path=dir.path().join("db");
         drop(Store::open(&path).unwrap());drop(Store::open(&path).unwrap());
-        let s=Store::open(&path).unwrap();assert_eq!(version(&s),(1,vec![1,2,3,4,5]));
+        let s=Store::open(&path).unwrap();assert_eq!(version(&s),(1,vec![1,2,3,4,5,6]));
         // A file recorded without 003 or 004 (side table already present) is repaired without error.
         s.conn.execute("DELETE FROM schema_migrations WHERE version IN (3,4)",[]).unwrap();drop(s);
-        let s=Store::open(&path).unwrap();assert_eq!(version(&s),(1,vec![1,2,3,4,5]));
+        let s=Store::open(&path).unwrap();assert_eq!(version(&s),(1,vec![1,2,3,4,5,6]));
     }
     /// The insert every build up to c259b9d makes: seven positional values.
     const OLDER_BUILD_INSERT: &str = "INSERT INTO focus_sessions VALUES(?1,?2,?3,NULL,?4,'running',?3)";
@@ -248,14 +249,14 @@ pub fn refine_category(i:&mut Interval,overridden:bool) {
         as_003(&path,"INSERT INTO focus_sessions VALUES('done','Done',0,5000,1000,'completed',5000,700,NULL,'t1','task'); INSERT INTO focus_sessions(id,label,started_at,ended_at,target_ms,state,updated_at) VALUES('plain','Plain',0,500,1000,'completed',500);");
         let s=Store::open(&path).unwrap();
         assert_eq!(columns(&s,"focus_sessions"),["id","label","started_at","ended_at","target_ms","state","updated_at"]);
-        assert_eq!(version(&s),(1,vec![1,2,3,4,5]));
+        assert_eq!(version(&s),(1,vec![1,2,3,4,5,6]));
         let all=s.focus().unwrap();
         let done=all.iter().find(|f|f.id=="done").unwrap();
         assert_eq!((done.paused_ms,done.item_id.as_deref(),done.item_kind.as_deref()),(700,Some("t1"),Some("task")));
         let plain=all.iter().find(|f|f.id=="plain").unwrap();
         assert_eq!((plain.paused_ms,plain.paused_at,plain.item_id.clone()),(0,None,None));
         s.conn.execute(OLDER_BUILD_INSERT,params!["old","Old",1000,60000]).unwrap();
-        drop(s);let s=Store::open(&path).unwrap();assert_eq!(version(&s),(1,vec![1,2,3,4,5]));
+        drop(s);let s=Store::open(&path).unwrap();assert_eq!(version(&s),(1,vec![1,2,3,4,5,6]));
     }
     #[test]
     fn migration_004_recovers_an_open_pause_from_003_columns() {

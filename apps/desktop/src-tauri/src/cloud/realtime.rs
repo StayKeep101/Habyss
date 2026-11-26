@@ -23,9 +23,9 @@ fn socket_url(config: &Config) -> String {
     format!("{host}/realtime/v1/websocket?apikey={}&vsn=1.0.0", config.key)
 }
 
-/// Join payload: changes to the four mirrored tables, only for this user's rows.
+/// Join payload: changes to the mirrored tables and the day's settings, only for this user's rows.
 pub fn join_payload(user_id: &str, token: &str) -> Value {
-    let changes: Vec<Value> = Table::ALL.iter().map(|t| json!({"event": "*", "schema": "public", "table": t.remote(), "filter": format!("user_id=eq.{user_id}")})).collect();
+    let changes: Vec<Value> = Table::ALL.iter().map(|t| t.remote()).chain(["day_inputs"]).map(|t| json!({"event": "*", "schema": "public", "table": t, "filter": format!("user_id=eq.{user_id}")})).collect();
     json!({"config": {"broadcast": {"self": false}, "presence": {"key": ""}, "postgres_changes": changes}, "access_token": token})
 }
 
@@ -124,7 +124,7 @@ mod tests {
         assert_eq!(p["access_token"], "tok");
         let changes = p["config"]["postgres_changes"].as_array().unwrap();
         let tables: Vec<&str> = changes.iter().map(|c| c["table"].as_str().unwrap()).collect();
-        assert_eq!(tables, ["habits", "habit_completions", "tasks", "goal_milestones"]);
+        assert_eq!(tables, ["habits", "habit_completions", "tasks", "goal_milestones", "day_inputs"]);
         for c in changes { assert_eq!((c["event"].as_str(), c["schema"].as_str(), c["filter"].as_str()), (Some("*"), Some("public"), Some("user_id=eq.u1"))); }
     }
     #[test] fn socket_url_uses_websocket_scheme() {

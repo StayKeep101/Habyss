@@ -108,7 +108,7 @@ pub fn clear_cloud(c: &Connection) -> Result<()> {
     Ok(())
 }
 fn wipe(c: &Connection) -> Result<()> {
-    c.execute_batch("DELETE FROM cloud_habits; DELETE FROM cloud_completions; DELETE FROM cloud_tasks; DELETE FROM cloud_milestones; DELETE FROM cloud_cursors; DELETE FROM cloud_account; DELETE FROM cloud_cache; DELETE FROM cloud_outbox; DELETE FROM cloud_shared_ids;")?;
+    c.execute_batch("DELETE FROM cloud_day_inputs; DELETE FROM cloud_habits; DELETE FROM cloud_completions; DELETE FROM cloud_tasks; DELETE FROM cloud_milestones; DELETE FROM cloud_cursors; DELETE FROM cloud_account; DELETE FROM cloud_cache; DELETE FROM cloud_outbox; DELETE FROM cloud_shared_ids;")?;
     Ok(())
 }
 /// (pending, refused) over the four mirror tables.

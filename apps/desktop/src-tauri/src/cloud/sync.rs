@@ -1,6 +1,6 @@
 //! Two-way sync of the local mirror with Supabase. Port of mobile `runSync` (lib/cloudSync.ts) minus `requeue` and `syncPersonal`.
 //! Order: outbox, upload, download, shared items, then the result on `cloud_account`. The DB is never held across an `.await`.
-use super::{auth::Auth, client::{pull_query, Client, CloudError}, mapping::*, mirror::{self, Table}};
+use super::{auth::Auth, client::{pull_query, Client, CloudError}, day_inputs, mapping::*, mirror::{self, Table}};
 use crate::storage::Result;
 use chrono::SecondsFormat;
 use rusqlite::{params, Connection};
@@ -83,6 +83,7 @@ impl<D: Db> Run<'_, D> {
         self.flush_outbox().await?;
         for t in Table::ALL { self.upload(t).await?; }
         for t in Table::ALL { self.download(t).await?; }
+        self.day_inputs().await?;
         match self.pull_shared().await {
             Ok(n) => self.report.downloaded += n,
             Err(Stop::Mismatch) => return Err(Stop::Mismatch),
@@ -248,6 +249,44 @@ impl<D: Db> Run<'_, D> {
         }
         if let Some(n) = newest.as_deref().filter(|n| !held && Some(*n) != since.as_deref()) { self.mine(|c| mirror::set_cursor(c, t, n))?; }
         self.refetch(t).await
+    }
+
+    /// The day's settings (`day_inputs`): unsent edits go up one row per key, then what changed comes down. A server without the
+    /// table yet is "waiting", never a failure; the edits stay on this Mac.
+    async fn day_inputs(&mut self) -> std::result::Result<(), Stop> {
+        const TABLE: &str = "day_inputs";
+        let c = self.client;
+        let pending = self.mine(day_inputs::unsent)?;
+        if !pending.is_empty() {
+            let me = self.me.clone();
+            let rows: Vec<Value> = pending.iter().map(|r| json!({"user_id": me, "key": r["key"], "value": r["value"],
+                "deleted_at": if r["deleted"] == json!(true) { json!(chrono::Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)) } else { Value::Null }})).collect();
+            let sent = { let rows = &rows[..]; self.call(move |tok| async move { c.upsert(&tok, TABLE, "user_id,key", rows).await }).await };
+            match sent {
+                Ok(()) => { self.mine(|c| day_inputs::mark_sent(c, &pending))?; self.report.uploaded += pending.len(); }
+                Err(CloudError::MissingTable) => { self.report.waiting.push(TABLE.into()); return Ok(()); }
+                Err(e) if fatal(&e) => return Err(e.into()),
+                Err(e) => { self.report.failed += pending.len(); eprintln!("[sync] day settings failed: {}", kind(&e)); }
+            }
+        }
+        let since = self.mine(day_inputs::cursor)?;
+        let mut newest = since.clone();
+        loop {
+            let mut q = vec![("select".to_string(), "key,value,updated_at,deleted_at".to_string()), ("user_id".into(), format!("eq.{}", self.me)), ("order".into(), "updated_at.asc,key.asc".into()), ("limit".into(), PAGE.to_string())];
+            if let Some(n) = newest.as_deref() { q.push(("updated_at".into(), format!("gt.{n}"))); }
+            let page = { let q = &q[..]; self.call(move |tok| async move { c.select(&tok, TABLE, q).await }).await };
+            let rows = match page {
+                Ok(rows) => rows,
+                Err(CloudError::MissingTable) => { if !self.report.waiting.iter().any(|w| w == TABLE) { self.report.waiting.push(TABLE.into()); } return Ok(()); }
+                Err(e) => return Err(e.into()),
+            };
+            let written = self.mine(|c| { let tx = c.unchecked_transaction()?; let mut n = 0; for r in &rows { n += day_inputs::write_remote(&tx, r)?; } tx.commit()?; Ok(n) })?;
+            self.report.downloaded += written;
+            if let Some(u) = rows.iter().filter_map(|r| r["updated_at"].as_str()).max() { newest = Some(u.to_string()); }
+            if rows.len() < PAGE { break; }
+        }
+        if let Some(n) = newest.as_deref().filter(|n| Some(*n) != since.as_deref()) { self.mine(|c| day_inputs::set_cursor(c, n))?; }
+        Ok(())
     }
 
     /// Your own refused rows go back to the server's version: they are read again by id (a completion by habit and day, since its
@@ -762,5 +801,36 @@ mod tests {
         let (d, c) = (db(), Client::new(Config { url: "http://127.0.0.1:9".into(), key: "k".into() }));
         let a = Auth::new(Arc::new(Client::new(Config { url: "http://127.0.0.1:9".into(), key: "k".into() })), Arc::new(MemorySecret::default()));
         send(run_sync(&d, &c, &a));
+    }
+
+    #[tokio::test] async fn day_inputs_come_down_and_go_up_by_key() {
+        let mut s = Server::new_async().await;
+        s.mock("GET", "/rest/v1/day_inputs").match_query(Matcher::Any)
+            .with_body(json!([{"key": "meals", "value": {"lunch": {"on": true}}, "updated_at": "2026-11-26T10:00:00Z", "deleted_at": null}]).to_string()).create_async().await;
+        let up = s.mock("POST", "/rest/v1/day_inputs").match_query(Matcher::UrlEncoded("on_conflict".into(), "user_id,key".into()))
+            .match_request(|r| { let v: Value = serde_json::from_slice(r.body().unwrap()).unwrap(); v[0]["key"] == json!("day_memory:2026-11-26") && v[0]["user_id"] == json!(ME) && v[0]["deleted_at"].is_null() })
+            .with_status(201).expect(1).create_async().await;
+        empty_reads(&mut s).await;
+        let d = db();
+        d.with(|c| day_inputs::set_local(c, "day_memory:2026-11-26", Some(json!({"day": "2026-11-26"})), NOW)).unwrap();
+        let (c, a) = signed_in(s.url()).await;
+        let r = run_sync(&d, &c, &a).await;
+        up.assert_async().await;
+        assert!(r.ok, "{r:?}");
+        let live = d.with(day_inputs::live).unwrap();
+        assert_eq!(live["meals"], json!({"lunch": {"on": true}}));
+        assert!(d.with(day_inputs::unsent).unwrap().is_empty());
+    }
+
+    #[tokio::test] async fn day_inputs_before_the_table_exists_wait_without_failing() {
+        let mut s = Server::new_async().await;
+        s.mock("GET", "/rest/v1/day_inputs").match_query(Matcher::Any).with_status(404)
+            .with_body(json!({"code": "PGRST205", "message": "Could not find the table 'public.day_inputs' in the schema cache"}).to_string()).create_async().await;
+        empty_reads(&mut s).await;
+        let d = db();
+        let (c, a) = signed_in(s.url()).await;
+        let r = run_sync(&d, &c, &a).await;
+        assert!(r.ok, "{r:?}");
+        assert!(r.waiting.contains(&"day_inputs".to_string()));
     }
 }

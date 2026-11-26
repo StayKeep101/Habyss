@@ -15,7 +15,7 @@ vi.mock('@tauri-apps/api/event', () => ({ listen: (name: string, cb: () => void)
 import { isSignedIn, useCloud } from './useCloud';
 
 const STATUS: SyncStatus = { state: 'idle', account: true, email: 'a@b.c', last_sync: null, pending: 0, refused: 0, error: null };
-const data = (title: string): CloudData => ({ habits: [], completions: [], milestones: [], tasks: [{ title } as never] });
+const data = (title: string): CloudData => ({ habits: [], completions: [], milestones: [], day_inputs: {}, tasks: [{ title } as never] });
 const deferred = <T,>() => { let resolve!: (v: T) => void; const promise = new Promise<T>(r => { resolve = r; }); return { promise, resolve }; };
 
 beforeEach(() => { calls.length = 0; disposed.length = 0; for (const k of Object.keys(listeners)) delete listeners[k]; handlers = { cloud_data: () => data('first'), cloud_status: () => STATUS }; });

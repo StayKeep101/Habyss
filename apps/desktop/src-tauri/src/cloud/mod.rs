@@ -6,3 +6,4 @@ pub mod sync;
 pub mod realtime;
 pub mod runner;
 pub mod commands;
+pub mod day_inputs;

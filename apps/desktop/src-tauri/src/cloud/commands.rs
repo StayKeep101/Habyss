@@ -18,7 +18,7 @@ const RPC_READS: [&str; 15] = ["my_wallet", "my_ledger", "my_streak_freezes", "c
 const RPC_ACTIONS: [&str; 9] = ["issue_challenge", "join_challenge", "open_market", "place_stake", "settle_market", "use_streak_freeze", "gift_streak_freeze", "create_exposed", "act_on_exposed"];
 
 #[derive(Serialize, Debug)]
-pub struct CloudData { pub habits: Vec<Value>, pub completions: Vec<Value>, pub tasks: Vec<Value>, pub milestones: Vec<Value> }
+pub struct CloudData { pub habits: Vec<Value>, pub completions: Vec<Value>, pub tasks: Vec<Value>, pub milestones: Vec<Value>, pub day_inputs: serde_json::Map<String, Value> }
 #[derive(Serialize, Debug)]
 pub struct Cached<T> { pub value: T, pub fetched_at: String, pub stale: bool }
 
@@ -34,7 +34,7 @@ pub(crate) fn data(c: &Connection, completions_since: Option<&str>) -> Stored<Cl
     let live = |t: Table| -> Stored<Vec<Value>> { Ok(mirror::select(c, t, "WHERE deleted=0")?) };
     let mut completions = live(Table::Completions)?;
     if let Some(since) = completions_since { completions.retain(|r| r["date"].as_str().is_some_and(|d| d >= since)); }
-    Ok(CloudData { habits: live(Table::Habits)?, completions, tasks: live(Table::Tasks)?, milestones: live(Table::Milestones)? })
+    Ok(CloudData { habits: live(Table::Habits)?, completions, tasks: live(Table::Tasks)?, milestones: live(Table::Milestones)?, day_inputs: super::day_inputs::live(c)? })
 }
 
 /// Saves a habit, task or milestone; a row without an id is new. Returns the id.
@@ -47,6 +47,12 @@ pub(crate) fn save(c: &Connection, table: &str, mut row: Value, at: &str) -> Sto
     o.insert("id".into(), json!(id));
     mirror::save_local(c, t, row, &user, at)?;
     Ok(id)
+}
+
+/// Sets (or, with `None`, removes) one of the day's settings, sent on the next sync.
+pub(crate) fn set_day_input(c: &Connection, key: &str, value: Option<Value>, at: &str) -> Stored<()> {
+    me(c)?;
+    Ok(super::day_inputs::set_local(c, key, value, at)?)
 }
 
 pub(crate) fn delete(c: &Connection, table: &str, id: &str, at: &str) -> Stored<()> {
@@ -185,6 +191,8 @@ pub fn cloud_save(app: tauri::AppHandle, table: String, row: Value) -> Result<St
 pub fn cloud_delete(app: tauri::AppHandle, table: String, id: String) -> Result<()> { edit(&app, |c| delete(c, &table, &id, &now())) }
 #[tauri::command]
 pub fn cloud_set_completion(app: tauri::AppHandle, habit_id: String, date: String, value: Option<f64>, skipped: bool, memo: Option<String>, evidence: Option<String>) -> Result<()> { edit(&app, |c| set_completion(c, &habit_id, &date, value, skipped, memo, evidence, &now())) }
+#[tauri::command]
+pub fn cloud_set_day_input(app: tauri::AppHandle, key: String, value: Option<Value>) -> Result<()> { edit(&app, |c| set_day_input(c, &key, value, &now())) }
 #[tauri::command]
 pub fn cloud_set_task_done(app: tauri::AppHandle, id: String, done: bool) -> Result<()> { edit(&app, |c| set_task_done(c, &id, done, &now(), &today())) }
 
@@ -431,5 +439,17 @@ mod tests {
         assert_eq!(d.tasks[0]["id"], keep.as_str());
         assert_eq!(d.completions.len(), 1);
         assert_eq!(data(&s.conn, None).unwrap().completions.len(), 2);
+    }
+
+    #[test]
+    fn day_settings_are_in_cloud_data_and_keys_are_checked() {
+        let s = store();
+        set_day_input(&s.conn, "meals", Some(json!({"lunch": {"on": true}})), AT).unwrap();
+        set_day_input(&s.conn, "travel:school", Some(json!({"before": 30, "after": 30})), AT).unwrap();
+        set_day_input(&s.conn, "travel:school", None, AT).unwrap();
+        let d = data(&s.conn, None).unwrap();
+        assert_eq!(d.day_inputs.get("meals"), Some(&json!({"lunch": {"on": true}})));
+        assert!(!d.day_inputs.contains_key("travel:school"));
+        assert!(set_day_input(&s.conn, "Meals!", Some(json!(1)), AT).is_err());
     }
 }
