@@ -172,7 +172,8 @@ pub fn habit_to_local(row: &Value) -> Value {
         "health_kit_target": finite_v(g(row, "health_kit_target")),
         "ringtone": or_d(row, "ringtone", json!("default")),
         "created_at": stamp("created_at"), "updated_at": stamp("updated_at"),
-        "deleted": flag(g(row, "deleted_at")),
+        // A goal row still on the server counts as deleted, as on the phone (goals are gone).
+        "deleted": if truthy(g(row, "deleted_at")) || truthy(g(row, "is_goal")) { 1 } else { 0 },
         // Came from the server, so there is nothing to upload. owner_id/refused are desktop-only columns.
         "synced": 1, "owner_id": Value::Null, "refused": 0,
     }));
@@ -680,5 +681,12 @@ mod tests {
         let down = habit_to_local(&json!({"id": HABIT, "name": "Study", "anchor": anchor, "updated_at": "t"}));
         assert_eq!(serde_json::from_str::<Value>(down["anchor"].as_str().unwrap()).unwrap(), anchor);
         assert!(habit_to_local(&json!({"id": HABIT, "name": "Study", "anchor": null, "updated_at": "t"}))["anchor"].is_null());
+    }
+
+    #[test]
+    fn a_goal_row_from_the_server_arrives_deleted_as_on_the_phone() {
+        let r = habit_to_local(&json!({"id": HABIT, "name": "Marathon", "is_goal": true, "updated_at": "t"}));
+        assert_eq!(r["deleted"], 1);
+        assert_eq!(habit_to_local(&json!({"id": HABIT, "name": "Run", "is_goal": false, "updated_at": "t"}))["deleted"], 0);
     }
 }
