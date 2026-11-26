@@ -43,7 +43,7 @@ export interface AscentEnd { state: AscentState; how: 'finished' | 'skipped' }
  * The Ascent, played: Echo in its mood, its line typed out, and whatever the
  * beat asks for under it, on the app's own background. The story is
  * lib/ascent/story.ts, walked by the reducer in lib/ascent/machine.ts and
- * saved after every step (except in preview). The goal and first step are
+ * saved after every step (except in preview). The first step is
  * saved by lib/ascent/plan.ts at the commit beat, and their Echo (voice, day,
  * nudges) by lib/ascent/echoBuild.ts at the build beat, independent of
  * anything on screen. A tap anywhere finishes a line, the next moves on;
@@ -98,7 +98,7 @@ export function Ascent({ preview, onEnd, onAccount, autoPlay = true }: {
         if (was !== null && was !== state.scene && SCENES[was]?.id === 'echo') track('eco_introduction_completed');
     }, [state]);
 
-    // The commit beat saves the goal and its first step, once; the build beat saves their Echo. Then the story goes on.
+    // The commit beat saves the first step, once; the build beat saves their Echo. Then the story goes on.
     const beatKey = state ? `${state.scene}:${state.beat}` : '';
     useEffect(() => {
         if (!state || (beat?.kind !== 'commit' && beat?.kind !== 'build')) return;
@@ -106,7 +106,7 @@ export function Ascent({ preview, onEnd, onAccount, autoPlay = true }: {
         const hold = (ms: number) => new Promise(done => setTimeout(done, reduced ? 0 : ms));
         if (beat.kind === 'commit') {
             const saving = preview
-                ? Promise.resolve({ goalId: 'preview', stepId: 'preview', stepKind: 'task' as const })
+                ? Promise.resolve({ stepId: 'preview', stepKind: 'task' as const })
                 : commitPlan(state.answers, state.created);
             Promise.all([saving, hold(SAVE_BEAT_MS)])
                 .then(([created]) => {

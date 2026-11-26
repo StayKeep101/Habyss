@@ -136,9 +136,9 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     });
 
     /**
-     * While something in a goal is dragged on the Roadmap, the plus becomes
-     * "Remove from goal" — same round button, same place — and turns red when
-     * the finger is over it. The page does the hit-testing against the rect
+     * While something is dragged on the Roadmap's timeline, the plus becomes
+     * the bin — same round button, same place — and turns red when the finger
+     * is over it. The page does the hit-testing against the rect
      * measured here.
      */
     const [removeDrag, setRemoveDragState] = React.useState<RemoveDrag>(getRemoveDrag());
@@ -315,7 +315,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     React.useEffect(() => { void loadPlus(); }, []);
     const plusLabel = plusTab === 'settings' ? 'Search settings'
         : plus[plusTab].length === 1 ? PLUS_ACTIONS[plus[plusTab][0]].label
-            : plusTab === 'community' ? 'Bet or challenge' : 'Create a habit, goal, or task';
+            : plusTab === 'community' ? 'Race or challenge' : 'Create a habit or task';
 
     /**
      * On the Roadmap the dock gathers into one row, like a music app's: the tab pill
@@ -377,11 +377,11 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 ref={orbRef}
                 onLayout={measureOrb}
                 accessibilityRole="button"
-                accessibilityLabel={removeDrag.active ? (removeDrag.label ?? 'Remove from goal') : plusLabel}
+                accessibilityLabel={removeDrag.active ? (removeDrag.label ?? 'Delete') : plusLabel}
                 accessibilityHint={removeDrag.active ? undefined : 'Hold to say it instead'}
                 activeOpacity={0.8}
                 disabled={removeDrag.active}
-                // Hold to speak a habit, task or goal; let go to open it.
+                // Hold to speak a habit or task; let go to open it.
                 delayLongPress={350}
                 onLongPress={() => { voiceHeld.current = true; emit('voice_start'); }}
                 onPressOut={() => { if (voiceHeld.current) { voiceHeld.current = false; emit('voice_stop'); } }}
@@ -505,7 +505,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
             </View>
 
             {/* 2. Creation Orb (Plus Button) - Uses accent gradient. While an
-                item in a goal is dragged it becomes the "Remove from goal" target. */}
+                item on the timeline is dragged it becomes the bin. */}
             <Animated.View style={orbSlide}>{orb}</Animated.View>
 
             {/* Holding the plus stretches it into a listening pill over the dock. */}

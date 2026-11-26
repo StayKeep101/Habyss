@@ -218,7 +218,7 @@ describe('"now"', () => {
 describe('every setting, said the way people say it', () => {
     const { parseHabitText } = require('../habitParser');
     const day = new Date(2026, 10, 21, 10, 0);
-    const read = (text: string) => parseHabitText(text, day, { known: ['Lunch', 'Accounting'], goals: ['Marathon'] });
+    const read = (text: string) => parseHabitText(text, day, { known: ['Lunch', 'Accounting'] });
     it('links it right before or right after something', () => {
         expect(read('Gym right after work 45 min')).toMatchObject({ name: 'Gym', anchor: { to: 'Work', side: 'after' }, durationMinutes: 45 });
         expect(read('Walk after lunch')).toMatchObject({ name: 'Walk', anchor: { to: 'Lunch', side: 'after' } });
@@ -233,10 +233,10 @@ describe('every setting, said the way people say it', () => {
     it('reads "every 2 hours" as times a day', () => {
         expect(read('Remind me to drink water every 2 hours')).toMatchObject({ name: 'Drink water', targetValue: 8, targetUnit: 'times' });
     });
-    it('reads how it tracks itself and which goal it is for', () => {
+    it('reads how it tracks itself', () => {
         expect(read('Read on Libby 30 min')).toMatchObject({ name: 'Read', tracking: { kind: 'app', app: 'Libby' }, targetValue: 30 });
         expect(read('Lift at the gym')).toMatchObject({ name: 'Lift', tracking: { kind: 'place' } });
-        expect(read('Run 30 min from Apple Health for my Marathon goal')).toMatchObject({ name: 'Run', tracking: { kind: 'health' }, goal: 'Marathon' });
+        expect(read('Run 30 min from Apple Health')).toMatchObject({ name: 'Run', tracking: { kind: 'health' } });
     });
     it('reads anytime words as Anytime', () => {
         expect(read('Journal whenever')).toMatchObject({ name: 'Journal', flexible: true });

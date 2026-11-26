@@ -31,7 +31,7 @@ export interface InAppNotification {
   id: string;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'habit' | 'streak' | 'achievement' | 'nudge' | 'friend_request' | 'shared_habit' | 'shared_goal';
+  type: 'info' | 'success' | 'warning' | 'error' | 'habit' | 'streak' | 'achievement' | 'nudge' | 'friend_request' | 'shared_habit';
   timestamp: number;
   read: boolean;
   icon?: string;
@@ -126,7 +126,7 @@ export class NotificationService {
       // reminder reads the whole day and talks to iOS, and doing it under each
       // tick was what the next tick's animation waited behind.
       let pending: ReturnType<typeof setTimeout> | null = null;
-      onAny(['tasks_changed', 'habit_created', 'habit_updated', 'habit_deleted', 'goal_deleted', 'habit_completion_updated', 'cloud_restored', 'engagement_settings_changed'], () => {
+      onAny(['tasks_changed', 'habit_created', 'habit_updated', 'habit_deleted', 'habit_completion_updated', 'cloud_restored', 'engagement_settings_changed'], () => {
         if (pending) clearTimeout(pending);
         pending = setTimeout(() => { pending = null; void this.refreshReminders().catch(() => undefined); }, REMINDER_SETTLE_MS);
       });
@@ -334,7 +334,7 @@ export class NotificationService {
           const { tasksForDay }: typeof import('./tasks') = require('./tasks');
           const focus: typeof import('./focusStats') = require('./focusStats');
           await focus.loadFocusRecords().catch(() => undefined);
-          const due = habits.filter(habit => !habit.isGoal && !habit.isArchived && !skipped[habit.id] && isHabitScheduledForDate(habit, now));
+          const due = habits.filter(habit => !habit.isArchived && !skipped[habit.id] && isHabitScheduledForDate(habit, now));
           const dayTasks = tasksForDay(await getTasks({ includeDone: true }).catch(() => tasks), todayKey, todayKey);
           const { title, body } = middayRecap({
             habitsDue: due.length, habitsDone: due.filter(habit => today[habit.id]).length,
@@ -444,7 +444,7 @@ export class NotificationService {
         emit('tasks_changed');
       }
     } else if (typeof data.habitId === 'string') {
-      const habit = (await habits.getHabits()).find(habit => habit.id === data.habitId && !habit.isArchived && !habit.isGoal);
+      const habit = (await habits.getHabits()).find(habit => habit.id === data.habitId && !habit.isArchived);
       const [done, skipped] = await Promise.all([habits.getCompletions(date), habits.getSkipped(date)]);
       unfinished = !!habit && !done[data.habitId] && !skipped[data.habitId];
       if (habit) focusOn = { kind: 'habit', id: habit.id, title: habit.name };

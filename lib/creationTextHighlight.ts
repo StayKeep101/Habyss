@@ -1,6 +1,6 @@
 import type { ParsedHabit } from './habitParser';
 import type { ParsedTaskText } from './taskParser';
-import { amountPhrases, datePhrases, highlightSegments } from './goalTextHighlight';
+import { amountPhrases, datePhrases, highlightSegments } from './textHighlight';
 
 const weekdays = /\b(?:sundays?|sun|mondays?|mon|tuesdays?|tues|tue|wednesdays?|weds|wed|thursdays?|thurs|thu|fridays?|fri|saturdays?|sat|week\s?days?|week\s?ends?|every\s?day|daily|each day)\b/gi;
 const times = /\b(?:at\s+\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm)?|\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm)|noon|midnight|morning|afternoon|evening|tonight)\b/gi;

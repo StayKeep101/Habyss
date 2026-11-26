@@ -3,7 +3,7 @@ jest.mock('../onDeviceAI', () => ({ isOnDeviceAIReady: () => false, askForLine: 
 
 import { FACTS, nextEchoLine, pickWrittenLine, type EchoStats } from '../echoLines';
 
-const stats: EchoStats = { name: 'Erwan', streak: 4, todayDone: 1, todayTotal: 3, weekConsistency: 57, bestHabit: 'Read', nextHabit: 'Run', goalsCount: 2, overallProgress: 24 };
+const stats: EchoStats = { name: 'Erwan', streak: 4, todayDone: 1, todayTotal: 3, weekConsistency: 57, bestHabit: 'Read', nextHabit: 'Run' };
 const seeded = (seed: number) => () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
 
 describe("Echo's home line", () => {
@@ -19,7 +19,7 @@ describe("Echo's home line", () => {
     it('does not repeat a line shown recently', () => {
         const recent = FACTS.slice(0, FACTS.length - 1);
         for (let i = 1; i < 50; i++) {
-            expect(recent).not.toContain(pickWrittenLine('normal', { ...stats, todayTotal: 0, streak: 0, weekConsistency: 0, goalsCount: 0, bestHabit: undefined, nextHabit: undefined }, recent, seeded(i)));
+            expect(recent).not.toContain(pickWrittenLine('normal', { ...stats, todayTotal: 0, streak: 0, weekConsistency: 0, bestHabit: undefined, nextHabit: undefined }, recent, seeded(i)));
         }
     });
 
@@ -34,7 +34,7 @@ describe("Echo's home line", () => {
     });
 
     it('says something useful to a brand new user with no data', () => {
-        const empty: EchoStats = { streak: 0, todayDone: 0, todayTotal: 0, weekConsistency: 0, goalsCount: 0, overallProgress: 0 };
+        const empty: EchoStats = { streak: 0, todayDone: 0, todayTotal: 0, weekConsistency: 0 };
         for (let i = 1; i < 50; i++) expect(pickWrittenLine('normal', empty, [], seeded(i)).length).toBeGreaterThan(10);
     });
 

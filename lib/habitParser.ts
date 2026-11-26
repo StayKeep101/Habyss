@@ -3,7 +3,7 @@ import { findDeadline, findDifficulty, findPriority, findTimeRange, findTiming, 
 import { localDateKey } from './habitSchedule';
 import { NUMBER, TAKEN, shield, tidyTaken, toNumber } from './phrases';
 import { serialiseRecurrence, type Recurrence } from './recurrence';
-import { findAnchor, findGoal, findReminder, findTracking, type FoundReminder, type FoundTracking } from './settingWords';
+import { findAnchor, findReminder, findTracking, type FoundReminder, type FoundTracking } from './settingWords';
 
 /**
  * Quick add: turn one line of plain text into a habit.
@@ -46,8 +46,6 @@ export interface ParsedHabit {
     reminder?: Omit<FoundReminder, 'phrase'>;
     /** "from Apple Health", "on Libby", "at the gym": how it counts itself. */
     tracking?: Omit<FoundTracking, 'phrase'>;
-    /** "for my Marathon goal": the goal's name as written. */
-    goal?: string;
     /** Human-readable notes about anything inferred rather than stated. */
     assumptions: string[];
     /** Which parts of the input were recognised, for highlighting. */
@@ -98,8 +96,6 @@ const tidyName = (value: string): string => {
 export interface ParseContext {
     /** Today's events and meals, habits and tasks: what a habit can be linked to. */
     known?: string[];
-    /** Goal names. */
-    goals?: string[];
 }
 
 export function parseHabitText(input: string, today: Date = new Date(), context: ParseContext = {}): ParsedHabit {
@@ -121,14 +117,12 @@ export function parseHabitText(input: string, today: Date = new Date(), context:
         || /\bzero as the (?:daily )?target\b/i.test(shielded.text);
     if (quit) strike(/,?\s*with\s+zero\s+as\s+the\s+(?:daily\s+)?target\b/i);
 
-    /* ----------------------------------- reminder, tracking, goal (read first) */
+    /* ---------------------------------------- reminder, tracking (read first) */
     // First, so "remind me 10 min before" is never a 10-minute habit, nor "at 8pm" its time.
     const reminderFound = findReminder(rest);
     if (reminderFound) take(reminderFound.phrase);
     const trackingFound = findTracking(rest);
     if (trackingFound) take(trackingFound.phrase);
-    const goalFound = findGoal(rest, context.goals);
-    if (goalFound) take(goalFound.phrase);
     // "every 2 hours": so many times across a waking day (16 hours), not a 2-hour habit.
     let everyHours: number | undefined;
     const hourly = quit ? null : rest.match(new RegExp(String.raw`\bevery\s+(?:(${NUMBER})\s+)?(hours?|hrs?)\b`, 'i'));
@@ -474,7 +468,6 @@ export function parseHabitText(input: string, today: Date = new Date(), context:
         ...(anchorFound ? { anchor: { to: anchorFound.to, side: anchorFound.side } } : null),
         ...(reminderFound ? { reminder: (({ phrase: _phrase, ...rest_ }) => rest_)(reminderFound) } : null),
         ...(trackingFound ? { tracking: (({ phrase: _phrase, ...rest_ }) => rest_)(trackingFound) as Omit<FoundTracking, 'phrase'> } : null),
-        ...(goalFound ? { goal: goalFound.name } : null),
         assumptions,
         matched,
     };

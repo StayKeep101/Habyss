@@ -7,7 +7,7 @@ describe('Marks orbs', () => {
     it('sends one orb per Mark, capped', () => {
         expect(orbCount(MARKS.complete.habit)).toBe(5);
         expect(orbCount(MARKS.complete.task)).toBe(10);
-        expect(orbCount(MARKS.complete.goal)).toBe(MAX_ORBS);
+        expect(orbCount(500)).toBe(MAX_ORBS);
     });
 
     it('leave from the last touch', () => {

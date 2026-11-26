@@ -18,7 +18,7 @@ import { Control } from '@/theme/designSystem';
 /**
  * Where a blocked app sends you (the block screen's notification), or App
  * blocking. Your apps open only with Shards: an hour for 100 (tap the card,
- * then hold to mean it). Shards come from finishing habits, tasks and goals.
+ * then hold to mean it). Shards come from finishing habits and tasks.
  */
 export default function Unlock() {
     const t = useTokens();
@@ -28,7 +28,7 @@ export default function Unlock() {
     const [until, setUntil] = useState<number | null>(null);
     const [shards, setShards] = useState<number | null>(null);
     useEffect(() => {
-        void (require('@/lib/market') as typeof import('@/lib/market')).myWallet()
+        void (require('@/lib/wallet') as typeof import('@/lib/wallet')).myWallet()
             .then(wallet => setShards(wallet.spendable), () => undefined);
     }, []);
     const close = () => router.back();
@@ -63,7 +63,7 @@ export default function Unlock() {
                     <View style={{ gap: t.space.xs }}>
                         <Text style={[t.type.screenTitle, { color: t.color.textPrimary }]} accessibilityRole="header">Earn your scroll</Text>
                         <Text style={[t.type.body, { color: t.color.textMuted }]}>
-                            Your apps open only with Shards. Finish habits, tasks and goals to earn them.
+                            Your apps open only with Shards. Finish habits and tasks to earn them.
                         </Text>
                     </View>
                 </View>

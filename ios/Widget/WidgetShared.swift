@@ -40,18 +40,6 @@ struct DashboardHabit: Codable, Identifiable {
     let streak: Int
     let days: String
 }
-struct DashboardGoal: Codable, Identifiable {
-    let id: String
-    let name: String
-    var progress: Double
-    let color: String
-    let taskWeights: [String: Double]
-    var points: [GoalGraphPoint]? = nil
-}
-struct GoalGraphPoint: Codable {
-    let date: String
-    var actual: Double
-}
 struct WidgetAction: Codable {
     let eventId: String
     let id: String
@@ -67,7 +55,6 @@ struct DashboardSnapshot: Codable {
     let accent: Accent
     var days: [DashboardDay]
     let heatmap: [HeatmapDay]
-    var goals: [DashboardGoal]
     var streak: Int? = nil
     /// Each habit on its own, for the streak widget set to one habit (lib/widgetDashboard.ts).
     var habits: [DashboardHabit]? = nil
@@ -95,12 +82,9 @@ struct DashboardSnapshot: Codable {
         var latest: [String: WidgetAction] = [:]
         for action in actions { latest[action.id] = action }
         for action in latest.values {
-            var delta: Double = 0
-            var found = false
             for day in snapshot.days.indices {
                 guard let index = snapshot.days[day].items.firstIndex(where: { $0.id == action.id }) else { continue }
                 let old = snapshot.days[day].items[index].isCompleted
-                if !found { delta = Double((action.done ? 1 : 0) - (old ? 1 : 0)); found = true }
                 // Ticked on the day it was tapped, it stays put and is struck
                 // through; it only leaves the other days it was carried into.
                 if action.done && snapshot.days[day].date != action.day && snapshot.days[day].items[index].dueDate != snapshot.days[day].date {
@@ -112,19 +96,6 @@ struct DashboardSnapshot: Codable {
                 if old != action.done {
                     snapshot.days[day].items[index].isCompleted = action.done
                     snapshot.days[day].completed += action.done ? 1 : -1
-                }
-            }
-            for goal in snapshot.goals.indices {
-                if let weight = snapshot.goals[goal].taskWeights[action.id] {
-                    snapshot.goals[goal].progress = min(100, max(0, snapshot.goals[goal].progress + delta * weight))
-                    if var points = snapshot.goals[goal].points, !points.isEmpty {
-                        if points[points.count - 1].date < action.day {
-                            points.append(GoalGraphPoint(date: action.day, actual: snapshot.goals[goal].progress))
-                        } else {
-                            points[points.count - 1].actual = snapshot.goals[goal].progress
-                        }
-                        snapshot.goals[goal].points = Array(points.suffix(90))
-                    }
                 }
             }
         }
@@ -174,7 +145,6 @@ struct ToggleHabitIntent: AppIntent {
         try FileManager.default.createDirectory(at: inbox, withIntermediateDirectories: true)
         try encoded.write(to: inbox.appendingPathComponent(action.eventId + ".json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         WidgetCenter.shared.reloadTimelines(ofKind: "HabyssWidget")
-        WidgetCenter.shared.reloadTimelines(ofKind: "HabyssGoals")
         return .result()
     }
 }

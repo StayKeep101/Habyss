@@ -33,7 +33,7 @@ export function useAnchorOptions(open: boolean): AnchorOption[] {
             const { getData } = require('@/lib/dataStore') as typeof import('@/lib/dataStore');
             const data = getData();
             const doneToday = new Set(data.history[data.today] ?? []);
-            const habits = (await getHabits().catch(() => [])).filter(habit => !habit.isGoal && !habit.isArchived)
+            const habits = (await getHabits().catch(() => [])).filter(habit => !habit.isArchived)
                 .map(habit => ({ name: habit.name, done: doneToday.has(habit.id) }));
             // Today's tasks: still to do, and those done today.
             const tasks = data.tasks.filter(task => task.status !== 'cancelled' && (task.status === 'open'

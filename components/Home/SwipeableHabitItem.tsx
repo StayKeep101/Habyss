@@ -45,7 +45,6 @@ interface SwipeableHabitItemProps {
   onShare?: (habit: ExtendedHabit) => void;
   size: RoadMapCardSize;
   completed?: boolean; // New prop for performance (avoids object recreation)
-  goalName?: string; // Optional goal name to display as subtitle
   isActive?: boolean;
   timeLeft?: number; // In seconds
   /** The habit being focused on now: its row follows the running clock (only that row redraws each second). */
@@ -75,7 +74,7 @@ const { width } = Dimensions.get('window');
 const ACTION_WIDTH = 70; // Slightly larger for better touch targets
 
 const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
-  habit, onPress, onToggle, onEdit, onDelete, onShare, size, completed, goalName, isActive, timeLeft, totalDuration,
+  habit, onPress, onToggle, onEdit, onDelete, onShare, size, completed, isActive, timeLeft, totalDuration,
   canFocusNow, onFocusPress,
   onDragStart, onDragMove, onDragEnd, isDragging = false, onSkip, skipped = false, shared = null, locked = false
 }) => {
@@ -109,7 +108,6 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   const isSmall = size === 'small';
   const isBig = size === 'big';
 
-  // Even for BIG, habits should stay relatively compact compared to goals
   const paddingV = isSmall ? 4 : (isBig ? 12 : 10);
   const iconSize = isSmall ? 12 : (isBig ? 16 : 14);
   const iconBoxSize = isSmall ? 20 : (isBig ? 32 : 26);
@@ -235,8 +233,6 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
                 <Text style={{ fontSize: 11, color: quota.done >= quota.times ? colors.success : colors.textTertiary, fontFamily: FontFamily.medium, marginTop: 2 }} numberOfLines={1}>
                   <CountUp value={quota.done} /> of {quota.times} this {quota.period}
                 </Text>
-              ) : goalName && !isSmall ? (
-                <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, marginTop: 2 }} numberOfLines={1}>{goalName}</Text>
               ) : ((habit.streak ?? 0) > 0 && !isSmall) ? (
                 <Text style={[styles.streakText, { color: '#F59E0B' }]}><Ionicons name="flame-outline" size={12} color="#F59E0B" /> <CountUp value={habit.streak ?? 0} /></Text>
               ) : null}

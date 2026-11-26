@@ -60,7 +60,7 @@ export async function runDayReview(now = new Date(), options: { adapt?: boolean 
     for (const record of currentFocusRecords()) if (record.date === day) focusOf.set(record.itemId, (focusOf.get(record.itemId) ?? 0) + record.seconds);
 
     const date = new Date(`${day}T12:00:00`);
-    const due = habits.filter((habit: Habit) => !habit.isGoal && !habit.isArchived && !skipped[habit.id] && isHabitScheduledForDate(habit, date));
+    const due = habits.filter((habit: Habit) => !habit.isArchived && !skipped[habit.id] && isHabitScheduledForDate(habit, date));
     const tasks = countedTasks(data.tasks).filter((task: Task) => task.status !== 'cancelled' && (doneOnDay(task, day) || (task.status === 'open' && task.dueDate === day)));
 
     // 1. Today's samples, before anything learnt is read, so today is judged against the days before it.

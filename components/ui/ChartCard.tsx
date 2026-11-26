@@ -1,7 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
-import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
-import type { GoalPoint } from '@/lib/goalInsights';
+import { ProgressChart } from '@/components/ui/ProgressChart';
+import type { ChartPoint } from '@/components/ui/ProgressChart';
 import { useTokens } from '@/hooks/useTokens';
 import { Text } from './Text';
 import { useCountUp } from './Motion';
@@ -11,12 +11,12 @@ export interface ChartCardProps {
     value: string;
     /** What the value is: "done overall", "Marks". */
     caption: string;
-    series: GoalPoint[];
+    series: ChartPoint[];
     /** A running total rather than a percentage (no pace line). */
     unbounded?: boolean;
     /** Names for the two lines; only shown when the chart has a pace line. */
     legend?: { actual: string; pace: string };
-    onScrub?: (point: GoalPoint | null) => void;
+    onScrub?: (point: ChartPoint | null) => void;
     color?: string;
 }
 
@@ -31,7 +31,7 @@ export function ChartCard({ value, caption, series, unbounded, legend, onScrub, 
                 <Text variant="display" numeric accessibilityLabel={value}>{counted}</Text>
                 <Text variant="body" tone="muted">{caption}</Text>
             </View>
-            {series.length > 1 ? <GoalProgressChart series={series} color={line} unbounded={unbounded} onScrub={onScrub} label={caption} /> : null}
+            {series.length > 1 ? <ProgressChart series={series} color={line} unbounded={unbounded} onScrub={onScrub} label={caption} /> : null}
             {legend && !unbounded && series.length > 1 ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.sm }}>
                     <View style={{ width: t.space.lg, height: t.space.xs / 2 + 1 / 2, borderRadius: t.radius.sm, backgroundColor: line }} />

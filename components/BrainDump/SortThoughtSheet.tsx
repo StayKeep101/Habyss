@@ -10,12 +10,12 @@ import { useRetained } from '@/hooks/useRetained';
 import { splitThought, type ThoughtKind, type ThoughtPiece } from '@/lib/thoughtSplit';
 
 const KINDS: { id: ThoughtKind; label: string }[] = [
-    { id: 'task', label: 'Task' }, { id: 'habit', label: 'Habit' }, { id: 'goal', label: 'Goal' }, { id: 'note', label: 'Keep' },
+    { id: 'task', label: 'Task' }, { id: 'habit', label: 'Habit' }, { id: 'note', label: 'Keep' },
 ];
 
 /**
  * One thought, sorted: the things in it, each with a suggested kind you can
- * change (Task, Habit, Goal, or Keep as a note), and nothing made until you
+ * change (Task, Habit, or Keep as a note), and nothing made until you
  * press Create. "Saturday: clean the apartment, wash clothes, buy groceries"
  * is three tasks for Saturday; "What if…?" is an idea to keep.
  */

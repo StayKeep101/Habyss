@@ -85,7 +85,7 @@ export function habitMomentum(
     const window = habitDays(habits, history, completions, days * 2, shiftDay(today, -1), today);
     const recent = window.slice(days);
     const earlier = window.slice(0, days);
-    const active = habits.filter(habit => !habit.isGoal && !habit.isArchived);
+    const active = habits.filter(habit => !habit.isArchived);
 
     const forHabit = (source: HabitDay[], id: string) => keptRate(source.map(day => ({
         date: day.date,

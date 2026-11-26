@@ -19,7 +19,7 @@ import { clockText } from '@/lib/focusClock';
 
 /**
  * Pinned at the top of the day: what is on right now, with one tap into
- * focus mode, wherever it is filed (a habit inside a goal included). When
+ * focus mode, wherever it is filed. When
  * nothing is on, what comes next and when; when a session is running, that
  * session, to open again.
  */

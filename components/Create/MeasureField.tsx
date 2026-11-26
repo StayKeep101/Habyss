@@ -7,7 +7,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { Spacing } from '@/theme/designSystem';
 import { useHaptics } from '@/hooks/useHaptics';
-import { findGoalUnits, UNIT_GROUPS } from '@/lib/goalUnits';
+import { findUnits, UNIT_GROUPS } from '@/lib/units';
 
 type Group = keyof typeof UNIT_GROUPS;
 const GROUPS = (Object.keys(UNIT_GROUPS) as Group[]).filter(group => group !== 'All');
@@ -39,7 +39,7 @@ export function MeasureField({ amount, onAmount, unit, onUnit, accent, amountLab
     const [group, setGroup] = useState<Group>(() => groupOf(unit));
     const [searching, setSearching] = useState(false);
     const [query, setQuery] = useState('');
-    const units = findGoalUnits(searching ? query : '', group);
+    const units = findUnits(searching ? query : '', group);
 
     return (
         <View testID="measure-field" style={styles.wrap}>

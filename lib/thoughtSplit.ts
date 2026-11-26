@@ -8,7 +8,7 @@
  * kind, and nothing is created until the person confirms (app/(root)/brain-dump).
  * Pure, so it is tested.
  */
-export type ThoughtKind = 'task' | 'habit' | 'goal' | 'note';
+export type ThoughtKind = 'task' | 'habit' | 'note';
 export interface ThoughtPiece { text: string; kind: ThoughtKind }
 
 const LEAD = /^(?:(?:so|ok|okay|also|and|but)[,\s]+)*(?:(today|tonight|tomorrow|this weekend|on (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|monday|tuesday|wednesday|thursday|friday|saturday|sunday|before the trip|for the [\w\s'-]{1,30}?)[,:]?\s+)?(?:i\s+(?:really\s+)?(?:need|have|want|should|must|gotta|got)\s+to\s+|i\s+need\s+|need\s+to\s+|i\s+should\s+|todo:?\s*|to do:?\s*)/i;
@@ -28,7 +28,6 @@ export function isNote(text: string): boolean {
 function kindOf(text: string): ThoughtKind {
     if (isNote(text)) return 'note';
     if (/\b(every|each|daily|weekly|nightly|times a (?:day|week)|a day|per day|habit|mornings?|evenings?)\b/i.test(text)) return 'habit';
-    if (/\b(by (?:the end of|next|december|january|february|march|april|may|june|july|august|september|october|november)|this year|in \d+ (?:weeks|months)|reach|save \$?\d|lose \d|launch|become)\b/i.test(text)) return 'goal';
     return 'task';
 }
 

@@ -9,7 +9,7 @@ import { AppIcon } from '@/components/ui/AppIcon';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { VoidCard } from '@/components/ui/VoidCard';
-import { ValuePill } from '@/components/Goal/GoalRows';
+import { ValuePill } from '@/components/ui/ValuePill';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';

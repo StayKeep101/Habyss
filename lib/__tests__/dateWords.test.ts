@@ -1,7 +1,6 @@
 import { findDate, findDeadline, findDifficulty, findTimeRange, findTiming, readDate } from '../dateWords';
 import { parseTaskText } from '../taskParser';
 import { parseHabitText } from '../habitParser';
-import { parseGoalText } from '../goalParser';
 
 // Tuesday 20 October 2026, noon.
 const TODAY = new Date(2026, 9, 20, 12);
@@ -57,10 +56,6 @@ describe('every setting from one sentence', () => {
     it('habit: for a number of weeks, and a time range', () => {
         const habit = parseHabitText('Meditate every day from 7 to 7:20am for 3 weeks', TODAY);
         expect(habit).toMatchObject({ startTime: '07:00', durationMinutes: 20, endDate: '2026-11-09' });
-    });
-    it('goal: due by a weekday or the end of the month', () => {
-        expect((parseGoalText('Read 3 books due by the end of the month', { today: TODAY, habits: [] }) as any).goal.window).toMatchObject({ kind: 'fixed', end: '2026-10-31' });
-        expect((parseGoalText('Finish my portfolio by friday', { today: TODAY, habits: [] }) as any).goal.window).toMatchObject({ kind: 'fixed', end: '2026-10-23' });
     });
 });
 

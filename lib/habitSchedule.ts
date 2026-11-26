@@ -87,7 +87,7 @@ function quotaState(habit: Habit, quota: Quota, key: string, doneOn: (key: strin
         from = calendarDay(new Date(date.getFullYear(), date.getMonth(), 1, 12));
         to = calendarDay(new Date(date.getFullYear(), date.getMonth() + 1, 0, 12));
     }
-    const ends = [habit.endDate, habit.targetDate].map(parseHabitDate).filter((value): value is Date => value !== null);
+    const ends = [habit.endDate].map(parseHabitDate).filter((value): value is Date => value !== null);
     if (ends.length) to = Math.min(to, ...ends.map(calendarDay));
     const periodLength = to - from + 1;
     // A habit started part-way through its first week or month asks for its share
@@ -147,7 +147,7 @@ export function createHabitRequirement(habit: Habit): (key: string, doneOn?: (ke
  * Thursday and counts its 4 weeks from there, not from the week it was made in.
  * Null when nothing is due within ten years (or the dates do not parse).
  */
-export function firstDueDay(habit: Pick<Habit, 'startDate' | 'createdAt' | 'recurrence' | 'frequency' | 'taskDays' | 'weekInterval' | 'endDate' | 'targetDate'>): string | null {
+export function firstDueDay(habit: Pick<Habit, 'startDate' | 'createdAt' | 'recurrence' | 'frequency' | 'taskDays' | 'weekInterval' | 'endDate'>): string | null {
     const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
     if (!start) return null;
     const from = localDateKey(start);
@@ -186,7 +186,7 @@ function compileSchedule(habit: Habit): (date: Date) => boolean {
     // with. A rule that will not parse falls back rather than failing.
     const rule = parseRecurrence(habit.recurrence);
     if (rule) {
-        const ends = [habit.endDate, habit.targetDate].map(parseHabitDate).filter((date): date is Date => date !== null);
+        const ends = [habit.endDate].map(parseHabitDate).filter((date): date is Date => date !== null);
         const endDay = ends.length ? Math.min(...ends.map(calendarDay)) : Infinity;
         return date => {
             if (!Number.isFinite(date.getTime())) return false;
@@ -199,7 +199,7 @@ function compileSchedule(habit: Habit): (date: Date) => boolean {
     const startWeek = startOfWeek(start);
     const startMonth = start.getMonth();
     const startDate = start.getDate();
-    const ends = [habit.endDate, habit.targetDate].map(parseHabitDate).filter((date): date is Date => date !== null);
+    const ends = [habit.endDate].map(parseHabitDate).filter((date): date is Date => date !== null);
     const endDay = ends.length ? Math.min(...ends.map(calendarDay)) : Infinity;
     const interval = Math.max(1, Math.floor(habit.weekInterval || 1));
     const weekdays = new Set((habit.taskDays ?? []).map(day => day.toLowerCase().slice(0, 3)));

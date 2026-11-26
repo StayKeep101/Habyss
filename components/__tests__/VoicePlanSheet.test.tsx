@@ -8,7 +8,7 @@ jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primar
 const heard = [
     { kind: 'task' as const, text: 'Call the bank tomorrow' },
     { kind: 'habit' as const, text: 'Running every morning' },
-    { kind: 'goal' as const, text: 'Read 12 books this year' },
+    { kind: 'habit' as const, text: 'Read 12 books this year' },
 ];
 
 it('shows each thing heard as what it is, lets you say otherwise or take it out, and adds the rest', () => {
@@ -16,7 +16,7 @@ it('shows each thing heard as what it is, lets you say otherwise or take it out,
     const screen = render(<VoicePlanSheet items={heard} onAdd={onAdd} onKeep={jest.fn()} />);
     expect(screen.getByText('Here’s what I heard')).toBeTruthy();
     expect(screen.getByText('Add all 3')).toBeTruthy();
-    // The goal was really a task.
+    // The last one was really a task.
     fireEvent.press(screen.getAllByLabelText('Task')[2]);
     fireEvent.press(screen.getByLabelText('Take out Running every morning'));
     fireEvent.press(screen.getByText('Add 2 tasks'));

@@ -70,7 +70,7 @@ export function useSharedItems(
      * shared" rather than as "asked the wrong question". Call the hook once per
      * kind instead of guessing.
      */
-    kind: 'habit' | 'task' | 'goal' = 'habit',
+    kind: 'habit' | 'task' = 'habit',
 ) {
     const key = ids.slice().sort().join(',');
     // What was known last time, straight away.

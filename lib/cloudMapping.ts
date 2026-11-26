@@ -59,7 +59,7 @@ const deletedAt = (row: Row): string | null =>
     bool(row.deleted) ? (row.updated_at ?? new Date().toISOString()) : null;
 
 /* -------------------------------------------------------------------------- */
-/*  Habits (and goals, which are habits with is_goal set)                      */
+/*  Habits                                                                     */
 /* -------------------------------------------------------------------------- */
 
 export function habitToRemote(row: Row, userId: string): Row {
@@ -74,9 +74,6 @@ export function habitToRemote(row: Row, userId: string): Row {
         description: row.description ?? null,
         category: row.category || 'personal',
         icon: row.icon ?? null,
-        is_goal: bool(row.is_goal),
-        target_date: dateOnly(row.target_date),
-        goal_id: isUuid(row.goal_id) ? row.goal_id : null,
         task_days: parseJson(row.task_days, []),
         reminders: parseJson(row.reminders, []),
         start_date: dateOnly(row.start_date),
@@ -112,7 +109,6 @@ export function habitToRemote(row: Row, userId: string): Row {
         health_kit_metric: row.health_kit_metric ?? null,
         health_kit_target: finite(row.health_kit_target),
         ringtone: row.ringtone ?? 'default',
-        goal_spec: parseJson(row.goal_spec, null),
         ...planningToRemote(row),
         created_at: row.created_at ?? null,
         updated_at: row.updated_at ?? null,
@@ -128,9 +124,6 @@ export function habitToLocal(row: Row): Row {
         description: row.description ?? null,
         category: row.category ?? 'personal',
         icon: row.icon ?? null,
-        is_goal: row.is_goal ? 1 : 0,
-        target_date: dateOnly(row.target_date),
-        goal_id: row.goal_id ?? null,
         task_days: toJsonText(row.task_days, '[]'),
         reminders: toJsonText(row.reminders, '[]'),
         start_date: dateOnly(row.start_date),
@@ -162,7 +155,6 @@ export function habitToLocal(row: Row): Row {
         health_kit_metric: row.health_kit_metric ?? null,
         health_kit_target: finite(row.health_kit_target),
         ringtone: row.ringtone ?? 'default',
-        goal_spec: row.goal_spec === null || row.goal_spec === undefined ? null : JSON.stringify(row.goal_spec),
         ...planningToLocal(row),
         created_at: row.created_at ?? new Date().toISOString(),
         updated_at: row.updated_at ?? new Date().toISOString(),
@@ -269,7 +261,6 @@ export function taskToRemote(row: Row, userId: string): Row {
         due_time: validTime(row.due_time),
         estimated_minutes: minutes !== null && minutes >= 0 ? Math.round(minutes) : null,
         priority: priority !== null && priority >= 1 && priority <= 3 ? Math.round(priority) : 2,
-        goal_id: isUuid(row.goal_id) ? row.goal_id : null,
         status: TASK_STATUS.includes(row.status) ? row.status : 'open',
         completed_at: row.completed_at ?? null,
         source: TASK_SOURCE.includes(row.source) ? row.source : 'app',
@@ -278,7 +269,6 @@ export function taskToRemote(row: Row, userId: string): Row {
         target: finite(row.target),
         unit: typeof row.unit === 'string' ? row.unit.slice(0, 40) : null,
         amount: finite(row.amount),
-        milestone_id: typeof row.milestone_id === 'string' ? row.milestone_id : null,
         subtasks: (() => { try { return row.subtasks ? JSON.parse(row.subtasks) : null; } catch { return null; } })(),
         deadline: dateOnly(row.deadline),
         section: typeof row.section === 'string' && row.section.trim() ? row.section.trim().slice(0, 80) : null,
@@ -303,7 +293,6 @@ export function taskToLocal(row: Row): Row {
         due_time: row.due_time ?? null,
         estimated_minutes: row.estimated_minutes ?? null,
         priority: row.priority ?? 2,
-        goal_id: row.goal_id ?? null,
         status: row.status ?? 'open',
         completed_at: row.completed_at ?? null,
         source: row.source ?? 'app',
@@ -312,7 +301,6 @@ export function taskToLocal(row: Row): Row {
         target: finite(row.target),
         unit: row.unit ?? null,
         amount: finite(row.amount),
-        milestone_id: row.milestone_id ?? null,
         ...('subtasks' in row ? { subtasks: row.subtasks ? (typeof row.subtasks === 'string' ? row.subtasks : JSON.stringify(row.subtasks)) : null } : {}),
         ...('deadline' in row ? { deadline: dateOnly(row.deadline) } : {}),
         ...('section' in row ? { section: row.section ?? null } : {}),
@@ -328,58 +316,16 @@ export function taskToLocal(row: Row): Row {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Milestones                                                                 */
-/* -------------------------------------------------------------------------- */
-
-export function milestoneToRemote(row: Row, userId: string): Row {
-    return {
-        id: row.id,
-        user_id: userId,
-        goal_id: isUuid(row.goal_id) ? row.goal_id : null,
-        title: String(row.title ?? '').slice(0, 200),
-        due_date: dateOnly(row.due_date),
-        done_at: row.done_at ?? null,
-        position: Number.isFinite(Number(row.position)) ? Math.round(Number(row.position)) : 0,
-        created_at: row.created_at ?? null,
-        updated_at: row.updated_at ?? null,
-        deleted_at: deletedAt(row),
-    };
-}
-
-export function milestoneToLocal(row: Row): Row {
-    return {
-        id: row.id,
-        user_id: row.user_id,
-        goal_id: row.goal_id,
-        title: row.title,
-        due_date: dateOnly(row.due_date),
-        done_at: row.done_at ?? null,
-        position: row.position ?? 0,
-        created_at: row.created_at ?? new Date().toISOString(),
-        updated_at: row.updated_at ?? new Date().toISOString(),
-        deleted: row.deleted_at ? 1 : 0,
-        synced: 1,
-    };
-}
-
-/* -------------------------------------------------------------------------- */
 /*  Upload order                                                               */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Goals before the habits that point at them.
- *
- * habits.goal_id references another habit, so a habit uploaded ahead of its
- * goal would fail the foreign key. Rows that cannot be uploaded at all, because
- * their id is not a UUID, are returned separately so they are reported rather
- * than failing the batch.
+ * Rows that cannot be uploaded at all, because their id is not a UUID, are
+ * returned separately so they are reported rather than failing the batch.
  */
 export function orderForUpload<T extends Row>(rows: T[]): { upload: T[]; skipped: T[] } {
     const skipped = rows.filter(row => !isUuid(row.id));
-    const valid = rows.filter(row => isUuid(row.id));
-    const goals = valid.filter(row => bool(row.is_goal));
-    const rest = valid.filter(row => !bool(row.is_goal));
-    return { upload: [...goals, ...rest], skipped };
+    return { upload: rows.filter(row => isUuid(row.id)), skipped };
 }
 
 export function chunk<T>(items: T[], size: number): T[][] {

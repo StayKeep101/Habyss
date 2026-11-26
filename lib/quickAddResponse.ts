@@ -32,7 +32,7 @@ export async function handleQuickAddResponse(response: Notifications.Notificatio
     if (!text) return true;
     const result = await addQuick(kind, text);
     if (result.tasks.length) emit('tasks_changed');
-    if (result.habits.length || result.goals.length) emit('habit_updated', {});
+    if (result.habits.length) emit('habit_updated', {});
     const said = quickAddSummary(result);
     await Notes.scheduleNotificationAsync({
         content: { title: said ? '✓ Added' : 'Could not add that', body: said ?? 'Open Habyss and try again.', sound: false, data: { kind: 'quick-added' } },

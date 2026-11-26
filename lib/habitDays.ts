@@ -46,7 +46,7 @@ export function habitDays(
     end: string = localDateKey(new Date()),
     liveToday: string = localDateKey(new Date()),
 ): HabitDay[] {
-    const active = habits.filter(habit => !habit.isGoal && !habit.isArchived);
+    const active = habits.filter(habit => !habit.isArchived);
     const doneBy = new Map(history.map(day => [day.date, day.completedIds ?? []]));
     const skipBy = new Map(history.map(day => [day.date, day.skippedIds ?? []]));
     doneBy.set(liveToday, Object.keys(completions).filter(id => completions[id]));

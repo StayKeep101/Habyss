@@ -1,8 +1,8 @@
 /**
  * The link between a drag on the Roadmap and the plus button in the dock.
  *
- * While something that belongs to a goal is being dragged, the plus turns into
- * "Remove from goal": dropping the item on it makes it independent. The two
+ * While something on the timeline is being dragged, the plus turns into the
+ * bin: dropping the item on it asks whether to delete it. The two
  * live in different trees (the page and the tab bar), so they meet here — the
  * dock says where the button is, the page says whether a drag is on and
  * whether the finger is over it.

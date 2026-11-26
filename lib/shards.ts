@@ -5,15 +5,15 @@ import { MARKS, type MarkEvent, type MarkItem, type MarkKind } from './marks';
  * Shards are what you have, and what you spend on bets (lib/market.ts).
  *
  * They follow the rules the Marks record keeps (lib/marks.ts): adding a
- * habit, task or goal earns, completing earns more (times the perfect-day
+ * habit or task earns, completing earns more (times the perfect-day
  * multiplier), and missing one costs. A good night's sleep earns, a short one
- * costs, a milestone earns. Never below zero. Everyone starts with a hundred.
+ * costs. Never below zero. Everyone starts with a hundred.
  *
  * And they cannot be farmed:
  * - same-day creations and completions pay normally;
  * - a habit ticked more than a day after the day it counts for (filled in
  *   later) earns nothing;
- * - adding things earns at most ten a day, milestones at most two a day;
+ * - adding things earns at most ten a day;
  * - no day earns more than two hundred, all together;
  * - deleting something takes back what it earned and keeps what it cost
  *   (lib/marks.ts, lib/marksLedger.ts).
@@ -27,8 +27,6 @@ export const SHARDS = {
     addCap: 10,
     /** The most a day can earn, everything together. */
     dailyCap: 200,
-    /** Milestones that pay Shards in one day. */
-    milestonesPerDay: 2,
     /** How late a habit may be ticked for a day and still pay (logging yesterday is fine). */
     lateTickDays: 1,
     /** What each thing earns or costs: the table the Marks record already keeps. */
@@ -73,7 +71,7 @@ export function shardMoves(
     bets: { at: number; amount: number; reason: 'stake' | 'payout' | 'refund' | 'unlock'; title: string }[] = [],
     previouslyEarned: MarkEvent[] = [],
 ): ShardMove[] {
-    // Why a completion earns nothing: made the same day, ticked days later, or a goal too new.
+    // Why a completion earns nothing: made the same day, or ticked days later.
     const heldBack = (event: MarkEvent): ShardMove['held'] => {
         if (event.kind !== 'complete') return undefined;
         if (event.item === 'habit' && event.id) {
@@ -103,16 +101,10 @@ export function shardMoves(
     // The guards, day by day in the order things happened.
     const added = new Map<string, number>();
     const gained = new Map<string, number>();
-    const milestones = new Map<string, number>();
     const moves: ShardMove[] = [];
     for (const move of timed) {
         if (move.held) { if (!move.reserved) moves.push(move); continue; }
         let amount = move.amount;
-        if (amount > 0 && move.item === 'milestone') {
-            const count = milestones.get(move.date) ?? 0;
-            milestones.set(move.date, count + 1);
-            if (count >= SHARDS.milestonesPerDay) amount = 0;
-        }
         if (amount > 0 && move.kind === 'add') {
             amount = Math.min(amount, SHARDS.addCap - (added.get(move.date) ?? 0));
             added.set(move.date, (added.get(move.date) ?? 0) + Math.max(0, amount));

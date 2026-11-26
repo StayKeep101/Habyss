@@ -2,26 +2,16 @@ jest.mock('@react-native-async-storage/async-storage', () => require('@react-nat
 
 import { atPlace, metresBetween, proofRule } from '../challengeProof';
 
-const habit = (extra: Record<string, unknown> = {}) => ({ kind: 'habit' as const, habit: { id: 'h', name: 'Gym', goalId: undefined, ...extra } as never });
-const task = (goalId?: string) => ({ kind: 'task' as const, task: { id: 't', title: 'Plan', goalId } });
-
 describe('what a tick by hand needs', () => {
-    it('nothing, outside challenges and bets', () => {
-        expect(proofRule(habit(), null, [])).toBe('none');
-        expect(proofRule(task('g1'), null, ['g2'])).toBe('none');
+    it('nothing, outside challenges', () => {
+        expect(proofRule(null)).toBe('none');
+        expect(proofRule('tick')).toBe('none');
     });
 
     it('what the challenge says, for a challenge item', () => {
-        expect(proofRule(habit(), 'photo', [])).toBe('photo');
-        expect(proofRule(habit(), 'health', [])).toBe('health');
-        expect(proofRule(task(), 'focus', [])).toBe('focus');
-    });
-
-    it('on a goal open to bets: Health and the timer track their own, the rest a photo', () => {
-        expect(proofRule(habit({ goalId: 'g1', healthKitMetric: 'steps' }), null, ['g1'])).toBe('health');
-        expect(proofRule(habit({ goalId: 'g1', unit: 'minutes' }), null, ['g1'])).toBe('focus');
-        expect(proofRule(habit({ goalId: 'g1' }), null, ['g1'])).toBe('photo');
-        expect(proofRule(task('g1'), null, ['g1'])).toBe('photo');
+        expect(proofRule('photo')).toBe('photo');
+        expect(proofRule('health')).toBe('health');
+        expect(proofRule('focus')).toBe('focus');
     });
 });
 

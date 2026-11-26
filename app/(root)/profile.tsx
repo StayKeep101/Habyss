@@ -6,7 +6,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useStreak } from '@/hooks/useStreak';
-import { useGoalsInsights } from '@/hooks/useGoalInsights';
+import { useDayData } from '@/hooks/useDayData';
 import { useMarks } from '@/hooks/useMarks';
 import { seriesForProfile } from '@/lib/marksSync';
 import { initials, type Profile } from '@/lib/profile';
@@ -24,7 +24,6 @@ import { VoidSheet } from '@/components/ui/VoidSheet';
 import { useFreezes } from '@/hooks/useCheckIns';
 import { yearDays } from '@/lib/progressMonth';
 import { useAccent, useAccentGradient } from '@/context/AccentContext';
-import { GoalsDoneSheet } from '@/components/Profile/GoalsDoneSheet';
 import { FeedService } from '@/lib/feedService';
 import { styles } from '@/styles/screens/profile.styles';
 
@@ -52,20 +51,17 @@ export default function ProfileScreen() {
     const insets = useSafeAreaInsets();
 
     // The same Marks Home shows and friends see, as your level.
-    const goalsData = useGoalsInsights();
+    const dayData = useDayData();
     // A year of days for the heatmap, from the same summary the Streak page uses.
-    const year = React.useMemo(() => (goalsData.loaded ? yearDays({ habits: goalsData.habits, tasks: goalsData.tasks, history: goalsData.history, skips: goalsData.skips, today: goalsData.today }) : []),
-        [goalsData.loaded, goalsData.habits, goalsData.tasks, goalsData.history, goalsData.skips, goalsData.today]);
+    const year = React.useMemo(() => (dayData.loaded ? yearDays({ habits: dayData.habits, tasks: dayData.tasks, history: dayData.history, skips: dayData.skips, today: dayData.today }) : []),
+        [dayData.loaded, dayData.habits, dayData.tasks, dayData.history, dayData.skips, dayData.today]);
     const { primary } = useAccentGradient();
     const { rankShown } = useAccent();
     const freezes = useFreezes();
     const [freezesOpen, setFreezesOpen] = useState(false);
-    const marks = useMarks(goalsData);
+    const marks = useMarks(dayData);
     // The same streak Home and the Streak page show (hooks/useStreak.ts).
-    const { streak, bestStreak } = useStreak(goalsData);
-    // Goals finished: the trophies.
-    const goalsCompleted = goalsData.finished.length;
-    const [goalsOpen, setGoalsOpen] = useState(false);
+    const { streak, bestStreak } = useStreak(dayData);
 
 
     const [myId, setMyId] = useState<string | null>(null);
@@ -86,8 +82,7 @@ export default function ProfileScreen() {
                     topInset={insets.top}
                     marks={marks.total}
                     marksSeries={seriesForProfile(marks.series)}
-                    numbers={{ streak, bestStreak, goalsCompleted }}
-                    onGoalsDone={() => { selectionFeedback(); setGoalsOpen(true); }}
+                    numbers={{ streak, bestStreak }}
                     onStreak={() => { selectionFeedback(); router.push('/(root)/progress' as never); }}
                     freezes={{ count: freezes.count, onPress: () => { selectionFeedback(); setFreezesOpen(true); } }}
                     // Following and followers, then the year of days right under them.
@@ -95,7 +90,7 @@ export default function ProfileScreen() {
                         <>
                             {myId ? <FollowCounts /> : null}
                             <View style={styles.year}>
-                                <YearHeatmap days={year} color={primary} today={goalsData.today} />
+                                <YearHeatmap days={year} color={primary} today={dayData.today} />
                             </View>
                         </>
                     )}
@@ -116,8 +111,6 @@ export default function ProfileScreen() {
             <VoidSheet visible={freezesOpen} onClose={() => setFreezesOpen(false)} title="Streak freezes">
                 <View style={styles.freezeSheet}><FreezeCard /></View>
             </VoidSheet>
-            <GoalsDoneSheet visible={goalsOpen} finished={goalsData.finished} onClose={() => setGoalsOpen(false)}
-                onOpen={goalId => { setGoalsOpen(false); router.push({ pathname: '/goal-detail', params: { goalId } }); }} />
             {/* Floats over the backdrop, below the status bar: this is a
                 full-screen page, not a sheet, so it clears the clock itself. */}
             <View style={[styles.back, { top: insets.top + 8 }]}>

@@ -23,7 +23,7 @@ interface ShareParticipantsSheetProps {
 }
 
 /**
- * One participant picker shared by the goal and habit sheets.
+ * One participant picker shared by the habit and task sheets.
  *
  * A bottom sheet, not a page sheet. It used to take the whole screen to ask
  * which of two friends to include, leaving most of it black and hiding the

@@ -88,8 +88,8 @@ export default function ConnectScreen() {
                             <Text variant="title" align="center">{`Allow ${step.client} to use Habyss?`}</Text>
                         </View>
                         <SettingsGroup title="It can">
-                            <SettingsRow icon="eye" color={t.color.accent} label="See your plan, habits and goals" />
-                            <SettingsRow icon="add-circle" color={t.color.success} label="Add tasks, habits and goals" />
+                            <SettingsRow icon="eye" color={t.color.accent} label="See your plan, habits and tasks" />
+                            <SettingsRow icon="add-circle" color={t.color.success} label="Add tasks and habits" />
                             <SettingsRow icon="checkmark-circle" color={t.color.warning} label="Tick things done" />
                         </SettingsGroup>
                         <View style={styles.actions}>

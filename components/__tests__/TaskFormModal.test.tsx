@@ -23,7 +23,7 @@ const thisMonth = { ...saved, dueDate: key(new Date(now.getFullYear(), now.getMo
 it('opens the calendar directly and saves the selected date', async () => {
     const screen = render(<TaskFormModal visible task={thisMonth} />);
     fireEvent.press(screen.getByLabelText(/^Do it on,/));
-    expect(screen.getByTestId('goal-calendar')).toBeTruthy();
+    expect(screen.getByTestId('date-calendar')).toBeTruthy();
     fireEvent.press(screen.getByLabelText(`Choose ${key(lastDay)}`));
     await act(async () => { fireEvent.press(screen.getByText('Save changes')); });
     expect(updateTask).toHaveBeenCalledWith('t1', expect.objectContaining({ title: saved.title, dueDate: key(lastDay) }));

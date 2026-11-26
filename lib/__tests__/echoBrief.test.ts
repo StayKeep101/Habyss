@@ -13,7 +13,7 @@ const everything: EchoBrief = {
     onNow: { title: 'Study', minutesIn: 40, minutesLeft: 20 }, next: { title: 'Emails', at: '3:00 PM' },
     friendsDone: [{ name: 'Mia', done: 6 }], friendsFocusing: [{ name: 'Leo', on: 'Thesis' }],
     early: { title: 'Read', minutes: 12 }, freeFor: 30,
-    deadlines: [{ title: 'Launch site', daysLeft: 3, kind: 'goal', progress: 40 }],
+    deadlines: [{ title: 'Launch site', daysLeft: 3, kind: 'task' }],
 };
 
 describe('what Echo talks about', () => {
@@ -112,15 +112,14 @@ describe('Echo never goes on repeat', () => {
 });
 
 describe('what is due soon', () => {
-    it('goals within a week and not reached, tasks in the next three days, nearest first', () => {
+    it('open tasks in the next three days, nearest first', () => {
         const due = upcomingDeadlines(
-            [{ title: 'Run 10k', daysLeft: 3, progress: 40 }, { title: 'Far off', daysLeft: 30, progress: 10 }, { title: 'Reached', daysLeft: 2, progress: 100 }],
-            [{ title: 'Essay', dueDate: '2026-11-12', status: 'open' }, { title: 'Done one', dueDate: '2026-11-12', status: 'done' }, { title: 'Today', dueDate: '2026-11-11', status: 'open' }],
+            [{ title: 'Essay', dueDate: '2026-11-12', status: 'open' }, { title: 'Done one', dueDate: '2026-11-12', status: 'done' }, { title: 'Today', dueDate: '2026-11-11', status: 'open' }, { title: 'Report', dueDate: '2026-11-14', status: 'open' }],
             '2026-11-11');
-        expect(due.map(item => item.title)).toEqual(['Essay', 'Run 10k']);
+        expect(due.map(item => item.title)).toEqual(['Essay', 'Report']);
     });
     it('Echo says it with the title and when', () => {
-        const point = talkingPoints({ ...base, deadlines: [{ title: 'Run 10k', daysLeft: 3, kind: 'goal', progress: 40 }] }).find(item => item.kind === 'deadline')!;
-        expect(writtenLine(point, { ...base, deadlines: [{ title: 'Run 10k', daysLeft: 3, kind: 'goal', progress: 40 }] }, 'normal')).toMatch(/Run 10k.*in 3 days/);
+        const point = talkingPoints({ ...base, deadlines: [{ title: 'Run 10k', daysLeft: 3, kind: 'task' }] }).find(item => item.kind === 'deadline')!;
+        expect(writtenLine(point, { ...base, deadlines: [{ title: 'Run 10k', daysLeft: 3, kind: 'task' }] }, 'normal')).toMatch(/Run 10k.*in 3 days/);
     });
 });

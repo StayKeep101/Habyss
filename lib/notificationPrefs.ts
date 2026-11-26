@@ -46,7 +46,7 @@ export const DEFAULT_PREFS: NotificationPrefs = {
 
 export const PREF_LABELS: { id: Exclude<keyof NotificationPrefs, 'dayGuide' | 'alarms' | 'echoVoice'>; label: string; detail: string }[] = [
     { id: 'sharedDone', label: 'A friend finishes', detail: 'When somebody completes their half of something you share' },
-    { id: 'shareOffers', label: 'Shared with you', detail: 'When a friend offers you a habit, task or goal' },
+    { id: 'shareOffers', label: 'Shared with you', detail: 'When a friend offers you a habit or task' },
     { id: 'reactions', label: 'Reactions and notes', detail: 'When somebody responds to your day' },
     { id: 'friendRequests', label: 'Friend requests', detail: 'When somebody asks to be friends, or answers you' },
 ];

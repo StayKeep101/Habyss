@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 26;
+const SCHEMA_VERSION = 27;
 
 let dbInstance: any = null;
 /**
@@ -138,6 +138,7 @@ async function runMigrations(db: any): Promise<void> {
         [24, migrateToV24],
         [25, migrateToV25],
         [26, migrateToV26],
+        [27, migrateToV27],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -196,6 +197,43 @@ async function runMigrations(db: any): Promise<void> {
  * Migration to version 24 — a task held before or after something in the day,
  * like a habit (lib/habitAnchor.ts), as the same JSON. Kept on this phone.
  */
+/** Drop a column only when it is there (a fresh install never had it). */
+async function dropColumnIfPresent(db: any, table: string, column: string): Promise<void> {
+    const columns = await db.getAllAsync(`PRAGMA table_info(${table})`);
+    if (!columns?.some((c: any) => c.name === column)) return;
+    await db.execAsync(`ALTER TABLE ${table} DROP COLUMN ${column};`);
+}
+
+/**
+ * Migration to version 27 — goals are gone from Habyss.
+ *
+ * Goals were habits marked is_goal, with milestones and links from habits and
+ * tasks (goal_id, milestone_id). The goal rows go (with their check-ins), the
+ * milestones table goes, and the columns that held goals are dropped. Habits
+ * and tasks that were under a goal stay, on their own. The goal settings kept
+ * outside the database go too.
+ */
+async function migrateToV27(db: any): Promise<void> {
+    const habitColumns = await db.getAllAsync('PRAGMA table_info(habits)');
+    if (habitColumns?.some((c: any) => c.name === 'is_goal')) {
+        const goals = ((await db.getAllAsync('SELECT id FROM habits WHERE is_goal = 1')) ?? []).map((row: { id: string }) => row.id);
+        for (const id of goals) {
+            await db.runAsync('DELETE FROM completions WHERE habit_id = ?', id);
+            await db.runAsync('DELETE FROM habit_measurements WHERE habit_id = ?', id);
+        }
+        await db.runAsync('DELETE FROM habits WHERE is_goal = 1');
+    }
+    await db.execAsync('DROP INDEX IF EXISTS idx_habits_goal;');
+    await db.execAsync('DROP TABLE IF EXISTS milestones;');
+    for (const column of ['goal_id', 'is_goal', 'target_date', 'goal_spec']) await dropColumnIfPresent(db, 'habits', column);
+    for (const column of ['goal_id', 'milestone_id']) await dropColumnIfPresent(db, 'tasks', column);
+    try {
+        const AsyncStorage = (require('@react-native-async-storage/async-storage') as typeof import('@react-native-async-storage/async-storage')).default;
+        await AsyncStorage.multiRemove(['habyss_goal_logs', 'habyss_peak_targets', 'habyss_staked_goals', 'habyss_goal_celebrated']);
+    } catch { /* settings left behind are never read */ }
+    console.log('[Database] Migrated to schema v27');
+}
+
 /**
  * Migration to version 26 — depth for every check-in and every schedule.
  *  - completions.source: what logged it (manual, timer, health, auto, siri,
@@ -423,7 +461,6 @@ async function migrateToV7(db: any): Promise<void> {
             due_time TEXT,
             estimated_minutes INTEGER,
             priority INTEGER DEFAULT 2,
-            goal_id TEXT,
             status TEXT DEFAULT 'open',
             completed_at TEXT,
             source TEXT DEFAULT 'app',
@@ -477,9 +514,6 @@ async function migrateToV1(db: any): Promise<void> {
             description TEXT,
             category TEXT DEFAULT 'misc',
             icon TEXT,
-            is_goal INTEGER DEFAULT 0,
-            target_date TEXT,
-            goal_id TEXT,
             task_days TEXT DEFAULT '["mon","tue","wed","thu","fri","sat","sun"]',
             reminders TEXT DEFAULT '[]',
             start_date TEXT,
@@ -531,7 +565,6 @@ async function migrateToV1(db: any): Promise<void> {
 
         -- Create indexes for common queries
         CREATE INDEX IF NOT EXISTS idx_habits_user ON habits(user_id);
-        CREATE INDEX IF NOT EXISTS idx_habits_goal ON habits(goal_id);
         CREATE INDEX IF NOT EXISTS idx_completions_user ON completions(user_id);
         CREATE INDEX IF NOT EXISTS idx_completions_date ON completions(date);
         CREATE INDEX IF NOT EXISTS idx_completions_habit_date ON completions(habit_id, date);

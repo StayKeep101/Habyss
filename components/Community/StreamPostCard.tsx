@@ -1,4 +1,3 @@
-import { GOALS_ENABLED } from '@/constants/features';
 import React, { useState, useSyncExternalStore } from 'react';
 import { Image, Pressable, Text as RNText, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -164,12 +163,6 @@ function DayPost({ item, ctx, footer = true }: { item: StreamPost; ctx: StreamCo
                             <View style={styles.stat} accessible accessibilityLabel={`${focusDuration(card.focusMinutes * 60)} of focus`}>
                                 <AppIcon name="hourglass" filled size={Spacing.lg + Spacing.xs} color={t.color.accentText} />
                                 <Text variant="title" numeric>{focusDuration(card.focusMinutes * 60)}</Text>
-                            </View>
-                        ) : null}
-                        {GOALS_ENABLED && card.goalsMoved ? (
-                            <View style={styles.stat}>
-                                <AppIcon name="flag" filled size={Spacing.lg + Spacing.xs} color={t.color.success} />
-                                <Text variant="title" numeric>{String(card.goalsMoved)}</Text>
                             </View>
                         ) : null}
                     </View>

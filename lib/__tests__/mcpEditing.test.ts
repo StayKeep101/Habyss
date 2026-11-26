@@ -1,4 +1,4 @@
-import { EDITING_TOOLS, checkEditing, daysBetween, goalPatch, habitPatch, percent, taskPatch } from '../mcpEditing';
+import { EDITING_TOOLS, checkEditing, daysBetween, habitPatch, percent, taskPatch } from '../mcpEditing';
 
 describe('MCP editing tools', () => {
     it('every tool has a description and an object schema', () => {
@@ -28,15 +28,6 @@ describe('MCP editing tools', () => {
         expect(habitPatch({ task_days: ['mon', 'mon', 'wed'] }, {})).toEqual({ task_days: ['mon', 'wed'], recurrence: null });
         expect(habitPatch({ paused: true }, {})).toEqual({ is_archived: true });
         expect(() => habitPatch({ end_date: '2026-01-01' }, { start_date: '2026-02-01' })).toThrow(/end_date/);
-    });
-
-    it('renames a goal in its spec and moves its window with the target date', () => {
-        const spec = { title: 'Old', window: { kind: 'fixed', start: '2026-01-01', end: '2026-06-01' } };
-        expect(goalPatch({ name: 'Run a marathon', target_date: '2026-10-01' }, { start_date: '2026-01-01', goal_spec: spec })).toEqual({
-            name: 'Run a marathon', target_date: '2026-10-01',
-            goal_spec: { title: 'Run a marathon', window: { kind: 'fixed', start: '2026-01-01', end: '2026-10-01' } },
-        });
-        expect(() => goalPatch({ target_date: '2025-01-01' }, { start_date: '2026-01-01' })).toThrow(/target_date/);
     });
 
     it('lists the days of a range and caps it', () => {

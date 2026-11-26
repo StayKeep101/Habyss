@@ -27,7 +27,7 @@ export function tallyDay(
     const date = new Date(`${today}T12:00:00`);
     // A "3 times a week" habit is part of the day once it cannot wait, or when done today.
     const due = habits.filter(habit => {
-        if (habit.isGoal || habit.isArchived || skipped[habit.id] || !isHabitScheduledForDate(habit, date)) return false;
+        if (habit.isArchived || skipped[habit.id] || !isHabitScheduledForDate(habit, date)) return false;
         return !isQuotaHabit(habit) || completions[habit.id] || createHabitRequirement(habit)(today);
     });
 
@@ -95,7 +95,7 @@ export function streakFrom(
     // A shared habit or task counts only once everybody on it has done it.
     history = countedHistory(history);
     tasks = countedTasks(tasks);
-    const known = new Set(habits.filter(habit => !habit.isGoal).map(habit => habit.id));
+    const known = new Set(habits.map(habit => habit.id));
     const completedDates: string[] = [];
     let streak = 0;
     let counting = true;

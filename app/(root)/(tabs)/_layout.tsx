@@ -19,7 +19,7 @@ export default function TabLayout() {
   useDayCardPublisher();
   // Your race against the clock, won the moment its last task is ticked (hooks/useRaceWatcher.ts).
   useRaceWatcher();
-  // Sounds for the app's moments: a task done, a day closed, a goal reached.
+  // Sounds for the app's moments: a task done, a day closed.
   useAppSounds();
   // Friends see your day change as it happens.
   useLivePulse();
@@ -40,7 +40,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarShowLabel: false,
         // A tab you are not looking at does not re-render: ticking on the
-        // timeline used to redraw Home behind it, Marks and goal maths included
+        // timeline used to redraw Home behind it, Marks maths included
         // (about 20 ms on a laptop, several times that on a phone). It catches
         // up once, with the latest data, when you come back to it.
         freezeOnBlur: true,

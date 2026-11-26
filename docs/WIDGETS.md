@@ -4,7 +4,7 @@ The widget and the Live Activity are native targets that live in the committed
 Xcode project (`ios/Habyss.xcodeproj`), not in a config plugin:
 
 - `ios/Widget/HabyssWidget.swift` — Daily Tasks (3 small / 5 medium) and lock screen task counts
-- `ios/Widget/DashboardWidgets.swift` — Heatmap & Streak and configurable Goal Progress
+- `ios/Widget/DashboardWidgets.swift` — Heatmap & Streak
 - `ios/Widget/WidgetShared.swift` — shared snapshot reader and task completion intent
 - `ios/Widget/WidgetLiveActivity.swift` — the Lock Screen / Dynamic Island card
 - `ios/Widget/WidgetBundle.swift` — registers widgets, Echo and Live Activities
@@ -25,10 +25,6 @@ by hand (target → Widget Extension → App Groups: `group.com.habyss.data`).
   Future, cancelled and completed tasks are not offered as actions.
 - **Heatmap & Streak:** scheduled habit check-ins over seven weeks (small) or
   thirteen weeks (medium), plus the same daily streak computed by the app.
-- **Goal Progress:** historical progress from the app's goal calculation.
-  Touch and hold → Edit Widget → Goal to select a goal. Multiple copies can
-  follow different goals. Tapping the graph opens that goal in Habyss.
-
 - **Quick Add:** a widget cannot hold a text field, so the nearest thing is one
   tap to the composer with the keyboard up. Small and Lock Screen open a new
   task; medium has Task and Habit halves. Daily Tasks (medium) carries the same
@@ -47,19 +43,18 @@ empty even if the user has habits.
 
 `lib/widgetSync.ts` reads SQLite and publishes through `lib/widgetService.ts`
 and the native `SharedDefaults` bridge into `group.com.habyss.data`.
-App launch, foreground, task/habit/goal edits, restoration and daily-target
+App launch, foreground, task/habit edits, restoration and daily-target
 changes refresh it. Leaving the app flushes a pending debounced refresh.
 
 | Storage | Contents |
 | --- | --- |
-| `widgetDashboard.json` | Atomic snapshot: eight task days, heatmap, streak, all selectable goals and up to 90 chart points per goal |
+| `widgetDashboard.json` | Atomic snapshot: eight task days, heatmap, streak, each habit's streak (`goals` stays as an empty list for widgets from older builds) |
 | `widget-events/<UUID>.json` | Durable completion actions with task ID, local day, state and timestamp |
 | `widgetDashboard` UserDefaults | Compatibility copy, read only if the snapshot file is absent |
 | `habitsData`, `siriHabitsData`, `widgetSummary`, `dayKey`, `streakCount`, `topHabitName` | Legacy/Siri/Echo data; these are not the Daily Tasks widget's data source |
 | `activeHabitName`, `timerEndDate` | Focus timer data from `lib/liveActivityService.ts` |
 
-The widget overlays queued actions immediately, removing completed rows and
-updating linked goal progress. Repeated completion taps are idempotent.
+The widget overlays queued actions immediately, removing completed rows. Repeated completion taps are idempotent.
 `drainWidgetToggles()` applies actions to SQLite when the app next runs its
 intent/foreground checks, preserving the tap timestamp. Actions are acknowledged
 only after the database commits and the replacement snapshot is published;
@@ -79,8 +74,8 @@ old account data from its cached UserDefaults.
 
 These are native changes: a Metro reload or Expo Go cannot install them.
 Open `ios/Habyss.xcworkspace`, select the **Habyss** scheme and the iPhone, then
-Run. Open Habyss once after installation. Add Daily Tasks, Heatmap & Streak and
-Goal Progress from the iOS widget gallery; select the goal through Edit Widget.
+Run. Open Habyss once after installation. Add Daily Tasks and Heatmap & Streak
+from the iOS widget gallery.
 Both the app and WidgetExtension must retain the App Group entitlement.
 
 Automated checks:
@@ -93,8 +88,7 @@ node scripts/check-widget-snapshot.mjs
 
 On the iPhone, verify a task edit appears after returning Home; complete a task
 from each widget size and confirm the app shows it done; check the heatmap and
-streak against Progress; choose two different goals on two widget copies; and
-repeat a task tap with Habyss closed. Include reopening the following day to
+streak against Progress; and repeat a task tap with Habyss closed. Include reopening the following day to
 check completion history. Native visual and interaction checks remain necessary
 even when the TypeScript and Swift model checks pass.
 

@@ -3,7 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppIcon, PopIn, SectionTitle, SheetScreen, Text } from '@/components/ui';
 import { RankHourglass } from '@/components/Home/RankHourglass';
-import { useGoalsInsights } from '@/hooks/useGoalInsights';
+import { useDayData } from '@/hooks/useDayData';
 import { useMarks } from '@/hooks/useMarks';
 import { useTokens } from '@/hooks/useTokens';
 import { RANKS } from '@/lib/marks';
@@ -18,7 +18,7 @@ import { styles } from '@/styles/screens/awards.styles';
  */
 export default function AwardsScreen() {
     const t = useTokens();
-    const marks = useMarks(useGoalsInsights());
+    const marks = useMarks(useDayData());
     const glass = Spacing.section * 2.8;
     const reached = RANKS.filter(rank => marks.total >= rank.min).length;
     return (

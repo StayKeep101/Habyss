@@ -5,7 +5,7 @@ import { useFocusEffect } from 'expo-router';
 import { Badge, CountUp, Text } from '@/components/ui';
 import { useTokens } from '@/hooks/useTokens';
 import { on } from '@/lib/appEvents';
-import { myWallet } from '@/lib/market';
+import { myWallet } from '@/lib/wallet';
 import { Control, Spacing } from '@/theme/designSystem';
 
 /**

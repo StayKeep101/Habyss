@@ -54,7 +54,7 @@ export const MORE_MINUTES: Record<string, number> = { [ACTION.more10]: 10, [ACTI
 export const FRIEND_NUDGE_CATEGORY = 'HABYSS_FRIEND_NUDGE';
 export const COMMENT_CATEGORY = 'HABYSS_COMMENT';
 export const DUEL_CATEGORY = 'HABYSS_DUEL';
-/** A habit, task or goal offered to you: "No thanks" or "Let's do it", which puts it on your list. */
+/** A habit or task offered to you: "No thanks" or "Let's do it", which puts it on your list. */
 export const SHARE_CATEGORY = 'HABYSS_SHARE';
 export const FRIEND_REQUEST_CATEGORY = 'HABYSS_FRIEND_REQUEST';
 export const CHALLENGE_CATEGORY = 'HABYSS_CHALLENGE';
@@ -151,9 +151,10 @@ export const CATEGORIES: { id: string; buttons: Button[] }[] = [
 export const QUICK_ADD_CATEGORIES = {
     HABYSS_ADD_TASK: { kind: 'task', placeholder: 'Call the bank at 3pm' },
     HABYSS_ADD_HABIT: { kind: 'habit', placeholder: 'Read 20 pages every night' },
-    HABYSS_ADD_GOAL: { kind: 'goal', placeholder: 'Read 12 books this year' },
+    // The Goal tile on a widget from an older build: read like anything said.
+    HABYSS_ADD_GOAL: { kind: 'any', placeholder: 'Anything: tasks, habits' },
     HABYSS_ADD_THOUGHT: { kind: 'thought', placeholder: 'Whatever is on your mind' },
-    HABYSS_ADD_ANY: { kind: 'any', placeholder: 'Anything: tasks, habits, goals' },
+    HABYSS_ADD_ANY: { kind: 'any', placeholder: 'Anything: tasks, habits' },
 } as const;
 export const QUICK_ADD_ACTION = 'HABYSS_QUICK_ADD';
 for (const [id, { placeholder }] of Object.entries(QUICK_ADD_CATEGORIES)) {

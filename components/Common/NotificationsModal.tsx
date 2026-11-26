@@ -78,7 +78,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
             case 'nudge': return '#3B82F6';
             case 'friend_request': return '#EC4899';
             case 'shared_habit': return '#34D399'; // More vibrant emerald
-            case 'shared_goal': return '#8B5CF6';
             default: return accentColor;
         }
     };
@@ -137,8 +136,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
 
     const handleAcceptShare = async (notification: InAppNotification) => {
         mediumFeedback();
-        const type = notification.type === 'shared_habit' ? 'habit' : 'goal';
-        const itemId = notification.data?.habitId || notification.data?.goalId;
+        const type = 'habit';
+        const itemId = notification.data?.habitId;
         const ownerId = notification.fromUserId || notification.data?.fromUserId;
         if (!itemId || !ownerId) return;
 
@@ -157,8 +156,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
 
     const handleDeclineShare = async (notification: InAppNotification) => {
         selectionFeedback();
-        const type = notification.type === 'shared_habit' ? 'habit' : 'goal';
-        const itemId = notification.data?.habitId || notification.data?.goalId;
+        const type = 'habit';
+        const itemId = notification.data?.habitId;
         const ownerId = notification.fromUserId || notification.data?.fromUserId;
         if (!itemId || !ownerId) return;
 
@@ -279,7 +278,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                                                         </Text>
 
                                                         {/* Accept/Refuse buttons for share requests */}
-                                                        {(notification.type === 'shared_habit' || notification.type === 'shared_goal') && !notification.data?.responded && (
+                                                        {notification.type === 'shared_habit' && !notification.data?.responded && (
                                                             <View style={styles.shareActions}>
                                                                 <TouchableOpacity
                                                                     onPress={() => handleAcceptShare(notification)}

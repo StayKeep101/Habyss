@@ -6,7 +6,7 @@
  * handed to the same sheet and parser typing uses, so speaking and typing
  * always agree.
  */
-export type VoiceKind = 'habit' | 'task' | 'goal';
+export type VoiceKind = 'habit' | 'task';
 
 export interface VoiceIntent { kind: VoiceKind; text: string }
 
@@ -17,9 +17,9 @@ export interface VoiceIntent { kind: VoiceKind; text: string }
 const LEAD = /^(?:(?:hey|ok|okay|so|um|uh|please)[,\s]+)*(?:(?:can|could|would) you\s+)?(?:please\s+)?(?:(?:create|add|make|set(?: up)?)(?=\s+(?:me\s+)?(?:(?:a|an|the|new|one)\s+)?(?:new\s+)?(?:habit|task|to-?do|reminder|goal|target)s?\b|\s+(?:a|an|new)\s)\s*|(?:start|new|i want|i'd like|remind me)\b\s*)?(?:me\s+)?(?:(?:a|an|the|new|one)\b\s*)?(?:new\s+)?/i;
 const KIND = /^(habit|task|to-?do|reminder|goal|target)s?\b\s*(?:of|to|for|called|named|that|:|-)?\s*/i;
 
+// "A goal of…" or "a target…" is something to get done: a task.
 const kindOf = (word: string): VoiceKind => {
     const lower = word.toLowerCase();
-    if (lower === 'goal' || lower === 'target') return 'goal';
     if (lower === 'habit') return 'habit';
     return 'task';
 };
@@ -27,7 +27,6 @@ const kindOf = (word: string): VoiceKind => {
 /** With no kind said, a guess from the shape of the sentence. */
 function guess(text: string): VoiceKind {
     if (/\b(every|each|daily|weekly|nightly|mornings?|evenings?|times a (?:day|week)|a day|per day|habit)\b/i.test(text)) return 'habit';
-    if (/\b(by (?:the end of|next|december|january|february|march|april|may|june|july|august|september|october|november|\d)|this year|in \d+ (?:weeks|months)|reach|save \$?\d|lose \d|run a marathon)\b/i.test(text)) return 'goal';
     return 'task';
 }
 

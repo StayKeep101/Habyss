@@ -1,4 +1,3 @@
-import { GOALS_ENABLED } from '@/constants/features';
 import React from 'react';
 import { HomeStatCard } from '@/components/Home/HomeStatCard';
 import { Image, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
@@ -25,7 +24,6 @@ const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 export interface ProfileNumbers {
     streak: number;
     bestStreak: number;
-    goalsCompleted: number;
 }
 
 /**
@@ -70,8 +68,6 @@ export const ProfileView: React.FC<{
     };
     /** Room to leave at the top for the status bar, on a full-screen page. */
     topInset?: number;
-    /** Tapping "Goals done" opens the goals reached; without it the number is plain. */
-    onGoalsDone?: () => void;
     /** Tapping a streak opens the Streak page (yours only). */
     onStreak?: () => void;
     /** Streak freezes held (yours only): a small snowflake on the streak tile that opens them. */
@@ -80,7 +76,7 @@ export const ProfileView: React.FC<{
     social?: React.ReactNode;
     /** Anything the page wants under the numbers. */
     children?: React.ReactNode;
-}> = ({ name, bio, meta, avatar, initials, status, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, onGoalsDone, onStreak, freezes, social, children }) => {
+}> = ({ name, bio, meta, avatar, initials, status, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, onStreak, freezes, social, children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
@@ -220,11 +216,6 @@ export const ProfileView: React.FC<{
                                 {freezes ? (
                                     <HomeStatCard icon="snow" tint={primary} value={freezes.count} onPress={freezes.onPress}
                                         accessibilityLabel={`${freezes.count} streak freeze${freezes.count === 1 ? '' : 's'}`} />
-                                ) : null}
-                                {/* Goals are off for now (constants/features.ts). */}
-                                {GOALS_ENABLED ? (
-                                    <HomeStatCard icon="flag" tint={numbers.goalsCompleted > 0 ? colors.success : colors.textTertiary} value={numbers.goalsCompleted}
-                                        onPress={onGoalsDone ?? (() => undefined)} accessibilityLabel={`${numbers.goalsCompleted} goals done`} />
                                 ) : null}
                             </View>
                         ) : (

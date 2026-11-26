@@ -5,11 +5,10 @@ import {
 
 const USER = 'aaaaaaaa-0000-4000-8000-000000000001';
 const HABIT = '11111111-0000-4000-8000-000000000001';
-const GOAL = '22222222-0000-4000-8000-000000000002';
 
 const localHabit = {
     id: HABIT, user_id: 'old-local-id', name: ' Evening run ', description: 'After work',
-    category: 'body', icon: 'walk-outline', is_goal: 0, target_date: null, goal_id: GOAL,
+    category: 'body', icon: 'walk-outline',
     task_days: '["mon","wed"]', reminders: '["18:00"]', start_date: '2026-09-18', end_date: null,
     duration_minutes: 30, start_time: '18:00', end_time: null, type: 'build', color: '#10B981',
     goal_period: 'daily', goal_value: 3.6, unit: 'km', chart_type: 'bar', is_archived: 0,
@@ -18,7 +17,7 @@ const localHabit = {
     reminder_message: 'Shoes on. Ten minutes is enough.',
     recurrence: '{"kind":"monthly","every":2,"ordinal":3,"day":"sun"}',
     location_reminders: '[{"name":"Gym","latitude":1,"longitude":2}]', health_kit_metric: null,
-    health_kit_target: null, ringtone: 'default', goal_spec: '{"type":"volume","target":50}',
+    health_kit_target: null, ringtone: 'default',
     created_at: '2026-09-18T10:00:00.000Z', updated_at: '2026-09-18T11:00:00.000Z',
     synced: 0, deleted: 0,
 };
@@ -31,12 +30,10 @@ describe('habits, phone to server', () => {
     });
 
     it('turns 0/1 into real booleans and JSON text into structures', () => {
-        expect(remote.is_goal).toBe(false);
         expect(remote.show_memo).toBe(true);
         expect(remote.task_days).toEqual(['mon', 'wed']);
         expect(remote.reminders).toEqual(['18:00']);
         expect(remote.location_reminders).toEqual([{ name: 'Gym', latitude: 1, longitude: 2 }]);
-        expect(remote.goal_spec).toEqual({ type: 'volume', target: 50 });
     });
 
     it('keeps a decimal target, which the old server rejected', () => {
@@ -68,9 +65,13 @@ describe('habits, phone to server', () => {
         expect(habitToRemote({ ...localHabit, deleted: 1 }, USER).deleted_at).toBe(localHabit.updated_at);
     });
 
-    it('stores deadlines as calendar dates whatever shape they were in', () => {
-        expect(habitToRemote({ ...localHabit, target_date: '2026-09-30T00:00:00.000Z' }, USER).target_date).toBe('2026-09-30');
-        expect(habitToRemote({ ...localHabit, target_date: '2026-09-30' }, USER).target_date).toBe('2026-09-30');
+    it('stores dates as calendar dates whatever shape they were in', () => {
+        expect(habitToRemote({ ...localHabit, start_date: '2026-09-30T00:00:00.000Z' }, USER).start_date).toBe('2026-09-30');
+        expect(habitToRemote({ ...localHabit, start_date: '2026-09-30' }, USER).start_date).toBe('2026-09-30');
+    });
+
+    it('sends nothing about goals', () => {
+        for (const column of ['is_goal', 'goal_id', 'target_date', 'goal_spec']) expect(column in remote).toBe(false);
     });
 });
 
@@ -79,7 +80,7 @@ describe('habits are cleaned so one bad row cannot block a backup', () => {
         const remote = habitToRemote({
             ...localHabit,
             tracking_method: 'weird', graph_style: 'pie', week_interval: 0,
-            goal_value: -3, duration_minutes: -5, category: '', goal_id: 'not-a-uuid',
+            goal_value: -3, duration_minutes: -5, category: '',
         }, USER);
         expect(remote.tracking_method).toBe('boolean');
         expect(remote.graph_style).toBeNull();
@@ -87,13 +88,12 @@ describe('habits are cleaned so one bad row cannot block a backup', () => {
         expect(remote.goal_value).toBe(1);
         expect(remote.duration_minutes).toBeNull();
         expect(remote.category).toBe('personal');
-        expect(remote.goal_id).toBeNull();
     });
 
     it('survives malformed JSON', () => {
-        const remote = habitToRemote({ ...localHabit, task_days: '[oops', goal_spec: '{' }, USER);
+        const remote = habitToRemote({ ...localHabit, task_days: '[oops', reminders: '{' }, USER);
         expect(remote.task_days).toEqual([]);
-        expect(remote.goal_spec).toBeNull();
+        expect(remote.reminders).toEqual([]);
     });
 });
 
@@ -102,10 +102,9 @@ describe('habits, server to phone', () => {
         const back = habitToLocal({ ...habitToRemote(localHabit, USER), user_id: USER });
         expect(back).toMatchObject({
             id: HABIT, user_id: USER, name: 'Evening run', goal_value: 3.6, unit: 'km',
-            tracking_method: 'numeric', is_goal: 0, show_memo: 1, goal_id: GOAL, deleted: 0,
+            tracking_method: 'numeric', show_memo: 1, deleted: 0,
         });
         expect(JSON.parse(back.task_days)).toEqual(['mon', 'wed']);
-        expect(JSON.parse(back.goal_spec)).toEqual({ type: 'volume', target: 50 });
         // The rule comes back as the text the phone stores, key order and all,
         // which is why it is text on the server rather than jsonb.
         expect(back.recurrence).toBe(localHabit.recurrence);
@@ -156,7 +155,7 @@ describe('tasks', () => {
     const local = {
         id: '44444444-0000-4000-8000-000000000004', user_id: 'old', title: ' Buy shoes ',
         description: null, due_date: '2026-09-20', due_time: '18:30', estimated_minutes: 45,
-        priority: 1, goal_id: GOAL, status: 'open', completed_at: null, source: 'app',
+        priority: 1, status: 'open', completed_at: null, source: 'app',
         external_id: 'onboarding:x:checkpoint_1', created_at: '2026-09-18T10:00:00.000Z',
         updated_at: '2026-09-18T10:00:00.000Z', deleted: 0, synced: 0,
     };
@@ -164,7 +163,7 @@ describe('tasks', () => {
     it('uploads with the fields that decide what matters today', () => {
         expect(taskToRemote(local, USER)).toMatchObject({
             user_id: USER, title: 'Buy shoes', due_date: '2026-09-20', due_time: '18:30',
-            estimated_minutes: 45, priority: 1, goal_id: GOAL, external_id: 'onboarding:x:checkpoint_1',
+            estimated_minutes: 45, priority: 1, external_id: 'onboarding:x:checkpoint_1',
         });
     });
 
@@ -186,16 +185,8 @@ describe('tasks', () => {
 });
 
 describe('upload order', () => {
-    it('sends goals before the habits that point at them', () => {
-        const { upload } = orderForUpload([
-            { id: HABIT, is_goal: 0 },
-            { id: GOAL, is_goal: 1 },
-        ]);
-        expect(upload.map(r => r.id)).toEqual([GOAL, HABIT]);
-    });
-
     it('sets aside rows whose id the server cannot accept', () => {
-        const { upload, skipped } = orderForUpload([{ id: 'legacy-id', is_goal: 0 }, { id: HABIT, is_goal: 0 }]);
+        const { upload, skipped } = orderForUpload([{ id: 'legacy-id' }, { id: HABIT }]);
         expect(upload.map(r => r.id)).toEqual([HABIT]);
         expect(skipped.map(r => r.id)).toEqual(['legacy-id']);
     });
@@ -270,7 +261,7 @@ describe('what the timeline plans with is backed up', () => {
         expect(remote).toMatchObject({ priority: 1, difficulty: 3, flexible: false });
     });
 
-    it('keeps a goal to-do\'s section both ways, and never blanks it when the server sends none', () => {
+    it('keeps a to-do\'s section both ways, and never blanks it when the server sends none', () => {
         expect(taskToRemote({ id: 't', title: 'Read', section: '  Research ' }, 'u').section).toBe('Research');
         expect(taskToRemote({ id: 't', title: 'Read', section: '' }, 'u').section).toBeNull();
         expect(taskToLocal({ id: 't', title: 'Read', section: 'Research' }).section).toBe('Research');

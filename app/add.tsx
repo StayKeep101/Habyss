@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { emit } from '@/lib/appEvents';
 
 /**
- * `habyss://add?kind=task` (or `habit`, `goal`, `braindump`): where the widget's + lands.
+ * `habyss://add?kind=task` (or `habit`, `braindump`): where the widget's + lands.
  *
  * A widget cannot hold a text field, so the nearest thing to typing into it is
  * one tap to a keyboard: this goes Home and opens the composer straight away.
@@ -21,7 +21,6 @@ export default function QuickAdd() {
         // After the replace has settled, so the sheet opens over Home.
         setTimeout(() => {
             if (kind === 'habit') emit('show_quick_add', undefined);
-            else if (kind === 'goal') emit('show_goal_quick_add', undefined);
             else emit('show_task_form', undefined);
         }, 450);
     }, [kind, router]);

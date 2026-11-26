@@ -27,7 +27,7 @@ async function notifyCrossing(identifier: string, direction: 'arrive' | 'leave')
     const habit = (await getHabits()).find(item => item.id === habitId);
     const now = new Date();
     const date = localDateKey(now);
-    if (!habit || habit.isArchived || habit.isGoal || !isHabitScheduledForDate(habit, now)) return;
+    if (!habit || habit.isArchived || !isHabitScheduledForDate(habit, now)) return;
     if ((await getCompletions(date))[habitId]) return;
     const place = habit.locationReminders?.[Number(index)];
     if (place?.trigger === 'stay') { await stayCrossing(identifier, direction, place, { kind: 'habit', id: habitId }); return; }
@@ -226,7 +226,7 @@ export class LocationService {
             // Import dynamically to avoid circular dependency issues if any (though LocationService is leaf mostly)
             const { getHabits }: typeof import('./habitsSQLite') = require('./habitsSQLite');
             const habits = await getHabits();
-            const activeHabits = habits.filter(h => !h.isArchived && !h.isGoal);
+            const activeHabits = habits.filter(h => !h.isArchived);
 
             // 2. Collect all regions
             const regions: Location.LocationRegion[] = [];

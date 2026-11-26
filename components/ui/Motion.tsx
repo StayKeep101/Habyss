@@ -188,7 +188,7 @@ const SCRUB_IN = FadeIn.duration(DURATION.tap).easing(EASE.enter).reduceMotion(R
 const SCRUB_LAYOUT = LinearTransition.duration(DURATION.tap).easing(EASE.move).reduceMotion(ReduceMotion.System);
 
 /**
- * A row in a list of habits, tasks or goals. It fades in when it is added,
+ * A row in a list of habits or tasks. It fades in when it is added,
  * fades out when it is removed or finished away, and when its neighbours come
  * and go it slides to its new place instead of jumping there.
  */

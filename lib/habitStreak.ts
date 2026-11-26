@@ -1,4 +1,4 @@
-import { addDays } from './goalInsights';
+import { addDays } from './habitSummary';
 
 /**
  * One habit's run, from its days. The one place a single habit's streak is

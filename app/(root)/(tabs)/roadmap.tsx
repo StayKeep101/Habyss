@@ -22,11 +22,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/theme/colors';
 import { CalendarStrip, type DayMarks } from '@/components/Home/CalendarStrip';
-import { useMilestoneDays } from '@/hooks/useMilestones';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { useRowOpen } from '@/components/ui/SwipeRow';
 import { useSharedItems } from '@/hooks/useSharedItems';
-import { GoalTile } from '@/components/Roadmap/GoalTile';
 import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import { getTasks, setTaskStatus, updateTask, tasksForDay, todayKey, type Task } from '@/lib/tasks';
 
@@ -41,12 +39,11 @@ import { useHistory } from '@/hooks/useHistory';
 import { useData } from '@/hooks/useData';
 import { habitStatus, isLive } from '@/lib/habitStatus';
 import { localDateKey } from '@/lib/habitSchedule';
-import { useGoalsInsights } from '@/hooks/useGoalInsights';
+import { useDayData } from '@/hooks/useDayData';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useFocusSession } from '@/context/FocusTimeContext';
-import { GOALS_ENABLED } from '@/constants/features';
 import { RoadmapFilters, type FilterAnchor } from '@/components/Home/RoadmapFilters';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Alert } from 'react-native';
@@ -207,7 +204,7 @@ const CalendarScreen = () => {
     const todayCompletions = useMemo(() => dayMap(shared.history, pending, todayKeyNow), [dayMap, shared.history, pending, todayKeyNow]);
     const skipped = useMemo(() => dayMap(shared.skips, pendingSkips, selectedKey), [dayMap, shared.skips, pendingSkips, selectedKey]);
     const habitIds = useMemo(
-        () => habitsStore.filter(habit => !habit.isGoal && !habit.isArchived).map(habit => habit.id),
+        () => habitsStore.filter(habit => !habit.isArchived).map(habit => habit.id),
         [habitsStore],
     );
     const { stateFor: sharedFor } = useSharedItems(habitIds, completions);
@@ -238,8 +235,7 @@ const CalendarScreen = () => {
 
     // UI State
     const [showFilter, setShowFilter] = useState(false);
-    // Goals, habits and tasks each on or off, so "tasks and habits, no goals"
-    // is one tap. The whole filter is remembered between launches.
+    // Habits and tasks each on or off, so "tasks only" is one tap. The whole filter is remembered between launches.
     const [shown, setShown] = useState(DEFAULT_ROADMAP_FILTER.shown);
     /** Show only what somebody else is on too. */
     const [sharedOnly, setSharedOnly] = useState(false);
@@ -272,9 +268,7 @@ const CalendarScreen = () => {
     // skips the moments it passed through instead of laying out each one in turn.
     const [scrubNow, setScrubIds] = useState<Set<string> | null>(null);
     const scrubIds = useDeferredValue(scrubNow);
-    const [selectedGoalFilter, setSelectedGoalFilter] = useState<string | null>(null); // Filter by specific goal ID
     const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null); // Filter by life pillar
-    const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
     // Loaded once here, and re-read whenever a habit is ticked anywhere —
     // this screen used to fetch on mount only and then quietly go stale.
     const { history: pastDone, skips: pastSkips } = useHistory(HISTORY_DAYS);
@@ -298,8 +292,6 @@ const CalendarScreen = () => {
     // On iOS the pill is drawn over the whole window (above the dock and the bar over it, on
     // its way to the bin), so it is placed in window terms; elsewhere, inside the list area.
     const { width: windowWidth } = useWindowDimensions();
-    // A goal card's side in the carousel: about two and a bit across (fewer when cards are big), so the next one peeks in.
-    const goalTileWidth = Math.floor((windowWidth - 2 * horizontalPadding - Spacing.md) / (cardSize === 'small' ? 2.6 : cardSize === 'big' ? 1.7 : 2.2));
     const dragPreviewStyle = useAnimatedStyle(() => ({
         transform: [
             // Centred on the finger, a little above it so the thumb does not hide it.
@@ -310,9 +302,9 @@ const CalendarScreen = () => {
         ],
         opacity: dragLift.get(),
     }));
-    // "Remove from goal": while something in a goal is dragged, the plus button
-    // in the dock becomes the drop target (lib/dragBridge).
-    const isOverRemove = useCallback((x: number, y: number, inGoal: boolean) => (inGoal || roadmapView === 'timeline') && isOverOrb(x, y), [roadmapView]);
+    // The bin: while something on the timeline is dragged, the plus button in
+    // the dock becomes the drop target (lib/dragBridge).
+    const isOverRemove = useCallback((x: number, y: number) => roadmapView === 'timeline' && isOverOrb(x, y), [roadmapView]);
     const trackRemove = useCallback((value: boolean) => {
         if (value === getRemoveDrag().over) return;
         setRemoveDrag({ over: value });
@@ -320,11 +312,6 @@ const CalendarScreen = () => {
     }, [selectionFeedback]);
     // Never leave the button changed if the page goes away mid-drag.
     useEffect(() => () => setRemoveDrag({ active: false }), []);
-    const [hoveredGoalId, setHoveredGoalId] = useState<string | null>(null);
-    // Mirrors hoveredGoalId so a drag can compare without re-subscribing to state.
-    const hoveredGoalRef = useRef<string | null>(null);
-    const goalRefs = useRef<Record<string, View | null>>({});
-    const goalDropLayouts = useRef<Record<string, { x: number; y: number; width: number; height: number }>>({});
 
     // Pull-to-Filter Logic
     const scrollY = useSharedValue(0);
@@ -423,14 +410,6 @@ const CalendarScreen = () => {
 
 
 
-    // Each goal's progress: the same number the goal shows on its own page,
-    // Home and the goals overview, from the one shared calculation.
-    const { insightsById, goals: activeGoals } = useGoalsInsights();
-    const goalProgress = useMemo(() => {
-        const map: Record<string, number> = {};
-        for (const id of Object.keys(insightsById)) map[id] = insightsById[id].progress;
-        return map;
-    }, [insightsById]);
 
     // Map habits with completion status - OPTIMIZED: only on data changes
     // Map habits effect removed - redundant O(N) state update
@@ -544,25 +523,13 @@ const CalendarScreen = () => {
 
     const askRemoveHabit = useRemoveHabit();
     const handleDelete = async (habit: Habit) => {
-        // A goal takes its whole plan with it, which is more than one swipe
-        // should be allowed to decide.
-        if (habit.isGoal) {
-            Alert.alert('Delete goal', 'This removes the goal and everything planned under it.', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => void removeHabitEverywhere(habit.id) },
-            ]);
-            return;
-        }
         // It repeats, so the swipe asks which: today, from today, or all of it.
         askRemoveHabit(habit);
     };
 
     const handleEdit = (habit: Habit) => {
         // Use global modal via DeviceEventEmitter
-        emit('show_habit_modal', {
-            goalId: habit.goalId,
-            initialHabit: habit
-        });
+        emit('show_habit_modal', { initialHabit: habit });
     };
 
     const isHabitFocusableNow = useCallback((habit: Habit) => {
@@ -596,43 +563,9 @@ const CalendarScreen = () => {
         focusWindowOpen: isHabitFocusableNow(habit),
     }), [completions, skipped, activeHabitId, isFocusRunning, isFocusPaused, isHabitFocusableNow]);
 
-    const measureGoalDropTargets = useCallback(async (goalList: Habit[]) => {
-        const entries = await Promise.all(
-            goalList.map(
-                (goal) =>
-                    new Promise<[string, { x: number; y: number; width: number; height: number } | null]>((resolve) => {
-                        const ref = goalRefs.current[goal.id];
-                        if (!ref || typeof ref.measureInWindow !== 'function') {
-                            resolve([goal.id, null]);
-                            return;
-                        }
-
-                        ref.measureInWindow((x, y, width, height) => {
-                            resolve([goal.id, { x, y, width, height }]);
-                        });
-                    })
-            )
-        );
-
-        measuredAt.current = scrollY.get();
-        goalDropLayouts.current = Object.fromEntries(entries.filter((entry): entry is [string, { x: number; y: number; width: number; height: number }] => !!entry[1]));
-    }, []);
-
-    const getHoveredGoalAtPoint = useCallback((x: number, y: number) => {
-        // The targets were measured before any auto-scroll; move them with it.
-        const shift = measuredAt.current - scrollY.get();
-        for (const [goalId, layout] of Object.entries(goalDropLayouts.current)) {
-            const top = layout.y + shift;
-            if (x >= layout.x && x <= layout.x + layout.width && y >= top && y <= top + layout.height) {
-                return goalId;
-            }
-        }
-        return null;
-    }, [scrollY]);
-
     /**
      * Holding something near the top or bottom edge scrolls the list, so a
-     * habit far down can reach a goal far up. The speed depends only on how
+     * row can be carried far up or down. The speed depends only on how
      * deep into the edge the finger is — gentle at its border, steady at most
      * ~9 points a frame — and never builds up the longer you hold.
      */
@@ -641,7 +574,6 @@ const CalendarScreen = () => {
     const contentHeight = useRef(0);
     const finger = useRef<{ x: number; y: number } | null>(null);
     const autoFrame = useRef<number | null>(null);
-    const measuredAt = useRef(0);
     /** The row being dragged right now ("habit:<id>", "task:<id>"); a drop for anything else is ignored. */
     const dragOwner = useRef<string | null>(null);
     /** Where the hold began: let go without dragging, and it was a hold (pin it), not a drag. */
@@ -677,16 +609,10 @@ const CalendarScreen = () => {
             if (Math.abs(next - now) > 0.1) {
                 listRef.current?.scrollTo({ y: next, animated: false });
                 scrollY.set(next);
-                const hovered = getHoveredGoalAtPoint(point.x, point.y);
-                if (hovered !== hoveredGoalRef.current) {
-                    hoveredGoalRef.current = hovered;
-                    setHoveredGoalId(hovered);
-                    if (hovered) selectionFeedback();
-                }
             }
         }
         autoFrame.current = requestAnimationFrame(autoScrollStep);
-    }, [getHoveredGoalAtPoint, scrollY, selectionFeedback, tabBarClearance]);
+    }, [scrollY, tabBarClearance]);
     const followFinger = useCallback((x: number, y: number) => {
         finger.current = { x, y };
         if (autoFrame.current === null) autoFrame.current = requestAnimationFrame(autoScrollStep);
@@ -701,220 +627,99 @@ const CalendarScreen = () => {
     }, []);
     useEffect(() => stopFollowing, [stopFollowing]);
 
-    const handleHabitDragStart = useCallback(async (habit: Habit, x: number, y: number) => {
+    const handleHabitDragStart = useCallback((habit: Habit, x: number, y: number) => {
         dragOwner.current = `habit:${habit.id}`;
         dragFrom.current = { x, y };
         selectionFeedback();
         setDraggingHabit(habit);
         dropMinute.current = null;
         if (roadmapView === 'timeline') void timelineDrop.current?.measure();
-        setRemoveDrag({ active: !!habit.goalId || roadmapView === 'timeline', kind: roadmapView === 'timeline' ? 'delete' : 'unlink', label: roadmapView === 'timeline' ? 'Delete habit' : 'Remove from goal' });
+        // On the line, the bin: the same question as a swipe.
+        setRemoveDrag({ active: roadmapView === 'timeline', kind: 'delete', label: 'Delete habit' });
         measureArea();
         measureViewport();
         dragY.set(y);
         dragX.set(x);
         dragLift.set(withSpring(1, { damping: 18, stiffness: 260 }));
-        const currentGoals = habitsStore.filter((item) => item.isGoal) as Habit[];
-        await measureGoalDropTargets(currentGoals);
-        if (dragOwner.current !== `habit:${habit.id}`) return;
-        const initial = getHoveredGoalAtPoint(x, y);
-        hoveredGoalRef.current = initial;
-        setHoveredGoalId(initial);
-    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore, dragX, dragY, dragLift, measureArea, measureViewport, roadmapView]);
+    }, [selectionFeedback, dragX, dragY, dragLift, measureArea, measureViewport, roadmapView]);
 
     const handleHabitDragMove = useCallback((habit: Habit, x: number, y: number) => {
-        // dragY is a shared value, so the floating card follows the finger on the UI
-        // thread. Only publish the hovered goal to React state when it actually
-        // changes; setting it on every pointer move re-rendered every goal and habit
-        // row for each frame of the drag.
+        // dragY is a shared value, so the floating card follows the finger on the UI thread.
         dragY.set(y);
         dragX.set(x);
         followFinger(x, y);
-        const removing = isOverRemove(x, y, !!habit.goalId);
-        trackRemove(removing);
-        const next = removing ? null : getHoveredGoalAtPoint(x, y);
-        if (next !== hoveredGoalRef.current) {
-            hoveredGoalRef.current = next;
-            setHoveredGoalId(next);
-            // A tap of feedback the moment it is over a goal, so the drop is
-            // felt rather than guessed at.
-            if (next) selectionFeedback();
-        }
-    }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY, isOverRemove, trackRemove, followFinger, roadmapView, trackDropTime]);
+        trackRemove(isOverRemove(x, y));
+    }, [dragX, dragY, isOverRemove, trackRemove, followFinger]);
 
-    const handleHabitDragEnd = useCallback(async (habit: Habit, x: number, y: number) => {
+    const handleHabitDragEnd = useCallback((habit: Habit, x: number, y: number) => {
         // Only the drag that is under way ends in a drop; anything else is ignored.
         if (dragOwner.current !== `habit:${habit.id}`) return;
         dragOwner.current = null;
         stopFollowing();
-        const removing = isOverRemove(x, y, !!habit.goalId);
-        // Where the goals are now, not where they were when the drag began.
-        if (!removing) await measureGoalDropTargets(habitsStore.filter(item => item.isGoal) as Habit[]);
-        const targetGoalId = removing ? null : getHoveredGoalAtPoint(x, y);
+        const removing = isOverRemove(x, y);
 
         // The card settles back into the list instead of vanishing mid-air.
         dragLift.set(withTiming(0, { duration: 170 }));
         setDraggingHabit(null);
-        hoveredGoalRef.current = null;
-        setHoveredGoalId(null);
         setRemoveDrag({ active: false });
 
         // Dropped on the bin: the same question as a swipe (skip today, stop, or delete).
-        if (removing && roadmapView === 'timeline') {
+        if (removing) {
             lightFeedback();
             askRemoveHabit(habit);
             return;
         }
-        if (removing) {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: undefined } : item));
-            lightFeedback();
-            try { await updateHabit({ id: habit.id, goalId: null as unknown as undefined }); }
-            catch {
-                setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: habit.goalId } : item));
-                Alert.alert('Could not remove it', 'Your habit is still in its goal. Please try again.');
-            }
-            return;
-        }
-
         // On the line, nothing moves by dragging (the day places everything itself): a drag
         // is only for the bin. Held and let go where it was: it was a hold, so pin it at a time.
-        if (roadmapView === 'timeline') {
-            if (Math.hypot(x - dragFrom.current.x, y - dragFrom.current.y) < HOLD_STILL) pinOnHold.current(habit.id);
-            return;
-        }
+        if (roadmapView === 'timeline' && Math.hypot(x - dragFrom.current.x, y - dragFrom.current.y) < HOLD_STILL) pinOnHold.current(habit.id);
+    }, [lightFeedback, dragLift, isOverRemove, stopFollowing, roadmapView, askRemoveHabit]);
 
-        if (!targetGoalId || targetGoalId === habit.goalId) {
-            return;
-        }
-
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: targetGoalId } : item));
-        setExpandedGoals(prev => ({ ...prev, [targetGoalId]: true }));
-        lightFeedback();
-        try {
-            await updateHabit({ id: habit.id, goalId: targetGoalId });
-        } catch {
-            setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: habit.goalId } : item));
-            Alert.alert('Could not move habit', 'Your habit is still in its original goal. Please try again.');
-        }
-    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove, stopFollowing, measureGoalDropTargets, habitsStore, roadmapView, askRemoveHabit, autoReschedule, mediumFeedback]);
-
-    /**
-     * Tasks move between goals exactly like habits: hold one, drag it onto a
-     * goal, let go. The drop targets and the floating preview are shared, so
-     * both kinds of row behave the same.
-     */
-    const handleTaskDragStart = useCallback(async (task: Task, x: number, y: number) => {
+    /** Tasks drag exactly like habits: on the line, to the bin, or held still to pin. */
+    const handleTaskDragStart = useCallback((task: Task, x: number, y: number) => {
         dragOwner.current = `task:${task.id}`;
         dragFrom.current = { x, y };
         selectionFeedback();
         setDraggingTask(task);
         dropMinute.current = null;
         if (roadmapView === 'timeline') void timelineDrop.current?.measure();
-        setRemoveDrag({ active: !!task.goalId || roadmapView === 'timeline', kind: roadmapView === 'timeline' ? 'delete' : 'unlink', label: roadmapView === 'timeline' ? 'Delete task' : 'Remove from goal' });
+        setRemoveDrag({ active: roadmapView === 'timeline', kind: 'delete', label: 'Delete task' });
         measureArea();
         measureViewport();
         dragY.set(y);
         dragX.set(x);
         dragLift.set(withSpring(1, { damping: 18, stiffness: 260 }));
-        await measureGoalDropTargets(habitsStore.filter(item => item.isGoal) as Habit[]);
-        if (dragOwner.current !== `task:${task.id}`) return;
-        const initial = getHoveredGoalAtPoint(x, y);
-        hoveredGoalRef.current = initial;
-        setHoveredGoalId(initial);
-    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore, dragX, dragY, dragLift, measureArea, measureViewport, roadmapView]);
+    }, [selectionFeedback, dragX, dragY, dragLift, measureArea, measureViewport, roadmapView]);
 
     const handleTaskDragMove = useCallback((task: Task, x: number, y: number) => {
         dragY.set(y);
         dragX.set(x);
         followFinger(x, y);
-        const removing = isOverRemove(x, y, !!task.goalId);
-        trackRemove(removing);
-        const next = removing ? null : getHoveredGoalAtPoint(x, y);
-        if (next !== hoveredGoalRef.current) {
-            hoveredGoalRef.current = next;
-            setHoveredGoalId(next);
-            if (next) selectionFeedback();
-        }
-    }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY, isOverRemove, trackRemove, followFinger, roadmapView, trackDropTime]);
+        trackRemove(isOverRemove(x, y));
+    }, [dragX, dragY, isOverRemove, trackRemove, followFinger]);
 
-    const handleTaskDragEnd = useCallback(async (task: Task, x: number, y: number) => {
+    const handleTaskDragEnd = useCallback((task: Task, x: number, y: number) => {
         if (dragOwner.current !== `task:${task.id}`) return;
         dragOwner.current = null;
         stopFollowing();
-        const removing = isOverRemove(x, y, !!task.goalId);
-        if (!removing) await measureGoalDropTargets(habitsStore.filter(item => item.isGoal) as Habit[]);
-        const targetGoalId = removing ? null : getHoveredGoalAtPoint(x, y);
+        const removing = isOverRemove(x, y);
         dragLift.set(withTiming(0, { duration: 170 }));
         setDraggingTask(null);
-        hoveredGoalRef.current = null;
-        setHoveredGoalId(null);
         setRemoveDrag({ active: false });
 
-        if (removing && roadmapView === 'timeline') {
+        if (removing) {
             lightFeedback();
             askRemoveTask(task);
             return;
         }
-        if (removing) {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: undefined } : item));
-            lightFeedback();
-            try { await updateTask(task.id, { goalId: null }); emit('tasks_changed'); }
-            catch {
-                setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: task.goalId } : item));
-                Alert.alert('Could not remove it', 'Your task is still in its goal. Please try again.');
-            }
-            return;
-        }
-
-        // On the line, nothing moves by dragging (the day places everything itself): a drag
-        // is only for the bin. Held and let go where it was: it was a hold, so pin it at a time.
-        if (roadmapView === 'timeline') {
-            if (Math.hypot(x - dragFrom.current.x, y - dragFrom.current.y) < HOLD_STILL) pinOnHold.current(task.id);
-            return;
-        }
-
-        if (!targetGoalId || targetGoalId === task.goalId) return;
-
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: targetGoalId } : item));
-        setExpandedGoals(prev => ({ ...prev, [targetGoalId]: true }));
-        lightFeedback();
-        try {
-            await updateTask(task.id, { goalId: targetGoalId });
-            emit('tasks_changed');
-        } catch {
-            setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: task.goalId } : item));
-            Alert.alert('Could not move task', 'Your task is still in its original goal. Please try again.');
-        }
-    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove, stopFollowing, measureGoalDropTargets, habitsStore, roadmapView, askRemoveTask, autoReschedule, mediumFeedback]);
-
-    const toggleGoalExpansion = (goalId: string) => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        // One goal's plan open at a time, under the carousel.
-        setExpandedGoals(prev => (prev[goalId] ? {} : { [goalId]: true }));
-        selectionFeedback();
-    };
+        if (roadmapView === 'timeline' && Math.hypot(x - dragFrom.current.x, y - dragFrom.current.y) < HOLD_STILL) pinOnHold.current(task.id);
+    }, [lightFeedback, dragLift, isOverRemove, stopFollowing, roadmapView, askRemoveTask]);
 
     // --- Grouping Logic ---
-    // Goals still under way: a goal reached (or archived) has no card.
-    const goals = activeGoals;
-    // Goals are shared through their own table, so they get their own question.
-    const goalIds = useMemo(() => goals.map(goal => goal.id), [goals]);
-    const noGoalTicks = useMemo(() => ({}), []);
-    const { stateFor: sharedGoalFor } = useSharedItems(goalIds, noGoalTicks, 'goal');
-
     // Only show habits scheduled for the selected date
     // Memoized Data derivation with additional filters
-    const { allHabits, habitsByGoal } = useMemo(() => {
-        let filtered = habitsStore.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, selectedDate));
+    const allHabits = useMemo(() => {
+        let filtered = habitsStore.filter(h => !h.isArchived && isHabitScheduledForDate(h, selectedDate));
 
-        // Apply goal filter - show only habits linked to specific goal
-        if (selectedGoalFilter) {
-            filtered = filtered.filter(h => h.goalId === selectedGoalFilter);
-        }
 
         // Apply category (life pillar) filter
         if (selectedCategoryFilter) {
@@ -934,17 +739,8 @@ const CalendarScreen = () => {
 
         const order = compareBySort(activeSort, sortDirection);
         filtered.sort((a, b) => order({ ...a, done: !!completions[a.id] }, { ...b, done: !!completions[b.id] }));
-        const byGoal: Record<string, Habit[]> = {};
-
-        filtered.forEach(h => {
-            if (h.goalId) {
-                if (!byGoal[h.goalId]) byGoal[h.goalId] = [];
-                byGoal[h.goalId].push(h);
-            }
-        });
-
-        return { allHabits: filtered, habitsByGoal: byGoal };
-    }, [habitsStore, selectedDate, selectedGoalFilter, selectedCategoryFilter, activeTimeFilter, activeSort, sortDirection, completions, sharedOnly, sharedFor, sharedWith]);
+        return filtered;
+    }, [habitsStore, selectedDate, selectedCategoryFilter, activeTimeFilter, activeSort, sortDirection, completions, sharedOnly, sharedFor, sharedWith]);
 
     // Habits are already filtered to the day being looked at; tasks were not,
     // so everything ever written sat in every day's list. A task belongs to the
@@ -959,7 +755,7 @@ const CalendarScreen = () => {
         // that hid shared habits' neighbours but left every private task in
         // place would not be showing what is shared.
         const shownTasks = sharedOnly ? due.filter(task => { const state = sharedTaskFor(task.id); return !!state && (!sharedWith || state.people.some(p => p.userId === sharedWith)); }) : due;
-        // Created keeps the day's own order (by when it is due); the others sort as habits and goals do.
+        // Created keeps the day's own order (by when it is due); the others sort as habits do.
         if (activeSort === 'default') return shownTasks;
         const order = compareBySort(activeSort, sortDirection);
         return [...shownTasks].sort((a, b) => order({ ...a, name: a.title, done: a.status === 'done' }, { ...b, name: b.title, done: b.status === 'done' }));
@@ -991,7 +787,7 @@ const CalendarScreen = () => {
         const day = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
         const isToday = day === todayKey(clock);
         // The whole day, whatever the filters show: time is time.
-        const habits = habitsStore.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, selectedDate)) as StoreHabit[];
+        const habits = habitsStore.filter(h => !h.isArchived && isHabitScheduledForDate(h, selectedDate)) as StoreHabit[];
         return {
             isToday,
             plan: buildDayPlan({
@@ -1029,13 +825,8 @@ const CalendarScreen = () => {
         return result;
     }, [habitsStore, todayCompletions, pastDone, pastSkips, tasks, stripTarget]);
 
-    // Loose habits are those not linked to any goal, or linked to a non-existent goal
-    const looseHabits = useMemo(() => {
-        return allHabits.filter(h => !h.goalId || !goals.some(g => g.id === h.goalId));
-    }, [allHabits, goals]);
-
     // Stated as what each section shows rather than as what two of them are
-    // not: `!isGoalFilter` quietly meant "and also not tasks_only" the moment a
+    // not: a negated filter quietly meant "and also not tasks_only" the moment a
     // fourth value existed, which is how a filter starts showing the wrong
     // things.
     const scrubbing = scrubIds !== null;
@@ -1069,7 +860,7 @@ const CalendarScreen = () => {
     const ended = useEndedEarly(localDateKey(selectedDate));
     const flowItems = useMemo(() => {
         const day = localDateKey(selectedDate);
-        const habits = habitsStore.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, selectedDate)) as StoreHabit[];
+        const habits = habitsStore.filter(h => !h.isArchived && isHabitScheduledForDate(h, selectedDate)) as StoreHabit[];
         // Meals and calendar events are fixed; the rest flows, and whatever has
         // no time is given a slot by urgency between waking and bedtime.
         return flowInputs({
@@ -1260,33 +1051,20 @@ const CalendarScreen = () => {
     const rowOpen = useRowOpen();
     const pagerHeight = paging ? Math.max(pageHeights[0], pageHeights[1]) : pageHeights[pageAt];
 
-    // Goals are off for now (constants/features.ts): their section never shows.
-    const showGoals = GOALS_ENABLED && shown.goals && !scrubbing;
     const showHabits = shown.habits || scrubbing;
     const showTasks = shown.tasks || scrubbing;
-    /** Habits and tasks under a goal sit inside its card; with goals hidden they are listed on their own. */
-    const looseOnly = showGoals;
     // What the finger is over, by whole item: a split one is named by its parts (`id#2`) on the bar.
     const scrubbed = scrubbing ? new Set([...scrubIds].map(key => key.split('#')[0])) : null;
-    const listedTasks = scrubbed ? dayTasks.filter(task => scrubbed.has(`task:${task.id}`))
-        : dayTasks.filter(task => !looseOnly || !task.goalId);
-    const listedHabits = scrubbed ? allHabits.filter(habit => scrubbed.has(`habit:${habit.id}`))
-        : looseOnly ? looseHabits : allHabits;
+    const listedTasks = scrubbed ? dayTasks.filter(task => scrubbed.has(`task:${task.id}`)) : dayTasks;
+    const listedHabits = scrubbed ? allHabits.filter(habit => scrubbed.has(`habit:${habit.id}`)) : allHabits;
     const filtered = isFiltered({ shown, sharedOnly, sort: activeSort, direction: sortDirection, time: activeTimeFilter, view: roadmapView });
-    const hasActiveFilters = selectedGoalFilter !== null || selectedCategoryFilter !== null || sharedOnly;
+    const hasActiveFilters = selectedCategoryFilter !== null || sharedOnly;
 
-    const activeGoalName = selectedGoalFilter ? goals.find(g => g.id === selectedGoalFilter)?.name : null;
-    const visibleHabitCount = showGoals
-        ? looseHabits.length + Object.values(habitsByGoal).flat().length
-        : allHabits.length;
-    const visibleGoalCount = !showGoals
-        ? 0
-        : goals.filter(goal => activeTimeFilter === 'all' || (habitsByGoal[goal.id] || []).length > 0).length;
+    const visibleHabitCount = allHabits.length;
     const activeFilterCount = [
-        !shown.goals || !shown.habits || !shown.tasks,
+        !shown.habits || !shown.tasks,
         activeSort !== 'default',
         activeTimeFilter !== 'all',
-        !!selectedGoalFilter,
         !!selectedCategoryFilter,
     ].filter(Boolean).length;
 
@@ -1295,50 +1073,19 @@ const CalendarScreen = () => {
         setShown(DEFAULT_ROADMAP_FILTER.shown);
         setActiveSort('default');
         setSortDirection(-1);
-        setSelectedGoalFilter(null);
         setSelectedCategoryFilter(null);
         setActiveTimeFilter('all');
         setSharedOnly(false);
     }, [selectionFeedback]);
 
-    // A yellow dot under each day a task must be done by, a white one under
-    // each day a milestone is due (components/Home/CalendarStrip.tsx).
-    const milestoneDays = useMilestoneDays();
+    // A yellow dot under each day a task must be done by (components/Home/CalendarStrip.tsx).
     const dayMarks = useMemo(() => {
         const marks: Record<string, DayMarks> = {};
         for (const task of tasks) {
             if (task.deadline && task.status === 'open') marks[task.deadline] = { ...marks[task.deadline], deadline: true };
         }
-        for (const day of milestoneDays) marks[day] = { ...marks[day], milestone: true };
         return marks;
-    }, [tasks, milestoneDays]);
-    const sortedGoals = useMemo(() => goals
-        .filter(goal => (!selectedGoalFilter || goal.id === selectedGoalFilter) && (activeTimeFilter === 'all' || (habitsByGoal[goal.id] || []).length > 0))
-        .sort((a, b) => {
-            if (activeSort === 'progress') return sortDirection * ((goalProgress[a.id] || 0) - (goalProgress[b.id] || 0));
-            return compareBySort(activeSort, sortDirection)(a, b);
-        }), [goals, activeSort, sortDirection, goalProgress, selectedGoalFilter, activeTimeFilter, habitsByGoal]);
-
-    // The tour's "Plan inside your goal": Roadmap shows its list, where goals
-    // hold their habits and tasks, and goes back to how it was when the tour ends.
-    useEffect(() => registerTarget('roadmap-goal', () => new Promise(resolve => {
-        const first = sortedGoals[0];
-        const view = first ? goalRefs.current[first.id] : null;
-        if (!view) { resolve(null); return; }
-        view.measureInWindow((x, y, width, height) => resolve(width > 0 ? { x, y, width, height } : null));
-    })), [sortedGoals]);
-    const viewBeforeTour = useRef<RoadmapView | null>(null);
-    useEffect(() => {
-        const show = on('tour_roadmap_list', () => {
-            setRoadmapView(view => { viewBeforeTour.current ??= view; return 'list'; });
-            setExpandedGoals(open => sortedGoals[0] ? { ...open, [sortedGoals[0].id]: true } : open);
-        });
-        const end = on('tour_end', () => {
-            if (viewBeforeTour.current) setRoadmapView(viewBeforeTour.current);
-            viewBeforeTour.current = null;
-        });
-        return () => { show.remove(); end.remove(); };
-    }, [sortedGoals]);
+    }, [tasks]);
 
     return (
         <VoidShell>
@@ -1351,15 +1098,6 @@ const CalendarScreen = () => {
                             selectedDate={pickedDate}
                             onSelectDate={handleDateSelect}
                             completionData={weeklyCompletions}
-                            goalDeadlines={useMemo(() => {
-                                // Every goal due on a day, so two finishing together both show.
-                                const map: Record<string, { color: string; icon?: string; name: string }[]> = {};
-                                for (const g of goals) {
-                                    if (!g.targetDate) continue;
-                                    (map[g.targetDate] ??= []).push({ color: g.color || accentColor, icon: g.icon, name: g.name });
-                                }
-                                return map;
-                            }, [goals, accentColor])}
                             dayMarks={dayMarks}
                         />
                     </View>
@@ -1488,8 +1226,7 @@ const CalendarScreen = () => {
                                         <Ionicons name="filter" size={10} color={accentColor} />
                                         <Text style={{ color: accentColor, fontSize: 11, fontFamily: FontFamily.semibold, letterSpacing: 0.5 }}>
                                             {[
-                                                (!shown.goals || !shown.habits || !shown.tasks) && (['goals', 'habits', 'tasks'] as const).filter(kind => shown[kind]).map(kind => kind.charAt(0).toUpperCase() + kind.slice(1)).join(' + '),
-                                                selectedGoalFilter && goals.find(g => g.id === selectedGoalFilter)?.name?.slice(0, 12),
+                                                (!shown.habits || !shown.tasks) && (['habits', 'tasks'] as const).filter(kind => shown[kind]).map(kind => kind.charAt(0).toUpperCase() + kind.slice(1)).join(' + '),
                                                 selectedCategoryFilter && selectedCategoryFilter.charAt(0).toUpperCase() + selectedCategoryFilter.slice(1),
                                                 activeTimeFilter !== 'all' && activeTimeFilter.charAt(0).toUpperCase() + activeTimeFilter.slice(1),
                                                 activeSort !== 'default' && ({ name: 'A-Z', progress: 'Progress', priority: 'Priority' } as const)[activeSort],
@@ -1507,109 +1244,7 @@ const CalendarScreen = () => {
                                     </TouchableOpacity>
                                 </View>
                             )}
-                            {/* GOALS SECTION */}
-                            {showGoals && (
-                                <View style={{ marginTop: 0, marginBottom: 16 }}>
-                                    <SectionTitle first right={
-                                        <View style={styles.headerLinks}>
-                                        {/* Every goal there is: in progress, then archived. */}
-                                        <TouchableOpacity accessibilityRole="button" accessibilityLabel="All goals" onPress={() => router.push({ pathname: '/(root)/all-habits', params: { kind: 'goals' } })} style={styles.headerLink}>
-                                            <Text style={[styles.headerLinkText, { color: colors.textTertiary }]}>See all</Text>
-                                        </TouchableOpacity>
-                                        </View>
-                                    }>Goals</SectionTitle>
-
-                                    {sortedGoals.length > 0 ? (
-                                        <>
-                                        {/* The goals as a carousel of near-square cards, the next one peeking in. */}
-                                        <GHScrollView horizontal showsHorizontalScrollIndicator={false} decelerationRate="fast"
-                                            snapToInterval={goalTileWidth + Spacing.md} snapToAlignment="start"
-                                            style={[styles.goalRail, { marginHorizontal: -horizontalPadding }]}
-                                            contentContainerStyle={[styles.goalRailRow, { paddingHorizontal: horizontalPadding }]}>
-                                            {sortedGoals.map(goal => (
-                                                <ListItem key={goal.id}>
-                                                    <View ref={(ref) => { goalRefs.current[goal.id] = ref; }}>
-                                                        <GoalTile
-                                                            goal={{ ...goal, color: goal.color || accentColor }}
-                                                            progress={goalProgress[goal.id] || 0}
-                                                            width={goalTileWidth}
-                                                            isExpanded={!!expandedGoals[goal.id]}
-                                                            linkedHabitsCount={(habitsByGoal[goal.id] || []).length}
-                                                            shared={sharedGoalFor(goal.id)}
-                                                            isDropTarget={hoveredGoalId === goal.id}
-                                                            onToggleExpand={() => toggleGoalExpansion(goal.id)}
-                                                            onPress={() => router.push({ pathname: '/goal-detail', params: { goalId: goal.id } })}
-                                                        />
-                                                    </View>
-                                                </ListItem>
-                                            ))}
-                                        </GHScrollView>
-                                        {/* The open goal's plan, under the carousel: one goal at a time. */}
-                                        {sortedGoals.filter(goal => expandedGoals[goal.id]).map(goal => {
-                                            const linkedHabits = habitsByGoal[goal.id] || [];
-                                            return (
-                                                        <ListItem key={goal.id} style={[styles.goalPlan, { borderLeftColor: colors.border }]}>
-                                                            {linkedHabits.length > 0 ? (
-                                                                linkedHabits.map(habit => (
-                                                                    <ListItem key={habit.id}><SwipeableHabitItem
-                                                                        key={habit.id}
-                                                                        habit={habit}
-                                                                        locked={selectedKey !== localDateKey(new Date())}
-                                                                        size={cardSize}
-                                                                        completed={!!completions[habit.id]}
-                                                                        shared={sharedFor(habit.id)}
-                                                                        isDragging={draggingHabit?.id === habit.id}
-                                                                        skipped={!!skipped[habit.id]}
-                                                                        onSkip={rowHabitSkip}
-                                                                        isActive={isLive(statusOf(habit))}
-                                                                        followFocus={isLive(statusOf(habit))}
-                                                                        totalDuration={isLive(statusOf(habit)) ? totalDuration : undefined}
-                                                                        onDragStart={rowHabitDragStart}
-                                                                        onDragMove={rowHabitDragMove}
-                                                                        onDragEnd={rowHabitDragEnd}
-                                                                        onPress={rowHabitOpen}
-                                                                        onToggle={rowHabitToggle}
-                                                                        onEdit={rowHabitEdit}
-                                                                        onDelete={rowHabitDelete}
-                                                                    /></ListItem>
-                                                                ))
-                                                            ) : null}
-
-                                                            {/* A goal is reached through rhythms and one-off work alike. */}
-                                                            {dayTasks.filter(task => task.goalId === goal.id).map(task => (
-                                                                <ListItem key={task.id}><TaskItem
-                                                                    key={task.id}
-                                                                    task={task}
-                                                                    size={cardSize}
-                                                                    today={todayKey()}
-                                                                    isDragging={draggingTask?.id === task.id}
-                                                                    onDragStart={rowTaskDragStart}
-                                                                    onDragMove={rowTaskDragMove}
-                                                                    onDragEnd={rowTaskDragEnd}
-                                                                    onToggle={rowTaskToggle}
-                                                                    onPress={rowTaskOpen}
-                                                                    onEdit={rowTaskOpen}
-                                                                    onDelete={rowTaskDelete}
-                                                                    shared={sharedTaskFor(task.id)}
-                                                                /></ListItem>
-                                                            ))}
-
-                                                        </ListItem>
-                                            );
-                                        })}
-                                        </>
-                                    ) : (
-                                        <VoidCard style={{ alignItems: 'center', justifyContent: 'center', padding: 24, borderStyle: 'dashed' }}>
-                                            <Text style={{ color: colors.textTertiary, fontFamily: FontFamily.regular }}>No goals yet</Text>
-                                        </VoidCard>
-                                    )}
-                                </View>
-                            )}
-
                             {/* TASKS SECTION — one-off work, kept apart from the rhythms. */}
-                            {/* When tasks are the only thing asked for, the ones
-                                under a goal belong here too — otherwise the
-                                filter hides exactly what it was set to show. */}
                             {showTasks && listedTasks.length > 0 && (
                                 <View style={{ marginBottom: 16 }}>
                                     {scrubbing ? null : <SectionTitle first right={
@@ -1650,8 +1285,6 @@ const CalendarScreen = () => {
                                     }>Habits</SectionTitle>}
 
                                     {listedHabits.map(habit => {
-                                        // Find associated goal name for habit
-                                        const associatedGoal = goals.find(g => g.id === habit.goalId);
                                         return (
                                             <ListItem key={habit.id} still={scrubbing}><SwipeableHabitItem
                                                 key={habit.id}
@@ -1663,7 +1296,6 @@ const CalendarScreen = () => {
                                                 isActive={isLive(statusOf(habit))}
                                                 followFocus={isLive(statusOf(habit))}
                                                 totalDuration={isLive(statusOf(habit)) ? totalDuration : undefined}
-                                                goalName={!looseOnly && associatedGoal ? associatedGoal.name : undefined}
                                                 onDragStart={rowHabitDragStart}
                                                 onDragMove={rowHabitDragMove}
                                                 onDragEnd={rowHabitDragEnd}
@@ -1685,8 +1317,6 @@ const CalendarScreen = () => {
                             </GHScrollView>
                             </>)}
 
-                            {/* Habits section removed - all habits must be linked to goals */}
-
                         </Animated.ScrollView>
 
                         {draggingHabit || draggingTask ? (
@@ -1701,11 +1331,6 @@ const CalendarScreen = () => {
                                             {draggingTask?.title ?? draggingHabit?.name ?? ''}
                                         </Text>
                                     </MatteSurface>
-                                    {hoveredGoalId ? (
-                                        <Text style={[styles.dragHint, { color: colors.textSecondary }]} numberOfLines={1}>
-                                            Into {goals.find(goal => goal.id === hoveredGoalId)?.name ?? 'goal'}
-                                        </Text>
-                                    ) : null}
                                 </Animated.View>
 
                             </View>
@@ -1713,10 +1338,9 @@ const CalendarScreen = () => {
                         ) : null}
                     </View>
 
-                    <RoadmapFilters visible={showFilter} onClose={closeFilterModal} goals={goals} anchor={filterAnchor}
+                    <RoadmapFilters visible={showFilter} onClose={closeFilterModal} anchor={filterAnchor}
                         view={viewChoice} onView={setRoadmapView}
                         shown={shown} onToggleShown={toggleKind} focus={activeTimeFilter} onFocus={setActiveTimeFilter}
-                        goal={selectedGoalFilter} onGoal={setSelectedGoalFilter}
                         sharedOnly={sharedOnly} onSharedOnly={setSharedOnly}
                         friends={sharedFriends} sharedWith={sharedWith} onSharedWith={setSharedWith}
                         order={activeSort} direction={sortDirection}

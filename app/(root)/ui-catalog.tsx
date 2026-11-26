@@ -15,24 +15,13 @@ import { useSharedValue } from 'react-native-reanimated';
 import { CatalogSection, Specimen, Swatch, Variant } from '@/components/Catalog/Specimen';
 import { useTokens } from '@/hooks/useTokens';
 import type { TypeToken } from '@/theme/tokens';
-import type { GoalPoint } from '@/lib/goalInsights';
+import type { ChartPoint } from '@/components/ui/ProgressChart';
 import { styles } from '@/styles/screens/ui-catalog.styles';
-import { GoalMilestones } from '@/components/Goal/GoalMilestones';
 import { startTour } from '@/lib/coachMarks';
-import { GoalCompleteSequence } from '@/components/Celebrations/GoalCompleteSequence';
-import type { Milestone } from '@/lib/goalMilestones';
-
-const CATALOG_TODAY = '2026-11-05';
-const SAMPLE_MILESTONES: Milestone[] = [
-    { id: 'm1', goalId: 'g', title: 'Finish Book 1', dueDate: '2026-11-02', doneAt: '2026-11-01', position: 1 },
-    { id: 'm2', goalId: 'g', title: 'Finish Book 2', dueDate: '2026-11-04', position: 2 },
-    { id: 'm3', goalId: 'g', title: 'Finish Book 3', dueDate: '2026-11-09', position: 3 },
-    { id: 'm4', goalId: 'g', title: 'Finish Book 4', dueDate: '2026-11-16', position: 4 },
-];
 
 const TYPE_STYLES: TypeToken[] = ['display', 'screenTitle', 'title', 'heading', 'body', 'bodySmall', 'caption'];
 
-const SAMPLE_SERIES: GoalPoint[] = Array.from({ length: 14 }, (_, index) => ({
+const SAMPLE_SERIES: ChartPoint[] = Array.from({ length: 14 }, (_, index) => ({
     date: `2026-10-${String(index + 1).padStart(2, '0')}`,
     actual: Math.round(index * 4.6 + (index % 3) * 2),
     pace: Math.round(index * 5.2),
@@ -59,11 +48,8 @@ export default function UICatalog() {
     const [taskDone, setTaskDone] = useState(true);
     const [modal, setModal] = useState(false);
     const [sheet, setSheet] = useState(false);
-    const [catalogMilestones, setCatalogMilestones] = useState<Milestone[]>(SAMPLE_MILESTONES);
     // Motion demos: replay remounts them, change moves their value.
     const [replay, setReplay] = useState(0);
-    // The goal-reached ceremony, played here for show (no goal, no Marks).
-    const [ceremony, setCeremony] = useState(0);
     const [level, setLevel] = useState(0.62);
     // The pieces added later (#42 on): their own little bits of state.
     const [birthday, setBirthday] = useState(() => new Date(2000, 0, 15));
@@ -270,7 +256,7 @@ export default function UICatalog() {
                             <StatTile value="1,240" label="Marks" />
                         </View>
                     </Variant>
-                    <Variant letter="b" label="Hero"><StatTile size="hero" value="62%" label="of your goal" detail="+4% this week" align="left" /></Variant>
+                    <Variant letter="b" label="Hero"><StatTile size="hero" value="62%" label="of this week kept" detail="+4% on last week" align="left" /></Variant>
                 </Specimen>
 
                 <Specimen number={26} name="Progress ring" file="components/ui/ProgressRing.tsx">
@@ -291,7 +277,7 @@ export default function UICatalog() {
                 </Specimen>
 
                 <Specimen number={29} name="Empty state" file="components/ui/EmptyState.tsx">
-                    <EmptyState icon="flag-outline" title="No goals. Bold strategy." message="A goal gives your habits somewhere to go." actionLabel="Add a goal" onAction={() => undefined} />
+                    <EmptyState icon="repeat" title="No habits yet." message="One small habit is how every streak starts." actionLabel="Add a habit" onAction={() => undefined} />
                 </Specimen>
 
                 <Specimen number={30} name="Divider" file="components/ui/Divider.tsx">
@@ -349,12 +335,7 @@ export default function UICatalog() {
                         </Reveal>
                     </Specimen>
 
-                    <Specimen number={38} name="Goal milestones" file="components/Goal/GoalMilestones.tsx" note="A path of flags: reached, next, late, ahead. Tap a flag to reach it.">
-                        <GoalMilestones color={t.color.accent} today={CATALOG_TODAY} milestones={catalogMilestones}
-                            onToggle={milestone => setCatalogMilestones(list => list.map(item => item.id === milestone.id ? { ...item, doneAt: item.doneAt ? undefined : 'now' } : item))}
-                            onOpen={() => setSheet(true)} />
-                    </Specimen>
-                    <Specimen number={39} name="First-run tour" file="components/ui/CoachMarks.tsx" note="In order across screens: Home's cards, making a first goal yourself, Roadmap, friends.">
+                    <Specimen number={39} name="First-run tour" file="components/ui/CoachMarks.tsx" note="In order across screens: Home's cards, making a first habit yourself, Roadmap, friends.">
                         <AppButton label="Start the tour" onPress={() => { router.navigate('/(root)/(tabs)/home'); setTimeout(startTour, 450); }} />
                     </Specimen>
                     <Specimen number={40} name="Opening a sheet or a window" file="theme/motion.ts" note="OVERLAY: every sheet, menu, filter and popup opens and closes the same way (260 ms in, 190 ms out, no bounce)">
@@ -362,9 +343,6 @@ export default function UICatalog() {
                             <View style={{ flex: 1 }}><AppButton label="Sheet" icon="arrow-up" onPress={() => setSheet(true)} /></View>
                             <View style={{ flex: 1 }}><AppButton label="Window" icon="albums" onPress={() => setModal(true)} /></View>
                         </View>
-                    </Specimen>
-                    <Specimen number={41} name="Goal reached" file="components/Celebrations/GoalCompleteSequence.tsx" note="The ceremony: settle, gather, the beat, reveal, count, rest, return. Tap anywhere to skip. docs/motion-system.md §4.1">
-                        <AppButton label="Play it" icon="trophy" onPress={() => setCeremony(value => value + 1)} />
                     </Specimen>
                     <Specimen number={37} name="Cells fading in" file="components/ui/Motion.tsx" note="PopIn">
                         <View style={styles.wrap}>
@@ -512,7 +490,7 @@ export default function UICatalog() {
 
                 <Specimen number={65} name="Post" file="components/ui/PostCard.tsx" note="one post in the feed">
                     <PostCard lead={<Avatar name="Sam" size={t.space['4xl']} />} name="Sam" rank={2} kind={{ icon: 'calendar', label: 'Daily' }} when="Yesterday 9:00 PM" score={0.6}
-                        hero={<Text variant="title">3 of 5 done</Text>} stats={[{ icon: 'flame', value: '2', label: 'day streak' }, { icon: 'flag', value: '1', label: 'goal' }]}>
+                        hero={<Text variant="title">3 of 5 done</Text>} stats={[{ icon: 'flame', value: '2', label: 'day streak' }, { icon: 'checkbox', value: '3', label: 'tasks' }]}>
                         <SegmentBar done={3} total={5} />
                     </PostCard>
                 </Specimen>
@@ -578,7 +556,6 @@ export default function UICatalog() {
             ]} />
             <PopupCard visible={popup} onClose={() => setPopup(false)} icon="trophy" iconColor={t.color.accent} title="Seven in a row" body="A week of perfect days. Your Marks now count double." />
             {receipt ? <Receipt title="Bet on Sam" amount={-25} line="Staked until Friday" onDone={() => setReceipt(false)} /> : null}
-            {ceremony ? <GoalCompleteSequence key={ceremony} goal={{ name: 'Read 24 books', color: t.color.accent, icon: 'book', count: 3 }} onDone={() => setCeremony(0)} /> : null}
             <VoidModal visible={modal} onClose={() => setModal(false)}>
                 <View style={{ gap: t.space.md }}>
                     <Text variant="title">Centred window</Text>

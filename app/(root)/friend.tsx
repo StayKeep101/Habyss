@@ -103,7 +103,6 @@ export default function FriendScreen() {
         streak: friend.currentStreak ?? 0,
         // Published by their phone with their Marks; their current run if not yet.
         bestStreak: Math.max(profile.bestStreak ?? 0, friend.currentStreak ?? 0),
-        goalsCompleted: profile.goalsCompleted ?? 0,
     } : undefined;
 
     const add = async () => {

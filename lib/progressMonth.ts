@@ -63,7 +63,7 @@ export function monthDays(input: MonthInput): DaySummary[] {
     const index = month.getMonth();
     const count = new Date(year, index + 1, 0).getDate();
 
-    const habits = input.habits.filter(habit => !habit.isGoal && !habit.isArchived)
+    const habits = input.habits.filter(habit => !habit.isArchived)
         .map(habit => ({ habit, scheduled: createHabitSchedule(habit) }));
     const firstDay = dayKey(year, index, 1);
     const lastDay = dayKey(year, index, count);

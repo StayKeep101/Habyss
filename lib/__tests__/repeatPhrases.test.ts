@@ -37,6 +37,6 @@ describe('a verb is only a command when it says what to make', () => {
     it('still drops it as a command', () => {
         expect(readVoice('Make a habit of reading every night')).toMatchObject({ kind: 'habit', text: 'Reading every night' });
         expect(readVoice('Add a task call the bank')).toMatchObject({ kind: 'task', text: 'Call the bank' });
-        expect(readVoice('Create a new goal run a marathon by June')?.kind).toBe('goal');
+        expect(readVoice('Create a new goal run a marathon by June')?.kind).toBe('task');
     });
 });

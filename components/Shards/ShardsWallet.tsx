@@ -1,16 +1,15 @@
-import { GOALS_ENABLED } from '@/constants/features';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ShardIcon } from '@/components/ui/ShardIcon';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { AppIcon, IconButton, ModalHeader, SectionTitle, StatTile, Text, VoidCard, VoidModal } from '@/components/ui';
 import { CountUp } from '@/components/ui/Motion';
-import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
+import { ProgressChart } from '@/components/ui/ProgressChart';
 import { PerfectLadder } from '@/components/Marks/PerfectLadder';
 import { useTokens } from '@/hooks/useTokens';
 import { SHARDS, WALLET_RANGES, sampleRange, type ShardMove, type WalletRange } from '@/lib/shards';
-import { DAILY_STAKE } from '@/lib/market';
-import type { GoalPoint } from '@/lib/goalInsights';
+import { DAILY_STAKE } from '@/lib/wallet';
+import type { ChartPoint } from '@/components/ui/ProgressChart';
 import type { Wallet } from '@/hooks/useWallet';
 import { Control, Radius, Spacing } from '@/theme/designSystem';
 import { DURATION } from '@/theme/motion';
@@ -72,7 +71,7 @@ export function WalletView({ wallet, multiplier, perfectRun, active, info, onInf
     // Only today's moves are listed; the chart shows the rest.
     const todayMoves = useMemo(() => { const today = localDateKey(new Date()); return wallet.activity.filter(move => move.date === today); }, [wallet.activity]);
     const [range, setRange] = useState<WalletRange>('24H');
-    const [scrub, setScrub] = useState<GoalPoint | null>(null);
+    const [scrub, setScrub] = useState<ChartPoint | null>(null);
     const setInfo = onInfo;
     // The line ends at now: moved on every minute while the wallet is open.
     const [now, setNow] = useState(() => Date.now());
@@ -84,7 +83,7 @@ export function WalletView({ wallet, multiplier, perfectRun, active, info, onInf
     }, [active]);
 
     // The range drawn point by point: every 2 minutes over an hour, every 30 over a day, and so on.
-    const series = useMemo<GoalPoint[]>(
+    const series = useMemo<ChartPoint[]>(
         () => sampleRange(wallet.timeline, range, now).map(point => ({ date: new Date(point.t).toISOString(), actual: point.value, pace: point.value, value: point.value })),
         [wallet.timeline, range, now],
     );
@@ -125,7 +124,7 @@ export function WalletView({ wallet, multiplier, perfectRun, active, info, onInf
                 </View>
 
                 <View style={styles.chart}>
-                    <GoalProgressChart series={series} color={line} height={200} onScrub={setScrub} unbounded pace={false} label="Shards balance" sticky={false} ticks
+                    <ProgressChart series={series} color={line} height={200} onScrub={setScrub} unbounded pace={false} label="Shards balance" sticky={false} ticks
                         custom={{ options: WALLET_RANGES.map(({ id, label }) => ({ id, label })), selected: range, onSelect: id => { setScrub(null); setRange(id as WalletRange); } }} />
                 </View>
 
@@ -183,14 +182,14 @@ export function WalletView({ wallet, multiplier, perfectRun, active, info, onInf
                             <View style={[styles.table, { backgroundColor: t.color.surfaceRaised }]}>
                                 <View style={styles.tableRow}>
                                     <View style={styles.first} />
-                                    {(GOALS_ENABLED ? ['Habit', 'Task', 'Goal'] as const : ['Habit', 'Task'] as const).map(label => (
+                                    {(['Habit', 'Task'] as const).map(label => (
                                         <View key={label} style={styles.cell}><Text variant="caption" tone="muted" align="right">{label}</Text></View>
                                     ))}
                                 </View>
                                 {(['add', 'complete', 'miss'] as const).map(kind => (
                                     <View key={kind} style={styles.tableRow}>
                                         <View style={styles.first}><Text variant="bodySmall" tone="muted">{VERB[kind]}</Text></View>
-                                        {(GOALS_ENABLED ? ['habit', 'task', 'goal'] as const : ['habit', 'task'] as const).map(item => {
+                                        {(['habit', 'task'] as const).map(item => {
                                             const points = rules[kind][item];
                                             return (
                                                 <View key={item} style={styles.cell}>
@@ -206,7 +205,6 @@ export function WalletView({ wallet, multiplier, perfectRun, active, info, onInf
                                 {([
                                     ['Sleep goal reached', rules.complete.sleep],
                                     ['Sleep goal missed', rules.miss.sleep],
-                                    ['Milestone reached', rules.complete.milestone],
                                     ['Exercise goal reached', rules.complete.exercise],
                                 ] as const).map(([label, points]) => (
                                     <View key={label} style={styles.tableRow}>
@@ -224,9 +222,9 @@ export function WalletView({ wallet, multiplier, perfectRun, active, info, onInf
 
                             <SectionTitle>Fair play</SectionTitle>
                             {[
-                                ['shield-checkmark', `No farming: earn on the day you create and finish something. Habits ticked days late do not earn. Adding things earns at most ${SHARDS.addCap} a day, milestones ${SHARDS.milestonesPerDay} a day, and no day earns more than ${SHARDS.dailyCap}. Deleting a task, habit or goal removes its earnings. Deleting or undoing does not free up today’s earning allowance. Your balance stops at zero; you never owe Shards.`],
+                                ['shield-checkmark', `No farming: earn on the day you create and finish something. Habits ticked days late do not earn. Adding things earns at most ${SHARDS.addCap} a day, and no day earns more than ${SHARDS.dailyCap}. Deleting a task, habit or goal removes its earnings. Deleting or undoing does not free up today’s earning allowance. Your balance stops at zero; you never owe Shards.`],
                                 ['alarm', `Misses are charged as the next day begins: a habit that was due and neither done nor skipped costs ${Math.abs(rules.miss.habit)}, a task past its date ${Math.abs(rules.miss.task)}. Tick yesterday’s habit today and its charge goes away. A skipped day costs nothing.`],
-                                ['trending-up', `Bet them on friends’ goals and races, or race the clock yourself. You can put up to ${DAILY_STAKE} at stake a day; there are ${DAILY_STAKE} again tomorrow.`],
+                                ['trending-up', `Bet them on friends’ races, or race the clock yourself. You can put up to ${DAILY_STAKE} at stake a day; there are ${DAILY_STAKE} again tomorrow.`],
                                 ['lock-closed', `Everyone starts with ${SHARDS.starter}. Never below zero.`],
                             ].map(([icon, sentence]) => (
                                 <View key={icon} style={styles.rule}>

@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { askForObject } from './onDeviceAI';
 import { parseHabitText, type ParsedHabit } from './habitParser';
-import { ALLOWED_UNITS, parseGoalText, type GoalParseResult, type HabitRef } from './goalParser';
 import type { TaskPriority } from './tasks';
 import { localDateKey } from './habitSchedule';
 
@@ -131,41 +130,3 @@ export async function smartParseTask(text: string, today = new Date()): Promise<
     };
 }
 
-/* ------------------------------------------------------------------- goals */
-
-const GoalSchema = z.object({
-    action: z.string().describe('The verb and object, e.g. "Save", "Run", "Read", "Launch my app".'),
-    target: z.number().nullable().describe('The number to reach, e.g. 10000 for "10k". null if none was given.'),
-    unit: z.enum(ALLOWED_UNITS).nullable().describe('What is counted, from the allowed list, or null.'),
-    per: z.enum(['day', 'week', 'month']).nullable().describe('If it repeats every day/week/month, else null.'),
-    deadline: z.string().nullable().describe('YYYY-MM-DD when it must be done by, resolved against today, or null.'),
-});
-
-/**
- * The model restates the goal in the plain form the goal parser reads best
- * ("Save 10000 dollars by 2026-12-31"), and the parser does the rest. The
- * structure of a goal therefore always comes from one place, and the model
- * only has to understand the sentence, which is what it is good at.
- */
-export async function smartParseGoal(text: string, options: { today?: Date; habits?: HabitRef[] } = {}): Promise<GoalParseResult | null> {
-    const today = options.today ?? new Date();
-    if (!text.trim()) return null;
-    const answer = await askForObject(
-        GoalSchema,
-        `You read one sentence describing a goal. ${describeToday(today)} Only use what the sentence says; never invent a number.`,
-        `Sentence: "${text.trim()}"`,
-    );
-    if (!answer) return null;
-
-    const action = cleanName(answer.action, 60);
-    if (!action) return null;
-    const target = inRange(answer.target, 0.01, 1e9);
-    const deadline = validDate(answer.deadline, today);
-    const amount = target !== null ? ` ${target}${answer.unit ? ` ${answer.unit}` : ''}` : '';
-    const when = answer.per ? ` per ${answer.per}` : deadline ? ` by ${deadline}` : '';
-    const restated = parseGoalText(`${action}${amount}${when}`, { today, habits: options.habits });
-    const original = parseGoalText(text, { today, habits: options.habits });
-
-    // Keep whichever reading is more complete; ties go to the model's.
-    return restated.missing_fields.length <= original.missing_fields.length ? restated : original;
-}

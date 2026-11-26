@@ -1,4 +1,3 @@
-import { GOALS_ENABLED } from '@/constants/features';
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { AppButton, ChoicePill, IconButton, ListItem, Text, VoidSheet } from '@/components/ui';
@@ -11,12 +10,11 @@ import { Radius, Spacing } from '@/theme/designSystem';
 const KINDS: { id: VoiceKind; label: string; icon: string }[] = [
     { id: 'task', label: 'Task', icon: 'checkbox' },
     { id: 'habit', label: 'Habit', icon: 'repeat' },
-    ...(GOALS_ENABLED ? [{ id: 'goal' as VoiceKind, label: 'Goal', icon: 'flag' }] : []),
 ];
 
 /**
- * What was heard, spoken freely: each thing in it as a task, a habit or a
- * goal (tap to say otherwise, or take it out), then one button for all of it.
+ * What was heard, spoken freely: each thing in it as a task or a habit
+ * (tap to say otherwise, or take it out), then one button for all of it.
  * Closed without adding, it all goes to the brain dump: a thought said out
  * loud is never lost.
  */

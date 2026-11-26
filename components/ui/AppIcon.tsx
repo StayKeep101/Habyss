@@ -50,7 +50,7 @@ export const isGlyphIcon = (name: string): boolean =>
 /**
  * One icon, whatever the user chose it to be.
  *
- * Habits and goals used to be limited to the collection, so "your own icon"
+ * Habits used to be limited to the collection, so "your own icon"
  * had nowhere to go. A saved icon can now be an Ionicons name, a picture from
  * the photo library, or a glyph typed in — and because every card, row and
  * chip in the app draws its icons through here, teaching this one component

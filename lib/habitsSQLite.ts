@@ -13,7 +13,7 @@ import { getLocalUserId } from './localUser';
 import { NotificationService } from './notificationService';
 import type { HealthMetric } from './healthMetrics';
 import { firstDueDay, isHabitScheduledForDate, localDateKey, parseHabitDate } from './habitSchedule';
-import { addDays } from './goalInsights';
+import { addDays } from './habitSummary';
 import { measurementFor } from './habitMeasurement';
 import { emit } from './appEvents';
 import type { TickSource } from './tickSource';
@@ -39,8 +39,6 @@ export interface Habit {
     durationMinutes?: number;
     startTime?: string;
     endTime?: string;
-    isGoal?: boolean;
-    targetDate?: string;
     type: HabitType;
     color: string;
     goalPeriod: GoalPeriod;
@@ -53,15 +51,12 @@ export interface Habit {
     endDate?: string;
     isArchived: boolean;
     showMemo: boolean;
-    goalId?: string;
     frequency?: HabitFrequency;
     weekInterval?: number;
     graphStyle?: string;
     timeOfDay?: TimeOfDay;
     trackingMethod?: TrackingMethod;
     ringtone?: string;
-    /** Parsed goal contract as JSON; set on goals created from natural language. */
-    goalSpec?: string;
     locationReminders?: LocationReminder[];
     reminderOffset?: number; // Minutes before start time
     /** Its own reminders before it begins, in minutes (lib/itemAlerts.ts); replaces reminderOffset when set. */
@@ -187,8 +182,6 @@ export async function getHabits(): Promise<Habit[]> {
                     durationMinutes: row.duration_minutes,
                     startTime: row.start_time,
                     endTime: row.end_time,
-                    isGoal: row.is_goal === 1,
-                    targetDate: row.target_date,
                     type: row.type || 'build',
                     color: row.color || '#6B46C1',
                     goalPeriod: row.goal_period || 'daily',
@@ -201,12 +194,10 @@ export async function getHabits(): Promise<Habit[]> {
                     endDate: row.end_date,
                     isArchived: row.is_archived === 1,
                     showMemo: row.show_memo === 1,
-                    goalId: row.goal_id,
                     frequency: row.frequency,
                     weekInterval: row.week_interval,
                     timeOfDay: row.time_of_day,
                     ringtone: row.ringtone || 'default',
-                    goalSpec: row.goal_spec || undefined,
                     reminderOffset: row.reminder_offset,
                     locationReminders: storedArray(row.location_reminders)
                         .filter(location => location && typeof location.name === 'string' && Number.isFinite(location.latitude) && Number.isFinite(location.longitude))
@@ -243,19 +234,14 @@ export async function getHabits(): Promise<Habit[]> {
     return cachedHabits || [];
 }
 
-export async function getGoals(): Promise<Habit[]> {
-    const habits = await getHabits();
-    return habits.filter(h => h.isGoal);
-}
-
 /**
  * A new habit, linked to what can count it when its name says so ("Run", "Walk 8000
  * steps", "Meditate"): the source, its unit when the habit has none, and a target.
- * Not a goal, not a habit being broken, not one already linked; and only on iOS.
+ * Not a habit being broken, not one already linked; and only on iOS.
  */
 export function withAutoTrack(habit: Partial<Habit>, chosen?: HealthMetric): Partial<Habit> {
     // Chosen in the Tracking chip: linked to that, whatever the name says.
-    if ((habit.healthKitMetric && !chosen) || habit.isGoal || habit.type === 'quit' || !habit.name) return habit;
+    if ((habit.healthKitMetric && !chosen) || habit.type === 'quit' || !habit.name) return habit;
     const { Platform } = require('react-native') as typeof import('react-native');
     if (Platform.OS !== 'ios') return habit;
     const { guessHealthMetric, autoTrackDefaults } = require('./autoTrackGuess') as typeof import('./autoTrackGuess');
@@ -309,12 +295,12 @@ export async function addHabit(input: Partial<Habit>, options?: { autoTrack?: bo
 
                 await db.runAsync(`
                     INSERT INTO habits (
-                        id, user_id, name, description, category, icon, is_goal, target_date, goal_id,
+                        id, user_id, name, description, category, icon,
                         task_days, reminders, start_date, end_date, duration_minutes, start_time, end_time,
                         type, color, goal_period, goal_value, unit, chart_type, is_archived, show_memo,
                         frequency, week_interval, time_of_day, graph_style, tracking_method,
-                        ringtone, goal_spec, reminder_offset, reminder_message, recurrence, location_reminders, health_kit_metric, health_kit_target, priority, difficulty, flexible, created_at, updated_at, synced, deleted
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+                        ringtone, reminder_offset, reminder_message, recurrence, location_reminders, health_kit_metric, health_kit_target, priority, difficulty, flexible, created_at, updated_at, synced, deleted
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
                 `,
                     id,
                     uid,
@@ -322,9 +308,6 @@ export async function addHabit(input: Partial<Habit>, options?: { autoTrack?: bo
                     habitData.description || null,
                     habitData.category || 'misc',
                     habitData.icon || null,
-                    habitData.isGoal ? 1 : 0,
-                    habitData.targetDate || null,
-                    habitData.goalId || null,
                     JSON.stringify(habitData.taskDays || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']),
                     JSON.stringify(habitData.reminders || []),
                     firstDay,
@@ -346,7 +329,6 @@ export async function addHabit(input: Partial<Habit>, options?: { autoTrack?: bo
                     habitData.graphStyle || null,
                     habitData.trackingMethod || 'boolean',
                     habitData.ringtone || 'default',
-                    habitData.goalSpec || null,
                     habitData.reminderOffset || null,
                     habitData.reminderMessage?.trim() || null,
                     habitData.recurrence || null,
@@ -373,8 +355,6 @@ export async function addHabit(input: Partial<Habit>, options?: { autoTrack?: bo
                     durationMinutes: habitData.durationMinutes,
                     startTime: habitData.startTime,
                     endTime: habitData.endTime,
-                    isGoal: habitData.isGoal,
-                    targetDate: habitData.targetDate,
                     type: habitData.type || 'build',
                     color: habitData.color || '#6B46C1',
                     goalPeriod: habitData.goalPeriod || 'daily',
@@ -387,12 +367,10 @@ export async function addHabit(input: Partial<Habit>, options?: { autoTrack?: bo
                     endDate: habitData.endDate,
                     isArchived: habitData.isArchived || false,
                     showMemo: habitData.showMemo || false,
-                    goalId: habitData.goalId,
                     frequency: habitData.frequency,
                     weekInterval: habitData.weekInterval,
                     timeOfDay: habitData.timeOfDay,
                     ringtone: habitData.ringtone || 'default',
-                    goalSpec: habitData.goalSpec,
                     reminderOffset: habitData.reminderOffset,
                     alerts: parseAlerts(habitData.alerts ?? []),
                     anchor: parseAnchor(habitData.anchor ?? null),
@@ -444,9 +422,6 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 if (updatedHabit.description !== undefined) { setClauses.push('description = ?'); params.push(updatedHabit.description); }
                 if (updatedHabit.category !== undefined) { setClauses.push('category = ?'); params.push(updatedHabit.category); }
                 if (updatedHabit.icon !== undefined) { setClauses.push('icon = ?'); params.push(updatedHabit.icon); }
-                if (updatedHabit.isGoal !== undefined) { setClauses.push('is_goal = ?'); params.push(updatedHabit.isGoal ? 1 : 0); }
-                if (updatedHabit.targetDate !== undefined) { setClauses.push('target_date = ?'); params.push(updatedHabit.targetDate); }
-                if (Object.prototype.hasOwnProperty.call(updatedHabit, 'goalId')) { setClauses.push('goal_id = ?'); params.push(updatedHabit.goalId ?? null); }
                 if (updatedHabit.taskDays !== undefined) { setClauses.push('task_days = ?'); params.push(JSON.stringify(updatedHabit.taskDays)); }
                 if (updatedHabit.reminders !== undefined) { setClauses.push('reminders = ?'); params.push(JSON.stringify(updatedHabit.reminders)); }
                 if (updatedHabit.isArchived !== undefined) { setClauses.push('is_archived = ?'); params.push(updatedHabit.isArchived ? 1 : 0); }
@@ -468,7 +443,6 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 if (updatedHabit.graphStyle !== undefined) { setClauses.push('graph_style = ?'); params.push(updatedHabit.graphStyle); }
                 if (updatedHabit.trackingMethod !== undefined) { setClauses.push('tracking_method = ?'); params.push(updatedHabit.trackingMethod); }
                 if (updatedHabit.ringtone !== undefined) { setClauses.push('ringtone = ?'); params.push(updatedHabit.ringtone); }
-                if (updatedHabit.goalSpec !== undefined) { setClauses.push('goal_spec = ?'); params.push(updatedHabit.goalSpec); }
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'reminderOffset')) { setClauses.push('reminder_offset = ?'); params.push(updatedHabit.reminderOffset ?? null); }
                 if (updatedHabit.locationReminders !== undefined) { setClauses.push('location_reminders = ?'); params.push(JSON.stringify(updatedHabit.locationReminders)); }
                 if (updatedHabit.alerts !== undefined) { setClauses.push('alerts = ?'); params.push(storeAlerts(updatedHabit.alerts)); }
@@ -560,23 +534,6 @@ export async function removeHabitEverywhere(habitId: string): Promise<void> {
     // Said out loud, like updateHabit: a delete that quietly did nothing left
     // the screen saying it was gone and the habit back on the next launch.
     throw new Error('Habit storage is unavailable. Nothing was deleted.');
-}
-
-export async function removeGoalWithLinkedHabits(goalId: string): Promise<void> {
-    const habits = cachedHabits || await getHabits();
-    const linkedHabits = habits.filter(h => h.goalId === goalId);
-
-    const { deleteTasksForGoal } = await import('./tasks');
-
-    // Delete all linked habits, tasks and the goal in parallel
-    await Promise.all([
-        ...linkedHabits.map(habit => removeHabitEverywhere(habit.id)),
-        removeHabitEverywhere(goalId),
-        deleteTasksForGoal(goalId),
-    ]);
-
-    emit('goal_deleted', { goalId });
-    emit('tasks_changed');
 }
 
 // --- Completions ---
@@ -1182,7 +1139,7 @@ export async function syncHealthKitData(): Promise<number> {
     if (!HealthKitService.isAvailable) return 0;
 
     const habits = (await getHabits()).filter(habit =>
-        habit.healthKitMetric && !habit.isArchived && !habit.isGoal);
+        habit.healthKitMetric && !habit.isArchived);
     if (habits.length === 0) return 0;
 
     // Only now: asking for Health permission on behalf of nobody is rude.
@@ -1231,7 +1188,7 @@ export async function syncHealthKitData(): Promise<number> {
  */
 export async function alignUnstartedHabits(habits: Habit[], today: string): Promise<void> {
     for (const habit of habits) {
-        if (habit.isGoal || habit.isArchived || !habit.startDate) continue;
+        if (habit.isArchived || !habit.startDate) continue;
         const start = parseHabitDate(habit.startDate);
         if (!start) continue;
         const first = firstDueDay(habit);

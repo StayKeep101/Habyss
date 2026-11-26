@@ -1,7 +1,7 @@
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
 import { createHabitRequirement, localDateKey, parseHabitDate } from './habitSchedule';
-import { addDays, dateAt } from './goalInsights';
+import { addDays, dateAt } from './habitSummary';
 import { countedHistory, countedTasks } from './sharedGate';
 
 /**
@@ -12,7 +12,7 @@ import { countedHistory, countedTasks } from './sharedGate';
  * it happened where that is known.
  *
  * Nothing is stored. Marks are read back from what is already recorded — the
- * habits, tasks and goals, every check-in, every due date — so the number can
+ * habits and tasks, every check-in, every due date — so the number can
  * never drift from the history, a restore brings it back exactly, and undoing
  * a tick takes its marks back with it. Deleting something takes back
  * exactly what it earned (adding it, keeping it), so adding and deleting is
@@ -22,9 +22,9 @@ import { countedHistory, countedTasks } from './sharedGate';
  */
 
 export const MARKS = {
-    add: { habit: 1, task: 2, goal: 5 },
-    complete: { habit: 5, task: 10, goal: 50, sleep: 20, milestone: 30, exercise: 20 },
-    miss: { habit: -2, task: -4, goal: -15, sleep: -20 },
+    add: { habit: 1, task: 2 },
+    complete: { habit: 5, task: 10, sleep: 20, exercise: 20 },
+    miss: { habit: -2, task: -4, sleep: -20 },
 } as const;
 
 /**
@@ -37,7 +37,7 @@ export const MARKS_LIMITS = {
     /** Habits a day that earn their full Marks; each one after earns this many. */
     fullHabitsPerDay: 8,
     extraHabit: 1,
-    /** The most adding habits, tasks and goals can earn in a day. */
+    /** The most adding habits and tasks can earn in a day. */
     addsPerDay: 10,
 } as const;
 
@@ -123,7 +123,7 @@ export function rankFor(marks: number): { rank: Rank; next: Rank | null; progres
 }
 
 export type MarkKind = 'add' | 'complete' | 'miss';
-export type MarkItem = 'habit' | 'task' | 'goal' | 'sleep' | 'focus' | 'milestone' | 'exercise';
+export type MarkItem = 'habit' | 'task' | 'sleep' | 'focus' | 'exercise';
 
 export interface MarkEvent {
     date: string;
@@ -137,22 +137,18 @@ export interface MarkEvent {
     id?: string;
     /** Completed the same day it was made: it counts as XP, never as Shards (no farming). */
     sameDay?: boolean;
-    /** For a completion, the day the thing was made: a goal pays Shards only if it lived a few days. */
+    /** For a completion, the day the thing was made. */
     madeOn?: string;
 }
 
 export interface MarksInput {
-    /** Habits and goals; goals are habits with `isGoal`. */
+    /** Every habit. */
     habits: Habit[];
     tasks: Task[];
     /** Completed habit ids by local date. */
     history: Record<string, string[]>;
     /** Skipped habit ids by local date: neither kept nor missed. */
     skips?: Record<string, string[]>;
-    /** The day each goal reached 100%, when it has. */
-    goalsCompletedOn?: Record<string, string | null | undefined>;
-    /** Milestones reached on a goal: +30 each, on the day reached (lib/goalMilestones.ts). */
-    milestones?: { title: string; doneAt: string }[];
     /** Days the exercise goal was reached (Apple Health): +20 each. Missing it costs nothing. */
     activeDays?: string[];
     /** Mornings after a night that reached the sleep goal: +20 each (sleep matters that much). */
@@ -238,8 +234,7 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
         });
     };
 
-    const habits = input.habits.filter(habit => !habit.isGoal);
-    const goals = input.habits.filter(habit => habit.isGoal);
+    const habits = input.habits;
     const habitIds = new Map(habits.map(habit => [habit.id, habit]));
 
     // ---------------------------------------------------------------- habits
@@ -296,23 +291,7 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
         }
     }
 
-    // ----------------------------------------------------------------- goals
-    for (const goal of goals) {
-        record(dayOf(goal.createdAt), MARKS.add.goal, 'add', 'goal', goal.name, { id: goal.id, at: goal.createdAt });
-        const reached = input.goalsCompletedOn?.[goal.id] ?? null;
-        if (reached) record(reached, MARKS.complete.goal, 'complete', 'goal', goal.name, { id: goal.id, since: dayOf(goal.createdAt) });
-        const deadline = dayOf(goal.targetDate);
-        if (deadline && deadline < today && (!reached || reached > deadline)) {
-            record(addDays(deadline, 1), MARKS.miss.goal, 'miss', 'goal', goal.name);
-        }
-    }
-
     // ----------------------------------------------------------------- sleep
-    // ------------------------------------------------------------ milestones
-    for (const milestone of input.milestones ?? []) {
-        record(dayOf(milestone.doneAt), MARKS.complete.milestone, 'complete', 'milestone', milestone.title, { at: milestone.doneAt });
-    }
-
     for (const day of input.activeDays ?? []) {
         if (day >= floor) record(day, MARKS.complete.exercise, 'complete', 'exercise', 'Exercise goal reached');
     }
@@ -359,7 +338,7 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
 }
 
 /**
- * The misses one habit, goal or task has cost so far: what stays on the
+ * The misses one habit or task has cost so far: what stays on the
  * record when it is deleted.
  */
 export function penaltiesOf(input: MarksInput, ids: { habits?: string[]; tasks?: string[] }): KeptPenalty[] {
@@ -373,8 +352,6 @@ export function penaltiesOf(input: MarksInput, ids: { habits?: string[]; tasks?:
         goodNights: [], shortNights: [], kept: [],
     };
     return [...computeMarks(only, Number.MAX_SAFE_INTEGER).ledger].reverse()
-        // A goal's deadline miss depends on whether it was reached, which only
-        // its insights know; goals are left out rather than charged wrongly.
-        .filter(event => event.kind === 'miss' && event.item !== 'goal')
+        .filter(event => event.kind === 'miss')
         .map(({ date, points, item, title }) => ({ date, points, item, title }));
 }

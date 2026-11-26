@@ -64,7 +64,7 @@ export function buildWidgetPayload(options: {
     const date = new Date(`${today}T12:00:00`);
 
     const dueHabits = habits
-        .filter(habit => !habit.isGoal && !habit.isArchived && !skipped[habit.id] && isHabitScheduledForDate(habit, date))
+        .filter(habit => !habit.isArchived && !skipped[habit.id] && isHabitScheduledForDate(habit, date))
         .sort((a, b) => byTime(a.startTime, b.startTime))
         .map(habit => ({ id: HABIT + habit.id, name: habit.name, isCompleted: !!completions[habit.id] }));
 
@@ -209,7 +209,7 @@ async function drain(): Promise<{ habits: number; tasks: number }> {
         for (const event of [...oldEvents, ...events]) {
             const { kind, id } = parseWidgetId(event.id);
             if (kind === 'habit') {
-                const found = habits.find(habit => habit.id === id && !habit.isGoal);
+                const found = habits.find(habit => habit.id === id);
                 // A tap ticks anything, timed habits included.
                 // A tick that needs proof (a challenge or a bet) is held, and asked for in Habyss.
                 if (found && event.done && await (require('./challengeProof') as typeof import('./challengeProof')).holdForProof({ kind: 'habit', habit: found })) { /* held */ }

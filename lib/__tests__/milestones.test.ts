@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { announceDailyTarget, announceGoalComplete, claimDailyTarget, claimGoal, forgetGoal } from '../milestones';
+import { announceDailyTarget, claimDailyTarget } from '../milestones';
 import { emit } from '../appEvents';
 
 jest.mock('../appEvents', () => ({ emit: jest.fn() }));
@@ -27,27 +27,6 @@ describe('a moment is only stopped for once', () => {
         expect(await claimDailyTarget('2026-09-27')).toBe(true);
     });
 
-    it('claims a goal once, however many times it crosses the line', async () => {
-        // Un-ticking a habit and re-ticking it must not announce again.
-        expect(await claimGoal('g1')).toBe(true);
-        expect(await claimGoal('g1')).toBe(false);
-        expect(await claimGoal('g1')).toBe(false);
-    });
-
-    it('keeps goals apart', async () => {
-        await claimGoal('g1');
-        expect(await claimGoal('g2')).toBe(true);
-    });
-
-    it('can be made to forget one, so a reopened goal counts again', async () => {
-        await claimGoal('g1');
-        await forgetGoal('g1');
-        expect(await claimGoal('g1')).toBe(true);
-    });
-
-    it('refuses a goal with no id rather than claiming an empty one', async () => {
-        expect(await claimGoal('')).toBe(false);
-    });
 });
 
 describe('what gets announced', () => {
@@ -77,11 +56,6 @@ describe('what gets announced', () => {
         await announceDailyTarget(2, 3);
         await announceDailyTarget(3, 3);
         expect(emit).toHaveBeenCalledTimes(2);
-    });
-
-    it('carries the goal name, because that is what is worth reading', async () => {
-        await announceGoalComplete('g1', 'Read 4 books');
-        expect(emit).toHaveBeenCalledWith('goal_complete', { goalId: 'g1', name: 'Read 4 books' });
     });
 
     it('ignores a target of zero rather than celebrating nothing', async () => {

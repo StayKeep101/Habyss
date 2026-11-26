@@ -17,37 +17,31 @@ local stdio, or an OAuth authorization flow. OAuth-only connectors cannot use
 this personal-key integration. Client support for remote servers can depend
 on the client's account or organization settings.
 
-Try: “Build a roadmap to launch my project, with milestones, tasks and daily
-habits.” An agent discovers the schemas using `tools/list`.
+Try: “Plan my week: the tasks to launch my project, and a daily habit to keep
+it moving.” An agent discovers the schemas using `tools/list`.
 
 | Tool | Result |
 | --- | --- |
 | `get_today` | Due habits and dated open tasks, including overdue tasks |
-| `list_tasks`, `list_habits`, `list_goals` | Existing items and their IDs |
-| `add_task` | Task, optional goal/milestone link and subtasks; defaults to 90 minutes |
-| `add_habit` | Recurring habit, optional goal link; defaults to daily, 30 minutes |
-| `add_goal` | Project, numeric, or time goal |
-| `create_roadmap` | One goal with ordered milestones, tasks and habits, in one transaction |
-| `get_roadmap` | Goal with all linked milestones, habits and tasks |
+| `list_tasks`, `list_habits` | Existing items and their IDs |
+| `add_task` | Task with optional subtasks; defaults to 90 minutes |
+| `add_habit` | Recurring habit; defaults to daily, 30 minutes |
 | `complete_task`, `log_habit` | Record completion |
 
-For roadmaps, put milestone-specific tasks inside each milestone's `tasks`.
-Top-level tasks and habits link to the new goal. Numeric goals require `target`
-and `unit`; time goals use minutes. Dates are calendar dates, and defaults use
-the time zone recorded when the key was created.
+Dates are calendar dates, and defaults use the time zone recorded when the key
+was created.
 
 Supply a UUID `request_id` on creation tools and reuse it with identical
 arguments if a request times out. The database returns the first result rather
 than creating duplicates, including for concurrent retries. Reusing the UUID
-with changed arguments returns an error. Requests are limited to 300 total
-plan items and 1 MiB. Invalid inputs fail before writing; database failures roll
-back the entire plan. Links may reference only the key owner's goals/milestones.
+with changed arguments returns an error. Requests are limited to 1 MiB.
+Invalid inputs fail before writing; database failures write nothing.
 
 Changes are saved to the account's cloud data. Habyss downloads them on its next
 sync (including foreground sync, which is throttled to once per three minutes).
 For an immediate refresh, use **Settings → Account → Back up now**. A local device
 must be signed into the same account and online. MCP access does not grant
-access to other users' shared goals.
+access to other users' shared habits or tasks.
 
 ## Verification and deployment
 
@@ -64,6 +58,6 @@ access to other users' shared goals.
   directory to additionally test the official client's HTTP handshake and calls.
 
 The live checks cover discovery, both authentication forms, standalone creation,
-roadmaps, completions, concurrent retries, account isolation, privileged RPC
+completions, concurrent retries, account isolation, privileged RPC
 permissions, rollback and revocation. Unit tests check app sync mappings.
 Physical-device rendering and every third-party agent UI still require manual QA.

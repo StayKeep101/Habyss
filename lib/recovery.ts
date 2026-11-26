@@ -54,7 +54,7 @@ export function recovery(
     today: string = localDateKey(new Date()),
 ): Recovery {
     const window = habitDays(habits, history, completions, days, today, today);
-    const active = habits.filter(habit => !habit.isGoal && !habit.isArchived);
+    const active = habits.filter(habit => !habit.isArchived);
 
     let recovered = 0;
     let doubles = 0;

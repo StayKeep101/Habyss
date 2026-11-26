@@ -31,15 +31,12 @@ import { FocusTimeProvider, useFocusSession } from '@/context/FocusTimeContext';
 import { CreationModal } from '@/components/Create/CreationModal';
 import { CheckInHost } from '@/components/Echo/CheckInHost';
 import { FreezeAskHost } from '@/components/Echo/FreezeAskHost';
-import { OpenBetHost } from '@/components/Market/OpenBetHost';
 import { ChallengeHost } from '@/components/Challenge/ChallengeHost';
 import { RaceSheet } from '@/components/Challenge/RaceSheet';
 import { ProofCameraHost } from '@/components/Proof/ProofCameraHost';
 import { DayCompleteCelebration } from '@/components/Celebrations/DayCompleteCelebration';
-import { MilestoneCelebration } from '@/components/Celebrations/MilestoneCelebration';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { GlassRipple } from '@/components/Home/GlassRipple';
-import { GoalSheet } from '@/components/Create/GoalSheet';
 import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
 import { FeedbackSheet } from '@/components/Common/FeedbackSheet';
 import { flushFeedback } from '@/lib/feedback';
@@ -133,8 +130,6 @@ export default function MobileLayout() {
             (require('@/lib/orientation') as typeof import('@/lib/orientation')).applyDefaultOrientation();
             // Your day and Echo's settings, read once so every screen opens on them.
             (require('@/lib/echo') as typeof import('@/lib/echo')).warmEchoSettings();
-            // One-go goals count past efforts at what they were (lib/peakPlan.ts).
-            await (require('@/lib/peakPlan') as typeof import('@/lib/peakPlan')).loadTargetLog().catch(() => undefined);
             await Promise.race([data, new Promise(resolve => setTimeout(resolve, 1500))]);
             // On-device AI in the background: Apple's built-in model when the
             // phone has one, otherwise the Llama model, downloaded on Wi-Fi the
@@ -386,7 +381,7 @@ function InnerLayout() {
         const { drainQuickAdds } = require('@/lib/shortcutsInbox');
         const added = await drainQuickAdds();
         if (added.tasks.length) emit('tasks_changed');
-        if (added.habits.length || added.goals.length) emit('habit_updated', {});
+        if (added.habits.length) emit('habit_updated', {});
 
         // Long enough at a place that ticks itself, and still there (lib/LocationService.ts).
         await (require('@/lib/LocationService') as typeof import('@/lib/LocationService')).checkStays().catch(() => undefined);
@@ -441,7 +436,7 @@ function InnerLayout() {
             emit('tasks_changed');
           }
           if (!leavingApp) {
-            // The moments first (a goal reached, the day won): they answer the tick just made,
+            // The moments first (the day's promise kept, the day won): they answer the tick just made,
             // so they never wait behind the widgets and Live Activities below.
             await require('@/lib/dayComplete').checkDayComplete();
             await require('@/lib/milestones').checkMilestones();
@@ -461,7 +456,7 @@ function InnerLayout() {
       timer = setTimeout(() => { InteractionManager.runAfterInteractions(() => { void refresh(); }); }, 600);
     };
     const stop = onAny(['habit_completion_updated', 'habit_created', 'habit_updated', 'habit_deleted',
-      'goal_deleted', 'tasks_changed', 'cloud_restored', 'engagement_settings_changed', 'daily_focus_target_changed'], enqueue);
+      'tasks_changed', 'cloud_restored', 'engagement_settings_changed', 'daily_focus_target_changed'], enqueue);
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'active') enqueue();
       else {
@@ -496,13 +491,11 @@ function InnerLayout() {
           <Stack.Screen name="+not-found" />
         </Stack>
         <DayCompleteCelebration />
-        <MilestoneCelebration />
         <DailyTargetCelebration />
         <CreationModal />
-        {/* What the + opens from any tab: Echo's one-tap question, a goal opened to bets. */}
+        {/* What the + opens from any tab: Echo's one-tap question. */}
         <CheckInHost />
         <FreezeAskHost />
-        <OpenBetHost />
         <ChallengeHost />
         <RaceSheet />
         <ProofCameraHost />
@@ -510,7 +503,6 @@ function InnerLayout() {
         {/* Hold the create button and speak. */}
         <VoiceCapture />
         <HabitSheet listenToGlobalEvents />
-        <GoalSheet listenToGlobalEvents />
         <TaskFormModal listenToGlobalEvents />
         {/* Mounted once, raised from anywhere with `show_feedback`. Telling us
             something should never depend on being on the right screen. */}

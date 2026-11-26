@@ -5,7 +5,7 @@ import { cleanSpeech } from './voiceClean';
  * Speaking freely, understood: one ramble ("um so tomorrow I need to call the
  * bank and uh I want to start running every morning, and also I'd love to
  * read twelve books this year") turned into the separate things in it, each a
- * task, a habit or a goal, written the way you'd have typed it.
+ * task or a habit, written the way you'd have typed it.
  *
  * Rules first, so it is instant, offline and the same everywhere: the sounds
  * of thinking out (lib/voiceClean.ts), split where one thought ends and the
@@ -53,7 +53,7 @@ export async function planFromSpeech(spoken: string): Promise<VoiceItem[]> {
         const { z } = require('zod') as typeof import('zod');
         const schema = z.object({
             items: z.array(z.object({
-                kind: z.enum(['task', 'habit', 'goal']).describe('task: done once. habit: repeats (every day, each morning, 3 times a week). goal: an outcome to reach, often with a number or a deadline.'),
+                kind: z.enum(['task', 'habit']).describe('task: done once, including an outcome to reach by a date. habit: repeats (every day, each morning, 3 times a week).'),
                 text: z.string().describe('The thing in a few words, as they would type it, keeping every name, number, day and time. No "I need to".'),
             })).describe('Every separate thing they mean to do, in the order said.'),
         });

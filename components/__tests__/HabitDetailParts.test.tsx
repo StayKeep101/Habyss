@@ -14,13 +14,12 @@ const record = habitRecord([
 describe('the habit page', () => {
     it('shows the habit, its week and its numbers', async () => {
         const screen = render(<>
-            <HabitHero name="Read" schedule="Daily · 21:00" color="#7aa2ff" weekShare={0.5} goalName="Read 24 books" onGoal={jest.fn()} />
+            <HabitHero name="Read" schedule="Daily · 21:00" color="#7aa2ff" weekShare={0.5} />
             <StreakFlame streak={record.streak} best={record.best} />
             <HabitWeek week={record.week} color="#7aa2ff" />
             <HabitInsight record={record} />
         </>);
         expect(screen.getByText('Read')).toBeTruthy();
-        expect(screen.getByLabelText('Part of the goal Read 24 books. Open it')).toBeTruthy();
         expect(screen.getByLabelText(/^Streak: \d+ days?\. Best: \d+$/)).toBeTruthy();
         expect(screen.getByLabelText(/today, not done yet/)).toBeTruthy();
         await act(async () => {});

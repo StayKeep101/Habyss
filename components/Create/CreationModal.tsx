@@ -178,7 +178,7 @@ const MenuRow = ({ item, index, count, progress, size, colors, isLight, onPress 
             <Pressable
                 ref={pill}
                 accessibilityRole="button"
-                accessibilityLabel={['goal', 'habit', 'task', 'thought'].includes(item.id) ? `Create ${item.label.toLowerCase()}` : item.label}
+                accessibilityLabel={['habit', 'task', 'thought'].includes(item.id) ? `Create ${item.label.toLowerCase()}` : item.label}
                 onPress={onPress}
                 // Static, not a function: see ViewSwitcher — a function style
                 // loses the layout on this React Native.

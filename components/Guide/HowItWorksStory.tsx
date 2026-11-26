@@ -15,16 +15,14 @@ const STAGE = vs(170);
 const EASE = { easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
 
 const SCENES = [
-    { title: 'Goals are the target', body: 'Where you want to end up. A race, a book, a new habit for good.' },
-    { title: 'Habits and tasks are the steps', body: 'Put them under a goal. Every one you do takes you a step closer.' },
+    { title: 'Habits and tasks are the steps', body: 'Habits repeat, tasks are done once. Every one you do takes you a step further.' },
     { title: 'Today’s 3', body: 'Tasks are also what you do each day: pick 3 (or 5) and finish them.' },
-    { title: 'Marks are your points', body: `Every habit (+${MARKS.complete.habit}), task (+${MARKS.complete.task}) and goal (+${MARKS.complete.goal}) you finish earns Marks.` },
+    { title: 'Marks are your points', body: `Every habit (+${MARKS.complete.habit}) and task (+${MARKS.complete.task}) you finish earns Marks.` },
 ];
 
 /**
- * How Habyss works, in four short animated scenes: the goal at the top, the
- * habits and tasks as steps up to it, Today's 3, and Marks flying in for
- * everything finished. Plays on its own; tap to move on.
+ * How Habyss works, in three short animated scenes: habits and tasks as
+ * steps, Today's 3, and Marks flying in for everything finished. Plays on its own; tap to move on.
  */
 export function HowItWorksStory({ onFinished }: { onFinished?: () => void }) {
     const t = useTokens();
@@ -41,7 +39,7 @@ export function HowItWorksStory({ onFinished }: { onFinished?: () => void }) {
         <Pressable onPress={next} accessibilityRole="button" accessibilityLabel={`${SCENES[scene].title}. ${SCENES[scene].body}`} accessibilityHint="Shows the next part">
             <VoidCard style={[styles.card, { padding: t.space.xl, gap: t.space.md }]}>
                 <View key={scene} style={styles.stage}>
-                    {scene === 0 ? <GoalScene /> : scene === 1 ? <StepsScene /> : scene === 2 ? <TodayScene /> : <MarksScene />}
+                    {scene === 0 ? <StepsScene /> : scene === 1 ? <TodayScene /> : <MarksScene />}
                 </View>
                 <Animated.View key={`text-${scene}`} entering={FadeInUp.duration(400)} style={{ gap: t.space.xs }}>
                     <Text style={[t.type.title, styles.center, { color: t.color.textPrimary }]}>{SCENES[scene].title}</Text>
@@ -54,22 +52,6 @@ export function HowItWorksStory({ onFinished }: { onFinished?: () => void }) {
                 </View>
             </VoidCard>
         </Pressable>
-    );
-}
-
-/** The flag, with a ring pulsing out of it: the thing you aim at. */
-function GoalScene() {
-    const t = useTokens();
-    const pulse = useSharedValue(0);
-    useEffect(() => { pulse.value = withDelay(400, withRepeat(withTiming(1, { duration: 1600, ...EASE }), -1, false)); }, [pulse]);
-    const ring = useAnimatedStyle(() => ({ opacity: 0.5 * (1 - pulse.value), transform: [{ scale: 1 + pulse.value * 1.6 }] }));
-    return (
-        <View style={styles.centerAll}>
-            <Animated.View style={[styles.ring, { borderColor: t.color.accent }, ring]} />
-            <Animated.View entering={ZoomIn.duration(380)} style={[styles.flag, { backgroundColor: t.color.accent }]}>
-                <AppIcon name="flag" filled size={s(26)} color={t.color.onAccent} />
-            </Animated.View>
-        </View>
     );
 }
 

@@ -5,7 +5,7 @@ import { SOCIAL_ACTION } from './notificationActions';
  * A button pressed on a Community push (lib/notificationActions.ts): "On it"
  * on a nudge tells the friend, "Reply" on a comment answers in its thread,
  * "Accept" or "Decline" on a duel answers it, "Let's do it" or "No
- * thanks" on a shared habit, task or goal answers that offer, "Accept" or
+ * thanks" on a shared habit or task answers that offer, "Accept" or
  * "Decline" on a friend request answers it, and "Join" or "Decline" on a
  * challenge invite answers that. The push names who it is from
  * (data.from); a friend pair has one duel at a time, and a reply goes under

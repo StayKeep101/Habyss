@@ -1,7 +1,7 @@
 import type { Habit } from './habitsSQLite';
 import { type Task, taskRank, tasksForDay } from './tasks';
 import { createHabitSchedule, localDateKey as localKey, parseHabitDate } from './habitSchedule';
-import { addDays, buildGoalInsights, goalProgress } from './goalInsights';
+import { addDays } from './habitSummary';
 import { doneOnDay } from './dailyFocus';
 import { habitDays, habitRun } from './habitStreak';
 
@@ -21,15 +21,15 @@ export interface WidgetDashboard {
      * each, oldest first: "1" done, "0" due and not done, "-" not due.
      */
     habits: { id: string; name: string; streak: number; days: string }[];
-    goals: { id: string; name: string; progress: number; color: string; taskWeights: Record<string, number>;
-        points: { date: string; actual: number }[] }[];
+    /** Always empty: kept because widgets from builds before goals were removed require the field. */
+    goals: never[];
 }
 
 export function buildWidgetDashboard({ habits, tasks, history, skips, today, accent, streak = 0 }: {
     habits: Habit[]; tasks: Task[]; history: Record<string, string[]>; skips: Record<string, string[]>;
     today: string; accent: WidgetDashboard['accent']; streak?: number;
 }): WidgetDashboard {
-    const active = habits.filter(habit => !habit.isGoal && !habit.isArchived)
+    const active = habits.filter(habit => !habit.isArchived)
         .map(habit => ({ habit, scheduled: createHabitSchedule(habit) }));
     const heatmap = Array.from({ length: 98 }, (_, index) => {
         const date = addDays(today, index - 90);
@@ -64,39 +64,7 @@ export function buildWidgetDashboard({ habits, tasks, history, skips, today, acc
         return { date, total: due.length, completed: due.filter(task => task.status === 'done').length,
             items: due.slice(0, 12).map(task => ({ id: `task:${task.id}`, name: task.title, isCompleted: task.status === 'done', time: task.dueTime, dueDate: task.dueDate })) };
     });
-    const visibleIds = new Set(days.flatMap(day => day.items.map(item => item.id.slice(5))));
-    const goals = habits.filter(habit => habit.isGoal && !habit.isArchived).map(goal => {
-        const progress = goalProgress({ goal, habits, tasks, history, skips, today }, false);
-        // What ticking each task on the widget adds, worked out by the same
-        // measure the app uses rather than a formula of its own: progress with
-        // that task done, less progress now. Right for a project (one task of
-        // N), a number goal (its count) and a time goal (its minutes) alike.
-        const stamp = `${today}T12:00:00`;
-        const weightOf = (task: Task) => {
-            const ticked = tasks.map(item => item.id === task.id
-                ? { ...item, status: 'done' as const, completedAt: item.completedAt ?? stamp, updatedAt: stamp }
-                : item);
-            return Math.max(0, goalProgress({ goal, habits, tasks: ticked, history, skips, today }, false) - progress);
-        };
-        return {
-            id: goal.id, name: goal.name, color: goal.color || accent.from,
-            progress,
-            points: sampleGoalPoints(buildGoalInsights({ goal, habits, tasks, history, skips, today }).series),
-            taskWeights: Object.fromEntries(tasks
-                .filter(task => visibleIds.has(task.id) && task.goalId === goal.id && task.status === 'open')
-                .map(task => [`task:${task.id}`, weightOf(task)])),
-        };
-    });
-    return { version: 1, generatedAt: new Date().toISOString(), dayKey: today, accent, days, heatmap, goals, streak, habits: habitRows };
-}
-
-/** Bound widget memory while retaining the start, latest value and actual dates. */
-function sampleGoalPoints(points: { date: string; actual: number }[], limit = 90) {
-    if (points.length <= limit) return points.map(({ date, actual }) => ({ date, actual }));
-    return Array.from({ length: limit }, (_, index) => {
-        const { date, actual } = points[Math.round(index * (points.length - 1) / (limit - 1))];
-        return { date, actual };
-    });
+    return { version: 1, generatedAt: new Date().toISOString(), dayKey: today, accent, days, heatmap, goals: [], streak, habits: habitRows };
 }
 
 export interface WidgetEvent { eventId: string; id: string; day: string; done: boolean; timestamp: number; /** "focus": finished by the watch's focus timer. */ source?: string }

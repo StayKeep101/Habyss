@@ -45,7 +45,6 @@ import { withMyReaction, type Reaction } from '@/lib/reactions';
 import { Confetti } from '@/components/ui/Confetti';
 import { Overlay } from '@/components/ui/Overlay';
 import { SealedDayCard } from '@/components/Community/SealedDayCard';
-import { MarketSection } from '@/components/Market/MarketSection';
 import { ChallengeSection } from '@/components/Challenge/ChallengeSection';
 import { WidgetService } from '@/lib/widgetService';
 import { widgetRace } from '@/lib/widgetRace';
@@ -54,8 +53,6 @@ import { MarksRace } from '@/components/Community/MarksRace';
 import { faceAt, type RaceFace, type Racer } from '@/lib/marksRace';
 import { localMarks } from '@/lib/marksSync';
 import { useTokens } from '@/hooks/useTokens';
-import { marketFeed } from '@/lib/market';
-import { MARKET_ENABLED } from '@/constants/features';
 import { hasDropped, isSealed, minuteOf } from '@/lib/theDrop';
 import { clockLabel } from '@/lib/dayFlow';
 import { localDateKey } from '@/lib/habitSchedule';
@@ -86,8 +83,7 @@ const DROP_SEEN = 'habyss_drop_seen';
  *
  * In two views. Today: every friend's face and status, who is focusing, and
  * the feed of everyone's day (accountability only). Challenges: your Shards,
- * challenges and bets, with a dot when a friend's goal is open to a bet. The
- * leaderboard is one tap away in the header.
+ * challenges and races. The leaderboard is one tap away in the header.
  */
 export default function CommunityScreen() {
     const { theme } = useTheme();
@@ -105,7 +101,6 @@ export default function CommunityScreen() {
     const [challengesShown, setChallengesShown] = useState<boolean | null>(null);
     // Everyone's Marks over the last month: the race drawn behind the pages.
     const [racers, setRacers] = useState<Racer[]>([]);
-    const [betsNew, setBetsNew] = useState(false);
     const [me, setMe] = useState<{ id: string; name: string } | null>(null);
     // Your own name and photo come from the one profile store, not the server's copy.
     const myProfile = useMyProfile();
@@ -234,7 +229,7 @@ export default function CommunityScreen() {
         if (!online) setTimeout(() => setJoke(value => value + 1), 350);
     };
 
-    // The stage: the race fills the top of the screen behind one page, which slides up over it (as on a goal).
+    // The stage: the race fills the top of the screen behind one page, which slides up over it.
     const t = useTokens();
     const insets = useSafeAreaInsets();
     const screen = useWindowDimensions();
@@ -327,7 +322,6 @@ export default function CommunityScreen() {
         if (index === page) return;
         selectionFeedback();
         setPage(index);
-        if (index === 1) setBetsNew(false);
     };
     const goTo = (index: number) => {
         pager.current?.scrollTo({ x: index * pageWidth, animated: true });
@@ -355,12 +349,6 @@ export default function CommunityScreen() {
     const rail = useMemo<RailFriend[]>(() => statuses.map(row => ({
         userId: row.userId, name: row.name, avatarUrl: row.avatarUrl, status: statusOf(row, clock),
     })), [statuses, clock]);
-
-    // Bets: new when a friend's goal is open and you have nothing on it yet.
-    useFocusEffect(useCallback(() => {
-        if (!MARKET_ENABLED || gate !== null) return;
-        marketFeed().then(markets => setBetsNew(markets.some(market => market.status === 'open' && !market.mine && !market.myStake))).catch(() => undefined);
-    }, [gate]));
 
     /** Names and faces for the people who acknowledged a post. */
     const people = useMemo(() => {
@@ -557,13 +545,12 @@ export default function CommunityScreen() {
     );
     const challengesPage = (
         <View onLayout={measure(1)} style={{ width: pageWidth, paddingHorizontal: horizontalPadding }}>
-            {/* Races (yours and friends'), then challenges and bets on goals. New ones come from the +. */}
+            {/* Races (yours and friends'), then challenges. New ones come from the +. */}
             <RaceSection style={styles.block} onShown={setRacesShown} />
             <ChallengeSection style={styles.block} onShown={setChallengesShown} />
             {racesShown === false && challengesShown === false ? (
                 <EmptyState icon="flash-outline" title="Nothing running" message="Race the clock or pick a challenge from +" />
             ) : null}
-            {MARKET_ENABLED ? <MarketSection style={styles.block} /> : null}
         </View>
     );
     // The page is as tall as the side showing (the other is clipped while you swipe).
@@ -636,7 +623,7 @@ export default function CommunityScreen() {
                 {/* The same page continuing: the race falls into it, no edge, no grabber; the title is a section heading. */}
                 <LinearGradient pointerEvents="none" colors={['transparent', colors.background]} style={styles.blend} />
                 <View style={[styles.sheetTop, { backgroundColor: colors.background, paddingHorizontal: horizontalPadding }]}>
-                    <SectionTitle first right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
+                    <SectionTitle first right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, false]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
                 </View>
                 <View style={{ backgroundColor: colors.background, minHeight: screen.height - insets.top, paddingBottom: tabBarClearance }}>
                     {/* The pages, as a gesture the day packs can hold off (a sideways swipe on a card turns cards). */}
@@ -657,7 +644,7 @@ export default function CommunityScreen() {
             <Animated.View style={[styles.sticky, { paddingTop: insets.top, backgroundColor: colors.background }, stickyStyle]}>
                 {/* No line and no shadow under it: the cards pass beneath a heading of the same colour. */}
                 <View style={[styles.sheetTop, { paddingHorizontal: horizontalPadding }]}>
-                    <SectionTitle first right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, betsNew]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
+                    <SectionTitle first right={<PageDots progress={pagePosition} current={page} labels={PAGES} fresh={[false, false]} onPick={goTo} />}>{PAGES[page]}</SectionTitle>
                 </View>
             </Animated.View>
             {/* On the race's level, whole; they fade as the page rises to them (actionsStyle). */}

@@ -7,7 +7,7 @@ import { Text } from '@/components/ui';
 import { PlusActionRow } from '@/components/Settings/PlusActionRow';
 import { useTokens } from '@/hooks/useTokens';
 import {
-    MAX_PLUS, PLUS_ACTIONS, PLUS_TABS, plusOffered, currentPlus, loadPlus, savePlus, subscribePlus, togglePlus, type PlusActionId, type PlusTab,
+    MAX_PLUS, PLUS_ACTIONS, PLUS_TABS, currentPlus, loadPlus, savePlus, subscribePlus, togglePlus, type PlusActionId, type PlusTab,
 } from '@/lib/plusActions';
 import { DEFAULT_VOICE_DESTINATION, VOICE_DESTINATIONS, getVoiceDestination, knownVoiceDestination, setVoiceDestination, type VoiceDestination } from '@/lib/voiceDestination';
 import { styles } from '@/styles/screens/plus-button.styles';
@@ -33,7 +33,7 @@ export default function PlusButtonScreen() {
         <SheetScreen title="Plus button" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <SettingsGroup title="Actions">
-                    {(Object.keys(PLUS_ACTIONS) as PlusActionId[]).filter(plusOffered).map(id => (
+                    {(Object.keys(PLUS_ACTIONS) as PlusActionId[]).map(id => (
                         <PlusActionRow key={id} label={PLUS_ACTIONS[id].label} icon={PLUS_ACTIONS[id].icon} color={tone[PLUS_ACTIONS[id].tone]}
                             on={by(tab => plus[tab].includes(id))}
                             locked={by(tab => (plus[tab].includes(id) ? plus[tab].length === 1 : plus[tab].length >= MAX_PLUS))}

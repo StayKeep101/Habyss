@@ -100,7 +100,7 @@ enum TodayList {
     }
 }
 
-/// Queues a task, habit, goal, thought or anything said freely (`kind|text`).
+/// Queues a task, habit, thought or anything said freely (`kind|text`).
 /// Habyss turns the queue into real rows the next time it runs (`drainQuickAdds`).
 @available(iOS 16.0, *)
 enum QuickAddQueue {
@@ -287,23 +287,6 @@ struct AddHabitIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard await save("add_habit", ["name": name], kind: "habit", title: name) else { return .result(dialog: "That habit didn't save. Try again in Habyss.") }
         return .result(dialog: "Added \(name). Every day, starting now.")
-    }
-}
-
-@available(iOS 16.0, *)
-struct AddGoalIntent: AppIntent {
-    /// Goals are off for the first release (constants/features.ts): not offered in Shortcuts.
-    static var isDiscoverable: Bool = false
-    static var title: LocalizedStringResource = "Add Goal"
-    static var description = IntentDescription("Add a goal in Habyss, in your own words")
-    static var openAppWhenRun: Bool = false
-
-    @Parameter(title: "Goal", requestValueDialog: "What's the goal?")
-    var name: String
-
-    func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard await save("add_goal", ["name": name], kind: "goal", title: name) else { return .result(dialog: "That goal didn't save. Try again in Habyss.") }
-        return .result(dialog: "Goal set: \(name). Bold.")
     }
 }
 

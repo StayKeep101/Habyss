@@ -28,8 +28,8 @@ export const seriesForProfile = (series: { value: number }[] | undefined): numbe
 export async function publishMarks(
     total: number,
     series?: { value: number }[],
-    /** What a profile shows to be proud of: the longest streak and goals finished. */
-    trophies?: { bestStreak: number; goalsCompleted: number },
+    /** What a profile shows to be proud of: the longest streak. */
+    trophies?: { bestStreak: number },
 ): Promise<void> {
     AsyncStorage.setItem(LOCAL_KEY, String(Math.max(0, Math.round(total)))).catch(() => { });
     try {
@@ -43,13 +43,12 @@ export async function publishMarks(
         const value = allowed ? Math.max(0, Math.round(total)) : null;
         const history = allowed ? seriesForProfile(series) : null;
         const best = allowed && trophies ? trophies.bestStreak : null;
-        const goals = allowed && trophies ? trophies.goalsCompleted : null;
-        const stamp = `${me}:${value}:${history?.length ?? 0}:${history?.[0] ?? ''}:${best}:${goals}`;
+        const stamp = `${me}:${value}:${history?.length ?? 0}:${history?.[0] ?? ''}:${best}`;
         if ((await AsyncStorage.getItem(KEY)) === stamp) return;
         const { error } = await sb.from('profiles')
             .update({
                 marks: value, marks_series: history, marks_updated_at: new Date().toISOString(),
-                ...(trophies ? { best_streak: best, goals_completed: goals } : {}),
+                ...(trophies ? { best_streak: best } : {}),
             }).eq('id', me);
         // A server without the column yet is not an error worth retrying hard.
         if (!error) {

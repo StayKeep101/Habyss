@@ -4,7 +4,7 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import { useScrub } from '@/hooks/useScrub';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { AppIcon } from '@/components/ui/AppIcon';
-import { ValuePill } from '@/components/Goal/GoalRows';
+import { ValuePill } from '@/components/ui/ValuePill';
 import { FocusWeekBars } from '@/components/Focus/FocusWeekBars';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';

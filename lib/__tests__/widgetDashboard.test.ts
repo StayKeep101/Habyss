@@ -29,13 +29,8 @@ it('heatmap counts only due habits and excludes skipped or archived rows', () =>
     expect(snapshot.heatmap).toHaveLength(98);
     expect(snapshot.heatmap.find(day => day.date === today)).toEqual({ date: today, completed: 1, total: 1 });
 });
-it('uses the same goal progress as the app and supplies the exact task contribution', () => {
-    const goal = habit({ id: 'goal', isGoal: true, targetDate: today, color: '#00FF00' });
-    const snapshot = build({ habits: [goal, habit({ goalId: 'goal' })], tasks: [task({ goalId: 'goal' })],
-        history: { '2026-09-25': ['habit'], [today]: ['habit'] } });
-    // A goal with no number is a project: its one task is the whole of it, so
-    // ticking that task on the widget takes it from 0 to 100.
-    expect(snapshot.goals[0]).toMatchObject({ id: 'goal', progress: 0, color: '#00FF00', taskWeights: { 'task:task': 100 } });
+it('sends no goals, but keeps the field older widgets read', () => {
+    expect(build({ habits: [habit()] }).goals).toEqual([]);
 });
 it('rejects corrupt widget actions instead of writing them into history', () => {
     const valid = { eventId: 'uuid', id: 'habit:abc', day: today, done: true, timestamp: 1 };
@@ -45,18 +40,8 @@ it('rejects corrupt widget actions instead of writing them into history', () => 
     }
 });
 
-it('carries the app streak and an actual history graph for each selectable goal', () => {
-    const snapshot = build({ streak: 7, habits: [habit({ id: 'goal', isGoal: true, targetDate: today }), habit({ goalId: 'goal' })],
-        history: { '2026-09-25': ['habit'], [today]: ['habit'] } });
-    expect(snapshot.streak).toBe(7);
-    expect(snapshot.goals[0].points).toEqual([{ date: '2026-09-25', actual: 50 }, { date: today, actual: 100 }]);
-    expect(snapshot.goals[0].progress).toBe(100);
-});
-it('bounds long goal graphs without losing their first and last dates', () => {
-    const snapshot = build({ habits: [habit({ id: 'goal', isGoal: true, startDate: '2025-01-01', targetDate: today })] });
-    expect(snapshot.goals[0].points).toHaveLength(90);
-    expect(snapshot.goals[0].points[0].date).toBe('2025-01-01');
-    expect(snapshot.goals[0].points.at(-1)?.date).toBe(today);
+it('carries the app streak', () => {
+    expect(build({ streak: 7, habits: [habit()] }).streak).toBe(7);
 });
 it('keeps habits out of Daily Tasks even when they are the only scheduled items', () => {
     const snapshot = build({ habits: [habit()] });

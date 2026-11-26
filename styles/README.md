@@ -15,8 +15,6 @@ To bring a page in line with the design system, open its file here and swap its 
 | `app/(root)/plus-button.tsx` | `styles/screens/plus-button.styles.ts` |
 | `app/(auth)/onboarding.tsx` | none: The Ascent draws itself (`components/Ascent/`) |
 | `app/(root)/blocked.tsx` | `styles/screens/blocked.styles.ts` |
-| `app/(root)/goal-detail.tsx` | `styles/screens/goal-detail.styles.ts` |
-| `app/(root)/goals-overview.tsx` | `styles/screens/goals-overview.styles.ts` |
 | `app/(root)/habit-detail.tsx` | `styles/screens/habit-detail.styles.ts` |
 | `app/(root)/help.tsx` | `styles/screens/help.styles.ts` |
 | `app/(root)/inbox.tsx` | `styles/screens/inbox.styles.ts` |

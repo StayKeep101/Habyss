@@ -5,7 +5,7 @@ import { sqliteAdapter } from './support/realSQLite';
 import { closeDatabase, getDatabase } from '../database';
 import { getHabitMeasurement, getHabitStats, getLastNDaysCompletions, saveHabitMeasurement, toggleCompletion, getCompletions, getCompletionTimes, setSkipped, getSkipped, getHabits, clearHabitsCache } from '../habitsSQLite';
 import { createTask, deleteTask, getTasks, updateTask, setTaskStatus } from '../tasks';
-import { addDays, buildGoalInsights, summarizeHabit } from '../goalInsights';
+import { addDays, summarizeHabit } from '../habitSummary';
 import { monthDays, monthTotals } from '../progressMonth';
 import type { Habit } from '../habitsSQLite';
 
@@ -125,20 +125,6 @@ it('never reports a failed completion or skip as saved', async () => {
     expect((await getCompletions('2026-01-03')).h4).toBeUndefined();
     expect((await getSkipped('2026-01-03')).h4).toBeUndefined();
 });
-it('builds a full ten-year goal with 200 habits and 50,000 tasks', async () => {
-    const habits = (await getHabits()).map(habit => ({ ...habit, goalId: 'long-goal' }));
-    const tasks = (await getTasks({ includeDone: true })).filter(task => task.id.startsWith('t')).map(task => ({ ...task, goalId: 'long-goal' }));
-    const goal = { id: 'long-goal', isGoal: true, startDate: dates[0], targetDate: dates.at(-1) } as Habit;
-    const started = performance.now();
-    const insights = buildGoalInsights({ goal, habits, tasks, history, today: dates.at(-1)! });
-    const elapsed = performance.now() - started;
-    console.info(`Stress: ten-year goal took ${Math.round(elapsed)}ms`);
-    expect(insights.progress).toBe(100);
-    expect(insights.series).toHaveLength(DAYS);
-    expect(insights.habits.every(habit => habit.streak === DAYS)).toBe(true);
-    expect(insights.tasks.done).toBe(TASKS);
-    expect(elapsed).toBeLessThan(5000);
-});
 it('keeps completion and omitted fields when importing an existing task', async () => {
     const first = await createTask({ title: 'Import', dueDate: '2026-01-01', externalId: 'preserved' });
     await setTaskStatus(first!.id, 'done');
@@ -180,7 +166,7 @@ it('persists edits across database reopen and passes SQLite integrity checks', a
     await getDatabase();
     // Bump with SCHEMA_VERSION in lib/database.ts: this asserts every migration
     // ran, so it is meant to notice a new one.
-    expect(await mockAdapter.getFirstAsync('SELECT version FROM schema_version')).toEqual({ version: 26 });
+    expect(await mockAdapter.getFirstAsync('SELECT version FROM schema_version')).toEqual({ version: 27 });
     expect(await mockAdapter.getFirstAsync('SELECT title, due_date FROM tasks WHERE id = ?', 't0')).toEqual({ title: 'Edited repeatedly', due_date: null });
     expect(await mockAdapter.getFirstAsync('PRAGMA integrity_check')).toEqual({ integrity_check: 'ok' });
 });

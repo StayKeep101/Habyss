@@ -8,7 +8,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { MatteSurface } from './MatteSurface';
 
 /**
- * One choice among several: a matte pill, filled solid in `color` (the goal's
+ * One choice among several: a matte pill, filled solid in `color` (the habit's
  * or habit's own colour, or the accent) once chosen, with a filled icon. Every
  * chip row in the app uses this, so a choice looks the same everywhere.
  */

@@ -49,7 +49,6 @@ export default function RootLayout() {
         {/* Focus mode: the whole screen, no swipe away (leaving is the × , which pauses). */}
         {/* Fades in, not up: Home has already stepped aside onto the same scene (lib/focusStage.ts). */}
         <Stack.Screen name="focus" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
-        <Stack.Screen name="goals-overview" options={{ presentation: 'modal' }} />
         {/* Earn your scroll: an hour of your apps for Shards, opened from the block screen's notification. */}
         <Stack.Screen name="unlock" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen
@@ -83,13 +82,6 @@ export default function RootLayout() {
           }}
         />
         {/* statistics removed */}
-        <Stack.Screen
-          name="goal-detail"
-          options={{
-            headerShown: false,
-            presentation: 'modal',
-          }}
-        />
         <Stack.Screen
           name="ai-settings"
           options={{
@@ -148,10 +140,6 @@ export default function RootLayout() {
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
-          name="goal-stats"
-          options={{ headerShown: false, presentation: 'modal' }}
-        />
-        <Stack.Screen
           name="task-stats"
           options={{ headerShown: false, presentation: 'modal' }}
         />
@@ -186,10 +174,6 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="app-blocking"
-          options={{ headerShown: false, presentation: 'modal' }}
-        />
-        <Stack.Screen
-          name="goal-plan"
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen

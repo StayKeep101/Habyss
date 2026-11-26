@@ -1,5 +1,3 @@
-import { GOALS_ENABLED } from '@/constants/features';
-import { goalCompletedOn } from '@/lib/goalInsights';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAutoReschedule } from '@/context/AppSettingsContext';
 import { DEFAULT_LENGTH } from '@/lib/dayFlow';
@@ -19,7 +17,7 @@ import { RepeatPicker } from '@/components/Create/RepeatPicker';
 import { TimeRange, endTime, nextHour } from '@/components/Create/TimeRange';
 import { lengthLabel } from '@/lib/dayFlow';
 import { DAILY, describe as describeRule, parseRecurrence, serialiseRecurrence, type Recurrence, type Weekday } from '@/lib/recurrence';
-import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
+import { LookPicker } from '@/components/Create/LookPicker';
 import { LookButton } from '@/components/Create/LookButton';
 import { ReminderPicker } from '@/components/Create/ReminderPicker';
 import { AnchorPicker } from '@/components/Create/AnchorPicker';
@@ -39,7 +37,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSmartParse } from '@/hooks/useSmartParse';
 import { smartParseHabit } from '@/lib/smartParse';
 import { parseHabitText } from '@/lib/habitParser';
-import { addHabit, updateHabit, getGoals, withAutoTrack, type Habit, type LocationReminder } from '@/lib/habitsSQLite';
+import { addHabit, updateHabit, withAutoTrack, type Habit, type LocationReminder } from '@/lib/habitsSQLite';
 import { allTrackOptions, autoTrackOptions, trackMinutes, type AutoTrackOption } from '@/lib/autoTrackSources';
 import { autoTrackDefaults, guessHealthMetric } from '@/lib/autoTrackGuess';
 import { TrackingPicker } from '@/components/Create/TrackingPicker';
@@ -58,7 +56,7 @@ const DAYS: { id: string; label: string }[] = [
     { id: 'thu', label: 'T' }, { id: 'fri', label: 'F' }, { id: 'sat', label: 'S' }, { id: 'sun', label: 'S' },
 ];
 const EVERY_DAY = DAYS.map(day => day.id);
-type Row = 'repeat' | 'time' | 'anchor' | 'target' | 'tracking' | 'reminder' | 'importance' | 'goal' | 'look' | 'notes' | null;
+type Row = 'repeat' | 'time' | 'anchor' | 'target' | 'tracking' | 'reminder' | 'importance' | 'look' | 'notes' | null;
 
 interface Draft {
     name: string;
@@ -70,7 +68,6 @@ interface Draft {
     amount?: number;
     unit?: string;
     reminder?: string;
-    goalId?: string;
     icon: IconName;
     color: string;
     description?: string;
@@ -124,7 +121,6 @@ const fromHabit = (from: Habit): Draft => ({
     amount: from.goalValue > 0 && (from.trackingMethod === 'numeric' || from.goalValue !== 1 || !!from.unit && !['time', 'times', 'count'].includes(from.unit)) ? from.goalValue : undefined,
     unit: from.unit && from.unit !== 'time' ? from.unit : undefined,
     reminder: from.reminders?.[0],
-    goalId: from.goalId,
     icon: (from.icon as IconName) || 'ellipse-outline',
     color: from.color || '#6B8AF5',
     description: from.description,
@@ -178,9 +174,8 @@ export const HabitSheet: React.FC<{
     onClose?: () => void;
     onSaved?: () => void;
     habit?: Habit | null;
-    goalId?: string;
     listenToGlobalEvents?: boolean;
-}> = ({ visible, onClose, onSaved, habit, goalId, listenToGlobalEvents }) => {
+}> = ({ visible, onClose, onSaved, habit, listenToGlobalEvents }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -192,7 +187,6 @@ export const HabitSheet: React.FC<{
     const [eventVisible, setEventVisible] = useState(false);
     const [editing, setEditing] = useState<Habit | null>(null);
     const [prefill, setPrefill] = useState('');
-    const [eventGoal, setEventGoal] = useState<string | undefined>(undefined);
     const [text, setText] = useState('');
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<Row>(null);
@@ -200,7 +194,6 @@ export const HabitSheet: React.FC<{
     const [linking, setLinking] = useState(false);
     const [amountText, setAmountText] = useState<string | null>(null);
 
-    const [goals, setGoals] = useState<Habit[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     /** How it tracks itself: an option's key, 'off', or null for the best one. */
@@ -245,7 +238,6 @@ export const HabitSheet: React.FC<{
             emit('close_creation_modal');
             setEditing(withHabit ? ((data?.initialHabit ?? null) as Habit | null) : null);
             setPrefill(data?.prefillName ?? '');
-            setEventGoal(data?.goalId);
             setEventVisible(true);
         };
         const editor = on('show_habit_modal', data => open(data, true));
@@ -254,18 +246,11 @@ export const HabitSheet: React.FC<{
         return () => { editor.remove(); quick.remove(); };
     }, [listenToGlobalEvents]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        // Goals still being worked on; one already reached is done and not offered (the one linked stays).
-        getGoals().then(all => setGoals(all.filter(goal => !goal.isArchived && (!goalCompletedOn(goal) || goal.id === (habit?.goalId ?? goalId))))).catch(() => setGoals([]));
-    }, [isOpen]);
-
     // What the sentence says, read by rules at once and by the model a moment
     // later. Anything it finds fills the rows in, where it can still be changed.
-    // What the sentence can point at: goals by name; for a link, the day's events, meals, habits and tasks.
+    // What the sentence can point at, for a link: the day's events, meals, habits and tasks.
     const anchorNames = useAnchorSuggestions(isOpen);
-    const linkNames = useMemo(() => [...anchorNames, ...goals.map(goal => goal.name)], [anchorNames, goals]);
-    const rules = useMemo(() => (text.trim() ? parseHabitText(text, new Date(), { known: anchorNames, goals: goals.map(goal => goal.name) }) : null), [text, linkNames]);
+    const rules = useMemo(() => (text.trim() ? parseHabitText(text, new Date(), { known: anchorNames }) : null), [text, anchorNames]);
     // Opening an existing habit must not rewrite it. "Run everyday" reads as a
     // habit called "Run" that repeats daily, which is right for a sentence
     // someone just typed and wrong for a name they chose and saved. So nothing
@@ -276,7 +261,7 @@ export const HabitSheet: React.FC<{
     const parsed = untouched ? null : (smart.result ?? rules);
 
     const draft = useMemo<Draft>(() => {
-        const start = current ? fromHabit(current) : { ...blank(), goalId: eventGoal };
+        const start = current ? fromHabit(current) : blank();
         const days = parsed?.taskDays?.length ? parsed.taskDays : rules?.matched.days ? EVERY_DAY : start.days;
         const read: Draft = parsed ? {
             ...start,
@@ -306,20 +291,19 @@ export const HabitSheet: React.FC<{
             difficulty: rules?.difficulty ?? start.difficulty,
             // A time said in the words ("Gym at 6") is a time to keep, unless the words say it can move.
             flexible: rules?.flexible ?? (parsed.startTime ? false : start.flexible),
-            // "right after work", "remind me 10 min before", "for my Marathon goal": read by the rules.
+            // "right after work", "remind me 10 min before": read by the rules.
             anchor: rules?.anchor ? { to: rules.anchor.to, side: rules.anchor.side, gap: 0 } : start.anchor,
             alerts: rules?.reminder ? (rules.reminder.alerts ?? []) : start.alerts,
             reminder: rules?.reminder ? rules.reminder.at : start.reminder,
-            goalId: (GOALS_ENABLED && rules?.goal && goals.find(goal => goal.name.toLowerCase() === rules.goal!.toLowerCase())?.id) || start.goalId,
         } : start;
         return { ...read, ...edits };
-    }, [current, eventGoal, parsed, edits, rules, goals]);
-    // Everything in the sheet wears the colour chosen for this goal or habit:
+    }, [current, parsed, edits, rules]);
+    // Everything in the sheet wears the colour chosen for this habit:
     // the chosen chips, the bar's open chip, the calendar — not the app accent.
     // How it ticks itself (lib/autoTrackSources.ts), all in the Tracking chip: every way,
     // what it already uses, and for a new habit what its name suggests (Health opens on Steps for a walk).
     const said = { amount: draft.amount, unit: draft.unit, durationMinutes: draft.durationMinutes, quit: draft.habitType === 'quit' };
-    const canTrack = Platform.OS === 'ios' && !current?.isGoal;
+    const canTrack = Platform.OS === 'ios';
     const appsAvailable = appTimeSupported();
     const suggestions = useMemo(() => (current || !canTrack ? []
         : autoTrackOptions(draft.name || text, said).filter(option => option.kind !== 'app' || appsAvailable)),
@@ -382,7 +366,6 @@ export const HabitSheet: React.FC<{
     const accent = draft.color || appAccent;
     const accentText = readableAccent(accent, colors.background);
 
-    const linkedGoal = goalId ?? draft.goalId;
     // Deciding to do this with somebody happens while writing it, not after —
     // so the choice is held here and sent the moment the habit has an id.
     const share = useShareDraft('habit', current?.id);
@@ -415,7 +398,6 @@ export const HabitSheet: React.FC<{
                 trackingMethod: draft.amount ? 'numeric' : 'boolean',
                 reminders: current && !Object.prototype.hasOwnProperty.call(edits, 'reminder')
                     ? current.reminders : draft.reminder ? [draft.reminder] : [],
-                goalId: linkedGoal,
                 icon: draft.icon,
                 color: draft.color,
                 // "Avoid…", "Quit…", "No…": a quit habit, a tick a day kept clean.
@@ -486,7 +468,6 @@ export const HabitSheet: React.FC<{
     };
 
     // 'min' is how the sheet spells minutes; the metrics speak in full words.
-    const goalName = goals.find(goal => goal.id === linkedGoal)?.name;
     const canSave = !!text.trim();
 
     // At an exact time (it stays there), or flexible (the timeline places it; no time of day).
@@ -591,20 +572,9 @@ export const HabitSheet: React.FC<{
             value: importanceLabel(draft.priority, draft.difficulty),
             content: <ImportancePicker priority={draft.priority} difficulty={draft.difficulty} onChange={change} />,
         },
-        ...(GOALS_ENABLED && goals.length > 0 ? [{
-            id: 'goal', icon: 'flag-outline' as const, label: 'Goal', value: goalName,
-            content: (
-                <Choices
-                    options={[{ id: '', label: 'None' }, ...goals.map(goal => ({ id: goal.id, label: goal.name }))]}
-                    value={linkedGoal ?? ''}
-                    accent={accent}
-                    onChange={id => change({ goalId: id || undefined })}
-                />
-            ),
-        }] : []),
         {
             id: 'look', icon: draft.icon, color: readableAccent(draft.color, colors.background), label: 'Look', hidden: true,
-            content: <GoalLookPicker subject="Habit" icon={draft.icon} color={draft.color} onChange={change} />,
+            content: <LookPicker icon={draft.icon} color={draft.color} onChange={change} />,
         },
     ];
 

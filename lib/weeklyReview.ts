@@ -55,7 +55,7 @@ export function buildWeeklyReview(input: {
 
     const all = keptRate(week);
     const prev = keptRate(before);
-    const active = habits.filter(habit => !habit.isGoal && !habit.isArchived);
+    const active = habits.filter(habit => !habit.isArchived);
 
     const perHabit: HabitWeek[] = active.map(habit => {
         const now = keptRate(only(week, habit.id));

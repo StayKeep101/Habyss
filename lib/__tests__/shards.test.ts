@@ -1,6 +1,5 @@
 import { computeMarks, MARKS, type MarkEvent } from '../marks';
 import { SHARDS, dailyCloses, sampleRange, shardMoves, valueAt, walletPoints } from '../shards';
-import { payoutFor, resultFor, type Market } from '../market';
 import type { Habit } from '../habitsSQLite';
 import type { Task } from '../tasks';
 
@@ -30,7 +29,7 @@ describe('Shards follow the record: earned by doing, lost by missing', () => {
     });
 
     it('never go below zero', () => {
-        const misses = Array.from({ length: 80 }, (_, index) => event({ date: '2026-10-03', kind: 'miss', points: MARKS.miss.goal, title: `m${index}` }));
+        const misses = Array.from({ length: 80 }, (_, index) => event({ date: '2026-10-03', kind: 'miss', points: MARKS.miss.task, title: `m${index}` }));
         expect(balance(shardMoves(misses, {}))).toBe(0);
     });
 
@@ -64,13 +63,6 @@ describe('Shards cannot be farmed', () => {
         expect(paying(shardMoves([event({ item: 'habit', id: 'h', points: 5 })], { 'h:2026-10-03': at('2026-10-04', 8) }))).toHaveLength(1);
     });
 
-    it('pay new goals immediately, and two milestones a day at most', () => {
-        expect(paying(shardMoves([event({ item: 'goal', points: 50, madeOn: '2026-10-02', sameDay: true })], {}))).toHaveLength(1);
-        expect(paying(shardMoves([event({ item: 'goal', points: 50, madeOn: '2026-09-28' })], {}))).toHaveLength(1);
-        const milestones = Array.from({ length: 5 }, (_, index) => event({ item: 'milestone', points: 30, title: `m${index}` }));
-        expect(paying(shardMoves(milestones, {}))).toHaveLength(SHARDS.milestonesPerDay);
-    });
-
     it('stop at the daily cap, however much is done', () => {
         const lots = Array.from({ length: 50 }, (_, index) => event({ points: 50, title: `t${index}` }));
         expect(shardMoves(lots, {}).reduce((sum, move) => sum + move.amount, 0)).toBe(SHARDS.dailyCap);
@@ -88,22 +80,6 @@ describe('the wallet line', () => {
         expect(dailyCloses(points, 2, now)).toEqual([100, 110]);
     });
 });
-
-describe('the pool', () => {
-    it('pays the winners their stake plus their share of the other side', () => {
-        expect(payoutFor(10, 'make', { make: 30, miss: 60 })).toBe(25);
-        expect(payoutFor(10, 'make', { make: 30, miss: 60 }, 20)).toBe(30 + Math.floor((60 * 30) / 40));
-    });
-    it('refunds when nobody is on the other side', () => {
-        expect(payoutFor(25, 'miss', { make: 0, miss: 40 })).toBe(25);
-    });
-    it('says how a settled bet went', () => {
-        expect(resultFor({ myStake: { side: 'make', amount: 20, payout: 50 } } as Market)).toBe(30);
-        expect(resultFor({ myStake: { side: 'miss', amount: 20, payout: 0 } } as Market)).toBe(-20);
-        expect(resultFor({ myStake: null } as Market)).toBeNull();
-    });
-});
-
 
 describe('deletion removes earnings without debt', () => {
     it('removes creation and completion earnings when a task is deleted', () => {

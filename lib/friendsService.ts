@@ -17,7 +17,7 @@ const SHARED_IDS_KEY = 'habyss_shared_item_ids';
  *
  * What friends can see of each other is decided on the server:
  * - numbers only, through friend_stats(): logged today, the week, the streak;
- * - a habit or goal in full only once its owner shares it with them.
+ * - a habit in full only once its owner shares it with them.
  *
  * The public API is unchanged, so the screens built on it keep working.
  */
@@ -58,8 +58,6 @@ export interface Friend {
      */
     tasksDone?: number;
     tasksTotal?: number;
-    goalsActive?: number;
-    goalsMoved?: number;
     isCurrentUser?: boolean;
     /** Their Marks total, when they share their progress and the server has it. */
     marks?: number;
@@ -93,8 +91,8 @@ export interface InboxItem {
     requestId?: string;
     /** Whatever the local notification chose to draw itself with. */
     icon?: string;
-    /** A habit, task or goal waiting to be accepted or turned down. */
-    share?: { type: 'habit' | 'task' | 'goal'; itemId: string; ownerId: string };
+    /** A habit or task waiting to be accepted or turned down. */
+    share?: { type: 'habit' | 'task'; itemId: string; ownerId: string };
     /** A challenge invite still open to Join or Decline (lib/challenges.ts canAnswer). */
     challenge?: { runId: string };
 }
@@ -136,11 +134,9 @@ interface StatsRow {
     today_evidence?: string[] | null;
     /** What they call themselves, when they have said. */
     display_name?: string | null;
-    /** Today's tasks and goals; absent on servers older than the day card. */
+    /** Today's tasks; absent on servers older than the day card. */
     tasks_done?: number | null;
     tasks_total?: number | null;
-    goals_active?: number | null;
-    goals_moved?: number | null;
 }
 
 /** A few of somebody's tasks for today, as the feed shows them. */
@@ -191,7 +187,6 @@ export interface FriendProfile {
     /** Their Marks over the last 60 days, when they share progress. */
     marksSeries?: number[];
     bestStreak?: number;
-    goalsCompleted?: number;
     /** What they let friends see of their profile (missing keys read as yes). */
     sharing?: { year?: boolean; awards?: boolean; progress?: boolean };
 }
@@ -230,8 +225,6 @@ function toFriend(row: StatsRow, me: string): Friend {
             value === 'verified' || value === 'context' ? value : 'self'),
         tasksDone: row.tasks_done ?? undefined,
         tasksTotal: row.tasks_total ?? undefined,
-        goalsActive: row.goals_active ?? undefined,
-        goalsMoved: row.goals_moved ?? undefined,
         isCurrentUser: row.user_id === me,
     };
 }
@@ -304,12 +297,9 @@ function toHabit(row: any) {
         icon: row.icon ?? undefined,
         color: row.color ?? '#6B46C1',
         category: row.category ?? 'personal',
-        isGoal: !!row.is_goal,
-        goalId: row.goal_id ?? undefined,
         goalValue: Number(row.goal_value ?? 1),
         unit: row.unit ?? 'count',
         trackingMethod: row.tracking_method === 'boolean' ? 'boolean' : 'numeric',
-        targetDate: row.target_date ?? undefined,
         startDate: row.start_date ?? undefined,
         taskDays: Array.isArray(row.task_days) ? row.task_days : [],
         createdAt: row.created_at,
@@ -515,12 +505,11 @@ export class FriendsService {
         const ctx = await signedIn();
         if (!ctx) return {};
         const { data } = await ctx.sb.from('profiles')
-            .select('bio, avatar_url, cover_url, marks_series, best_streak, goals_completed, sharing').eq('id', friendId).maybeSingle();
+            .select('bio, avatar_url, cover_url, marks_series, best_streak, sharing').eq('id', friendId).maybeSingle();
         return {
             bio: data?.bio ?? undefined, avatarUrl: data?.avatar_url ?? undefined, coverUrl: data?.cover_url ?? undefined,
             marksSeries: data?.marks_series ?? undefined,
             bestStreak: data?.best_streak ?? undefined,
-            goalsCompleted: data?.goals_completed ?? undefined,
             sharing: data?.sharing ?? undefined,
         };
     }
@@ -538,15 +527,9 @@ export class FriendsService {
         const row = (await stats(ctx)).find(item => item.user_id === friendId);
         if (!row) return null;
 
-        // Only what friend_stats exposes; a friend's goals are theirs unless shared.
-        const { count } = await ctx.sb.from('shared_goals')
-            .select('id', { count: 'exact', head: true })
-            .eq('owner_id', friendId).eq('shared_with_id', ctx.me).eq('status', 'accepted');
-
         return {
             totalHabits: row.active_habits,
             completedToday: row.today_done,
-            totalGoals: count ?? 0,
             weeklyActivity: (row.week_done ?? []).map(done => done > 0),
             longestStreak: row.current_streak,
         };
@@ -1192,8 +1175,7 @@ export class FriendsService {
         // Offered, not imposed. Landing somebody else's habit in your list
         // without asking is the same manners as adding yourself to their diary.
         // Told once: only when the offer is new (not on every save while it
-        // waits), and not at all for a goal's habits, which the goal's own
-        // notification brings.
+        // waits).
         if (opened === 'opened' && announce) await this.announceShare(ctx, friendId, 'habit', habitId);
         void this.refreshSharedIds();
         return true;
@@ -1236,7 +1218,7 @@ export class FriendsService {
     }
 
     /**
-     * Shares a task. Habits and goals could already be shared and tasks could
+     * Shares a task. Habits could already be shared and tasks could
      * not, which made "we are doing this together" impossible for the one kind
      * of thing that is usually a one-off favour between two people.
      */
@@ -1269,10 +1251,6 @@ export class FriendsService {
         return this.sharedWith('shared_habits', 'habit_id', habitId);
     }
 
-    static async getGoalSharedWith(goalId: string): Promise<Friend[]> {
-        return this.sharedWith('shared_goals', 'goal_id', goalId);
-    }
-
     private static async sharedWith(table: string, column: string, itemId: string): Promise<Friend[]> {
         const ctx = await signedIn();
         if (!ctx) return [];
@@ -1288,44 +1266,11 @@ export class FriendsService {
         }));
     }
 
-    /**
-     * Offers a goal to friends.
-     *
-     * The same rule as a habit, which it did not follow: it inserted rows as
-     * `accepted` and told nobody, so a goal simply appeared in somebody's list
-     * without being asked for and without them knowing where it came from.
-     */
-    static async batchShareGoal(goalId: string, friendIds: string[]): Promise<boolean> {
-        const ctx = await signedIn();
-        if (!ctx) return false;
-        await ensureBackedUp();
-
-        for (const friendId of friendIds) {
-            const opened = await this.openShareRow(ctx, 'shared_goals', 'goal_id', goalId, friendId);
-            if (!opened) return false;
-            if (opened === 'opened') await this.announceShare(ctx, friendId, 'goal', goalId);
-        }
-        void this.refreshSharedIds();
-        return true;
-    }
-
-    static async batchUnshareGoal(goalId: string, friendIds: string[]): Promise<boolean> {
-        const ctx = await signedIn();
-        if (!ctx || friendIds.length === 0) return !!ctx;
-        const { error } = await ctx.sb.from('shared_goals').delete()
-            .eq('goal_id', goalId).eq('owner_id', ctx.me).in('shared_with_id', friendIds);
-        return !error;
-    }
-
     static async getHabitsSharedWithMe(): Promise<any[]> {
         return this.sharedWithMe('shared_habits', 'habit_id', 'habit');
     }
 
-    static async getGoalsSharedWithMe(): Promise<any[]> {
-        return this.sharedWithMe('shared_goals', 'goal_id', 'goal');
-    }
-
-    private static async sharedWithMe(table: string, column: string, key: 'habit' | 'goal'): Promise<any[]> {
+    private static async sharedWithMe(table: string, column: string, key: 'habit'): Promise<any[]> {
         const ctx = await signedIn();
         if (!ctx) return [];
         const { data: shares } = await ctx.sb.from(table).select(`${column}, owner_id`)
@@ -1359,8 +1304,8 @@ export class FriendsService {
     static async getSharedItemParticipants(itemId: string, itemType: string = 'habit'): Promise<any[]> {
         const ctx = await signedIn();
         if (!ctx) return [];
-        const table = itemType === 'goal' ? 'shared_goals' : itemType === 'task' ? 'shared_tasks' : 'shared_habits';
-        const column = itemType === 'goal' ? 'goal_id' : itemType === 'task' ? 'task_id' : 'habit_id';
+        const table = itemType === 'task' ? 'shared_tasks' : 'shared_habits';
+        const column = itemType === 'task' ? 'task_id' : 'habit_id';
 
         // Pending rows come back too. Somebody you have invited belongs on the
         // card — knowing at a glance who this is shared with is the whole point
@@ -1459,7 +1404,7 @@ export class FriendsService {
      * is `auth.uid() = user_id`, so this cannot speak for anyone else.
      */
     static async publishCompletion(
-        itemId: string, itemType: 'habit' | 'task' | 'goal', day: string, evidence?: string | null,
+        itemId: string, itemType: 'habit' | 'task', day: string, evidence?: string | null,
     ): Promise<boolean> {
         const ctx = await signedIn();
         if (!ctx) return false;
@@ -1478,7 +1423,7 @@ export class FriendsService {
      * of the time.
      */
     static async announceCompletion(
-        itemId: string, itemName: string, kind: 'habit' | 'task' | 'goal' = 'habit',
+        itemId: string, itemName: string, kind: 'habit' | 'task' = 'habit',
     ): Promise<void> {
         const ctx = await signedIn();
         if (!ctx) return;
@@ -1536,13 +1481,13 @@ export class FriendsService {
         // share mean anything was missing.
         if (status === 'accepted') {
             const { adoptShared } = require('./sharedAdopt') as typeof import('./sharedAdopt');
-            await adoptShared(type as 'habit' | 'task' | 'goal', itemId).catch(() => false);
+            await adoptShared(type as 'habit' | 'task', itemId).catch(() => false);
         }
 
         // Either answer is news to the person who asked. Silence after a share
         // is the same as not knowing whether it arrived.
         const me = await myName(ctx);
-        const what = await itemName(ctx, type as 'habit' | 'task' | 'goal', itemId).catch(() => null);
+        const what = await itemName(ctx, type as 'habit' | 'task', itemId).catch(() => null);
         const named = what ? `“${what}”` : `your ${type}`;
         await this.notify(ctx, ownerId, status === 'accepted' ? 'share_accepted' : 'share_declined', {
             title: status === 'accepted' ? `${me} joined ${named}` : `${me} passed on ${named}`,
@@ -1589,9 +1534,9 @@ export class FriendsService {
         return error ? false : 'opened';
     }
 
-    /** Tells somebody they have been offered a habit, task or goal. */
+    /** Tells somebody they have been offered a habit or task. */
     private static async announceShare(
-        ctx: Context, friendId: string, type: 'habit' | 'task' | 'goal', itemId: string,
+        ctx: Context, friendId: string, type: 'habit' | 'task', itemId: string,
     ): Promise<void> {
         const name = await itemName(ctx, type, itemId);
         const me = await myName(ctx);
@@ -1612,13 +1557,13 @@ export class FriendsService {
      * those should lose somebody's invitation.
      */
     static async pendingShares(): Promise<{
-        id: string; type: 'habit' | 'task' | 'goal'; itemId: string; itemName: string;
+        id: string; type: 'habit' | 'task'; itemId: string; itemName: string;
         fromUserId: string; fromName: string; fromAvatarUrl?: string; createdAt: string;
     }[]> {
         const ctx = await signedIn();
         if (!ctx) return [];
 
-        const kinds: ('habit' | 'task' | 'goal')[] = ['habit', 'task', 'goal'];
+        const kinds: ('habit' | 'task')[] = ['habit', 'task'];
         const found = await Promise.all(kinds.map(async type => {
             const { table, column } = shareTable(type);
             const { data } = await ctx.sb.from(table)
@@ -1648,7 +1593,6 @@ export class FriendsService {
 
 /** Which table and column hold a share of each kind. */
 function shareTable(type: string): { table: string; column: string } {
-    if (type === 'goal') return { table: 'shared_goals', column: 'goal_id' };
     if (type === 'task') return { table: 'shared_tasks', column: 'task_id' };
     return { table: 'shared_habits', column: 'habit_id' };
 }

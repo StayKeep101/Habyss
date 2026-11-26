@@ -15,7 +15,7 @@ export function buildHabitReminderPlan(habits: Habit[], now = new Date(), comple
     const plan: HabitReminder[] = [];
     const today = localDateKey(now);
     for (const habit of habits) {
-        if (habit.isGoal || habit.isArchived || !habit.reminders?.length) continue;
+        if (habit.isArchived || !habit.reminders?.length) continue;
         for (let offset = 0; offset <= 400; offset++) {
             const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12);
             const scheduledDate = localDateKey(day);

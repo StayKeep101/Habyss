@@ -1,5 +1,3 @@
-// These cover goals themselves, which are switched off for the first release (constants/features.ts).
-jest.mock('@/constants/features', () => ({ ...jest.requireActual('@/constants/features'), GOALS_ENABLED: true, MARKET_ENABLED: true }));
 import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { DeviceEventEmitter } from 'react-native';
@@ -15,7 +13,7 @@ jest.mock('@/hooks/useResponsiveLayout', () => ({ useResponsiveLayout: () => ({ 
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 
 // Someone who chose each kind for Roadmap's + in Settings → Plus button.
-beforeEach(() => { void savePlus({ ...DEFAULT_PLUS, roadmap: ['goal', 'habit', 'task', 'thought'] }); });
+beforeEach(() => { void savePlus({ ...DEFAULT_PLUS, roadmap: ['habit', 'task', 'thought'] }); });
 
 describe('floating creation actions', () => {
     beforeEach(() => jest.useFakeTimers());
@@ -26,7 +24,6 @@ describe('floating creation actions', () => {
         const subscription = DeviceEventEmitter.addListener('show_quick_add', callback);
         const screen = render(<CreationModal />);
         act(() => { DeviceEventEmitter.emit('show_creation_modal'); });
-        expect(screen.getByLabelText('Create goal')).toBeTruthy();
         fireEvent.press(screen.getByLabelText('Create habit'));
         // At once, not after the menu has finished leaving: waiting for it
         // was most of a second between the tap and a keyboard.
@@ -36,32 +33,10 @@ describe('floating creation actions', () => {
         subscription.remove();
         screen.unmount();
     });
-    it('opens the goal parser once after choosing Goal', () => {
-        const callback = jest.fn();
-        // Goals are parsed into a calculable target first; the step-by-step
-        // wizard is still reachable from inside that sheet.
-        const subscription = DeviceEventEmitter.addListener('show_goal_quick_add', callback);
-        const screen = render(<CreationModal />);
-        act(() => { DeviceEventEmitter.emit('show_creation_modal'); });
-        fireEvent.press(screen.getByLabelText('Create goal'));
-        // At once, not after the menu has finished leaving: waiting for it
-        // was most of a second between the tap and a keyboard.
-        expect(callback).toHaveBeenCalledTimes(1);
-        act(() => { jest.runAllTimers(); });
-        expect(callback).toHaveBeenCalledTimes(1);
-        subscription.remove();
-        screen.unmount();
-    });
-});
-
-describe('the plus button and the menu are one object', () => {
-    beforeEach(() => jest.useFakeTimers());
-    afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); });
-
     it('opens where the button reported itself, not at a guessed corner', () => {
         const screen = render(<CreationModal />);
         act(() => { DeviceEventEmitter.emit('show_creation_modal', { x: 300, y: 700, size: 60 }); });
-        const stack = screen.getByLabelText('Create goal').parent;
+        const stack = screen.getByLabelText('Create habit').parent;
         expect(stack).toBeTruthy();
         // The close control sits on the button's own spot.
         expect(screen.getByLabelText('Close creation menu')).toBeTruthy();

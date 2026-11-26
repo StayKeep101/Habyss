@@ -67,7 +67,7 @@ async function settleShards(): Promise<void> {
             walletAt = 0;
         }
         if (Date.now() - walletAt > 2 * 60_000) {
-            const { myWallet } = require('./market') as typeof import('./market');
+            const { myWallet } = require('./wallet') as typeof import('./wallet');
             const wallet = await myWallet();
             if (wallet.spendable !== null) { ScreenTimeService.setWallet(wallet.spendable); walletAt = Date.now(); }
         }

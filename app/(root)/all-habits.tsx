@@ -1,4 +1,3 @@
-import { GOALS_ENABLED } from '@/constants/features';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -12,14 +11,13 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useTokens } from '@/hooks/useTokens';
 import { useTasks } from '@/hooks/useTasks';
 import { VoidCard } from '@/components/ui/VoidCard';
-import { getHabits, getGoals, type Habit } from '@/lib/habitsSQLite';
-import { describeSchedule } from '@/lib/goalInsights';
+import { getHabits, type Habit } from '@/lib/habitsSQLite';
+import { describeSchedule } from '@/lib/habitSummary';
 import { emit, on } from '@/lib/appEvents';
 import { todayKey, type Task } from '@/lib/tasks';
-import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { styles } from '@/styles/screens/all-habits.styles';
 
-type Kind = 'habits' | 'tasks' | 'goals';
+type Kind = 'habits' | 'tasks';
 
 /** One row, whatever it is: what it is, a line about it, and where it stands. */
 interface Row {
@@ -40,14 +38,14 @@ const targetOf = (habit: Habit): string =>
     habit.trackingMethod === 'numeric' ? `${habit.goalValue ?? 1} ${habit.unit ?? ''}`.trim() : 'Done or not done';
 const dayLabel = (day: string) => new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
-const TITLES: Record<Kind, string> = { habits: 'All habits', tasks: 'All tasks', goals: 'All goals' };
+const TITLES: Record<Kind, string> = { habits: 'All habits', tasks: 'All tasks' };
 const ARCHIVED = { label: 'Archived', icon: 'archive-outline' };
 const ENDED = { label: 'Ended', icon: 'flag-outline' };
 const DONE = { label: 'Done', icon: 'checkmark-circle-outline' };
 const DROPPED = { label: 'Stopped', icon: 'close-circle-outline' };
 
 /**
- * Every habit, task or goal in one place (`?kind=`; habits when none).
+ * Every habit or task in one place (`?kind=`; habits when none).
  *
  * The roadmap shows what is on for a day; this shows everything there is, in
  * clear parts, chosen with the chips at the top: what is in use now, and apart
@@ -58,22 +56,17 @@ export default function AllScreen() {
     const { primary: accent } = useAccentGradient();
     const { lightFeedback } = useHaptics();
     const params = useLocalSearchParams<{ kind?: string }>();
-    const kind: Kind = params.kind === 'tasks' || (params.kind === 'goals' && GOALS_ENABLED) ? params.kind : 'habits';
+    const kind: Kind = params.kind === 'tasks' ? 'tasks' : 'habits';
     const tasks = useTasks();
-    // Goals come from the one shared list, so "Current" is exactly what the Roadmap shows.
-    const { goals: activeGoals, finished } = useGoalsInsights();
 
     const [habits, setHabits] = useState<Habit[]>([]);
-    const [goals, setGoals] = useState<Habit[]>([]);
     const [loading, setLoading] = useState(kind !== 'tasks');
     // Which part is shown: what is in use (first) or what has stopped, chosen at the top.
     const [shown, setShown] = useState(0);
 
     const load = useCallback(async () => {
         try {
-            const [all, goalList] = await Promise.all([getHabits(), getGoals()]);
-            setHabits(all.filter(habit => !habit.isGoal));
-            setGoals(goalList);
+            setHabits(await getHabits());
         } catch {
             setHabits([]);
         } finally {
@@ -88,12 +81,11 @@ export default function AllScreen() {
     }, [load]);
 
     const sections = useMemo((): Section[] => {
-        const goalNames = Object.fromEntries(goals.map(goal => [goal.id, goal.name]));
         const today = todayKey();
         if (kind === 'tasks') {
             const row = (task: Task, stopped?: Row['stopped']): Row => ({
                 id: task.id, name: task.title, icon: 'checkbox-outline', color: undefined, stopped,
-                meta: [task.dueDate ? dayLabel(task.dueDate) : 'No date', task.goalId ? goalNames[task.goalId] : null].filter(Boolean).join(' · '),
+                meta: task.dueDate ? dayLabel(task.dueDate) : 'No date',
                 open: () => emit('show_task_form', { task }),
             });
             const open = tasks.filter(task => task.status === 'open');
@@ -103,26 +95,11 @@ export default function AllScreen() {
                 { title: 'Stopped', stopped: true, empty: 'Nothing stopped.', hint: 'Dropped before they were done.', rows: tasks.filter(task => task.status === 'cancelled').map(task => row(task, DROPPED)) },
             ];
         }
-        if (kind === 'goals') {
-            const reached = new Set(finished.map(item => item.goal.id));
-            const goalRow = (goal: Habit, stopped?: Row['stopped'], reachedOn?: string): Row => ({
-                id: goal.id, name: goal.name, icon: goal.icon ?? 'flag-outline', color: goal.color, stopped,
-                meta: [reachedOn ? `Reached ${dayLabel(reachedOn)}` : goal.targetDate ? `By ${dayLabel(goal.targetDate)}` : null,
-                    ((count: number) => (count === 1 ? '1 habit' : `${count} habits`))(habits.filter(h => h.goalId === goal.id && !h.isArchived).length)].filter(Boolean).join(' · '),
-                open: () => router.push({ pathname: '/goal-detail', params: { goalId: goal.id } }),
-            });
-            return [
-                { title: 'Current', rows: activeGoals.map(goal => goalRow(goal)), empty: 'No goals in progress.' },
-                { title: 'Completed', stopped: true, rows: finished.map(item => goalRow(item.goal, DONE, item.on)), empty: 'No goals reached yet.' },
-                { title: 'Archived', stopped: true, rows: goals.filter(goal => goal.isArchived && !reached.has(goal.id)).map(goal => goalRow(goal, ARCHIVED)),
-                    empty: 'Nothing archived.', hint: 'Not running any more. Open one to bring it back.' },
-            ];
-        }
         const stoppedOf = (habit: Habit) => habit.isArchived ? ARCHIVED : habit.endDate && habit.endDate < today ? ENDED : undefined;
         const rows = habits.map((habit): Row => ({
             id: habit.id, name: habit.name, icon: habit.icon ?? 'ellipse-outline', color: habit.color,
             stopped: stoppedOf(habit),
-            meta: [targetOf(habit), scheduleOf(habit), habit.goalId ? goalNames[habit.goalId] : null].filter(Boolean).join(' · '),
+            meta: [targetOf(habit), scheduleOf(habit)].join(' · '),
             open: () => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } }),
         }));
         return [
@@ -130,7 +107,7 @@ export default function AllScreen() {
             { title: 'Archived or ended', stopped: true, rows: rows.filter(item => item.stopped),
                 empty: 'Nothing archived.', hint: 'Not running any more. Open one to bring it back.' },
         ];
-    }, [kind, habits, goals, tasks, activeGoals, finished]);
+    }, [kind, habits, tasks]);
 
     return (
         <SheetScreen title={TITLES[kind]} onBack={() => router.back()}>

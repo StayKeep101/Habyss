@@ -12,7 +12,7 @@ export interface AscentState {
     beat: number;
     answers: Answers;
     /** Saved once (lib/ascent/plan.ts): what the commit beat created, so it is never created twice. */
-    created?: { goalId: string; stepId: string; stepKind: 'task' | 'habit' };
+    created?: { stepId: string; stepKind: 'task' | 'habit' };
     finished: boolean;
     version: 4;
 }

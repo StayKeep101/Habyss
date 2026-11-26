@@ -10,7 +10,6 @@ import { NUMBER, toNumber } from './phrases';
  *              "remind me to…", "no reminder"
  *   Tracking   "from Apple Health", "with my Watch", "on Strava", "on Libby",
  *              "at the gym", "auto-track it"
- *   Goal       "for my Launch goal", "towards Marathon", "part of Fitness"
  *   Subtasks   "Groceries: milk, eggs, bread", "steps: draft, edit and send"
  *
  * Each returns the words to take out of the name, so "Gym right after work"
@@ -162,22 +161,6 @@ export function findTracking(text: string): FoundTracking | null {
     const auto = text.match(/,?\s*(?:auto[\s-]?track(?:ed|ing)?(?:\s+it)?|track\s+it\s+(?:automatically|for\s+me|by\s+itself)|tracks?\s+itself)\b/i);
     if (auto) return { kind: 'auto', phrase: auto[0] };
     return null;
-}
-
-/**
- * Which of your goals it belongs to: "for my Launch goal", "towards the
- * marathon", "part of Fitness", "under Business". `goals` are the goal
- * names; "… goal" is read even when the name is not one of them yet.
- */
-export function findGoal(text: string, goals: string[] = []): { name: string; phrase: string } | null {
-    const LEAD = String.raw`(?:for|towards?|toward|under|part\s+of|in|into|linked\s+to|counts?\s+(?:for|towards?))`;
-    for (const name of [...goals].sort((a, b) => b.length - a.length)) {
-        if (!name.trim()) continue;
-        const match = text.match(new RegExp(String.raw`,?\s*${LEAD}\s+(?:my\s+|the\s+)?${escape(name.trim())}(?:\s+goal)?\b`, 'i'));
-        if (match) return { name: name.trim(), phrase: match[0] };
-    }
-    const named = text.match(new RegExp(String.raw`,?\s*${LEAD}\s+(?:my\s+|the\s+)?([A-Za-z][\w'&-]*(?:\s+[A-Za-z][\w'&-]*){0,3})\s+goal\b`, 'i'));
-    return named ? { name: named[1], phrase: named[0] } : null;
 }
 
 /**

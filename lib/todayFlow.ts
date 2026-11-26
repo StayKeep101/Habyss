@@ -29,7 +29,7 @@ export async function todayFlow(now = new Date(), options: { ahead?: boolean } =
     const { loadEndedEarly, endedFor } = require('./endedEarly') as typeof import('./endedEarly');
     const endedAll = await loadEndedEarly().catch(() => ({ day: '', at: {} }));
     const items = flowInputs({
-        habits: habits.filter(habit => !habit.isGoal && !habit.isArchived && isHabitScheduledForDate(habit, now)),
+        habits: habits.filter(habit => !habit.isArchived && isHabitScheduledForDate(habit, now)),
         tasks: tasksForDay(tasks, today, today), done, doneTimes, day: today, meals: mealSlots(meals), events, travel, today, flexibleMeals: flexible,
         kept: memory.day === today ? memory.slots : undefined, planned: memory.day === today ? memory.planned : undefined,
         lapsed: memory.day === today ? memory.lapsed : undefined, wasDone: memory.day === today ? memory.done : undefined, again: memory.day === today ? memory.again : undefined,

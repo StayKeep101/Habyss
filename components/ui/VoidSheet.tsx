@@ -34,7 +34,7 @@ const CLOSE = OVERLAY.out;
  * This is the other half of that pair, for choices small enough to answer
  * without leaving where you are: the thing you were looking at stays visible
  * above it. A page sheet is still right for anything with its own body of
- * work — writing a habit, editing a goal.
+ * work — writing a habit, editing a task.
  *
  * Nothing on it but its title and what it asks: no grabber bar, no × (they
  * were noise). It closes the ways people already know: drag the panel down

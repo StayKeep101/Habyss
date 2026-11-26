@@ -27,7 +27,7 @@ function play(given: Answers): AscentState {
         else if (beat.kind === 'number') state = answer(state, { age: given.age });
         else if (beat.kind === 'day') state = answer(state, { wake: given.wake, sleep: given.sleep });
         else if (beat.kind === 'action') state = answer(state, { action: given.action, actionKind: given.actionKind });
-        else if (beat.kind === 'commit') state = ascentReducer(state, { type: 'created', created: { goalId: 'g', stepId: 's', stepKind: 'task' } });
+        else if (beat.kind === 'commit') state = ascentReducer(state, { type: 'created', created: { stepId: 's', stepKind: 'task' } });
         else if (beat.kind === 'build') state = ascentReducer(state, { type: 'built' });
     }
     throw new Error('The story never reached its end.');
@@ -132,7 +132,7 @@ describe('the Ascent story', () => {
         expect(tap(foothold)).toBe(foothold);
         expect(answer(foothold, { when: 'later' })).toBe(foothold);
         expect(ascentReducer(foothold, { type: 'built' })).toBe(foothold);
-        const made = ascentReducer(foothold, { type: 'created', created: { goalId: 'g', stepId: 's', stepKind: 'habit' } });
+        const made = ascentReducer(foothold, { type: 'created', created: { stepId: 's', stepKind: 'habit' } });
         expect(currentBeat(made)).toMatchObject({ text: 'Done. That’s your first step, and it’s on your plan.' });
     });
 
@@ -158,7 +158,7 @@ describe('the Ascent story', () => {
         expect(end.answers).not.toHaveProperty('source');
         // And before Echo is built, how the day runs without opening the app.
         expect(SCENES.map(scene => scene.id)).toContain('how');
-        expect(end.created).toEqual({ goalId: 'g', stepId: 's', stepKind: 'task' });
+        expect(end.created).toEqual({ stepId: 's', stepKind: 'task' });
         expect(progressOf(ascentReducer(end, { type: 'finish' }))).toBe(1);
     });
 });

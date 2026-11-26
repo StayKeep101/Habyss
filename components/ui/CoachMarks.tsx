@@ -22,8 +22,8 @@ const PATIENCE = 2400;
  * The first-run tour, like a game's: the screen dims except for one real
  * control, ringed, with a short line beside it and an arrow to it. It runs in
  * order across screens (lib/coachMarks.ts FIRST_RUN): Home's cards, making a
- * first goal yourself, Roadmap, friends. Where you do the thing yourself
- * (tap +, choose Goal, create it), the control stays live and the tour waits.
+ * first habit yourself, Roadmap, friends. Where you do the thing yourself
+ * (tap +, choose Habit), the control stays live and the tour waits.
  *
  * A plain layer, not a native modal, so the real controls under the hole can
  * be used. Mounted once over the whole app (`root`), and once inside each

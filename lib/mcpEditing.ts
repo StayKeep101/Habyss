@@ -28,9 +28,6 @@ export const EDITING_TOOLS: Tool[] = [
             start_date: date, end_date: date, goal_value: { type: 'number', minimum: 0.000001, maximum: 1000000000 }, unit: str(40), paused: bool }) },
     { name: 'delete_habit', description: 'Delete a habit and stop it repeating. Its history goes with it.', inputSchema: obj({ habit_id: uuid, find }) },
     { name: 'undo_habit', description: 'Un-tick a habit for a day (today by default), when it was marked done by mistake.', inputSchema: obj({ habit_id: uuid, find, date }) },
-    { name: 'update_goal', description: 'Change a goal: rename it, its description or its target date. Only the fields given change.',
-        inputSchema: obj({ goal_id: uuid, find, name: str(), description: str(5000), target_date: date }) },
-    { name: 'delete_goal', description: 'Delete a goal and its milestones. Its habits and tasks stay, no longer linked to it.', inputSchema: obj({ goal_id: uuid, find }) },
     { name: 'get_range', description: 'A day-by-day view of a date range (up to 92 days): each day\'s habits (done or not) and the tasks due that day (done or open).',
         inputSchema: obj({ from: date, to: date }, ['from', 'to']) },
     { name: 'get_stats', description: 'How it is going over a date range (the last 30 days by default, up to 366): habit completion rate overall and per habit, current streaks, tasks done and overdue, and each goal\'s progress.',
@@ -80,24 +77,6 @@ export function habitPatch(args: Row, current: { start_date?: string | null; end
     if (args.paused !== undefined) patch.is_archived = args.paused;
     const start = patch.start_date ?? current.start_date, end = patch.end_date ?? current.end_date;
     if (start && end && end < start) throw new Error('end_date must be on or after start_date');
-    if (!Object.keys(patch).length) throw new Error('Nothing to change: give at least one field.');
-    return patch;
-}
-
-/** The columns update_goal changes; the goal's own title in goal_spec follows its name. */
-export function goalPatch(args: Row, current: { start_date?: string | null; goal_spec?: Row | null }): Row {
-    const patch: Row = {};
-    if (args.name !== undefined) {
-        patch.name = args.name.trim();
-        if (current.goal_spec) patch.goal_spec = { ...current.goal_spec, title: patch.name };
-    }
-    if (args.description !== undefined) patch.description = args.description;
-    if (args.target_date !== undefined) {
-        if (current.start_date && args.target_date < current.start_date) throw new Error('target_date must be on or after the goal\'s start');
-        patch.target_date = args.target_date;
-        const spec = patch.goal_spec ?? current.goal_spec;
-        if (spec?.window) patch.goal_spec = { ...spec, window: { ...spec.window, end: args.target_date } };
-    }
     if (!Object.keys(patch).length) throw new Error('Nothing to change: give at least one field.');
     return patch;
 }

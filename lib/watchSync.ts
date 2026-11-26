@@ -1,7 +1,7 @@
 import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
 import type { Habit } from './habitsSQLite';
 import { createHabitSchedule } from './habitSchedule';
-import { dateAt, summarizeHabit } from './goalInsights';
+import { dateAt, summarizeHabit } from './habitSummary';
 import { countedHistory } from './sharedGate';
 import { mixHex } from './colorContrast';
 import { measurementFor } from './habitMeasurement';
@@ -91,7 +91,7 @@ export function buildWatchHabits(habits: Habit[], history: Record<string, string
     const counted = countedHistory(history);
     const done = new Set(history[today] ?? []);
     return habits
-        .filter(habit => !habit.isGoal && !habit.isArchived && createHabitSchedule(habit)(dateAt(today)))
+        .filter(habit => !habit.isArchived && createHabitSchedule(habit)(dateAt(today)))
         .map(habit => ({
             id: habit.id,
             title: habit.name,

@@ -32,8 +32,6 @@ export interface EchoStats {
     weekConsistency: number;
     bestHabit?: string;
     nextHabit?: string;
-    goalsCount: number;
-    overallProgress: number;
     /** What Echo found in their record (lib/echoPatterns.ts), strongest first. True, so the model may cite them. */
     patterns?: string[];
 }
@@ -202,13 +200,6 @@ function yours(s: EchoStats, personality: PersonalityModeId): string[] {
     if (s.bestHabit) {
         lines.push(warm ? `${named(s.bestHabit)} is the one you never miss lately 🌟` : `${named(s.bestHabit)} is your most reliable habit right now.`);
     }
-    if (s.goalsCount > 0) {
-        lines.push(s.overallProgress === 0
-            ? (tough ? 'Your goals haven’t moved yet. The rest will not do itself.' : 'Your goals haven’t moved yet. One small piece today gets them going.')
-            : tough
-                ? `Your goals are ${roughShare(s.overallProgress)}. The rest will not do itself.`
-                : `Your goals are ${roughShare(s.overallProgress)}. Steady.`);
-    }
     return lines;
 }
 
@@ -306,7 +297,6 @@ export async function nextEchoLine(personality: PersonalityModeId, stats: EchoSt
             stats.streak ? `Streak: ${stats.streak} days` : null,
             `Active on ${stats.weekConsistency}% of the last 7 days`,
             stats.nextHabit ? `Not logged yet: ${stats.nextHabit}` : null,
-            stats.goalsCount ? `Goals: ${stats.overallProgress}% done overall` : null,
             // Two at most: a small model given more stops reading.
             stats.patterns?.length ? `Found in their own record: ${stats.patterns.slice(0, 2).join(' ')}` : null,
         ].filter(Boolean).join('. ');

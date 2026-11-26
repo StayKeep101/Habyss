@@ -72,10 +72,10 @@ describe('a month of progress', () => {
         expect(days.find(day => day.date === '2026-09-05')!.tasks).toHaveLength(0);
     });
 
-    it('leaves out goals and archived habits', () => {
+    it('leaves out archived habits', () => {
         const days = monthDays({
             ...base,
-            habits: [habit({ id: 'g', isGoal: true }), habit({ id: 'x', isArchived: true })],
+            habits: [habit({ id: 'x', isArchived: true })],
         });
         expect(days[0].scheduled).toBe(0);
     });

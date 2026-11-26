@@ -1,4 +1,3 @@
-import { GOALS_ENABLED } from '@/constants/features';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
@@ -32,11 +31,10 @@ import { emit } from '@/lib/appEvents';
 import { createTask } from '@/lib/tasks';
 import { addHabit } from '@/lib/habitsSQLite';
 import { parseHabitText, parsedToHabit } from '@/lib/habitParser';
-import { queueGoals } from '@/lib/goalQueue';
 import { SortThoughtSheet } from '@/components/BrainDump/SortThoughtSheet';
 import { copyText } from '@/lib/copyText';
 import { localDateKey } from '@/lib/habitSchedule';
-import { useGoalsInsights } from '@/hooks/useGoalInsights';
+import { useDayData } from '@/hooks/useDayData';
 import { addThought, getThoughts, removeThought, reorderThoughts, restoreThought, updateThought, type Thought } from '@/lib/brainDump';
 import { styles } from '@/styles/screens/brain-dump.styles';
 
@@ -50,7 +48,7 @@ const UNDO_MS = 4000;
  * is there instead — tap it and say it. Below, just the words. Swipe left to delete
  * (with a moment to undo), tap to reword, hold and drag to move. Holding a
  * thought and letting go opens everything that can be done to it: copy, turn
- * it into a task, habit or goal, file it under a goal, delete. Two fingers
+ * it into a task or habit, file it under a task, delete. Two fingers
  * dragged down the list select several, and every one of those works on them
  * together. The info button (top right) says all of this, and exports.
  * Private: it stays on this phone.
@@ -129,12 +127,11 @@ export default function BrainDumpScreen() {
     };
 
     /** The thought becomes the real thing, and leaves the dump (undo brings it back). */
-    const turnInto = (thought: Thought, kind: 'task' | 'habit' | 'goal') => {
+    const turnInto = (thought: Thought, kind: 'task' | 'habit') => {
         void remove(thought);
         router.back();
         setTimeout(() => {
             if (kind === 'habit') emit('show_quick_add', { prefillName: thought.text });
-            else if (kind === 'goal') emit('show_goal_quick_add', { prefill: thought.text });
             else emit('show_task_form', { prefill: thought.text });
         }, 400);
     };
@@ -157,8 +154,8 @@ export default function BrainDumpScreen() {
         for (const item of list) await removeThought(item.id);
     };
 
-    /** Each thought a task of its own, under a goal when one is given. */
-    const intoTasks = async (list: Thought[], goalId?: string) => {
+    /** Each thought a task of its own. */
+    const intoTasks = async (list: Thought[]) => {
         let made = 0;
         // Read like a typed task: "essay due by Friday, hard, 2 hours" keeps
         // its deadline, difficulty and length, and loses them from the title.
@@ -168,7 +165,7 @@ export default function BrainDumpScreen() {
             const made_ = await createTask({
                 title: read.title || item.text, dueDate: read.dueDate, dueTime: read.dueTime, estimatedMinutes: read.estimatedMinutes,
                 priority: read.priority, deadline: read.deadline, difficulty: read.difficulty,
-                flexible: read.dueTime ? read.flexible : undefined, ...(goalId ? { goalId } : {}),
+                flexible: read.dueTime ? read.flexible : undefined,
             });
             if (made_) made++;
         }
@@ -193,20 +190,12 @@ export default function BrainDumpScreen() {
         stopSelecting();
     };
 
-    /** Goals need a target and dates, so each opens the goal sheet in turn. */
-    const intoGoals = (list: Thought[]) => {
-        void removeMany(list);
-        stopSelecting();
-        router.back();
-        queueGoals(list.map(item => item.text));
-    };
-
     /**
      * A thought sorted into its pieces (lib/thoughtSplit.ts): tasks and habits
-     * made at once, goals opened one after another, notes kept as thoughts.
+     * made at once, notes kept as thoughts.
      */
     const [sorting, setSorting] = useState<Thought | null>(null);
-    const createSorted = async (pieces: { text: string; kind: 'task' | 'habit' | 'goal' | 'note' }[]) => {
+    const createSorted = async (pieces: { text: string; kind: 'task' | 'habit' | 'note' }[]) => {
         const thought = sorting;
         setSorting(null);
         if (!thought) return;
@@ -215,16 +204,14 @@ export default function BrainDumpScreen() {
         const notes = pieces.filter(piece => piece.kind === 'note');
         const tasks = asThoughts('task');
         const habits = asThoughts('habit');
-        const goals = asThoughts('goal');
         if (tasks.length) await intoTasks(tasks);
         if (habits.length) await intoHabits(habits);
         // The thought itself goes once everything in it has a home; notes stay as thoughts.
-        if (tasks.length || habits.length || goals.length) {
+        if (tasks.length || habits.length) {
             await remove(thought, 'Sorted');
             for (const note of notes) await addThought(note.text);
             setThoughts(await getThoughts());
         }
-        if (goals.length) intoGoals(goals);
     };
 
     /** On the clipboard, one thought per line. */
@@ -240,8 +227,7 @@ export default function BrainDumpScreen() {
         return () => clearTimeout(hide);
     }, [notice]);
 
-    const insights = useGoalsInsights();
-    const goals = insights.habits.filter(habit => habit.isGoal && !habit.isArchived);
+    const insights = useDayData();
     // Tasks a thought can go under as a subtask: the open ones, soonest first.
     const openTasks = insights.tasks.filter(task => task.status === 'open')
         .sort((a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'))
@@ -261,8 +247,8 @@ export default function BrainDumpScreen() {
         stopSelecting();
     };
 
-    // The sheet a held thought opens (or the selection's "Add to a goal").
-    const [acting, setActing] = useState<{ list: Thought[]; goals: boolean } | null>(null);
+    // The sheet a held thought opens.
+    const [acting, setActing] = useState<{ list: Thought[] } | null>(null);
 
     /** One of the sheet's tiles, for one thought or for every selected one. */
     const act = (list: Thought[], action: ThoughtAction) => {
@@ -273,7 +259,6 @@ export default function BrainDumpScreen() {
         if (one && !selecting) { setTimeout(() => turnInto(one, action), 250); return; }
         if (action === 'task') void intoTasks(list);
         else if (action === 'habit') void intoHabits(list);
-        else intoGoals(list);
     };
 
     /** Held and let go: that thought, or while selecting, every ticked one with it. */
@@ -282,7 +267,7 @@ export default function BrainDumpScreen() {
             ? thoughts.filter(item => picked.has(item.id) || item.id === thought.id)
             : [thought];
         if (selecting) setPicked(new Set(list.map(item => item.id)));
-        setActing({ list, goals: false });
+        setActing({ list });
     };
     const pickedList = thoughts.filter(item => picked.has(item.id));
 
@@ -469,10 +454,6 @@ export default function BrainDumpScreen() {
                             <MorphMenu label="More actions" title={`${picked.size} selected`} titleIcon="checkmark" diameter={54} items={[
                                 { label: picked.size === 1 ? 'Make a task' : `Make ${picked.size} tasks`, icon: 'checkbox-outline', onPress: () => act(pickedList, 'task') },
                                 { label: picked.size === 1 ? 'Make a habit' : `Make ${picked.size} habits`, icon: 'repeat', onPress: () => act(pickedList, 'habit') },
-                                ...(GOALS_ENABLED ? [
-                                    { label: picked.size === 1 ? 'Make a goal' : `Make ${picked.size} goals`, icon: 'flag-outline' as const, onPress: () => act(pickedList, 'goal') },
-                                    { label: 'Add to a goal', icon: 'flag' as const, onPress: () => setActing({ list: pickedList, goals: true }) },
-                                ] : []),
                             ]} />
                         ) : null}
                     </View>
@@ -481,10 +462,9 @@ export default function BrainDumpScreen() {
                 <SortThoughtSheet text={sorting?.text ?? null} onClose={() => setSorting(null)} onCreate={pieces => void createSorted(pieces)} />
                 <ThoughtActions visible={!!acting} count={acting?.list.length ?? 0}
                     caption={acting?.list.length === 1 ? acting.list[0].text : undefined}
-                    goals={goals} startWithGoals={acting?.goals} tasks={openTasks}
+                    tasks={openTasks}
                     onClose={() => setActing(null)}
                     onAction={action => acting && act(acting.list, action)}
-                    onAddToGoal={goalId => { const list = acting?.list ?? []; setActing(null); void intoTasks(list, goalId); }}
                     onAddSubtask={taskId => { const list = acting?.list ?? []; setActing(null); void intoSubtasks(list, taskId); }} />
                 {notice ? (
                     <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={[styles.undo, { backgroundColor: colors.surfaceTertiary }]}>

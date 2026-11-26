@@ -7,8 +7,8 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { styles } from '@/styles/screens/guide.styles';
 
 /**
- * How Habyss works: a short animated story of the system — goals are the
- * target, habits and tasks the steps, Today's 3, Marks — and nothing else.
+ * How Habyss works: a short animated story of the system — habits and tasks
+ * as the steps, Today's 3, Marks — and nothing else.
  * Opened once after onboarding (`intro=1`, with a button to start) and any
  * time from Settings.
  */

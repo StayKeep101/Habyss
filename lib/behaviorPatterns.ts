@@ -51,7 +51,7 @@ function dueOf(record: HabitDay[], id: string): { date: string; done: boolean }[
     return record.filter(day => day.scheduled.includes(id) && !day.skipped.includes(id)).map(day => ({ date: day.date, done: day.done.includes(id) }));
 }
 
-const live = (habits: Habit[]) => habits.filter(habit => !habit.isGoal && !habit.isArchived);
+const live = (habits: Habit[]) => habits.filter(habit => !habit.isArchived);
 
 /** The minutes past midnight a tick was made at. */
 const hourOf = (at: string) => { const d = new Date(at); return d.getHours() + d.getMinutes() / 60; };

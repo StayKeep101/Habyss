@@ -3,9 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /**
  * What the + does on each tab, the fastest way from a thought to the thing.
  *
- * - Home and Roadmap: make something (goal, habit, task, thought). Mood and
+ * - Home and Roadmap: make something (habit, task, thought). Mood and
  *   energy are no longer logged by hand: Echo asks;
- * - Community: race the clock, put Shards on a goal, or pick a challenge;
+ * - Community: race the clock, or pick a challenge;
  * - Settings: the + is a search lens, not a menu (see settings.tsx).
  *
  * Each tab's list can be changed in Settings → Plus button, from the same
@@ -15,16 +15,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type PlusTab = 'home' | 'roadmap' | 'community';
 /** Focus is not one: it is the bar over the tab bar, one tap away on every tab. */
-export type PlusActionId = 'goal' | 'habit' | 'task' | 'thought' | 'bet' | 'race' | 'challenge';
+export type PlusActionId = 'habit' | 'task' | 'thought' | 'race' | 'challenge';
 
 /** Every action the + can offer, with the token colour its icon wears. */
 export const PLUS_ACTIONS: Record<PlusActionId, { label: string; icon: string; tone: 'accent' | 'success' | 'warning' | 'danger' }> = {
-    goal: { label: 'Goal', icon: 'flag-outline', tone: 'accent' },
     habit: { label: 'Habit', icon: 'repeat', tone: 'success' },
     task: { label: 'Task', icon: 'checkmark-circle-outline', tone: 'warning' },
     thought: { label: 'Thought', icon: 'bulb-outline', tone: 'warning' },
     race: { label: 'Race the clock', icon: 'flash-outline', tone: 'warning' },
-    bet: { label: 'Bet on a goal', icon: 'diamond-outline', tone: 'accent' },
     challenge: { label: 'Pick a challenge', icon: 'trophy-outline', tone: 'warning' },
 };
 
@@ -35,9 +33,9 @@ export const PLUS_TABS: { id: PlusTab; label: string; icon: string }[] = [
 ];
 
 export const DEFAULT_PLUS: Record<PlusTab, PlusActionId[]> = {
-    home: ['goal', 'habit', 'task', 'thought'],
-    roadmap: ['goal', 'habit', 'task', 'thought'],
-    community: ['race', 'bet', 'challenge'],
+    home: ['habit', 'task', 'thought'],
+    roadmap: ['habit', 'task', 'thought'],
+    community: ['race', 'challenge'],
 };
 
 /** The most a menu holds, so it never reaches the top of the screen. */
@@ -51,18 +49,13 @@ const KEY = 'habyss_plus_actions';
  */
 const ADDED: PlusActionId[] = ['race'];
 const ADDED_KEY = 'habyss_plus_added';
-/** Goal and Bet on a goal are offered only while goals are on (constants/features.ts). */
-export const plusOffered = (id: PlusActionId): boolean => {
-    const { GOALS_ENABLED, MARKET_ENABLED } = require('@/constants/features') as typeof import('@/constants/features');
-    return id === 'goal' ? GOALS_ENABLED : id === 'bet' ? GOALS_ENABLED && MARKET_ENABLED : true;
-};
-const isAction = (id: unknown): id is PlusActionId => typeof id === 'string' && id in PLUS_ACTIONS && plusOffered(id as PlusActionId);
+const isAction = (id: unknown): id is PlusActionId => typeof id === 'string' && id in PLUS_ACTIONS;
 
 /** A saved choice, cleaned: known actions, in catalogue order, at most five; a tab never empty. */
 export function cleanPlus(raw: unknown): Record<PlusTab, PlusActionId[]> {
     const saved = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
     const order = Object.keys(PLUS_ACTIONS) as PlusActionId[];
-    const out = Object.fromEntries((Object.keys(DEFAULT_PLUS) as PlusTab[]).map(tab => [tab, DEFAULT_PLUS[tab].filter(plusOffered)])) as Record<PlusTab, PlusActionId[]>;
+    const out = Object.fromEntries((Object.keys(DEFAULT_PLUS) as PlusTab[]).map(tab => [tab, [...DEFAULT_PLUS[tab]]])) as Record<PlusTab, PlusActionId[]>;
     for (const tab of Object.keys(DEFAULT_PLUS) as PlusTab[]) {
         // Duels became challenges: a saved "duel" is the challenge now.
         const list = Array.isArray(saved[tab]) ? (saved[tab] as unknown[]).map(id => (id === 'duel' ? 'challenge' : id)).filter(isAction) : null;
@@ -133,10 +126,8 @@ export function runPlus(id: PlusActionId): void {
     const go = (path: string) => (require('expo-router') as typeof import('expo-router')).router.push(path as never);
     // Creating a habit opens quick add; the full form is for editing, reachable from quick add's More options.
     if (id === 'habit') emit('show_quick_add');
-    else if (id === 'goal') emit('show_goal_quick_add');
     else if (id === 'task') emit('show_task_form');
     else if (id === 'thought') go('/brain-dump');
-    else if (id === 'bet') emit('show_open_bet');
     else if (id === 'race') emit('show_race');
     else if (id === 'challenge') emit('show_challenges');
 }

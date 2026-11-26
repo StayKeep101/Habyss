@@ -12,7 +12,7 @@ import { DURATION, EASE } from '@/theme/motion';
 
 /** What the Ascent leaves for Home: the first step it made, and whether Home has pointed at it yet. */
 export const FIRST_STEP_KEY = 'habyss_first_step';
-interface FirstStep { goalId: string; stepId: string; stepKind: 'task' | 'habit'; title: string; arrived: boolean }
+interface FirstStep { stepId: string; stepKind: 'task' | 'habit'; title: string; arrived: boolean }
 
 const SAY_MS = 4200;
 /** A beat after Home appears, so the first thing seen is Home, then Echo. */

@@ -206,7 +206,7 @@ export function findPatterns(input: PatternInput): Pattern[] {
 
     // 6. The habit your mood lifts on: mood on days it was done against days it was due and missed.
     let bestMood: Pattern | null = null;
-    for (const habit of habits.filter(item => !item.isGoal && !item.isArchived)) {
+    for (const habit of habits.filter(item => !item.isArchived)) {
         const on: number[] = [];
         const off: number[] = [];
         for (const day of record) {
@@ -279,7 +279,7 @@ export function findPatterns(input: PatternInput): Pattern[] {
 
     // 10. The keystone: the habit on whose days the others get done too.
     let keystone: Pattern | null = null;
-    for (const habit of habits.filter(item => !item.isGoal && !item.isArchived)) {
+    for (const habit of habits.filter(item => !item.isArchived)) {
         const rest = (day: HabitDay): HabitDay => ({
             date: day.date,
             scheduled: day.scheduled.filter(id => id !== habit.id),

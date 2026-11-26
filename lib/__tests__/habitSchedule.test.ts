@@ -22,13 +22,13 @@ describe('local habit scheduling', () => {
         expect(isHabitScheduledForDate(habit({ startDate: '', createdAt }), date('2026-09-16'))).toBe(true);
     });
 
-    it('respects both inclusive end boundaries and the start boundary', () => {
-        const bounded = habit({ startDate: '2026-09-10', endDate: '2026-09-16', targetDate: '2026-09-20' });
+    it('respects the inclusive end boundary and the start boundary', () => {
+        const bounded = habit({ startDate: '2026-09-10', endDate: '2026-09-16' });
         expect(isHabitScheduledForDate(bounded, date('2026-09-09'))).toBe(false);
         expect(isHabitScheduledForDate(bounded, date('2026-09-10'))).toBe(true);
         expect(isHabitScheduledForDate(bounded, date('2026-09-16'))).toBe(true);
         expect(isHabitScheduledForDate(bounded, date('2026-09-17'))).toBe(false);
-        expect(isHabitScheduledForDate({ ...bounded, targetDate: '2026-09-14' }, date('2026-09-15'))).toBe(false);
+        expect(isHabitScheduledForDate({ ...bounded, endDate: '2026-09-14' }, date('2026-09-15'))).toBe(false);
     });
 
     it('honors chosen weekdays including legacy full day names', () => {

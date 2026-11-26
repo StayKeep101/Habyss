@@ -15,7 +15,7 @@ import { speedLabel } from '@/lib/taskSpeed';
 import { textOn } from '@/theme/tokens';
 import { DURATION } from '@/theme/motion';
 import {
-    burstMarks, goalDone, milestoneDone, habitDone, marksRange, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskEarned, type Burst, type OrbKind, type Point,
+    burstMarks, habitDone, marksRange, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskEarned, type Burst, type OrbKind, type Point,
 } from '@/lib/marksOrbs';
 import { Overlay } from '@/components/ui/Overlay';
 import { s, vs } from '@/theme/scale';
@@ -37,8 +37,8 @@ interface Flight extends Burst { to: Point; pill: boolean; range: { from: number
 /**
  * Orbs of light flying to your Marks.
  *
- * Mounted once over the whole app. Finishing a habit sends five, a task ten,
- * a goal a swarm (one per Mark, capped): they burst out of where you tapped,
+ * Mounted once over the whole app. Finishing a habit sends five, a task ten:
+ * they burst out of where you tapped,
  * scatter, then curve into the Marks counter one after another, each landing
  * with a tick. Where no counter is on screen (Roadmap), a small Marks pill
  * drops in at the top showing your total, counts it up as they land, then
@@ -65,8 +65,6 @@ export function MarksOrbs() {
                 if (earned && counts(event.taskId, localDateKey(new Date()))) burstMarks(earned, null, speedLabel(event.speed));
             }),
             on('task_reopened', event => { taskEarned(event.taskId, localDateKey(new Date()), false); }),
-            on('goal_complete', () => { burstMarks(goalDone()); }),
-            on('milestones_changed', event => { if (event?.reached) burstMarks(milestoneDone()); }),
         ];
         return () => subs.forEach(sub => sub.remove());
     }, []);
@@ -91,7 +89,7 @@ export function MarksOrbs() {
     const shardPill = flights.find(flight => flight.pill && flight.kind === 'shards');
 
     if (!flights.length) return null;
-    // Over every page, a sheet or a modal one included (a goal's page, Missed):
+    // Over every page, a sheet or a modal one included (a habit's page, Missed):
     // drawn under them, the orbs were felt but never seen.
     return (
         <Overlay>

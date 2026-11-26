@@ -31,7 +31,7 @@ const HOLD_MS = 420;
 
 /**
  * One thought: just its words. Swipe left to delete it, tap to reword it.
- * Hold it: its sheet opens (task, habit, goal, into a goal, a subtask).
+ * Hold it: its sheet opens (task, habit, a subtask).
  * While selecting, a tap ticks it instead.
  */
 export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onDone, onDelete, onEdit, onEditingChange, onLayout }: {
@@ -133,7 +133,7 @@ export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onD
                                     style={styles.flex}
                                     accessibilityRole={selecting ? 'checkbox' : undefined}
                                     accessibilityState={selecting ? { checked: selected } : undefined}
-                                    accessibilityHint={selecting ? 'Tap to select. Hold to turn the selected thoughts into something' : 'Hold to turn it into a task, habit or goal, or hold and drag to move. Swipe left to delete'}>
+                                    accessibilityHint={selecting ? 'Tap to select. Hold to turn the selected thoughts into something' : 'Hold to turn it into a task or habit, or hold and drag to move. Swipe left to delete'}>
                                     <Text style={[styles.text, { color: ticked ? colors.textTertiary : colors.textPrimary }, ticked && styles.struck]}>{thought.text}</Text>
                                 </Pressable>
                             )}

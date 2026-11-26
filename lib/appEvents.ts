@@ -31,19 +31,12 @@ export interface AppEvents {
     habit_created: { habit: Habit };
     habit_updated: { habitId?: string };
     habit_deleted: { habitId: string };
-    goal_deleted: { goalId: string };
     tasks_changed: void;
     /** Settings → How Habyss works: Home runs the first-run walkthrough again. */
     start_walkthrough: void;
     /** A tab in the dock was tapped (its route name): the tour waits for Roadmap and Community. */
     tab_selected: string;
-    /** A new goal was saved from the goal sheet. */
-    goal_created: { goalId: string };
-    /** The tour is on the goals in Roadmap: Roadmap shows its list, not the timeline, until the tour ends. */
-    tour_roadmap_list: void;
     tour_end: void;
-    /** A goal's milestones were added, changed, reached or removed. */
-    milestones_changed: { goalId?: string; reached?: boolean };
     /** `speed`: what its Shards are multiplied by for being done early (lib/taskSpeed.ts). */
     task_completed: { taskId: string; speed?: number };
     /** A done task opened again: it can earn again. */
@@ -58,19 +51,16 @@ export interface AppEvents {
     day_complete: { tally: DayTally; streak: number; completedDates: string[] };
     /** The day's promise — three things, or five — has been kept. */
     daily_target_reached: { done: number; target: number };
-    /** A goal reached a hundred per cent for the first time. */
-    /** `count`: goals done now, this one included. */
-    goal_complete: { goalId: string; name: string; count?: number; color?: string; icon?: string };
     daily_focus_target_changed: DailyTarget;
 
     /* ------------------------------------------------------------- the account */
     cloud_restored: void;
-    /** A bet was placed, a goal opened to bets, or one settled (lib/market.ts): the wallet and market read again. */
+    /** Shards were staked, paid or refunded (races, duels): the wallet reads again. */
     market_changed: void;
     /** A challenge started, was joined, ended, or a day was reported (lib/challenges.ts): its items and cards read again. */
     challenges_changed: void;
-    /** A habit or goal sheet opened by the create flow has closed (saved or not): speaking freely opens the next one (lib/voicePlan.ts). */
-    creation_sheet_closed: { kind: 'habit' | 'goal' };
+    /** A habit sheet opened by the create flow has closed (saved or not): speaking freely opens the next one (lib/voicePlan.ts). */
+    creation_sheet_closed: { kind: 'habit' };
     social_state_updated: void;
     premium_status_updated: void;
     notifications_updated: { unreadCount: number };
@@ -82,8 +72,6 @@ export interface AppEvents {
     show_check_in: { kind: 'mood' | 'energy' };
     /** Echo asks to send a friend a streak freeze (components/Echo/FreezeAskHost.tsx). */
     show_freeze_ask: { id: string; name: string; avatarUrl?: string; streak: number };
-    /** Open one of your goals to bets (the + on Community). */
-    show_open_bet: void;
     /** Pick a challenge from the list (the + on Community). */
     /** The challenge picker; with an id, opened on that challenge. */
     show_challenges: { id?: string } | void;
@@ -92,15 +80,14 @@ export interface AppEvents {
     /** The + on Settings: search the settings. */
     show_settings_search: void;
     close_creation_modal: void;
-    /** Holding the create button: listen for a habit, task or goal said aloud. */
+    /** Holding the create button: listen for a habit or task said aloud. */
     voice_start: void;
     voice_stop: void;
     /** What the voice listener is doing, for the create button to draw. */
     voice_state: { listening: boolean; heard: string };
-    show_habit_modal: { goalId?: string; initialHabit?: Habit } | undefined;
-    show_task_form: { task?: Task; goalId?: string; /** A row id to open with, e.g. 'due'. */ focus?: string; /** Words to start with (from voice). */ prefill?: string } | undefined;
-    show_goal_quick_add: { goal?: Habit; prefill?: string } | undefined;
-    show_quick_add: { goalId?: string; prefillName?: string } | undefined;
+    show_habit_modal: { initialHabit?: Habit } | undefined;
+    show_task_form: { task?: Task; /** A row id to open with, e.g. 'due'. */ focus?: string; /** Words to start with (from voice). */ prefill?: string } | undefined;
+    show_quick_add: { prefillName?: string } | undefined;
     openModal: { modal: string };
     /** Raise the feedback sheet from anywhere. `screen` is collected, not typed. */
     show_feedback: { screen?: string } | undefined;

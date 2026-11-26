@@ -86,9 +86,9 @@ describe('finishing the day', () => {
         expect(isDayComplete(tallyDay([habit({ taskDays: ['sun'] })], {}, {}, [], TODAY))).toBe(false);
     });
 
-    it('ignores goals, archived habits and cancelled tasks', () => {
+    it('ignores archived habits and cancelled tasks', () => {
         const tally = tallyDay(
-            [habit({ id: 'g', isGoal: true }), habit({ id: 'x', isArchived: true }), habit({ id: 'a' })],
+            [habit({ id: 'x', isArchived: true }), habit({ id: 'a' })],
             { a: true }, {},
             [task({ dueDate: TODAY, status: 'cancelled' })],
             TODAY,

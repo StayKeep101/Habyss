@@ -19,7 +19,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
 import { proveTick } from '@/lib/challengeProof';
-import { useGoalsInsights } from '@/hooks/useGoalInsights';
+import { useDayData } from '@/hooks/useDayData';
 import { CelebrationAnimation } from '@/components/Celebrations/CelebrationAnimation';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
@@ -45,8 +45,6 @@ import { useEchoPatterns } from '@/hooks/useEchoPatterns';
 
 import { useTheme } from '@/context/ThemeContext';
 
-import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
-import { GOALS_ENABLED } from '@/constants/features';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { DayNotePopup } from '@/components/Echo/DayNotePopup';
@@ -151,9 +149,7 @@ const Home = () => {
   }, [pressureLevel]);
   const echoPatternsRef = useRef(echoPatterns);
   useEffect(() => { echoPatternsRef.current = echoPatterns; }, [echoPatterns]);
-  // Goals as the overview has them, for what is due soon (read inside showEchoLine).
-  const goalsDataRef = useRef<ReturnType<typeof useGoalsInsights> | null>(null);
-  const echoStatsRef = useRef<EchoStats>({ streak: 0, todayDone: 0, todayTotal: 0, weekConsistency: 0, goalsCount: 0, overallProgress: 0 });
+  const echoStatsRef = useRef<EchoStats>({ streak: 0, todayDone: 0, todayTotal: 0, weekConsistency: 0 });
   // What Echo last said and when: coming back to Home a moment later is not a new conversation.
   const lastShownRef = useRef<{ at: number } | null>(null);
   // Echo's question of the day, asked once its line has typed out (lib/echoConversation.ts).
@@ -192,10 +188,7 @@ const Home = () => {
       if (fresh) { say(fresh.line, fresh.topic); return; }
     }
     const { buildBrief, echoSays } = require('@/lib/echoSays') as typeof import('@/lib/echoSays');
-    const goals = goalsDataRef.current;
-    const deadlines = !goals ? [] : upcomingDeadlines(
-      goals.goals.map(goal => ({ title: goal.name, daysLeft: goals.insightsById[goal.id]?.daysLeft ?? null, progress: goals.insightsById[goal.id]?.progress ?? 0 })),
-      getData().tasks, localDateKey(new Date()));
+    const deadlines = upcomingDeadlines(getData().tasks, localDateKey(new Date()));
     const brief = await buildBrief({ name: name ?? undefined, streak: stats.streak, deadlines }).catch(() => null);
     // The lines Echo says when your apps have had you a while, kept current with the day (lib/echoScroll.ts).
     if (brief) (require('@/lib/echoScroll') as typeof import('@/lib/echoScroll')).sendScrollLines(personality, brief).catch(() => undefined);
@@ -309,13 +302,13 @@ const Home = () => {
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const completionsData = await getCompletions(today);
     setCompletions(completionsData);
-    // Reload history data for accurate stats (streak, consistency, goal progress)
+    // Reload history data for accurate stats (streak, consistency)
     reloadHistory();
     setRefreshing(false);
   }, [showEchoLine, reloadHistory, aiPersonality]);
 
   // Derived data
-  const habits = useMemo(() => allHabits.filter(h => !h.isGoal), [allHabits]);
+  const habits = useMemo(() => allHabits, [allHabits]);
 
   // Load initial data & Sync on Focus
   useFocusEffect(
@@ -336,12 +329,11 @@ const Home = () => {
 
 
   // Straight after onboarding, once: the tour on the real screens, like a
-  // game's (Home's cards, a first goal, Roadmap, friends), not a page.
+  // game's (Home's cards, a first habit, Roadmap, friends), not a page.
   const streakRef = useCoachTarget<View>('streak');
   const todayRef = useCoachTarget<View>('today-focus');
   const focusRef = useCoachTarget<View>('focus-today');
   const missedRef = useCoachTarget<View>('missed');
-  const goalsRef = useCoachTarget<View>('goals');
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const { takeTutorialDue } = require('@/lib/tutorial') as typeof import('@/lib/tutorial');
@@ -404,24 +396,13 @@ const Home = () => {
 
   const dailyTarget = useDailyTarget();
 
-  // The same number as the goals overview and each goal's stats.
-  const goalsData = useGoalsInsights();
-  goalsDataRef.current = goalsData;
-  const { overall: avgGoalProgress, tasks: allTasks, skippedToday, today: todayKeyString } = goalsData;
+  const dayData = useDayData();
+  const { tasks: allTasks, skippedToday } = dayData;
   // Marks, from the same habits, tasks and history already loaded here.
-  const marks = useMarks(goalsData);
+  const marks = useMarks(dayData);
   marksTotalRef.current = marks.total;
   // Shards, the currency: the same record with Shards' rules (lib/shards.ts), plus what bets moved.
-  const wallet = useWallet(marks, goalsData.loaded);
-
-  // One-go goals ("run 21 km"): their training habit steps up each week (lib/peakPlan.ts).
-  useEffect(() => {
-    if (!goalsData.loaded) return;
-    void (require('@/lib/peakPlan') as typeof import('@/lib/peakPlan')).syncPeakPlans(
-      allHabits.filter(habit => habit.isGoal), allHabits, todayKeyString,
-      patch => (require('@/lib/habitsSQLite') as typeof import('@/lib/habitsSQLite')).updateHabit(patch),
-    ).catch(() => undefined);
-  }, [goalsData.loaded, allHabits, todayKeyString]);
+  const wallet = useWallet(marks, dayData.loaded);
 
   // A streak freeze someone gave you covers yesterday if it was missed.
   useEffect(() => {
@@ -443,7 +424,7 @@ const Home = () => {
   useEffect(() => {
     // Only once everything Marks are counted from has loaded: a total read
     // half-loaded looked like a fall and then a climb on every launch.
-    if (!sharedData.historyLoaded || !sharedData.tasksLoaded || !goalsData.loaded) return;
+    if (!sharedData.historyLoaded || !sharedData.tasksLoaded || !dayData.loaded) return;
     const hasCompleted = Object.values(sharedData.history).some(ids => ids.length > 0)
       || sharedData.tasks.some(task => task.status === 'done');
     let alive = true;
@@ -459,13 +440,13 @@ const Home = () => {
       }
     }), 2500);
     return () => { alive = false; clearTimeout(settle); };
-  }, [marks.total, sharedData.historyLoaded, sharedData.tasksLoaded, goalsData.loaded, sharedData.history, sharedData.tasks, playLevelUp]);
+  }, [marks.total, sharedData.historyLoaded, sharedData.tasksLoaded, dayData.loaded, sharedData.history, sharedData.tasks, playLevelUp]);
   // The app dresses for your rank (theme/rankLooks.ts): only once Marks are fully counted.
   useEffect(() => {
-    if (!sharedData.historyLoaded || !sharedData.tasksLoaded || !goalsData.loaded) return;
+    if (!sharedData.historyLoaded || !sharedData.tasksLoaded || !dayData.loaded) return;
     const { rankFor } = require('@/lib/marks') as typeof import('@/lib/marks');
     (require('@/lib/rankLook') as typeof import('@/lib/rankLook')).setRankLook(rankFor(marks.total).rank.name);
-  }, [marks.total, sharedData.historyLoaded, sharedData.tasksLoaded, goalsData.loaded]);
+  }, [marks.total, sharedData.historyLoaded, sharedData.tasksLoaded, dayData.loaded]);
   // The Developer page can play the moment for any rank, to see it.
   useEffect(() => {
     const sub = on('preview_climb', ({ rank }) => {
@@ -505,17 +486,15 @@ const Home = () => {
   }, [habits, allTasks, sharedData.history, sharedData.skips, completions, dailyTarget, timeOffPeriods]);
   // Every 7th day in a row earns a streak freeze (the server allows one a week).
   useEffect(() => { void earnFreezeIfDue(streak); }, [streak]);
-  // Goals finished: the trophies on your profile.
-  const goalsCompleted = goalsData.finished.length;
 
   // Friends see your total; sent a moment after it settles, and only when it moved.
   useEffect(() => {
     const timer = setTimeout(() => {
       const { publishMarks } = require('@/lib/marksSync') as typeof import('@/lib/marksSync');
-      void publishMarks(marks.total, marks.series, { bestStreak, goalsCompleted });
+      void publishMarks(marks.total, marks.series, { bestStreak });
     }, 3000);
     return () => clearTimeout(timer);
-  }, [marks.total, marks.series, bestStreak, goalsCompleted]);
+  }, [marks.total, marks.series, bestStreak]);
 
   // How hot the flame burns: how much of today is already done.
   const completionTier = useMemo(() => {
@@ -526,7 +505,7 @@ const Home = () => {
 
   // What Echo is allowed to say about today: only what was recorded.
   const echoStats = useMemo<EchoStats>(() => {
-    const scheduledToday = habits.filter(h => !h.isArchived && !h.isGoal && isHabitScheduledForDate(h, new Date()));
+    const scheduledToday = habits.filter(h => !h.isArchived && isHabitScheduledForDate(h, new Date()));
     // The last 7 calendar days, counted in lib/echoInsights.ts.
     const week = echoWeek(habits, historyData, completions, localDateKey(new Date()));
     return {
@@ -536,15 +515,13 @@ const Home = () => {
       weekConsistency: week.weekConsistency,
       bestHabit: week.bestHabit,
       nextHabit: scheduledToday.find(h => !completions[h.id])?.name,
-      goalsCount: goalsData.goals.length,
-      overallProgress: avgGoalProgress,
     };
-  }, [habits, historyData, completions, goalsData.goals, avgGoalProgress, streak]);
+  }, [habits, historyData, completions, streak]);
 
 
   useEffect(() => { echoStatsRef.current = echoStats; }, [echoStats]);
 
-  // Quick habits (non-goal habits for today)
+  // Quick habits for today
   // Filter for ONLY habits scheduled for TODAY
   const topHabits = useMemo(() => {
     return habits.filter(h => isHabitScheduledForDate(h, new Date())).slice(0, 5);
@@ -554,7 +531,7 @@ const Home = () => {
   // Both read the same window; neither is a grade out of today.
   // What went undone, day by day, and whether that is more than last week.
   const moves = useMovedTasks();
-  const missed = useMemo(() => missedFrom({ habits, history: historyData, completions, tasks: allTasks, moves, today: todayKeyString }), [habits, historyData, completions, allTasks, moves, todayKeyString]);
+  const missed = useMemo(() => missedFrom({ habits, history: historyData, completions, tasks: allTasks, moves, today: dayData.today }), [habits, historyData, completions, allTasks, moves, dayData.today]);
 
   // Today's promise, and ticking one of its rows off.
   const focus = useDailyFocus();
@@ -642,18 +619,6 @@ const Home = () => {
 
           {/* Spacer after header */}
           <View style={{ height: sectionGap }} />
-
-          {/* Goals Progress Bar (goals are off for now: constants/features.ts) */}
-          {GOALS_ENABLED ? <Animated.View>
-            <View ref={goalsRef} collapsable={false}>
-            <GoalsProgressBar
-              progress={avgGoalProgress}
-              goalsCount={goalsData.goals.length}
-              series={goalsData.overallSeries}
-              onPress={() => router.push('/goals-overview')}
-            />
-          </View>
-          </Animated.View> : null}
 
           {/* Off sick or on vacation: what is running, that the streak is safe, and "I'm back". */}
           {timeOff ? <View style={{ marginTop: sectionGap }}><TimeOffCard /></View> : null}
@@ -748,7 +713,7 @@ const Home = () => {
         <DayNotePopup />
         <MorningPopup />
         {/* Shards earned with the app closed (Health, the Lock Screen card, sleep), said on coming back. */}
-        <AwayShards moves={wallet.activity} ready={goalsData.loaded} />
+        <AwayShards moves={wallet.activity} ready={dayData.loaded} />
         <CheckInPopup kind={question} onClose={() => setQuestion(null)}
           onAnswer={(kind, value) => { void answerCheckIn(kind, value); setQuestion(null); successFeedback(); }} />
 

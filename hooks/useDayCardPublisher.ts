@@ -78,7 +78,7 @@ export function useDayCardPublisher() {
                 const { getAppTime, appTimeProgress } = require('@/lib/appTime') as typeof import('@/lib/appTime');
                 const apps = await getAppTime();
                 for (const habit of habits) {
-                    if (habit.isGoal || habit.isArchived) continue;
+                    if (habit.isArchived) continue;
                     if (apps[habit.id]) {
                         const minutes = await appTimeProgress(habit.id);
                         if (minutes !== null) tracked.set(habit.id, { value: minutes, target: apps[habit.id], unit: 'min', source: 'in its apps' });

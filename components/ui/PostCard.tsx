@@ -21,7 +21,7 @@ export interface PostStat { icon: string; value: string; label: string }
  *            and the score, top right: how much of the day got done
  *   hero     the one number that matters, large
  *   visual   the contest, bar or chart that shows it
- *   stats    a few small figures (streak, focus, goals)
+ *   stats    a few small figures (streak, focus, tasks)
  *   details  more, on demand: a tap on the chevron
  *   footer   reactions, or the one thing to do about it (Rematch, See the race)
  *

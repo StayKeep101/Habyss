@@ -8,7 +8,7 @@ import { readableAccent } from '@/lib/colorContrast';
 import { useHaptics } from '@/hooks/useHaptics';
 
 /**
- * The habit's or goal's look, beside its name: its icon in its colour. Tap
+ * The habit's look, beside its name: its icon in its colour. Tap
  * it to change either (the Look panel opens, the keyboard steps aside).
  */
 export function LookButton({ icon, color, open, onPress }: { icon: IconName; color: string; open: boolean; onPress: () => void }) {

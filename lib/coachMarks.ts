@@ -3,8 +3,8 @@
  * streak) register how to measure themselves, so the tour can light up
  * exactly where each one is, on any phone (components/ui/CoachMarks).
  *
- * It runs in order across screens: Home's cards, then making a first goal
- * yourself (+, Goal, the goal sheet), then Roadmap, then friends. A step the
+ * It runs in order across screens: Home's cards, then making a first habit
+ * yourself (+, Habit), then Roadmap, then friends. A step the
  * person does themselves waits for it to happen (`waitFor`); a step whose
  * control has gone (the sheet was closed) goes back to the step that brings
  * it up (`back`).
@@ -32,7 +32,7 @@ export interface CoachStep {
     body: string;
     /** The person does it: the step moves on when this app event comes (with this value, if given). */
     waitFor?: { event: string; value?: string };
-    /** The control keeps working during the step (typing the goal, picking a kind); otherwise tapping it goes on. */
+    /** The control keeps working during the step (typing, picking a kind); otherwise tapping it goes on. */
     live?: boolean;
     /** If the control is gone, the step to go back to (by target). */
     back?: string;
@@ -45,16 +45,11 @@ export const FIRST_RUN: CoachStep[] = [
     { target: 'streak', title: 'Your streak', body: 'Days in a row you kept. Do one habit or task a day and it grows.' },
     { target: 'focus-today', title: 'Focus today', body: 'Time you spent focused today, with this week under it. Tap it for the full picture.' },
     { target: 'missed', title: 'Missed', body: 'What slipped by. Tap it to pick things back up or let them go.' },
-    { target: 'goals', title: 'Your goals', body: 'All your goals’ progress in one line. Let’s make your first one.' },
-    { target: 'plus', title: 'Make your first goal', body: 'Tap + to start.', waitFor: { event: 'show_creation_modal' } },
-    { target: 'create-goal', title: 'Choose Goal', body: 'A goal is where you’re heading. Habits and tasks are how you get there.', waitFor: { event: 'show_goal_quick_add' }, back: 'plus' },
-    { target: 'goal-text', title: 'Say it in a sentence', body: 'Tap here and write it the way you’d say it, like “Read 24 books by December”. The number and the date are picked out for you.', live: true, back: 'plus' },
-    { target: 'goal-details', title: 'The details', body: 'How it’s measured is worked out from your sentence. Adjust the target, a finish date or its look here. Without a date, a goal just keeps going.', live: true, back: 'plus' },
-    { target: 'goal-save', title: 'Create it', body: 'When it reads right, tap the button.', waitFor: { event: 'goal_created' }, back: 'plus' },
-    { target: 'tab-roadmap', title: 'Now open Roadmap', body: 'Your plan lives here.', waitFor: { event: 'tab_selected', value: 'roadmap' } },
-    { target: 'roadmap-goal', title: 'Plan inside your goal', body: 'Habits and tasks go inside a goal. Drag a habit onto it, or open the goal to add them.', announce: 'tour_roadmap_list' },
+    { target: 'plus', title: 'Make your first habit', body: 'Tap + to start.', waitFor: { event: 'show_creation_modal' } },
+    { target: 'create-habit', title: 'Choose Habit', body: 'Something you do again and again. Tasks are the one-off things.', waitFor: { event: 'show_quick_add' }, back: 'plus' },
+    { target: 'tab-roadmap', title: 'Now open Roadmap', body: 'Your day lives here, in the order you will do it.', waitFor: { event: 'tab_selected', value: 'roadmap' } },
     { target: 'tab-community', title: 'Better with friends', body: 'Tap Community.', waitFor: { event: 'tab_selected', value: 'community' } },
-    { target: 'add-friend', title: 'Add a friend', body: 'Share goals, cheer each other on and keep streaks together. That’s it, you’re ready.' },
+    { target: 'add-friend', title: 'Add a friend', body: 'Share habits, cheer each other on and keep streaks together. That’s it, you’re ready.' },
 ];
 
 /** Where a missing control sends the tour: back to the step that brings it up, else on to the next. */
@@ -84,7 +79,7 @@ export function endTour() { tour = { active: false, index: 0 }; notify(); }
 
 /**
  * Which layer draws the tour: the newest one mounted. The app's own layer
- * sits over every screen; a sheet in its own native modal (the goal sheet)
+ * sits over every screen; a sheet in its own native modal (a creation sheet)
  * has one inside it, so the tour can light up what is in the sheet.
  */
 let layers: number[] = [];

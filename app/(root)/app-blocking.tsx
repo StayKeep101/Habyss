@@ -36,7 +36,7 @@ export default function AppBlockingScreen() {
     const [openUntil, setOpenUntil] = useState(0);
     const [buying, setBuying] = useState(false);
     const readWallet = useCallback(() => {
-        void (require('@/lib/market') as typeof import('@/lib/market')).myWallet().then(wallet => setShards(wallet.spendable), () => undefined);
+        void (require('@/lib/wallet') as typeof import('@/lib/wallet')).myWallet().then(wallet => setShards(wallet.spendable), () => undefined);
         void ScreenTimeService.gateOpenUntil().then(at => setOpenUntil(at * 1000));
     }, []);
     useEffect(readWallet, [readWallet]);
@@ -99,7 +99,7 @@ export default function AppBlockingScreen() {
                             disabled={shards !== null && shards < GATE_PRICE} onComplete={buy} />
                     )}
                     <Text variant="caption" tone="muted" align="center">
-                        {shards === null ? 'Finish habits, tasks and goals to earn Shards.'
+                        {shards === null ? 'Finish habits and tasks to earn Shards.'
                             : unlocked ? `You have ${shards} Shards.`
                             : shards < GATE_PRICE ? `You have ${shards} Shards. Go earn the rest. The apps will wait.`
                                 : `You have ${shards} Shards. One hour, then they lock again.`}

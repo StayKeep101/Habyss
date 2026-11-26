@@ -20,12 +20,12 @@ import { emit } from './appEvents';
  * You own your copy the way you own everything else on your phone: it syncs to
  * your account, it can be skipped, it can be archived. And it is one row on
  * the server, not two: an edit either of you makes — a cover photo, a reminder,
- * a new task in a shared goal — is uploaded to that row and read back by the
+ * a changed reminder — is uploaded to that row and read back by the
  * other on their next sync (see `pullShared` in cloudSync). One row is what
  * keeps the two from drifting; last edit wins, as on any shared document.
  */
 
-type Kind = 'habit' | 'task' | 'goal';
+type Kind = 'habit' | 'task';
 
 /**
  * Whether a live local copy already exists. A copy left behind by an earlier
@@ -93,14 +93,8 @@ export async function adoptShared(kind: Kind, itemId: string): Promise<boolean> 
     );
 
     // Remembered as somebody else's row, so deleting it later stays on this phone (lib/shareEnding.ts).
-    if (kind !== 'goal') await (require('./shareEnding') as typeof import('./shareEnding')).rememberAdopted(kind, itemId);
+    await (require('./shareEnding') as typeof import('./shareEnding')).rememberAdopted(kind, itemId);
     await announce(kind);
-    // A goal is its plan: its habits and tasks come with it, now rather than
-    // on the next backup, so the goal is not empty the moment it is accepted.
-    if (kind === 'goal') {
-        const { refreshShared } = require('./cloudSync') as typeof import('./cloudSync');
-        await refreshShared().catch(() => 0);
-    }
     return true;
 }
 
@@ -126,10 +120,10 @@ export async function dropShared(kind: Kind, itemId: string): Promise<void> {
 /**
  * Who may change what a shared thing *is*: everybody on it.
  *
- * A shared goal is a plan two people are carrying out together, so either of
- * them can add to it, retime it or give it a picture, and the other sees it.
- * Ownership of the row never moves (the server keeps `user_id`), so deleting a
- * goal stays with whoever made it; everyone else leaves instead.
+ * A shared habit or task is something two people carry out together, so
+ * either of them can retime it or give it a picture, and the other sees it.
+ * Ownership of the row never moves (the server keeps `user_id`), so deleting
+ * it stays with whoever made it; everyone else leaves instead.
  */
 export function canEditShared(_ownerId: string | undefined, _me: string | undefined): boolean {
     return true;

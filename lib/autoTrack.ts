@@ -18,7 +18,7 @@ export async function autoTickHabit(habitId: string, day = localDateKey(new Date
     const { getHabits, getCompletions, toggleCompletion, setCompletionValue }: typeof import('./habitsSQLite') = require('./habitsSQLite');
     const { isHabitScheduledForDate }: typeof import('./habitSchedule') = require('./habitSchedule');
     const habit = (await getHabits()).find(item => item.id === habitId);
-    if (!habit || habit.isArchived || habit.isGoal) return { result: 'missing' };
+    if (!habit || habit.isArchived) return { result: 'missing' };
     if (day > localDateKey(new Date())) return { result: 'not_due', name: habit.name };
     if (!isHabitScheduledForDate(habit, new Date(`${day}T12:00:00`))) return { result: 'not_due', name: habit.name };
     if ((await getCompletions(day))[habitId]) return { result: 'already', name: habit.name };

@@ -36,7 +36,7 @@ export function pickNow(input: { habits: Habit[]; tasks: Task[]; done: Record<st
     const date = new Date(`${today}T12:00:00`);
     const items: NowItem[] = [];
     for (const habit of habits) {
-        if (habit.isGoal || habit.isArchived || done[habit.id]) continue;
+        if (habit.isArchived || done[habit.id]) continue;
         const start = minutesOf(habit.startTime);
         if (start === null || !isHabitScheduledForDate(habit, date)) continue;
         items.push({ kind: 'habit', id: habit.id, title: habit.name, start, end: start + (habit.durationMinutes || 30), state: 'next', icon: habit.icon, color: habit.color });

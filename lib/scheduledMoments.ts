@@ -36,7 +36,7 @@ export function scheduledMoments(habits: Habit[], tasks: Task[], now = new Date(
             url: kind === 'habit' ? `/habit-detail?habitId=${encodeURIComponent(id)}` : '/(root)/(tabs)/roadmap' });
     };
     for (const habit of habits) {
-        if (habit.isGoal || habit.isArchived || !habit.startTime) continue;
+        if (habit.isArchived || !habit.startTime) continue;
         const scheduled = createHabitSchedule(habit);
         for (let offset = 0; offset < days; offset++) {
             const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12);

@@ -6,7 +6,7 @@ import { useTheme } from '@/context/ThemeContext';
 
 /**
  * The heading over a section, everywhere: large, bold, sentence case — the
- * look of "Numbers" on a goal's Stats tab. `right` puts a pill or a link on the
+ * look of "Numbers" on a Stats tab. `right` puts a pill or a link on the
  * same line; `after` sits right after the title (a figure that belongs to it).
  */
 export const SectionTitle: React.FC<{

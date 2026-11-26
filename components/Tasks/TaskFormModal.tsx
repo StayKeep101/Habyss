@@ -1,5 +1,3 @@
-import { GOALS_ENABLED } from '@/constants/features';
-import { goalCompletedOn } from '@/lib/goalInsights';
 import { AnchorPicker } from '@/components/Create/AnchorPicker';
 import { anchorLabel, type HabitAnchor } from '@/lib/habitAnchor';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -15,7 +13,7 @@ import { ShareButton } from '@/components/Common/ShareButton';
 import { ShareParticipantsSheet } from '@/components/Social/ShareParticipantsSheet';
 import { useShareDraft } from '@/hooks/useShareDraft';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
-import { GoalCalendar } from '@/components/Create/GoalCalendar';
+import { DateCalendar } from '@/components/Create/DateCalendar';
 import { CreationTextInput } from '@/components/Create/CreationTextInput';
 import { DictateField } from '@/components/Create/DictateField';
 import { TypingPlaceholder } from '@/components/ui/TypingPlaceholder';
@@ -36,7 +34,6 @@ import type { LocationReminder } from '@/lib/habitsSQLite';
 import { describeAlerts } from '@/lib/itemAlerts';
 import { SubtaskEditor } from '@/components/Tasks/SubtaskEditor';
 import { localDateKey } from '@/lib/habitSchedule';
-import { getGoals, type Habit } from '@/lib/habitsSQLite';
 import { emit, on } from '@/lib/appEvents';
 
 
@@ -50,11 +47,9 @@ interface Props {
     /** Present when editing. */
     task?: Task | null;
     listenToGlobalEvents?: boolean;
-    /** Mounted on a page (not the root): the goal a new task is filed under. */
-    goalId?: string;
     /** Mounted on a page: the row to open on, e.g. 'due'. */
     focus?: string;
-    /** Mounted on a page: the day a new task starts on (a day picked on the goal's plan). */
+    /** Mounted on a page: the day a new task starts on. */
     dueDate?: string;
 }
 
@@ -80,7 +75,6 @@ interface Draft {
     priority: TaskPriority;
     /** How hard it is: the timeline puts hard things in your best hours. */
     difficulty?: Difficulty;
-    goalId?: string;
     measure: TaskMeasure;
     /** A count, or minutes for time. */
     target?: number;
@@ -112,7 +106,6 @@ const fromTask = (task: Task): Draft => ({
     estimate: task.estimatedMinutes,
     priority: task.priority,
     difficulty: task.difficulty,
-    goalId: task.goalId,
     measure: task.measure ?? 'done',
     target: task.target,
     unit: task.unit,
@@ -138,7 +131,7 @@ const shortDate = (date?: string) => {
  * The day matters more here than anywhere else in the app: a task shows up on
  * the day it was given and on no other, so giving it the wrong day hides it.
  */
-export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task, listenToGlobalEvents, goalId, focus, dueDate: startDay }) => {
+export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task, listenToGlobalEvents, focus, dueDate: startDay }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -149,13 +142,11 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
 
     const [eventVisible, setEventVisible] = useState(false);
     const [editing, setEditing] = useState<Task | null>(null);
-    const [eventGoal, setEventGoal] = useState<string | undefined>(goalId);
     const [text, setText] = useState('');
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<string | null>(null);
     // Time → Link chosen, before anything is linked.
     const [linking, setLinking] = useState(false);
-    const [goals, setGoals] = useState<Habit[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     /** A row the opener asked for, and the one this session actually opened on. */
@@ -194,9 +185,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         const subscription = on('show_task_form', (data) => {
             emit('close_creation_modal');
             setEditing((data?.task ?? null) as Task | null);
-            setEventGoal(typeof data?.goalId === 'string' ? data.goalId : undefined);
             // Opened from somewhere that already knows which question is being
-            // asked — the goal roadmap only ever asks about the date.
+            // asked.
             setRequestedRow(data?.focus ?? null);
             setPrefill(data?.prefill ?? '');
             setEventVisible(true);
@@ -204,16 +194,9 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         return () => subscription.remove();
     }, [listenToGlobalEvents]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        // Goals still being worked on; one already reached is done and not offered (the one linked stays).
-        getGoals().then(list => setGoals(list.filter(goal => !goal.isArchived && (!goalCompletedOn(goal) || goal.id === (task?.goalId ?? goalId))))).catch(() => setGoals([]));
-    }, [isOpen]);
-
     // Rules read the sentence instantly; the model's reading replaces theirs
     // once it arrives. Neither overwrites anything already tapped.
-    const goalNames = useMemo(() => goals.map(goal => goal.name), [goals]);
-    const rules = useMemo(() => (text.trim() ? parseTaskText(text, new Date(), { goals: goalNames }) : null), [text, goalNames]);
+    const rules = useMemo(() => (text.trim() ? parseTaskText(text, new Date()) : null), [text]);
     const smart = useSmartParse(text, smartParseTask);
     // An existing task keeps the title and the day it was saved with until the
     // sentence is actually changed. Re-reading it would move its date.
@@ -225,11 +208,11 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         // in Reminders — but only a brand new one.
         const start: Draft = current
             ? fromTask(current)
-            : { title: '', priority: 2, dueDate: startDay ?? localDateKey(new Date()), goalId: eventGoal, measure: 'done', estimate: DEFAULT_LENGTH.task, places: [] };
+            : { title: '', priority: 2, dueDate: startDay ?? localDateKey(new Date()), measure: 'done', estimate: DEFAULT_LENGTH.task, places: [] };
         const read: Draft = parsed ? {
             ...start,
-            // The rules take out steps, a reminder and a goal; the model may leave them in the title.
-            title: (rules && (rules.subtasks || rules.reminder || rules.goal) ? rules.title : parsed.title) || start.title,
+            // The rules take out steps and a reminder; the model may leave them in the title.
+            title: (rules && (rules.subtasks || rules.reminder) ? rules.title : parsed.title) || start.title,
             // With a deadline the rules know the day to do it apart from the
             // day it is due; the model only knows one date.
             dueDate: (rules?.matched.deadline || (rules && /\bnow\b/i.test(text)) ? rules.dueDate : parsed.dueDate) ?? start.dueDate,
@@ -242,14 +225,13 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             difficulty: rules?.difficulty ?? start.difficulty,
             // A time said in the words ("Gym at 6") is a time to keep, unless the words say it can move.
             flexible: rules?.flexible ?? (parsed.dueTime ? false : start.flexible),
-            // "Groceries: milk, eggs", "remind me 15 min before", "for my Launch goal".
+            // "Groceries: milk, eggs", "remind me 15 min before".
             subtasks: rules?.subtasks ? rules.subtasks.map((title, index) => ({ id: `said-${index}`, title, done: false })) : start.subtasks,
             alerts: rules?.reminder ? (rules.reminder.alerts ?? []) : start.alerts,
             reminder: rules?.reminder ? rules.reminder.at : start.reminder,
-            goalId: (GOALS_ENABLED && rules?.goal && goals.find(goal => goal.name.toLowerCase() === rules.goal!.toLowerCase())?.id) || start.goalId,
         } : start;
         return { ...read, ...edits };
-    }, [current, eventGoal, parsed, edits, rules, startDay, goals, text]);
+    }, [current, parsed, edits, rules, startDay, text]);
 
     // What it was editing stays until the next opening sets its own, so the card leaves as it was.
     const close = () => { setEventVisible(false); share.close(); onClose?.(); };
@@ -275,7 +257,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 estimatedMinutes: draft.estimate,
                 priority: draft.priority,
                 difficulty: draft.difficulty,
-                goalId: draft.goalId,
                 subtasks: draft.subtasks,
                 alerts: draft.alerts ?? [],
                 reminder: draft.reminder,
@@ -309,8 +290,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const toWeekend = (6 - new Date().getDay() + 7) % 7;
     /** Days until Friday. */
     const toFriday = (5 - new Date().getDay() + 7) % 7;
-    const chosenGoal = goals.find(goal => goal.id === draft.goalId);
-    const goalName = chosenGoal?.name;
     // A task is done or it is not: no counts or timers to fill in first.
     const canSave = !!text.trim();
     // At an exact time (it stays there), or flexible (the timeline places it; no time of day).
@@ -336,7 +315,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                         oneLine
                         onChange={id => change({ dueDate: id || undefined })}
                     />
-                    <GoalCalendar showToday={false} reserve={50} value={draft.dueDate} accent={accentText} onChange={dueDate => change({ dueDate })} />
+                    <DateCalendar showToday={false} reserve={50} value={draft.dueDate} accent={accentText} onChange={dueDate => change({ dueDate })} />
                 </>
             ),
         },
@@ -358,7 +337,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                         oneLine
                         onChange={id => change({ deadline: id || undefined })}
                     />
-                    <GoalCalendar showToday={false} reserve={50} value={draft.deadline} accent={accentText} onChange={deadline => change({ deadline })} />
+                    <DateCalendar showToday={false} reserve={50} value={draft.deadline} accent={accentText} onChange={deadline => change({ deadline })} />
                 </>
             ),
         },
@@ -427,17 +406,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             value: importanceLabel(draft.priority, draft.difficulty),
             content: <ImportancePicker priority={draft.priority} difficulty={draft.difficulty} onChange={change} />,
         },
-        ...(GOALS_ENABLED && goals.length > 0 ? [{
-            id: 'goal', icon: 'trophy-outline' as const, label: 'Goal', value: goalName,
-            content: (
-                <Choices
-                    options={[{ id: '', label: 'None' }, ...goals.map(goal => ({ id: goal.id, label: goal.name }))]}
-                    value={draft.goalId ?? ''}
-                    accent={accent}
-                    onChange={id => change({ goalId: id || undefined })}
-                />
-            ),
-        }] : []),
     ];
 
     return (

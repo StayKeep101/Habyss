@@ -42,8 +42,6 @@ interface Props {
     onPress: (task: Task) => void;
     onEdit: (task: Task) => void;
     onDelete: (task: Task) => void;
-    /** Shown when the task is listed outside its goal. */
-    goalName?: string;
     /**
      * Who else is on it, when anybody is.
      *
@@ -56,13 +54,13 @@ interface Props {
      * What the row's gestures do.
      *
      * `all` is the roadmap tab: tick it, edit it, delete it. `reschedule` is
-     * the goal's plan, where the only question being asked is *when* — so the
-     * swipes move the day and nothing else is offered.
+     * for when the only question being asked is *when* — so the swipes move
+     * the day and nothing else is offered.
      */
     actions?: 'all' | 'reschedule';
     /** Days to move by, when `actions` is `reschedule`. */
     onMove?: (task: Task, days: number) => void;
-    /** Hold and drag onto a goal to move it there, exactly like a habit. */
+    /** Hold and drag, exactly like a habit: on the timeline, to the bin. */
     onDragStart?: (task: Task, x: number, y: number) => void;
     onDragMove?: (task: Task, x: number, y: number) => void;
     onDragEnd?: (task: Task, x: number, y: number) => void;
@@ -87,7 +85,7 @@ const shortLength = (minutes: number) =>
  * task is finished once and then gone.
  */
 const TaskItemComponent: React.FC<Props> = ({
-    task, today, onToggle, onPress, onEdit, onDelete, goalName, shared = null, size = 'standard',
+    task, today, onToggle, onPress, onEdit, onDelete, shared = null, size = 'standard',
     actions = 'all', onMove, onDragStart, onDragMove, onDragEnd, isDragging = false, canFocusNow = false,
 }) => {
     const { theme } = useTheme();
@@ -135,7 +133,6 @@ const TaskItemComponent: React.FC<Props> = ({
         dueTime,
         task.estimatedMinutes ? shortLength(task.estimatedMinutes) : null,
         task.priority === 1 ? 'High priority' : null,
-        goalName,
     ].filter(Boolean).join(', ');
 
     const amountLabel = taskAmountLabel(task);
@@ -279,8 +276,6 @@ const TaskItemComponent: React.FC<Props> = ({
                             ) : null}
                             {shared ? (
                                 <SharedFaces people={shared.people} tint={TASK_COLOR} size={isSmall ? 20 : 24} />
-                            ) : goalName && !isSmall ? (
-                                <Text numberOfLines={1} style={[styles.meta, { color: colors.textTertiary }]}>{goalName}</Text>
                             ) : null}
                         </View>
                         {amountLabel && !done && !isSmall ? (

@@ -13,7 +13,7 @@ import { join } from 'path';
  * Read from the source rather than imported, because the module pulls in
  * Reanimated and the colour wheel to answer a question about an array.
  */
-const source = readFileSync(join(__dirname, '../../components/Create/GoalLookPicker.tsx'), 'utf8');
+const source = readFileSync(join(__dirname, '../../components/Create/LookPicker.tsx'), 'utf8');
 const names = [...source.matchAll(/\{ name: '([a-z0-9-]+)', label:/g)].map(match => match[1]);
 
 describe('the icon catalogue', () => {

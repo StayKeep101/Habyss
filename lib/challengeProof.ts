@@ -1,15 +1,13 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import { on } from './appEvents';
 import type { Habit } from './habitsSQLite';
 
 /**
- * Proof, for challenges and bets. Everything else is ticked on your word,
+ * Proof, for challenges. Everything else is ticked on your word,
  * and a habit ticked by hand opens the camera for a photo you can skip
  * (kept in its history and shown to friends, lib/tickPhotos.ts).
  *
  *   - A habit or task a challenge put in your plan (lib/challenges.ts).
- *   - A habit or task of a goal you opened to bets (lib/market.ts).
  *
  * Tracked by itself (Apple Health, or the focus timer): it ticks itself, so a
  * tick by hand is not taken; Health fills it, or the timer does when the time
@@ -19,26 +17,19 @@ import type { Habit } from './habitsSQLite';
  */
 
 export type ProofItem =
-    | { kind: 'habit'; habit: Pick<Habit, 'id' | 'name' | 'goalId' | 'locationReminders' | 'healthKitMetric' | 'unit'> }
-    | { kind: 'task'; task: { id: string; title: string; goalId?: string | null } };
+    | { kind: 'habit'; habit: Pick<Habit, 'id' | 'name' | 'locationReminders' | 'healthKitMetric' | 'unit'> }
+    | { kind: 'task'; task: { id: string; title: string } };
 
 export type ProofRule = 'none' | 'health' | 'focus' | 'photo';
 
-const TIMED_UNITS = ['minutes', 'minute', 'min', 'hours', 'hour', 'h', 'seconds'];
-
 /**
  * What a tick by hand needs. `challenge`: the proof a challenge gave the item,
- * if it is one of a challenge's; `staked`: your goals open to bets. Pure.
+ * if it is one of a challenge's. Pure.
  */
-export function proofRule(item: ProofItem, challenge: 'health' | 'focus' | 'photo' | 'tick' | null, staked: string[]): ProofRule {
+export function proofRule(challenge: 'health' | 'focus' | 'photo' | 'tick' | null): ProofRule {
     // On your word: a challenge's rule with nothing to show for it (a diet, water) is ticked like anything else.
-    if (challenge === 'tick') return 'none';
-    if (challenge) return challenge;
-    const goalId = item.kind === 'habit' ? item.habit.goalId : item.task.goalId;
-    if (!goalId || !staked.includes(goalId)) return 'none';
-    if (item.kind === 'habit' && item.habit.healthKitMetric) return 'health';
-    if (item.kind === 'habit' && TIMED_UNITS.includes((item.habit.unit ?? '').trim().toLowerCase())) return 'focus';
-    return 'photo';
+    if (!challenge || challenge === 'tick') return 'none';
+    return challenge;
 }
 
 /** Metres between two points (haversine). Pure. */
@@ -58,37 +49,13 @@ export function atPlace(here: { latitude: number; longitude: number }, places: {
     return places.some(place => metresBetween(here, place) <= Math.max(PLACE_RADIUS, place.radius ?? 0));
 }
 
-// ---------------------------------------------------- your goals open to bets
-
-const STAKED_KEY = 'habyss_staked_goals';
-let staked: string[] = [];
-let stakedLoaded = false;
-
-async function loadStaked(): Promise<string[]> {
-    if (stakedLoaded) return staked;
-    stakedLoaded = true;
-    try { staked = JSON.parse((await AsyncStorage.getItem(STAKED_KEY)) ?? '[]') ?? []; } catch { staked = []; }
-    return staked;
-}
-
-async function refreshStaked(): Promise<void> {
-    try {
-        const { marketFeed } = require('./market') as typeof import('./market');
-        staked = (await marketFeed()).filter(market => market.mine && market.status === 'open').map(market => market.goalKey);
-        stakedLoaded = true;
-        await AsyncStorage.setItem(STAKED_KEY, JSON.stringify(staked)).catch(() => undefined);
-    } catch { /* kept as it was */ }
-}
-
-/** Keeps the bets and challenges current: on launch, and whenever one changes or something is ticked. */
+/** Keeps the challenges current: on launch, and whenever one changes or something is ticked. */
 export function watchProof(): () => void {
     const { syncChallenges } = require('./challenges') as typeof import('./challenges');
-    void loadStaked().then(refreshStaked);
     void syncChallenges();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const soon = () => { clearTimeout(timer); timer = setTimeout(() => { void syncChallenges(); }, 1500); };
     const subs = [
-        on('market_changed', () => { void refreshStaked(); soon(); }),
         on('habit_completion_updated', soon),
         on('tasks_changed', soon),
     ];
@@ -98,10 +65,10 @@ export function watchProof(): () => void {
 /** What a tick by hand of this item needs, from what is on this phone. */
 export async function ruleFor(item: ProofItem): Promise<{ rule: ProofRule; runId: string | null }> {
     const { loadLinks, challengeOf } = require('./challenges') as typeof import('./challenges');
-    await Promise.all([loadLinks(), loadStaked()]);
+    await loadLinks();
     const id = item.kind === 'habit' ? item.habit.id : item.task.id;
     const challenge = challengeOf(item.kind, id);
-    return { rule: proofRule(item, challenge?.proof ?? null, staked), runId: challenge?.runId ?? null };
+    return { rule: proofRule(challenge?.proof ?? null), runId: challenge?.runId ?? null };
 }
 
 // ------------------------------------------------------------------ the tick

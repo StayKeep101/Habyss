@@ -55,7 +55,7 @@ export async function drainPendingShortcutLogs(): Promise<ShortcutDrainResult> {
     const result: ShortcutDrainResult = { logged: [], alreadyDone: [], unmatched: [] };
     try {
         const today = localDateKey(new Date());
-        const habits = (await getHabits()).filter(habit => !habit.isGoal && !habit.isArchived);
+        const habits = (await getHabits()).filter(habit => !habit.isArchived);
         const completions = await getCompletions(today);
 
         for (const name of pending) {
@@ -95,39 +95,21 @@ export async function drainPendingShortcutLogs(): Promise<ShortcutDrainResult> {
 const QUICK_ADD_KEY = 'pending_quick_adds';
 
 /**
- * What can be added without opening Habyss: a task, a habit, a goal, a
+ * What can be added without opening Habyss: a task, a habit, a
  * thought for the brain dump, or `any` ("Tell Habyss …"): said freely and
- * read into the tasks, habits and goals in it by the same rules as speaking
+ * read into the tasks and habits in it by the same rules as speaking
  * to the + button (lib/voicePlan.ts), anything unclear kept as a thought.
  */
-export type QuickAddKind = 'task' | 'habit' | 'goal' | 'thought' | 'any';
-export interface QuickAddResult { tasks: string[]; habits: string[]; goals: string[]; thoughts: string[] }
-const emptyResult = (): QuickAddResult => ({ tasks: [], habits: [], goals: [], thoughts: [] });
+export type QuickAddKind = 'task' | 'habit' | 'thought' | 'any';
+export interface QuickAddResult { tasks: string[]; habits: string[]; thoughts: string[] }
+const emptyResult = (): QuickAddResult => ({ tasks: [], habits: [], thoughts: [] });
 
 export function parseQuickAdd(entry: string): { kind: QuickAddKind; title: string } | null {
     const match = /^(task|habit|goal|thought|braindump|any)\|([\s\S]+)$/.exec(entry);
     const title = match?.[2].trim().slice(0, 500);
     if (!match || !title) return null;
-    return { kind: match[1] === 'braindump' ? 'thought' : match[1] as QuickAddKind, title };
-}
-
-/** A goal from its words, as the goal sheet reads them: an amount and a date where it says so. */
-async function addGoalFromText(text: string, today: string): Promise<string | null> {
-    const { parseGoalText } = require('./goalParser') as typeof import('./goalParser');
-    const { addHabit } = require('./habitsSQLite') as typeof import('./habitsSQLite');
-    const spec = parseGoalText(text, { today: new Date() }).goal;
-    const title = (spec.title || text).trim().slice(0, 120);
-    const window = spec.window;
-    const made = await addHabit({
-        name: title, isGoal: true, type: 'build', category: 'personal', icon: 'flag',
-        goalValue: spec.metric_unit === 'percent' ? Math.round((spec.target ?? 0) * 100) : Math.max(1, Math.round(spec.target ?? 1)),
-        unit: spec.metric_unit ?? 'tasks',
-        goalPeriod: window?.kind === 'recurring' ? (window.period === 'day' ? 'daily' : window.period === 'week' ? 'weekly' : 'monthly') : 'daily',
-        startDate: window?.kind === 'fixed' ? window.start : today,
-        targetDate: window?.kind === 'fixed' ? window.end : undefined,
-        goalSpec: JSON.stringify({ ...spec, title, kind: spec.kind ?? (spec.target ? 'number' : 'complete') }),
-    });
-    return made?.name ?? null;
+    // An older build's "goal" entry is read like anything said: as a task, a habit or a thought.
+    return { kind: match[1] === 'braindump' ? 'thought' : match[1] === 'goal' ? 'any' : match[1] as QuickAddKind, title };
 }
 
 /**
@@ -168,9 +150,6 @@ export async function addQuick(kind: QuickAddKind, text: string, result: QuickAd
             const { addHabit } = require('./habitsSQLite') as typeof import('./habitsSQLite');
             const made = await addHabit({ ...parsedToHabit(parseHabitText(title), today) });
             if (made) result.habits.push(made.name);
-        } else if (kind === 'goal') {
-            const made = await addGoalFromText(title, today);
-            if (made) result.goals.push(made);
         } else {
             const { addThought } = require('./brainDump') as typeof import('./brainDump');
             const made = await addThought(title);
@@ -187,7 +166,6 @@ export function quickAddSummary(result: QuickAddResult): string | null {
     const parts = [
         ...result.tasks.map(name => `${name} to today`),
         ...result.habits.map(name => `the habit ${name}`),
-        ...result.goals.map(name => `the goal ${name}`),
     ];
     if (result.thoughts.length) parts.push(result.thoughts.length === 1 ? 'a thought to your brain dump' : `${result.thoughts.length} thoughts to your brain dump`);
     if (!parts.length) return null;

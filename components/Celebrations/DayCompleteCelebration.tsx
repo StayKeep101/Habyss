@@ -8,7 +8,7 @@ interface Finished { streak: number; completedDates: string[] }
  * Shows the streak card wherever the user happens to be.
  *
  * It lives at the root of the app rather than inside Home, because a habit can
- * be ticked off from the roadmap, a goal, a notification or a widget, and the
+ * be ticked off from the roadmap, a habit's page, a notification or a widget, and the
  * moment it completes the day is the moment worth marking.
  */
 export const DayCompleteCelebration: React.FC = () => {

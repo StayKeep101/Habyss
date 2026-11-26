@@ -501,7 +501,7 @@ struct QuickAddKind: Identifiable {
     static let all = [
         QuickAddKind(id: "task", title: "Task", icon: "checklist"),
         QuickAddKind(id: "habit", title: "Habit", icon: "repeat"),
-        QuickAddKind(id: "goal", title: "Goal", icon: "flag"),
+        QuickAddKind(id: "any", title: "Anything", icon: "sparkles"),
         QuickAddKind(id: "braindump", title: "Brain dump", icon: "brain"),
     ]
 }
@@ -525,7 +525,6 @@ struct AskToAddIntent: AppIntent {
     private static let prompts: [String: (category: String, title: String)] = [
         "task": ("HABYSS_ADD_TASK", "New task"),
         "habit": ("HABYSS_ADD_HABIT", "New habit"),
-        "goal": ("HABYSS_ADD_GOAL", "New goal"),
         "braindump": ("HABYSS_ADD_THOUGHT", "Brain dump"),
         "any": ("HABYSS_ADD_ANY", "Tell Habyss"),
     ]
@@ -590,7 +589,7 @@ struct HabyssQuickAddWidget: Widget {
         .contentMarginsDisabled()
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular])
         .configurationDisplayName("Quick Add")
-        .description("A task, a habit, a goal or a brain dump, one tap away.")
+        .description("A task, a habit, anything at all or a brain dump, one tap away.")
     }
 }
 

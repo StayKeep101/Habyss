@@ -1,4 +1,4 @@
-import { clockTime, findAnchor, findGoal, findReminder, findSubtasks, findTracking } from '../settingWords';
+import { clockTime, findAnchor, findReminder, findSubtasks, findTracking } from '../settingWords';
 
 describe('Link: right before or right after something', () => {
     it.each([
@@ -67,18 +67,6 @@ describe('Tracking', () => {
     ])('%s', (text, kind) => { expect(findTracking(text)?.kind).toBe(kind); });
     it('names the app', () => { expect(findTracking('Read on Libby')).toMatchObject({ kind: 'app', app: 'Libby' }); });
     it('leaves plain sentences alone', () => { expect(findTracking('Call the bank')).toBeNull(); });
-});
-
-describe('Goal', () => {
-    it('finds a goal by its name', () => {
-        expect(findGoal('Fix bug for my Launch goal', ['Launch Habyss', 'Launch'])).toMatchObject({ name: 'Launch' });
-        expect(findGoal('Run 5k towards the Marathon', ['Marathon'])).toMatchObject({ name: 'Marathon' });
-        expect(findGoal('Read part of Learning', ['Learning'])).toMatchObject({ name: 'Learning' });
-    });
-    it('reads "… goal" even before it exists', () => {
-        expect(findGoal('Pitch deck for my fundraising goal')).toMatchObject({ name: 'fundraising' });
-    });
-    it('leaves "for" alone otherwise', () => { expect(findGoal('Buy flowers for mom')).toBeNull(); });
 });
 
 describe('Subtasks', () => {

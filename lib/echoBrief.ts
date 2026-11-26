@@ -49,24 +49,17 @@ export interface EchoBrief {
     deadlines?: Deadline[];
 }
 
-export interface Deadline { title: string; daysLeft: number; kind: 'goal' | 'task'; progress?: number }
+export interface Deadline { title: string; daysLeft: number; kind: 'task'; progress?: number }
 
 /**
- * What is due soon: goals ending within a week and not reached, tasks due in
- * the next three days (today's are on the timeline already). Nearest first.
+ * What is due soon: tasks due in the next three days (today's are on the timeline already). Nearest first.
  */
 export function upcomingDeadlines(
-    goals: { title: string; daysLeft: number | null; progress: number }[],
     tasks: { title: string; dueDate?: string; status: string }[],
     today: string,
 ): Deadline[] {
     const days = (key: string) => Math.round((Date.parse(`${key}T12:00:00`) - Date.parse(`${today}T12:00:00`)) / 86_400_000);
     const out: Deadline[] = [];
-    for (const goal of goals) {
-        if (goal.daysLeft !== null && goal.daysLeft >= 0 && goal.daysLeft <= 7 && goal.progress < 100) {
-            out.push({ title: goal.title, daysLeft: goal.daysLeft, kind: 'goal', progress: Math.round(goal.progress) });
-        }
-    }
     for (const task of tasks) {
         if (task.status !== 'open' || !task.dueDate) continue;
         const left = days(task.dueDate);

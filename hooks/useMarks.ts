@@ -3,11 +3,10 @@ import { useSleep } from '@/hooks/useSleep';
 import { goodNights, shortNights } from '@/lib/sleepLog';
 import { useActivity } from '@/hooks/useActivity';
 import { activeDays } from '@/lib/activityLog';
-import type { GoalsData } from '@/hooks/useGoalInsights';
+import type { DayData } from '@/hooks/useDayData';
 import { computeMarks, rankFor, type MarksResult } from '@/lib/marks';
 import { useMarksKept } from '@/hooks/useMarksKept';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
-import { useReachedMilestones } from '@/hooks/useMilestones';
 
 export type Marks = MarksResult & ReturnType<typeof rankFor>;
 
@@ -15,7 +14,7 @@ export type Marks = MarksResult & ReturnType<typeof rankFor>;
  * Your Marks, from the same data Home already holds, so nothing is read twice
  * and the number moves the instant something is ticked.
  */
-export function useMarks(data: Pick<GoalsData, 'habits' | 'tasks' | 'history' | 'skips' | 'insightsById' | 'today'>): Marks {
+export function useMarks(data: Pick<DayData, 'habits' | 'tasks' | 'history' | 'skips' | 'today'>): Marks {
     // Marks read the whole history (about 20 ms on a laptop, several times that
     // on a phone), so they follow a tick in a low-priority render: the tick is
     // drawn first and the number catches up a moment later, never in its way.
@@ -23,7 +22,6 @@ export function useMarks(data: Pick<GoalsData, 'habits' | 'tasks' | 'history' | 
     const tasks = useDeferredValue(data.tasks);
     const history = useDeferredValue(data.history);
     const skips = useDeferredValue(data.skips);
-    const insightsById = useDeferredValue(data.insightsById);
     const today = data.today;
     // Sleep counts too: +5 for a night at your goal, −5 for one short of it (lib/sleepLog.ts).
     const sleep = useSleep();
@@ -36,15 +34,8 @@ export function useMarks(data: Pick<GoalsData, 'habits' | 'tasks' | 'history' | 
     const kept = useMarksKept();
     // Today's 3 (or 5): +10 a day for finishing them, times the run multiplier.
     const dailyTarget = useDailyTarget();
-    // Milestones reached: +30 each.
-    const milestones = useReachedMilestones();
     return useMemo(() => {
-        // The day each goal first reached 100%, read off its own line.
-        const goalsCompletedOn: Record<string, string | null> = {};
-        for (const [id, insights] of Object.entries(insightsById)) {
-            goalsCompletedOn[id] = insights.series.find(point => point.actual >= 100)?.date ?? null;
-        }
-        const result = computeMarks({ habits, tasks, history, skips, goalsCompletedOn, goodNights: nights ? nights.split(',') : [], shortNights: short ? short.split(',') : [], activeDays: moved ? moved.split(',') : [], kept, dailyTarget, milestones, today });
+        const result = computeMarks({ habits, tasks, history, skips, goodNights: nights ? nights.split(',') : [], shortNights: short ? short.split(',') : [], activeDays: moved ? moved.split(',') : [], kept, dailyTarget, today });
         return { ...result, ...rankFor(result.total) };
-    }, [habits, tasks, history, skips, insightsById, today, nights, short, moved, kept, dailyTarget, milestones]);
+    }, [habits, tasks, history, skips, today, nights, short, moved, kept, dailyTarget]);
 }

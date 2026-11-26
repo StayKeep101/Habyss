@@ -17,8 +17,8 @@ const WEEKDAY = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'F
 
 /**
  * The habit's face: its icon inside a ring of how much of this week is kept,
- * on the left under the back arrow, and beside it its name, how it repeats
- * and the goal it serves, with the whole width for the words. The ring is the
+ * on the left under the back arrow, and beside it its name and how it
+ * repeats, with the whole width for the words. The ring is the
  * only thing in its colour.
  */
 /** The habit's mark at header size: its photo, or its icon on a tile of its colour. */
@@ -29,9 +29,8 @@ export function HabitMark({ icon, color, size = 36 }: { icon?: string; color: st
         : <IconTile icon={icon || 'repeat'} color={color} size={size} />;
 }
 
-export function HabitHero({ icon, name, schedule, color, weekShare, goalName, onGoal }: {
+export function HabitHero({ icon, name, schedule, color, weekShare }: {
     icon?: string; name: string; schedule: string; color: string; weekShare: number;
-    goalName?: string; onGoal?: () => void;
 }) {
     const t = useTokens();
     const size = 84;
@@ -56,14 +55,6 @@ export function HabitHero({ icon, name, schedule, color, weekShare, goalName, on
             <View style={styles.heroText}>
             <Text style={[styles.name, { color: t.color.textPrimary }]} numberOfLines={3} accessibilityRole="header">{name}</Text>
             <Text style={[styles.schedule, { color: t.color.textMuted }]}>{schedule}</Text>
-            {goalName ? (
-                <Pressable onPress={onGoal} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Part of the goal ${goalName}. Open it`}>
-                    <MatteSurface radius={Radius.pill} level="control" style={styles.goalChip}>
-                        <AppIcon name="flag" filled size={12} color={color} />
-                        <Text numberOfLines={1} style={[styles.goalText, { color: t.color.textPrimary }]}>{goalName}</Text>
-                    </MatteSurface>
-                </Pressable>
-            ) : null}
             </View>
         </View>
     );
@@ -182,8 +173,6 @@ const styles = StyleSheet.create({
     photo: { width: 62, height: 62, borderRadius: 31 },
     name: { fontSize: 26, lineHeight: 31, fontFamily: FontFamily.bold, letterSpacing: -0.5 },
     schedule: { fontSize: 15, fontFamily: FontFamily.medium },
-    goalChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.md, minHeight: 32, marginTop: Spacing.xs, maxWidth: 260 },
-    goalText: { fontSize: 13, fontFamily: FontFamily.semibold, flexShrink: 1 },
     today: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     doneButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 52 },
     doneText: { fontSize: 17, fontFamily: FontFamily.semibold },

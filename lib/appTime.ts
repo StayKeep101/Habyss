@@ -73,7 +73,7 @@ export async function pushAppTime(): Promise<void> {
     if (!appTimeSupported()) return;
     const all = await getAppTime();
     const { getHabits }: typeof import('./habitsSQLite') = require('./habitsSQLite');
-    const habits = (await getHabits()).filter(habit => all[habit.id] && !habit.isArchived && !habit.isGoal);
+    const habits = (await getHabits()).filter(habit => all[habit.id] && !habit.isArchived);
     native().setAppTimeHabits(JSON.stringify(habits.map(habit => ({ id: habit.id, name: habit.name, minutes: all[habit.id], quit: habit.type === 'quit' }))));
 }
 

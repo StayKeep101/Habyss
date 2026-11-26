@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { useGoalsInsights } from '@/hooks/useGoalInsights';
+import { useDayData } from '@/hooks/useDayData';
 import { useEchoMemory } from '@/hooks/useEchoMemory';
 import { useCheckIns } from '@/hooks/useCheckIns';
 import { todays } from '@/lib/checkIns';
@@ -21,7 +21,7 @@ export function toHistoryDays(history: Record<string, string[]>, skips: Record<s
  * shares: no extra queries, and recomputed only when that data changes.
  */
 export function useEchoCoach() {
-    const data = useGoalsInsights();
+    const data = useDayData();
     const memory = useEchoMemory();
     const { aiPersonality } = useAppSettings();
     const voice = normalizeAIPersonality(aiPersonality);

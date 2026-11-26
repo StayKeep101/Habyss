@@ -51,17 +51,6 @@ describe('marks', () => {
         expect(net(result)).toBe(18);
     });
 
-    it('rewards a goal reached and charges a goal missed', () => {
-        const goal = (id: string, targetDate: string): Habit => habit({ id, isGoal: true, name: id, targetDate });
-        const result = computeMarks({
-            habits: [goal('won', '2026-10-30'), goal('lost', '2026-10-02')], tasks: [], history: {},
-            goalsCompletedOn: { won: '2026-10-03' }, today: TODAY,
-        });
-        // +5 +5 for adding, +50 for reaching one; -15 for the deadline that passed is on the record only.
-        expect(result.total).toBe(60);
-        expect(net(result)).toBe(45);
-    });
-
     it('never goes down, however much is missed, and draws a running total ending today', () => {
         const result = computeMarks({
             habits: [habit({ startDate: '2026-09-01', createdAt: '2026-09-01T09:00:00' })], tasks: [], history: {}, today: TODAY,
@@ -169,17 +158,6 @@ describe("the perfect-day multiplier", () => {
         expect(result.multiplier).toBe(1);
     });
 
-});
-
-describe('milestones', () => {
-    it('earns +30 for each milestone reached, on the day it was reached', () => {
-        const result = computeMarks({
-            habits: [], tasks: [], history: {}, today: '2026-10-26',
-            milestones: [{ title: 'Finish Book 1', doneAt: new Date(2026, 9, 25, 15).toISOString() }],
-        });
-        expect(result.total).toBe(30);
-        expect(result.events[0]).toMatchObject({ date: '2026-10-25', points: 30, kind: 'complete', item: 'milestone', title: 'Finish Book 1' });
-    });
 });
 
 describe('marks reward a real day, not a long list', () => {

@@ -29,9 +29,9 @@ describe('habit reminder planning', () => {
     it('excludes completed habits today while retaining their next occurrence', () => {
         expect(dates(makeHabit(), now, { read: true })[0]).toBe('2026-09-17');
     });
-    it('excludes archived goals, disabled reminders, and invalid times', () => {
+    it('excludes archived habits, disabled reminders, and invalid times', () => {
         expect(buildHabitReminderPlan([
-            makeHabit({ isArchived: true }), makeHabit({ isGoal: true }), makeHabit({ reminders: [] }), makeHabit({ reminders: ['25:00', '09:60', 'invalid'] }),
+            makeHabit({ isArchived: true }), makeHabit({ reminders: [] }), makeHabit({ reminders: ['25:00', '09:60', 'invalid'] }),
         ], now)).toEqual([]);
     });
     it('respects future starts and inclusive end dates', () => {

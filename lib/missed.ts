@@ -56,7 +56,7 @@ export function missed(input: {
 
     // Habits: the run of undone due days ending at the last one before today.
     const window = habitDays(input.habits, input.history, input.completions, 60, today, today);
-    for (const habit of input.habits.filter(habit => !habit.isGoal && !habit.isArchived)) {
+    for (const habit of input.habits.filter(habit => !habit.isArchived)) {
         const due = window.filter(day => day.scheduled.includes(habit.id) && !day.skipped.includes(habit.id));
         const todayDue = due.find(day => day.date === today);
         if (todayDue?.done.includes(habit.id)) continue;

@@ -30,7 +30,7 @@
  * Content
  *   Echo (Echo, drawn: the one look it has everywhere, in a mood; a Rive Echo would replace this file),
  *   Avatar (a face: photo or initial, optional ring and badge), FaceStack (a few friends' faces, overlapping), IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
- *   StatTile, ChartCard, WeekBars (a week as bars: goal dashed across, a finger reads a day), HabitRow, ProgressRing, HalfCircleProgress, CheckPop, ShardIcon (a Shard, the currency, as its faceted crystal), IrisFade (covers a view from the outside in as something scrolls), StruckTitle (a name dimmed and struck through as it is done, the line drawing across),
+ *   StatTile, ChartCard, ProgressChart (a line of how far along against steady pace, drag to read a day), ValuePill (a number in a small matte pill, on a row's right), WeekBars (a week as bars: goal dashed across, a finger reads a day), HabitRow, ProgressRing, HalfCircleProgress, CheckPop, ShardIcon (a Shard, the currency, as its faceted crystal), IrisFade (covers a view from the outside in as something scrolls), StruckTitle (a name dimmed and struck through as it is done, the line drawing across),
  *   GameCard (a bet, duel or challenge: face, name, a pill for how it stands, then the contest),
  *   VersusBar (two sides on one line, "22% Long ━━ 78% Short": the split glides, the leader in full colour),
  *   CardRail (cards swiped side by side, the next peeking in),
@@ -50,7 +50,7 @@
  *   useProgress    a 0→value animated number to drive any style or SVG prop
  *   useCountUp     a figure as text that counts up and rolls to new values
  *   CountUp        the same, as a Text component
- *   ListItem       a habit, task or goal row: fades in and out, slides when the list changes
+ *   ListItem       a habit or task row: fades in and out, slides when the list changes
  *   (every one takes `replay`: pass what a switch changed — month, range, tab — to replay the intro)
  *
  * Colours, fonts, corners and shadows come from theme/. Change a block here
@@ -118,6 +118,8 @@ export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { StatTile, type StatTileProps } from './StatTile';
 export { WeekBars, type WeekBar } from './WeekBars';
 export { ChartCard, type ChartCardProps } from './ChartCard';
+export { ProgressChart, type ChartPoint } from './ProgressChart';
+export { ValuePill } from './ValuePill';
 export { HabitRow, type HabitRowProps } from './HabitRow';
 export { ProgressRing, type ProgressRingProps } from './ProgressRing';
 export { HalfCircleProgress } from './HalfCircleProgress';

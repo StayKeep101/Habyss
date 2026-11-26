@@ -16,7 +16,7 @@ async function responseTo(kind: CheckInKind, value: 1 | 2 | 3 | 4 | 5): Promise<
     const { isHabitScheduledForDate } = require('@/lib/habitSchedule') as typeof import('@/lib/habitSchedule');
     const data = getData();
     const today = data.today;
-    const habits = (await getHabits().catch(() => [])).filter(habit => !habit.isGoal && !habit.isArchived);
+    const habits = (await getHabits().catch(() => [])).filter(habit => !habit.isArchived);
     const doneToday = new Set([...(data.history[today] ?? []), ...(data.skips[today] ?? [])]);
     const habitsLeft = habits
         .filter(habit => isHabitScheduledForDate(habit, new Date(`${today}T12:00:00`)) && !doneToday.has(habit.id))

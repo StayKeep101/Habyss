@@ -85,7 +85,7 @@ describe('grouping a picker', () => {
 describe('one grouping, shared by the picker and the controls', () => {
     it('groups the picker by what units measure, not by a hand-written list', () => {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { UNIT_GROUPS } = require('../goalUnits') as typeof import('../goalUnits');
+        const { UNIT_GROUPS } = require('../units') as typeof import('../units');
         expect(UNIT_GROUPS.Volume).toContain('ml');
         expect(UNIT_GROUPS.Weight).toContain('kg');
         expect(UNIT_GROUPS.Money).toContain('dollars');
@@ -95,14 +95,14 @@ describe('one grouping, shared by the picker and the controls', () => {
     it('no longer files kilograms and millilitres under one heading', () => {
         // The old "Health" group held both; they are not the same kind of
         // thing and do not want the same buttons.
-        const { UNIT_GROUPS } = require('../goalUnits') as typeof import('../goalUnits');
+        const { UNIT_GROUPS } = require('../units') as typeof import('../units');
         expect(UNIT_GROUPS.Volume).not.toContain('kg');
         expect(UNIT_GROUPS.Weight).not.toContain('ml');
         expect(UNIT_GROUPS.Health).toBeUndefined();
     });
 
     it('shows no empty headings', () => {
-        const { UNIT_GROUPS } = require('../goalUnits') as typeof import('../goalUnits');
+        const { UNIT_GROUPS } = require('../units') as typeof import('../units');
         for (const [name, units] of Object.entries(UNIT_GROUPS)) {
             expect({ name, count: units.length }).toEqual({ name, count: units.length });
             expect(units.length).toBeGreaterThan(0);

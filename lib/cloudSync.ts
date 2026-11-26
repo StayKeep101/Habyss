@@ -3,7 +3,7 @@ import { getDatabase } from './database';
 import { getSupabase } from './supabase';
 import {
     chunk, completionToLocal, completionToRemote, habitToLocal, habitToRemote,
-    isUuid, milestoneToLocal, milestoneToRemote, orderForUpload, taskToLocal, taskToRemote,
+    isUuid, orderForUpload, taskToLocal, taskToRemote,
 } from './cloudMapping';
 import { emit } from './appEvents';
 import { syncPersonal } from './personalBackup';
@@ -41,15 +41,12 @@ interface TableSpec {
 }
 
 const TABLES: TableSpec[] = [
-    // Goals are habits, and habits point at goals, so habits go first.
     { local: 'habits', remote: 'habits', toRemote: habitToRemote, toLocal: habitToLocal, onConflict: 'id', localConflict: 'id' },
     // One completion per habit per day, on both sides.
     // Matched on what a completion is — one person, one habit, one day — not on
     // its id: local ids are "<habit>_<date>", which the server cannot store.
     { local: 'completions', remote: 'habit_completions', toRemote: completionToRemote, toLocal: completionToLocal, onConflict: 'user_id,habit_id,date', localConflict: 'habit_id, date' },
     { local: 'tasks', remote: 'tasks', toRemote: taskToRemote, toLocal: taskToLocal, onConflict: 'id', localConflict: 'id' },
-    // A goal's checkpoints, after the goals they belong to.
-    { local: 'milestones', remote: 'goal_milestones', toRemote: milestoneToRemote, toLocal: milestoneToLocal, onConflict: 'id', localConflict: 'id' },
 ];
 
 const BATCH = 200;
@@ -112,7 +109,7 @@ async function runSync(): Promise<SyncReport> {
         }
         report.downloaded = await download(db, sb, userId);
         report.downloaded += await pullShared(db, sb, userId).catch(error => {
-            console.warn('[Backup] shared goals did not refresh:', error?.message);
+            console.warn('[Backup] shared plans did not refresh:', error?.message);
             return 0;
         });
         report.failed += skippedOnDownload;
@@ -406,9 +403,8 @@ async function download(db: any, sb: any, userId: string): Promise<number> {
 /**
  * Everything you are on with somebody else, brought up to date.
  *
- * The pass above reads only rows whose `user_id` is yours. A shared goal is
- * one plan with rows from two people in it: the owner's goal and habits, the
- * tasks either of you added, and a friend's cover photo or reminder change on
+ * The pass above reads only rows whose `user_id` is yours. A shared habit or
+ * task is one plan with rows from two people in it: the owner's rows, and a friend's cover photo or reminder change on
  * any of them. Those are read here and kept as your local copy, under your
  * user id, so the rest of the app treats them like anything else on the phone.
  *
@@ -419,18 +415,15 @@ async function download(db: any, sb: any, userId: string): Promise<number> {
 const PERSONAL_TASK_FIELDS = ['status', 'completed_at', 'amount'];
 
 async function pullShared(db: any, sb: any, userId: string): Promise<number> {
-    const mine = `owner_id.eq.${userId},shared_with_id.eq.${userId}`;
     // Shares closed by a delete made offline go first, so nothing deleted is pulled back in.
     const ending = require('./shareEnding') as typeof import('./shareEnding');
     await ending.flushShareEndings().catch(() => false);
-    const [goals, habits, tasks] = await Promise.all([
-        sb.from('shared_goals').select('goal_id').eq('status', 'accepted').is('deleted_at', null).or(mine),
+    const [habits, tasks] = await Promise.all([
         sb.from('shared_habits').select('habit_id').eq('status', 'accepted').is('deleted_at', null).eq('shared_with_id', userId),
         sb.from('shared_tasks').select('task_id').eq('status', 'accepted').is('deleted_at', null).eq('shared_with_id', userId),
     ]);
     const ids = (result: any, column: string): string[] =>
         [...new Set<string>((result?.data ?? []).map((row: any) => row[column]).filter(isUuid))];
-    const goalIds = ids(goals, 'goal_id');
     const habitIds = ids(habits, 'habit_id');
     const taskIds = ids(tasks, 'task_id');
     // A share that has ended (the other person deleted it): your copy becomes
@@ -446,18 +439,11 @@ async function pullShared(db: any, sb: any, userId: string): Promise<number> {
             emit('tasks_changed');
         }
     }
-    if (!goalIds.length && !habitIds.length && !taskIds.length) return rekeyed;
+    if (!habitIds.length && !taskIds.length) return rekeyed;
 
     const list = (values: string[]) => `(${values.join(',')})`;
-    const habitFilter = [
-        goalIds.length ? `id.in.${list(goalIds)}` : '',
-        goalIds.length ? `goal_id.in.${list(goalIds)}` : '',
-        habitIds.length ? `id.in.${list(habitIds)}` : '',
-    ].filter(Boolean).join(',');
-    const taskFilter = [
-        goalIds.length ? `goal_id.in.${list(goalIds)}` : '',
-        taskIds.length ? `id.in.${list(taskIds)}` : '',
-    ].filter(Boolean).join(',');
+    const habitFilter = habitIds.length ? `id.in.${list(habitIds)}` : '';
+    const taskFilter = taskIds.length ? `id.in.${list(taskIds)}` : '';
 
     const [habitRows, taskRows] = await Promise.all([
         habitFilter ? sb.from('habits').select('*').neq('user_id', userId).or(habitFilter) : { data: [] },
@@ -487,7 +473,7 @@ async function pullShared(db: any, sb: any, userId: string): Promise<number> {
     return written;
 }
 
-/** Refreshes shared goals now, without a whole backup — for right after accepting one. */
+/** Refreshes shared habits and tasks now, without a whole backup — for right after accepting one. */
 export async function refreshShared(): Promise<number> {
     const sb = getSupabase();
     const db = await getDatabase();
@@ -551,7 +537,6 @@ async function announceRemote(): Promise<void> {
         // Screens still refresh on their next focus.
     }
     emit('tasks_changed');
-    emit('milestones_changed', {});
     emit('habit_completion_updated', {});
     emit('cloud_restored');
 }

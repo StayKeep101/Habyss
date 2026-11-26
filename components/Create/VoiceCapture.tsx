@@ -1,4 +1,3 @@
-import { GOALS_ENABLED } from '@/constants/features';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -98,7 +97,6 @@ export function VoiceCapture() {
                     if (destination === 'thought') {
                         void addThought(spoken).then(() => require('expo-router').router.push('/brain-dump'));
                     } else if (destination === 'habit') emit('show_quick_add', { prefillName: text });
-                    else if (destination === 'goal' && GOALS_ENABLED) emit('show_goal_quick_add', { prefill: text });
                     else emit('show_task_form', { prefill: text });
                 }, 220);
             });
@@ -183,8 +181,6 @@ export const isThought = (text: string): boolean => THOUGHT.test(text.trim());
 /** One thing heard, in its own sheet with the words already in it. */
 function openItem(item: VoiceItem) {
     if (item.kind === 'habit') emit('show_quick_add', { prefillName: item.text });
-    // Goals are off for now: a goal heard becomes a habit to keep at it.
-    else if (item.kind === 'goal') emit(GOALS_ENABLED ? 'show_goal_quick_add' : 'show_quick_add', GOALS_ENABLED ? { prefill: item.text } : { prefillName: item.text } as never);
     else emit('show_task_form', { prefill: item.text });
 }
 

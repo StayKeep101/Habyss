@@ -39,7 +39,6 @@ export interface Task {
     dueTime?: string;
     estimatedMinutes?: number;
     priority: TaskPriority;
-    goalId?: string;
     status: TaskStatus;
     completedAt?: string;
     source: TaskSource;
@@ -53,8 +52,6 @@ export interface Task {
     unit?: string;
     /** How far it has got; a done task with no amount counts as its target. */
     amount?: number;
-    /** The step of its goal's plan it belongs to. */
-    milestoneId?: string;
     /** 1 easy, 2 medium, 3 hard: the timeline puts hard things in your best hours. Kept on this phone. */
     difficulty?: TaskDifficulty;
     /** The steps it is made of, ticked one by one ("Write", "Edit", "Publish"). */
@@ -106,14 +103,12 @@ export interface TaskInput {
     dueTime?: string;
     estimatedMinutes?: number;
     priority?: TaskPriority;
-    goalId?: string;
     source?: TaskSource;
     externalId?: string;
     measure?: TaskMeasure;
     target?: number;
     unit?: string;
     amount?: number;
-    milestoneId?: string;
     difficulty?: TaskDifficulty;
     deadline?: string;
     flexible?: boolean;
@@ -134,7 +129,6 @@ const rowToTask = (row: any): Task => ({
     dueTime: row.due_time ?? undefined,
     estimatedMinutes: row.estimated_minutes ?? undefined,
     priority: (row.priority ?? 2) as TaskPriority,
-    goalId: row.goal_id ?? undefined,
     status: (row.status ?? 'open') as TaskStatus,
     completedAt: row.completed_at ?? undefined,
     source: (row.source ?? 'app') as TaskSource,
@@ -146,7 +140,6 @@ const rowToTask = (row: any): Task => ({
     reminder: parseReminderTime(row.reminder),
     locationReminders: (() => { const places = parsePlaces(row.location_reminders); return places.length ? places : undefined; })(),
     amount: Number.isFinite(row.amount) ? row.amount : undefined,
-    milestoneId: row.milestone_id ?? undefined,
     difficulty: row.difficulty === 1 || row.difficulty === 2 || row.difficulty === 3 ? row.difficulty : undefined,
     deadline: typeof row.deadline === 'string' && row.deadline ? row.deadline : undefined,
     flexible: row.flexible === 0 ? false : row.flexible === 1 ? true : undefined,
@@ -193,8 +186,8 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
     const importedColumns: [keyof TaskInput, string][] = [
         ['title', 'title'], ['description', 'description'], ['dueDate', 'due_date'],
         ['dueTime', 'due_time'], ['estimatedMinutes', 'estimated_minutes'],
-        ['priority', 'priority'], ['goalId', 'goal_id'], ['source', 'source'],
-        ['measure', 'measure'], ['target', 'target'], ['unit', 'unit'], ['milestoneId', 'milestone_id'],
+        ['priority', 'priority'], ['source', 'source'],
+        ['measure', 'measure'], ['target', 'target'], ['unit', 'unit'],
         ['difficulty', 'difficulty'], ['deadline', 'deadline'], ['flexible', 'flexible'], ['subtasks', 'subtasks'], ['section', 'section'], ['alerts', 'alerts'],
     ];
     const updates = importedColumns.filter(([key]) => Object.prototype.hasOwnProperty.call(input, key))
@@ -205,15 +198,15 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
     await db.runAsync(
         `INSERT INTO tasks (
             id, user_id, title, description, due_date, due_time, estimated_minutes,
-            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id, difficulty, deadline, flexible, subtasks, section, alerts, reminder, location_reminders, anchor,
+            priority, status, source, external_id, measure, target, unit, difficulty, deadline, flexible, subtasks, section, alerts, reminder, location_reminders, anchor,
             created_at, updated_at, deleted, synced
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
         id, uid, title, input.description ?? null, input.dueDate ?? null, input.dueTime ?? null,
-        input.estimatedMinutes ?? null, input.priority ?? 2, input.goalId ?? null,
+        input.estimatedMinutes ?? null, input.priority ?? 2,
         input.source ?? 'app', input.externalId ?? null,
         input.measure && input.measure !== 'done' ? input.measure : null,
         input.measure && input.measure !== 'done' ? input.target ?? null : null,
-        input.unit?.trim() || null, input.milestoneId ?? null, input.difficulty ?? null, input.deadline ?? null, input.flexible === undefined ? null : input.flexible ? 1 : 0,
+        input.unit?.trim() || null, input.difficulty ?? null, input.deadline ?? null, input.flexible === undefined ? null : input.flexible ? 1 : 0,
         input.subtasks?.length ? JSON.stringify(input.subtasks) : null, input.section?.trim() || null, storeAlerts(input.alerts), parseReminderTime(input.reminder) ?? null, storePlaces(input.locationReminders), storeAnchor(input.anchor), now, now,
     );
 
@@ -234,9 +227,9 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
 
     const columns: Record<keyof TaskInput, string> = {
         title: 'title', description: 'description', dueDate: 'due_date', dueTime: 'due_time',
-        estimatedMinutes: 'estimated_minutes', priority: 'priority', goalId: 'goal_id',
+        estimatedMinutes: 'estimated_minutes', priority: 'priority',
         source: 'source', externalId: 'external_id',
-        measure: 'measure', target: 'target', unit: 'unit', amount: 'amount', milestoneId: 'milestone_id',
+        measure: 'measure', target: 'target', unit: 'unit', amount: 'amount',
         difficulty: 'difficulty', deadline: 'deadline', flexible: 'flexible', subtasks: 'subtasks', section: 'section', alerts: 'alerts',
         reminder: 'reminder', locationReminders: 'location_reminders', anchor: 'anchor',
     };
@@ -369,18 +362,6 @@ export async function deleteTask(id: string): Promise<void> {
     if (guest || (await FriendsService.sharedIds().catch(() => new Set<string>())).has(id)) void ending.endShares('task', id);
 }
 
-/** A goal's tasks go with it, the same way its habits do. */
-export async function deleteTasksForGoal(goalId: string): Promise<void> {
-    const db = await getDatabase();
-    if (!db) throw new Error('Task storage is unavailable. Your changes were not saved.');
-    const ids = ((await db.getAllAsync('SELECT id FROM tasks WHERE goal_id = ? AND deleted = 0', goalId)) ?? []).map((row: { id: string }) => row.id);
-    await (require('./marksLedger') as typeof import('./marksLedger')).keepPenaltiesOf({ tasks: ids });
-    await db.runAsync(
-        'UPDATE tasks SET deleted = 1, updated_at = ?, synced = 0 WHERE goal_id = ? AND deleted = 0',
-        nowISO(), goalId,
-    );
-}
-
 /* -------------------------------------------------------------------------- */
 /*  What matters today                                                         */
 /* -------------------------------------------------------------------------- */
@@ -410,8 +391,7 @@ export function taskRank(task: Task, today: string): number {
 export function topTasksForToday(tasks: Task[], today: string, limit = 3): Task[] {
     return tasks
         .filter(task => task.status === 'open')
-        // A goal's to-do with no day waits in its list, as in tasksForDay.
-        .filter(task => (!task.dueDate && !task.goalId) || (!!task.dueDate && task.dueDate <= today))
+        .filter(task => !task.dueDate || task.dueDate <= today)
         .sort((a, b) => taskRank(a, today) - taskRank(b, today) || a.createdAt.localeCompare(b.createdAt))
         .slice(0, Math.max(0, limit));
 }
@@ -441,12 +421,11 @@ export function tasksForDay(tasks: Task[], day: string, today: string = todayKey
         // Finished late, or finished with no day: it belongs to the day it was
         // done, never back on the day it was due (as if done on time).
         const finished = doneDay(task);
-        if (finished && (!task.dueDate ? !task.goalId : task.dueDate < finished)) return finished === day;
+        if (finished && (!task.dueDate || task.dueDate < finished)) return finished === day;
         if (task.dueDate === day) return true;
         if (!isToday) return false;
-        // No day: today's, unless it belongs to a goal. Then it is one of the
-        // goal's to-dos, waiting in its list to be planned on a day.
-        if (!task.dueDate) return task.status === 'open' && !task.goalId;
+        // No day: today's.
+        if (!task.dueDate) return task.status === 'open';
         return task.dueDate < day && task.status === 'open';
     });
 }

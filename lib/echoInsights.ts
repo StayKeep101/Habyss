@@ -20,7 +20,7 @@ import { localDateKey } from './habitSchedule';
  * screen opens, never in the background.
  */
 
-export type InsightKind = 'missed_twice' | 'stuck_task' | 'heavy_day' | 'slipping' | 'goal_no_steps' | 'win' | 'weekday_pattern';
+export type InsightKind = 'missed_twice' | 'stuck_task' | 'heavy_day' | 'slipping' | 'win' | 'weekday_pattern';
 export type InsightAction =
     | { type: 'start'; item: string; title: string }
     | { type: 'experiment'; habitId: string }
@@ -66,7 +66,7 @@ export function computeInsights(input: InsightInput): Insight[] {
     const { habits, tasks, history, completions, today } = input;
     const voice = voiceOf(input.voice);
     const low = input.energy === 'low';
-    const active = habits.filter(habit => !habit.isGoal && !habit.isArchived);
+    const active = habits.filter(habit => !habit.isArchived);
     const out: Insight[] = [];
 
     // 1. Never miss twice: missed last time, due again today, not done yet.
@@ -163,28 +163,7 @@ export function computeInsights(input: InsightInput): Insight[] {
         });
     }
 
-    // 5. A goal with nothing under it: no habit, no task, nothing to do today.
-    for (const goal of habits.filter(habit => habit.isGoal && !habit.isArchived)) {
-        const hasHabit = active.some(habit => habit.goalId === goal.id);
-        const hasTask = tasks.some(task => task.goalId === goal.id && task.status !== 'cancelled');
-        if (hasHabit || hasTask) continue;
-        out.push({
-            id: `goal_no_steps:${goal.id}`,
-            kind: 'goal_no_steps',
-            priority: 50,
-            text: say(voice, {
-                supportive: `“${goal.name}” has no steps yet. One small habit or task makes it real.`,
-                direct: `“${goal.name}” has nothing under it. Add the first step.`,
-                challenging: `“${goal.name}” is a wish until it has a step. Add one.`,
-            }),
-            evidence: 'No habits or tasks are linked to it.',
-            action: { type: 'open', path: '/goal-detail', params: { goalId: goal.id } },
-            actionLabel: 'Add a step',
-        });
-        break;
-    }
-
-    // 6. A real win: the last 30 days clearly better than the 30 before.
+    // 5. A real win: the last 30 days clearly better than the 30 before.
     const trend = momentum(habits, history, completions, 30, today);
     if (trend.comparable && trend.delta >= 10 && trend.countable >= 20) {
         out.push({
@@ -200,7 +179,7 @@ export function computeInsights(input: InsightInput): Insight[] {
         });
     }
 
-    // 7. A weekday/weekend pattern, only with enough of both to be fair.
+    // 6. A weekday/weekend pattern, only with enough of both to be fair.
     const eight = habitDays(habits, history, completions, 56, shiftDay(today, -1), today);
     const rememberedKeys = new Set(input.remembered ?? []);
     for (const habit of active) {
@@ -261,7 +240,7 @@ export function echoWeek(habits: Habit[], history: HistoryDay[], completions: Re
     const week = habitDays(habits, history, completions, 7, today, today);
     const active = week.filter(day => day.done.length > 0).length;
     let best: { name: string; rate: number; kept: number } | null = null;
-    for (const habit of habits.filter(item => !item.isGoal && !item.isArchived)) {
+    for (const habit of habits.filter(item => !item.isArchived)) {
         const own = keptRate(week.map(day => ({
             date: day.date,
             scheduled: day.scheduled.filter(id => id === habit.id),

@@ -10,7 +10,6 @@ describe('what the watch shows', () => {
         const list = buildWatchHabits([
             habit({ id: 'read', name: 'Read' }),
             habit({ id: 'run', name: 'Run' }),
-            habit({ id: 'goal', name: 'Goal', isGoal: true }),
             habit({ id: 'old', name: 'Old', isArchived: true }),
         ], { '2026-10-16': ['read'], '2026-10-15': ['read'] }, '2026-10-16');
         expect(list.map(item => [item.id, item.completed, item.streakCount])).toEqual([['run', false, 0], ['read', true, 2]]);

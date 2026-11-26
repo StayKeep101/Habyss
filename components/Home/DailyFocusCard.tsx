@@ -5,7 +5,7 @@ import { ListItem } from '@/components/ui/Motion';
 import { CheckPop } from '@/components/ui/CheckPop';
 import { StruckTitle } from '@/components/ui/StruckTitle';
 import { DURATION, EASE } from '@/theme/motion';
-import { ValuePill } from '@/components/Goal/GoalRows';
+import { ValuePill } from '@/components/ui/ValuePill';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { Colors } from '@/theme/colors';

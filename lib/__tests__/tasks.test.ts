@@ -125,10 +125,9 @@ describe('the tasks that belong to a day', () => {
         expect(tasksForDay([friday], '2026-09-25', DAY).map(item => item.id)).toEqual(['f']);
     });
 
-    it("puts a task with no day on today, but leaves a goal's unplanned to-do in its list", () => {
+    it('puts a task with no day on today', () => {
         const loose = task({ id: 'loose' });
-        const todo = task({ id: 'todo', goalId: 'g' });
-        expect(tasksForDay([loose, todo], DAY, DAY).map(item => item.id)).toEqual(['loose']);
+        expect(tasksForDay([loose], DAY, DAY).map(item => item.id)).toEqual(['loose']);
     });
 
     it('carries something still open and past its date into today', () => {

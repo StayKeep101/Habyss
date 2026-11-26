@@ -187,11 +187,10 @@ describe('"now"', () => {
 describe('every task setting, said the way people say it', () => {
     const { parseTaskText } = require('../taskParser');
     const day = new Date(2026, 10, 21, 10, 0);
-    const read = (text: string) => parseTaskText(text, day, { goals: ['Launch'] });
-    it('reads steps, a reminder and a goal, and keeps them out of the title', () => {
+    const read = (text: string) => parseTaskText(text, day);
+    it('reads steps and a reminder, and keeps them out of the title', () => {
         expect(read('Buy groceries: milk, eggs and bread')).toMatchObject({ title: 'Buy groceries', subtasks: ['milk', 'eggs', 'bread'] });
         expect(read('Call mom tomorrow at 5, remind me 15 min before')).toMatchObject({ title: 'Call mom', dueTime: '17:00', reminder: { alerts: [15] } });
-        expect(read('Fix the bug for my Launch goal')).toMatchObject({ title: 'Fix the bug', goal: 'Launch' });
     });
     it('reads low priority and anytime words', () => {
         expect(read('Clean room if I have time').priority).toBe(3);

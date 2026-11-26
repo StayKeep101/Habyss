@@ -8,8 +8,8 @@ const at = (h: number, m: number) => new Date(2026, 9, 19, h, m);
 const base = { tasks: [] as Task[], done: {}, today: '2026-10-19' };
 
 describe('the thing for right now', () => {
-    it('finds a habit inside a goal while its time is on, from ten minutes before', () => {
-        const sourcing = habit({ goalId: 'g', startTime: '09:30', durationMinutes: 120 });
+    it('finds a habit while its time is on, from ten minutes before', () => {
+        const sourcing = habit({ startTime: '09:30', durationMinutes: 120 });
         expect(pickNow({ ...base, habits: [sourcing], now: at(9, 22) })?.state).toBe('now');
         expect(pickNow({ ...base, habits: [sourcing], now: at(11, 0) })).toMatchObject({ id: 'h', state: 'now' });
         expect(pickNow({ ...base, habits: [sourcing], now: at(11, 31) })).toBeNull();

@@ -141,9 +141,8 @@ describe('nothing to say yet', () => {
         expect(recovery([future], [], {}, 10, TODAY).perHabit).toEqual([]);
     });
 
-    it('ignores archived habits and goals', () => {
+    it('ignores archived habits', () => {
         const archived = habit({ id: 'a', isArchived: true });
-        const goal = habit({ id: 'g', isGoal: true } as Partial<Habit>);
-        expect(recovery([archived, goal], [], {}, 5, TODAY).perHabit).toEqual([]);
+        expect(recovery([archived], [], {}, 5, TODAY).perHabit).toEqual([]);
     });
 });

@@ -14,10 +14,10 @@ const task = (over: Partial<Task> = {}) => ({ id: 'proposal', title: 'Send propo
 const window = { wake: '07:00', sleep: '23:00' };
 
 describe('scheduled moments shared by Echo and Live Activities', () => {
-    it('follows weekdays and excludes untimed, completed, skipped, archived and goal rows', () => {
+    it('follows weekdays and excludes untimed, completed, skipped and archived rows', () => {
         const moments = scheduledMoments([
             habit(), habit({ id: 'sunday', taskDays: ['sun'] }), habit({ id: 'done' }), habit({ id: 'skip' }),
-            habit({ id: 'archived', isArchived: true }), habit({ id: 'goal', isGoal: true }), habit({ id: 'untimed', startTime: undefined }),
+            habit({ id: 'archived', isArchived: true }), habit({ id: 'untimed', startTime: undefined }),
         ], [task(), task({ id: 'old', dueDate: '2026-09-25' }), task({ id: 'done-task', status: 'done' })], now,
         { done: true }, { skip: true }, 1);
         expect(moments.map(item => item.id)).toEqual(['run', 'proposal']);

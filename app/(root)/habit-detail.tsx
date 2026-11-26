@@ -26,7 +26,7 @@ import { HabitThoughts } from '@/components/Habit/HabitThoughts';
 import { useWeekStart } from '@/hooks/useWeekStart';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { habitRecord } from '@/lib/habitRecord';
-import { describeSchedule } from '@/lib/goalInsights';
+import { describeSchedule } from '@/lib/habitSummary';
 import { getCompletionSources, getCompletionTicks, setSkipped, toggleCompletion } from '@/lib/habitsSQLite';
 import { PatternList } from '@/components/Echo/PatternList';
 import { useEchoPatterns } from '@/hooks/useEchoPatterns';
@@ -56,8 +56,8 @@ type View3 = 'today' | 'stats' | 'patterns';
 
 /**
  * A habit, in a half-height sheet. Its main view is today: its face (icon in
- * a ring of how much of this week is kept, its name, how it repeats, the goal
- * it serves), one big button to mark it done with skip and focus beside it,
+ * a ring of how much of this week is kept, its name, how it repeats), one big
+ * button to mark it done with skip and focus beside it,
  * and, for a habit that tracks itself, where today's number comes from (its
  * apps, Apple Health, its place) and how far along it is.
  *
@@ -143,8 +143,6 @@ export default function HabitDetailScreen() {
         return () => { generation.current++; update.remove(); edit.remove(); };
     }, [habitId, load]);
 
-    const [goals, setGoals] = useState<Habit[]>([]);
-    useEffect(() => { void getHabits().then(all => setGoals(all.filter(item => item.isGoal))).catch(() => undefined); }, []);
     const weekStartsMonday = useWeekStart() === 'monday';
     const record = useMemo(() => habitRecord(history, today, habit?.startDate?.slice(0, 10), weekStartsMonday), [history, today, habit?.startDate, weekStartsMonday]);
     const echoPatterns = useEchoPatterns();
@@ -260,9 +258,7 @@ export default function HabitDetailScreen() {
                     <Animated.View key={view} entering={FadeIn.duration(DURATION.quick).reduceMotion(ReduceMotion.System)} style={styles.view}>
                     {view === 'today' ? (
                         <>
-                            <HabitHero icon={habit.icon} name={habit.name} schedule={describeSchedule(habit)} color={accent} weekShare={weekShare}
-                                goalName={goals.find(goal => goal.id === habit.goalId)?.name}
-                                onGoal={habit.goalId ? () => router.push({ pathname: '/goal-detail', params: { goalId: habit.goalId! } }) : undefined} />
+                            <HabitHero icon={habit.icon} name={habit.name} schedule={describeSchedule(habit)} color={accent} weekShare={weekShare} />
                             <HabitToday done={doneToday} skipped={skippedToday} scheduled={scheduledToday} color={accent} onDone={markDone} onSkip={skip} onFocus={focus}
                                 waiting={shared && waitingOnOthers(shared, doneToday) ? waitingLabel(shared) : null} />
                             {/* Where today's number comes from, for a habit that tracks itself. */}
@@ -302,7 +298,7 @@ export default function HabitDetailScreen() {
             {habit ? <BottomFade height={64} /> : null}
 
             {/* Always there, so closing slides it away rather than removing it. */}
-            {habit && <HabitSheet visible={showEditor} onClose={() => setShowEditor(false)} habit={habit} goalId={habit.goalId} onSaved={load} />}
+            {habit && <HabitSheet visible={showEditor} onClose={() => setShowEditor(false)} habit={habit} onSaved={load} />}
             {habit && habitId && <ShareHabitModal visible={showShare} habitId={habitId} habitName={habit.name} onClose={() => setShowShare(false)} />}
         </SheetScreen>
     );

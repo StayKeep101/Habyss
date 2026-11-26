@@ -14,7 +14,7 @@ import { currentAccount, knownAccount, onAccountChange } from '@/lib/account';
 const PERKS = [
     { icon: 'sync', line: 'Your phone and the desktop app, always in step' },
     { icon: 'desktop', line: 'Plan on the big screen, act from your pocket' },
-    { icon: 'layers', line: 'Habits, tasks, goals and focus, the same everywhere' },
+    { icon: 'layers', line: 'Habits, tasks and focus, the same everywhere' },
 ] as const;
 
 /**

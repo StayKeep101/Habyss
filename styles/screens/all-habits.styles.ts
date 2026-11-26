@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 import { FontFamily, Radius, Spacing, UIStyles } from '@/theme/designSystem';
 
-/** The look of app/(root)/all-habits.tsx: every habit, task or goal, in use first, stopped apart below. */
+/** The look of app/(root)/all-habits.tsx: every habit or task, in use first, stopped apart below. */
 export const styles = StyleSheet.create({
     loading: { marginTop: Spacing.section },
     content: { ...UIStyles.screenContent, gap: Spacing.section },

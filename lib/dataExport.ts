@@ -40,7 +40,7 @@ export function exportCsv({ habits, completions, tasks, focus }: {
     for (const tick of completions) {
         const habit = byId.get(tick.habitId);
         rows.push({
-            date: tick.date, type: habit?.isGoal ? 'goal' : 'habit', name: habit?.name ?? 'Deleted habit',
+            date: tick.date, type: 'habit', name: habit?.name ?? 'Deleted habit',
             status: tick.skipped ? 'skipped' : 'done', amount: tick.skipped ? '' : tick.value, unit: habit?.unit ?? '', minutes: '',
         });
     }

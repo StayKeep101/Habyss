@@ -10,7 +10,7 @@ import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { on } from '@/lib/appEvents';
 import { dailyFocus } from '@/lib/dailyFocus';
 import { localDateKey } from '@/lib/habitSchedule';
-import { DAILY_STAKE, myWallet } from '@/lib/market';
+import { DAILY_STAKE, myWallet } from '@/lib/wallet';
 import { RACE_MAX, expectedMinutes, openRace, ownerWin, raceFeed, raceTimes, raceTitle } from '@/lib/races';
 import { todayKey } from '@/lib/tasks';
 import { oopsTitle } from '@/lib/voice';

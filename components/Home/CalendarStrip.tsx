@@ -6,9 +6,8 @@ import Animated, { interpolate, runOnJS, useAnimatedProps, useAnimatedStyle, use
 import { AnimatedCircle, useProgress } from '@/components/ui/Motion';
 import { DURATION, EASE, timingFor } from '@/theme/motion';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { monthGrid } from '@/lib/goalPlanPeriod';
+import { monthGrid } from '@/lib/monthGrid';
 import { textOn } from '@/theme/tokens';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
@@ -20,15 +19,11 @@ interface CalendarStripProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   completionData?: Record<string, { completed: number; total: number }>;
-  /** The goals due on each day, by date key. */
-  goalDeadlines?: Record<string, DeadlineGoal[]>;
-  /** Days with a task's deadline or a milestone due, by date key: a dot each under the day. */
+  /** Days with a task's deadline, by date key: a dot under the day. */
   dayMarks?: Record<string, DayMarks>;
 }
 
-export interface DayMarks { deadline?: boolean; milestone?: boolean }
-
-interface DeadlineGoal { color: string; icon?: string; name: string }
+export interface DayMarks { deadline?: boolean }
 
 interface DateItem {
   dayName: string;
@@ -38,8 +33,6 @@ interface DateItem {
   progress: number;
   /** The month's short name on its first day, where a week runs into a new month. */
   monthMark?: string;
-  /** The goals due that day: each one's own icon, in its colour, on the ring. */
-  deadlines?: DeadlineGoal[];
   marks?: DayMarks;
 }
 
@@ -107,17 +100,13 @@ const DateButtonComponent = ({
   const filled = useProgress(item.progress);
   const ringProps = useAnimatedProps(() => ({ strokeDashoffset: circumference * (1 - filled.get()) }));
 
-  const deadlines = item.deadlines ?? [];
-  const isDeadline = deadlines.length > 0;
-  const deadlineColor = deadlines[0]?.color || accentColor;
-
   return (
     <View style={{ width, alignItems: 'center', justifyContent: 'center' }}>
       <TouchableOpacity
         onPress={() => onSelect(item.fullDate)}
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        accessibilityLabel={`${item.fullDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${isDeadline ? `, ${deadlines.length === 1 ? 'deadline for' : `${deadlines.length} goal deadlines:`} ${deadlines.map(goal => goal.name).join(', ')}` : ''}${item.marks?.deadline ? ', a task deadline' : ''}${item.marks?.milestone ? ', a milestone due' : ''}`}
+        accessibilityLabel={`${item.fullDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${item.marks?.deadline ? ', a task deadline' : ''}`}
         style={{ width, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' }}
       >
         <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
@@ -159,23 +148,19 @@ const DateButtonComponent = ({
               {item.dayNumber}
             </Text>
           </View>
-          {isDeadline ? <DeadlineFlags goals={deadlines} cutout={colors.background} muted={colors.textSecondary} /> : null}
         </View>
 
-        {/* At a glance: a yellow dot for a task's deadline, a white one for a
-            milestone, between the day and its name; beside a goal's badge
-            when the day has one. Always the same small height, so every
-            day's name stays on one line, close under its ring. */}
-        <View style={{ height: DOT, marginTop: 4, marginBottom: 2, flexDirection: 'row', gap: 3,
-          ...(isDeadline ? { position: 'relative', left: deadlineSpan(deadlines.length) / 2 + 3 + DOT, top: -2 } : null) }}>
+        {/* At a glance: a yellow dot for a task's deadline, between the day and
+            its name. Always the same small height, so every day's name stays
+            on one line, close under its ring. */}
+        <View style={{ height: DOT, marginTop: 4, marginBottom: 2, flexDirection: 'row', gap: 3 }}>
           {item.marks?.deadline ? <View style={{ width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: colors.warning }} /> : null}
-          {item.marks?.milestone ? <View style={{ width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: colors.textPrimary }} /> : null}
         </View>
 
         {!month ? <Text
           style={{
-            color: selected ? (isLight ? 'black' : 'white') : (isDeadline ? deadlineColor : item.monthMark ? accentColor : (isLight ? 'rgba(0,0,0,0.6)' : colors.textTertiary)),
-            fontFamily: isDeadline || item.monthMark ? FontFamily.bold : FontFamily.medium,
+            color: selected ? (isLight ? 'black' : 'white') : (item.monthMark ? accentColor : (isLight ? 'rgba(0,0,0,0.6)' : colors.textTertiary)),
+            fontFamily: item.monthMark ? FontFamily.bold : FontFamily.medium,
             fontSize: 12,
           }}
         >
@@ -191,56 +176,12 @@ const DateButtonComponent = ({
 
 DateButtonComponent.displayName = 'DateButton';
 
-const FLAG = 20;
 const DOT = 5;
-/** How far each badge sits from the one before it: they overlap by a third. */
-const FLAG_STEP = 13;
-
-/**
- * A goal's finish day: the day keeps its own ring and number, and a small
- * badge with the goal's own icon, in the goal's colour, sits on the bottom of
- * the ring, cut out from the page so it reads as a mark on the day rather
- * than a second selected day. Several goals due together sit side by side,
- * overlapping like a hand of cards; past three, the last says how many more.
- */
-/** How wide the badges of this many goals are together. */
-const deadlineSpan = (goals: number) => FLAG + (Math.min(goals, 3) - 1) * FLAG_STEP;
-
-const DeadlineFlags = ({ goals, cutout, muted }: { goals: DeadlineGoal[]; cutout: string; muted: string }) => {
-  const shown = goals.length > 3 ? goals.slice(0, 2) : goals;
-  const more = goals.length - shown.length;
-  const count = shown.length + (more ? 1 : 0);
-  const span = deadlineSpan(count);
-  return (
-    <View pointerEvents="none" style={{ position: 'absolute', bottom: -7, width: span, height: FLAG }}>
-      {shown.map((goal, index) => (
-        <View key={`${goal.name}-${index}`} style={{
-          position: 'absolute', left: index * FLAG_STEP, zIndex: count - index,
-          width: FLAG, height: FLAG, borderRadius: FLAG / 2, borderWidth: 2.5, borderColor: cutout,
-          backgroundColor: goal.color, alignItems: 'center', justifyContent: 'center',
-        }}>
-          {/* The goal's own icon (a photo or a typed glyph falls back to the flag). */}
-          <Ionicons name={goal.icon && !goal.icon.includes('/') && !goal.icon.startsWith('file:') ? goal.icon : 'flag'} filled size={9} color={textOn(goal.color)} />
-        </View>
-      ))}
-      {more ? (
-        <View style={{
-          position: 'absolute', left: shown.length * FLAG_STEP, zIndex: 0,
-          width: FLAG, height: FLAG, borderRadius: FLAG / 2, borderWidth: 2.5, borderColor: cutout,
-          backgroundColor: muted, alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Text style={{ color: cutout, fontSize: 11, lineHeight: 13, fontFamily: FontFamily.bold }}>{`+${more}`}</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-};
-
 const DateButton = React.memo(DateButtonComponent, (a, b) =>
   a.month === b.month && a.selected === b.selected && a.width === b.width && a.colors === b.colors &&
   a.accentColor === b.accentColor && a.onSelect === b.onSelect && a.isLight === b.isLight &&
   a.item.id === b.item.id && a.item.progress === b.item.progress &&
-  a.item.deadlines === b.item.deadlines && a.item.marks === b.item.marks);
+  a.item.marks === b.item.marks);
 const EMPTY_DATA: Record<string, never> = {};
 /** One row of the month: a day's ring and number. */
 const MONTH_ROW = 57;
@@ -249,11 +190,11 @@ const MONTH_ROW = 57;
  * One month's page: its grid worked out once, and drawn again only when what
  * it shows changes (the chosen day in it, a day's progress, the colours).
  */
-const MonthPage = React.memo(function MonthPage({ monthKey, startsMonday, width, itemWidth, selectedKey, completionData, goalDeadlines, dayMarks, onSelect, colors, accentColor, isLight, drop }: {
+const MonthPage = React.memo(function MonthPage({ monthKey, startsMonday, width, itemWidth, selectedKey, completionData, dayMarks, onSelect, colors, accentColor, isLight, drop }: {
   monthKey: string; startsMonday: boolean; width: number; itemWidth: number; selectedKey: string | null;
   /** 0 → 1 as the month opens: its rows unfold out of the chosen week. */
   drop: SharedValue<number>;
-  completionData: Record<string, { completed: number; total: number }>; goalDeadlines: Record<string, DeadlineGoal[]>; dayMarks: Record<string, DayMarks>;
+  completionData: Record<string, { completed: number; total: number }>; dayMarks: Record<string, DayMarks>;
   onSelect: (date: Date) => void; colors: any; accentColor: string; isLight: boolean;
 }) {
   const rows = useMemo(() => monthGrid(monthKey, startsMonday), [monthKey, startsMonday]);
@@ -264,7 +205,7 @@ const MonthPage = React.memo(function MonthPage({ monthKey, startsMonday, width,
       {rows.map((row, rowIndex) => <MonthRow key={rowIndex} row={rowIndex} home={home} drop={drop}>
         {row.map((key, column) => key ? <DateButton month key={key} selected={key === selectedKey} onSelect={onSelect} width={itemWidth} colors={colors} accentColor={accentColor} isLight={isLight}
           item={{ id: key, fullDate: new Date(`${key}T12:00:00`), dayNumber: Number(key.slice(8)), dayName: '',
-            progress: completionData[key]?.total ? completionData[key].completed / completionData[key].total : 0, deadlines: goalDeadlines[key], marks: dayMarks[key] }} /> : <View key={column} style={{ width: itemWidth }} />)}
+            progress: completionData[key]?.total ? completionData[key].completed / completionData[key].total : 0, marks: dayMarks[key] }} /> : <View key={column} style={{ width: itemWidth }} />)}
       </MonthRow>)}
     </View>
   );
@@ -297,7 +238,6 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
   selectedDate,
   onSelectDate,
   completionData = EMPTY_DATA,
-  goalDeadlines = EMPTY_DATA,
   dayMarks = EMPTY_DATA,
 }) => {
   const { theme } = useTheme();
@@ -377,7 +317,6 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
       const date = addDays(weekStart, dayOffset);
       const dateKey = toDateKey(date);
       const dayData = completionData[dateKey];
-      const deadlineInfo = goalDeadlines[dateKey];
 
       return {
         dayName: WEEKDAYS[date.getDay()],
@@ -386,11 +325,10 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
         id: dateKey,
         progress: dayData && dayData.total > 0 ? dayData.completed / dayData.total : 0,
         monthMark: date.getDate() === 1 ? date.toLocaleDateString(undefined, { month: 'short' }) : undefined,
-        deadlines: deadlineInfo,
         marks: dayMarks[dateKey],
       };
     });
-  }, [completionData, getWeekStartForIndex, goalDeadlines, dayMarks]);
+  }, [completionData, getWeekStartForIndex, dayMarks]);
 
   const renderWeek = useCallback(({ item: weekIndex }: ListRenderItemInfo<number>) => {
     const weekItems = buildWeekItems(weekIndex);
@@ -491,10 +429,10 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
       <MonthPage monthKey={monthKey} startsMonday={startsMonday} width={pageWidth} itemWidth={itemWidth}
         // Only the month holding the chosen day hears about it, so choosing redraws one page.
         selectedKey={selectedKey.slice(0, 7) === monthKey.slice(0, 7) ? selectedKey : null}
-        completionData={completionData} goalDeadlines={goalDeadlines} dayMarks={dayMarks}
+        completionData={completionData} dayMarks={dayMarks}
         onSelect={pickFromMonth} colors={colors} accentColor={accentColor} isLight={isLight} drop={drop} />
     );
-  }, [today, startsMonday, pageWidth, itemWidth, selectedKey, completionData, goalDeadlines, dayMarks, pickFromMonth, colors, accentColor, isLight, drop]);
+  }, [today, startsMonday, pageWidth, itemWidth, selectedKey, completionData, dayMarks, pickFromMonth, colors, accentColor, isLight, drop]);
   const monthHeight = useMemo(() => monthGrid(selectedKey, startsMonday).length * MONTH_ROW, [selectedKey, startsMonday]);
   // Worked out here: worklets only read numbers.
   const weekHeight = WEEK_HEIGHT;

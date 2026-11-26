@@ -3,14 +3,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /**
  * The roadmap's filter, remembered between launches.
  *
- * What to show is three switches rather than one choice, so "tasks and habits,
- * no goals" is possible; at least one always stays on, so the list is never
- * empty by accident.
+ * What to show is two switches rather than one choice, so "tasks only" is
+ * possible; at least one always stays on, so the list is never empty by
+ * accident.
  */
-export type ShownKind = 'goals' | 'habits' | 'tasks';
+export type ShownKind = 'habits' | 'tasks';
 export type TimeOfDay = 'all' | 'morning' | 'afternoon' | 'evening';
 export type RoadmapSort = 'default' | 'name' | 'progress' | 'priority';
-/** The day as a timeline in time order, or the goals, habits and tasks as lists. */
+/** The day as a timeline in time order, or the habits and tasks as lists. */
 export type RoadmapView = 'timeline' | 'list';
 
 export interface RoadmapFilterState {
@@ -23,7 +23,7 @@ export interface RoadmapFilterState {
 }
 
 export const DEFAULT_ROADMAP_FILTER: RoadmapFilterState = {
-    shown: { goals: true, habits: true, tasks: true },
+    shown: { habits: true, tasks: true },
     time: 'all',
     sharedOnly: false,
     sort: 'default',
@@ -42,7 +42,7 @@ export function normalizeRoadmapFilter(raw: unknown): RoadmapFilterState {
     for (const kind of Object.keys(shown) as ShownKind[]) {
         if (typeof value.shown?.[kind] === 'boolean') shown[kind] = value.shown[kind];
     }
-    if (!shown.goals && !shown.habits && !shown.tasks) Object.assign(shown, DEFAULT_ROADMAP_FILTER.shown);
+    if (!shown.habits && !shown.tasks) Object.assign(shown, DEFAULT_ROADMAP_FILTER.shown);
     return {
         shown,
         time: TIMES.includes(value.time as TimeOfDay) ? value.time as TimeOfDay : 'all',
@@ -56,11 +56,11 @@ export function normalizeRoadmapFilter(raw: unknown): RoadmapFilterState {
 /** Flips one kind on or off, unless it is the last one showing. */
 export function toggleShown(shown: Record<ShownKind, boolean>, kind: ShownKind): Record<ShownKind, boolean> {
     const next = { ...shown, [kind]: !shown[kind] };
-    return next.goals || next.habits || next.tasks ? next : shown;
+    return next.habits || next.tasks ? next : shown;
 }
 
 export const isFiltered = (state: RoadmapFilterState): boolean =>
-    !state.shown.goals || !state.shown.habits || !state.shown.tasks
+    !state.shown.habits || !state.shown.tasks
     || state.time !== 'all' || state.sharedOnly || state.sort !== 'default';
 
 /**

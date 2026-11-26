@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useGoalsInsights } from '@/hooks/useGoalInsights';
+import { useDayData } from '@/hooks/useDayData';
 import { useSleep } from '@/hooks/useSleep';
 import { useCheckIns } from '@/hooks/useCheckIns';
 import { useFocusRecords } from '@/hooks/useFocusRecords';
@@ -14,7 +14,7 @@ import { getCompletionTicks } from '@/lib/habitsSQLite';
  * Recomputed only when one of those changes.
  */
 export function useEchoPatterns(): Pattern[] {
-    const data = useGoalsInsights();
+    const data = useDayData();
     const sleep = useSleep();
     const checkIns = useCheckIns();
     const focus = useFocusRecords();

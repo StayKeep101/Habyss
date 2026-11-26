@@ -32,7 +32,7 @@ export class SiriService {
         try {
             const { getHabits, getLastNDaysCompletions } = require('./habitsSQLite');
             const habits = await getHabits();
-            const activeHabits = habits.filter((habit: any) => !habit.isGoal && !habit.isArchived);
+            const activeHabits = habits.filter((habit: any) => !habit.isArchived);
             const todayCompletions = await getLastNDaysCompletions(1);
             const completedSet = new Set(todayCompletions[0]?.completedIds || []);
 

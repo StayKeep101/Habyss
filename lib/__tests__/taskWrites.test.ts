@@ -8,7 +8,7 @@ jest.mock('../database', () => ({
 }));
 jest.mock('../localUser', () => ({ getLocalUserId: jest.fn(async () => 'user') }));
 
-import { deleteTasksForGoal, updateTask } from '../tasks';
+import { updateTask } from '../tasks';
 
 const lastCall = () => mockDb.runAsync.mock.calls.at(-1) as unknown as [string, ...unknown[]];
 
@@ -29,24 +29,15 @@ describe('editing a task', () => {
     });
 
     it('never blanks the title or priority', async () => {
-        await updateTask('t1', { title: null, priority: null, goalId: null });
+        await updateTask('t1', { title: null, priority: null, dueDate: null });
         const [sql] = lastCall();
         expect(sql).not.toContain('title = ?');
         expect(sql).not.toContain('priority = ?');
-        expect(sql).toContain('goal_id = ?');
+        expect(sql).toContain('due_date = ?');
     });
 
     it('marks the edit for backup', async () => {
         await updateTask('t1', { title: 'Call' });
         expect(lastCall()[0]).toContain('synced = 0');
-    });
-});
-
-describe('deleting a goal', () => {
-    it('removes its tasks and marks them for backup', async () => {
-        await deleteTasksForGoal('g1');
-        const [sql, , goalId] = lastCall();
-        expect(sql).toMatch(/UPDATE tasks SET deleted = 1.*synced = 0 WHERE goal_id = \?/);
-        expect(goalId).toBe('g1');
     });
 });

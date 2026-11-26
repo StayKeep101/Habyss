@@ -1,7 +1,7 @@
 import { type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0'
 // The app's own repeat rule (no imports of its own), so a habit is due here exactly when it is due in the app.
 import { PLANNING_TOOLS, planningRows, validateInput } from '../../../lib/mcpPlanning.ts'
-import { EDITING_TOOLS, checkEditing, daysBetween, goalPatch, habitPatch, percent, taskPatch } from '../../../lib/mcpEditing.ts'
+import { EDITING_TOOLS, checkEditing, daysBetween, habitPatch, percent, taskPatch } from '../../../lib/mcpEditing.ts'
 import { matches, parseRecurrence } from '../../../lib/recurrence.ts'
 
 /**
@@ -73,12 +73,8 @@ const ABOUT: Record<string, { title: string; reads?: true }> = {
     get_today: { title: "Get today's plan", reads: true },
     list_tasks: { title: 'List tasks', reads: true },
     list_habits: { title: 'List habits', reads: true },
-    list_goals: { title: 'List goals', reads: true },
-    get_roadmap: { title: 'Get a roadmap', reads: true },
     add_task: { title: 'Add a task' },
     add_habit: { title: 'Add a habit' },
-    add_goal: { title: 'Add a goal' },
-    create_roadmap: { title: 'Create a roadmap' },
     complete_task: { title: 'Complete a task' },
     log_habit: { title: 'Mark a habit done' },
     update_task: { title: 'Edit or reschedule a task' },
@@ -86,8 +82,6 @@ const ABOUT: Record<string, { title: string; reads?: true }> = {
     update_habit: { title: 'Edit or pause a habit' },
     delete_habit: { title: 'Delete a habit' },
     undo_habit: { title: 'Un-tick a habit' },
-    update_goal: { title: 'Edit a goal' },
-    delete_goal: { title: 'Delete a goal' },
     get_range: { title: 'View a date range', reads: true },
     get_stats: { title: 'Get stats', reads: true },
     add_thought: { title: 'Add to brain dump' },
@@ -95,7 +89,7 @@ const ABOUT: Record<string, { title: string; reads?: true }> = {
     update_thought: { title: 'Reword a thought' },
     delete_thought: { title: 'Delete a thought' },
 }
-const DELETES = new Set(['delete_task', 'delete_habit', 'delete_goal', 'delete_thought'])
+const DELETES = new Set(['delete_task', 'delete_habit', 'delete_thought'])
 const TOOLS = TOOL_LIST.map(tool => {
     const about = ABOUT[tool.name] ?? { title: tool.name }
     return {
@@ -105,7 +99,7 @@ const TOOLS = TOOL_LIST.map(tool => {
             title: about.title,
             readOnlyHint: !!about.reads,
             destructiveHint: DELETES.has(tool.name),
-            idempotentHint: !!about.reads || DELETES.has(tool.name) || ['complete_task', 'log_habit', 'undo_habit', 'update_task', 'update_habit', 'update_goal', 'update_thought'].includes(tool.name),
+            idempotentHint: !!about.reads || DELETES.has(tool.name) || ['complete_task', 'log_habit', 'undo_habit', 'update_task', 'update_habit', 'update_thought'].includes(tool.name),
             openWorldHint: false,
         },
     }
@@ -175,8 +169,8 @@ const PRIORITY_NAME = ['', 'high', 'normal', 'low']
 
 async function activeHabits(admin: SupabaseClient, person: Person) {
     const { data, error } = await admin.from('habits')
-        .select('id, name, task_days, recurrence, start_date, end_date, start_time, end_time, goal_value, unit, is_goal, is_archived')
-        .eq('user_id', person.userId).is('deleted_at', null).eq('is_goal', false).eq('is_archived', false)
+        .select('id, name, task_days, recurrence, start_date, end_date, start_time, end_time, goal_value, unit, is_archived')
+        .eq('user_id', person.userId).is('deleted_at', null).eq('is_archived', false)
     if (error) throw new Error(error.message)
     return data ?? []
 }
@@ -217,9 +211,9 @@ async function myTasks(admin: SupabaseClient, person: Person) {
     if (error) throw new Error(error.message)
     return data ?? []
 }
-async function myHabits(admin: SupabaseClient, person: Person, goals: boolean) {
-    const { data, error } = await admin.from('habits').select('id, name, start_date, end_date, goal_spec, is_archived')
-        .eq('user_id', person.userId).is('deleted_at', null).eq('is_goal', goals).limit(1000)
+async function myHabits(admin: SupabaseClient, person: Person) {
+    const { data, error } = await admin.from('habits').select('id, name, start_date, end_date, is_archived')
+        .eq('user_id', person.userId).is('deleted_at', null).limit(1000)
     if (error) throw new Error(error.message)
     return data ?? []
 }
@@ -257,9 +251,7 @@ async function callTool(admin: SupabaseClient, person: Person, name: string, arg
             return data.map(t => `- ${t.status === 'done' ? '[x]' : '[ ]'} ${t.title}${t.due_date ? ` · ${t.due_date}${t.due_date < today && t.status === 'open' ? ' (late)' : ''}` : ''}${t.due_time ? ` ${t.due_time}` : ''} · ${PRIORITY_NAME[t.priority] ?? 'normal'} (id ${t.id})`).join('\n')
         }
         case 'add_task':
-        case 'add_habit':
-        case 'add_goal':
-        case 'create_roadmap': {
+        case 'add_habit': {
             const rows = planningRows(name, args, today, () => crypto.randomUUID())
             const { data, error } = await admin.rpc('mcp_create_plan', {
                 p_user_id: person.userId, p_rows: rows,
@@ -267,26 +259,6 @@ async function callTool(admin: SupabaseClient, person: Person, name: string, arg
             })
             if (error) throw new Error(error.message)
             return JSON.stringify({ ...data, sync: 'Saved. Appears in Habyss on the next sync.' })
-        }
-        case 'list_goals': {
-            validateInput(args, PLANNING_TOOLS.find(t => t.name === name)!.inputSchema)
-            const { data, error } = await admin.from('habits').select('id, name, description, target_date, goal_spec')
-                .eq('user_id', person.userId).eq('is_goal', true).eq('is_archived', false).is('deleted_at', null).order('created_at').limit(500)
-            if (error) throw new Error(error.message)
-            return JSON.stringify({ goals: data })
-        }
-        case 'get_roadmap': {
-            validateInput(args, PLANNING_TOOLS.find(t => t.name === name)!.inputSchema)
-            const goal = await admin.from('habits').select('*').eq('user_id', person.userId).eq('id', args.goal_id).eq('is_goal', true).is('deleted_at', null).maybeSingle()
-            if (goal.error) throw new Error(goal.error.message)
-            if (!goal.data) throw new Error('Goal not found in your account.')
-            const results = await Promise.all([
-                admin.from('goal_milestones').select('*').eq('user_id', person.userId).eq('goal_id', args.goal_id).is('deleted_at', null).order('position'),
-                admin.from('habits').select('*').eq('user_id', person.userId).eq('goal_id', args.goal_id).is('deleted_at', null),
-                admin.from('tasks').select('*').eq('user_id', person.userId).eq('goal_id', args.goal_id).is('deleted_at', null),
-            ])
-            for (const result of results) if (result.error) throw new Error(result.error.message)
-            return JSON.stringify({ goal: goal.data, milestones: results[0].data, habits: results[1].data, tasks: results[2].data })
         }
         case 'complete_task': {
             const { data, error } = await admin.from('tasks').select('id, title, status').eq('user_id', person.userId).is('deleted_at', null).eq('status', 'open').limit(500)
@@ -346,7 +318,7 @@ async function callTool(admin: SupabaseClient, person: Person, name: string, arg
         }
         case 'update_habit': {
             checkEditing(name, args)
-            const habit = findOne(await myHabits(admin, person, false), args.habit_id, args.find, h => h.name, 'habit')
+            const habit = findOne(await myHabits(admin, person), args.habit_id, args.find, h => h.name, 'habit')
             const patch = habitPatch(args, habit)
             const { error } = await admin.from('habits').update(patch).eq('id', habit.id).eq('user_id', person.userId)
             if (error) throw new Error(error.message)
@@ -354,42 +326,19 @@ async function callTool(admin: SupabaseClient, person: Person, name: string, arg
         }
         case 'delete_habit': {
             checkEditing(name, args)
-            const habit = findOne(await myHabits(admin, person, false), args.habit_id, args.find, h => h.name, 'habit')
+            const habit = findOne(await myHabits(admin, person), args.habit_id, args.find, h => h.name, 'habit')
             const { error } = await admin.from('habits').update({ deleted_at: new Date().toISOString() }).eq('id', habit.id).eq('user_id', person.userId)
             if (error) throw new Error(error.message)
             return `Deleted the habit "${habit.name}".`
         }
         case 'undo_habit': {
             checkEditing(name, args)
-            const habit = findOne(await myHabits(admin, person, false), args.habit_id, args.find, h => h.name, 'habit')
+            const habit = findOne(await myHabits(admin, person), args.habit_id, args.find, h => h.name, 'habit')
             const day = typeof args.date === 'string' ? args.date : today
             const { data, error } = await admin.from('habit_completions').update({ completed: false, deleted_at: new Date().toISOString() })
                 .eq('user_id', person.userId).eq('habit_id', habit.id).eq('date', day).is('deleted_at', null).select('date')
             if (error) throw new Error(error.message)
             return data?.length ? `"${habit.name}" is no longer done for ${day}.` : `"${habit.name}" was not marked done for ${day}.`
-        }
-        case 'update_goal': {
-            checkEditing(name, args)
-            const goal = findOne(await myHabits(admin, person, true), args.goal_id, args.find, g => g.name, 'goal')
-            const patch = goalPatch(args, goal)
-            const { error } = await admin.from('habits').update(patch).eq('id', goal.id).eq('user_id', person.userId)
-            if (error) throw new Error(error.message)
-            return `Updated the goal "${patch.name ?? goal.name}"${patch.target_date ? `, target ${patch.target_date}` : ''}.`
-        }
-        case 'delete_goal': {
-            checkEditing(name, args)
-            const goal = findOne(await myHabits(admin, person, true), args.goal_id, args.find, g => g.name, 'goal')
-            const now = new Date().toISOString()
-            // Its habits and tasks stay, unlinked; its milestones go with it.
-            const results = await Promise.all([
-                admin.from('habits').update({ goal_id: null }).eq('user_id', person.userId).eq('goal_id', goal.id),
-                admin.from('tasks').update({ goal_id: null, milestone_id: null }).eq('user_id', person.userId).eq('goal_id', goal.id),
-                admin.from('goal_milestones').update({ deleted_at: now }).eq('user_id', person.userId).eq('goal_id', goal.id).is('deleted_at', null),
-            ])
-            for (const result of results) if (result.error) throw new Error(result.error.message)
-            const { error } = await admin.from('habits').update({ deleted_at: now }).eq('id', goal.id).eq('user_id', person.userId)
-            if (error) throw new Error(error.message)
-            return `Deleted the goal "${goal.name}". Its habits and tasks are still there.`
         }
         case 'get_range': {
             checkEditing(name, args)
@@ -419,15 +368,13 @@ async function callTool(admin: SupabaseClient, person: Person, name: string, arg
             const from = typeof args.from === 'string' ? args.from : shiftDate(to, -29)
             const days = daysBetween(from, to, 366).filter(day => day <= today)
             if (!days.length) throw new Error('That range has not started yet.')
-            const [habits, done, history, tasksRes, goals] = await Promise.all([
+            const [habits, done, history, tasksRes] = await Promise.all([
                 activeHabits(admin, person),
                 doneOn(admin, person, days[0], days[days.length - 1]),
                 doneOn(admin, person, shiftDate(today, -400), today),
-                admin.from('tasks').select('id, title, due_date, status, completed_at, goal_id').eq('user_id', person.userId).is('deleted_at', null).limit(5000),
-                admin.from('habits').select('id, name, target_date').eq('user_id', person.userId).eq('is_goal', true).eq('is_archived', false).is('deleted_at', null),
+                admin.from('tasks').select('id, title, due_date, status, completed_at').eq('user_id', person.userId).is('deleted_at', null).limit(5000),
             ])
             if (tasksRes.error) throw new Error(tasksRes.error.message)
-            if (goals.error) throw new Error(goals.error.message)
             const doneSet = new Set(done.map(row => `${row.habit_id}|${row.date}`))
             const byHabit = new Map<string, Set<string>>()
             for (const row of history) byHabit.set(row.habit_id, (byHabit.get(row.habit_id) ?? new Set()).add(row.date))
@@ -442,15 +389,9 @@ async function callTool(admin: SupabaseClient, person: Person, name: string, arg
             const finished = tasks.filter(t => t.status === 'done' && t.completed_at && dayOf(t.completed_at, person.timeZone) >= days[0] && dayOf(t.completed_at, person.timeZone) <= days[days.length - 1])
             const dueInRange = tasks.filter(t => t.due_date && t.due_date >= days[0] && t.due_date <= days[days.length - 1])
             const overdue = tasks.filter(t => t.status === 'open' && t.due_date && t.due_date < today)
-            const goalLines = (goals.data ?? []).map(g => {
-                const linked = tasks.filter(t => t.goal_id === g.id)
-                const closed = linked.filter(t => t.status === 'done').length
-                return `- ${g.name}: ${closed}/${linked.length} tasks done (${percent(closed, linked.length)})${g.target_date ? `, target ${g.target_date}` : ''} (id ${g.id})`
-            })
             return [`${days[0]} to ${days[days.length - 1]} (${days.length} days)`,
                 `Habits: ${doneAll}/${dueAll} done (${percent(doneAll, dueAll)})`, ...habitLines,
                 `Tasks: ${finished.length} done in this range; ${dueInRange.filter(t => t.status === 'done').length}/${dueInRange.length} of those due in it done; ${overdue.length} overdue now`,
-                ...(goalLines.length ? ['Goals:', ...goalLines] : []),
             ].join('\n')
         }
         case 'add_thought': {
@@ -495,7 +436,7 @@ async function handle(admin: SupabaseClient, person: Person, message: Rpc) {
                 protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
                 capabilities: { tools: { listChanged: false } },
                 serverInfo: { name: 'habyss', title: 'Habyss', version: '1.1.0' },
-                instructions: 'Habyss manages habits, tasks, goals, roadmaps and a private brain dump. Start with get_today, get_range or list_goals; get_stats for how it is going. Edit, reschedule and delete with update_*/delete_* (deletes are soft). Use create_roadmap for a complete plan, with a request_id UUID reused on retries. Changes reach the app on its next sync. Dates use the account time zone.',
+                instructions: 'Habyss manages habits, tasks and a private brain dump. Start with get_today or get_range; get_stats for how it is going. Edit, reschedule and delete with update_*/delete_* (deletes are soft). Pass a request_id UUID to add_task and add_habit, reused on retries, to avoid duplicates. Changes reach the app on its next sync. Dates use the account time zone.',
             })
         }
         case 'ping': return reply({})

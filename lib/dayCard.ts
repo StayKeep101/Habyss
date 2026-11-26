@@ -61,9 +61,6 @@ export interface DayCardData extends DayMoments {
     streak: number;
     /** Every habit being kept, scheduled today or not. */
     habitsActive?: number;
-    goalsActive?: number;
-    /** Goals something happened under today: a habit ticked or a task finished. */
-    goalsMoved?: number;
     /** Today's 3 (or 5): the tasks that mattered most, with how long each took. */
     top?: DayCardLine[];
     /** Your few words about the day (lib/dayNote.ts), on the pack's last card. */
@@ -117,16 +114,7 @@ export function buildDayCard(input: {
         ids.flatMap(id => { const name = names.get(id); return name ? [line(id, name, extra)] : []; });
 
     const live = input.habits.filter(habit => !habit.isArchived);
-    const goals = live.filter(habit => habit.isGoal);
-    const doneToday = new Set(input.history[input.day] ?? []);
-    const finishedToday = new Set(summary?.tasks ?? []);
-    const counts = {
-        habitsActive: live.filter(habit => !habit.isGoal).length,
-        goalsActive: goals.length,
-        goalsMoved: goals.filter(goal =>
-            live.some(habit => habit.goalId === goal.id && doneToday.has(habit.id))
-            || input.tasks.some(task => task.goalId === goal.id && finishedToday.has(task.id))).length,
-    };
+    const counts = { habitsActive: live.length };
 
     if (!summary) {
         return { habits: [], tasks: [], habitsDone: 0, habitsTotal: 0, tasksDone: 0, tasksTotal: 0, streak: input.streak, ...counts };

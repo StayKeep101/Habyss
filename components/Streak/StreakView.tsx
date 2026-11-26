@@ -16,7 +16,7 @@ import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useGoalsInsights } from '@/hooks/useGoalInsights';
+import { useDayData } from '@/hooks/useDayData';
 import { useTasks } from '@/hooks/useTasks';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { useHistory } from '@/hooks/useHistory';
@@ -24,7 +24,7 @@ import { dayFill, monthDays, type DaySummary } from '@/lib/progressMonth';
 import { longestRun, streakFrom } from '@/lib/dayComplete';
 import { useWeekStart } from '@/hooks/useWeekStart';
 import { MatteSurface } from '@/components/ui/MatteSurface';
-import { dateAt } from '@/lib/goalInsights';
+import { dateAt } from '@/lib/habitSummary';
 import { styles } from '@/styles/screens/progress.styles';
 import { usePagerGesture } from '@/components/ui/PagerGesture';
 
@@ -40,7 +40,7 @@ export function useStreakWhose(): StreakWhose {
 export function StreakWhosePill({ whose }: { whose: StreakWhose }) {
     const { primary: accent } = useAccentGradient();
     const { selectionFeedback } = useHaptics();
-    const { habits } = useGoalsInsights();
+    const { habits } = useDayData();
     const picked = whose.only ? habits.find(habit => habit.id === whose.only) ?? null : null;
     return (
         <ChoicePill label={picked ? picked.name : 'All habits'} icon="chevron-down" on={false} color={accent} role="button"
@@ -73,7 +73,7 @@ export function StreakView({ whose }: { whose: StreakWhose }) {
     const { primary: accent } = useAccentGradient();
     const { lightFeedback, selectionFeedback } = useHaptics();
 
-    const { habits: allHabits, completions, skippedToday, today } = useGoalsInsights();
+    const { habits: allHabits, completions, skippedToday, today } = useDayData();
     const allTasks = useTasks();
     // One habit's streak, or the whole day's (tasks included). The same streakFrom
     // either way: given one habit and no tasks, it is that habit's run.
@@ -284,7 +284,7 @@ export function StreakView({ whose }: { whose: StreakWhose }) {
             <ChoiceSheet visible={choosing} title="Streak for" onClose={() => setChoosing(false)}
                 choices={[
                     { label: 'All habits', icon: only === null ? 'checkmark' : 'layers', onPress: () => setOnly(null) },
-                    ...allHabits.filter(habit => !habit.isGoal && !habit.isArchived).map(habit => ({
+                    ...allHabits.filter(habit => !habit.isArchived).map(habit => ({
                         label: habit.name, icon: only === habit.id ? 'checkmark' : habit.icon || 'repeat', onPress: () => setOnly(habit.id),
                     })),
                 ]} />

@@ -9,13 +9,13 @@ import type { ExpoSpeechRecognitionOptions, ExpoSpeechRecognitionResultEvent } f
  * - Continuous: a pause to think does not end it. The caller stops it (you
  *   let go, tap again, or stay quiet for a moment).
  * - The words you are likely to say are handed to the recogniser as hints:
- *   your habits', tasks' and goals' names, months, units, and Habyss's own
+ *   your habits' and tasks' names, months, units, and Habyss's own
  *   words, so "Habyss" is not heard as "abyss" and "Learn AI Engineering" is
  *   not "learn a engineering".
  * - Apple's dictation tuning and its voice processing (cleaner in a noisy room).
  */
 const VOCABULARY = [
-    'Habyss', 'Echo', 'brain dump', 'focus', 'habit', 'task', 'goal', 'deadline', 'urgent', 'not urgent',
+    'Habyss', 'Echo', 'brain dump', 'focus', 'habit', 'task', 'deadline', 'urgent', 'not urgent',
     'every day', 'every morning', 'every night', 'weekdays', 'weekends', 'starting', 'until', 'by',
     'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December',
     'minutes', 'hours', 'pages', 'books', 'kilometres', 'km', 'miles', 'reps', 'sets', 'steps', 'glasses of water',
@@ -55,8 +55,7 @@ export async function speechOptions(input: { punctuation: boolean; levels?: bool
         const { getData } = require('./dataStore') as typeof import('./dataStore');
         const habits = await getHabits();
         names = [
-            ...habits.filter(habit => !habit.isGoal).map(habit => habit.name),
-            ...habits.filter(habit => habit.isGoal).map(habit => habit.name),
+            ...habits.map(habit => habit.name),
             ...getData().tasks.filter(task => task.status !== 'done').map(task => task.title),
         ];
     } catch { /* hints are a help, never required */ }

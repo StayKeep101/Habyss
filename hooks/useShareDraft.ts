@@ -1,35 +1,16 @@
 import { useCallback, useState } from 'react';
 import { FriendsService } from '@/lib/friendsService';
 
-type Kind = 'habit' | 'task' | 'goal';
+type Kind = 'habit' | 'task';
 
-/** Who is on it now. A goal's participants are its own row, not its habits'. */
+/** Who is on it now. */
 async function current(kind: Kind, id: string): Promise<string[]> {
     const rows = kind === 'task' ? await FriendsService.getTaskSharedWith(id)
-        : kind === 'goal' ? await FriendsService.getGoalSharedWith(id)
         : await FriendsService.getHabitSharedWith(id);
     return rows.map(friend => friend.id);
 }
 
 async function apply(kind: Kind, id: string, added: string[], removed: string[]): Promise<void> {
-    if (kind === 'goal') {
-        // A goal's habits follow the goal: sharing the target without the work
-        // that reaches it shows somebody a number they cannot help move.
-        const { getHabits } = require('@/lib/habitsSQLite') as typeof import('@/lib/habitsSQLite');
-        const linked = (await getHabits()).filter(habit => habit.goalId === id && !habit.isGoal);
-        const work: Promise<boolean>[] = [];
-        if (added.length) work.push(FriendsService.batchShareGoal(id, added));
-        if (removed.length) work.push(FriendsService.batchUnshareGoal(id, removed));
-        for (const friendId of added) {
-            for (const habit of linked) work.push(FriendsService.shareHabitWithFriend(habit.id, friendId, false));
-        }
-        for (const friendId of removed) {
-            for (const habit of linked) work.push(FriendsService.unshareHabit(habit.id, friendId));
-        }
-        if ((await Promise.all(work)).some(ok => ok === false)) throw new Error('participants could not be saved');
-        return;
-    }
-
     const results = await Promise.all([
         ...added.map(friendId => kind === 'task'
             ? FriendsService.shareTaskWithFriend(id, friendId)
@@ -43,7 +24,7 @@ async function apply(kind: Kind, id: string, added: string[], removed: string[])
 }
 
 /**
- * Inviting somebody to a habit, task or goal while you are still writing it.
+ * Inviting somebody to a habit or task while you are still writing it.
  *
  * Sharing used to be reachable only from a detail page, which means only after
  * the thing existed — so deciding to do it with somebody meant making it,

@@ -17,7 +17,7 @@ interface VoidModalProps {
 }
 
 /**
- * Sheet presented the same way as the routed screens (goal detail, habit detail,
+ * Sheet presented the same way as the routed screens (habit detail,
  * AI settings), which use expo-router's `presentation: 'modal'`.
  *
  * Both end up as a UIKit page sheet, so the rounded corners, the card behind and

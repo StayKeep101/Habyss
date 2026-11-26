@@ -1,5 +1,4 @@
 import { FontFamily } from '@/theme/designSystem';
-import { GOALS_ENABLED } from '@/constants/features';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Overlay } from '@/components/ui/Overlay';
@@ -10,13 +9,12 @@ import Animated, {
     interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import type { Habit } from '@/lib/habitsSQLite';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { OVERLAY } from '@/theme/motion';
 import { useHaptics } from '@/hooks/useHaptics';
 
-type Kind = 'goals' | 'habits' | 'tasks';
+type Kind = 'habits' | 'tasks';
 type Focus = 'all' | 'morning' | 'afternoon' | 'evening';
 type Order = 'default' | 'name' | 'progress' | 'priority';
 type View_ = 'timeline' | 'list';
@@ -25,15 +23,14 @@ type View_ = 'timeline' | 'list';
 export interface FilterAnchor { x: number; y: number; width: number; height: number }
 
 interface Props {
-    visible: boolean; onClose: () => void; goals: Habit[];
+    visible: boolean; onClose: () => void;
     /** The day as a timeline, or as lists. */
     view: View_; onView: (value: View_) => void;
     anchor?: FilterAnchor | null;
-    /** Goals, habits and tasks, each on or off (at least one stays on). */
+    /** Habits and tasks, each on or off (at least one stays on). */
     shown: Record<Kind, boolean>; onToggleShown: (kind: Kind) => void;
     focus: Focus; onFocus: (value: Focus) => void;
-    goal: string | null; onGoal: (value: string | null) => void;
-    /** Only the habits, tasks and goals somebody else is on too. */
+    /** Only the habits and tasks somebody else is on too. */
     sharedOnly: boolean; onSharedOnly: (value: boolean) => void;
     /** Friends you share something with, to show only what you share with one of them. */
     friends?: { id: string; name: string }[];
@@ -95,7 +92,7 @@ export const RoadmapFilters = (props: Props) => {
         ],
     }));
 
-    const active = !props.shown.goals || !props.shown.habits || !props.shown.tasks || props.focus !== 'all' || !!props.goal
+    const active = !props.shown.habits || !props.shown.tasks || props.focus !== 'all'
         || props.order !== 'default' || props.sharedOnly;
     const close = () => { lightFeedback(); props.onClose(); };
 
@@ -141,8 +138,8 @@ export const RoadmapFilters = (props: Props) => {
                     {props.view === 'list' ? (<>
                         {/* Each kind is a switch: lit means shown. */}
                         <Group label="Show">
-                            {(['goals', 'habits', 'tasks'] as const).filter(kind => kind !== 'goals' || GOALS_ENABLED).map(kind => (
-                                <Pill key={kind} label={{ goals: 'Goals', habits: 'Habits', tasks: 'Tasks' }[kind]} on={props.shown[kind]}
+                            {(['habits', 'tasks'] as const).map(kind => (
+                                <Pill key={kind} label={{ habits: 'Habits', tasks: 'Tasks' }[kind]} on={props.shown[kind]}
                                     onPress={() => props.onToggleShown(kind)} />
                             ))}
                         </Group>

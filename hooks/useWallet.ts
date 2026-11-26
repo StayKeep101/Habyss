@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { on } from '@/lib/appEvents';
 import { getCompletionStamps } from '@/lib/habitsSQLite';
-import { myWallet, type LedgerEntry } from '@/lib/market';
+import { myWallet, type LedgerEntry } from '@/lib/wallet';
 import { publishShards } from '@/lib/marksSync';
 import { SHARDS, changeToday, shardMoves, walletPoints, type ShardMove, type TimedPoint } from '@/lib/shards';
 import { rememberShardEarnings } from '@/lib/shardHistory';
