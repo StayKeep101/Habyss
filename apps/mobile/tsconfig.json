@@ -8,6 +8,9 @@
       ],
       "@habyss/core/*": [
         "../../packages/core/src/*"
+      ],
+      "@habyss/design/*": [
+        "../../packages/design/src/*"
       ]
     },
     "types": [

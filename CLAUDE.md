@@ -7,7 +7,8 @@ Read `apps/mobile/AGENTS.md` first: what Habyss is for. Then the rules of the ap
 apps/mobile/     the iPhone app (Expo SDK 57, React Native, committed ios/)
 apps/desktop/    the Mac app (Tauri 2: React in the window, Rust for tracking, SwiftUI widgets)
 packages/core/   the logic both apps run: plain TypeScript, no React Native, no DOM
-packages/design/ the look both apps draw with: colours, surfaces, radius, spacing, type, motion, as plain values
+packages/design/ the look both apps draw with: colours, surfaces, spacing, radius, elevation, motion durations, as plain values
+                 (each app draws them its own way: StyleSheet and Reanimated on the phone, CSS on the Mac)
 supabase/        the server both apps sync with (migrations, edge functions)
 cloudflare/      the MCP gateway
 scripts/         server scripts (apply-migration, sql, checks), reading .env.local at the top

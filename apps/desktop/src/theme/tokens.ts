@@ -1,20 +1,26 @@
-// The phone's look (phone.generated.ts, written by scripts/sync-theme.ts from its theme/),
-// plus what a desktop needs differently: the type one step smaller (macOS body is 13 pt) and CSS easing curves.
+// How Habyss looks, from packages/design (the same values the phone draws with), plus what a desktop needs
+// differently: the type one step smaller (macOS body is 13 pt) and CSS easing curves.
+import { Colors } from '@habyss/design/colors';
+import * as Design from '@habyss/design/surfaces';
+import { DURATION as Durations } from '@habyss/design/motion';
+
 export type ThemeName = 'abyss' | 'trueDark' | 'light';
 
-import * as Phone from './phone.generated';
-
-/** The phone's colours for each theme (generated from its theme/colors.ts). */
+/** Each theme's colours. */
 export interface Palette { background: string; textPrimary: string; textSecondary: string; textTertiary: string; primary: string; success: string; warning: string; error: string; border: string }
-export const palettes: Record<ThemeName, Palette> = Phone.palettes;
+const pick = (t: ThemeName): Palette => {
+  const c = Colors[t];
+  return { background: c.background, textPrimary: c.textPrimary, textSecondary: c.textSecondary, textTertiary: c.textTertiary, primary: c.primary, success: c.success, warning: c.warning, error: c.error, border: c.border };
+};
+export const palettes: Record<ThemeName, Palette> = { light: pick('light'), abyss: pick('abyss'), trueDark: pick('trueDark') };
 
-/** The phone's matte surfaces (theme/designSystem.ts Surfaces). */
-export interface SurfaceTone { fill: string; top: string; bottom: string; raised: string; lip: string; line: string }
-export const Surfaces: Record<ThemeName, SurfaceTone> = Phone.Surfaces;
+/** The matte surfaces. */
+export type SurfaceTone = Design.SurfaceTone;
+export const Surfaces: Record<ThemeName, SurfaceTone> = Design.Surfaces;
 
-export const Radius = Phone.Radius;
-export const Spacing = Phone.Spacing;
-export const Control = Phone.Control;
+export const Radius = Design.Radius;
+export const Spacing = Design.Spacing;
+export const Control = Design.Control;
 
 /** Desktop sizes, in line with Notion, ClickUp, Claude and Apple's HIG (body 13–14 pt): the phone's scale, one step tighter. */
 export const Typography = {
@@ -27,11 +33,13 @@ export const Typography = {
   button: { weight: 500, size: 13, lineHeight: 18 },
 } as const;
 
-/** React Native shadow (offset, opacity, radius) as it is turned into CSS box-shadow. */
-export const Elevation = Phone.Elevation;
+/** Elevation as the CSS box-shadow wants it: offset, opacity, blur. */
+type Level = keyof typeof Design.Elevation;
+const shadow = (k: Level) => ({ height: Design.Elevation[k].shadowOffset.height, opacity: Design.Elevation[k].shadowOpacity, radius: Design.Elevation[k].shadowRadius });
+export const Elevation: Record<Level, { height: number; opacity: number; radius: number }> = { card: shadow('card'), control: shadow('control'), floating: shadow('floating') };
 /** Daylight wants a fainter, cooler shadow. */
-export const lightShadowOpacity = { card: 0.07, control: 0.06, floating: 0.12 } as const;
+export const lightShadowOpacity = Design.LightShadowOpacity;
 
-export const DURATION = Phone.DURATION;
+export const DURATION = Durations;
 // Reanimated out/in/inOut cubic as CSS cubic-bezier.
 export const EASE = { enter: 'cubic-bezier(0.33,1,0.68,1)', exit: 'cubic-bezier(0.32,0,0.67,0)', move: 'cubic-bezier(0.65,0,0.35,1)' } as const;

@@ -1,0 +1,7 @@
+{
+  "name": "@habyss/design",
+  "private": true,
+  "version": "0.0.0",
+  "description": "How Habyss looks on both apps, as plain values: colours, surfaces, spacing, radius, elevation, motion. Import as @habyss/design/<module>.",
+  "exports": { "./*": "./src/*.ts" }
+}

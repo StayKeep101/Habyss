@@ -1,26 +1,7 @@
 import { Easing, ReduceMotion } from 'react-native-reanimated';
-
-/**
- * How Habyss moves: every duration, easing and beat in one place
- * (docs/motion-system.md). The more often something happens, the quieter it
- * is; nothing in the interface bounces, and only the single landing beat of a
- * rare moment overshoots. Every timing respects Reduce Motion.
- */
-
-export const DURATION = {
-    /** A press answered. */
-    tap: 120,
-    /** Small pieces: an icon swap, a chip. */
-    quick: 180,
-    /** Anything entering: a sheet, a menu, a row. */
-    base: 260,
-    /** Anything leaving: shorter, the user has moved on. */
-    exit: 190,
-    /** A value changing: a bar, a number gliding. */
-    emphasis: 420,
-    /** A reward revealed. */
-    reward: 700,
-} as const;
+// Shared with the Mac: packages/design/src/motion.ts. What stays here is the phone's own part.
+import { DURATION } from '@habyss/design/motion';
+export * from '@habyss/design/motion';
 
 export const EASE = {
     enter: Easing.out(Easing.cubic),
