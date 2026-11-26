@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { createElement } from 'react';
 import { applyTheme, cssVars, type ThemeName } from './css';
+import { Typography } from './tokens';
 import { AppIcon } from '../ui/AppIcon';
 
 describe('design tokens', () => {
@@ -12,6 +13,9 @@ describe('design tokens', () => {
     expect(v['--surface-top']).toBe('#18181B'); expect(v['--accent']).toBe('#8EB0FF');
     expect(v['--radius-card']).toBe('22px'); expect(v['--radius-control']).toBe('18px');
     expect(v['--dur-base']).toBe('260ms'); expect(v['--font-body']).toContain('Lexend');
+    // Desktop sizes (Notion, ClickUp, Apple's HIG): body 14, nothing functional under 11.
+    expect(Typography.body.size).toBe(14);
+    expect(Math.min(...Object.values(Typography).map(t => t.size))).toBeGreaterThanOrEqual(11);
     expect(v['--ease-enter']).toBe('cubic-bezier(0.33,1,0.68,1)');
     expect(v['--shadow-card']).toBe('0 8px 18px rgba(0,0,0,0.45)');
   });

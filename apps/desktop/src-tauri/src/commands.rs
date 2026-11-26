@@ -62,3 +62,8 @@ static SITE_ICONS:std::sync::LazyLock<Mutex<std::collections::HashMap<String,Opt
 #[tauri::command] pub fn set_day_plan(state:State<'_,Shared>,slots:Vec<crate::pill::PlanSlot>)->Result<()> { if slots.len()>500 {return Err("Too many slots".into());} with(state,|s|{s.plan=slots;Ok(())}) }
 /// Time logged by hand from the menu bar ("+ Log time").
 #[tauri::command] pub fn log_time(state:State<'_,Shared>,name:String,bundle:Option<String>,start:i64,end:i64,note:Option<String>)->Result<()> { with(state,|s|s.store.log_time(&name,bundle.as_deref(),start,end,note.as_deref(),now_ms())) }
+/// Opens one System Settings pane (an allowlist, never a URL from the page): where the mirrored iPhone Live Activity is hidden.
+#[tauri::command] pub fn open_system_settings(pane:String)->Result<()> {
+    let url=match pane.as_str() { "menu_bar"=>"x-apple.systempreferences:com.apple.ControlCenter-Settings.extension", "notifications"=>"x-apple.systempreferences:com.apple.Notifications-Settings.extension", _=>return Err("Unknown settings pane".into()) };
+    std::process::Command::new("open").arg(url).spawn().map(|_|()).map_err(|e|e.to_string())
+}

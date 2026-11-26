@@ -19,14 +19,15 @@ export const Radius = { small: 12, control: 18, card: 22, sheet: 24, pill: 999 }
 export const Spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, section: 32 } as const;
 export const Control = { height: 54, hitTarget: 44, icon: 20 } as const;
 
+/** Desktop sizes, in line with Notion, ClickUp, Claude and Apple's HIG (body 13–14 pt): the phone's scale, one step tighter. */
 export const Typography = {
-  screenTitle: { weight: 700, size: 30, lineHeight: 38, letterSpacing: -0.8 },
-  title: { weight: 700, size: 18, lineHeight: 26 },
-  heading: { weight: 500, size: 16, lineHeight: 24 },
-  body: { weight: 400, size: 15, lineHeight: 22 },
-  bodySmall: { weight: 400, size: 13, lineHeight: 20 },
-  caption: { weight: 400, size: 12, lineHeight: 18 },
-  button: { weight: 500, size: 15, lineHeight: 22 },
+  screenTitle: { weight: 700, size: 26, lineHeight: 32, letterSpacing: -0.6 },
+  title: { weight: 700, size: 20, lineHeight: 28 },
+  heading: { weight: 600, size: 15, lineHeight: 22 },
+  body: { weight: 400, size: 14, lineHeight: 20 },
+  bodySmall: { weight: 400, size: 13, lineHeight: 18 },
+  caption: { weight: 400, size: 12, lineHeight: 16 },
+  button: { weight: 500, size: 13, lineHeight: 18 },
 } as const;
 
 /** React Native shadow (offset, opacity, radius) as it is turned into CSS box-shadow. */

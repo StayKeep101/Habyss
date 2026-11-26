@@ -2,8 +2,8 @@ import type { Act, Screen, Snapshot, SyncStatus } from '../types';
 import { AbyssArt, AppIcon, type IconName } from '../ui';
 
 export const TABS: { screen: Screen; icon: IconName }[] = [
-  { screen: 'Dashboard', icon: 'home' }, { screen: 'Calendar', icon: 'calendar' }, { screen: 'Progress', icon: 'trending-up' },
-  { screen: 'Analytics', icon: 'stats-chart' }, { screen: 'Friends', icon: 'people' }, { screen: 'Profile', icon: 'person' }, { screen: 'Settings', icon: 'settings' },
+  { screen: 'Dashboard', icon: 'home' }, { screen: 'Calendar', icon: 'calendar' }, { screen: 'Analytics', icon: 'stats-chart' },
+  { screen: 'Profile', icon: 'person' }, { screen: 'Settings', icon: 'settings' },
 ];
 const DIVIDER_BEFORE: Screen = 'Profile';
 const syncTone = (state: string) => (state === 'idle' || state === 'syncing' ? 'on' : state === 'offline' ? 'warn' : state === 'error' ? 'bad' : '');

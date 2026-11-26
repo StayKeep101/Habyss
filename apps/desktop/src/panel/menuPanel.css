@@ -150,3 +150,8 @@
 .mp-add-form label { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 12px; }
 .mp-add-form button { min-height: 30px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--accent); color: var(--bg); font: 500 13px var(--font-body); cursor: pointer; }
 .mp-add-form button:disabled { opacity: 0.45; cursor: default; }
+
+/* One-time tip: hide the mirrored iPhone Live Activity */
+.mp-tip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 16px; background: color-mix(in srgb, var(--accent) 10%, var(--bg)); border-bottom: 1px solid var(--line); font-size: 13px; }
+.mp-tip p { flex: 1 1 360px; margin: 0; color: var(--text); }
+.mp-tip p span { color: var(--text-muted); }

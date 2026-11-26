@@ -17,12 +17,12 @@ import './shell.css';
 
 const CATEGORIES = ['uncategorized', 'development', 'design', 'productivity', 'writing', 'learning', 'research', 'communication', 'meetings', 'utilities', 'browsing', 'personal', 'social', 'entertainment', 'news', 'shopping'];
 const PANEL_KEY = 'habyss.panelCollapsed';
-const COMING: Partial<Record<Screen, string>> = { Progress: 'Goals and roadmaps arrive here soon.', Friends: 'Friends and shared streaks arrive here soon.', Profile: 'Your profile and achievements arrive here soon.' };
+const COMING: Partial<Record<Screen, string>> = { Profile: 'Your profile and achievements arrive here soon.' };
 /** Dashboard draws its own header. */
-const SUBTITLE: Record<Exclude<Screen, 'Dashboard'>, string> = { Calendar: 'Every recorded context. Every meaningful gap.', Progress: 'Where your goals are heading.', Analytics: 'Patterns grounded in observed activity.', Friends: 'Better together.', Profile: 'Your account and achievements.', Settings: 'A quiet utility, on your terms.' };
+const SUBTITLE: Record<Exclude<Screen, 'Dashboard'>, string> = { Calendar: 'Every recorded context. Every meaningful gap.', Analytics: 'Patterns grounded in observed activity.', Profile: 'Your account and achievements.', Settings: 'A quiet utility, on your terms.' };
 const DATED: Screen[] = ['Calendar', 'Analytics'];
-/** Names the app and the native menu emit: the retired Focus and Timeline tabs now live in Dashboard and Calendar. */
-const NAV_ALIASES: Record<string, Screen> = { Focus: 'Dashboard', Timeline: 'Calendar', Applications: 'Analytics' };
+/** Names the app and the native menu emit: retired tabs (Focus, Timeline, Progress, Friends) open where their content now lives. */
+const NAV_ALIASES: Record<string, Screen> = { Focus: 'Dashboard', Timeline: 'Calendar', Applications: 'Analytics', Progress: 'Dashboard', Friends: 'Dashboard' };
 const resolveScreen = (name: string): Screen | undefined => NAV_ALIASES[name] ?? TABS.find(t => t.screen === name)?.screen;
 
 const readCollapsed = () => { try { return localStorage.getItem(PANEL_KEY) === '1'; } catch { return false; } };

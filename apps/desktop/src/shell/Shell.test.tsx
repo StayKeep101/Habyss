@@ -31,7 +31,7 @@ const task = (id: string, over: Partial<TaskRow> = {}): TaskRow => ({ id, user_i
 const PLAN: CloudData = { habits: [habit('Read')], completions: [], day_inputs: {}, tasks: [task('Ship'), task('Overdue', { due_date: '2026-10-30' }), task('Undated', { due_date: null }), task('Done', { status: 'done', completed_at: '2026-11-02T09:00:00' })] };
 const panelTasks = () => screen.getByText('Tasks', { selector: '.tp-stat small' }).previousElementSibling?.textContent;
 const dashTasks = () => screen.getByText('Tasks', { selector: '.ui-stat-label' }).closest('.ui-stat')?.querySelector('.ui-stat-value')?.textContent;
-const TABS = ['Dashboard', 'Calendar', 'Progress', 'Analytics', 'Friends', 'Profile', 'Settings'];
+const TABS = ['Dashboard', 'Calendar', 'Analytics', 'Profile', 'Settings'];
 const selected = () => screen.getByRole('navigation').querySelector('[aria-current="page"]')?.textContent;
 
 beforeEach(() => { navigate = undefined; calls.length = 0; wire(SIGNED_OUT); vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(NOW); try { localStorage.clear(); } catch { /* unavailable */ } });
@@ -46,16 +46,19 @@ describe('Shell', () => {
 
   it('clicking_tab_switches_screen', () => {
     mount();
-    fireEvent.click(screen.getByRole('button', { name: 'Friends' }));
-    expect(selected()).toBe('Friends');
+    fireEvent.click(screen.getByRole('button', { name: 'Profile' }));
+    expect(selected()).toBe('Profile');
     expect(screen.getByText(/arrive here soon/)).toBeTruthy();
+    // Progress and Friends are gone: friends live inside habits and tasks.
+    expect(screen.queryByRole('button', { name: 'Friends' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Progress' })).toBeNull();
   });
 
   it('cmd_number_switches_tab', () => {
     mount();
-    fireEvent.keyDown(window, { key: '4', metaKey: true });
+    fireEvent.keyDown(window, { key: '3', metaKey: true });
     expect(selected()).toBe('Analytics');
-    fireEvent.keyDown(window, { key: '7', metaKey: true });
+    fireEvent.keyDown(window, { key: '5', metaKey: true });
     expect(selected()).toBe('Settings');
     fireEvent.keyDown(window, { key: '2', metaKey: true });
     expect(selected()).toBe('Calendar');
@@ -66,7 +69,7 @@ describe('Shell', () => {
   it('navigate_event_maps_old_names', async () => {
     mount();
     await waitFor(() => expect(navigate).toBeTruthy());
-    for (const [name, tab] of [['Timeline', 'Calendar'], ['Focus', 'Dashboard'], ['Settings', 'Settings'], ['Friends', 'Friends'], ['Bogus', 'Friends']]) {
+    for (const [name, tab] of [['Timeline', 'Calendar'], ['Focus', 'Dashboard'], ['Settings', 'Settings'], ['Friends', 'Dashboard'], ['Progress', 'Dashboard'], ['Bogus', 'Dashboard']]) {
       rtlAct(() => navigate?.({ payload: name }));
       expect(selected()).toBe(tab);
     }
@@ -100,7 +103,7 @@ describe('Shell', () => {
     fireEvent.keyDown(input, { key: '3', metaKey: true });
     expect(selected()).toBe('Calendar');
     fireEvent.keyDown(document.body, { key: '3', metaKey: true });
-    expect(selected()).toBe('Progress');
+    expect(selected()).toBe('Analytics');
   });
 
   it('privacy_footer_reflects_sign_in', async () => {

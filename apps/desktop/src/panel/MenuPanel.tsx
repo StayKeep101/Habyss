@@ -17,6 +17,7 @@ import { PlannedTimeline } from './PlannedTimeline';
 import { PlannedList } from './PlannedList';
 import { TrackedTimeline } from './TrackedTimeline';
 import { QuickAdd } from './QuickAdd';
+import { LiveActivityTip } from './LiveActivityTip';
 import { rowToHabit } from '../shared/rows';
 import { measurementFor } from '../shared/habitMeasurement';
 import './menuPanel.css';
@@ -126,6 +127,7 @@ function Panel() {
 
   return (
     <div className="mp">
+      <LiveActivityTip />
       <NowCard state={state} onCheck={item => setDone(item, true)}
         onStartFocus={item => void focusCmd('start_focus', { label: item?.title ?? 'Focus', minutes: FOCUS_MINUTES, itemId: item && (item.kind === 'habit' || item.kind === 'task') ? item.id : null, itemKind: item && (item.kind === 'habit' || item.kind === 'task') ? item.kind : null })}
         onPause={() => void focusCmd('pause_focus')} onResume={() => void focusCmd('resume_focus')} onStop={() => void focusCmd('stop_focus')} />
