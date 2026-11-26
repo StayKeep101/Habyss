@@ -57,6 +57,11 @@ impl Auth {
         let v = self.client.auth_post("token?grant_type=password", None, &json!({"email": email, "password": password})).await?;
         self.adopt(&v).await
     }
+    /// Apple or Google (cloud/oauth.rs): the code the browser brought back, with this run's verifier.
+    pub async fn exchange_code(&self, code: &str, verifier: &str) -> std::result::Result<Session, CloudError> {
+        let v = self.client.auth_post("token?grant_type=pkce", None, &json!({"auth_code": code, "code_verifier": verifier})).await?;
+        self.adopt(&v).await
+    }
     /// Refresh from the Keychain token at launch. Offline keeps the token for a later retry.
     pub async fn restore(&self) -> std::result::Result<Option<Session>, CloudError> {
         let mut guard = self.session.lock().await;

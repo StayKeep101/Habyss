@@ -175,6 +175,22 @@ pub async fn cloud_sign_in_password(app: tauri::AppHandle, email: String, passwo
     signed_in(&app, &cloud, session).await
 }
 
+/// Apple or Google, in the browser (cloud/oauth.rs). Returns once the browser has come back,
+/// with the window brought forward again.
+#[tauri::command]
+pub async fn cloud_sign_in_with(app: tauri::AppHandle, provider: String) -> Result<()> {
+    use super::oauth;
+    if !oauth::PROVIDERS.contains(&provider.as_str()) { return Err(format!("Unknown sign-in: {provider}")); }
+    let cloud = cloud(&app)?;
+    let (listener, redirect) = oauth::listen().await.map_err(|e| e.to_string())?;
+    let verifier = oauth::verifier();
+    oauth::open_browser(&oauth::authorize_url(&cloud.client.config.url, &provider, &redirect, &oauth::challenge(&verifier))).map_err(|_| "Couldn't open the browser".to_string())?;
+    let code = oauth::wait_for_code(listener).await;
+    if let Some(window) = tauri::Manager::get_webview_window(&app, "main") { let _ = window.show(); let _ = window.set_focus(); }
+    let session = cloud.auth.exchange_code(&code?, &verifier).await.map_err(failed)?;
+    signed_in(&app, &cloud, session).await
+}
+
 /// Keeps the mirror, so the same account can sign back in without downloading everything again.
 #[tauri::command]
 pub async fn cloud_sign_out(app: tauri::AppHandle) -> Result<()> { let cloud = cloud(&app)?; sign_out(&cloud).await }

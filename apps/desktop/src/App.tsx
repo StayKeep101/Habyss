@@ -4,7 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import type { Snapshot } from './types';
 import { dayRange, localDate } from './analytics';
 import { Onboarding } from './screens/Onboarding';
-import { TodayPanel } from './panel/TodayPanel';
+import { MenuPanel } from './panel/MenuPanel';
 import { Shell } from './shell/Shell';
 import { applyTheme, themeForAppearance } from './theme/css';
 const panel = new URLSearchParams(location.search).has('panel');
@@ -50,7 +50,7 @@ export default function App() {
         setBusy(false);
     } };
     if (panel)
-        return <TodayPanel mode="menubar"/>;
+        return <MenuPanel/>;
     if (!isTauri())
         return <div className="connection"><img src="/logo.png" alt=""/><h1>Habyss Desktop</h1><p>Open the native macOS app to view your activity.</p><p>This browser preview has no access to the tracking engine. No sample activity is displayed.</p><code>bun run dev</code></div>;
     if (!data)

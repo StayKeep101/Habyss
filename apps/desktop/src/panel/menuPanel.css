@@ -1,0 +1,61 @@
+/* Menu bar panel: the phone's Today (left) beside where the time went (right), on one clock. */
+.mp { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: var(--bg); color: var(--text); font: 400 14px/20px var(--font-body); }
+
+/* Now card: the phone's Live Activity */
+.mp-now { display: grid; grid-template-columns: 64px minmax(0, 1fr) 44px; align-items: center; gap: 16px; padding: 14px 20px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--bg)), var(--bg)); border-bottom: 1px solid var(--line); }
+.mp-ring { width: 64px; height: 64px; }
+.mp-ring circle { fill: none; stroke-width: 6; }
+.mp-ring-track { stroke: color-mix(in srgb, var(--accent) 18%, transparent); }
+.mp-ring-fill { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+.mp-ring-mark { fill: none; stroke: var(--text-muted); stroke-width: 4; stroke-linecap: round; }
+.mp-now-text { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; text-align: center; }
+.mp-now-text small { max-width: 100%; color: var(--text-muted); font-size: 13px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-now-clock { font: 700 32px/38px var(--font-display); font-variant-numeric: tabular-nums; letter-spacing: -0.5px; }
+.mp-now-actions { display: flex; gap: 6px; }
+.mp-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 26px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--text-muted); font: 500 12px/1 var(--font-body); cursor: pointer; }
+.mp-chip:hover { color: var(--text); background: var(--surface); }
+.mp-check { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--text); color: var(--bg); cursor: pointer; box-shadow: 0 0 0 3px var(--accent); transition: transform var(--dur-quick) var(--ease-enter); }
+.mp-check:hover { transform: scale(1.05); }
+.mp-check:active { transform: scale(0.95); }
+.mp-check-space { width: 44px; }
+
+/* Week strip */
+.mp-week { display: flex; justify-content: space-between; padding: 10px 16px 2px; }
+.mp-day { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: transparent; color: var(--text-muted); font: 500 12px/16px var(--font-body); cursor: pointer; padding: 2px 4px; border-radius: 10px; }
+.mp-day svg { width: 34px; height: 34px; }
+.mp-day circle { fill: none; stroke-width: 3; }
+.mp-day-track { stroke: var(--line); }
+.mp-day-fill { stroke: var(--accent); stroke-linecap: round; }
+.mp-day text { fill: var(--text); font: 700 12px var(--font-body); }
+.mp-day.today { color: var(--text); }
+.mp-day.shown circle.mp-day-track { fill: color-mix(in srgb, var(--accent) 55%, transparent); }
+.mp-day.shown text { fill: var(--bg); }
+.mp-day:focus-visible { outline: 2px solid var(--accent); }
+
+/* Day line */
+.mp-dayline { padding: 6px 18px 10px; border-bottom: 1px solid var(--line); }
+.mp-dayline-head { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.mp-dayline-head b { color: var(--accent); font-weight: 500; }
+.mp-daybar { position: relative; height: 5px; margin-top: 8px; border-radius: 3px; background: var(--line); }
+.mp-daybar i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.mp-daybar i.done { opacity: 0.45; }
+.mp-daybar u { position: absolute; top: -5px; width: 2px; height: 15px; border-radius: 1px; background: var(--text); }
+
+/* Toolbar */
+.mp-tools { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+.mp-tools .ui-seg-item { padding: 4px 12px; min-height: 26px; font-size: 12px; }
+.mp-error { margin: 6px 16px 0; color: var(--danger); font-size: 13px; }
+
+/* The two timelines */
+.mp-cols { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1fr); align-items: start; }
+.mp-cols.show-plan, .mp-cols.show-tracked { grid-template-columns: minmax(0, 1fr); }
+.mp-col { position: relative; min-width: 0; padding: 0 12px 24px; }
+.mp-col-head { position: sticky; top: 0; z-index: 2; margin: 0 -12px; padding: 8px 12px; background: var(--bg); font: 600 11px/14px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-subtle); }
+.mp-hours { position: relative; margin-top: 30px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+.mp-hours span { position: absolute; left: 0; right: 0; transform: translateY(-50%); text-align: center; font-size: 11px; color: var(--text-subtle); font-variant-numeric: tabular-nums; }
+.mp-tracked { position: relative; }
+.mp-simple { list-style: none; margin: 0; padding: 0; }
+.mp-empty, .mp-signin p { color: var(--text-muted); font-size: 13px; }
+.mp-signin { padding: 16px 0; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+
+@media (prefers-reduced-motion: reduce) { .mp-ring-fill, .mp-check { transition: none; } }
