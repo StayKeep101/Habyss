@@ -9,7 +9,7 @@ import type { Axis } from './axis';
 import { clockLabel } from './countdown';
 
 type Class = 'productive' | 'neutral' | 'unproductive';
-const MIN_HEIGHT = 12, FULL_HEIGHT = 26;
+const MIN_HEIGHT = 3, LINE_HEIGHT = 12, FULL_HEIGHT = 26;
 
 /** Where the time went, on the shared axis: one block per stretch (Chronoid-style), its icon, title, length and main parts,
  * a strip coloured by productivity, and a detail card on hover or keyboard focus. */
@@ -33,7 +33,7 @@ export function TrackedTimeline({ intervals, axis, day, items, classes, now }: {
         return (
           <div key={b.key} className="mp-block-wrap">
             <i className={`mp-strip ${cls}`} style={{ top, height }} aria-hidden="true" />
-            <button type="button" className={`mp-block ${cls}${height < FULL_HEIGHT ? ' thin' : ''}`} style={{ top, height }} aria-label={`${b.title}, ${b.app}, ${duration(b.activeMs)}`} aria-describedby={shown ? `card-${b.key}` : undefined}
+            <button type="button" className={`mp-block ${cls}${height < FULL_HEIGHT ? ' thin' : ''}${height < LINE_HEIGHT ? ' sliver' : ''}`} style={{ top, height }} aria-label={`${b.title}, ${b.app}, ${duration(b.activeMs)}`} aria-describedby={shown ? `card-${b.key}` : undefined}
               onMouseEnter={() => hover(b.key, 150)} onFocus={() => setOpen(b.key)} onBlur={() => setOpen(null)}>
               <span className="mp-block-head"><AppLogo name={b.domain ?? b.app} bundle={b.domain ? null : b.bundle} domain={b.domain} size={14} /><b>{b.title}</b><em>{duration(b.activeMs)}</em></span>
               {b.parts.filter(p => p.label !== b.title).slice(0, Math.min(3, lines)).map(p => <span key={p.label} className="mp-block-part"><span>{p.label}</span><em>{duration(p.ms)}</em></span>)}

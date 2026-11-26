@@ -160,3 +160,6 @@
 .mp-block.thin { padding: 0 8px; border-radius: 4px; justify-content: center; }
 .mp-block.thin .mp-block-head { font-size: 11px; line-height: 11px; }
 .mp-block.thin .mp-block-head img, .mp-block.thin .mp-block-head .app-logo { width: 10px; height: 10px; }
+/* Too short for a line: a bar at its true height; hover or focus shows what it was. */
+.mp-block.sliver { padding: 0; border-radius: 2px; }
+.mp-block.sliver > * { display: none; }
