@@ -13,7 +13,7 @@ modify production services.
 
 ## Repository
 
-- Expo Router / React Native / TypeScript, SQLite-first. cwd: `/Users/erwan/Coding/Habyss`.
+- Expo Router / React Native / TypeScript, SQLite-first. cwd: `/Users/erwan/Coding/Habyss/apps/mobile` (the phone app in the Habyss monorepo; shared logic in `packages/core`).
 - Commands: `npm run type-check`, `npm run test:ci`, `npx expo export --platform ios`.
 - Work is committed on `main` in reviewable commits rather than left in the tree.
 

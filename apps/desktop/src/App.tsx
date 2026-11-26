@@ -52,7 +52,7 @@ export default function App() {
     if (panel)
         return <MenuPanel/>;
     if (!isTauri())
-        return <div className="connection"><img src="/logo.png" alt=""/><h1>Habyss Desktop</h1><p>Open the native macOS app to view your activity.</p><p>This browser preview has no access to the tracking engine. No sample activity is displayed.</p><code>bun run dev</code></div>;
+        return <div className="connection"><img src="/logo.png" alt=""/><h1>Habyss</h1><p>Open the native macOS app to view your activity.</p><p>This browser preview has no access to the tracking engine. No sample activity is displayed.</p><code>bun run dev</code></div>;
     if (!data)
         return <div className="connection"><img src="/logo.png" alt=""/><h1>Opening your day</h1><p>{error || 'Connecting to the local tracking engine…'}</p>{error && <button onClick={() => void refresh()}>Try again</button>}</div>;
     if (!data.settings.onboarding_complete)

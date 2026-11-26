@@ -16,18 +16,19 @@ Local-first macOS activity tracking with a Tauri 2 shell, React/TypeScript UI, R
 bun install --frozen-lockfile
 # On this development machine, expose the existing Rust installation:
 . scripts/env.sh
-bun run dev
+bun run tauri dev
 ```
 
-Run from the repository root. Complete onboarding to enable tracking. Closing the dashboard hides it; the menu-bar icon keeps the app accessible. Quit from the menu bar to end monitoring. Start at Login is opt-in.
+Run from `apps/desktop` (or `npm run desktop` from the top of the Habyss repo). Complete onboarding to enable tracking. Closing the dashboard hides it; the menu-bar icon keeps the app accessible. Quit from the menu bar to end monitoring. Start at Login is opt-in.
 
 ## Build
 
 ```sh
 . scripts/env.sh
-bun run build
+bun run tauri build --bundles app
 # Also build a DMG on a machine with disk-image creation available:
-bun run build:dmg
+bun run tauri build --bundles app,dmg
+# From the top of the repo: npm run desktop:build, npm run desktop:dmg
 ```
 
 A local development copy is also available at `artifacts/release/Habyss.app` with a ZIP alongside it. Quit an earlier running Habyss before opening this copy.
@@ -41,11 +42,11 @@ Unsigned/ad-hoc builds do **not** establish App Group access or prove widget-pic
 ```sh
 bun run check
 bun run test
-cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
 sh scripts/check.sh # also requires rustfmt and Clippy
 ```
 
-Dependency-free accounting tests can also run with `rustc --edition=2021 --test apps/desktop/src-tauri/src/engine.rs -o /tmp/habyss-engine-tests` followed by `/tmp/habyss-engine-tests`.
+Dependency-free accounting tests can also run with `rustc --edition=2021 --test src-tauri/src/engine.rs -o /tmp/habyss-engine-tests` followed by `/tmp/habyss-engine-tests`.
 
 ## Data and controls
 

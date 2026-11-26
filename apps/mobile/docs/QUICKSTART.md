@@ -9,7 +9,7 @@ Get your Habyss app running in **5 minutes**.
 ### 1️⃣ Install Dependencies
 
 ```bash
-cd /Users/erwan/Coding/Habyss
+cd /Users/erwan/Coding/Habyss/apps/mobile
 npm install
 ```
 

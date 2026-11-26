@@ -40,7 +40,7 @@ Habyss is a comprehensive personal improvement app that combines habit tracking,
 1. **Clone the repository**
    ```bash
    git clone https://github.com/yourusername/habyss.git
-   cd habyss
+   cd Habyss/apps/mobile
    ```
 
 2. **Install dependencies**
