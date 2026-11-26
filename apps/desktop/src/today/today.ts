@@ -1,59 +1,10 @@
 import type { CloudData } from '../types';
-import { rowToHabit, rowToTask } from '../shared/rows';
-import { isHabitScheduledForDate, localDateKey } from '../shared/habitSchedule';
-import { setHistory } from '../shared/dataStore';
-import { flowDay, flowInputs } from '../shared/dayFlow';
-import { streakFrom, tallyDay } from '../shared/dayComplete';
-import { doneOnDay } from '../shared/dailyFocus';
-import { tasksForDay } from '../shared/tasks';
-export interface TodayItem { id: string; kind: 'habit' | 'task'; title: string; done: boolean; skipped: boolean; start: number; end: number; state: 'done' | 'now' | 'next' | 'later'; locked: boolean; icon?: string; color?: string }
-/** `done`/`total` are the shared day tally (habits plus capped tasks). `tasksDone`/`tasksTotal` count the listed tasks only (Ruling P6): the "Tasks"
- * figure everywhere for today. `listedDone`/`listedTotal` count every listed habit and task. An item split into parts (rule 4) counts once. */
-export interface Today { day: string; items: TodayItem[]; current: TodayItem | null; next: TodayItem | null; done: number; total: number; tasksDone: number; tasksTotal: number; listedDone: number; listedTotal: number; streak: number; signedIn: boolean }
-const DEFAULT_WINDOW = { wake: 420, sleep: 1380 };
-export const minuteOfDay = (now: Date): number => now.getHours() * 60 + now.getMinutes();
-const empty = (day: string, signedIn: boolean): Today => ({ day, items: [], current: null, next: null, done: 0, total: 0, tasksDone: 0, tasksTotal: 0, listedDone: 0, listedTotal: 0, streak: 0, signedIn });
-const add = (map: Record<string, string[]>, day: string, id: string) => { (map[day] ??= []).push(id); };
-export function buildToday(data: CloudData | null, opts: { now: Date; signedIn: boolean; window?: { wake: number; sleep: number } }): Today {
-    const { now } = opts;
-    const day = localDateKey(now);
-    if (!data || !opts.signedIn)
-        return empty(day, false);
-    const history: Record<string, string[]> = {};
-    const skips: Record<string, string[]> = {};
-    const doneTimes: Record<string, string> = {};
-    for (const c of data.completions) {
-        if (c.deleted)
-            continue;
-        if (c.skipped) {
-            add(skips, c.date, c.habit_id);
-            continue;
-        }
-        add(history, c.date, c.habit_id);
-        // As the phone's getCompletionTimes: created_at only, when it falls on the same local day.
-        if (c.date === day && c.created_at && localDateKey(new Date(c.created_at)) === day)
-            doneTimes[c.habit_id] = c.created_at;
-    }
-    setHistory(history); // side effect: the shared schedule rules read this module-level history
-    // A goal row left from before goals were removed is not a habit (the phone counts them as deleted).
-    const allHabits = data.habits.filter(h => !h.deleted && !h.is_goal).map(rowToHabit);
-    const allTasks = data.tasks.filter(t => !t.deleted).map(rowToTask);
-    const habits = allHabits.filter(h => !h.isArchived && isHabitScheduledForDate(h, now));
-    const onDay = new Set(tasksForDay(allTasks, day, day).map(t => t.id));
-    const tasks = allTasks.filter(t => onDay.has(t.id) || doneOnDay(t, day));
-    const done: Record<string, boolean> = {};
-    for (const id of history[day] ?? [])
-        done[id] = true;
-    const skipped: Record<string, boolean> = {};
-    for (const id of skips[day] ?? [])
-        skipped[id] = true;
-    const flow = flowDay(flowInputs({ habits, tasks, done, doneTimes, day, today: day }), minuteOfDay(now), opts.window ?? DEFAULT_WINDOW);
-    const items: TodayItem[] = flow.timeline.filter(i => i.kind === 'habit' || i.kind === 'task').map(i => ({ id: i.id, kind: i.kind as 'habit' | 'task', title: i.title, done: i.done, skipped: i.kind === 'habit' && !!skipped[i.id], start: i.start, end: i.end, state: i.state, locked: !!i.locked, icon: i.icon, color: i.color }));
-    const current = items.find(i => i.state === 'now') ?? null;
-    const next = items.find(i => i.state === 'next') ?? null;
-    const tally = tallyDay(habits, done, skipped, tasks, day);
-    const listed = [...new Map(items.map(i => [`${i.kind}:${i.id}`, i])).values()];
-    const listedTasks = listed.filter(i => i.kind === 'task');
-    const { streak } = streakFrom(allHabits, allTasks, history, skips, day);
-    return { day, items, current, next, done: tally.done, total: tally.total, tasksDone: listedTasks.filter(i => i.done).length, tasksTotal: listedTasks.length, listedDone: listed.filter(i => i.done).length, listedTotal: listed.length, streak, signedIn: true };
+import { localDateKey } from '../shared/habitSchedule';
+import { buildDay, type Today } from './buildDay';
+
+export { buildDay, memoryAfter, minuteOfDay, type ItemKind, type Today, type TodayItem } from './buildDay';
+
+/** Today, as the phone builds it. */
+export function buildToday(data: CloudData | null, opts: { now: Date; signedIn: boolean }): Today {
+    return buildDay(data, { date: localDateKey(opts.now), now: opts.now, signedIn: opts.signedIn });
 }

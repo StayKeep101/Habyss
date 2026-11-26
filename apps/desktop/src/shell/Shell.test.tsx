@@ -7,7 +7,7 @@ import { buildToday } from '../today/today';
 let navigate: ((e: { payload: string }) => void) | undefined;
 const SIGNED_OUT: SyncStatus = { state: 'signed_out', account: false, email: null, last_sync: null, pending: 0, refused: 0, error: null };
 const SIGNED_IN: SyncStatus = { ...SIGNED_OUT, state: 'idle', account: true, email: 'a@b.c' };
-const EMPTY: CloudData = { habits: [], completions: [], tasks: [], milestones: [], day_inputs: {} };
+const EMPTY: CloudData = { habits: [], completions: [], tasks: [], day_inputs: {} };
 const calls: [string, Record<string, unknown> | undefined][] = [];
 let handlers: Record<string, (args?: Record<string, unknown>) => unknown> = {};
 vi.mock('@tauri-apps/api/core', () => ({
@@ -28,7 +28,7 @@ const mount = () => render(<Shell data={data()} act={() => Promise.resolve()} da
 const habit = (id: string): HabitRow => ({ id, user_id: null, name: id, description: null, category: null, icon: null, is_goal: 0, target_date: null, goal_id: null, task_days: null, reminders: null, start_date: '2026-01-01', end_date: null, duration_minutes: null, start_time: null, end_time: null, type: null, color: null, goal_period: null, goal_value: null, unit: null, chart_type: null, is_archived: 0, show_memo: null, frequency: null, week_interval: null, time_of_day: null, graph_style: null, tracking_method: null, reminder_offset: null, reminder_message: null, recurrence: null, location_reminders: null, health_kit_target: null, health_kit_metric: null, ringtone: null, goal_spec: null, priority: null, difficulty: null, flexible: null, created_at: '2026-01-01T00:00:00', updated_at: null, deleted: 0, synced: 1, owner_id: null, refused: 0 });
 const task = (id: string, over: Partial<TaskRow> = {}): TaskRow => ({ id, user_id: null, title: id, description: null, due_date: '2026-11-02', due_time: null, estimated_minutes: null, priority: null, goal_id: null, status: 'open', completed_at: null, source: null, external_id: null, measure: null, target: null, unit: null, amount: null, milestone_id: null, subtasks: null, deadline: null, section: null, difficulty: null, flexible: null, created_at: '2026-01-01T00:00:00', updated_at: null, deleted: 0, synced: 1, owner_id: null, refused: 0, ...over });
 /** A plan where the old definitions disagreed: an overdue and an undated task, a habit, and one task done today. */
-const PLAN: CloudData = { habits: [habit('Read')], completions: [], milestones: [], day_inputs: {}, tasks: [task('Ship'), task('Overdue', { due_date: '2026-10-30' }), task('Undated', { due_date: null }), task('Done', { status: 'done', completed_at: '2026-11-02T09:00:00' })] };
+const PLAN: CloudData = { habits: [habit('Read')], completions: [], day_inputs: {}, tasks: [task('Ship'), task('Overdue', { due_date: '2026-10-30' }), task('Undated', { due_date: null }), task('Done', { status: 'done', completed_at: '2026-11-02T09:00:00' })] };
 const panelTasks = () => screen.getByText('Tasks', { selector: '.tp-stat small' }).previousElementSibling?.textContent;
 const dashTasks = () => screen.getByText('Tasks', { selector: '.ui-stat-label' }).closest('.ui-stat')?.querySelector('.ui-stat-value')?.textContent;
 const TABS = ['Dashboard', 'Calendar', 'Progress', 'Analytics', 'Friends', 'Profile', 'Settings'];
