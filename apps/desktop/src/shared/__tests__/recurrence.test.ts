@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { createHabitSchedule } from '../habitSchedule';
-import type { Habit } from '../habitsSQLite';
 import { describe as say, matches, parseRecurrence, serialiseRecurrence, type Recurrence } from '../recurrence';
 
 const at = (y: number, m: number, d: number) => new Date(y, m - 1, d, 12);
@@ -153,6 +152,9 @@ describe('storing a rule', () => {
 });
 
 describe('a habit that carries a rule', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+    type Habit = import('../habitsSQLite').Habit;
 
     const habit = (over: Partial<Habit> = {}): Habit => ({
         id: 'h', name: 'Deep clean', startDate: '2026-01-01', createdAt: '2026-01-01',

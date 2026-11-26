@@ -20,6 +20,9 @@ impl Store {
         conn.execute_batch(include_str!("../migrations/003_focus.sql"))?;
         conn.execute_batch(include_str!("../migrations/005_depth.sql"))?;
         conn.execute_batch(include_str!("../migrations/006_day_inputs.sql"))?;
+        // A habit's anchor (held before or after an event or meal) arrived after cloud_habits existed: added once, in place.
+        let habit_cols:Vec<String>=conn.prepare("PRAGMA table_info(cloud_habits)")?.query_map([],|r|r.get::<_,String>(1))?.collect::<rusqlite::Result<_>>()?;
+        if !habit_cols.iter().any(|c|c=="anchor") { conn.execute_batch("ALTER TABLE cloud_habits ADD COLUMN anchor TEXT")?; }
         // focus_sessions keeps the seven columns of 001, so older builds that open this file (user_version 1) can still insert
         // positionally; the extras live in focus_session_extras (004). A file that 003 gave the extra columns has them copied
         // across and dropped, all in one transaction.

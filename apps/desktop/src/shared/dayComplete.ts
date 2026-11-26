@@ -1,11 +1,11 @@
-// Copied from Habyss Mobile lib/dayComplete.ts @0fcd218. Keep in sync; do not re-derive rules.
+// Copied from Habyss Mobile lib/dayComplete.ts @f48c4da4. Keep in sync; do not re-derive rules. Pure parts only: storage, sync and notifications stay on mobile.
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
 import { createHabitRequirement, isHabitScheduledForDate, isQuotaHabit, localDateKey } from './habitSchedule';
 import { DEFAULT_TARGET, doneOnDay, type DailyTarget } from './dailyFocus';
 import { tasksForDay } from './tasks';
 import { counts, countedHistory, countedTasks } from './sharedGate';
-
+import { getData } from './dataStore';
 /**
  * Whether everything the day asked for is done.
  *
@@ -26,7 +26,7 @@ export function tallyDay(
     const date = new Date(`${today}T12:00:00`);
     // A "3 times a week" habit is part of the day once it cannot wait, or when done today.
     const due = habits.filter(habit => {
-        if (habit.isGoal || habit.isArchived || skipped[habit.id] || !isHabitScheduledForDate(habit, date)) return false;
+        if (habit.isArchived || skipped[habit.id] || !isHabitScheduledForDate(habit, date)) return false;
         return !isQuotaHabit(habit) || completions[habit.id] || createHabitRequirement(habit)(today);
     });
 
@@ -71,6 +71,15 @@ export const isDayComplete = (tally: DayTally): boolean => tally.total > 0 && ta
  * Today joins the run the moment something is done, and an empty today does
  * not break it until the day is over. Skipping is not doing.
  */
+/** The days that keep a run without adding to it: those a freeze covered, and time off. */
+function keptDays(): Set<string> {
+    // Desktop: freezes and time off live on the phone for now (src/shared/dataStore.ts holds none until they sync).
+    const { freezes, off } = getData();
+    if (!off.size) return freezes;
+    if (!freezes.size) return off;
+    return new Set([...freezes, ...off]);
+}
+
 export function streakFrom(
     habits: Habit[],
     tasks: Task[],
@@ -79,13 +88,13 @@ export function streakFrom(
     today: string,
     back?: number,
     _target: DailyTarget = DEFAULT_TARGET,
-    /** Days a streak freeze covered: they keep the run going without adding to it. */
-    frozen: Set<string> = new Set(),
+    /** Days a streak freeze covered, and days off sick or on vacation (lib/timeOff.ts): they keep the run going without adding to it. */
+    frozen: Set<string> = keptDays(),
 ): { streak: number; completedDates: string[] } {
     // A shared habit or task counts only once everybody on it has done it.
     history = countedHistory(history);
     tasks = countedTasks(tasks);
-    const known = new Set(habits.filter(habit => !habit.isGoal).map(habit => habit.id));
+    const known = new Set(habits.map(habit => habit.id));
     const completedDates: string[] = [];
     let streak = 0;
     let counting = true;

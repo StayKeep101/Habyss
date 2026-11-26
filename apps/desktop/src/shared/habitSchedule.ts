@@ -1,6 +1,9 @@
-// Copied from Habyss Mobile lib/habitSchedule.ts @0fcd218. Keep in sync; do not re-derive rules.
+// Copied from Habyss Mobile lib/habitSchedule.ts @f48c4da4. Keep in sync; do not re-derive rules.
 import type { Habit } from './habitsSQLite';
 import { matches as recurrenceMatches, parseRecurrence } from './recurrence';
+import { versionOn, withEra } from './scheduleHistory';
+// Desktop: the history comes from today's cloud data (src/shared/dataStore.ts) instead of the phone's store.
+import { getData } from './dataStore';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -24,7 +27,8 @@ export function parseHabitDate(value: string | undefined): Date | null {
 
 // UTC is used only for calendar arithmetic, avoiding 23/25-hour DST days.
 const calendarDay = (date: Date) => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / MS_PER_DAY;
-const startOfWeek = (date: Date) => calendarDay(date) - date.getDay();
+// Weeks start on Monday, as in lib/recurrence.ts (RFC 5545's default WKST=MO), so every rule agrees which fortnight it is.
+const startOfWeek = (date: Date) => calendarDay(date) - ((date.getDay() + 6) % 7);
 const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
 
 /**
@@ -35,7 +39,8 @@ const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0
  */
 export function isHabitScheduledForDate(habit: Habit, date: Date): boolean {
     if (!createHabitSchedule(habit)(date)) return false;
-    const quota = quotaOf(habit);
+    // The schedule that day, not today's (lib/scheduleHistory.ts).
+    const quota = quotaOf(versionOn(habit, localDateKey(date)));
     if (!quota) return true;
     return quotaState(habit, quota, localDateKey(date), historyDone(habit.id)).offered;
 }
@@ -48,16 +53,14 @@ const quotaOf = (habit: Habit): Quota | null => {
     return rule?.kind === 'quota' ? { times: rule.times, period: rule.period } : null;
 };
 
-/**
- * Ticks from the app's one copy of history, for display. On mobile this reads
- * lib/dataStore.ts; here the caller supplies the history with setHistory().
- */
-let displayHistory: Record<string, string[]> = {};
-export function setHistory(history: Record<string, string[]>): void {
-    displayHistory = history;
-}
+/** Ticks from the app's one copy of history (lib/dataStore.ts), for display. */
 function historyDone(habitId: string): (key: string) => boolean {
-    return key => !!displayHistory[key]?.includes(habitId);
+    try {
+        const history = getData().history;
+        return key => !!history[key]?.includes(habitId);
+    } catch {
+        return () => false;
+    }
 }
 
 const keyAt = (day: number) => {
@@ -86,14 +89,38 @@ function quotaState(habit: Habit, quota: Quota, key: string, doneOn: (key: strin
         from = calendarDay(new Date(date.getFullYear(), date.getMonth(), 1, 12));
         to = calendarDay(new Date(date.getFullYear(), date.getMonth() + 1, 0, 12));
     }
-    const ends = [habit.endDate, habit.targetDate].map(parseHabitDate).filter((value): value is Date => value !== null);
+    const ends = [habit.endDate].map(parseHabitDate).filter((value): value is Date => value !== null);
     if (ends.length) to = Math.min(to, ...ends.map(calendarDay));
-    from = Math.max(from, calendarDay(start));
+    const periodLength = to - from + 1;
+    // A habit started part-way through its first week or month asks for its share
+    // of it ("3 a week" started on Saturday: 1), never more than the days it had.
+    const startDay = calendarDay(start);
+    const times = startDay > from ? Math.ceil(quota.times * (to - startDay + 1) / periodLength) : quota.times;
+    from = Math.max(from, startDay);
     let done = 0;
     for (let at = from; at < day; at++) if (doneOn(keyAt(at))) done++;
-    const needed = quota.times - done;
+    const needed = times - done;
     const daysLeft = to - day + 1;
     return { offered: needed > 0 || doneOn(key), required: needed > 0 && needed >= daysLeft };
+}
+
+/**
+ * How far a "3 times a week" habit is through its period on a day: the ticks
+ * so far (that day included) against the times it asks for. Null for any
+ * other habit. The row says it, so which days counted is never a guess.
+ */
+export function quotaProgress(habit: Habit, key: string, doneOn: (key: string) => boolean = historyDone(habit.id)): { done: number; times: number; period: 'week' | 'month' } | null {
+    const quota = quotaOf(versionOn(habit, key));
+    const date = parseHabitDate(key);
+    const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
+    if (!quota || !date || !start) return null;
+    const day = calendarDay(date);
+    const from = Math.max(calendarDay(start), quota.period === 'week'
+        ? day - ((date.getDay() + 6) % 7)
+        : calendarDay(new Date(date.getFullYear(), date.getMonth(), 1, 12)));
+    let done = 0;
+    for (let at = from; at <= day; at++) if (doneOn(keyAt(at))) done++;
+    return { done, times: quota.times, period: quota.period };
 }
 
 /**
@@ -104,17 +131,55 @@ function quotaState(habit: Habit, quota: Quota, key: string, doneOn: (key: strin
  */
 export function createHabitRequirement(habit: Habit): (key: string, doneOn?: (key: string) => boolean) => boolean {
     const schedule = createHabitSchedule(habit);
-    const quota = quotaOf(habit);
+    const current = quotaOf(habit);
+    const past = habit.scheduleHistory;
     return (key, doneOn) => {
         const date = parseHabitDate(key);
         if (!date || !schedule(date)) return false;
+        const quota = past?.length ? quotaOf(versionOn(habit, key)) : current;
         if (!quota) return true;
         return quotaState(habit, quota, key, doneOn ?? historyDone(habit.id)).required;
     };
 }
 
-/** Compile once when evaluating years of history for the same habit. */
+/**
+ * The first day a habit is due, on or after its start: what its start date
+ * should be. As in every calendar (RFC 5545, where DTSTART is the series' first
+ * occurrence), "every 4 weeks on Thursday" made on a Sunday starts on the coming
+ * Thursday and counts its 4 weeks from there, not from the week it was made in.
+ * Null when nothing is due within ten years (or the dates do not parse).
+ */
+export function firstDueDay(habit: Pick<Habit, 'startDate' | 'createdAt' | 'recurrence' | 'frequency' | 'taskDays' | 'weekInterval' | 'endDate'>): string | null {
+    const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
+    if (!start) return null;
+    const from = localDateKey(start);
+    // Try each day as the start: the first one the rule itself asks for, counted from that day.
+    for (let offset = 0; offset < 3660; offset++) {
+        const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + offset, 12);
+        const key = localDateKey(day);
+        if (createHabitSchedule({ ...habit, startDate: key } as Habit)(day)) return offset === 0 ? from : key;
+    }
+    return null;
+}
+
+/**
+ * Compile once when evaluating years of history for the same habit. Each day
+ * is judged by the schedule the habit had then (lib/scheduleHistory.ts), so
+ * changing it only changes the days ahead.
+ */
 export function createHabitSchedule(habit: Habit): (date: Date) => boolean {
+    const current = compileSchedule(habit);
+    const past = habit.scheduleHistory;
+    if (!past?.length) return current;
+    const eras = past.map(era => ({ until: era.until, test: compileSchedule(withEra(habit, era)) }));
+    return date => {
+        if (!Number.isFinite(date.getTime())) return false;
+        const key = localDateKey(date);
+        return (eras.find(era => key <= era.until)?.test ?? current)(date);
+    };
+}
+
+function compileSchedule(habit: Habit): (date: Date) => boolean {
     const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
     if (!start) return () => false;
 
@@ -123,7 +188,7 @@ export function createHabitSchedule(habit: Habit): (date: Date) => boolean {
     // with. A rule that will not parse falls back rather than failing.
     const rule = parseRecurrence(habit.recurrence);
     if (rule) {
-        const ends = [habit.endDate, habit.targetDate].map(parseHabitDate).filter((date): date is Date => date !== null);
+        const ends = [habit.endDate].map(parseHabitDate).filter((date): date is Date => date !== null);
         const endDay = ends.length ? Math.min(...ends.map(calendarDay)) : Infinity;
         return date => {
             if (!Number.isFinite(date.getTime())) return false;
@@ -136,7 +201,7 @@ export function createHabitSchedule(habit: Habit): (date: Date) => boolean {
     const startWeek = startOfWeek(start);
     const startMonth = start.getMonth();
     const startDate = start.getDate();
-    const ends = [habit.endDate, habit.targetDate].map(parseHabitDate).filter((date): date is Date => date !== null);
+    const ends = [habit.endDate].map(parseHabitDate).filter((date): date is Date => date !== null);
     const endDay = ends.length ? Math.min(...ends.map(calendarDay)) : Infinity;
     const interval = Math.max(1, Math.floor(habit.weekInterval || 1));
     const weekdays = new Set((habit.taskDays ?? []).map(day => day.toLowerCase().slice(0, 3)));

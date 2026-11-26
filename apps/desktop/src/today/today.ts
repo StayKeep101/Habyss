@@ -1,6 +1,7 @@
 import type { CloudData } from '../types';
 import { rowToHabit, rowToTask } from '../shared/rows';
-import { isHabitScheduledForDate, localDateKey, setHistory } from '../shared/habitSchedule';
+import { isHabitScheduledForDate, localDateKey } from '../shared/habitSchedule';
+import { setHistory } from '../shared/dataStore';
 import { flowDay, flowInputs } from '../shared/dayFlow';
 import { streakFrom, tallyDay } from '../shared/dayComplete';
 import { doneOnDay } from '../shared/dailyFocus';
@@ -34,9 +35,10 @@ export function buildToday(data: CloudData | null, opts: { now: Date; signedIn: 
             doneTimes[c.habit_id] = c.created_at;
     }
     setHistory(history); // side effect: the shared schedule rules read this module-level history
-    const allHabits = data.habits.filter(h => !h.deleted).map(rowToHabit);
+    // A goal row left from before goals were removed is not a habit (the phone counts them as deleted).
+    const allHabits = data.habits.filter(h => !h.deleted && !h.is_goal).map(rowToHabit);
     const allTasks = data.tasks.filter(t => !t.deleted).map(rowToTask);
-    const habits = allHabits.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, now));
+    const habits = allHabits.filter(h => !h.isArchived && isHabitScheduledForDate(h, now));
     const onDay = new Set(tasksForDay(allTasks, day, day).map(t => t.id));
     const tasks = allTasks.filter(t => onDay.has(t.id) || doneOnDay(t, day));
     const done: Record<string, boolean> = {};

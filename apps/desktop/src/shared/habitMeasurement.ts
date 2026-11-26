@@ -1,4 +1,4 @@
-// Copied from Habyss Mobile lib/habitMeasurement.ts @0fcd218. Keep in sync; do not re-derive rules.
+// Copied from Habyss Mobile lib/habitMeasurement.ts @f48c4da4. Keep in sync; do not re-derive rules.
 import type { Habit } from './habitsSQLite';
 import { kindOf, quickAmountsFor, stepFor, type UnitKind } from './unitKind';
 

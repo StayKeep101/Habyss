@@ -1,4 +1,4 @@
-// Copied from Habyss Mobile lib/unitKind.ts @0fcd218. Keep in sync; do not re-derive rules.
+// Copied from Habyss Mobile lib/unitKind.ts @f48c4da4. Keep in sync; do not re-derive rules.
 /**
  * What kind of thing a unit measures.
  *

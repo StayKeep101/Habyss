@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { describe, it, expect, beforeEach , afterAll } from 'vitest';
 import { counts, countedHistory, countedTasks, setGate } from '../sharedGate';
 import { streakFrom, tallyDay } from '../dayComplete';
 import type { Habit } from '../habitsSQLite';

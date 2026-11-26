@@ -1,4 +1,4 @@
-// Copied from Habyss Mobile lib/recurrence.ts @0fcd218. Keep in sync; do not re-derive rules.
+// Copied from Habyss Mobile lib/recurrence.ts @f48c4da4. Keep in sync; do not re-derive rules.
 /**
  * How often something comes round.
  *
@@ -8,7 +8,9 @@
  *
  * Two rules shape everything below. An interval is always counted from the
  * habit's start date, so "every 2 weeks" means the same weeks forever rather
- * than drifting with the calendar. And every rule can describe itself in
+ * than drifting with the calendar; and, as in iCalendar (RFC 5545, DTSTART),
+ * that start is the series' first occurrence (lib/habitSchedule.ts firstDueDay),
+ * with weeks from Monday (WKST=MO). And every rule can describe itself in
  * English, because a rule the user cannot read back is a rule they cannot
  * trust.
  */
@@ -69,15 +71,18 @@ const daysBetween = (from: Date, to: Date) =>
 const monthsBetween = (from: Date, to: Date) =>
     (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
 
+/** Whether a day is one the selector counts (a Thursday, any weekday, …). */
+function dayMatches(day: Date, selector: DaySelector): boolean {
+    const weekday = weekdayOf(day);
+    if (selector === 'day') return true;
+    if (selector === 'weekday') return WORKDAYS.includes(weekday);
+    if (selector === 'weekend') return WEEKEND.includes(weekday);
+    return weekday === selector;
+}
+
 /** Whether a date is the nth matching day of its month. */
 function isNth(date: Date, ordinal: Ordinal, selector: DaySelector): boolean {
-    const matches = (day: Date) => {
-        const weekday = weekdayOf(day);
-        if (selector === 'day') return true;
-        if (selector === 'weekday') return WORKDAYS.includes(weekday);
-        if (selector === 'weekend') return WEEKEND.includes(weekday);
-        return weekday === selector;
-    };
+    const matches = (day: Date) => dayMatches(day, selector);
     if (!matches(date)) return false;
 
     const year = date.getFullYear();
@@ -96,6 +101,21 @@ function isNth(date: Date, ordinal: Ordinal, selector: DaySelector): boolean {
     for (let day = 1; day <= date.getDate(); day++) {
         if (matches(new Date(year, month, day))) seen++;
     }
+    return seen === ordinal;
+}
+
+/** Whether a date is the nth matching day of its year (no month given): "the last Friday of the year". */
+function isNthOfYear(date: Date, ordinal: Ordinal, selector: DaySelector): boolean {
+    if (!dayMatches(date, selector)) return false;
+    const year = date.getFullYear();
+    const target = daysBetween(new Date(year, 0, 1), date);
+    const total = daysBetween(new Date(year, 0, 1), new Date(year, 11, 31));
+    if (ordinal === -1) {
+        for (let at = target + 1; at <= total; at++) if (dayMatches(new Date(year, 0, 1 + at), selector)) return false;
+        return true;
+    }
+    let seen = 0;
+    for (let at = 0; at <= target; at++) if (dayMatches(new Date(year, 0, 1 + at), selector)) seen++;
     return seen === ordinal;
 }
 
@@ -147,8 +167,14 @@ export function matches(rule: Recurrence, date: Date, start: Date): boolean {
 
         case 'yearly': {
             if ((date.getFullYear() - start.getFullYear()) % every !== 0) return false;
-            if (rule.months.length && !rule.months.includes(date.getMonth())) return false;
-            if ('ordinal' in rule) return isNth(date, rule.ordinal, rule.day);
+            // RFC 5545: with an ordinal but no month, "the last Friday" is of the year;
+            // with no ordinal and no month, the year's one day is the start's month and day.
+            if ('ordinal' in rule) {
+                if (!rule.months.length) return isNthOfYear(date, rule.ordinal, rule.day);
+                return rule.months.includes(date.getMonth()) && isNth(date, rule.ordinal, rule.day);
+            }
+            const months = rule.months.length ? rule.months : [start.getMonth()];
+            if (!months.includes(date.getMonth())) return false;
             return date.getDate() === Math.min(start.getDate(), daysInMonth(date.getFullYear(), date.getMonth()));
         }
     }

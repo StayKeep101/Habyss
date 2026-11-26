@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { bestStreakFrom, isDayComplete, tallyDay, streakFrom } from '../dayComplete';
+import { describe, it, expect } from 'vitest';
+import { bestStreakFrom, isDayComplete, streakFrom, tallyDay } from '../dayComplete';
 import type { Habit } from '../habitsSQLite';
 import type { Task } from '../tasks';
 
@@ -87,9 +87,9 @@ describe('finishing the day', () => {
         expect(isDayComplete(tallyDay([habit({ taskDays: ['sun'] })], {}, {}, [], TODAY))).toBe(false);
     });
 
-    it('ignores goals, archived habits and cancelled tasks', () => {
+    it('ignores archived habits and cancelled tasks', () => {
         const tally = tallyDay(
-            [habit({ id: 'g', isGoal: true }), habit({ id: 'x', isArchived: true }), habit({ id: 'a' })],
+            [habit({ id: 'x', isArchived: true }), habit({ id: 'a' })],
             { a: true }, {},
             [task({ dueDate: TODAY, status: 'cancelled' })],
             TODAY,
@@ -100,7 +100,7 @@ describe('finishing the day', () => {
 });
 
 describe('the run of finished days', () => {
-    const daily = [habit({ id: 'a' })];
+        const daily = [habit({ id: 'a' })];
     const doneOn = (days: string[]) => Object.fromEntries(days.map(day => [day, ['a']]));
 
     it('counts back from today while every day was finished', () => {
@@ -182,7 +182,8 @@ describe('one definition of a streak', () => {
 
 describe('the best streak', () => {
     it('is the longest unbroken run of days', () => {
-        expect(bestStreakFrom(['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-05', '2026-10-06'])).toBe(3);
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+                expect(bestStreakFrom(['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-05', '2026-10-06'])).toBe(3);
         expect(bestStreakFrom(['2026-10-06', '2026-10-05'])).toBe(2);
         expect(bestStreakFrom([])).toBe(0);
     });

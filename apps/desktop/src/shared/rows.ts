@@ -1,5 +1,6 @@
 // Ported from Habyss Mobile lib/habitsSQLite.ts getHabits() row mapping and lib/tasks.ts rowToTask @0fcd218. Keep in sync; do not re-derive rules.
 /* eslint-disable @typescript-eslint/no-explicit-any -- copied mobile code reads untyped rows */
+import { parseAnchor } from './habitAnchor';
 import type { HabitRow, TaskRow } from '../types';
 import type { Habit, HabitCategory, LocationReminder } from './habitsSQLite';
 import { parseSubtasks, type Task, type TaskPriority, type TaskSource, type TaskStatus } from './tasks';
@@ -22,8 +23,6 @@ const habitFrom = (row: any): Habit => ({
     durationMinutes: row.duration_minutes,
     startTime: row.start_time,
     endTime: row.end_time,
-    isGoal: row.is_goal === 1,
-    targetDate: row.target_date,
     type: row.type || 'build',
     color: row.color || '#6B46C1',
     goalPeriod: row.goal_period || 'daily',
@@ -36,13 +35,13 @@ const habitFrom = (row: any): Habit => ({
     endDate: row.end_date,
     isArchived: row.is_archived === 1,
     showMemo: row.show_memo === 1,
-    goalId: row.goal_id,
     frequency: row.frequency,
     weekInterval: row.week_interval,
     timeOfDay: row.time_of_day,
     ringtone: row.ringtone || 'default',
-    goalSpec: row.goal_spec || undefined,
     reminderOffset: row.reminder_offset,
+    // Held before or after an event or meal (lib/habitAnchor.ts); stored as JSON text.
+    anchor: parseAnchor(row.anchor) ?? null,
     locationReminders: storedArray(row.location_reminders)
         .filter(location => location && typeof location.name === 'string' && Number.isFinite(location.latitude) && Number.isFinite(location.longitude))
         // Rebuilt rather than passed through, so a hand-edited
@@ -71,7 +70,6 @@ const taskFrom = (row: any): Task => ({
     dueTime: row.due_time ?? undefined,
     estimatedMinutes: row.estimated_minutes ?? undefined,
     priority: (row.priority ?? 2) as TaskPriority,
-    goalId: row.goal_id ?? undefined,
     status: (row.status ?? 'open') as TaskStatus,
     completedAt: row.completed_at ?? undefined,
     source: (row.source ?? 'app') as TaskSource,
@@ -80,7 +78,6 @@ const taskFrom = (row: any): Task => ({
     target: Number.isFinite(row.target) && row.target > 0 ? row.target : undefined,
     unit: row.unit ?? undefined,
     amount: Number.isFinite(row.amount) ? row.amount : undefined,
-    milestoneId: row.milestone_id ?? undefined,
     difficulty: row.difficulty === 1 || row.difficulty === 2 || row.difficulty === 3 ? row.difficulty : undefined,
     deadline: typeof row.deadline === 'string' && row.deadline ? row.deadline : undefined,
     flexible: row.flexible === 0 ? false : row.flexible === 1 ? true : undefined,

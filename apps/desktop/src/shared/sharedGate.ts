@@ -1,6 +1,5 @@
-// Copied from Habyss Mobile lib/sharedGate.ts @0fcd218. Keep in sync; do not re-derive rules.
-import type { Task } from './tasks';
-
+// Copied from Habyss Mobile lib/sharedGate.ts @f48c4da4. Keep in sync; do not re-derive rules. Pure parts only: storage, sync and notifications stay on mobile.
+import { doneDay, type Task } from './tasks';
 /**
  * A shared habit or task only counts once everybody on it has done it.
  *
@@ -13,9 +12,7 @@ import type { Task } from './tasks';
  * held back.
  *
  * The facts come from the server (who is on what, who did what on which day)
- * and are cached here, so every stat can ask synchronously. On desktop the
- * caller fills the cache with setGate(); mobile's loadCachedGate/refreshGate
- * (AsyncStorage and Supabase reads) are not copied.
+ * and are cached here, so every stat can ask synchronously.
  */
 
 export interface GateData {
@@ -26,6 +23,7 @@ export interface GateData {
 }
 
 let gate: GateData = { items: {}, done: {} };
+
 let version = 0;
 
 export function setGate(next: GateData) {
@@ -34,6 +32,9 @@ export function setGate(next: GateData) {
     historyCache = null;
     tasksCache = null;
 }
+
+/** Who else is on this item (user ids), for "with Sam" on the day card. */
+export const othersOn = (itemId: string): string[] => gate.items[itemId]?.others ?? [];
 
 /** Whether what was done on this item on this day counts yet. */
 export function counts(itemId: string, day: string): boolean {
@@ -58,15 +59,6 @@ export function countedHistory(history: Record<string, string[]>): Record<string
 }
 
 let tasksCache: { input: Task[]; version: number; output: Task[] } | null = null;
-
-const doneDay = (task: Task): string | null => {
-    const stamp = task.completedAt;
-    if (!stamp) return null;
-    const date = new Date(stamp);
-    if (!Number.isFinite(date.getTime())) return stamp.slice(0, 10);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-};
 
 /** Tasks, with a shared one still open for the stats until the others are done too. */
 export function countedTasks(tasks: Task[]): Task[] {

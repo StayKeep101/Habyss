@@ -8,7 +8,7 @@ const taskRow = (over: Partial<TaskRow>): TaskRow => ({ id: 't1', user_id: 'u', 
 describe('rowToHabit', () => {
     it('maps SQLite columns with the same defaults as mobile', () => {
         const habit = rowToHabit(habitRow({}));
-        expect(habit).toMatchObject({ id: 'h1', isGoal: false, showMemo: true, type: 'build', color: '#6B46C1', goalPeriod: 'daily', goalValue: 1, unit: 'count', chartType: 'bar', ringtone: 'default', startDate: '2026-01-01T00:00:00Z', taskDays: ['mon', 'wed'], reminders: [], priority: 2, flexible: false });
+        expect(habit).toMatchObject({ id: 'h1', showMemo: true, type: 'build', color: '#6B46C1', goalPeriod: 'daily', goalValue: 1, unit: 'count', chartType: 'bar', ringtone: 'default', startDate: '2026-01-01T00:00:00Z', taskDays: ['mon', 'wed'], reminders: [], priority: 2, flexible: false });
         expect(habit.locationReminders).toEqual([{ name: 'Gym', latitude: 1, longitude: 2, radius: undefined, trigger: 'arrive' }]);
     });
 });

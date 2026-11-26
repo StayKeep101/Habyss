@@ -315,7 +315,7 @@ mod tests {
     fn every_to_local_key_is_a_real_column() {
         let all = json!({"id": "x", "priority": 1, "difficulty": 1, "flexible": true, "subtasks": "[]", "deadline": "2026-01-01", "section": "s"});
         for (t, out) in [(Table::Habits, habit_to_local(&all)), (Table::Completions, completion_to_local(&all)), (Table::Tasks, task_to_local(&all))] {
-            let cols = columns(&Connection::open_in_memory().and_then(|c| { c.execute_batch(include_str!("../../migrations/001_initial.sql"))?; c.execute_batch(include_str!("../../migrations/002_cloud.sql"))?; Ok(c) }).unwrap(), t).unwrap();
+            let cols = columns(&Store::open(std::path::Path::new(":memory:")).unwrap().conn, t).unwrap();
             for k in out.as_object().unwrap().keys() { assert!(cols.contains(k), "{} lacks column {k}", t.local()); }
         }
     }

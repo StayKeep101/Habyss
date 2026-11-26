@@ -120,6 +120,8 @@ pub fn habit_to_remote(row: &Value, user_id: &str) -> Value {
         "graph_style": pick(&GRAPH_STYLES, g(row, "graph_style"), Value::Null),
         "tracking_method": pick(&TRACKING, g(row, "tracking_method"), json!("boolean")),
         "reminder_offset": finite_v(g(row, "reminder_offset")),
+        // Held before or after an event or meal (mobile lib/habitAnchor.ts), as jsonb.
+        "anchor": anchor_of(g(row, "anchor")).unwrap_or(Value::Null),
         "reminder_message": g(row, "reminder_message"),
         "recurrence": g(row, "recurrence"),
         "location_reminders": parse_json(g(row, "location_reminders"), json!([])),
@@ -162,6 +164,7 @@ pub fn habit_to_local(row: &Value) -> Value {
         // The app shows done/not done or an amount; older server rows used finer names for amounts.
         "tracking_method": if g(row, "tracking_method") == "boolean" || !truthy(g(row, "tracking_method")) { "boolean" } else { "numeric" },
         "reminder_offset": g(row, "reminder_offset"),
+        "anchor": anchor_of(g(row, "anchor")).map_or(Value::Null, |a| json!(a.to_string())),
         "reminder_message": g(row, "reminder_message"),
         "recurrence": g(row, "recurrence"),
         "location_reminders": to_json_text(g(row, "location_reminders"), "[]"),
@@ -297,6 +300,16 @@ pub fn order_for_upload(rows: Vec<Value>) -> (Vec<Value>, Vec<Value>) {
     rows.into_iter().partition(|r| is_uuid(g(r, "id")))
 }
 
+
+/// Port of mobile `parseAnchor`: `{to, side, gap}` from jsonb or its text, or None when it is not a usable anchor.
+fn anchor_of(v: &Value) -> Option<Value> {
+    let raw = match v { Value::String(s) => serde_json::from_str::<Value>(s).ok()?, Value::Object(_) => v.clone(), _ => return None };
+    let to = raw.get("to")?.as_str()?.trim();
+    if to.is_empty() { return None; }
+    let side = if raw.get("side").and_then(Value::as_str) == Some("after") { "after" } else { "before" };
+    let gap = raw.get("gap").and_then(Value::as_f64).filter(|g| g.is_finite()).map_or(0.0, |g| g.round().clamp(0.0, 240.0));
+    Some(json!({"to": to.chars().take(80).collect::<String>(), "side": side, "gap": gap as i64}))
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -656,5 +669,16 @@ mod tests {
         for k in ["goal_id", "milestone_id"] { assert!(t.get(k).is_none(), "task {k}"); }
         let local = habit_to_local(&json!({"id": uid(1), "name": "Was a goal", "is_goal": true, "goal_id": uid(2), "updated_at": "t"}));
         for k in ["is_goal", "goal_id", "target_date", "goal_spec"] { assert!(local.get(k).is_none(), "local {k}"); }
+    }
+
+    #[test]
+    fn a_habit_keeps_what_it_is_held_to_both_ways() {
+        let anchor = json!({"to": "Accounting", "side": "before", "gap": 15});
+        let up = habit_to_remote(&json!({"id": HABIT, "name": "Study", "anchor": anchor.to_string()}), USER);
+        assert_eq!(up["anchor"], anchor);
+        assert!(habit_to_remote(&json!({"id": HABIT, "name": "Study", "anchor": "{oops"}), USER)["anchor"].is_null());
+        let down = habit_to_local(&json!({"id": HABIT, "name": "Study", "anchor": anchor, "updated_at": "t"}));
+        assert_eq!(serde_json::from_str::<Value>(down["anchor"].as_str().unwrap()).unwrap(), anchor);
+        assert!(habit_to_local(&json!({"id": HABIT, "name": "Study", "anchor": null, "updated_at": "t"}))["anchor"].is_null());
     }
 }
