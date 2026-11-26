@@ -14,6 +14,7 @@ import { hourMarks, makeAxis, type Axis } from './axis';
 import { clockLabel } from './countdown';
 import { usePlanPublisher } from './usePlanPublisher';
 import { PlannedTimeline } from './PlannedTimeline';
+import { PlannedList } from './PlannedList';
 import { rowToHabit } from '../shared/rows';
 import { measurementFor } from '../shared/habitMeasurement';
 import './menuPanel.css';
@@ -135,7 +136,7 @@ function Panel() {
       <div className={`mp-cols show-${show.toLowerCase()}`}>
         {show !== 'Tracked' && <Column label="Planned">{planner ?? (planView === 'Timeline'
           ? <PlannedTimeline day={day} axis={axis} now={date === todayKey ? now : null} amountFor={amountFor} onToggle={(item, on, value) => setDone(item, on, value)} />
-          : <PlannedSimple day={day} axis={axis} />)}</Column>}
+          : <PlannedList day={day} onToggle={(item, on, value) => setDone(item, on, value)} onSeeAll={() => void invoke('open_dashboard', { screen: 'Calendar' })} />)}</Column>}
         {show === 'Both' && <Hours axis={axis} />}
         {show !== 'Plan' && <Column label="Tracked"><div className="mp-tracked" style={{ height: axis.height }} /></Column>}
       </div>
@@ -148,10 +149,6 @@ function Column({ label, children }: { label: string; children: ReactNode }) {
 }
 function Hours({ axis }: { axis: Axis }) {
   return <div className="mp-hours" aria-hidden="true" style={{ height: axis.height }}>{hourMarks(axis).map(m => <span key={m} style={{ top: axis.y(m) }}>{clockLabel(m).replace(':00', '')}</span>)}</div>;
-}
-/** Placeholder until the phone's timeline view lands (plan Task 4). */
-function PlannedSimple({ day }: { day: Today; axis: Axis }) {
-  return <ul className="mp-simple">{day.items.filter(i => i.kind === 'habit' || i.kind === 'task').map(i => <li key={`${i.id}:${i.start}`}>{clockLabel(i.start)} {i.title}</li>)}</ul>;
 }
 function SignIn() {
   return <div className="mp-signin"><p>Sign in to see your habits and tasks.</p><Button variant="quiet" onClick={() => void invoke('open_dashboard', { screen: 'Settings' })}>Open Settings</Button></div>;
