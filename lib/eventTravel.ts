@@ -81,6 +81,14 @@ async function write(change: (next: Record<string, Travel>) => void): Promise<vo
     state = next;
     listeners.forEach(listener => listener());
     await AsyncStorage.setItem(KEY, JSON.stringify(next)).catch(() => undefined);
+    void (require('./dayInputsSync') as typeof import('./dayInputsSync')).markDayInputsDirty('habyss_event_travel');
+}
+
+/** The stored travel changed underneath (another device): read it again. */
+export async function reloadTravel(): Promise<void> {
+    loaded = false;
+    state = {};
+    await loadTravel();
 }
 
 /**

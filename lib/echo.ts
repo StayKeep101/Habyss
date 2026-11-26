@@ -64,6 +64,7 @@ export async function saveDayWindow(day: DayWindow): Promise<void> {
     if (!TIME.test(day.wake) || !TIME.test(day.sleep)) return;
     dayCache = { wake: day.wake, sleep: day.sleep };
     await AsyncStorage.setItem(DAY_KEY, JSON.stringify(dayCache));
+    void (require('./dayInputsSync') as typeof import('./dayInputsSync')).markDayInputsDirty('habyss_day_window');
     // The morning alarm rings at wake time, so it moves with it.
     void (require('./morningAlarm') as typeof import('./morningAlarm')).syncMorningAlarm().catch(() => undefined);
     // So does the Bedtime lock's night.

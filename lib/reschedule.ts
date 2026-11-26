@@ -38,4 +38,11 @@ export async function reschedule(day: string, id: string, minute: number): Promi
     state = { day, at: { ...(state.day === day ? state.at : {}), [id]: Math.max(0, Math.round(minute)) } };
     listeners.forEach(listener => listener());
     await AsyncStorage.setItem(KEY, JSON.stringify(state)).catch(() => undefined);
+    void (require('./dayInputsSync') as typeof import('./dayInputsSync')).markDayInputsDirty('habyss_reschedules');
+}
+
+/** The stored copy changed underneath (another device): read it again. */
+export async function reloadReschedules(): Promise<void> {
+    loaded = false;
+    await loadReschedules();
 }

@@ -181,6 +181,7 @@ function store(next: DayMemory) {
     if (JSON.stringify(next) === JSON.stringify(state)) return;
     state = next;
     void AsyncStorage.setItem(KEY, JSON.stringify(state)).catch(() => undefined);
+    void (require('./dayInputsSync') as typeof import('./dayInputsSync')).markDayInputsDirty('habyss_day_memory');
     if (changesAtOnce === 0) setTimeout(() => { changesAtOnce = 0; }, 0);
     changesAtOnce += 1;
     if (changesAtOnce > MAX_CHANGES_AT_ONCE) {
@@ -192,6 +193,13 @@ function store(next: DayMemory) {
         return;
     }
     listeners.forEach(listener => listener());
+}
+
+/** The stored copy changed underneath (another device): read it again. */
+export async function reloadMemory(): Promise<void> {
+    loaded = false;
+    loading = false;
+    await loadMemory();
 }
 
 /** Called with today's flow whenever it changes. Waits for the stored copy first. */

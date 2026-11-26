@@ -21,15 +21,16 @@ import { getSupabase } from './supabase';
  */
 
 /** Stores backed up whole. */
+// The day's settings (window, meals, travel, day memory) sync one by one in lib/dayInputsSync.ts instead.
 export const BACKED_UP_KEYS = [
     'app_settings', 'profile_nickname',
-    'habyss_accent_gradient', 'habyss_custom_colors', 'habyss_week_start', 'habyss_day_window',
+    'habyss_accent_gradient', 'habyss_custom_colors', 'habyss_week_start',
     'habyss_notification_prefs', 'habyss_roadmap_filter', 'habyss_voice_destination', 'habyss_plus_actions',
     'habyss_daily_focus_target', 'habyss_onboarding_complete', 'habyss_focus_blocking',
     'habyss_echo_config', 'habyss_echo_memory', 'habyss_echo_patterns', 'habyss_echo_experiments',
     'habyss_echo_written_lines', 'echo_recent_lines',
-    'habyss_check_ins', 'habyss_brain_dump', 'habyss_day_memory', 'habyss_sleep_log', 'habyss_activity_log',
-    'habyss_meals', 'habyss_meals_flexible', 'habyss_event_travel', 'habyss_goal_logs', 'habyss_moved_tasks', 'habyss_peak_targets',
+    'habyss_check_ins', 'habyss_brain_dump', 'habyss_sleep_log', 'habyss_activity_log',
+    'habyss_goal_logs', 'habyss_moved_tasks', 'habyss_peak_targets',
     'habyss_marks_kept', 'marks_local_total', 'habyss_climb_state',
     'habyss_day_celebrated', 'habyss_goal_celebrated', 'habyss_focus_celebrated',
     'focus_all_time_best', 'focus_week_start', 'focus_weekly_total', 'focus_total_sessions_week',

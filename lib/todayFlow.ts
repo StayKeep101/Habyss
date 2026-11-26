@@ -75,6 +75,12 @@ function keepPeak(peak: Peak) {
     peakKnown = { value: peak };
     const AsyncStorage = (require('@react-native-async-storage/async-storage') as typeof import('@react-native-async-storage/async-storage')).default;
     void AsyncStorage.setItem(PEAK_KEY, JSON.stringify(peak)).catch(() => undefined);
+    void (require('./dayInputsSync') as typeof import('./dayInputsSync')).markDayInputsDirty('habyss_flow_peak');
+}
+
+/** The stored peak changed underneath (another device): read it again next time. */
+export function forgetPeak(): void {
+    peakKnown = null;
 }
 
 /** Where each open habit and task starts and ends today, in minutes from midnight. */

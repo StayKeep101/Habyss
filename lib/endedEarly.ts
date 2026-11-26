@@ -40,4 +40,11 @@ export async function toggleEndedEarly(day: string, id: string, minute: number):
     state = { day, at };
     listeners.forEach(listener => listener());
     await AsyncStorage.setItem(KEY, JSON.stringify(state)).catch(() => undefined);
+    void (require('./dayInputsSync') as typeof import('./dayInputsSync')).markDayInputsDirty('habyss_ended_early');
+}
+
+/** The stored copy changed underneath (another device): read it again. */
+export async function reloadEndedEarly(): Promise<void> {
+    loaded = false;
+    await loadEndedEarly();
 }

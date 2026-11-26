@@ -57,10 +57,19 @@ export async function loadMeals(): Promise<Meals> {
     return state;
 }
 
+/** The stored meals changed underneath (another device): read them again. */
+export async function reloadMeals(): Promise<void> {
+    loaded = false;
+    flexLoaded = false;
+    await loadMeals();
+    await loadMealsFlexible();
+}
+
 export async function saveMeal(id: MealId, patch: Partial<Omit<Meal, 'id'>>): Promise<void> {
     state = normalizeMeals({ ...state, [id]: { ...state[id], ...patch } });
     listeners.forEach(listener => listener());
     await AsyncStorage.setItem(KEY, JSON.stringify(state)).catch(() => undefined);
+    void (require('./dayInputsSync') as typeof import('./dayInputsSync')).markDayInputsDirty('habyss_meals');
 }
 
 /** The meals that are on, as minutes from midnight. */
@@ -94,4 +103,5 @@ export async function setMealsFlexible(on: boolean): Promise<void> {
     flexLoaded = true;
     listeners.forEach(listener => listener());
     await AsyncStorage.setItem(FLEX_KEY, String(on)).catch(() => undefined);
+    void (require('./dayInputsSync') as typeof import('./dayInputsSync')).markDayInputsDirty('habyss_meals_flexible');
 }

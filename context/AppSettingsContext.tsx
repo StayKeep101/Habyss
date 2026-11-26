@@ -122,6 +122,8 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
     const saveSettings = async (newSettings: AppSettings) => {
         try {
             await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
+            // Auto-reschedule shapes the day, which the desktop builds too (only that field is synced).
+            (require('@/lib/dayInputsSync') as typeof import('@/lib/dayInputsSync')).markDayInputsDirty('app_settings');
         } catch (e) {
             console.error('Failed to save settings:', e);
         }

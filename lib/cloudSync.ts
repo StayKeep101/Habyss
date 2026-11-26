@@ -71,6 +71,8 @@ export interface SyncReport {
 }
 
 let running: Promise<SyncReport> | null = null;
+let watchingDays: string | null = null;
+let stopWatchingDays: (() => void) | null = null;
 
 /** Runs a sync, or joins the one already running rather than starting another. */
 export function syncNow(): Promise<SyncReport> {
@@ -122,6 +124,10 @@ async function runSync(): Promise<SyncReport> {
         await syncPersonal(userId).catch(error => console.warn('[Backup] personal stores:', error?.message));
         // The brain dump, thought by thought, so an AI assistant can add to it and read it.
         await (require('./brainDumpSync') as typeof import('./brainDumpSync')).syncBrainDump(sb, userId);
+        // The day's settings, one by one, so the desktop builds the same day; and from now on, its changes arrive live.
+        const days = require('./dayInputsSync') as typeof import('./dayInputsSync');
+        await days.syncDayInputs(sb, userId);
+        if (watchingDays !== userId) { stopWatchingDays?.(); stopWatchingDays = days.watchDayInputs(sb, userId); watchingDays = userId; }
 
         if (report.downloaded > 0) await announceChanges();
         return report;
