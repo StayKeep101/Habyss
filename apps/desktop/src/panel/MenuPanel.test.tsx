@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { CloudData, HabitRow, Snapshot, TaskRow } from '../types';
 
 const calls: [string, Record<string, unknown> | undefined][] = [];
@@ -34,7 +34,8 @@ describe('MenuPanel', () => {
 
   it('checks the current habit off from the Now card', async () => {
     render(<MenuPanel />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Mark Shower done' }));
+    const card = await screen.findByRole('region', { name: 'Now' });
+    fireEvent.click(await within(card).findByRole('button', { name: 'Mark Shower done' }));
     await waitFor(() => expect(called('cloud_set_completion')).toHaveLength(1));
     expect(called('cloud_set_completion')[0][1]).toMatchObject({ habitId: 'Shower', date: '2026-11-26', value: 1 });
   });

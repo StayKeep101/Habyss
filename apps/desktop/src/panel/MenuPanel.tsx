@@ -13,6 +13,9 @@ import { DayLine } from './DayLine';
 import { hourMarks, makeAxis, type Axis } from './axis';
 import { clockLabel } from './countdown';
 import { usePlanPublisher } from './usePlanPublisher';
+import { PlannedTimeline } from './PlannedTimeline';
+import { rowToHabit } from '../shared/rows';
+import { measurementFor } from '../shared/habitMeasurement';
 import './menuPanel.css';
 
 export type PlanView = 'Timeline' | 'List';
@@ -104,6 +107,13 @@ function Panel() {
   };
 
   const state = nowState(today, running, now);
+  /** An amount habit's unit and target ("30 pages"), so its check asks how much; null for done / not done. */
+  const amountFor = useCallback((item: TodayItem) => {
+    const row = cloud.data?.habits.find(h => h.id === item.id);
+    if (!row) return null;
+    const m = measurementFor(rowToHabit(row));
+    return m.kind === 'boolean' ? null : { unit: m.unit, target: m.target };
+  }, [cloud.data]);
   const axis = useMemo(() => makeAxis(day.window.wake, day.window.sleep), [day.window.wake, day.window.sleep]);
   const nowMinute = date === todayKey ? nowDate.getHours() * 60 + nowDate.getMinutes() : null;
   const planner = statusLoading || cloud.loading ? <p className="mp-empty">Loading…</p> : !signedIn ? <SignIn /> : null;
@@ -123,7 +133,9 @@ function Panel() {
       </div>
       {(error || (cloud.error && signedIn)) && <p role="alert" className="mp-error">{error || cloud.error}</p>}
       <div className={`mp-cols show-${show.toLowerCase()}`}>
-        {show !== 'Tracked' && <Column label="Planned">{planner ?? <PlannedSimple day={day} axis={axis} />}</Column>}
+        {show !== 'Tracked' && <Column label="Planned">{planner ?? (planView === 'Timeline'
+          ? <PlannedTimeline day={day} axis={axis} now={date === todayKey ? now : null} amountFor={amountFor} onToggle={(item, on, value) => setDone(item, on, value)} />
+          : <PlannedSimple day={day} axis={axis} />)}</Column>}
         {show === 'Both' && <Hours axis={axis} />}
         {show !== 'Plan' && <Column label="Tracked"><div className="mp-tracked" style={{ height: axis.height }} /></Column>}
       </div>

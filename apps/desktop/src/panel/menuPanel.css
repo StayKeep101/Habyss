@@ -59,3 +59,30 @@
 .mp-signin { padding: 16px 0; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 
 @media (prefers-reduced-motion: reduce) { .mp-ring-fill, .mp-check { transition: none; } }
+
+/* Planned: the phone's timeline */
+.mp-plan { position: relative; list-style: none; margin: 0; padding: 0; }
+.mp-plan::before { content: ''; position: absolute; left: 20px; top: 0; bottom: 0; width: 4px; border-radius: 2px; background: var(--line); }
+.mp-item { position: absolute; left: 0; right: 0; display: grid; grid-template-columns: 44px minmax(0, 1fr) 26px; gap: 10px; align-items: start; }
+.mp-icon { position: relative; z-index: 1; width: 44px; min-height: 44px; display: grid; place-items: center; border-radius: 22px; background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--line); }
+.mp-item.done .mp-icon { opacity: 0.75; }
+.mp-badge { position: absolute; right: -4px; bottom: -2px; width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); color: var(--text-muted); box-shadow: 0 0 0 2px var(--bg); }
+.mp-badge.link { right: auto; left: -4px; }
+.mp-nowchip { position: absolute; left: -6px; top: 30px; z-index: 2; padding: 2px 6px; border-radius: 9px; background: var(--success); color: var(--bg); font: 700 11px/14px var(--font-body); font-variant-numeric: tabular-nums; }
+.mp-item-text { min-width: 0; padding-top: 3px; display: flex; flex-direction: column; gap: 1px; }
+.mp-item-text small { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--text-muted); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
+.mp-now-word { color: var(--accent); font-weight: 500; }
+.mp-item-text strong { font: 500 15px/20px var(--font-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-item.done .mp-item-text { color: var(--text-subtle); }
+.mp-item.fixed .mp-item-text strong { color: var(--text-muted); }
+.mp-tag { font-size: 11px; font-weight: 500; }
+.mp-tag.urgent { color: var(--danger); }
+.mp-tag.urgent::before { content: '⚑ '; }
+.mp-tag.hard { color: var(--warning); }
+.mp-ring-check { width: 24px; height: 24px; margin-top: 10px; border: 2px solid; border-radius: 50%; background: transparent; cursor: pointer; transition: transform var(--dur-quick) var(--ease-enter), background var(--dur-quick) var(--ease-enter); }
+.mp-ring-check:hover { transform: scale(1.1); }
+.mp-ring-check:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mp-amount { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.mp-amount input { width: 72px; min-height: 26px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font: 400 13px var(--font-body); }
+.mp-amount span { color: var(--text-muted); font-size: 12px; }
+.mp-amount button { min-height: 26px; padding: 0 10px; border: 0; border-radius: 8px; background: var(--accent); color: var(--bg); font: 500 12px var(--font-body); cursor: pointer; }
