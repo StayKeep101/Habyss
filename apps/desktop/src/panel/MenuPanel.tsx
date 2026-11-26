@@ -3,7 +3,7 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { CloudData, CompletionRow, FocusSession, Snapshot } from '../types';
 import { dayRange, FOCUS_MINUTES } from '../analytics';
-import { buildDay, memoryAfter, type Today, type TodayItem } from '../today/today';
+import { buildDay, memoryAfter, type TodayItem } from '../today/today';
 import { useFastClock, useSharedCloud, WithCloud } from '../today/CloudProvider';
 import { localDateKey } from '../shared/habitSchedule';
 import { Button, Segmented } from '../ui';
