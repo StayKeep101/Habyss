@@ -16,6 +16,8 @@ type View = 'Scheduled' | 'Activity';
 type Loaded = { snap: Snapshot; range: Range; from: number };
 const RANGES: Range[] = ['Today', 'Week', 'Month', 'Year'];
 const VIEWS: View[] = ['Scheduled', 'Activity'];
+type LiveView = 'Apps' | 'Websites';
+const LIVE_VIEWS: LiveView[] = ['Apps', 'Websites'];
 const MIN = 60000;
 /** Wider ranges re-query on activity at most once a minute; Today stays live. */
 const WIDE_REFRESH_MS = MIN;
@@ -95,6 +97,7 @@ function DashboardBody({ onNavigate }: DashboardProps) {
   }, [signedIn]);
   const shownName = signedIn ? name : '';
 
+  const [liveView, setLiveView] = useState<LiveView>('Apps');
   const snap = loaded?.snap ?? null;
   const running: FocusSession | null = snap?.focus.find(f => f.end === null) ?? null;
   useFastClock(running !== null);
@@ -211,16 +214,25 @@ function DashboardBody({ onNavigate }: DashboardProps) {
             : <ol className="db-tl">{recent.map(i => <ActivityRow key={i.id} interval={i} day={day} />)}</ol>}
         </Card>
 
-        <Card className="db-live" title={<><span className={`db-live-dot${snap?.settings.tracking_enabled ? ' on' : ''}`} aria-hidden="true" />Activity</>} aside="(Live)">
-          {m.apps.length === 0 ? <Empty>No app activity yet.</Empty> : (
-            <ul className="db-apps">{m.apps.slice(0, 5).map(a => (
-              <li key={a.bundle}>
-                <span className="db-badge" aria-hidden="true">{a.name.slice(0, 1).toUpperCase() || '·'}</span>
-                <span className="db-app-name">{a.name}</span>
-                <Tag tone={classes[a.category] ?? 'neutral'} />
-                <span className="db-app-ms">{duration(a.ms)}</span>
-              </li>))}</ul>
-          )}
+        <Card className="db-live" title={<><span className={`db-live-dot${snap?.settings.tracking_enabled ? ' on' : ''}`} aria-hidden="true" />Activity</>} aside="(Live)" action={<Segmented options={LIVE_VIEWS} value={liveView} onChange={setLiveView} />}>
+          {liveView === 'Apps'
+            ? m.apps.length === 0 ? <Empty>No app activity yet.</Empty> : (
+              <ul className="db-apps">{m.apps.slice(0, 5).map(a => (
+                <li key={a.bundle}>
+                  <span className="db-badge" aria-hidden="true">{a.name.slice(0, 1).toUpperCase() || '·'}</span>
+                  <span className="db-app-name">{a.name}</span>
+                  <Tag tone={classes[a.category] ?? 'neutral'} />
+                  <span className="db-app-ms">{duration(a.ms)}</span>
+                </li>))}</ul>)
+            : m.sites.length === 0 ? <Empty>{snap?.settings.collect_titles ? 'No websites yet. Allow Habyss to read your browser when macOS asks.' : 'Turn on window titles in Settings to see websites.'}</Empty> : (
+              <ul className="db-apps">{m.sites.slice(0, 5).map(site => (
+                <li key={site.domain}>
+                  <span className="db-badge" aria-hidden="true">{site.domain.slice(0, 1).toUpperCase()}</span>
+                  <span className="db-app-name">{site.domain}</span>
+                  <Tag tone={classes[site.category] ?? 'neutral'} />
+                  <span className="db-app-ms">{duration(site.ms)}</span>
+                </li>))}</ul>)}
+          {m.active > 0 && <p className="db-input">Typing {duration(m.input.typing)} · Mouse {duration(m.input.pointer)}{m.input.meeting >= 60000 ? ` · Calls ${duration(m.input.meeting)}` : ''}{m.input.media >= 60000 ? ` · Video ${duration(m.input.media)}` : ''}</p>}
         </Card>
       </div>
     </div>

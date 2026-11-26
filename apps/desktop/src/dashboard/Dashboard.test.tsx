@@ -18,7 +18,7 @@ const NOW = new Date('2026-11-02T20:04:00');
 const SIGNED_IN = { state: 'idle', account: true, email: 'a@b.c', last_sync: null, pending: 0, refused: 0, error: null };
 const SIGNED_OUT = { ...SIGNED_IN, state: 'signed_out', account: false, email: null };
 const EMPTY: CloudData = { habits: [], completions: [], tasks: [], milestones: [] };
-const iv = (name: string, category: string, startMin: number, mins: number): Interval => { const start = NOW.getTime() - startMin * 60000; return { id: `${name}-${start}`, application_id: null, bundle_id: name, name, title: null, start, end: start + mins * 60000, state: 'active', category, availability: 'available', pid: 1, window_id: null }; };
+const iv = (name: string, category: string, startMin: number, mins: number): Interval => { const start = NOW.getTime() - startMin * 60000; return { id: `${name}-${start}`, application_id: null, bundle_id: name, name, title: null, start, end: start + mins * 60000, state: 'active', category, availability: 'available', pid: 1, window_id: null, url: null, domain: null, document: null, typing_ms: 0, pointer_ms: 0, meeting_ms: 0, media_ms: 0 }; };
 const snap = (over: Partial<Snapshot> = {}): Snapshot => ({ settings: { tracking_enabled: true } as Snapshot['settings'], intervals: [], applications: [], focus: [], trusted: true, current_app: null, current_since: null, state: 'active', error: null, widget_available: false, database_path: '', version: '', classifications: {}, ...over });
 const cached = (value: unknown) => ({ value, fetched_at: NOW.toISOString(), stale: false });
 const wire = (over: Record<string, (args?: Record<string, unknown>) => unknown> = {}) => {

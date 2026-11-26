@@ -54,10 +54,22 @@ export function metrics(intervals: Interval[], focus: FocusSession[], from: numb
     const declared = focus.reduce((n, f) => n + activeMs(f), 0);
     // Limitation: observed activity is not split by pause, so it is only capped at the session's declared focus.
     const observedFocus = focus.reduce((n, f) => n + Math.min(activeMs(f), active.reduce((s, i) => s + overlap(i.start, i.end, Math.max(from, f.start), Math.min(to, f.end ?? now)), 0)), 0);
+    // Websites: browser spans grouped by domain, each span's category already refined by its site.
+    const sites = new Map<string, { domain: string; category: string; ms: number; visits: number }>();
+    const input = { typing: 0, pointer: 0, meeting: 0, media: 0 };
+    for (const i of active) {
+        const share = i.end > i.start ? overlap(i.start, i.end, from, to) / (i.end - i.start) : 0;
+        input.typing += (i.typing_ms ?? 0) * share; input.pointer += (i.pointer_ms ?? 0) * share;
+        input.meeting += (i.meeting_ms ?? 0) * share; input.media += (i.media_ms ?? 0) * share;
+        if (!i.domain) continue;
+        const site = sites.get(i.domain) ?? { domain: i.domain, category: i.category, ms: 0, visits: 0 };
+        site.ms += overlap(i.start, i.end, from, to); site.visits++;
+        sites.set(i.domain, site);
+    }
     const categories = new Map<string, number>();
     for (const a of apps.values())
         categories.set(a.category, (categories.get(a.category) ?? 0) + a.ms);
-    return { active: sum('active'), idle: sum('idle'), declared, observedFocus, switches, longest, apps: [...apps.values()].sort((a, b) => b.ms - a.ms), categories: [...categories.entries()].sort((a, b) => b[1] - a[1]) };
+    return { active: sum('active'), idle: sum('idle'), declared, observedFocus, switches, longest, apps: [...apps.values()].sort((a, b) => b.ms - a.ms), categories: [...categories.entries()].sort((a, b) => b[1] - a[1]), sites: [...sites.values()].sort((a, b) => b.ms - a.ms), input };
 }
 export const colors = ['#6484ff', '#82cfdf', '#a08ae0', '#d68fa3', '#82b8a2', '#d6bd89'];
 export function appColor(name: string) { return colors[[...name].reduce((n, c) => n + c.charCodeAt(0), 0) % colors.length]; }

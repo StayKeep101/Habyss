@@ -1,4 +1,5 @@
 mod cloud;
+mod categorize;
 mod commands;
 pub mod engine;
 mod focus;

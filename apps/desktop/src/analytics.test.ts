@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { countdown, dayRange, focusElapsed, metrics, overlap } from './analytics';
 import type { Interval } from './types';
-const interval = (start: number, end: number, bundle: string, state = 'active'): Interval => ({ id: String(start), application_id: bundle, bundle_id: bundle, name: bundle, title: null, start, end, state, category: 'research', availability: 'app_only', pid: 1, window_id: null });
+const interval = (start: number, end: number, bundle: string, state = 'active'): Interval => ({ id: String(start), application_id: bundle, bundle_id: bundle, name: bundle, title: null, start, end, state, category: 'research', availability: 'app_only', pid: 1, window_id: null, url: null, domain: null, document: null, typing_ms: 0, pointer_ms: 0, meeting_ms: 0, media_ms: 0 });
 describe('observed analytics', () => {
     it('clips intervals to arbitrary boundaries', () => expect(overlap(0, 200, 50, 150)).toBe(100));
     it('distinguishes declared focus from observed active overlap', () => { const m = metrics([interval(0, 100, 'A'), interval(100, 200, 'B', 'idle')], [{ id: 'f', label: 'test', start: 0, end: 200, target_ms: 200, state: 'completed', paused_ms: 0, paused_at: null, item_id: null, item_kind: null }], 0, 200); expect(m.active).toBe(100); expect(m.idle).toBe(100); expect(m.declared).toBe(200); expect(m.observedFocus).toBe(100); });
@@ -39,4 +39,18 @@ describe('countdown', () => {
         // focus.rs title_formats: 25:00 at the start, 00:01 with 999 ms left.
         expect([countdown(1_500_000), countdown(1_499_999), countdown(999), countdown(0), countdown(-5)]).toEqual(['25:00', '25:00', '00:01', '00:00', '00:00']);
     });
+});
+
+describe('websites and input', () => {
+  it('groups browser time by domain and sums input signals within the range', () => {
+    const base = { application_id: null, bundle_id: 'com.google.Chrome', name: 'Chrome', title: null, state: 'active', availability: 'available', pid: 1, window_id: null, document: null, meeting_ms: 0, media_ms: 0 };
+    const rows = [
+      { ...base, id: 'a', start: 0, end: 60000, category: 'entertainment', url: 'https://youtube.com/watch', domain: 'youtube.com', typing_ms: 0, pointer_ms: 60000 },
+      { ...base, id: 'b', start: 60000, end: 180000, category: 'development', url: 'https://github.com/', domain: 'github.com', typing_ms: 120000, pointer_ms: 0 },
+      { ...base, id: 'c', start: 180000, end: 240000, category: 'entertainment', url: 'https://youtube.com/x', domain: 'youtube.com', typing_ms: 0, pointer_ms: 0 },
+    ];
+    const m = metrics(rows, [], 0, 120000, 120000);
+    expect(m.sites.map(s => [s.domain, s.ms])).toEqual([['youtube.com', 60000], ['github.com', 60000]]);
+    expect(m.input).toEqual({ typing: 60000, pointer: 60000, meeting: 0, media: 0 });
+  });
 });

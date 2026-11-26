@@ -1,11 +1,67 @@
 import AppKit
 import ApplicationServices
+import CoreAudio
 import CoreGraphics
+import IOKit.pwr_mgt
 import WidgetKit
 
 typealias Sink = @convention(c) (UnsafePointer<CChar>?) -> Void
 private var collector: Collector?
 private var lastWidgetReload: TimeInterval = 0
+
+// Browsers whose front tab URL can be read over Apple Events (each asks once for Automation consent).
+private let browserScripts: [String: String] = [
+    "com.apple.Safari": "tell application id \"com.apple.Safari\" to return URL of front document",
+    "com.apple.SafariTechnologyPreview": "tell application id \"com.apple.SafariTechnologyPreview\" to return URL of front document",
+    "com.google.Chrome": "tell application id \"com.google.Chrome\" to return URL of active tab of front window",
+    "com.google.Chrome.beta": "tell application id \"com.google.Chrome.beta\" to return URL of active tab of front window",
+    "com.brave.Browser": "tell application id \"com.brave.Browser\" to return URL of active tab of front window",
+    "com.microsoft.edgemac": "tell application id \"com.microsoft.edgemac\" to return URL of active tab of front window",
+    "com.vivaldi.Vivaldi": "tell application id \"com.vivaldi.Vivaldi\" to return URL of active tab of front window",
+    "com.operasoftware.Opera": "tell application id \"com.operasoftware.Opera\" to return URL of active tab of front window",
+    "company.thebrowser.Browser": "tell application id \"company.thebrowser.Browser\" to return URL of active tab of front window",
+    "org.chromium.Chromium": "tell application id \"org.chromium.Chromium\" to return URL of active tab of front window",
+]
+/// Reads browser URLs off the main thread; `sample()` only ever reads the cache, so a slow browser never stalls the 1 s tick.
+private final class BrowserURLReader {
+    private let queue = DispatchQueue(label: "habyss.browser-url", qos: .utility)
+    private let lock = NSLock()
+    private var cache: (bundle: String, title: String?, url: String?, at: TimeInterval)?
+    private var inFlight = false
+    func url(bundle: String, title: String?) -> String? {
+        guard let source = browserScripts[bundle] else { return nil }
+        let now = ProcessInfo.processInfo.systemUptime
+        lock.lock(); let cached = cache; let busy = inFlight; lock.unlock()
+        let fresh = cached.map { $0.bundle == bundle && $0.title == title && now - $0.at < 3 } ?? false
+        if !fresh && !busy {
+            lock.lock(); inFlight = true; lock.unlock()
+            queue.async { [weak self] in
+                var error: NSDictionary?
+                let value = NSAppleScript(source: source)?.executeAndReturnError(&error).stringValue
+                self?.lock.lock(); self?.cache = (bundle, title, value.flatMap { $0.isEmpty ? nil : $0 }, ProcessInfo.processInfo.systemUptime); self?.inFlight = false; self?.lock.unlock()
+            }
+        }
+        // A cached URL from another app or another title is never attributed to this sample.
+        guard let cached, cached.bundle == bundle, cached.title == title else { return nil }
+        return cached.url
+    }
+}
+/// True while any process captures audio input (a call, a recording). CoreAudio reports this without a microphone permission.
+private func microphoneInUse() -> Bool {
+    var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultInputDevice, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+    var device = AudioDeviceID(0); var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+    guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device) == noErr, device != 0 else { return false }
+    address.mSelector = kAudioDevicePropertyDeviceIsRunningSomewhere
+    var running = UInt32(0); size = UInt32(MemoryLayout<UInt32>.size)
+    return AudioObjectGetPropertyData(device, &address, 0, nil, &size, &running) == noErr && running != 0
+}
+/// True when `pid` holds a display-sleep assertion, which video players and browsers do while playing video.
+private func holdsDisplayAssertion(_ pid: pid_t) -> Bool {
+    var raw: Unmanaged<CFDictionary>?
+    guard IOPMCopyAssertionsByProcess(&raw) == kIOReturnSuccess, let dict = raw?.takeRetainedValue() as? [NSNumber: [[String: Any]]] else { return false }
+    return dict[NSNumber(value: pid)]?.contains { ($0["AssertType"] as? String).map { $0 == "PreventUserIdleDisplaySleep" || $0 == "NoDisplaySleepAssertion" } ?? false } ?? false
+}
+private func secondsSince(_ types: [CGEventType]) -> Double { types.map { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) }.min() ?? 31536000 }
 private final class Collector {
     let sink: Sink
     var timer: Timer?
@@ -17,6 +73,9 @@ private final class Collector {
     var ax: AXObserver?
     var observedPID: pid_t = 0
     var focusedWindow: AXUIElement?
+    let browser = BrowserURLReader()
+    var micTick = 0
+    var mic = false
     init(_ sink: @escaping Sink) {
         self.sink = sink
         let center = NSWorkspace.shared.notificationCenter
@@ -62,6 +121,7 @@ private final class Collector {
         let trusted = AXIsProcessTrusted()
         var title: String?
         var windowID: String?
+        var document: String?
         if let app { watch(app.processIdentifier) }
         if titles && trusted, let app {
             let element = AXUIElementCreateApplication(app.processIdentifier)
@@ -79,6 +139,8 @@ private final class Collector {
                 if AXUIElementCopyAttributeValue(axWindow, kAXTitleAttribute as CFString, &value) == .success { title = value as? String }
                 value = nil
                 if AXUIElementCopyAttributeValue(axWindow, kAXIdentifierAttribute as CFString, &value) == .success { windowID = value as? String }
+                value = nil
+                if AXUIElementCopyAttributeValue(axWindow, kAXDocumentAttribute as CFString, &value) == .success { document = value as? String }
             }
         }
         let session = CGSessionCopyCurrentDictionary() as? [String: Any]
@@ -88,6 +150,15 @@ private final class Collector {
         payload["bundle"] = app?.bundleIdentifier ?? app.map { "process:\($0.processIdentifier)" }
         payload["title"] = title
         payload["window_id"] = windowID
+        payload["document"] = document
+        // URLs follow the same opt-in as titles: nothing beyond the app name leaves the window unless the user enabled it.
+        if titles, state == "active", let bundle = app?.bundleIdentifier { payload["url"] = browser.url(bundle: bundle, title: title) }
+        let clamp = { (v: Double) in Int64(min(v, 31536000) * 1000) }
+        payload["key_idle_ms"] = clamp(secondsSince([.keyDown, .flagsChanged]))
+        payload["pointer_idle_ms"] = clamp(secondsSince([.mouseMoved, .leftMouseDown, .rightMouseDown, .scrollWheel, .leftMouseDragged]))
+        micTick += 1; if micTick % 2 == 1 { mic = microphoneInUse() }
+        payload["mic"] = mic
+        payload["media"] = app.map { holdsDisplayAssertion($0.processIdentifier) } ?? false
         if let data = try? JSONSerialization.data(withJSONObject: payload), let string = String(data: data, encoding: .utf8) { string.withCString { sink($0) } }
     }
 }

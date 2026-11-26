@@ -9,7 +9,7 @@ fn main() {
         println!("cargo:rustc-link-lib=static=HabyssNative");
         println!("cargo:rustc-link-search=native=/usr/lib/swift");
         println!("cargo:rustc-link-arg=-Wl,-rpath,/usr/lib/swift");
-        for framework in ["AppKit", "ApplicationServices", "CoreGraphics", "Foundation", "WidgetKit"] { println!("cargo:rustc-link-lib=framework={framework}"); }
+        for framework in ["AppKit", "ApplicationServices", "CoreGraphics", "CoreAudio", "IOKit", "Foundation", "WidgetKit"] { println!("cargo:rustc-link-lib=framework={framework}"); }
         println!("cargo:rerun-if-changed=native/Collector.swift");
     }
     println!("cargo:rerun-if-changed=.env");

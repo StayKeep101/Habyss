@@ -8,14 +8,35 @@ pub struct Context {
     pub window_id: Option<String>,
     pub availability: String,
     pub state: String,
+    /// Front browser tab, without query or fragment. A navigation is a context change, like a title change.
+    pub url: Option<String>,
+    /// File path of the focused window's document (AXDocument), when the app exposes one.
+    pub document: Option<String>,
 }
 impl Context {
-    pub fn inactive(state: &str) -> Self { Self { app: None, name: String::new(), title: None, pid: 0, window_id: None, availability: "unavailable".into(), state: state.into() } }
+    pub fn inactive(state: &str) -> Self { Self { app: None, name: String::new(), title: None, pid: 0, window_id: None, availability: "unavailable".into(), state: state.into(), url: None, document: None } }
 }
+impl Default for Context { fn default() -> Self { Self::inactive("unknown") } }
+/// What the user was doing during the tick that ended at a sample. Counts only, never content.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Signals { pub typing: bool, pub pointer: bool, pub meeting: bool, pub media: bool }
 #[derive(Clone, Debug)]
-pub struct Sample { pub utc: i64, pub mono: i64, pub idle_ms: i64, pub context: Context }
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Span { pub start: i64, pub end: i64, pub context: Context }
+pub struct Sample { pub utc: i64, pub mono: i64, pub idle_ms: i64, pub context: Context, pub signals: Signals }
+/// Milliseconds of a span during which each signal was seen.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Activity { pub typing_ms: i64, pub pointer_ms: i64, pub meeting_ms: i64, pub media_ms: i64 }
+impl Activity {
+    fn credit(&mut self, signals: Signals, ms: i64) {
+        if ms <= 0 { return; }
+        if signals.typing { self.typing_ms += ms; }
+        if signals.pointer { self.pointer_ms += ms; }
+        if signals.meeting { self.meeting_ms += ms; }
+        if signals.media { self.media_ms += ms; }
+    }
+}
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Span { pub start: i64, pub end: i64, pub context: Context, pub activity: Activity }
+impl Span { fn at(utc: i64, context: Context) -> Self { Self { start: utc, end: utc, context, activity: Activity::default() } } }
 #[derive(Clone, Debug, Default)]
 pub struct Change { pub completed: Vec<Span>, pub trim_after: Option<i64> }
 #[derive(Clone, Debug, Default)]
@@ -27,7 +48,7 @@ impl Engine {
             self.observed_start = Some(sample.utc);
             if !enabled { sample.context = Context::inactive("paused"); }
             else if sample.context.state == "active" && sample.idle_ms >= threshold_ms { sample.context = Context::inactive("idle"); }
-            self.current = Some(Span { start: sample.utc, end: sample.utc, context: sample.context.clone() });
+            self.current = Some(Span::at(sample.utc, sample.context.clone()));
             self.last = Some(sample); return out;
         };
         // Duplicate/out-of-order monotonic events cannot create time.
@@ -42,21 +63,25 @@ impl Engine {
             self.observed_start = Some(sample.utc);
         }
         if self.current.as_ref().is_some_and(|s| s.context.state != "active" && s.context.state != "idle") && sample.context.state == "active" { self.observed_start = Some(sample.utc); }
+        // A call or a playing video is engagement without input: it never turns idle, and it bounds how far idle can backdate.
+        let passive = sample.signals.meeting || sample.signals.media;
+        if passive && sample.context.state == "active" { self.observed_start = Some(sample.utc); }
         if !enabled { sample.context = Context::inactive("paused"); }
-        else if sample.context.state == "active" && sample.idle_ms >= threshold_ms {
+        else if sample.context.state == "active" && sample.idle_ms >= threshold_ms && !passive {
             sample.context = Context::inactive("idle");
             if self.current.as_ref().is_some_and(|s| s.context.state == "active") {
                 let cutoff = (sample.utc - sample.idle_ms.max(0)).max(self.observed_start.unwrap_or(sample.utc));
                 out.trim_after = Some(cutoff);
                 if let Some(mut span) = self.current.take() { span.end = cutoff.min(sample.utc); if span.end > span.start { out.completed.push(span); } }
-                self.current = Some(Span { start: cutoff, end: sample.utc, context: sample.context.clone() });
+                self.current = Some(Span { start: cutoff, end: sample.utc, context: sample.context.clone(), activity: Activity::default() });
             }
         }
         if let Some(mut span) = self.current.take() {
+            if span.context.state == "active" { span.activity.credit(sample.signals, sample.utc - span.end); }
             span.end = sample.utc;
             if span.context == sample.context { self.current = Some(span); }
-            else { if span.end > span.start { out.completed.push(span); } self.current = Some(Span { start: sample.utc, end: sample.utc, context: sample.context.clone() }); }
-        } else { self.current = Some(Span { start: sample.utc, end: sample.utc, context: sample.context.clone() }); }
+            else { if span.end > span.start { out.completed.push(span); } self.current = Some(Span::at(sample.utc, sample.context.clone())); }
+        } else { self.current = Some(Span::at(sample.utc, sample.context.clone())); }
         self.last = Some(sample);
         out
     }
@@ -66,7 +91,7 @@ pub fn overlap(start: i64, end: i64, from: i64, to: i64) -> i64 { (end.min(to) -
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn s(t: i64, name: &str) -> Sample { Sample { utc: 1_000_000 + t, mono: t + 1, idle_ms: 0, context: Context { app: Some(name.into()), name: name.into(), title: None, pid: 1, window_id: None, availability: "app_only".into(), state: "active".into() } } }
+    fn s(t: i64, name: &str) -> Sample { Sample { utc: 1_000_000 + t, mono: t + 1, idle_ms: 0, context: Context { app: Some(name.into()), name: name.into(), title: None, pid: 1, window_id: None, availability: "app_only".into(), state: "active".into(), url: None, document: None }, signals: Signals::default() } }
     #[test] fn switches_and_duplicates() { let mut e = Engine::default(); e.observe(s(0,"A"),true,120000); assert_eq!(e.observe(s(1000,"B"),true,120000).completed[0].end,1_001_000); assert!(e.observe(s(1000,"B"),true,120000).completed.is_empty()); assert_eq!(e.observe(s(1100,"C"),true,120000).completed[0].start,1_001_000); }
     #[test] fn title_changes_and_missing_permission() { let mut e=Engine::default(); e.observe(s(0,"A"),true,120000); let mut v=s(1000,"A"); v.context.title=Some("Document".into()); assert_eq!(e.observe(v,true,120000).completed.len(),1); assert_eq!(e.observe(s(2000,"A"),true,120000).completed.len(),1); }
     #[test] fn idle_retroactive_across_switches() { let mut e=Engine::default(); for t in (0..120000).step_by(1000) { let mut v=s(t,if t<60000 {"A"} else {"B"}); v.idle_ms=t; e.observe(v,true,120000); } let mut v=s(120000,"B"); v.idle_ms=120000; let out=e.observe(v,true,120000); assert_eq!(out.trim_after,Some(1_000_000)); assert_eq!(e.current.unwrap().context.state,"idle"); }
@@ -110,4 +135,30 @@ mod tests {
         assert_eq!(overlap(c.start,c.end,86_400_000,172_800_000),1000);
     }
 
+
+    #[test]
+    fn navigation_is_a_context_change() {
+        let mut e = Engine::default(); let mut v = s(0, "Chrome"); v.context.url = Some("https://a.com/".into()); e.observe(v, true, 120000);
+        let mut v = s(1000, "Chrome"); v.context.url = Some("https://b.com/".into());
+        let out = e.observe(v, true, 120000);
+        assert_eq!(out.completed[0].context.url.as_deref(), Some("https://a.com/"));
+        assert_eq!(e.current.unwrap().context.url.as_deref(), Some("https://b.com/"));
+    }
+    #[test]
+    fn input_signals_are_credited_per_tick() {
+        let mut e = Engine::default(); e.observe(s(0, "A"), true, 120000);
+        let mut v = s(1000, "A"); v.signals.typing = true; e.observe(v, true, 120000);
+        let mut v = s(2000, "A"); v.signals.pointer = true; v.signals.typing = true; e.observe(v, true, 120000);
+        let a = e.current.unwrap().activity; assert_eq!((a.typing_ms, a.pointer_ms), (2000, 1000));
+    }
+    #[test]
+    fn calls_and_video_never_turn_idle_or_get_trimmed() {
+        let mut e = Engine::default();
+        for t in (0..300000).step_by(1000) { let mut v = s(t, "Zoom"); v.idle_ms = t; v.signals.meeting = true; assert!(e.observe(v, true, 120000).trim_after.is_none()); }
+        assert_eq!(e.current.as_ref().unwrap().context.state, "active");
+        assert_eq!(e.current.as_ref().unwrap().activity.meeting_ms, 299000);
+        // The call ends; idle may only backdate to the last passive tick.
+        let mut v = s(300000, "Zoom"); v.idle_ms = 300000;
+        assert_eq!(e.observe(v, true, 120000).trim_after, Some(1_299_000));
+    }
 }

@@ -233,7 +233,7 @@ mod tests {
         let mut s = store();
         set_account(&s.conn, "u1", Some("a@b.c")).unwrap();
         save_local(&s.conn, Table::Habits, json!({"id": "h1", "name": "Run"}), "u1", "2026-01-01T00:00:00.000Z").unwrap();
-        s.commit(&Change::default(), Some(&Span { start: 100, end: 200, context: Context::inactive("idle") }), 200).unwrap();
+        s.commit(&Change::default(), Some(&Span { start: 100, end: 200, context: Context::inactive("idle"), ..Default::default() }), 200).unwrap();
         set_account(&s.conn, "u1", None).unwrap();
         assert_eq!(select(&s.conn, Table::Habits, "").unwrap().len(), 1);
         set_account(&s.conn, "u2", None).unwrap();

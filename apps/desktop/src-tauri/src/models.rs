@@ -18,9 +18,15 @@ impl Settings {
     }
 }
 #[derive(Clone, Debug, Deserialize)]
-pub struct NativeSample { pub utc: i64, pub mono: i64, pub idle_ms: i64, pub bundle: Option<String>, pub name: String, pub title: Option<String>, pub pid: i32, pub window_id: Option<String>, pub state: String, pub trusted: bool, pub availability: String }
+pub struct NativeSample { pub utc: i64, pub mono: i64, pub idle_ms: i64, pub bundle: Option<String>, pub name: String, pub title: Option<String>, pub pid: i32, pub window_id: Option<String>, pub state: String, pub trusted: bool, pub availability: String,
+    #[serde(default)] pub url: Option<String>, #[serde(default)] pub document: Option<String>,
+    #[serde(default = "never")] pub key_idle_ms: i64, #[serde(default = "never")] pub pointer_idle_ms: i64,
+    #[serde(default)] pub mic: bool, #[serde(default)] pub media: bool }
+fn never() -> i64 { i64::MAX }
 #[derive(Serialize)]
-pub struct Interval { pub id: String, pub application_id: Option<String>, pub name: String, pub bundle_id: Option<String>, pub title: Option<String>, pub start: i64, pub end: i64, pub state: String, pub category: String, pub availability: String, pub pid: i32, pub window_id: Option<String> }
+pub struct Interval { pub id: String, pub application_id: Option<String>, pub name: String, pub bundle_id: Option<String>, pub title: Option<String>, pub start: i64, pub end: i64, pub state: String, pub category: String, pub availability: String, pub pid: i32, pub window_id: Option<String>,
+    pub url: Option<String>, pub domain: Option<String>, pub document: Option<String>,
+    pub typing_ms: i64, pub pointer_ms: i64, pub meeting_ms: i64, pub media_ms: i64 }
 #[derive(Serialize)]
 pub struct Application { pub id: String, pub bundle_id: String, pub name: String, pub category: String, pub first_seen: i64, pub last_seen: i64 }
 #[derive(Clone, Debug, Serialize)]

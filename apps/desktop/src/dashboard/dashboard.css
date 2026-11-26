@@ -98,3 +98,4 @@
   .db-title { font-size: 32px; }
   .db-hero-art { width: 70%; opacity: 0.7; }
 }
+.db-input { margin: 12px 0 0; font: 400 12px/1.4 var(--font-body); color: var(--text-muted); font-variant-numeric: tabular-nums; }

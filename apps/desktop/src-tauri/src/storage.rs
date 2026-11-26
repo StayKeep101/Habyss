@@ -18,6 +18,7 @@ impl Store {
         conn.execute_batch(include_str!("../migrations/001_initial.sql"))?;
         conn.execute_batch(include_str!("../migrations/002_cloud.sql"))?;
         conn.execute_batch(include_str!("../migrations/003_focus.sql"))?;
+        conn.execute_batch(include_str!("../migrations/005_depth.sql"))?;
         // focus_sessions keeps the seven columns of 001, so older builds that open this file (user_version 1) can still insert
         // positionally; the extras live in focus_session_extras (004). A file that 003 gave the extra columns has them copied
         // across and dropped, all in one transaction.
@@ -42,8 +43,9 @@ impl Store {
     pub fn save_settings(&self, value: &Settings) -> Result<()> { self.conn.execute("INSERT INTO settings VALUES(1,?1) ON CONFLICT(id) DO UPDATE SET json=excluded.json",[serde_json::to_string(value)?])?; Ok(()) }
     pub fn commit(&mut self, change: &Change, current: Option<&Span>, observed: i64) -> Result<()> {
         let tx = self.conn.transaction()?;
-        if let Some(id) = &self.current_id { tx.execute("DELETE FROM intervals WHERE id=?1",[id])?; }
+        if let Some(id) = &self.current_id { tx.execute("DELETE FROM interval_details WHERE interval_id=?1",[id])?; tx.execute("DELETE FROM intervals WHERE id=?1",[id])?; }
         if let Some(cut) = change.trim_after {
+            tx.execute("DELETE FROM interval_details WHERE interval_id IN (SELECT id FROM intervals WHERE state='active' AND started_at>=?1)",[cut])?;
             tx.execute("DELETE FROM intervals WHERE state='active' AND started_at>=?1",[cut])?;
             tx.execute("UPDATE intervals SET ended_at=?1,updated_at=?2 WHERE state='active' AND ended_at>?1 AND started_at<?1",params![cut,observed])?;
         }
@@ -56,10 +58,14 @@ impl Store {
         Ok(())
     }
     pub fn intervals(&self, from: i64, to: i64) -> Result<Vec<Interval>> {
-        let mut q=self.conn.prepare("SELECT i.id,i.application_id,COALESCE(a.display_name,''),a.bundle_id,i.window_title,i.started_at,i.ended_at,i.state,COALESCE(a.category_override,a.category,'uncategorized'),i.availability,COALESCE(i.pid,0),i.window_id FROM intervals i LEFT JOIN applications a ON a.id=i.application_id WHERE i.ended_at>?1 AND i.started_at<?2 ORDER BY i.started_at")?;
-        let rows=q.query_map(params![from,to],|r|Ok(Interval { id:r.get(0)?, application_id:r.get(1)?,name:r.get(2)?,bundle_id:r.get(3)?,title:r.get(4)?,start:r.get(5)?,end:r.get(6)?,state:r.get(7)?,category:r.get(8)?,availability:r.get(9)?,pid:r.get(10)?,window_id:r.get(11)? }))?;
+        let mut q=self.conn.prepare("SELECT i.id,i.application_id,COALESCE(a.display_name,''),a.bundle_id,i.window_title,i.started_at,i.ended_at,i.state,COALESCE(a.category_override,a.category,'uncategorized'),i.availability,COALESCE(i.pid,0),i.window_id,d.url,d.domain,d.document_path,COALESCE(d.typing_ms,0),COALESCE(d.pointer_ms,0),COALESCE(d.meeting_ms,0),COALESCE(d.media_ms,0),a.category_override IS NOT NULL FROM intervals i LEFT JOIN applications a ON a.id=i.application_id LEFT JOIN interval_details d ON d.interval_id=i.id WHERE i.ended_at>?1 AND i.started_at<?2 ORDER BY i.started_at")?;
+        let rows=q.query_map(params![from,to],|r|{
+            let mut i=Interval { id:r.get(0)?, application_id:r.get(1)?,name:r.get(2)?,bundle_id:r.get(3)?,title:r.get(4)?,start:r.get(5)?,end:r.get(6)?,state:r.get(7)?,category:r.get(8)?,availability:r.get(9)?,pid:r.get(10)?,window_id:r.get(11)?,url:r.get(12)?,domain:r.get(13)?,document:r.get(14)?,typing_ms:r.get(15)?,pointer_ms:r.get(16)?,meeting_ms:r.get(17)?,media_ms:r.get(18)? };
+            refine_category(&mut i,r.get(19)?); Ok(i)
+        })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
     }
+    pub fn category_overridden(&self,bundle:Option<&str>)->Result<bool> { let Some(b)=bundle else { return Ok(false) }; Ok(self.conn.query_row("SELECT category_override IS NOT NULL FROM applications WHERE bundle_id=?1",[b],|r|r.get::<_,bool>(0)).optional()?.unwrap_or(false)) }
     pub fn applications(&self) -> Result<Vec<Application>> { let mut q=self.conn.prepare("SELECT id,bundle_id,display_name,COALESCE(category_override,category),first_seen,last_seen FROM applications ORDER BY last_seen DESC")?; let rows=q.query_map([],|r|Ok(Application{id:r.get(0)?,bundle_id:r.get(1)?,name:r.get(2)?,category:r.get(3)?,first_seen:r.get(4)?,last_seen:r.get(5)?}))?; Ok(rows.collect::<rusqlite::Result<_>>()?) }
     fn focus_where(&self,clause:&str)->Result<Vec<FocusSession>> { let mut q=self.conn.prepare(&format!("SELECT f.id,f.label,f.started_at,f.ended_at,f.target_ms,f.state,COALESCE(e.paused_ms,0),e.paused_at,e.item_id,e.item_kind FROM focus_sessions f LEFT JOIN focus_session_extras e ON e.session_id=f.id {clause} ORDER BY f.started_at DESC"))?; let rows=q.query_map([],|r|Ok(FocusSession{id:r.get(0)?,label:r.get(1)?,start:r.get(2)?,end:r.get(3)?,target_ms:r.get(4)?,state:r.get(5)?,paused_ms:r.get(6)?,paused_at:r.get(7)?,item_id:r.get(8)?,item_kind:r.get(9)?}))?; Ok(rows.collect::<rusqlite::Result<_>>()?) }
     pub fn focus(&self) -> Result<Vec<FocusSession>> { self.focus_where("") }
@@ -83,24 +89,37 @@ impl Store {
     }
     /// Completes a running (not paused) session whose target is reached, ending it at start + target + pauses.
     pub fn complete_due_focus(&self,now:i64)->Result<bool> { Ok(self.conn.execute("UPDATE focus_sessions SET ended_at=started_at+target_ms+COALESCE((SELECT paused_ms FROM focus_session_extras WHERE session_id=focus_sessions.id),0),state='completed',updated_at=?1 WHERE ended_at IS NULL AND NOT EXISTS(SELECT 1 FROM focus_session_extras WHERE session_id=focus_sessions.id AND paused_at IS NOT NULL) AND started_at+target_ms+COALESCE((SELECT paused_ms FROM focus_session_extras WHERE session_id=focus_sessions.id),0)<=?1",[now])?>0) }
-    pub fn erase(&mut self)->Result<()> { let tx=self.conn.transaction()?; tx.execute_batch("DELETE FROM intervals; DELETE FROM applications; DELETE FROM focus_session_extras; DELETE FROM focus_sessions; DELETE FROM checkpoint;")?; tx.commit()?; self.current_id=None; self.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE); VACUUM;")?; Ok(()) }
+    pub fn erase(&mut self)->Result<()> { let tx=self.conn.transaction()?; tx.execute_batch("DELETE FROM interval_details; DELETE FROM intervals; DELETE FROM applications; DELETE FROM focus_session_extras; DELETE FROM focus_sessions; DELETE FROM checkpoint;")?; tx.commit()?; self.current_id=None; self.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE); VACUUM;")?; Ok(()) }
     /// Old sessions take their extras with them (ON DELETE CASCADE).
-    pub fn retention(&self, cutoff:i64)->Result<()> { self.conn.execute("DELETE FROM intervals WHERE ended_at<?1",[cutoff])?; self.conn.execute("DELETE FROM focus_sessions WHERE ended_at<?1",[cutoff])?; Ok(()) }
+    pub fn retention(&self, cutoff:i64)->Result<()> { self.conn.execute("DELETE FROM interval_details WHERE interval_id IN (SELECT id FROM intervals WHERE ended_at<?1)",[cutoff])?; self.conn.execute("DELETE FROM intervals WHERE ended_at<?1",[cutoff])?; self.conn.execute("DELETE FROM focus_sessions WHERE ended_at<?1",[cutoff])?; Ok(()) }
 }
 fn insert_span(tx:&Transaction<'_>,id:&str,span:&Span,now:i64)->Result<()> {
     if span.end<=span.start { return Ok(()); }
     let c=&span.context;
     let app_id=if let Some(bundle)=&c.app {
-        tx.execute("INSERT INTO applications(id,bundle_id,display_name,first_seen,last_seen) VALUES(?1,?2,?3,?4,?5) ON CONFLICT(bundle_id) DO UPDATE SET display_name=excluded.display_name,last_seen=MAX(last_seen,excluded.last_seen)",params![Uuid::new_v4().to_string(),bundle,c.name,span.start,span.end])?;
+        // A built-in category fills in only while the app is still uncategorized; the user's override is a separate column.
+        tx.execute("INSERT INTO applications(id,bundle_id,display_name,first_seen,last_seen,category) VALUES(?1,?2,?3,?4,?5,?6) ON CONFLICT(bundle_id) DO UPDATE SET display_name=excluded.display_name,last_seen=MAX(last_seen,excluded.last_seen),category=CASE WHEN category='uncategorized' THEN excluded.category ELSE category END",params![Uuid::new_v4().to_string(),bundle,c.name,span.start,span.end,crate::categorize::app_category(bundle)])?;
         Some(tx.query_row("SELECT id FROM applications WHERE bundle_id=?1",[bundle],|r|r.get::<_,String>(0))?)
     } else { None };
     tx.execute("INSERT INTO intervals(id,application_id,window_title,started_at,ended_at,state,source,availability,pid,window_id,updated_at) VALUES(?1,?2,?3,?4,?5,?6,'macos-native',?7,?8,?9,?10)",params![id,app_id,c.title,span.start,span.end,c.state,c.availability,c.pid,c.window_id,now])?;
+    let a=&span.activity;
+    if c.url.is_some() || c.document.is_some() || *a!=Default::default() {
+        let domain=c.url.as_deref().and_then(crate::categorize::domain);
+        tx.execute("INSERT INTO interval_details(interval_id,url,domain,document_path,typing_ms,pointer_ms,meeting_ms,media_ms) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",params![id,c.url,domain,c.document,a.typing_ms,a.pointer_ms,a.meeting_ms,a.media_ms])?;
+    }
     Ok(())
+}
+/// A known website decides a browser span's category, and a span that is mostly a call is a meeting,
+/// unless the user chose the app's category themselves.
+pub fn refine_category(i:&mut Interval,overridden:bool) {
+    if overridden || i.state!="active" { return; }
+    if let Some(c)=i.domain.as_deref().and_then(crate::categorize::domain_category) { i.category=c.into(); }
+    if i.meeting_ms*2>=(i.end-i.start).max(1) && i.category!="development" { i.category="meetings".into(); }
 }
 #[cfg(test)] mod tests {
     use super::*; use crate::engine::Context;
-    #[test] fn recovery_and_transaction_rollback() { let dir=tempfile::tempdir().unwrap();let path=dir.path().join("test.sqlite"); let mut s=Store::open(&path).unwrap(); let span=Span{start:100,end:200,context:Context::inactive("idle")}; s.commit(&Change::default(),Some(&span),200).unwrap(); s.start_focus("Focus",1000,100,None,None).unwrap(); s.conn.execute_batch("CREATE TRIGGER fail_insert BEFORE INSERT ON intervals BEGIN SELECT RAISE(ABORT,'injected failure'); END;").unwrap(); assert!(s.commit(&Change::default(),Some(&Span{end:300,..span}),300).is_err()); assert_eq!(s.intervals(0,1000).unwrap()[0].end,200);drop(s);let s=Store::open(&path).unwrap();assert_eq!(s.focus().unwrap()[0].end,Some(200));assert_eq!(s.intervals(0,1000).unwrap().len(),1); }
-    #[test] fn idle_trim_removes_prior_apps() { let mut s=Store::open(Path::new(":memory:")).unwrap();let mut c=Context::inactive("active");c.app=Some("a".into());let span=Span{start:0,end:100,context:c};s.commit(&Change{completed:vec![span],trim_after:None},None,100).unwrap();s.commit(&Change{completed:vec![],trim_after:Some(30)},None,150).unwrap();assert_eq!(s.intervals(0,200).unwrap()[0].end,30); }
+    #[test] fn recovery_and_transaction_rollback() { let dir=tempfile::tempdir().unwrap();let path=dir.path().join("test.sqlite"); let mut s=Store::open(&path).unwrap(); let span=Span{start:100,end:200,context:Context::inactive("idle"),..Default::default()}; s.commit(&Change::default(),Some(&span),200).unwrap(); s.start_focus("Focus",1000,100,None,None).unwrap(); s.conn.execute_batch("CREATE TRIGGER fail_insert BEFORE INSERT ON intervals BEGIN SELECT RAISE(ABORT,'injected failure'); END;").unwrap(); assert!(s.commit(&Change::default(),Some(&Span{end:300,..span}),300).is_err()); assert_eq!(s.intervals(0,1000).unwrap()[0].end,200);drop(s);let s=Store::open(&path).unwrap();assert_eq!(s.focus().unwrap()[0].end,Some(200));assert_eq!(s.intervals(0,1000).unwrap().len(),1); }
+    #[test] fn idle_trim_removes_prior_apps() { let mut s=Store::open(Path::new(":memory:")).unwrap();let mut c=Context::inactive("active");c.app=Some("a".into());let span=Span{start:0,end:100,context:c,..Default::default()};s.commit(&Change{completed:vec![span],trim_after:None},None,100).unwrap();s.commit(&Change{completed:vec![],trim_after:Some(30)},None,150).unwrap();assert_eq!(s.intervals(0,200).unwrap()[0].end,30); }
     #[test]
     fn migrations_are_idempotent_and_future_versions_are_rejected() {
         let dir = tempfile::tempdir().unwrap();let path = dir.path().join("db");
@@ -121,24 +140,24 @@ fn insert_span(tx:&Transaction<'_>,id:&str,span:&Span,now:i64)->Result<()> {
         drop(Store::open(&path).unwrap());
         let s = Store::open(&path).unwrap();
         // Older builds open anything up to user_version 1.
-        assert_eq!(version(&s), (1, vec![1, 2, 3, 4]));
+        assert_eq!(version(&s), (1, vec![1, 2, 3, 4, 5]));
     }
     #[test]
     fn pre_release_version_2_opens_and_goes_back_to_1() {
         let dir = tempfile::tempdir().unwrap();let path = dir.path().join("db");
         let s = Store::open(&path).unwrap();
-        s.conn.execute_batch("DELETE FROM schema_migrations WHERE version IN (2,3,4); PRAGMA user_version=2;").unwrap();drop(s);
+        s.conn.execute_batch("DELETE FROM schema_migrations WHERE version IN (2,3,4,5); PRAGMA user_version=2;").unwrap();drop(s);
         let s = Store::open(&path).unwrap();
-        assert_eq!(version(&s), (1, vec![1, 2, 3, 4]));
+        assert_eq!(version(&s), (1, vec![1, 2, 3, 4, 5]));
         // A 2 from a genuinely newer schema, which records its own migrations, is still refused.
-        s.conn.execute_batch("INSERT INTO schema_migrations VALUES(5,0); PRAGMA user_version=2;").unwrap();drop(s);
+        s.conn.execute_batch("INSERT INTO schema_migrations VALUES(99,0); PRAGMA user_version=2;").unwrap();drop(s);
         assert!(Store::open(&path).is_err());
     }
     #[test]
     fn deleting_history_keeps_preferences_and_removes_checkpoint() {
         let mut store = Store::open(Path::new(":memory:")).unwrap();
         store.save_settings(&Settings::default()).unwrap();
-        store.commit(&Change::default(),Some(&Span { start:100,end:200,context:Context::inactive("idle") }),200).unwrap();
+        store.commit(&Change::default(),Some(&Span { start:100,end:200,context:Context::inactive("idle"),..Default::default() }),200).unwrap();
         store.start_focus("Intent",1000,100,None,None).unwrap();store.erase().unwrap();
         assert!(store.intervals(0,1000).unwrap().is_empty());assert!(store.focus().unwrap().is_empty());
         assert_eq!(store.conn.query_row("SELECT COUNT(*) FROM checkpoint",[],|r|r.get::<_,i64>(0)).unwrap(),0);
@@ -183,7 +202,7 @@ fn insert_span(tx:&Transaction<'_>,id:&str,span:&Span,now:i64)->Result<()> {
     fn recovery_closes_open_pause_at_checkpoint() {
         let dir=tempfile::tempdir().unwrap();let path=dir.path().join("db");
         let mut s=Store::open(&path).unwrap();
-        s.commit(&Change::default(),Some(&Span{start:100,end:900,context:Context::inactive("idle")}),900).unwrap();
+        s.commit(&Change::default(),Some(&Span{start:100,end:900,context:Context::inactive("idle"),..Default::default()}),900).unwrap();
         s.start_focus("Intent",60000,100,None,None).unwrap();s.pause_focus(400).unwrap();drop(s);
         let f=&Store::open(&path).unwrap().focus().unwrap()[0];
         assert_eq!((f.end,f.paused_at,f.paused_ms,f.state.as_str()),(Some(900),None,500,"interrupted"));
@@ -192,10 +211,10 @@ fn insert_span(tx:&Transaction<'_>,id:&str,span:&Span,now:i64)->Result<()> {
     fn migrations_003_004_idempotent_and_keep_user_version_1() {
         let dir=tempfile::tempdir().unwrap();let path=dir.path().join("db");
         drop(Store::open(&path).unwrap());drop(Store::open(&path).unwrap());
-        let s=Store::open(&path).unwrap();assert_eq!(version(&s),(1,vec![1,2,3,4]));
+        let s=Store::open(&path).unwrap();assert_eq!(version(&s),(1,vec![1,2,3,4,5]));
         // A file recorded without 003 or 004 (side table already present) is repaired without error.
         s.conn.execute("DELETE FROM schema_migrations WHERE version IN (3,4)",[]).unwrap();drop(s);
-        let s=Store::open(&path).unwrap();assert_eq!(version(&s),(1,vec![1,2,3,4]));
+        let s=Store::open(&path).unwrap();assert_eq!(version(&s),(1,vec![1,2,3,4,5]));
     }
     /// The insert every build up to c259b9d makes: seven positional values.
     const OLDER_BUILD_INSERT: &str = "INSERT INTO focus_sessions VALUES(?1,?2,?3,NULL,?4,'running',?3)";
@@ -229,20 +248,20 @@ fn insert_span(tx:&Transaction<'_>,id:&str,span:&Span,now:i64)->Result<()> {
         as_003(&path,"INSERT INTO focus_sessions VALUES('done','Done',0,5000,1000,'completed',5000,700,NULL,'t1','task'); INSERT INTO focus_sessions(id,label,started_at,ended_at,target_ms,state,updated_at) VALUES('plain','Plain',0,500,1000,'completed',500);");
         let s=Store::open(&path).unwrap();
         assert_eq!(columns(&s,"focus_sessions"),["id","label","started_at","ended_at","target_ms","state","updated_at"]);
-        assert_eq!(version(&s),(1,vec![1,2,3,4]));
+        assert_eq!(version(&s),(1,vec![1,2,3,4,5]));
         let all=s.focus().unwrap();
         let done=all.iter().find(|f|f.id=="done").unwrap();
         assert_eq!((done.paused_ms,done.item_id.as_deref(),done.item_kind.as_deref()),(700,Some("t1"),Some("task")));
         let plain=all.iter().find(|f|f.id=="plain").unwrap();
         assert_eq!((plain.paused_ms,plain.paused_at,plain.item_id.clone()),(0,None,None));
         s.conn.execute(OLDER_BUILD_INSERT,params!["old","Old",1000,60000]).unwrap();
-        drop(s);let s=Store::open(&path).unwrap();assert_eq!(version(&s),(1,vec![1,2,3,4]));
+        drop(s);let s=Store::open(&path).unwrap();assert_eq!(version(&s),(1,vec![1,2,3,4,5]));
     }
     #[test]
     fn migration_004_recovers_an_open_pause_from_003_columns() {
         let dir=tempfile::tempdir().unwrap();let path=dir.path().join("db");
         let mut s=Store::open(&path).unwrap();
-        s.commit(&Change::default(),Some(&Span{start:100,end:900,context:Context::inactive("idle")}),900).unwrap();drop(s);
+        s.commit(&Change::default(),Some(&Span{start:100,end:900,context:Context::inactive("idle"),..Default::default()}),900).unwrap();drop(s);
         as_003(&path,"INSERT INTO focus_sessions VALUES('open','Open',100,NULL,60000,'running',100,50,400,NULL,NULL);");
         let s=Store::open(&path).unwrap();
         let all=s.focus().unwrap();let f=all.iter().find(|f|f.id=="open").unwrap();

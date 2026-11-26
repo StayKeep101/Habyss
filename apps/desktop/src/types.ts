@@ -24,6 +24,16 @@ export interface Interval {
     availability: string;
     pid: number;
     window_id: string | null;
+    /** Front browser tab (scheme, host, path only); null outside browsers or without the titles opt-in. */
+    url: string | null;
+    domain: string | null;
+    /** File path of the focused document, when the app exposes one. */
+    document: string | null;
+    /** Milliseconds of this span with keyboard input, pointer input, a call (microphone in use) or playing video. */
+    typing_ms: number;
+    pointer_ms: number;
+    meeting_ms: number;
+    media_ms: number;
 }
 export interface Application {
     id: string;

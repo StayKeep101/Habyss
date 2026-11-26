@@ -4,7 +4,7 @@ import { allocation, greeting, productivePercent, rangeBounds, tasksInRange } fr
 
 const at = (s: string) => new Date(s).getTime();
 const MIN = 60000;
-const iv = (category: string, start: number, mins: number, state = 'active'): Interval => ({ id: `${category}-${start}`, application_id: null, bundle_id: category, name: category, title: null, start, end: start + mins * MIN, state, category, availability: 'available', pid: 1, window_id: null });
+const iv = (category: string, start: number, mins: number, state = 'active'): Interval => ({ id: `${category}-${start}`, application_id: null, bundle_id: category, name: category, title: null, start, end: start + mins * MIN, state, category, availability: 'available', pid: 1, window_id: null, url: null, domain: null, document: null, typing_ms: 0, pointer_ms: 0, meeting_ms: 0, media_ms: 0 });
 const task = (id: string, over: Partial<TaskRow> = {}): TaskRow => ({ id, user_id: null, title: id, description: null, due_date: null, due_time: null, estimated_minutes: null, priority: null, goal_id: null, status: 'open', completed_at: null, source: null, external_id: null, measure: null, target: null, unit: null, amount: null, milestone_id: null, subtasks: null, deadline: null, section: null, difficulty: null, flexible: null, created_at: null, updated_at: null, deleted: 0, synced: 1, owner_id: null, refused: 0, ...over });
 
 describe('stats', () => {
