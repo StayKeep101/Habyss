@@ -59,11 +59,22 @@ describe('buildDay', () => {
         expect(buildDay(data(), { date: DAY, now: at(10), signedIn: false }).items).toEqual([]);
     });
 
-    it('remembers today\'s layout only when it changed, and never for another day', () => {
+    it('remembers today\'s layout under the Mac\'s own key, only when it changed, and never for another day', () => {
         const d = data();
         const first = memoryAfter(d, DAY, at(10));
-        expect(first?.day).toBe(DAY);
-        expect(memoryAfter({ ...d, day_inputs: { ...d.day_inputs, [`day_memory:${DAY}`]: first } }, DAY, at(10))).toBeNull();
+        expect(first?.key).toBe(`day_memory_mac:${DAY}`);
+        expect(first?.memory.day).toBe(DAY);
+        expect(memoryAfter({ ...d, day_inputs: { ...d.day_inputs, [`day_memory_mac:${DAY}`]: first!.memory } }, DAY, at(10))).toBeNull();
         expect(memoryAfter(d, '2026-11-25', at(10))).toBeNull();
+    });
+
+    it('never writes over the phone\'s memory: with one for today, the Mac reads it and writes nothing', () => {
+        const d = data();
+        const phone = { day: DAY, slots: { 'event:E1': { start: 840, end: 900 } }, done: {}, moved: {}, lapsed: { ship: true } };
+        expect(memoryAfter({ ...d, day_inputs: { ...d.day_inputs, [`day_memory:${DAY}`]: phone } }, DAY, at(10))).toBeNull();
+    });
+
+    it('writes nothing before there is anything to remember', () => {
+        expect(memoryAfter({ habits: [], tasks: [], completions: [], day_inputs: {} }, DAY, at(10))).toBeNull();
     });
 });

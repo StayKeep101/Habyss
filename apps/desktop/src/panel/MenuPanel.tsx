@@ -82,16 +82,17 @@ function Panel() {
   const shares = useMemo(() => Object.fromEntries(week.map(d => { const t = d === date ? day : buildDay(cloud.data, { date: d, now: nowDate, signedIn }); return [d, t.total ? t.done / t.total : 0]; })), [week, date, day, cloud.data, nowDate, signedIn]);
   usePlanPublisher(today);
 
-  // Today's layout is remembered, as the phone does, so both keep the same line (lib/dayMemory.ts). Once a minute at most.
+  // Today's layout is remembered, as the phone does (lib/dayMemory.ts), under the Mac's own key unless the phone already
+  // laid the day out (buildDay.ts memoryAfter). Never before the account's data has loaded.
   const remembered = useRef('');
   useEffect(() => {
-    if (!signedIn || !cloud.data || !isTauri()) return;
+    if (!signedIn || !cloud.data || cloud.loading || !isTauri()) return;
     const next = memoryAfter(cloud.data, todayKey, nowDate);
     const text = next ? JSON.stringify(next) : '';
     if (!next || text === remembered.current) return;
     remembered.current = text;
-    void invoke('cloud_set_day_input', { key: `day_memory:${todayKey}`, value: next }).catch(() => undefined);
-  }, [cloud.data, todayKey, nowDate, signedIn]);
+    void invoke('cloud_set_day_input', { key: next.key, value: next.memory }).catch(() => undefined);
+  }, [cloud.data, cloud.loading, todayKey, nowDate, signedIn]);
 
   const running: FocusSession | null = snap?.focus.find(f => f.end === null) ?? null;
   const run = async (cmd: string, args?: Record<string, unknown>, revert = false): Promise<boolean> => {

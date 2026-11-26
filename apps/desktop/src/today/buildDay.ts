@@ -55,10 +55,11 @@ const numbers = (v: unknown): Record<string, number> => {
     if (isObject(v)) for (const [k, n] of Object.entries(v)) if (typeof n === 'number' && Number.isFinite(n)) out[k] = n;
     return out;
 };
-const memoryOf = (inputs: Record<string, unknown>, date: string): DayMemory | null => {
-    const m = inputs[`day_memory:${date}`];
-    return isObject(m) && m.day === date && isObject(m.slots) && isObject(m.done) && isObject(m.moved) ? m as unknown as DayMemory : null;
-};
+const asMemory = (m: unknown, date: string): DayMemory | null =>
+    isObject(m) && m.day === date && isObject(m.slots) && isObject(m.done) && isObject(m.moved) ? m as unknown as DayMemory : null;
+/** The phone's memory of the day wins; the Mac's own (`day_memory_mac:`) is only for days the phone has not laid out. */
+const memoryOf = (inputs: Record<string, unknown>, date: string): DayMemory | null =>
+    asMemory(inputs[`day_memory:${date}`], date) ?? asMemory(inputs[`day_memory_mac:${date}`], date);
 
 /** The phone's flow for `date`, and what the cards need around it. `now` places "now" only when `date` is its day. */
 function flowFor(data: CloudData, date: string, now: Date) {
@@ -122,13 +123,17 @@ export function buildDay(data: CloudData | null, opts: { date: string; now: Date
 }
 
 /**
- * Today's memory after this look (phone lib/dayMemory.ts `remember`), or null when nothing changed or `date` is not today.
- * The caller saves it as `day_memory:<date>`, so the phone and this Mac keep the same layout.
+ * Today's memory after this look (phone lib/dayMemory.ts `remember`) and the key to save it under, or null.
+ * The phone owns `day_memory:<date>`: when it has one, this Mac reads it and writes nothing, so the two never overwrite
+ * each other. Otherwise the Mac keeps its own under `day_memory_mac:<date>`, which the phone never reads. Nothing is written
+ * for another day, before there is anything on the day, or when nothing changed.
  */
-export function memoryAfter(data: CloudData | null, date: string, now: Date): DayMemory | null {
+export function memoryAfter(data: CloudData | null, date: string, now: Date): { key: string; memory: DayMemory } | null {
     if (!data || date !== localDateKey(now)) return null;
+    const inputs = data.day_inputs ?? {};
+    if (asMemory(inputs[`day_memory:${date}`], date)) return null;
     const { flow, memory } = flowFor(data, date, now) as { flow: DayFlow; memory: DayMemory | null };
-    const prev = memory ?? emptyMemory(date);
-    const next = remember(prev, date, flow, minuteOfDay(now));
-    return JSON.stringify(next) === JSON.stringify(memory) ? null : next;
+    if (!flow.timeline.some(i => i.kind === 'habit' || i.kind === 'task')) return null;
+    const next = remember(memory ?? emptyMemory(date), date, flow, minuteOfDay(now));
+    return JSON.stringify(next) === JSON.stringify(memory) ? null : { key: `day_memory_mac:${date}`, memory: next };
 }
