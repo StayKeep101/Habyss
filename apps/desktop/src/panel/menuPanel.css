@@ -139,3 +139,14 @@
 .mp-card-pop li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @keyframes mp-pop { from { opacity: 0; transform: translateY(4px); } }
 @media (prefers-reduced-motion: reduce) { .mp-card-pop { animation: none; } }
+
+/* Quick adds */
+.mp-tools { flex-wrap: wrap; position: relative; }
+.mp-add-buttons { display: flex; gap: 6px; }
+.mp-chip.on { color: var(--text); background: var(--surface-raised); border-color: var(--accent); }
+.mp-add-form { position: absolute; left: 16px; right: 16px; top: calc(100% + 6px); z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; background: var(--surface-raised); box-shadow: var(--shadow-floating), inset 0 0 0 1px var(--line); animation: mp-pop var(--dur-quick) var(--ease-enter); }
+.mp-add-form input:not([type]), .mp-add-form input[aria-label='Note'] { flex: 1 1 220px; }
+.mp-add-form input, .mp-add-form select { min-height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font: 400 13px var(--font-body); }
+.mp-add-form label { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 12px; }
+.mp-add-form button { min-height: 30px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--accent); color: var(--bg); font: 500 13px var(--font-body); cursor: pointer; }
+.mp-add-form button:disabled { opacity: 0.45; cursor: default; }

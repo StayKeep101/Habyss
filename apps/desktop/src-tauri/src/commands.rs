@@ -60,3 +60,5 @@ static SITE_ICONS:std::sync::LazyLock<Mutex<std::collections::HashMap<String,Opt
 
 /// Today's timeline from the webview, for the menu bar pill (src/pill.rs). Sent when it changes and once a minute.
 #[tauri::command] pub fn set_day_plan(state:State<'_,Shared>,slots:Vec<crate::pill::PlanSlot>)->Result<()> { if slots.len()>500 {return Err("Too many slots".into());} with(state,|s|{s.plan=slots;Ok(())}) }
+/// Time logged by hand from the menu bar ("+ Log time").
+#[tauri::command] pub fn log_time(state:State<'_,Shared>,name:String,bundle:Option<String>,start:i64,end:i64,note:Option<String>)->Result<()> { with(state,|s|s.store.log_time(&name,bundle.as_deref(),start,end,note.as_deref(),now_ms())) }

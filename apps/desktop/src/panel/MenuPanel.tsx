@@ -16,6 +16,7 @@ import { usePlanPublisher } from './usePlanPublisher';
 import { PlannedTimeline } from './PlannedTimeline';
 import { PlannedList } from './PlannedList';
 import { TrackedTimeline } from './TrackedTimeline';
+import { QuickAdd } from './QuickAdd';
 import { rowToHabit } from '../shared/rows';
 import { measurementFor } from '../shared/habitMeasurement';
 import './menuPanel.css';
@@ -117,6 +118,7 @@ function Panel() {
     return m.kind === 'boolean' ? null : { unit: m.unit, target: m.target };
   }, [cloud.data]);
   const axis = useMemo(() => makeAxis(day.window.wake, day.window.sleep), [day.window.wake, day.window.sleep]);
+  const apps = useMemo(() => { const seen = new Map<string, { name: string; bundle: string | null }>(); for (const i of snap?.intervals ?? []) if (i.state === 'active' && i.name && !seen.has(i.name)) seen.set(i.name, { name: i.name, bundle: i.bundle_id }); return [...seen.values()]; }, [snap]);
   const nowMinute = date === todayKey ? nowDate.getHours() * 60 + nowDate.getMinutes() : null;
   const planner = statusLoading || cloud.loading ? <p className="mp-empty">Loading…</p> : !signedIn ? <SignIn /> : null;
   const choosePlan = (v: PlanView) => { setPlanView(v); write('habyss.panel.planView', v); };
@@ -131,6 +133,7 @@ function Panel() {
       <DayLine today={day} nowMinute={nowMinute} />
       <div className="mp-tools">
         <Segmented options={['Timeline', 'List'] as PlanView[]} value={planView} onChange={choosePlan} />
+        <QuickAdd date={date} apps={apps} run={(cmd, args) => run(cmd, args)} onSaved={() => { void cloud.refresh(); void loadSnap(); }} />
         <Segmented options={['Both', 'Plan', 'Tracked'] as Show[]} value={show} onChange={chooseShow} />
       </div>
       {(error || (cloud.error && signedIn)) && <p role="alert" className="mp-error">{error || cloud.error}</p>}

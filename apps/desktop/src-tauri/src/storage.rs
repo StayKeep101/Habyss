@@ -49,9 +49,10 @@ impl Store {
         let tx = self.conn.transaction()?;
         if let Some(id) = &self.current_id { tx.execute("DELETE FROM interval_details WHERE interval_id=?1",[id])?; tx.execute("DELETE FROM intervals WHERE id=?1",[id])?; }
         if let Some(cut) = change.trim_after {
-            tx.execute("DELETE FROM interval_details WHERE interval_id IN (SELECT id FROM intervals WHERE state='active' AND started_at>=?1)",[cut])?;
-            tx.execute("DELETE FROM intervals WHERE state='active' AND started_at>=?1",[cut])?;
-            tx.execute("UPDATE intervals SET ended_at=?1,updated_at=?2 WHERE state='active' AND ended_at>?1 AND started_at<?1",params![cut,observed])?;
+            // Only observed time is trimmed: a manual entry is the user's own account of the time.
+            tx.execute("DELETE FROM interval_details WHERE interval_id IN (SELECT id FROM intervals WHERE state='active' AND source!='manual' AND started_at>=?1)",[cut])?;
+            tx.execute("DELETE FROM intervals WHERE state='active' AND source!='manual' AND started_at>=?1",[cut])?;
+            tx.execute("UPDATE intervals SET ended_at=?1,updated_at=?2 WHERE state='active' AND source!='manual' AND ended_at>?1 AND started_at<?1",params![cut,observed])?;
         }
         for span in &change.completed { insert_span(&tx,&Uuid::new_v4().to_string(),span,observed)?; }
         let new_id=current.map(|_|Uuid::new_v4().to_string());
@@ -93,6 +94,21 @@ impl Store {
     }
     /// Completes a running (not paused) session whose target is reached, ending it at start + target + pauses.
     pub fn complete_due_focus(&self,now:i64)->Result<bool> { Ok(self.conn.execute("UPDATE focus_sessions SET ended_at=started_at+target_ms+COALESCE((SELECT paused_ms FROM focus_session_extras WHERE session_id=focus_sessions.id),0),state='completed',updated_at=?1 WHERE ended_at IS NULL AND NOT EXISTS(SELECT 1 FROM focus_session_extras WHERE session_id=focus_sessions.id AND paused_at IS NOT NULL) AND started_at+target_ms+COALESCE((SELECT paused_ms FROM focus_session_extras WHERE session_id=focus_sessions.id),0)<=?1",[now])?>0) }
+    /// Time logged by hand ("Reading on paper", 14:00–14:30): an active interval marked manual, under its own app name,
+    /// or under `bundle` when it was time in a known app. `note` becomes its title.
+    pub fn log_time(&self,name:&str,bundle:Option<&str>,start:i64,end:i64,note:Option<&str>,now:i64)->Result<()> {
+        let name=name.trim();
+        if name.is_empty() || name.chars().count()>200 { return Err("Name the time you are logging".into()); }
+        if end<=start || end-start>24*3_600_000 { return Err("Choose an end after the start, within a day".into()); }
+        let tx=self.conn.unchecked_transaction()?;
+        let key=bundle.map(str::to_string).unwrap_or_else(|| format!("manual:{}",name.to_lowercase()));
+        tx.execute("INSERT INTO applications(id,bundle_id,display_name,first_seen,last_seen,category) VALUES(?1,?2,?3,?4,?5,?6) ON CONFLICT(bundle_id) DO UPDATE SET last_seen=MAX(last_seen,excluded.last_seen)",params![Uuid::new_v4().to_string(),key,name,start,end,crate::categorize::app_category(&key)])?;
+        let app:String=tx.query_row("SELECT id FROM applications WHERE bundle_id=?1",[&key],|r|r.get(0))?;
+        let title=note.map(str::trim).filter(|n|!n.is_empty()).unwrap_or(name);
+        tx.execute("INSERT INTO intervals(id,application_id,window_title,started_at,ended_at,state,source,availability,pid,window_id,updated_at) VALUES(?1,?2,?3,?4,?5,'active','manual','manual',0,NULL,?6)",params![Uuid::new_v4().to_string(),app,title,start,end,now])?;
+        tx.commit()?;
+        Ok(())
+    }
     pub fn erase(&mut self)->Result<()> { let tx=self.conn.transaction()?; tx.execute_batch("DELETE FROM interval_details; DELETE FROM intervals; DELETE FROM applications; DELETE FROM focus_session_extras; DELETE FROM focus_sessions; DELETE FROM checkpoint;")?; tx.commit()?; self.current_id=None; self.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE); VACUUM;")?; Ok(()) }
     /// Old sessions take their extras with them (ON DELETE CASCADE).
     pub fn retention(&self, cutoff:i64)->Result<()> { self.conn.execute("DELETE FROM interval_details WHERE interval_id IN (SELECT id FROM intervals WHERE ended_at<?1)",[cutoff])?; self.conn.execute("DELETE FROM intervals WHERE ended_at<?1",[cutoff])?; self.conn.execute("DELETE FROM focus_sessions WHERE ended_at<?1",[cutoff])?; Ok(()) }
@@ -289,4 +305,19 @@ pub fn refine_category(i:&mut Interval,overridden:bool) {
         assert_eq!(c.get("development").map(String::as_str),Some("productive"));assert_eq!(c.get("personal").map(String::as_str),Some("neutral"));
     }
 
+
+    #[test]
+    fn manual_entry_is_stored_and_never_overlaps_trimmed() {
+        let mut s=Store::open(Path::new(":memory:")).unwrap();
+        s.log_time("Reading on paper",None,1_000,61_000,Some("Chapter 3"),100).unwrap();
+        let rows=s.intervals(0,100_000).unwrap();
+        assert_eq!(rows.len(),1);
+        assert_eq!((rows[0].name.as_str(),rows[0].title.as_deref(),rows[0].state.as_str(),rows[0].availability.as_str()),("Reading on paper",Some("Chapter 3"),"active","manual"));
+        // Idle detection trims tracked time back to the last input; a manual entry is the user's word and stays whole.
+        s.commit(&Change{completed:vec![],trim_after:Some(30_000)},None,200).unwrap();
+        assert_eq!(s.intervals(0,100_000).unwrap()[0].end,61_000);
+        assert!(s.log_time("x",None,5,5,None,1).is_err());
+        assert!(s.log_time("x",None,0,25*3_600_000,None,1).is_err());
+        assert!(s.log_time("  ",None,0,60_000,None,1).is_err());
+    }
 }
