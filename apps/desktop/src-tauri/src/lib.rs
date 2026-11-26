@@ -77,7 +77,7 @@ pub fn run() {
                             let scale=panel.scale_factor().unwrap_or(1.0);
                             let pos=rect.position.to_physical::<f64>(scale);let size=rect.size.to_physical::<f64>(scale);
                             // Centred under the icon, 8 pt inside the display (same formula as src/panel/position.ts panelX).
-                            let width=panel.outer_size().map(|s|s.width as f64).unwrap_or(780.0*scale);
+                            let width=panel.outer_size().map(|s|s.width as f64).unwrap_or(660.0*scale);
                             let mut x=pos.x+size.width/2.0-width/2.0;
                             if let Ok(Some(monitor))=panel.monitor_from_point(pos.x,pos.y){let left=monitor.position().x as f64;let right=left+monitor.size().width as f64;x=x.min(right-8.0*scale-width).max(left+8.0*scale);}
                             let _=panel.set_position(tauri::PhysicalPosition::new(x,pos.y+size.height+8.0));let _=panel.show();let _=panel.set_focus();

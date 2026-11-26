@@ -58,7 +58,7 @@ describe('MenuPanel', () => {
     const planned = await screen.findByRole('region', { name: 'Planned' });
     await waitFor(() => expect(planned.textContent).toContain('Shower'));
     expect(planned.textContent).not.toContain('Email prof');
-    fireEvent.click(screen.getByRole('button', { name: /Wed 25/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Wednesday, November 25/ }));
     await waitFor(() => expect(planned.textContent).toContain('Email prof'));
   });
 
@@ -73,5 +73,36 @@ describe('MenuPanel', () => {
     const cols = document.querySelector('.mp-cols') as HTMLElement;
     // 9:00 is 60 minutes after the 8:00 wake, at 1.6 px a minute; now sits a little below the top.
     await waitFor(() => expect(cols.dataset.scrolledTo).toBe('540'));
+  });
+
+  it('opens the add forms from the keyboard, never while typing', async () => {
+    render(<MenuPanel />);
+    await screen.findByRole('region', { name: 'Planned' });
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Planned' }).textContent).toContain('Shower'));
+    fireEvent.keyDown(window, { key: 't' });
+    const field = await screen.findByRole('textbox', { name: 'Task' });
+    fireEvent.keyDown(field, { key: 'h' });
+    expect(screen.queryByRole('textbox', { name: 'Habit' })).toBeNull();
+    fireEvent.keyDown(field, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Task' })).toBeNull());
+    fireEvent.keyDown(window, { key: 'l' });
+    expect(await screen.findByRole('textbox', { name: 'What' })).toBeTruthy();
+  });
+
+  it('opens the app from the panel', async () => {
+    render(<MenuPanel />);
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Open Habyss' }))[0]);
+    expect(called('open_dashboard').length).toBeGreaterThan(0);
+  });
+
+  it('opens the month and folds it back to the week', async () => {
+    render(<MenuPanel />);
+    expect(await screen.findByRole('navigation', { name: 'Week' })).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'm' });
+    const month = await screen.findByRole('navigation', { name: 'Month' });
+    expect(month.querySelectorAll('.mp-day').length % 7).toBe(0);
+    fireEvent.click(screen.getByRole('button', { name: /Thursday, November 12/ }));
+    expect(await screen.findByRole('navigation', { name: 'Week' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Thursday, November 12/ }).getAttribute('aria-pressed')).toBe('true');
   });
 });

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { makeAxis } from './axis';
+import { makeAxis, stack } from './axis';
+import { decide } from './swipe';
+import { monthDays, shiftDay, shiftMonth } from './WeekRow';
 import { countdown } from './countdown';
 import { shownDate, weekOf } from './MenuPanel';
 
@@ -29,5 +31,48 @@ describe('which day the panel shows', () => {
   it('lays the week out Monday to Sunday', () => {
     expect(weekOf('2026-11-26')).toEqual(['2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26', '2026-11-27', '2026-11-28', '2026-11-29']);
     expect(weekOf('2026-11-29')[0]).toBe('2026-11-23');
+  });
+});
+
+describe('the axis past midnight and around what happened', () => {
+  it('reads a bedtime before waking as after midnight', () => {
+    const axis = makeAxis(420, 60);
+    expect(axis.from).toBe(420);
+    expect(axis.to).toBe(1500);
+  });
+  it('widens to take in time tracked before waking or after bedtime', () => {
+    const axis = makeAxis(480, 1380, 1.6, [{ start: 360, end: 400 }, { start: 1400, end: 1430 }]);
+    expect(axis.from).toBe(360);
+    expect(axis.to).toBe(1430);
+  });
+  it('stacks short items back to back so none sits on another', () => {
+    const axis = makeAxis(480, 1380);
+    const rows = stack([{ start: 600, end: 615 }, { start: 615, end: 630 }, { start: 615, end: 625 }], axis, 44, 4);
+    for (let i = 1; i < rows.length; i++) expect(rows[i].top).toBeGreaterThanOrEqual(rows[i - 1].top + rows[i - 1].height + 4);
+    expect(rows[0].top).toBe(axis.y(600));
+  });
+});
+
+describe('two-finger swipes', () => {
+  it('decides one direction, mostly one way, past a distance', () => {
+    expect(decide(80, 5)).toBe('left');
+    expect(decide(-80, 5)).toBe('right');
+    expect(decide(5, -80)).toBe('down');
+    expect(decide(5, 80)).toBe('up');
+    expect(decide(40, 0)).toBeNull();
+    expect(decide(70, 60)).toBeNull();
+  });
+});
+
+describe('the month', () => {
+  it('is whole weeks, Monday first, around the shown day', () => {
+    const days = monthDays('2026-11-26');
+    expect(days[0]).toBe('2026-10-26');
+    expect(days.length % 7).toBe(0);
+    expect(days).toContain('2026-11-30');
+  });
+  it('moves by a month inside the month it lands in', () => {
+    expect(shiftMonth('2027-01-31', 1)).toBe('2027-02-28');
+    expect(shiftDay('2026-11-26', 7)).toBe('2026-12-03');
   });
 });

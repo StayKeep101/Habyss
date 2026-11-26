@@ -12,7 +12,7 @@ describe('PlannedList', () => {
   const items = [item('Old', { due: '2026-11-24' }), item('Finish BA Assignment 3', { deadline: '2026-12-04' }), item('Polish', { priority: 1 }), item('Trade', { kind: 'habit', start: 700, end: 730 }), item('lunch', { kind: 'meal', fixed: true })];
 
   it('lists tasks, then habits, like the phone, without meals or events', () => {
-    render(<PlannedList day={day(items)} onToggle={() => {}} onSeeAll={() => {}} />);
+    render(<PlannedList day={day(items)} onToggle={() => {}} onSeeAll={() => {}} amountFor={() => null} />);
     const sections = screen.getAllByRole('region');
     expect(sections.map(s => s.getAttribute('aria-label'))).toEqual(['Tasks', 'Habits']);
     expect(within(sections[1]).getByText('Trade')).toBeTruthy();
@@ -20,7 +20,7 @@ describe('PlannedList', () => {
   });
 
   it('says Overdue in red, Today otherwise, with each task\'s length and due date', () => {
-    render(<PlannedList day={day(items)} onToggle={() => {}} onSeeAll={() => {}} />);
+    render(<PlannedList day={day(items)} onToggle={() => {}} onSeeAll={() => {}} amountFor={() => null} />);
     const row = (name: string) => screen.getByRole('listitem', { name });
     expect(within(row('Old')).getByText('Overdue')).toBeTruthy();
     expect(within(row('Finish BA Assignment 3')).getByText('Today')).toBeTruthy();
@@ -31,7 +31,7 @@ describe('PlannedList', () => {
 
   it('ticks from the checkbox and opens everything from See all', () => {
     const onToggle = vi.fn(), onSeeAll = vi.fn();
-    render(<PlannedList day={day(items)} onToggle={onToggle} onSeeAll={onSeeAll} />);
+    render(<PlannedList day={day(items)} onToggle={onToggle} onSeeAll={onSeeAll} amountFor={() => null} />);
     fireEvent.click(screen.getByRole('checkbox', { name: 'Polish' }));
     expect(onToggle).toHaveBeenCalledWith(expect.objectContaining({ id: 'Polish' }), true, 1);
     fireEvent.click(within(screen.getByRole('region', { name: 'Tasks' })).getByRole('button', { name: 'See all' }));

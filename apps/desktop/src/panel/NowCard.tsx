@@ -22,34 +22,38 @@ export function nowState(today: Today, focus: FocusSession | null, now: number):
 
 const R = 26, C = 2 * Math.PI * R;
 
-/** The phone's Live Activity, as a card: ring with the Habyss mark, title and countdown, and a check for what is on now. */
-export function NowCard({ state, onCheck, onStartFocus, onPause, onResume, onStop }: {
-  state: NowState | null; onCheck: (item: TodayItem) => void; onStartFocus: (item: TodayItem | null) => void;
+/**
+ * The phone's Live Activity, as a card: the Habyss mark in a ring that fills as what is on runs out, the title and
+ * countdown, and a check for what is on now. The mark opens the app (the full calendar and analytics). A focus session
+ * started elsewhere (the app, the pill) shows Pause and Stop here; nothing here starts one.
+ */
+export function NowCard({ state, onCheck, onOpen, onPause, onResume, onStop }: {
+  state: NowState | null; onCheck: (item: TodayItem) => void; onOpen: () => void;
   onPause: () => void; onResume: () => void; onStop: () => void;
 }) {
   const checkable = state?.item && (state.item.kind === 'habit' || state.item.kind === 'task') && state.caption === 'Now';
   const progress = Math.max(0, Math.min(1, state?.progress ?? 0));
   return (
     <section className="mp-now" aria-label="Now">
-      <svg className="mp-ring" viewBox="0 0 64 64" aria-hidden="true">
-        <circle cx="32" cy="32" r={R} className="mp-ring-track" />
-        <circle cx="32" cy="32" r={R} className="mp-ring-fill" strokeDasharray={C} strokeDashoffset={C * (1 - progress)} transform="rotate(-90 32 32)" />
-        <path className="mp-ring-mark" d="M24 22v20M40 22v20M24 32h16" />
-      </svg>
+      <button type="button" className="mp-ring" aria-label="Open Habyss" title="Open Habyss (⌘O)" onClick={onOpen}>
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <circle cx="32" cy="32" r={R} className="mp-ring-track" />
+          <circle cx="32" cy="32" r={R} className="mp-ring-fill" strokeDasharray={C} strokeDashoffset={C * (1 - progress)} transform="rotate(-90 32 32)" />
+        </svg>
+        <img src="/mark.png" alt="" draggable={false} />
+      </button>
       <div className="mp-now-text">
         <small>{state ? `${state.caption} · ${state.title}` : 'Nothing left today'}</small>
         <strong className="mp-now-clock">{state ? countdown(state.remaining) : '–'}</strong>
-        <div className="mp-now-actions">
-          {state?.focus ? <>
-            {state.focus.paused_at
-              ? <button type="button" className="mp-chip" onClick={onResume}><AppIcon name="play" size={14} />Resume</button>
-              : <button type="button" className="mp-chip" onClick={onPause}><AppIcon name="pause" size={14} />Pause</button>}
-            <button type="button" className="mp-chip" onClick={onStop}><AppIcon name="stop" size={14} />Stop</button>
-          </> : <button type="button" className="mp-chip" onClick={() => onStartFocus(state?.item ?? null)}><AppIcon name="timer" size={14} />Focus</button>}
-        </div>
+        {state?.focus && <div className="mp-now-actions">
+          {state.focus.paused_at
+            ? <button type="button" className="mp-chip" onClick={onResume}><AppIcon name="play" size={14} />Resume</button>
+            : <button type="button" className="mp-chip" onClick={onPause}><AppIcon name="pause" size={14} />Pause</button>}
+          <button type="button" className="mp-chip" onClick={onStop}><AppIcon name="stop" size={14} />Stop</button>
+        </div>}
       </div>
       {checkable
-        ? <button type="button" className="mp-check" aria-label={`Mark ${state!.item!.title} done`} onClick={() => onCheck(state!.item!)}><AppIcon name="checkmark-circle" size={22} filled /></button>
+        ? <button type="button" className="mp-check" aria-label={`Mark ${state!.item!.title} done`} title="Mark done" onClick={() => onCheck(state!.item!)}><AppIcon name="checkmark" size={20} /></button>
         : <span className="mp-check-space" aria-hidden="true" />}
     </section>
   );

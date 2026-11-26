@@ -33,7 +33,7 @@
         "label": "panel",
         "title": "Habyss",
         "url": "index.html?panel=1",
-        "width": 780,
+        "width": 660,
         "height": 720,
         "visible": false,
         "decorations": false,

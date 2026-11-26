@@ -5,7 +5,7 @@ import {
   IoFlame, IoFlameOutline, IoCheckmarkCircle, IoCheckmarkCircleOutline, IoEllipse, IoEllipseOutline, IoPlay, IoPlayOutline,
   IoPause, IoPauseOutline, IoStop, IoStopOutline, IoPlaySkipForward, IoPlaySkipForwardOutline, IoChevronBack, IoChevronForward,
   IoAdd, IoTimer, IoTimerOutline, IoDesktop, IoDesktopOutline, IoSparkles, IoSparklesOutline, IoCube, IoCubeOutline,
-  IoHeart, IoHeartOutline, IoWallet, IoWalletOutline, IoMoon, IoMoonOutline, IoSync, IoSyncOutline,
+  IoHeart, IoHeartOutline, IoWallet, IoWalletOutline, IoMoon, IoMoonOutline, IoSync, IoSyncOutline, IoCheckmark, IoOpenOutline, IoOptionsOutline,
 } from 'react-icons/io5';
 
 const ICONS = {
@@ -18,6 +18,7 @@ const ICONS = {
   'chevron-forward': [IoChevronForward, IoChevronForward], add: [IoAdd, IoAdd], timer: [IoTimer, IoTimerOutline],
   desktop: [IoDesktop, IoDesktopOutline], sparkles: [IoSparkles, IoSparklesOutline], cube: [IoCube, IoCubeOutline],
   heart: [IoHeart, IoHeartOutline], wallet: [IoWallet, IoWalletOutline], moon: [IoMoon, IoMoonOutline], sync: [IoSync, IoSyncOutline],
+  checkmark: [IoCheckmark, IoCheckmark], open: [IoOpenOutline, IoOpenOutline], options: [IoOptionsOutline, IoOptionsOutline],
 } satisfies Record<string, [IconType, IconType]>;
 
 export type IconName = keyof typeof ICONS;

@@ -1,14 +1,19 @@
 import { useState, type FormEvent } from 'react';
 
-type Mode = 'task' | 'habit' | 'time';
+export type AddMode = 'task' | 'habit' | 'time';
+type Mode = AddMode;
 const toMs = (date: string, time: string) => new Date(`${date}T${time}:00`).getTime();
 
-/** "+ Task", "+ Habit", "+ Log time" from the menu bar: the few fields that matter; the full editors live in the app. */
-export function QuickAdd({ date, apps, run, onSaved }: {
+/**
+ * A task, a habit or time logged from the menu bar (T, H, L): the few fields that matter; the full editors live in the
+ * app. Opened by the panel's shortcuts, closed with Escape or once saved.
+ */
+export function QuickAdd({ mode, onClose, date, apps, run, onSaved }: {
+  mode: AddMode | null; onClose: () => void;
   date: string; apps: { name: string; bundle: string | null }[];
   run: (cmd: string, args: Record<string, unknown>) => Promise<boolean>; onSaved: () => void;
 }) {
-  const [mode, setMode] = useState<Mode | null>(null);
+  const setMode = (m: Mode | null) => { if (m === null) onClose(); };
   const [name, setName] = useState('');
   const [at, setAt] = useState('');
   const [length, setLength] = useState(90);
@@ -17,7 +22,9 @@ export function QuickAdd({ date, apps, run, onSaved }: {
   const [to, setTo] = useState('');
   const [app, setApp] = useState('');
   const [note, setNote] = useState('');
-  const open = (m: Mode) => { setMode(mode === m ? null : m); setName(''); setAt(''); setLength(m === 'habit' ? 30 : 90); setPriority(2); setFrom(''); setTo(''); setApp(''); setNote(''); };
+  // Each time a form opens it starts blank.
+  const [opened, setOpened] = useState<Mode | null>(null);
+  if (mode !== opened) { setOpened(mode); setName(''); setAt(''); setLength(mode === 'habit' ? 30 : 90); setPriority(2); setFrom(''); setTo(''); setApp(''); setNote(''); }
   const done = () => { setMode(null); onSaved(); };
   const validTime = !!from && !!to && to > from;
 
@@ -33,13 +40,10 @@ export function QuickAdd({ date, apps, run, onSaved }: {
     }
   };
 
+  if (!mode) return null;
   return (
-    <div className="mp-add">
-      <div className="mp-add-buttons">
-        {([['task', '+ Task'], ['habit', '+ Habit'], ['time', '+ Log time']] as [Mode, string][]).map(([m, label]) =>
-          <button key={m} type="button" className={`mp-chip${mode === m ? ' on' : ''}`} aria-expanded={mode === m} onClick={() => open(m)}>{label}</button>)}
-      </div>
-      {mode && (
+    <div className="mp-add" role="dialog" aria-label={mode === 'task' ? 'New task' : mode === 'habit' ? 'New habit' : 'Log time'}>
+      {(
         <form className="mp-add-form" onSubmit={e => void submit(e)} onKeyDown={e => { if (e.key === 'Escape') setMode(null); }}>
           {mode === 'task' && <>
             <input autoFocus aria-label="Task" placeholder="New task" value={name} onChange={e => setName(e.target.value)} />
