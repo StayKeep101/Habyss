@@ -3,7 +3,7 @@ import { AbyssArt, AppIcon, type IconName } from '../ui';
 
 export const TABS: { screen: Screen; icon: IconName }[] = [
   { screen: 'Dashboard', icon: 'home' }, { screen: 'Calendar', icon: 'calendar' }, { screen: 'Analytics', icon: 'stats-chart' },
-  { screen: 'Profile', icon: 'person' }, { screen: 'Settings', icon: 'settings' },
+  { screen: 'Profile', icon: 'person' },
 ];
 const DIVIDER_BEFORE: Screen = 'Profile';
 const syncTone = (state: string) => (state === 'idle' || state === 'syncing' ? 'on' : state === 'offline' ? 'warn' : state === 'error' ? 'bad' : '');
@@ -14,7 +14,7 @@ export function Sidebar({ screen, onSelect, data, busy, act, sync }: { screen: S
   return (
     <aside className="app-sidebar">
       <div data-tauri-drag-region className="app-drag" />
-      <div className="app-brand"><AppIcon name="hourglass" size={26} filled />Habyss</div>
+      <div className="app-brand"><img src="/mark.png" alt="" className="app-brand-mark" draggable={false} />Habyss</div>
       <nav aria-label="Main">
         {TABS.map(t => (
           <div key={t.screen} className="app-nav-item">

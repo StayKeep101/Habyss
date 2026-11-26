@@ -40,7 +40,7 @@ export function profileName(value: unknown): string {
 }
 
 function SignIn({ text, onNavigate }: { text: string; onNavigate?: (s: Screen) => void }) {
-  return <div className="db-signin"><p>{text}</p>{onNavigate && <Button variant="quiet" onClick={() => onNavigate('Settings')}>Open Settings</Button>}</div>;
+  return <div className="db-signin"><p>{text}</p>{onNavigate && <Button variant="quiet" onClick={() => onNavigate('Profile')}>Sign in</Button>}</div>;
 }
 
 type DashboardProps = { onNavigate?: (s: Screen) => void };

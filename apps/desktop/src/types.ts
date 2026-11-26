@@ -70,7 +70,8 @@ export interface Snapshot {
     version: string;
     classifications: Record<string, 'productive' | 'neutral' | 'unproductive'>;
 }
-export type Screen = 'Dashboard' | 'Calendar' | 'Analytics' | 'Profile' | 'Settings';
+/** Settings live inside Profile (your account, then everything you can set); 'Settings' still names that spot. */
+export type Screen = 'Dashboard' | 'Calendar' | 'Analytics' | 'Profile';
 export type Act = (command: string, args?: Record<string, unknown>) => Promise<void>;
 /** `state` is the latest sync pass; `account` is whether someone is signed in on this Mac (read sign-in from it, through `isSignedIn`). */
 export interface SyncStatus { state: string; account: boolean; email: string | null; last_sync: string | null; pending: number; refused: number; error: string | null }

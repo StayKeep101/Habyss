@@ -17,13 +17,15 @@ import './shell.css';
 
 const CATEGORIES = ['uncategorized', 'development', 'design', 'productivity', 'writing', 'learning', 'research', 'communication', 'meetings', 'utilities', 'browsing', 'personal', 'social', 'entertainment', 'news', 'shopping'];
 const PANEL_KEY = 'habyss.panelCollapsed';
-const COMING: Partial<Record<Screen, string>> = { Profile: 'Your profile and achievements arrive here soon.' };
 /** Dashboard draws its own header. */
-const SUBTITLE: Record<Exclude<Screen, 'Dashboard'>, string> = { Calendar: 'Every recorded context. Every meaningful gap.', Analytics: 'Patterns grounded in observed activity.', Profile: 'Your account and achievements.', Settings: 'A quiet utility, on your terms.' };
+const SUBTITLE: Record<Exclude<Screen, 'Dashboard'>, string> = { Calendar: 'Every recorded context. Every meaningful gap.', Analytics: 'Patterns grounded in observed activity.', Profile: 'Your account, and everything you can set.' };
 const DATED: Screen[] = ['Calendar', 'Analytics'];
 /** Names the app and the native menu emit: retired tabs (Focus, Timeline, Progress, Friends) open where their content now lives. */
-const NAV_ALIASES: Record<string, Screen> = { Focus: 'Dashboard', Timeline: 'Calendar', Applications: 'Analytics', Progress: 'Dashboard', Friends: 'Dashboard' };
+const NAV_ALIASES: Record<string, Screen> = { Focus: 'Dashboard', Timeline: 'Calendar', Applications: 'Analytics', Progress: 'Dashboard', Friends: 'Dashboard', Settings: 'Profile' };
 const resolveScreen = (name: string): Screen | undefined => NAV_ALIASES[name] ?? TABS.find(t => t.screen === name)?.screen;
+
+/** ⌘, and every "Open Settings": Profile, scrolled to where the settings start (under your account). */
+const toSettings = () => requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById('settings')?.scrollIntoView({ block: 'start' })));
 
 const readCollapsed = () => { try { return localStorage.getItem(PANEL_KEY) === '1'; } catch { return false; } };
 const writeCollapsed = (v: boolean) => { try { localStorage.setItem(PANEL_KEY, v ? '1' : '0'); } catch { /* storage unavailable: the choice just is not remembered */ } };
@@ -45,13 +47,13 @@ function ShellBody({ data, act, date, setDate, now, busy = false, error = '', se
   const sync = cloud.status;
   const reduced = useReducedMotion();
 
-  useEffect(() => { let dispose: (() => void) | undefined, cancelled = false; void listen<string>('navigate', e => { const next = resolveScreen(e.payload); if (next) setScreen(next); }).then(f => { if (cancelled) f(); else dispose = f; }); return () => { cancelled = true; dispose?.(); }; }, []);
+  useEffect(() => { let dispose: (() => void) | undefined, cancelled = false; void listen<string>('navigate', e => { const next = resolveScreen(e.payload); if (next) { setScreen(next); if (e.payload === 'Settings') toSettings(); } }).then(f => { if (cancelled) f(); else dispose = f; }); return () => { cancelled = true; dispose?.(); }; }, []);
   useEffect(() => {
     const keys = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
       const t = e.target as HTMLElement | null;
       if (t && (['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) || t.isContentEditable)) return;
-      if (e.key === ',') { e.preventDefault(); setScreen('Settings'); return; }
+      if (e.key === ',') { e.preventDefault(); setScreen('Profile'); toSettings(); return; }
       const tab = /^[1-7]$/.test(e.key) ? TABS[Number(e.key) - 1] : undefined;
       if (tab) { e.preventDefault(); setScreen(tab.screen); }
     };
@@ -74,8 +76,7 @@ function ShellBody({ data, act, date, setDate, now, busy = false, error = '', se
   if (screen === 'Dashboard') body = <Dashboard onNavigate={setScreen} />;
   else if (screen === 'Calendar') body = <Timeline data={day} from={from} to={to} />;
   else if (screen === 'Analytics') body = <AnalyticsContent data={data} m={m} weekly={weekly} to={to} weekFrom={weekFrom} busy={busy} act={act} />;
-  else if (screen === 'Settings') body = <SettingsView data={data} busy={busy} act={act} setError={setError} />;
-  else body = <Empty>{COMING[screen]}</Empty>;
+  else body = <SettingsView data={data} busy={busy} act={act} setError={setError} />;
 
   return (
     <div className="app-shell">

@@ -31,14 +31,14 @@ const task = (id: string, over: Partial<TaskRow> = {}): TaskRow => ({ id, user_i
 const PLAN: CloudData = { habits: [habit('Read')], completions: [], day_inputs: {}, tasks: [task('Ship'), task('Overdue', { due_date: '2026-10-30' }), task('Undated', { due_date: null }), task('Done', { status: 'done', completed_at: '2026-11-02T09:00:00' })] };
 const panelTasks = () => screen.getByText('Tasks', { selector: '.tp-stat small' }).previousElementSibling?.textContent;
 const dashTasks = () => screen.getByText('Tasks', { selector: '.ui-stat-label' }).closest('.ui-stat')?.querySelector('.ui-stat-value')?.textContent;
-const TABS = ['Dashboard', 'Calendar', 'Analytics', 'Profile', 'Settings'];
+const TABS = ['Dashboard', 'Calendar', 'Analytics', 'Profile'];
 const selected = () => screen.getByRole('navigation').querySelector('[aria-current="page"]')?.textContent;
 
 beforeEach(() => { navigate = undefined; calls.length = 0; wire(SIGNED_OUT); vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(NOW); try { localStorage.clear(); } catch { /* unavailable */ } });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('Shell', () => {
-  it('sidebar_lists_seven_tabs_in_order', () => {
+  it('sidebar_lists_the_tabs_in_order_settings_inside_profile', () => {
     mount();
     expect(Array.from(screen.getByRole('navigation').querySelectorAll('button')).map(b => b.textContent)).toEqual(TABS);
     expect(selected()).toBe('Dashboard');
@@ -48,7 +48,9 @@ describe('Shell', () => {
     mount();
     fireEvent.click(screen.getByRole('button', { name: 'Profile' }));
     expect(selected()).toBe('Profile');
-    expect(screen.getByText(/arrive here soon/)).toBeTruthy();
+    // Profile holds the account and, under it, the settings.
+    expect(screen.getByRole('heading', { name: 'Habyss account' })).toBeTruthy();
+    expect(document.getElementById('settings')).toBeTruthy();
     // Progress and Friends are gone: friends live inside habits and tasks.
     expect(screen.queryByRole('button', { name: 'Friends' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Progress' })).toBeNull();
@@ -58,18 +60,18 @@ describe('Shell', () => {
     mount();
     fireEvent.keyDown(window, { key: '3', metaKey: true });
     expect(selected()).toBe('Analytics');
-    fireEvent.keyDown(window, { key: '5', metaKey: true });
-    expect(selected()).toBe('Settings');
+    fireEvent.keyDown(window, { key: '4', metaKey: true });
+    expect(selected()).toBe('Profile');
     fireEvent.keyDown(window, { key: '2', metaKey: true });
     expect(selected()).toBe('Calendar');
     fireEvent.keyDown(window, { key: ',', metaKey: true });
-    expect(selected()).toBe('Settings');
+    expect(selected()).toBe('Profile');
   });
 
   it('navigate_event_maps_old_names', async () => {
     mount();
     await waitFor(() => expect(navigate).toBeTruthy());
-    for (const [name, tab] of [['Timeline', 'Calendar'], ['Focus', 'Dashboard'], ['Settings', 'Settings'], ['Friends', 'Dashboard'], ['Progress', 'Dashboard'], ['Bogus', 'Dashboard']]) {
+    for (const [name, tab] of [['Timeline', 'Calendar'], ['Focus', 'Dashboard'], ['Settings', 'Profile'], ['Friends', 'Dashboard'], ['Progress', 'Dashboard'], ['Bogus', 'Dashboard']]) {
       rtlAct(() => navigate?.({ payload: name }));
       expect(selected()).toBe(tab);
     }
