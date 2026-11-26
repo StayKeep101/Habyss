@@ -152,8 +152,8 @@ describe('storing a rule', () => {
 });
 
 describe('a habit that carries a rule', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
+         
     type Habit = import('../habitsSQLite').Habit;
 
     const habit = (over: Partial<Habit> = {}): Habit => ({

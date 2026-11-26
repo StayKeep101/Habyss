@@ -39,7 +39,7 @@ describe('the day as hours', () => {
 
 describe('what is on at a minute', () => {
     it('finds what is running, or what is about to start nearby', () => {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
+         
                 const plan = { blocks: [
             { id: 'run', kind: 'habit' as const, title: 'Run', start: 480, end: 510, done: false },
             { id: 'call', kind: 'task' as const, title: 'Call', start: 600, end: 600, done: true },
@@ -53,7 +53,7 @@ describe('what is on at a minute', () => {
 describe('a timed habit\'s length on the timeline', () => {
     it('follows its goal after an edit, not the slot or length it had before', () => {
                 // "Study" was 4 hours (09:00–13:00, 240 minutes), then edited to a 2-hour goal.
-        const study = { id: 's', name: 'Study', startTime: '09:00', endTime: '13:00', durationMinutes: 240, unit: 'hours', goalValue: 2, trackingMethod: 'numeric', type: 'build' } as any;
+        const study = { id: 's', name: 'Study', startTime: '09:00', endTime: '13:00', durationMinutes: 240, unit: 'hours', goalValue: 2, trackingMethod: 'numeric', type: 'build' } as never;
         expect(habitMinutes(study)).toBe(120);
     });
 });
