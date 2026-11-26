@@ -2,17 +2,11 @@ use crate::models::{FocusSession, Settings};
 /// Active milliseconds: wall time minus accumulated pauses and any pause still open.
 pub fn focus_elapsed(s:&FocusSession,now:i64)->i64 { let open=s.paused_at.map_or(0,|p|(now-p).max(0)); (s.end.unwrap_or(now)-s.start-s.paused_ms-open).max(0) }
 pub fn focus_remaining(s:&FocusSession,now:i64)->i64 { (s.target_ms-focus_elapsed(s,now)).max(0) }
-/// Menu bar text: "" when idle or disabled, else "MM:SS" remaining, "⏸ " when paused, " · label" when enabled.
+/// Menu bar text: "" when idle or disabled, else the time left as the phone shows it, "⏸ " when paused, " · label" when enabled.
 pub fn tray_title(s:Option<&FocusSession>,now:i64,settings:&Settings)->String {
     let Some(s)=s.filter(|s|s.end.is_none()&&settings.menu_bar_timer) else { return String::new() };
-    let secs=(focus_remaining(s,now)+999)/1000;
-    let mut title=format!("{}{:02}:{:02}",if s.paused_at.is_some(){"⏸ "}else{""},secs/60,secs%60);
-    let label=s.label.trim();
-    if settings.menu_bar_task && !label.is_empty() {
-        // 24 characters at most, the last being the ellipsis when cut.
-        if label.chars().count()>24 { title.push_str(&format!(" · {}…",label.chars().take(23).collect::<String>())); } else { title.push_str(&format!(" · {label}")); }
-    }
-    title
+    let text=format!("{}{}",if s.paused_at.is_some(){"⏸ "}else{""},crate::pill::clock(focus_remaining(s,now)));
+    crate::pill::with_title(text,&s.label,settings)
 }
 #[cfg(test)] mod tests {
     use super::*;
@@ -27,7 +21,7 @@ pub fn tray_title(s:Option<&FocusSession>,now:i64,settings:&Settings)->String {
         assert_eq!(tray_title(Some(&session(0,Some(0))),0,&st),"⏸ 25:00 · Deep Work");
         assert_eq!(tray_title(None,0,&st),"");
         assert_eq!(tray_title(Some(&session(0,None)),0,&Settings{menu_bar_timer:false,..st.clone()}),"");
-        assert_eq!(tray_title(Some(&session(0,None)),1_499_001,&st),"00:01 · Deep Work");
+        assert_eq!(tray_title(Some(&session(0,None)),1_499_001,&st),"0:01 · Deep Work");
     }
     #[test] fn long_label_truncates() {
         let mut s=session(0,None);s.label="abcdefghijklmnopqrstuvwxyz0123".into();

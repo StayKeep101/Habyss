@@ -4,6 +4,7 @@ mod commands;
 pub mod engine;
 mod focus;
 mod models;
+mod pill;
 mod platform;
 mod service;
 mod storage;
@@ -15,7 +16,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app,_,_|{let _=open_dashboard(app.clone(),None);}))
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent,Some(vec!["--autostart"])))
-        .invoke_handler(tauri::generate_handler![snapshot,save_settings,set_tracking,start_focus,pause_focus,resume_focus,stop_focus,categorize,request_permission,open_permissions,erase_history,export_history,export_to_file,open_dashboard,quit,app_icon,site_icon,
+        .invoke_handler(tauri::generate_handler![snapshot,save_settings,set_tracking,start_focus,pause_focus,resume_focus,stop_focus,categorize,request_permission,open_permissions,erase_history,export_history,export_to_file,open_dashboard,quit,app_icon,site_icon,set_day_plan,
             cloud::commands::cloud_status,cloud::commands::cloud_send_code,cloud::commands::cloud_verify_code,cloud::commands::cloud_sign_in_password,cloud::commands::cloud_sign_out,cloud::commands::cloud_sync_now,cloud::commands::cloud_data,cloud::commands::cloud_save,cloud::commands::cloud_delete,cloud::commands::cloud_set_completion,cloud::commands::cloud_set_task_done,cloud::commands::cloud_set_day_input,cloud::commands::cloud_rpc,cloud::commands::cloud_action,cloud::commands::cloud_delete_account])
         .setup(|app| {
             let service=service::Service::open(app.path().app_data_dir()?).map_err(|e|std::io::Error::other(e.to_string()))?;

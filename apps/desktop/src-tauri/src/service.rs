@@ -3,6 +3,8 @@ use chrono::{Local,TimeZone};
 use std::{fs::{File,OpenOptions},path::PathBuf};
 use fs2::FileExt;
 pub struct Service {
+    /// Today's timeline as the webview last sent it (set_day_plan), for the menu bar pill.
+    pub plan: Vec<crate::pill::PlanSlot>,
     pub store: Store, pub engine: Engine, pub settings: Settings, pub trusted: bool,
     pub error: Option<String>, pub widget_available: bool, pub path: PathBuf,
     pub last_sample: Option<NativeSample>, last_commit: i64, last_widget: i64, last_retention: i64,
@@ -15,7 +17,7 @@ impl Service {
         let lock=OpenOptions::new().read(true).write(true).create(true).truncate(false).open(dir.join("writer.lock"))?;
         lock.try_lock_exclusive().map_err(|_|"Another Habyss process owns the database")?;
         let path=dir.join("habyss.sqlite3");let store=Store::open(&path)?;let settings=store.settings()?;
-        Ok(Self{store,settings,path,engine:Engine::default(),trusted:false,error:None,widget_available:false,last_sample:None,last_commit:0,last_widget:0,last_retention:0,_lock:lock})
+        Ok(Self{plan:Vec::new(),store,settings,path,engine:Engine::default(),trusted:false,error:None,widget_available:false,last_sample:None,last_commit:0,last_widget:0,last_retention:0,_lock:lock})
     }
     pub fn observe(&mut self,n:NativeSample)->Result<()> {
         self.trusted=n.trusted;
@@ -46,7 +48,7 @@ impl Service {
     pub fn focus_tick(&mut self,now:i64)->Result<(String,bool)> {
         let ended=self.store.complete_due_focus(now)?;
         if ended { self.publish_widget(now)?; }
-        Ok((crate::focus::tray_title(self.store.running_focus()?.as_ref(),now,&self.settings),ended))
+        Ok((crate::pill::title(self.store.running_focus()?.as_ref(),&self.plan,now,&self.settings),ended))
     }
     pub fn shutdown(&mut self)->Result<()> {
         self.flush()?;
@@ -117,9 +119,12 @@ impl Service {
     fn focus_tick_titles_then_completes_the_due_session() {
         let dir=tempfile::tempdir().unwrap();let mut s=Service::open(dir.path().into()).unwrap();
         s.store.start_focus("Deep Work",1000,0,None,None).unwrap();
-        assert_eq!(s.focus_tick(500).unwrap(),("00:01 · Deep Work".to_string(),false));
+        assert_eq!(s.focus_tick(500).unwrap(),("0:01 · Deep Work".to_string(),false));
         assert_eq!(s.focus_tick(1000).unwrap(),(String::new(),true));
         assert_eq!(s.focus_tick(2000).unwrap(),(String::new(),false));
+        // With no focus running, the pill follows the day the webview sent.
+        s.plan=vec![crate::pill::PlanSlot{key:"habit:h:2026-11-26".into(),title:"Shower".into(),start:0,end:602_000,fixed:false}];
+        assert_eq!(s.focus_tick(9_000).unwrap(),("9:53 · Shower".to_string(),false));
     }
     #[test]
     fn title_preference_is_enforced_in_rust_as_well_as_native() {

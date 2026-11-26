@@ -57,3 +57,6 @@ static SITE_ICONS:std::sync::LazyLock<Mutex<std::collections::HashMap<String,Opt
     SITE_ICONS.lock().ok()?.insert(domain,icon.clone());
     icon
 }
+
+/// Today's timeline from the webview, for the menu bar pill (src/pill.rs). Sent when it changes and once a minute.
+#[tauri::command] pub fn set_day_plan(state:State<'_,Shared>,slots:Vec<crate::pill::PlanSlot>)->Result<()> { if slots.len()>500 {return Err("Too many slots".into());} with(state,|s|{s.plan=slots;Ok(())}) }
