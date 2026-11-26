@@ -25,3 +25,35 @@ pub async fn export_to_file(state:State<'_,Shared>)->Result<Option<String>> {
     let json=export_history(state)?;
     tauri::async_runtime::spawn_blocking(move || platform::save_export(json)).await.map_err(|e|e.to_string())?
 }
+
+static APP_ICONS:std::sync::LazyLock<Mutex<std::collections::HashMap<String,Option<String>>>>=std::sync::LazyLock::new(Default::default);
+static SITE_ICONS:std::sync::LazyLock<Mutex<std::collections::HashMap<String,Option<String>>>>=std::sync::LazyLock::new(Default::default);
+/// An installed app's icon as a data URL, cached for the life of the process.
+#[tauri::command] pub fn app_icon(bundle:String)->Option<String> {
+    if bundle.starts_with("process:") || bundle.len()>255 { return None; }
+    if let Some(v)=APP_ICONS.lock().ok()?.get(&bundle) { return v.clone(); }
+    let icon=platform::app_icon(&bundle);
+    APP_ICONS.lock().ok()?.insert(bundle,icon.clone());
+    icon
+}
+/// A public website's own favicon as a data URL. The request goes only to the site itself (one you already visited),
+/// never to a third-party icon service. Local, private and malformed hosts are refused.
+#[tauri::command] pub async fn site_icon(domain:String)->Option<String> {
+    if !crate::categorize::public_host(&domain) { return None; }
+    if let Some(v)=SITE_ICONS.lock().ok()?.get(&domain) { return v.clone(); }
+    let client=reqwest::Client::builder().timeout(std::time::Duration::from_secs(4)).redirect(reqwest::redirect::Policy::limited(3)).build().ok()?;
+    let mut icon=None;
+    for path in ["favicon.ico","apple-touch-icon.png"] {
+        let Ok(r)=client.get(format!("https://{domain}/{path}")).send().await else { continue };
+        if !r.status().is_success() { continue; }
+        let kind=r.headers().get("content-type").and_then(|v|v.to_str().ok()).unwrap_or("").split(';').next().unwrap_or("").trim().to_string();
+        if !kind.starts_with("image/") || kind.contains("svg") { continue; }
+        let Ok(body)=r.bytes().await else { continue };
+        if body.is_empty() || body.len()>256*1024 { continue; }
+        use base64::Engine;
+        icon=Some(format!("data:{kind};base64,{}",base64::engine::general_purpose::STANDARD.encode(&body)));
+        break;
+    }
+    SITE_ICONS.lock().ok()?.insert(domain,icon.clone());
+    icon
+}

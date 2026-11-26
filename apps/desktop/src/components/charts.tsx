@@ -1,6 +1,7 @@
 import type { Interval } from '../types';
 import { appColor, colors, dayRange, duration, localDate, metrics, overlap } from '../analytics';
-import { AppBadge, Empty, clock } from './ui';
+import { Empty, clock } from './ui';
+import { AppLogo } from '../ui';
 export function ActivityChart({ intervals, from, to }: {
     intervals: Interval[];
     from: number;
@@ -13,7 +14,7 @@ export function WeeklyChart({ intervals, to }: {
 export function AppUsage({ apps, total }: {
     apps: ReturnType<typeof metrics>['apps'];
     total: number;
-}) { return apps.length ? <div className="usage-list">{apps.map(a => <div className="usage-row" key={a.bundle}><AppBadge name={a.name}/><div className="usage-content"><div><strong>{a.name}</strong><span>{duration(a.ms)}</span></div><div className="usage-track"><div style={{ width: `${total ? a.ms / total * 100 : 0}%`, background: appColor(a.name) }}/></div></div></div>)}</div> : <Empty>No activity recorded for this date yet.</Empty>; }
+}) { return apps.length ? <div className="usage-list">{apps.map(a => <div className="usage-row" key={a.bundle}><AppLogo name={a.name} bundle={a.bundle}/><div className="usage-content"><div><strong>{a.name}</strong><span>{duration(a.ms)}</span></div><div className="usage-track"><div style={{ width: `${total ? a.ms / total * 100 : 0}%`, background: appColor(a.name) }}/></div></div></div>)}</div> : <Empty>No activity recorded for this date yet.</Empty>; }
 export function CategoryChart({ categories: items, total }: {
     categories: [
         string,

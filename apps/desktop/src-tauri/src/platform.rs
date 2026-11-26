@@ -6,7 +6,7 @@ mod macos {
     use super::*;
     use std::{ffi::{c_char,CStr,CString},sync::{mpsc::Sender,OnceLock}};
     static SINK:OnceLock<Sender<NativeSample>>=OnceLock::new();
-    extern "C" { fn habyss_start(sink:extern "C" fn(*const c_char)); fn habyss_titles(enabled:bool); fn habyss_permission(); fn habyss_open_permissions(); fn habyss_publish(json:*const c_char)->bool; fn habyss_save_export(json:*const c_char, reply:extern "C" fn(*mut std::ffi::c_void,*const c_char), context:*mut std::ffi::c_void); }
+    extern "C" { fn habyss_start(sink:extern "C" fn(*const c_char)); fn habyss_titles(enabled:bool); fn habyss_permission(); fn habyss_open_permissions(); fn habyss_publish(json:*const c_char)->bool; fn habyss_app_icon(bundle:*const c_char)->*mut c_char; fn habyss_free(p:*mut c_char); fn habyss_save_export(json:*const c_char, reply:extern "C" fn(*mut std::ffi::c_void,*const c_char), context:*mut std::ffi::c_void); }
     extern "C" fn receive(json:*const c_char) {
         if json.is_null() { return; }
         let value=unsafe { CStr::from_ptr(json) };
@@ -31,6 +31,15 @@ mod macos {
     pub struct MacCollector;
     impl MacCollector { pub fn new(sink:Sender<NativeSample>)->Self { let _=SINK.set(sink);Self } }
     impl ActivityCollector for MacCollector { fn start(&self) { unsafe{habyss_start(receive)} } fn set_title_collection(&self,enabled:bool) { unsafe{habyss_titles(enabled)} } }
+    /// The app's icon as a PNG data URL, from the bundle identifier. None for unknown apps and process-only ids.
+    pub fn app_icon(bundle:&str)->Option<String> {
+        let c=CString::new(bundle).ok()?;
+        let ptr=unsafe { habyss_app_icon(c.as_ptr()) };
+        if ptr.is_null() { return None; }
+        let b64=unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned();
+        unsafe { habyss_free(ptr) };
+        Some(format!("data:image/png;base64,{b64}"))
+    }
     pub fn permission() { unsafe { habyss_permission() } }
     pub fn open_permissions() { unsafe { habyss_open_permissions() } }
     pub fn publish(json:&str)->bool { CString::new(json).is_ok_and(|c|unsafe{habyss_publish(c.as_ptr())}) }

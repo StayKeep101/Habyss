@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { Cached, FocusSession, Interval, Screen, Snapshot } from '../types';
-import { dayRange, duration, FOCUS_MINUTES, localDate, metrics, overlap } from '../analytics';
+import type { Cached, FocusSession, Screen, Snapshot } from '../types';
+import { dayRange, duration, FOCUS_MINUTES, localDate, metrics } from '../analytics';
 import { buildToday, type TodayItem } from '../today/today';
 import { useFastClock, useSharedCloud, WithCloud } from '../today/CloudProvider';
 import { localDateKey } from '../shared/habitSchedule';
 import { FocusControls } from '../panel/FocusControls';
-import { AbyssArt, AppIcon, Button, Card, Donut, Empty, IconButton, ProgressBar, Segmented, StatTile, Tag, type IconName } from '../ui';
+import { AbyssArt, AppIcon, Button, Card, Donut, Empty, IconButton, ProgressBar, Segmented, StatTile, type IconName } from '../ui';
+import { UsageList } from '../tracking/UsageList';
 import { allocation, greeting, productivePercent, rangeBounds, tasksInRange, type Range } from './stats';
 import '../panel/panel.css';
 import './dashboard.css';
@@ -27,7 +28,6 @@ const DASH = '–';
 const KNOWN_ICONS: IconName[] = ['cube', 'heart', 'wallet', 'moon', 'flame', 'sparkles', 'timer', 'desktop', 'calendar', 'people', 'person', 'home', 'trending-up', 'stats-chart', 'hourglass'];
 
 const clock = (minute: number) => { const h = Math.floor(minute / 60) % 24, m = minute % 60; return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
-const clockAt = (ms: number) => { const d = new Date(ms); return clock(d.getHours() * 60 + d.getMinutes()); };
 const iconFor = (icon: string | undefined, fallback: IconName): IconName => { const name = icon?.replace(/-outline$/, '') as IconName | undefined; return name && KNOWN_ICONS.includes(name) ? name : fallback; };
 /** Slice colours: shades of the accent, with Other in the neutral tone. Shared by the donut and its legend. */
 const sliceColor = (i: number, label: string) => (label === 'Other' ? 'var(--text-subtle)' : `color-mix(in srgb, var(--accent) ${Math.max(30, 100 - i * 18)}%, var(--surface-raised))`);
@@ -113,7 +113,6 @@ function DashboardBody({ onNavigate }: DashboardProps) {
   // Ruling P6: for Today, the listed tasks of the today model, as the panel shows; wider ranges count tasks due in the range.
   const rangeTasks = useMemo(() => tasksInRange(cloud.data?.tasks ?? [], localDateKey(new Date(from)), localDateKey(new Date(minute))), [cloud.data, from, minute]);
   const tasks = range === 'Today' ? { done: today.tasksDone, total: today.tasksTotal } : rangeTasks;
-  const recent = useMemo(() => { const [start, end] = dayRange(day); return intervals.filter(i => i.state === 'active' && i.end > start && i.start < end).sort((a, b) => b.start - a.start).slice(0, 6); }, [intervals, day]);
   const tracked = slices.reduce((n, s) => n + s.value, 0);
   // Plan figures need an account and its data; anything less shows a dash, never a zero.
   const ready = signedIn && cloud.data !== null;
@@ -210,28 +209,12 @@ function DashboardBody({ onNavigate }: DashboardProps) {
             ? planner ?? (!signedIn ? <SignIn text="Sign in to see your habits and tasks." onNavigate={onNavigate} />
               : today.items.length === 0 ? <Empty>Nothing scheduled today.</Empty>
               : <ol className="db-tl">{today.items.map(i => <ScheduledRow key={`${i.kind}:${i.id}:${i.start}`} item={i} />)}</ol>)
-            : recent.length === 0 ? <Empty>No activity recorded today.</Empty>
-            : <ol className="db-tl">{recent.map(i => <ActivityRow key={i.id} interval={i} day={day} />)}</ol>}
+            : <UsageList intervals={intervals} from={dayRange(day)[0]} to={dayRange(day)[1]} classes={classes} empty="No activity recorded today." />}
         </Card>
 
         <Card className="db-live" title={<><span className={`db-live-dot${snap?.settings.tracking_enabled ? ' on' : ''}`} aria-hidden="true" />Activity</>} aside="(Live)" action={<Segmented options={LIVE_VIEWS} value={liveView} onChange={setLiveView} />}>
-          {liveView === 'Apps'
-            ? m.apps.length === 0 ? <Empty>No app activity yet.</Empty> : (
-              <ul className="db-apps">{m.apps.slice(0, 5).map(a => (
-                <li key={a.bundle}>
-                  <span className="db-badge" aria-hidden="true">{a.name.slice(0, 1).toUpperCase() || '·'}</span>
-                  <span className="db-app-name">{a.name}</span>
-                  <Tag tone={classes[a.category] ?? 'neutral'} />
-                  <span className="db-app-ms">{duration(a.ms)}</span>
-                </li>))}</ul>)
-            : m.sites.length === 0 ? <Empty>{snap?.settings.collect_titles ? 'No websites yet. Allow Habyss to read your browser when macOS asks.' : 'Turn on window titles in Settings to see websites.'}</Empty> : (
-              <ul className="db-apps">{m.sites.slice(0, 5).map(site => (
-                <li key={site.domain}>
-                  <span className="db-badge" aria-hidden="true">{site.domain.slice(0, 1).toUpperCase()}</span>
-                  <span className="db-app-name">{site.domain}</span>
-                  <Tag tone={classes[site.category] ?? 'neutral'} />
-                  <span className="db-app-ms">{duration(site.ms)}</span>
-                </li>))}</ul>)}
+          <UsageList key={liveView} intervals={intervals} from={from} to={minute} by={liveView === 'Apps' ? 'app' : 'site'} classes={classes} limit={6} compact
+            empty={liveView === 'Apps' ? 'No app activity yet.' : snap?.settings.collect_titles ? 'No websites yet. Allow Habyss to read your browser when macOS asks.' : 'Turn on window titles in Settings to see websites.'} />
           {m.active > 0 && <p className="db-input">Typing {duration(m.input.typing)} · Mouse {duration(m.input.pointer)}{m.input.meeting >= 60000 ? ` · Calls ${duration(m.input.meeting)}` : ''}{m.input.media >= 60000 ? ` · Video ${duration(m.input.media)}` : ''}</p>}
         </Card>
       </div>
@@ -255,17 +238,3 @@ function ScheduledRow({ item: i }: { item: TodayItem }) {
   );
 }
 
-function ActivityRow({ interval: i, day }: { interval: Interval; day: string }) {
-  const [start, end] = dayRange(day);
-  return (
-    <li className="db-tl-row">
-      <span className="db-tl-time">{clockAt(Math.max(i.start, start))}</span>
-      <span className="db-tl-rail" aria-hidden="true" />
-      <div className="db-tl-item">
-        <span className="db-badge small" aria-hidden="true">{i.name.slice(0, 1).toUpperCase() || '·'}</span>
-        <span className="db-tl-title">{i.name}</span>
-        <span className="db-tl-len">{duration(overlap(i.start, i.end, start, end))}</span>
-      </div>
-    </li>
-  );
-}

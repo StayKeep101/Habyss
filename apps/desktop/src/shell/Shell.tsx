@@ -4,18 +4,18 @@ import { listen } from '@tauri-apps/api/event';
 import { motion, useReducedMotion } from 'motion/react';
 import type { Act, Screen, Snapshot } from '../types';
 import { dayRange, duration, localDate, metrics } from '../analytics';
-import { AppBadge, CardTitle, Metric } from '../components/ui';
+import { CardTitle, Metric } from '../components/ui';
 import { AppUsage, CategoryChart, WeeklyChart } from '../components/charts';
 import { Timeline } from '../screens/Timeline';
 import { SettingsView } from '../screens/Settings';
 import { TodayPanel } from '../panel/TodayPanel';
 import { Dashboard } from '../dashboard/Dashboard';
 import { CloudProvider, useSharedCloud } from '../today/CloudProvider';
-import { AppIcon, Empty } from '../ui';
+import { AppIcon, AppLogo, Empty } from '../ui';
 import { Sidebar, TABS } from './Sidebar';
 import './shell.css';
 
-const CATEGORIES = ['uncategorized', 'development', 'communication', 'research', 'design', 'personal'];
+const CATEGORIES = ['uncategorized', 'development', 'design', 'productivity', 'writing', 'learning', 'research', 'communication', 'meetings', 'utilities', 'browsing', 'personal', 'social', 'entertainment', 'news', 'shopping'];
 const PANEL_KEY = 'habyss.panelCollapsed';
 const COMING: Partial<Record<Screen, string>> = { Progress: 'Goals and roadmaps arrive here soon.', Friends: 'Friends and shared streaks arrive here soon.', Profile: 'Your profile and achievements arrive here soon.' };
 /** Dashboard draws its own header. */
@@ -106,6 +106,6 @@ function AnalyticsContent({ data, m, weekly, to, weekFrom, busy, act }: { data: 
     <div className="metric-grid"><Metric title="Daily active" value={duration(m.active)} detail="Selected calendar day" /><Metric title="7-day active" value={duration(weekly.active)} detail="Six preceding days + selected day" /><Metric title="Longest active stretch" value={duration(m.longest)} detail="Across adjacent application contexts" /><Metric title="Observed during focus" value={duration(m.observedFocus)} detail="Active intervals ∩ declared sessions" /></div>
     <section className="card"><CardTitle title="A week in perspective" detail="Active computer time by local calendar day" /><WeeklyChart intervals={data.intervals} to={to} /></section>
     <div className="dashboard-columns lower"><section className="card"><CardTitle title="Application usage" detail={`${m.switches} application switches on selected day`} /><AppUsage apps={m.apps} total={m.active} /></section><section className="card"><CardTitle title="Time distribution" detail="Selected day" /><CategoryChart categories={m.categories} total={m.active} /><div className="definition"><strong>{duration(m.idle)} idle · {duration(m.active)} active</strong><p>Focus sessions express your intent. Activity records computer use; neither proves concentration or productivity.</p></div></section></div>
-    <section className="card"><CardTitle title="Your applications" detail="Usage for the selected day · weekly totals include the preceding six days" />{data.applications.length === 0 ? <Empty>Your applications will appear as you use them.</Empty> : <div className="table-scroll"><table><thead><tr><th>Application</th><th>Selected day</th><th>7 days</th><th>Contexts</th><th>Category</th><th>Last used</th></tr></thead><tbody>{data.applications.map(a => { const d = m.apps.find(v => v.bundle === a.bundle_id); const w = metrics(data.intervals.filter(i => i.bundle_id === a.bundle_id), [], weekFrom, to); return <tr key={a.id}><td><div className="app-name"><AppBadge name={a.name} /><div>{a.name}<small>{a.bundle_id}</small></div></div></td><td>{duration(d?.ms ?? 0)}</td><td>{duration(w.active)}</td><td>{d?.sessions ?? 0}</td><td><select aria-label={`${a.name} category`} value={a.category} disabled={busy} onChange={e => void act('categorize', { id: a.id, category: e.target.value })}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></td><td className="muted">{new Date(a.last_seen).toLocaleDateString()}</td></tr>; })}</tbody></table></div>}</section>
+    <section className="card"><CardTitle title="Your applications" detail="Usage for the selected day · weekly totals include the preceding six days" />{data.applications.length === 0 ? <Empty>Your applications will appear as you use them.</Empty> : <div className="table-scroll"><table><thead><tr><th>Application</th><th>Selected day</th><th>7 days</th><th>Contexts</th><th>Category</th><th>Last used</th></tr></thead><tbody>{data.applications.map(a => { const d = m.apps.find(v => v.bundle === a.bundle_id); const w = metrics(data.intervals.filter(i => i.bundle_id === a.bundle_id), [], weekFrom, to); return <tr key={a.id}><td><div className="app-name"><AppLogo name={a.name} bundle={a.bundle_id} /><div>{a.name}<small>{a.bundle_id}</small></div></div></td><td>{duration(d?.ms ?? 0)}</td><td>{duration(w.active)}</td><td>{d?.sessions ?? 0}</td><td><select aria-label={`${a.name} category`} value={a.category} disabled={busy} onChange={e => void act('categorize', { id: a.id, category: e.target.value })}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></td><td className="muted">{new Date(a.last_seen).toLocaleDateString()}</td></tr>; })}</tbody></table></div>}</section>
   </>;
 }

@@ -192,3 +192,20 @@ public func habyssSaveExport(_ json: UnsafePointer<CChar>, _ reply: @escaping @c
         }
     }
 }
+
+/// The app's Finder icon as a 64 px PNG, base64-encoded; nil when no app has this bundle identifier.
+/// The caller releases the string with `habyss_free`.
+@_cdecl("habyss_app_icon")
+public func habyssAppIcon(_ bundle: UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar>? {
+    guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: String(cString: bundle)) else { return nil }
+    let icon = NSWorkspace.shared.icon(forFile: url.path)
+    let side = 64
+    guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: side, pixelsHigh: side, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return nil }
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    icon.draw(in: NSRect(x: 0, y: 0, width: side, height: side), from: .zero, operation: .copy, fraction: 1)
+    NSGraphicsContext.restoreGraphicsState()
+    guard let png = rep.representation(using: .png, properties: [:]) else { return nil }
+    return strdup(png.base64EncodedString())
+}
+@_cdecl("habyss_free") public func habyssFree(_ p: UnsafeMutablePointer<CChar>?) { free(p) }

@@ -66,6 +66,13 @@ pub fn domain_category(domain: &str) -> Option<&'static str> {
     }
 }
 
+/// A public DNS name: letters, digits, dots and hyphens, with a dot, not an IP address or a local name.
+pub fn public_host(host: &str) -> bool {
+    let ok = !host.is_empty() && host.len() <= 253 && host.contains('.') && host.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+        && !host.starts_with(['.', '-']) && !host.ends_with(['.', '-']) && !host.contains("..");
+    ok && !host.split('.').all(|p| p.chars().all(|c| c.is_ascii_digit())) && !host.ends_with(".local") && !host.ends_with(".internal") && !host.ends_with(".localhost")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -96,5 +103,9 @@ mod tests {
         assert_eq!(app_category("com.figma.Desktop"), "design");
         assert_eq!(app_category("com.spotify.client"), "entertainment");
         assert_eq!(app_category("com.example.unknown"), "uncategorized");
+    }
+    #[test] fn only_public_hosts_get_icon_requests() {
+        assert!(public_host("github.com")); assert!(public_host("mail.google.com"));
+        for bad in ["localhost", "127.0.0.1", "192.168.1.1", "printer.local", "a..b.com", "evil.com/x", "x.com:8080", "", "-a.com"] { assert!(!public_host(bad), "{bad}"); }
     }
 }
