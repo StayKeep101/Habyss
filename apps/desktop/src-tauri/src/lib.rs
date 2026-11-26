@@ -5,6 +5,7 @@ pub mod engine;
 mod focus;
 mod models;
 mod pill;
+mod panel_place;
 mod platform;
 mod service;
 mod storage;
@@ -12,11 +13,15 @@ use commands::*;
 use platform::ActivityCollector;
 use tauri::{Emitter,Manager};
 use std::sync::{Arc,Mutex};
+/// The menu bar panel's size in points, when the display has room for it.
+const PANEL_WIDTH:f64=660.0;
+const PANEL_HEIGHT:f64=720.0;
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app,_,_|{let _=open_dashboard(app.clone(),None);}))
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent,Some(vec!["--autostart"])))
-        .invoke_handler(tauri::generate_handler![snapshot,save_settings,set_tracking,start_focus,pause_focus,resume_focus,stop_focus,categorize,request_permission,open_permissions,erase_history,export_history,export_to_file,open_dashboard,quit,app_icon,site_icon,set_day_plan,log_time,open_system_settings,
+        .invoke_handler(tauri::generate_handler![snapshot,save_settings,set_tracking,start_focus,pause_focus,resume_focus,stop_focus,categorize,request_permission,open_permissions,erase_history,export_history,export_to_file,open_dashboard,quit,haptic,app_icon,site_icon,set_day_plan,log_time,open_system_settings,
             cloud::commands::cloud_status,cloud::commands::cloud_send_code,cloud::commands::cloud_verify_code,cloud::commands::cloud_sign_in_password,cloud::commands::cloud_sign_in_with,cloud::commands::cloud_sign_out,cloud::commands::cloud_sync_now,cloud::commands::cloud_data,cloud::commands::cloud_save,cloud::commands::cloud_delete,cloud::commands::cloud_set_completion,cloud::commands::cloud_set_task_done,cloud::commands::cloud_set_day_input,cloud::commands::cloud_rpc,cloud::commands::cloud_action,cloud::commands::cloud_delete_account])
         .setup(|app| {
             let service=service::Service::open(app.path().app_data_dir()?).map_err(|e|std::io::Error::other(e.to_string()))?;
@@ -74,13 +79,11 @@ pub fn run() {
                     if let tauri::tray::TrayIconEvent::Click{button:tauri::tray::MouseButton::Left,button_state:tauri::tray::MouseButtonState::Up,rect,..}=event {
                         if let Some(panel)=tray.app_handle().get_webview_window("panel") {
                             if panel.is_visible().unwrap_or(false){let _=panel.hide();return;}
-                            let scale=panel.scale_factor().unwrap_or(1.0);
-                            let pos=rect.position.to_physical::<f64>(scale);let size=rect.size.to_physical::<f64>(scale);
-                            // Centred under the icon, 8 pt inside the display (same formula as src/panel/position.ts panelX).
-                            let width=panel.outer_size().map(|s|s.width as f64).unwrap_or(660.0*scale);
-                            let mut x=pos.x+size.width/2.0-width/2.0;
-                            if let Ok(Some(monitor))=panel.monitor_from_point(pos.x,pos.y){let left=monitor.position().x as f64;let right=left+monitor.size().width as f64;x=x.min(right-8.0*scale-width).max(left+8.0*scale);}
-                            let _=panel.set_position(tauri::PhysicalPosition::new(x,pos.y+size.height+8.0));let _=panel.show();let _=panel.set_focus();
+                            // On the display whose menu bar was clicked, under it, inside it (panel_place.rs).
+                            let displays:Vec<panel_place::Display>=panel.available_monitors().unwrap_or_default().iter().map(|m|panel_place::Display{x:m.position().x as f64,y:m.position().y as f64,width:m.size().width as f64,height:m.size().height as f64,scale:m.scale_factor(),work_top:m.work_area().position.y as f64}).collect();
+                            let click=panel_place::pointer(&displays).unwrap_or_else(||{let s=panel.scale_factor().unwrap_or(1.0);let p=rect.position.to_logical::<f64>(s);let z=rect.size.to_logical::<f64>(s);(p.x+z.width/2.0,p.y+z.height/2.0)});
+                            if let Some(p)=panel_place::place(&displays,click,(PANEL_WIDTH,PANEL_HEIGHT)){let _=panel.set_size(tauri::LogicalSize::new(p.width,p.height));let _=panel.set_position(tauri::LogicalPosition::new(p.x,p.y));}
+                            let _=panel.show();let _=panel.set_focus();
                         }
                     }
                 }).build(app)?;

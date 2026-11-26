@@ -131,7 +131,9 @@ function Panel() {
     const [y, mo, d] = date.split('-').map(Number), base = new Date(y, mo - 1, d).getTime();
     const tracked = (snap?.intervals ?? []).filter(i => i.state === 'active').map(i => ({ start: Math.floor((i.start - base) / 60000), end: Math.ceil((i.end - base) / 60000) }));
     const spans = [...day.items.map(i => ({ start: i.start, end: i.end })), ...tracked].filter(r => r.end > 0 && r.start < 2 * 1440 && r.end > r.start);
-    return makeAxis(day.window.wake, day.window.sleep, PX_PER_MIN, spans);
+    // A little room before waking and after bedtime for the day's two ends (Wake up, Bedtime).
+    const bed = day.window.sleep <= day.window.wake ? day.window.sleep + 1440 : day.window.sleep;
+    return makeAxis(day.window.wake, day.window.sleep, PX_PER_MIN, [...spans, { start: day.window.wake - 20, end: bed + 20 }]);
   }, [date, snap, day]);
   const apps = useMemo(() => { const seen = new Map<string, { name: string; bundle: string | null }>(); for (const i of snap?.intervals ?? []) if (i.state === 'active' && i.name && !seen.has(i.name)) seen.set(i.name, { name: i.name, bundle: i.bundle_id }); return [...seen.values()]; }, [snap]);
   const nowMinute = date === todayKey ? nowDate.getHours() * 60 + nowDate.getMinutes() : null;

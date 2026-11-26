@@ -67,3 +67,6 @@ static SITE_ICONS:std::sync::LazyLock<Mutex<std::collections::HashMap<String,Opt
     let url=match pane.as_str() { "menu_bar"=>"x-apple.systempreferences:com.apple.ControlCenter-Settings.extension", "notifications"=>"x-apple.systempreferences:com.apple.Notifications-Settings.extension", _=>return Err("Unknown settings pane".into()) };
     std::process::Command::new("open").arg(url).spawn().map(|_|()).map_err(|e|e.to_string())
 }
+
+/// A light trackpad tick (the phone's selection haptic), for reading the day line hour by hour. AppKit, so on the main thread.
+#[tauri::command] pub fn haptic(app:tauri::AppHandle)->Result<()> { app.run_on_main_thread(crate::panel_place::tick).map_err(|e|e.to_string()) }

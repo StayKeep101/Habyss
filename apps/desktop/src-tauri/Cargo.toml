@@ -28,3 +28,9 @@ keyring = { version = "3", features = ["apple-native"] }
 [dev-dependencies]
 tempfile = "3"
 mockito = "1"
+
+# The pointer's place in points (which display a menu bar click was on) and trackpad haptics.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSEvent", "NSHapticFeedback", "objc2-core-foundation"] }
+objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "CFCGTypes"] }

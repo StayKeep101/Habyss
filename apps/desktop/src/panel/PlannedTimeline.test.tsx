@@ -54,4 +54,26 @@ describe('PlannedTimeline', () => {
     expect(screen.getByText('09:05:09')).toBeTruthy();
     expect(screen.getByText('Now')).toBeTruthy();
   });
+
+  it('names free time between items, and marks waking and bedtime', () => {
+    render(<PlannedTimeline day={day([item('Run', { start: 540, end: 570 }), item('Read', { start: 630, end: 660 })])} axis={axis} now={null} amountFor={() => null} onToggle={() => {}} />);
+    expect(screen.getByText('Free · 1 h')).toBeTruthy();
+    expect(screen.getByRole('listitem', { name: /Wake up/ })).toBeTruthy();
+    expect(screen.getByRole('listitem', { name: /Bedtime/ })).toBeTruthy();
+  });
+
+  it('fills a pill as its time goes, and the line to the next as the free time goes', () => {
+    const now = new Date('2026-11-26T09:15:00').getTime();
+    const { container } = render(<PlannedTimeline day={day([item('Run', { start: 540, end: 570, state: 'now' }), item('Read', { start: 600, end: 630 })])} axis={axis} now={now} amountFor={() => null} onToggle={() => {}} />);
+    expect((container.querySelector('.mp-fill') as HTMLElement).style.height).toBe('50%');
+    expect((container.querySelector('.mp-link-line i') as HTMLElement).style.height).toBe('0%');
+  });
+
+  it('pointing along the day line shows only what is set then, or says nothing is', () => {
+    const { rerender } = render(<PlannedTimeline day={day([item('Run', { start: 540, end: 570 }), item('Read', { start: 630, end: 660 })])} axis={axis} now={null} at={550} amountFor={() => null} onToggle={() => {}} />);
+    expect(screen.queryByRole('listitem', { name: 'Read' })).toBeNull();
+    expect(screen.getByRole('listitem', { name: 'Run' })).toBeTruthy();
+    rerender(<PlannedTimeline day={day([item('Run', { start: 540, end: 570 })])} axis={axis} now={null} at={600} amountFor={() => null} onToggle={() => {}} />);
+    expect(screen.getByText('Nothing on at this time.')).toBeTruthy();
+  });
 });

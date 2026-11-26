@@ -53,7 +53,7 @@ export function NowCard({ state, onCheck, onOpen, onPause, onResume, onStop }: {
         </div>}
       </div>
       {checkable
-        ? <button type="button" className="mp-check" aria-label={`Mark ${state!.item!.title} done`} title="Mark done" onClick={() => onCheck(state!.item!)}><AppIcon name="checkmark" size={20} /></button>
+        ? <button type="button" className="mp-check" aria-label={`Mark ${state!.item!.title} done`} title="Mark done" onClick={() => onCheck(state!.item!)}><AppIcon name="checkmark-circle" size={22} filled /></button>
         : <span className="mp-check-space" aria-hidden="true" />}
     </section>
   );

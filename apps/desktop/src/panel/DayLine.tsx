@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import type { Today } from '../today/today';
 import { clockLabel, hoursLabel } from './countdown';
 
@@ -17,9 +18,14 @@ export function DayLine({ today, nowMinute, onRead }: { today: Today; nowMinute:
   const pct = (m: number) => `${Math.max(0, Math.min(100, (m - wake) / span * 100))}%`;
   const [reading, setReading] = useState<number | null>(null);
   const last = useRef<number | null>(null);
+  const lastHour = useRef<number | null>(null);
   const read = (minute: number | null) => {
     if (minute === last.current) return;
     last.current = minute;
+    // A light tick on the trackpad each hour passed, so the pointer feels the clock (the phone's selectionFeedback).
+    const hour = minute === null ? null : Math.floor(minute / 60);
+    if (hour !== null && lastHour.current !== null && hour !== lastHour.current && isTauri()) void invoke('haptic').catch(() => undefined);
+    lastHour.current = hour;
     setReading(minute);
     onRead?.(minute);
   };
