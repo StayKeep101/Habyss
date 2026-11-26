@@ -155,3 +155,8 @@
 .mp-tip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 16px; background: color-mix(in srgb, var(--accent) 10%, var(--bg)); border-bottom: 1px solid var(--line); font-size: 13px; }
 .mp-tip p { flex: 1 1 360px; margin: 0; color: var(--text); }
 .mp-tip p span { color: var(--text-muted); }
+
+/* A stretch shorter than a line stays true to its length: one slim line, no padding, so neighbours never overlap. */
+.mp-block.thin { padding: 0 8px; border-radius: 4px; justify-content: center; }
+.mp-block.thin .mp-block-head { font-size: 11px; line-height: 11px; }
+.mp-block.thin .mp-block-head img, .mp-block.thin .mp-block-head .app-logo { width: 10px; height: 10px; }
