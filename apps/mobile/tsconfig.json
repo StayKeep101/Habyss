@@ -5,6 +5,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@habyss/core/*": [
+        "../../packages/core/src/*"
       ]
     },
     "types": [

@@ -12,6 +12,10 @@ module.exports = {
     '!**/__tests__/**',
   ],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  // The shared packages (packages/core): one source for both apps, read from the repo, not from node_modules.
+  moduleNameMapper: { '^@habyss/core/(.*)$': '<rootDir>/../../packages/core/src/$1' },
+  // What their compiled code needs (Babel's helpers) comes from this app's node_modules: packages/ has none of its own.
+  modulePaths: ['<rootDir>/node_modules'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   testMatch: [
     '**/__tests__/**/*.(test|spec).(ts|tsx|js)',

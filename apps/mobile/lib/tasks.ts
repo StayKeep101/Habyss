@@ -18,69 +18,10 @@ import { getLocalUserId } from './localUser';
  * Everything here is local, like the rest of Habyss. Nothing is uploaded.
  */
 
-export type TaskStatus = 'open' | 'done' | 'cancelled';
-/** 1 is the most important. Kept numeric so ordering is obvious. */
-export type TaskPriority = 1 | 2 | 3;
-export type TaskDifficulty = 1 | 2 | 3;
-export type TaskSource = 'app' | 'mcp' | 'shortcut';
-/**
- * What finishing a task means: ticking it ("Send proposal"), reaching a count
- * ("Call 25 leads") or putting in time ("Study 2 hours", target in minutes).
- */
-export type TaskMeasure = 'done' | 'count' | 'time';
+// What a task is: one definition for both apps (packages/core/src/types.ts).
+import type { Subtask, Task, TaskDifficulty, TaskMeasure, TaskPriority, TaskSource, TaskStatus } from '@habyss/core/types';
+export type { Subtask, Task, TaskDifficulty, TaskMeasure, TaskPriority, TaskSource, TaskStatus } from '@habyss/core/types';
 
-export interface Task {
-    id: string;
-    title: string;
-    description?: string;
-    /** "YYYY-MM-DD" in the user's local calendar. */
-    dueDate?: string;
-    /** "HH:MM", 24 hour. */
-    dueTime?: string;
-    estimatedMinutes?: number;
-    priority: TaskPriority;
-    status: TaskStatus;
-    completedAt?: string;
-    source: TaskSource;
-    /** Stable id from whatever created it, so re-importing updates in place. */
-    externalId?: string;
-    /** Absent on a done-or-not task. */
-    measure?: TaskMeasure;
-    /** The count to reach, or minutes for a time task. */
-    target?: number;
-    /** What a count task counts ("leads", "words"). */
-    unit?: string;
-    /** How far it has got; a done task with no amount counts as its target. */
-    amount?: number;
-    /** 1 easy, 2 medium, 3 hard: the timeline puts hard things in your best hours. Kept on this phone. */
-    difficulty?: TaskDifficulty;
-    /** The steps it is made of, ticked one by one ("Write", "Edit", "Publish"). */
-    subtasks?: Subtask[];
-    /**
-     * "YYYY-MM-DD": when it must be done by, when that is later than its day
-     * (`dueDate`, the day you plan to do it). Kept on this phone.
-     */
-    deadline?: string;
-    /** At its set time: false keeps it exactly there; otherwise the timeline may move it. Kept on this phone. */
-    flexible?: boolean;
-    /** Its own reminders before it begins, in minutes (lib/itemAlerts.ts). */
-    alerts?: number[];
-    /** Reminded at this time on its day, "HH:MM", like a habit's reminder. */
-    reminder?: string;
-    /** Reminded on arriving at or leaving a place, like a habit's (lib/LocationService.ts). */
-    locationReminders?: LocationReminder[];
-    /** The heading it sits under in its goal's to-do list ("Research"). Kept on this phone. */
-    section?: string;
-    /** Right before or after something in the day, like a habit's (lib/habitAnchor.ts). Kept on this phone. */
-    anchor?: HabitAnchor;
-    /** Done early: what its Shards were multiplied by (lib/taskSpeed.ts). Kept on this phone. */
-    speed?: number;
-    createdAt: string;
-    updatedAt: string;
-}
-
-/** One step of a task. */
-export interface Subtask { id: string; title: string; done: boolean }
 
 /** Steps as stored (JSON text), read defensively: a bad value is no steps. */
 export function parseSubtasks(raw: unknown): Subtask[] | undefined {

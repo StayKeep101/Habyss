@@ -20,65 +20,9 @@ import type { TickSource } from './tickSource';
 import { historyAfterChange, parseScheduleHistory, storeScheduleHistory, type ScheduleEra } from './scheduleHistory';
 export { isHabitScheduledForDate } from './habitSchedule';
 
-// Re-export types
-export type HabitCategory = 'body' | 'wealth' | 'heart' | 'mind' | 'soul' | 'play' | 'health' | 'fitness' | 'work' | 'personal' | 'mindfulness' | 'misc' | 'productivity' | 'learning' | 'creativity' | 'social' | 'family' | 'finance';
-export type HabitType = 'build' | 'quit';
-export type GoalPeriod = 'daily' | 'weekly' | 'monthly';
-export type ChartType = 'bar' | 'line';
-export type HabitFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
-export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'free_time';
-export type TrackingMethod = 'boolean' | 'numeric';
-
-export interface Habit {
-    id: string;
-    name: string;
-    description?: string;
-    icon?: string;
-    category: HabitCategory;
-    createdAt: string;
-    durationMinutes?: number;
-    startTime?: string;
-    endTime?: string;
-    type: HabitType;
-    color: string;
-    goalPeriod: GoalPeriod;
-    goalValue: number;
-    unit: string;
-    taskDays: string[];
-    reminders: string[];
-    chartType: ChartType;
-    startDate: string;
-    endDate?: string;
-    isArchived: boolean;
-    showMemo: boolean;
-    frequency?: HabitFrequency;
-    weekInterval?: number;
-    graphStyle?: string;
-    timeOfDay?: TimeOfDay;
-    trackingMethod?: TrackingMethod;
-    ringtone?: string;
-    locationReminders?: LocationReminder[];
-    reminderOffset?: number; // Minutes before start time
-    /** Its own reminders before it begins, in minutes (lib/itemAlerts.ts); replaces reminderOffset when set. */
-    alerts?: number[];
-    /** Held before or after an event or meal by name (lib/habitAnchor.ts); null clears it. */
-    anchor?: HabitAnchor | null;
-    /** One specific sentence for this habit's reminder; Echo writes it when unset. */
-    reminderMessage?: string;
-    /** A lib/recurrence rule as JSON, when the schedule needs more than weekdays. */
-    recurrence?: string;
-    /** The schedules it had before, so a change never rewrites past days (lib/scheduleHistory.ts). Kept on this phone. */
-    scheduleHistory?: ScheduleEra[];
-    /** Which Apple Health metric answers for this habit; see lib/healthMetrics. */
-    healthKitMetric?: HealthMetric;
-    healthKitTarget?: number; // New
-    /** 1 high, 2 normal, 3 low: how the timeline orders it when it has no time. Kept on this phone. */
-    priority?: 1 | 2 | 3;
-    /** 1 easy, 2 medium, 3 hard: hard ones go in your best hours. Kept on this phone. */
-    difficulty?: 1 | 2 | 3;
-    /** At its set time: false keeps it exactly there; otherwise the timeline may move it. Kept on this phone. */
-    flexible?: boolean;
-}
+// What a habit is: one definition for both apps (packages/core/src/types.ts).
+import type { Habit, HabitCategory, LocationReminder } from '@habyss/core/types';
+export type { HabitCategory, HabitType, GoalPeriod, ChartType, HabitFrequency, TimeOfDay, TrackingMethod, Habit, LocationReminder } from '@habyss/core/types';
 
 // Cache
 let cachedHabits: Habit[] | null = null;
@@ -140,16 +84,6 @@ export async function reloadHabitsFromStorage(): Promise<void> {
  * `trigger` is absent on every place saved before directions existed, and
  * absent means arriving — which is what those places already did.
  */
-export interface LocationReminder {
-    name: string;
-    latitude: number;
-    longitude: number;
-    radius?: number;
-    /** Remind on arriving or leaving; or `stay`: tick it by itself after `stayMinutes` there (lib/LocationService.ts). */
-    trigger?: 'arrive' | 'leave' | 'stay';
-    /** For `stay`: minutes there before it counts (30 when absent). */
-    stayMinutes?: number;
-}
 
 function storedArray(value: unknown, fallback: any[] = []): any[] {
     try {

@@ -1,4 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// The rules (what travel an event has, on which reach) are shared with the Mac: packages/core/src/eventTravel.ts.
+// Keeping them on this phone is this file's part.
+import { onceKey, travelKey, weekdayKey, TRAVEL_MAX, type Travel, type TravelScope } from '@habyss/core/eventTravel';
+
+export * from '@habyss/core/eventTravel';
 
 /**
  * Travel time around a calendar event: an hour to get to school and an hour
@@ -11,51 +16,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * inside, and a notification says when to leave (and, if asked, a heads-up
  * a few minutes before that).
  */
-export interface Travel {
-    /** Minutes to get there. */
-    before: number;
-    /** Minutes to get back. */
-    after: number;
-    /** A heads-up this many minutes before it is time to leave (none when 0 or unset). */
-    warn?: number;
-}
-
 const KEY = 'habyss_event_travel';
-/** The longest trip either way, and the earliest heads-up: four hours. */
-export const TRAVEL_MAX = 240;
 let state: Record<string, Travel> = {};
 let loaded = false;
 const listeners = new Set<() => void>();
 
-/** Every event with this name. */
-export const travelKey = (title: string) => title.trim().toLowerCase().replace(/\s+/g, ' ');
-/** The weekday (0 Sunday … 6 Saturday) of a day key, at noon so no time zone moves it. */
-export const weekdayOf = (day: string) => new Date(`${day}T12:00:00`).getDay();
-/** Every event with this name on this weekday. */
-export const weekdayKey = (title: string, day: string) => `@${weekdayOf(day)}@${travelKey(title)}`;
-/** This one event, on this day only. */
-export const onceKey = (eventId: string, day: string) => `#${day}#${eventId}`;
 export const currentTravel = (): Record<string, Travel> => state;
 export function subscribeTravel(listener: () => void): () => void {
     listeners.add(listener);
     return () => { listeners.delete(listener); };
 }
-
-/** The travel an event has: its own for that day, else its name's on that weekday, else its name's. Pure. */
-export function travelOf(all: Record<string, Travel> | undefined, event: { id: string; title: string }, day?: string): Travel | undefined {
-    if (!all) return undefined;
-    return (day ? all[onceKey(event.id, day)] ?? all[weekdayKey(event.title, day)] : undefined) ?? all[travelKey(event.title)];
-}
-
-export type TravelScope = 'every' | 'weekday' | 'once';
-/** Which reach an event's travel on a day comes from (what the sheet shows chosen). */
-export function scopeOf(all: Record<string, Travel>, event: { id: string; title: string }, day: string): TravelScope {
-    if (all[onceKey(event.id, day)]) return 'once';
-    if (all[weekdayKey(event.title, day)]) return 'weekday';
-    return 'every';
-}
-/** Whether this event's travel is its own (this day only) rather than its name's. */
-export const isOnce = (all: Record<string, Travel>, eventId: string, day: string): boolean => !!all[onceKey(eventId, day)];
 
 export async function loadTravel(): Promise<Record<string, Travel>> {
     if (loaded) return state;
