@@ -1,12 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-/**
- * Meals and calendar events that finished early today ("class let out at
- * 2:10"), and the minute each one did. The timeline ends them there (lib/dayFlow.ts
- * rule 6) and what comes next moves up into the time they gave back. Today
- * only, kept on this phone; a new day starts empty.
- */
-export interface EndedEarly { day: string; at: Record<string, number> }
+// Shared with the Mac: packages/core/src/endedEarly.ts (the rules). What stays here is the phone's own part.
+import { type EndedEarly } from '@habyss/core/endedEarly';
+export * from '@habyss/core/endedEarly';
 
 const KEY = 'habyss_ended_early';
 let state: EndedEarly = { day: '', at: {} };
@@ -29,8 +24,6 @@ export async function loadEndedEarly(): Promise<EndedEarly> {
     listeners.forEach(listener => listener());
     return state;
 }
-
-export const endedFor = (all: EndedEarly, day: string): Record<string, number> => (all.day === day ? all.at : {});
 
 /** Ends `id` at `minute` on `day`, or takes that back when it was already ended. */
 export async function toggleEndedEarly(day: string, id: string, minute: number): Promise<void> {

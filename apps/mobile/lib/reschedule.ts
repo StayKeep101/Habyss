@@ -1,11 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-/**
- * Rule 5 (lib/dayFlow.ts): habits and tasks rescheduled today by a swipe, and
- * the minute each one was. Today only, kept on this phone; a new day starts
- * empty.
- */
-export interface Reschedules { day: string; at: Record<string, number> }
+// Shared with the Mac: packages/core/src/reschedule.ts (the rules). What stays here is the phone's own part.
+import { type Reschedules } from '@habyss/core/reschedule';
+export * from '@habyss/core/reschedule';
 
 const KEY = 'habyss_reschedules';
 let state: Reschedules = { day: '', at: {} };
@@ -28,9 +24,6 @@ export async function loadReschedules(): Promise<Reschedules> {
     listeners.forEach(listener => listener());
     return state;
 }
-
-/** Today's reschedules for `day`, or none when they were made on another day. */
-export const reschedulesFor = (all: Reschedules, day: string): Record<string, number> => (all.day === day ? all.at : {});
 
 /** Reschedules `id` at `minute` (minutes from midnight) on `day`. */
 export async function reschedule(day: string, id: string, minute: number): Promise<void> {
