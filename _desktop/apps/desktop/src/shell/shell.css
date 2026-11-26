@@ -1,0 +1,54 @@
+/* App shell: three columns. Theme variables only. */
+html.has-vibrancy, html.has-vibrancy body { background: transparent; }
+.app-shell { display: flex; height: 100vh; min-width: 0; color: var(--text); font-family: var(--font-body); }
+
+/* Sidebar: solid surface by default; translucent over the system material when the window is transparent. */
+.app-sidebar { width: 232px; flex: none; display: flex; flex-direction: column; box-sizing: border-box; padding: 0 var(--space-md) var(--space-xl); background: var(--surface); border-right: 1px solid var(--line); }
+html.has-vibrancy .app-sidebar { background: color-mix(in srgb, var(--surface) 35%, transparent); }
+.app-drag { height: 44px; flex: none; }
+.app-brand { display: flex; align-items: center; gap: var(--space-sm); padding: 0 var(--space-md); margin-bottom: var(--space-xl); font: 700 22px/1 var(--font-display); letter-spacing: -0.3px; }
+.app-brand-mark { width: 28px; height: 28px; object-fit: contain; }
+.app-sidebar nav { display: flex; flex-direction: column; gap: var(--space-xs); }
+.app-nav-divider { border: 0; height: 1px; margin: var(--space-md) var(--space-md); background: var(--line); }
+.app-nav-item button { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: flex-start; gap: var(--space-md); padding: 0 var(--space-md); border: 0; border-radius: var(--radius-control); background: none; color: var(--text-muted); font: 500 15px/1 var(--font-body); cursor: pointer; transition: background var(--dur-quick) var(--ease-enter), color var(--dur-quick) var(--ease-enter); }
+.app-nav-item button:hover { background: color-mix(in srgb, var(--surface-raised) 60%, transparent); }
+.app-nav-item button.selected { background: var(--surface-raised); color: var(--text); box-shadow: inset 0 1px 0 var(--lip); }
+.app-nav-item button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-xs); }
+.app-shell { --mask-solid: black; }
+.app-abyss { height: 120px; margin: 0 calc(-1 * var(--space-md)) var(--space-sm); overflow: hidden; -webkit-mask-image: linear-gradient(180deg, transparent, var(--mask-solid) 40%); mask-image: linear-gradient(180deg, transparent, var(--mask-solid) 40%); }
+.app-abyss .ui-abyss { width: 100%; height: 100%; display: block; }
+.app-foot-title { margin: 0 var(--space-md); font: 500 16px/1.3 var(--font-body); }
+.app-foot-sub { margin: 0 var(--space-md) var(--space-md); font: 400 14px/1.3 var(--font-body); color: var(--text-muted); }
+.app-track { display: flex; align-items: center; gap: var(--space-sm); }
+.app-track-btn { flex: 1; min-height: 44px; display: flex; align-items: center; gap: var(--space-sm); padding: 0 var(--space-md); border: 0; border-radius: var(--radius-control); background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--line); color: var(--text); font: 400 12px/1 var(--font-body); cursor: pointer; }
+.app-track-btn:disabled { opacity: 0.6; cursor: default; }
+.app-track-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app-status { margin-left: auto; display: inline-flex; align-items: center; font-size: 0; }
+.app-status i, .app-sync i { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--text-subtle); }
+.app-status.on i, .app-sync.on i { background: var(--success); }
+.app-sync.warn i { background: var(--warning); }
+.app-sync.bad i { background: var(--danger); }
+.app-sync { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 44px; }
+.app-version { margin: var(--space-xs) var(--space-md) 0; color: var(--text-subtle); font: 400 11px/1.3 var(--font-body); }
+
+/* Centre column. */
+.app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--bg); }
+.app-topbar { height: 44px; flex: none; }
+.app-content { flex: 1; overflow-y: auto; padding: 0 var(--space-xxl) var(--space-section); }
+.app-header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-xl); margin-bottom: var(--space-xxl); }
+.app-eyebrow { margin: 0 0 var(--space-xs); font: 500 13px/1 var(--font-body); letter-spacing: 1.5px; color: var(--text-muted); }
+.app-header h1 { margin: 0; font: 700 38px/1.15 var(--font-body); letter-spacing: -0.5px; }
+.app-sub { margin: var(--space-xs) 0 0; font: 400 18px/1.4 var(--font-body); color: var(--text-muted); }
+.app-date { display: flex; align-items: center; gap: var(--space-xs); }
+.app-date button { width: 44px; height: 44px; padding: 0; border-radius: var(--radius-control); }
+.app-date input { min-height: 44px; padding: 0 var(--space-md); border-radius: var(--radius-control); border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+
+.app-privacy { margin: var(--space-section) 0 0; color: var(--text-subtle); font: 400 12px/1.5 var(--font-body); }
+
+/* Right column: an opaque wrapper holds the gutter and the area under a collapsed panel; only the sidebar is see-through. */
+.app-right { flex: none; display: flex; align-items: flex-start; box-sizing: border-box; height: 100vh; padding: var(--space-md); background: var(--bg); }
+.app-right > .tp-window { height: 100%; box-sizing: border-box; }
+
+@media (prefers-reduced-motion: reduce) { .app-nav-item button { transition: none; } }
