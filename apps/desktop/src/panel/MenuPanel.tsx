@@ -15,6 +15,7 @@ import { clockLabel } from './countdown';
 import { usePlanPublisher } from './usePlanPublisher';
 import { PlannedTimeline } from './PlannedTimeline';
 import { PlannedList } from './PlannedList';
+import { TrackedTimeline } from './TrackedTimeline';
 import { rowToHabit } from '../shared/rows';
 import { measurementFor } from '../shared/habitMeasurement';
 import './menuPanel.css';
@@ -138,7 +139,7 @@ function Panel() {
           ? <PlannedTimeline day={day} axis={axis} now={date === todayKey ? now : null} amountFor={amountFor} onToggle={(item, on, value) => setDone(item, on, value)} />
           : <PlannedList day={day} onToggle={(item, on, value) => setDone(item, on, value)} onSeeAll={() => void invoke('open_dashboard', { screen: 'Calendar' })} />)}</Column>}
         {show === 'Both' && <Hours axis={axis} />}
-        {show !== 'Plan' && <Column label="Tracked"><div className="mp-tracked" style={{ height: axis.height }} /></Column>}
+        {show !== 'Plan' && <Column label="Tracked"><TrackedTimeline intervals={snap?.intervals ?? []} axis={axis} day={date} items={day.items} classes={snap?.classifications ?? {}} now={date === todayKey ? now : null} /></Column>}
       </div>
     </div>
   );

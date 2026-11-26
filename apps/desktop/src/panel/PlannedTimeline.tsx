@@ -51,6 +51,7 @@ export function PlannedTimeline({ day, axis, now, amountFor, onToggle }: {
           </li>
         );
       })}
+      {now !== null && (() => { const d = new Date(now), m = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60; return m >= axis.from && m <= axis.to ? <li className="mp-nowline" aria-hidden="true" style={{ top: axis.y(m) }} /> : null; })()}
     </ol>
   );
 }

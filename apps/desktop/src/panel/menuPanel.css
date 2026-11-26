@@ -109,3 +109,33 @@
 .mp-card-side b { font-weight: 500; }
 .mp-card-side b.today { color: var(--warning); }
 .mp-card-side b.late { color: var(--danger); }
+
+/* Tracked: where the time went */
+.mp-tracked { position: relative; }
+.mp-tracked-empty { position: absolute; top: 40%; left: 0; right: 0; text-align: center; }
+.mp-strip { position: absolute; left: 0; width: 5px; border-radius: 3px; background: var(--text-subtle); }
+.mp-strip.productive { background: var(--accent); }
+.mp-strip.unproductive { background: var(--danger); }
+.mp-block { position: absolute; left: 12px; right: 0; display: flex; flex-direction: column; gap: 2px; overflow: hidden; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); text-align: left; font: inherit; cursor: default; transition: background var(--dur-quick) var(--ease-enter), border-color var(--dur-quick) var(--ease-enter); }
+.mp-block.unproductive { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); }
+.mp-block:hover, .mp-block:focus-visible { border-color: var(--accent); outline: none; }
+.mp-block-head { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; align-items: center; gap: 6px; font-size: 13px; line-height: 16px; }
+.mp-block-head b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-block em, .mp-card-pop em { font-style: normal; color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.mp-block-part { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding-left: 20px; color: var(--text-muted); font-size: 12px; line-height: 16px; }
+.mp-block-part span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-nowline { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid var(--danger); z-index: 3; pointer-events: none; list-style: none; }
+.mp-card-pop { position: absolute; right: calc(100% + 10px); z-index: 10; width: 270px; padding: 12px; border-radius: 12px; background: var(--surface-raised); box-shadow: var(--shadow-floating), inset 0 0 0 1px var(--line); font-size: 13px; animation: mp-pop var(--dur-quick) var(--ease-enter); }
+.mp-cols.show-tracked .mp-card-pop { right: auto; left: 12px; top: auto; }
+.mp-card-pop strong { display: block; font-weight: 600; }
+.mp-card-pop small { display: block; margin: 2px 0 8px; color: var(--text-muted); }
+.mp-card-pop dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+.mp-card-pop dt { color: var(--text-subtle); }
+.mp-card-pop dd { margin: 0; text-align: right; }
+.mp-deep { height: 5px; margin: 10px 0 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.mp-deep i { display: block; height: 100%; background: var(--accent); }
+.mp-card-pop ul { list-style: none; margin: 6px 0 0; padding: 6px 0 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; }
+.mp-card-pop li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.mp-card-pop li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes mp-pop { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .mp-card-pop { animation: none; } }
