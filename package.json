@@ -1,0 +1,16 @@
+{
+  "name": "habyss",
+  "private": true,
+  "description": "Habyss: one product, two apps (apps/mobile, apps/desktop) on one shared core (packages/).",
+  "scripts": {
+    "mobile": "cd apps/mobile && npx expo start",
+    "mobile:check": "cd apps/mobile && npm run type-check && npm run test:ci && npm run check:ui",
+    "desktop": "cd apps/desktop && bun run tauri dev",
+    "desktop:build": "cd apps/desktop && bun run tauri build --bundles app",
+    "desktop:dmg": "cd apps/desktop && bun run tauri build --bundles app,dmg",
+    "desktop:check": "cd apps/desktop && bun run check && bun run test && cargo test --manifest-path src-tauri/Cargo.toml",
+    "check": "npm run mobile:check && npm run desktop:check",
+    "apply:migration": "node scripts/apply-migration.mjs",
+    "sql": "node scripts/sql.mjs"
+  }
+}

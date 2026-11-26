@@ -56,7 +56,15 @@ let settle: ReturnType<typeof setTimeout> | null = null;
 /** A day setting changed here: a sync follows shortly (bursts collapse into one). */
 export function markDayInputsDirty(_store: string): void {
     if (settle) clearTimeout(settle);
-    settle = setTimeout(() => { settle = null; void (require('./cloudSync') as typeof import('./cloudSync')).syncNow().catch(() => undefined); }, 1500);
+    // Nobody waits on this timer, so nothing in it may throw: a sync that cannot start (no sync module, as in a test
+    // that replaced it, or the app shutting down) is simply skipped; the next change or launch syncs anyway.
+    settle = setTimeout(() => {
+        settle = null;
+        try {
+            const sync = (require('./cloudSync') as Partial<typeof import('./cloudSync')>).syncNow;
+            if (typeof sync === 'function') void sync().catch(() => undefined);
+        } catch { /* skipped; see above */ }
+    }, 1500);
 }
 
 /** Returns how many settings went up and came down. Never throws: the day still works here. */

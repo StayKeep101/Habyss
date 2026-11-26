@@ -1,0 +1,33 @@
+# Habyss: one product, two apps, one core
+
+Read `apps/mobile/AGENTS.md` first: what Habyss is for. Then the rules of the app you are working in
+(`apps/mobile/CLAUDE.md` for the phone).
+
+```
+apps/mobile/     the iPhone app (Expo SDK 57, React Native, committed ios/)
+apps/desktop/    the Mac app (Tauri 2: React in the window, Rust for tracking, SwiftUI widgets)
+packages/core/   the logic both apps run: plain TypeScript, no React Native, no DOM
+packages/design/ the look both apps draw with: colours, surfaces, radius, spacing, type, motion, as plain values
+supabase/        the server both apps sync with (migrations, edge functions)
+cloudflare/      the MCP gateway
+scripts/         server scripts (apply-migration, sql, checks), reading .env.local at the top
+```
+
+## The rule
+
+Neither app is the source. Anything both apps need — how a day is planned, what a habit is doing, streaks, schedules,
+measurements, the colours — lives once in `packages/` and both apps import it. An app holds only what is drawn its own
+way: React Native views on the phone, web views and Rust on the Mac. A change to shared behaviour is made in `packages/`,
+and both apps' checks run against it.
+
+The apps still differ where the device does: the phone has fingers, swipes and haptics; the Mac has a pointer, hover,
+the keyboard and the menu bar. Behaviour, data and look are the same.
+
+## Installing and checking
+
+Each app keeps its own install and lockfile, so neither app's dependency versions ever move because of the other
+(the phone's must match the build installed on the phone exactly):
+
+- `apps/mobile`: `npm ci` (package-lock.json). Updates: `eas update --channel preview` from `apps/mobile`.
+- `apps/desktop`: `bun install --frozen-lockfile` (bun.lock).
+- `npm run check` at the top runs both apps' checks; `npm run mobile:check`, `npm run desktop:check` one each.

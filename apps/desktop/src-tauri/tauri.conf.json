@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "sh ../../scripts/build-widgets.sh && bun run build",
+    "beforeBuildCommand": "sh scripts/build-widgets.sh && bun run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -56,7 +56,7 @@
       "minimumSystemVersion": "14.0",
       "infoPlist": "Info.plist",
       "files": {
-        "PlugIns/HabyssWidgets.appex": "../../../.build/widgets/Build/Products/Release/HabyssWidgets.appex"
+        "PlugIns/HabyssWidgets.appex": "../.build/widgets/Build/Products/Release/HabyssWidgets.appex"
       }
     },
     "icon": [

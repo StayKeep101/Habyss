@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 : "${HABYSS_TEAM_ID:?Set your Apple Developer Team ID}"
 : "${HABYSS_SIGN_IDENTITY:?Set a Developer ID Application signing identity}"
 export HABYSS_APP_GROUP="${HABYSS_APP_GROUP:-${HABYSS_TEAM_ID}.com.habyss.shared}"
-APP="${HABYSS_APP_PATH:-$PWD/apps/desktop/src-tauri/target/release/bundle/macos/Habyss.app}"
+APP="${HABYSS_APP_PATH:-$PWD/src-tauri/target/release/bundle/macos/Habyss.app}"
 export HABYSS_SIGN_APP="$APP"
 python3 - <<'PY'
 import os, pathlib, plistlib

@@ -1,5 +1,5 @@
 # On every push and pull request: types, tests, the UI rules and SwiftLint.
-name: Checks
+name: Mobile checks
 
 on:
   push:
@@ -21,10 +21,15 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
       - run: npm ci
+        working-directory: apps/mobile
       - run: npm run type-check
+        working-directory: apps/mobile
       - run: npm run test:ci
+        working-directory: apps/mobile
       - run: npm run check:ui
+        working-directory: apps/mobile
 
   swift:
     name: SwiftLint
@@ -35,4 +40,4 @@ jobs:
     container: ghcr.io/realm/swiftlint:latest
     steps:
       - uses: actions/checkout@v4
-      - run: swiftlint lint --reporter github-actions-logging
+      - run: cd apps/mobile && swiftlint lint --reporter github-actions-logging
