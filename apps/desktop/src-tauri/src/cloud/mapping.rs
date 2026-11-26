@@ -52,7 +52,6 @@ pub fn is_uuid(v: &Value) -> bool {
     let re = RE.get_or_init(|| Regex::new(r"(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$").unwrap());
     v.as_str().map_or(false, |s| re.is_match(s))
 }
-fn uuid_or_null(v: &Value) -> Value { if is_uuid(v) { v.clone() } else { Value::Null } }
 
 pub fn parse_json(v: &Value, fallback: Value) -> Value {
     match v {
@@ -85,7 +84,7 @@ fn merge(mut base: Value, extra: Value) -> Value {
     base
 }
 
-// Habits (and goals, which are habits with is_goal set)
+// Habits
 
 pub fn habit_to_remote(row: &Value, user_id: &str) -> Value {
     let goal_value = finite(g(row, "goal_value"));
@@ -99,9 +98,6 @@ pub fn habit_to_remote(row: &Value, user_id: &str) -> Value {
         "description": g(row, "description"),
         "category": or_t(row, "category", "personal"),
         "icon": g(row, "icon"),
-        "is_goal": bool_of(g(row, "is_goal")),
-        "target_date": date_only(g(row, "target_date")),
-        "goal_id": uuid_or_null(g(row, "goal_id")),
         "task_days": parse_json(g(row, "task_days"), json!([])),
         "reminders": parse_json(g(row, "reminders"), json!([])),
         "start_date": date_only(g(row, "start_date")),
@@ -130,7 +126,6 @@ pub fn habit_to_remote(row: &Value, user_id: &str) -> Value {
         "health_kit_metric": g(row, "health_kit_metric"),
         "health_kit_target": finite_v(g(row, "health_kit_target")),
         "ringtone": or_d(row, "ringtone", json!("default")),
-        "goal_spec": parse_json(g(row, "goal_spec"), Value::Null),
         "created_at": g(row, "created_at"), "updated_at": g(row, "updated_at"),
         "deleted_at": deleted_at(row, g(row, "updated_at")),
     }));
@@ -144,9 +139,6 @@ pub fn habit_to_local(row: &Value) -> Value {
         "description": g(row, "description"),
         "category": or_d(row, "category", json!("personal")),
         "icon": g(row, "icon"),
-        "is_goal": flag(g(row, "is_goal")),
-        "target_date": date_only(g(row, "target_date")),
-        "goal_id": g(row, "goal_id"),
         "task_days": to_json_text(g(row, "task_days"), "[]"),
         "reminders": to_json_text(g(row, "reminders"), "[]"),
         "start_date": date_only(g(row, "start_date")),
@@ -176,7 +168,6 @@ pub fn habit_to_local(row: &Value) -> Value {
         "health_kit_metric": g(row, "health_kit_metric"),
         "health_kit_target": finite_v(g(row, "health_kit_target")),
         "ringtone": or_d(row, "ringtone", json!("default")),
-        "goal_spec": if g(row, "goal_spec").is_null() { Value::Null } else { json!(g(row, "goal_spec").to_string()) },
         "created_at": stamp("created_at"), "updated_at": stamp("updated_at"),
         "deleted": flag(g(row, "deleted_at")),
         // Came from the server, so there is nothing to upload. owner_id/refused are desktop-only columns.
@@ -253,7 +244,6 @@ pub fn task_to_remote(row: &Value, user_id: &str) -> Value {
         "due_date": date_only(g(row, "due_date")), "due_time": valid_time(g(row, "due_time")),
         "estimated_minutes": minutes.filter(|m| *m >= 0.0).map_or(Value::Null, |m| num(round(m))),
         "priority": num(priority.filter(|p| *p >= 1.0 && *p <= 3.0).map_or(2.0, round)),
-        "goal_id": uuid_or_null(g(row, "goal_id")),
         "status": pick(&TASK_STATUS, g(row, "status"), json!("open")),
         "completed_at": g(row, "completed_at"),
         "source": pick(&TASK_SOURCE, g(row, "source"), json!("app")),
@@ -262,7 +252,6 @@ pub fn task_to_remote(row: &Value, user_id: &str) -> Value {
         "target": finite_v(g(row, "target")),
         "unit": g(row, "unit").as_str().map_or(Value::Null, |s| json!(clip(s, 40))),
         "amount": finite_v(g(row, "amount")),
-        "milestone_id": if g(row, "milestone_id").is_string() { g(row, "milestone_id").clone() } else { Value::Null },
         "subtasks": subtasks,
         "deadline": date_only(g(row, "deadline")),
         "section": section,
@@ -281,7 +270,6 @@ pub fn task_to_local(row: &Value) -> Value {
         "due_date": date_only(g(row, "due_date")), "due_time": g(row, "due_time"),
         "estimated_minutes": g(row, "estimated_minutes"),
         "priority": or_d(row, "priority", json!(2)),
-        "goal_id": g(row, "goal_id"),
         "status": or_d(row, "status", json!("open")),
         "completed_at": g(row, "completed_at"),
         "source": or_d(row, "source", json!("app")),
@@ -290,7 +278,6 @@ pub fn task_to_local(row: &Value) -> Value {
         "target": finite_v(g(row, "target")),
         "unit": g(row, "unit"),
         "amount": finite_v(g(row, "amount")),
-        "milestone_id": g(row, "milestone_id"),
         "created_at": stamp("created_at"), "updated_at": stamp("updated_at"),
         "deleted": flag(g(row, "deleted_at")),
         "synced": 1, "owner_id": Value::Null, "refused": 0,
@@ -305,39 +292,9 @@ pub fn task_to_local(row: &Value) -> Value {
     merge(out, planning_to_local(row, &["difficulty", "flexible"]))
 }
 
-// Milestones
-
-pub fn milestone_to_remote(row: &Value, user_id: &str) -> Value {
-    let title = match g(row, "title") { Value::Null => String::new(), Value::String(s) => s.clone(), v => v.to_string() };
-    json!({
-        "id": g(row, "id"), "user_id": user_id, "goal_id": uuid_or_null(g(row, "goal_id")),
-        "title": clip(&title, 200),
-        "due_date": date_only(g(row, "due_date")), "done_at": g(row, "done_at"),
-        "position": num(round(finite(g(row, "position")).unwrap_or(0.0))),
-        "created_at": g(row, "created_at"), "updated_at": g(row, "updated_at"),
-        "deleted_at": deleted_at(row, g(row, "updated_at")),
-    })
-}
-
-pub fn milestone_to_local(row: &Value) -> Value {
-    let stamp = |k: &str| or_d(row, k, json!(now()));
-    json!({
-        "id": g(row, "id"), "user_id": g(row, "user_id"), "goal_id": g(row, "goal_id"), "title": g(row, "title"),
-        "due_date": date_only(g(row, "due_date")), "done_at": g(row, "done_at"),
-        "position": or_d(row, "position", json!(0)),
-        "created_at": stamp("created_at"), "updated_at": stamp("updated_at"),
-        "deleted": flag(g(row, "deleted_at")),
-        "synced": 1, "owner_id": Value::Null, "refused": 0,
-    })
-}
-
-/// Goals before the habits that point at them (habits.goal_id is a foreign key). Rows whose id is not a UUID
-/// cannot be uploaded and are returned separately as skipped, to be reported rather than fail the batch.
+/// Rows whose id is not a UUID cannot be uploaded and are returned separately as skipped, to be reported rather than fail the batch.
 pub fn order_for_upload(rows: Vec<Value>) -> (Vec<Value>, Vec<Value>) {
-    let (valid, skipped): (Vec<Value>, Vec<Value>) = rows.into_iter().partition(|r| is_uuid(g(r, "id")));
-    let (mut upload, rest): (Vec<Value>, Vec<Value>) = valid.into_iter().partition(|r| bool_of(g(r, "is_goal")));
-    upload.extend(rest);
-    (upload, skipped)
+    rows.into_iter().partition(|r| is_uuid(g(r, "id")))
 }
 
 #[cfg(test)]
@@ -380,12 +337,10 @@ mod tests {
     #[test]
     fn turns_0_1_into_real_booleans_and_json_text_into_structures() {
         let r = habit_to_remote(&local_habit(), USER);
-        assert_eq!(r["is_goal"], false);
         assert_eq!(r["show_memo"], true);
         assert_eq!(r["task_days"], json!(["mon", "wed"]));
         assert_eq!(r["reminders"], json!(["18:00"]));
         assert_eq!(r["location_reminders"], json!([{"name": "Gym", "latitude": 1, "longitude": 2}]));
-        assert_eq!(r["goal_spec"], json!({"type": "volume", "target": 50}));
     }
 
     #[test]
@@ -430,12 +385,6 @@ mod tests {
         assert!(r["deleted_at"].as_str().unwrap().ends_with('Z'));
     }
 
-    #[test]
-    fn stores_deadlines_as_calendar_dates_whatever_shape_they_were_in() {
-        assert_eq!(habit_to_remote(&with(&local_habit(), json!({"target_date": "2026-09-30T00:00:00.000Z"})), USER)["target_date"], "2026-09-30");
-        assert_eq!(habit_to_remote(&with(&local_habit(), json!({"target_date": "2026-09-30"})), USER)["target_date"], "2026-09-30");
-    }
-
     // habits are cleaned so one bad row cannot block a backup
 
     #[test]
@@ -450,14 +399,12 @@ mod tests {
         assert_eq!(r["goal_value"], 1);
         assert!(r["duration_minutes"].is_null());
         assert_eq!(r["category"], "personal");
-        assert!(r["goal_id"].is_null());
     }
 
     #[test]
     fn survives_malformed_json() {
-        let r = habit_to_remote(&with(&local_habit(), json!({"task_days": "[oops", "goal_spec": "{"})), USER);
+        let r = habit_to_remote(&with(&local_habit(), json!({"task_days": "[oops"})), USER);
         assert_eq!(r["task_days"], json!([]));
-        assert!(r["goal_spec"].is_null());
     }
 
     #[test]
@@ -477,10 +424,9 @@ mod tests {
         let back = habit_to_local(&with(&habit_to_remote(&local_habit(), USER), json!({"user_id": USER})));
         matches(&back, json!({
             "id": HABIT, "user_id": USER, "name": "Evening run", "goal_value": 3.6, "unit": "km",
-            "tracking_method": "numeric", "is_goal": 0, "show_memo": 1, "goal_id": GOAL, "deleted": 0,
+            "tracking_method": "numeric", "show_memo": 1, "deleted": 0,
         }));
         assert_eq!(serde_json::from_str::<Value>(back["task_days"].as_str().unwrap()).unwrap(), json!(["mon", "wed"]));
-        assert_eq!(serde_json::from_str::<Value>(back["goal_spec"].as_str().unwrap()).unwrap(), json!({"type": "volume", "target": 50}));
         // The rule comes back as the text the phone stores, key order and all.
         assert_eq!(back["recurrence"], RECURRENCE);
         assert_eq!(back["reminder_message"], local_habit()["reminder_message"]);
@@ -554,7 +500,7 @@ mod tests {
     fn task_uploads_with_the_fields_that_decide_what_matters_today() {
         matches(&task_to_remote(&local_task(), USER), json!({
             "user_id": USER, "title": "Buy shoes", "due_date": "2026-09-20", "due_time": "18:30",
-            "estimated_minutes": 45, "priority": 1, "goal_id": GOAL, "external_id": "onboarding:x:checkpoint_1",
+            "estimated_minutes": 45, "priority": 1, "external_id": "onboarding:x:checkpoint_1",
         }));
     }
 
@@ -572,12 +518,6 @@ mod tests {
     }
 
     // upload order
-
-    #[test]
-    fn sends_goals_before_the_habits_that_point_at_them() {
-        let (upload, _) = order_for_upload(vec![json!({"id": HABIT, "is_goal": 0}), json!({"id": GOAL, "is_goal": 1})]);
-        assert_eq!(upload.iter().map(|r| r["id"].as_str().unwrap()).collect::<Vec<_>>(), vec![GOAL, HABIT]);
-    }
 
     #[test]
     fn sets_aside_rows_whose_id_the_server_cannot_accept() {
@@ -707,12 +647,14 @@ mod tests {
         assert!(["priority", "difficulty", "flexible"].iter().all(|k| h.get(*k).is_none()));
     }
 
-    // milestones (no mobile tests; covered here)
-
     #[test]
-    fn milestone_round_trips_and_cleans() {
-        let r = milestone_to_remote(&json!({"id": "m", "goal_id": "nope", "title": "Ship", "position": "2", "deleted": 1, "updated_at": "t"}), USER);
-        matches(&r, json!({"user_id": USER, "goal_id": null, "title": "Ship", "position": 2, "deleted_at": "t"}));
-        matches(&milestone_to_local(&with(&r, json!({"deleted_at": null}))), json!({"deleted": 0, "synced": 1, "position": 2}));
+    fn old_goal_columns_never_upload() {
+        let uid = |n: u32| format!("00000000-0000-4000-8000-{n:012}");
+        let h = habit_to_remote(&json!({"id": uid(1), "name": "Run", "is_goal": 1, "goal_id": uid(2), "target_date": "2026-12-01", "goal_spec": "{}"}), USER);
+        for k in ["is_goal", "goal_id", "target_date", "goal_spec"] { assert!(h.get(k).is_none(), "habit {k}"); }
+        let t = task_to_remote(&json!({"id": uid(3), "title": "Ship", "goal_id": uid(2), "milestone_id": "m"}), USER);
+        for k in ["goal_id", "milestone_id"] { assert!(t.get(k).is_none(), "task {k}"); }
+        let local = habit_to_local(&json!({"id": uid(1), "name": "Was a goal", "is_goal": true, "goal_id": uid(2), "updated_at": "t"}));
+        for k in ["is_goal", "goal_id", "target_date", "goal_spec"] { assert!(local.get(k).is_none(), "local {k}"); }
     }
 }

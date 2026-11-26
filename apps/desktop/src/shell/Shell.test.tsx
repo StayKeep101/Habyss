@@ -109,7 +109,7 @@ describe('Shell', () => {
     out.unmount();
     wire(SIGNED_IN);
     mount();
-    expect(await screen.findByText('Activity stays on this Mac. Habits, goals and tasks sync with your Habyss account.')).toBeTruthy();
+    expect(await screen.findByText('Activity stays on this Mac. Habits and tasks sync with your Habyss account.')).toBeTruthy();
   });
 
   it('privacy_footer_waits_for_the_status', async () => {

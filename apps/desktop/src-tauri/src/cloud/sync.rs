@@ -48,12 +48,12 @@ fn strip(rows: &mut [Value], column: &str) { for r in rows { if let Some(o) = r.
 
 /// `shared`: a friend's task, sent without what each person keeps for themselves.
 fn to_remote(t: Table, row: &Value, me: &str, shared: bool) -> Value {
-    let mut v = match t { Table::Habits => habit_to_remote(row, me), Table::Completions => completion_to_remote(row, me), Table::Tasks => task_to_remote(row, me), Table::Milestones => milestone_to_remote(row, me) };
+    let mut v = match t { Table::Habits => habit_to_remote(row, me), Table::Completions => completion_to_remote(row, me), Table::Tasks => task_to_remote(row, me) };
     if shared { for k in PERSONAL_TASK_FIELDS { strip(std::slice::from_mut(&mut v), k); } }
     v
 }
 fn to_local(t: Table, row: &Value) -> Value {
-    match t { Table::Habits => habit_to_local(row), Table::Completions => completion_to_local(row), Table::Tasks => task_to_local(row), Table::Milestones => milestone_to_local(row) }
+    match t { Table::Habits => habit_to_local(row), Table::Completions => completion_to_local(row), Table::Tasks => task_to_local(row) }
 }
 
 pub async fn run_sync(db: &impl Db, client: &Client, auth: &Auth) -> SyncReport {
@@ -157,7 +157,7 @@ impl<D: Db> Run<'_, D> {
         // A completion's own id never goes up; only its habit has to be a real id.
         let (usable, skipped) = if t == Table::Completions { rows.into_iter().partition(|r| is_uuid(&r["habit_id"])) } else { order_for_upload(rows) };
         self.report.failed += skipped.len();
-        // A friend's row is theirs on the server. Their goals, habits and milestones are read-only here;
+        // A friend's row is theirs on the server. Their habits are read-only here;
         // a shared task's plan goes up without your done-state, in batches of its own.
         let me = self.me.clone();
         let (theirs, mine): (Vec<Value>, Vec<Value>) = usable.into_iter().partition(|r| r["owner_id"].as_str().is_some_and(|o| o != me));
@@ -340,14 +340,12 @@ impl<D: Db> Run<'_, D> {
 
     /// Port of `pullShared` plus `refreshSharedIds`: what friends share is kept as your copy, marked with its owner.
     async fn pull_shared(&mut self) -> std::result::Result<usize, Stop> {
-        let goals = self.shared("shared_goals", "goal_id").await?;
         let (habits, tasks) = (self.shared("shared_habits", "habit_id").await?, self.shared("shared_tasks", "task_id").await?);
         let ids: Vec<String> = habits.iter().chain(&tasks).cloned().collect();
         self.mine(|c| mirror::set_shared_ids(c, &ids))?;
         let list = |v: &[String]| { let v: Vec<&str> = v.iter().map(String::as_str).filter(|i| is_uuid(&json!(i))).collect(); (!v.is_empty()).then(|| format!("({})", v.join(","))) };
-        let (g, h, k) = (list(&goals), list(&habits), list(&tasks));
-        let habit_filters: Vec<String> = [g.as_ref().map(|g| format!("id.in.{g}")), g.as_ref().map(|g| format!("goal_id.in.{g}")), h.map(|h| format!("id.in.{h}"))].into_iter().flatten().collect();
-        let task_filters: Vec<String> = [g.map(|g| format!("goal_id.in.{g}")), k.map(|k| format!("id.in.{k}"))].into_iter().flatten().collect();
+        let habit_filters: Vec<String> = list(&habits).map(|h| format!("id.in.{h}")).into_iter().collect();
+        let task_filters: Vec<String> = list(&tasks).map(|k| format!("id.in.{k}")).into_iter().collect();
         let habit_rows = self.theirs(Table::Habits, &habit_filters).await?;
         let task_rows = self.theirs(Table::Tasks, &task_filters).await?;
         let me = self.me.clone();
@@ -410,20 +408,6 @@ mod tests {
         s.mock(method, Matcher::Regex(format!("^{path}"))).with_status(status)
             .with_body_from_request(move |r| { keep.lock().unwrap().push(serde_json::from_slice(r.body().unwrap()).unwrap_or(Value::Null)); vec![] }).expect(hits).create_async().await;
         seen
-    }
-
-    #[tokio::test] async fn goals_upload_before_habits() {
-        let mut s = Server::new_async().await;
-        let bodies = capture(&mut s, "POST", "/rest/v1/habits", 201, 1).await;
-        empty_reads(&mut s).await;
-        let d = db();
-        save(&d, Table::Habits, json!({"id": uid(1), "name": "Run", "is_goal": 0}));
-        save(&d, Table::Habits, json!({"id": uid(2), "name": "Marathon", "is_goal": 1}));
-        let (c, a) = signed_in(s.url()).await;
-        let r = run_sync(&d, &c, &a).await;
-        assert_eq!((r.uploaded, r.failed, r.error.as_deref()), (2, 0, None));
-        let first = bodies.lock().unwrap()[0][0].clone();
-        assert_eq!((first["is_goal"].clone(), first["id"].clone()), (json!(true), json!(uid(2))));
     }
 
     #[tokio::test] async fn completion_upload_omits_id_and_uses_composite_conflict() {
@@ -505,14 +489,14 @@ mod tests {
         for k in PERSONAL_TASK_FIELDS { assert!(b[1][0].get(k).is_none(), "{k} was sent"); }
     }
 
-    #[tokio::test] async fn friend_goal_is_never_uploaded() {
+    #[tokio::test] async fn friend_habit_is_never_uploaded() {
         let mut s = Server::new_async().await;
         let m = s.mock("POST", Matcher::Any).expect(0).create_async().await;
         empty_reads(&mut s).await;
         let d = db();
-        let mut goal = habit_to_local(&json!({"id": uid(1), "name": "Their goal", "is_goal": true, "updated_at": NOW}));
-        goal["owner_id"] = json!(FRIEND);
-        d.with(|c| { mirror::write_local(c, Table::Habits, &goal, &[])?; c.execute("UPDATE cloud_habits SET synced=0", [])?; Ok(()) }).unwrap();
+        let mut theirs = habit_to_local(&json!({"id": uid(1), "name": "Their run", "updated_at": NOW}));
+        theirs["owner_id"] = json!(FRIEND);
+        d.with(|c| { mirror::write_local(c, Table::Habits, &theirs, &[])?; c.execute("UPDATE cloud_habits SET synced=0", [])?; Ok(()) }).unwrap();
         let (c, a) = signed_in(s.url()).await;
         let r = run_sync(&d, &c, &a).await;
         m.assert_async().await;
@@ -682,11 +666,10 @@ mod tests {
 
     #[tokio::test] async fn shared_rows_are_pulled_as_friend_owned_copies() {
         let mut s = Server::new_async().await;
-        s.mock("GET", "/rest/v1/shared_goals").match_query(Matcher::Any).with_body(json!([{"goal_id": uid(1)}]).to_string()).create_async().await;
         s.mock("GET", "/rest/v1/shared_habits").match_query(Matcher::Any).with_body(json!([{"habit_id": uid(3)}]).to_string()).create_async().await;
         s.mock("GET", "/rest/v1/shared_tasks").match_query(Matcher::Any).with_body(json!([{"task_id": uid(4)}]).to_string()).create_async().await;
         s.mock("GET", "/rest/v1/habits").match_query(Matcher::UrlEncoded("user_id".into(), format!("neq.{ME}")))
-            .with_body(json!([{"id": uid(1), "user_id": FRIEND, "name": "Goal", "is_goal": true, "updated_at": NOW}]).to_string()).create_async().await;
+            .with_body(json!([{"id": uid(3), "user_id": FRIEND, "name": "Read", "updated_at": NOW}]).to_string()).create_async().await;
         s.mock("GET", "/rest/v1/tasks").match_query(Matcher::UrlEncoded("user_id".into(), format!("neq.{ME}")))
             .with_body(json!([{"id": uid(4), "user_id": FRIEND, "title": "Plan", "status": "done", "amount": 2, "updated_at": NOW}]).to_string()).create_async().await;
         empty_reads(&mut s).await;
@@ -694,7 +677,7 @@ mod tests {
         let (c, a) = signed_in(s.url()).await;
         let r = run_sync(&d, &c, &a).await;
         assert_eq!((r.downloaded, r.error.as_deref()), (2, None));
-        assert_eq!(row(&d, Table::Habits, &uid(1))["owner_id"], FRIEND);
+        assert_eq!(row(&d, Table::Habits, &uid(3))["owner_id"], FRIEND);
         let t = d.with(|c| Ok(c.query_row("SELECT user_id,owner_id,status,amount FROM cloud_tasks WHERE id=?1", [uid(4)], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<f64>>(3)?)))?)).unwrap();
         assert_eq!(t, (ME.to_string(), FRIEND.to_string(), "open".to_string(), None));
         assert!(d.with(|c| Ok(mirror::is_shared(c, &uid(3))? && mirror::is_shared(c, &uid(4))?)).unwrap());

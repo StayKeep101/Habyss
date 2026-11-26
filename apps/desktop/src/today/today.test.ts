@@ -70,17 +70,6 @@ describe('buildToday', () => {
         expect(expected).toBe(3);
         expect(build(data, at(TODAY)).streak).toBe(expected);
     });
-    it('goals_sorted_by_progress_and_counted', () => {
-        const data = cloud({
-            habits: [habit('g-low', { is_goal: 1, name: 'Low', start_date: '2026-11-01', target_date: '2026-11-05' }), habit('g-high', { is_goal: 1, name: 'High', start_date: '2026-11-01', target_date: '2026-11-05' }), habit('h1', { goal_id: 'g-high' }), habit('h2', { goal_id: 'g-low' })],
-            completions: [done('h1', '2026-11-01'), done('h1', TODAY)],
-        });
-        const today = build(data, at(TODAY));
-        expect(today.goals.map(g => g.id)).toEqual(['g-high', 'g-low']);
-        expect(today.goals[0].percent).toBeGreaterThan(today.goals[1].percent);
-        expect(today.goalsTotal).toBe(2);
-        expect(today.goalsDone).toBe(today.goals.filter(g => g.percent === 100).length);
-    });
     it('done_time_uses_created_at_on_the_same_day_only', () => {
         const base = { habits: [habit('h')] };
         const end = (c: CompletionRow) => build(cloud({ ...base, completions: [c] }), at(TODAY, 12)).items[0].end;
@@ -95,21 +84,10 @@ describe('buildToday', () => {
         expect(a).toMatchObject({ skipped: true, done: false });
         expect(today.total).toBe(1);
     });
-    it('goals_done_counts_goals_at_100', () => {
-        const goal = (id: string) => habit(id, { is_goal: 1, start_date: '2026-11-01', target_date: '2026-11-02' });
-        const data = cloud({
-            habits: [goal('won'), goal('open'), habit('h1', { goal_id: 'won' }), habit('h2', { goal_id: 'open' })],
-            completions: [done('h1', '2026-11-01'), done('h1', TODAY), done('h2', TODAY)],
-        });
-        const today = build(data, at(TODAY));
-        expect(today.goals.find(g => g.id === 'won')?.percent).toBe(100);
-        expect(today.goalsDone).toBe(1);
-        expect(today.goalsTotal).toBe(2);
-    });
     it('signed_out_gives_empty_model', () => {
         const data = cloud({ habits: [habit('h')], completions: [done('h', TODAY)] });
         const today = build(data, at(TODAY), false);
-        expect(today).toMatchObject({ items: [], streak: 0, goals: [], signedIn: false });
+        expect(today).toMatchObject({ items: [], streak: 0, signedIn: false });
         expect(build(null, at(TODAY)).signedIn).toBe(false);
     });
     it('deleted_and_archived_are_ignored', () => {
@@ -121,6 +99,7 @@ describe('buildToday', () => {
         const today = build(data, at(TODAY));
         expect(today.items.map(i => i.id).sort()).toEqual(['live', 'ok']);
         expect(today.items.find(i => i.id === 'ok')?.done).toBe(false);
-        expect(today.goals.map(g => g.id)).toEqual(['g']);
+        // A goal row a server or an old sync left behind is neither listed nor reported (goals are gone, as on the phone).
+        expect('goals' in today).toBe(false);
     });
 });

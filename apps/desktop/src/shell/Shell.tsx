@@ -90,7 +90,7 @@ function ShellBody({ data, act, date, setDate, now, busy = false, error = '', se
           {(error || data.error) && <div role="alert" className="error">{error || data.error}</div>}
           {!data.trusted && data.settings.collect_titles && <div className="notice">App-level tracking is available. Allow Accessibility to include window titles.<button type="button" onClick={() => void act('open_permissions')}>Open Settings</button></div>}
           <motion.div key={screen} initial={reduced ? false : { opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>{body}</motion.div>
-          {!statusLoading && <p className="app-privacy">{signedIn ? 'Activity stays on this Mac. Habits, goals and tasks sync with your Habyss account.' : 'Private by design. No accounts. No uploads.'}</p>}
+          {!statusLoading && <p className="app-privacy">{signedIn ? 'Activity stays on this Mac. Habits and tasks sync with your Habyss account.' : 'Private by design. No accounts. No uploads.'}</p>}
         </div>
       </main>
       <div className="app-right"><TodayPanel mode="window" collapsed={collapsed} onCollapsedChange={setPanel} /></div>

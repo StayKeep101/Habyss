@@ -7,7 +7,7 @@ import { buildToday, type TodayItem } from '../today/today';
 import { useFastClock, useSharedCloud, WithCloud } from '../today/CloudProvider';
 import { localDateKey } from '../shared/habitSchedule';
 import { FocusControls } from '../panel/FocusControls';
-import { AbyssArt, AppIcon, Button, Card, Donut, Empty, IconButton, ProgressBar, Segmented, StatTile, type IconName } from '../ui';
+import { AbyssArt, AppIcon, Button, Card, Donut, Empty, Segmented, StatTile, type IconName } from '../ui';
 import { UsageList } from '../tracking/UsageList';
 import { allocation, greeting, productivePercent, rangeBounds, tasksInRange, type Range } from './stats';
 import '../panel/panel.css';
@@ -167,7 +167,6 @@ function DashboardBody({ onNavigate }: DashboardProps) {
       <div className="db-stats">
         <StatTile icon="flame" value={planned(String(today.streak))} label="Day Streak" />
         <StatTile icon="hourglass" value={duration(m.declared)} label="Focus Time" />
-        <StatTile icon="trending-up" value={planned(`${today.goalsDone}/${today.goalsTotal}`)} label="Goals" />
         <StatTile icon="checkmark-circle" value={planned(`${tasks.done}/${tasks.total}`)} label="Tasks" />
         <StatTile icon="stats-chart" value={productive === null ? DASH : `${productive}%`} label="Productive" />
       </div>
@@ -192,15 +191,6 @@ function DashboardBody({ onNavigate }: DashboardProps) {
           )}
         </Card>
 
-        <Card className="db-progress" title="Progress" action={onNavigate && <IconButton icon="chevron-forward" label="Open Progress" onClick={() => onNavigate('Progress')} />}>
-          {planner ?? (!signedIn ? <SignIn text="Sign in to see your goals." onNavigate={onNavigate} />
-            : today.goals.length === 0 ? <Empty>No goals yet.</Empty>
-            : <ul className="db-goals">{today.goals.slice(0, 3).map(g => (
-              <li key={g.id}>
-                <span className="db-goal-icon"><AppIcon name={iconFor(g.icon, 'cube')} size={20} /></span>
-                <div className="db-goal-body"><div className="db-goal-head"><span>{g.name}</span><span>{g.percent}%</span></div><ProgressBar value={g.percent} label={g.name} /></div>
-              </li>))}</ul>)}
-        </Card>
       </div>
 
       <div className="db-row db-row-low">

@@ -81,8 +81,8 @@ describe('Dashboard', () => {
     wire({ cloud_status: () => SIGNED_OUT, snapshot: () => snap({ intervals: [iv('VS Code', 'development', 60, 30)], classifications: { development: 'productive' } }) });
     render(<Dashboard />);
     expect(await screen.findByText('VS Code')).toBeTruthy();
-    await waitFor(() => expect(screen.getAllByText(/^Sign in to see/)).toHaveLength(2));
-    expect(tile('Goals')).toBe('–');
+    await waitFor(() => expect(screen.getAllByText(/^Sign in to see/)).toHaveLength(1));
+    expect(screen.queryByText('Goals')).toBeNull();
     expect(tile('Tasks')).toBe('–');
     expect(tile('Day Streak')).toBe('–');
     // Activity still works without an account.
@@ -97,7 +97,7 @@ describe('Dashboard', () => {
   it('syncing_without_an_account_shows_the_prompt_and_dashes', async () => {
     withPlan(PLAN, [], { cloud_status: () => ({ ...SIGNED_OUT, state: 'syncing' }) });
     render(<Dashboard />);
-    await waitFor(() => expect(screen.getAllByText(/^Sign in to see/)).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByText(/^Sign in to see/)).toHaveLength(1));
     expect(tile('Tasks')).toBe('–');
     expect(tile('Day Streak')).toBe('–');
   });
@@ -115,7 +115,7 @@ describe('Dashboard', () => {
     await waitFor(() => expect(called('cloud_data')).toHaveLength(1));
     expect(screen.getAllByText('Loading…').length).toBeGreaterThan(0);
     expect(screen.queryByText(/^Sign in to see/)).toBeNull();
-    expect([tile('Tasks'), tile('Goals'), tile('Day Streak')]).toEqual(['–', '–', '–']);
+    expect([tile('Tasks'), tile('Day Streak')]).toEqual(['–', '–']);
   });
 
   it('tasks_tile_today_counts_listed_tasks_and_wider_ranges_count_due_tasks', async () => {
@@ -151,11 +151,10 @@ describe('Dashboard', () => {
   it('empty_day_shows_empty_states', async () => {
     render(<Dashboard />);
     expect(await screen.findByText('Nothing scheduled today.')).toBeTruthy();
-    expect(screen.getByText('No goals yet.')).toBeTruthy();
     expect(screen.getByText('No tracked time yet.')).toBeTruthy();
     expect(screen.getByText('No app activity yet.')).toBeTruthy();
     expect(tile('Productive')).toBe('–');
-    expect(tile('Goals')).toBe('0/0');
+    expect(screen.queryByText('Goals')).toBeNull();
     expect(tile('Tasks')).toBe('0/0');
     expect(tile('Day Streak')).toBe('0');
     fireEvent.click(screen.getByRole('tab', { name: 'Activity' }));
@@ -166,11 +165,10 @@ describe('Dashboard', () => {
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
     wire({ cloud_data: () => { throw new Error('offline'); } });
     render(<Dashboard />);
-    expect(await screen.findAllByText('Your plan could not be loaded.')).toHaveLength(2);
+    expect(await screen.findAllByText('Your plan could not be loaded.')).toHaveLength(1);
     expect(tile('Day Streak')).toBe('–');
-    expect(tile('Goals')).toBe('–');
+    expect(screen.queryByText('Goals')).toBeNull();
     expect(tile('Tasks')).toBe('–');
-    expect(screen.queryByText('No goals yet.')).toBeNull();
     expect(quiet).toHaveBeenCalledWith('cloud_data failed', expect.any(Error));
     quiet.mockRestore();
   });

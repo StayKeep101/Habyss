@@ -124,7 +124,7 @@ mod tests {
         assert_eq!(p["access_token"], "tok");
         let changes = p["config"]["postgres_changes"].as_array().unwrap();
         let tables: Vec<&str> = changes.iter().map(|c| c["table"].as_str().unwrap()).collect();
-        assert_eq!(tables, ["habits", "habit_completions", "tasks", "goal_milestones", "day_inputs"]);
+        assert_eq!(tables, ["habits", "habit_completions", "tasks", "day_inputs"]);
         for c in changes { assert_eq!((c["event"].as_str(), c["schema"].as_str(), c["filter"].as_str()), (Some("*"), Some("public"), Some("user_id=eq.u1"))); }
     }
     #[test] fn socket_url_uses_websocket_scheme() {

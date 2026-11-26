@@ -5,11 +5,11 @@ use rusqlite::{params, params_from_iter, types::{Value as Sql, ValueRef}, Connec
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Table { Habits, Completions, Tasks, Milestones }
+pub enum Table { Habits, Completions, Tasks }
 impl Table {
-    pub const ALL: [Table; 4] = [Table::Habits, Table::Completions, Table::Tasks, Table::Milestones];
-    pub fn local(&self) -> &'static str { match self { Table::Habits => "cloud_habits", Table::Completions => "cloud_completions", Table::Tasks => "cloud_tasks", Table::Milestones => "cloud_milestones" } }
-    pub fn remote(&self) -> &'static str { match self { Table::Habits => "habits", Table::Completions => "habit_completions", Table::Tasks => "tasks", Table::Milestones => "goal_milestones" } }
+    pub const ALL: [Table; 3] = [Table::Habits, Table::Completions, Table::Tasks];
+    pub fn local(&self) -> &'static str { match self { Table::Habits => "cloud_habits", Table::Completions => "cloud_completions", Table::Tasks => "cloud_tasks" } }
+    pub fn remote(&self) -> &'static str { match self { Table::Habits => "habits", Table::Completions => "habit_completions", Table::Tasks => "tasks" } }
     pub fn on_conflict(&self) -> &'static str { match self { Table::Completions => "user_id,habit_id,date", _ => "id" } }
     pub fn local_conflict(&self) -> &'static str { match self { Table::Completions => "habit_id,date", _ => "id" } }
 }
@@ -111,7 +111,7 @@ fn wipe(c: &Connection) -> Result<()> {
     c.execute_batch("DELETE FROM cloud_day_inputs; DELETE FROM cloud_habits; DELETE FROM cloud_completions; DELETE FROM cloud_tasks; DELETE FROM cloud_milestones; DELETE FROM cloud_cursors; DELETE FROM cloud_account; DELETE FROM cloud_cache; DELETE FROM cloud_outbox; DELETE FROM cloud_shared_ids;")?;
     Ok(())
 }
-/// (pending, refused) over the four mirror tables.
+/// (pending, refused) over the mirror tables.
 pub fn counts(c: &Connection) -> Result<(i64, i64)> {
     let (mut p, mut r) = (0, 0);
     for t in Table::ALL {
@@ -121,10 +121,10 @@ pub fn counts(c: &Connection) -> Result<(i64, i64)> {
     Ok((p, r))
 }
 
-/// A desktop edit: stamps the row as this user's, unsent and not refused. Friends' goals and milestones are read-only.
+/// A desktop edit: stamps the row as this user's, unsent and not refused. A friend's shared habit is read-only.
 pub fn save_local(c: &Connection, t: Table, mut row: Value, user_id: &str, now: &str) -> Result<()> {
     let id = row.get("id").and_then(Value::as_str).ok_or("row needs an id")?.to_string();
-    if matches!(t, Table::Habits | Table::Milestones) {
+    if t == Table::Habits {
         let owner: Option<Option<String>> = c.query_row(&format!("SELECT owner_id FROM {} WHERE id=?1", t.local()), [&id], |r| r.get(0)).optional()?;
         if owner.flatten().map_or(false, |o| o != user_id) { return Err("This belongs to a friend and is read-only".into()); }
     }
@@ -290,14 +290,14 @@ mod tests {
     }
 
     #[test]
-    fn friend_owned_goal_is_read_only() {
+    fn friend_owned_habit_is_read_only() {
         let s = store();
-        let mut row = habit_to_local(&json!({"id": "h1", "name": "Goal", "is_goal": true}));
+        let mut row = habit_to_local(&json!({"id": "h1", "name": "Their run"}));
         row["owner_id"] = json!("friend");
         write_local(&s.conn, Table::Habits, &row, &[]).unwrap();
         let err = save_local(&s.conn, Table::Habits, json!({"id": "h1", "name": "Mine"}), "me", "2026-01-01T00:00:00.000Z").unwrap_err();
         assert_eq!(err.to_string(), "This belongs to a friend and is read-only");
-        assert_eq!(get(&s.conn, Table::Habits, "h1")["name"], "Goal");
+        assert_eq!(get(&s.conn, Table::Habits, "h1")["name"], "Their run");
     }
 
     #[test]
@@ -314,7 +314,7 @@ mod tests {
     #[test]
     fn every_to_local_key_is_a_real_column() {
         let all = json!({"id": "x", "priority": 1, "difficulty": 1, "flexible": true, "subtasks": "[]", "deadline": "2026-01-01", "section": "s"});
-        for (t, out) in [(Table::Habits, habit_to_local(&all)), (Table::Completions, completion_to_local(&all)), (Table::Tasks, task_to_local(&all)), (Table::Milestones, milestone_to_local(&all))] {
+        for (t, out) in [(Table::Habits, habit_to_local(&all)), (Table::Completions, completion_to_local(&all)), (Table::Tasks, task_to_local(&all))] {
             let cols = columns(&Connection::open_in_memory().and_then(|c| { c.execute_batch(include_str!("../../migrations/001_initial.sql"))?; c.execute_batch(include_str!("../../migrations/002_cloud.sql"))?; Ok(c) }).unwrap(), t).unwrap();
             for k in out.as_object().unwrap().keys() { assert!(cols.contains(k), "{} lacks column {k}", t.local()); }
         }

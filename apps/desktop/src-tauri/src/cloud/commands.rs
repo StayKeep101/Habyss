@@ -18,7 +18,7 @@ const RPC_READS: [&str; 15] = ["my_wallet", "my_ledger", "my_streak_freezes", "c
 const RPC_ACTIONS: [&str; 9] = ["issue_challenge", "join_challenge", "open_market", "place_stake", "settle_market", "use_streak_freeze", "gift_streak_freeze", "create_exposed", "act_on_exposed"];
 
 #[derive(Serialize, Debug)]
-pub struct CloudData { pub habits: Vec<Value>, pub completions: Vec<Value>, pub tasks: Vec<Value>, pub milestones: Vec<Value>, pub day_inputs: serde_json::Map<String, Value> }
+pub struct CloudData { pub habits: Vec<Value>, pub completions: Vec<Value>, pub tasks: Vec<Value>, pub day_inputs: serde_json::Map<String, Value> }
 #[derive(Serialize, Debug)]
 pub struct Cached<T> { pub value: T, pub fetched_at: String, pub stale: bool }
 
@@ -27,17 +27,17 @@ fn today() -> String { chrono::Local::now().format("%Y-%m-%d").to_string() }
 /// The account that owns local edits. It persists offline, unlike the live session.
 fn me(c: &Connection) -> Stored<String> { Ok(mirror::account(c)?.ok_or(NEEDS_SIGN_IN)?.0) }
 fn editable(table: &str) -> Stored<Table> {
-    match table { "habits" => Ok(Table::Habits), "tasks" => Ok(Table::Tasks), "milestones" => Ok(Table::Milestones), _ => Err("Unknown table".into()) }
+    match table { "habits" => Ok(Table::Habits), "tasks" => Ok(Table::Tasks), _ => Err("Unknown table".into()) }
 }
 
 pub(crate) fn data(c: &Connection, completions_since: Option<&str>) -> Stored<CloudData> {
     let live = |t: Table| -> Stored<Vec<Value>> { Ok(mirror::select(c, t, "WHERE deleted=0")?) };
     let mut completions = live(Table::Completions)?;
     if let Some(since) = completions_since { completions.retain(|r| r["date"].as_str().is_some_and(|d| d >= since)); }
-    Ok(CloudData { habits: live(Table::Habits)?, completions, tasks: live(Table::Tasks)?, milestones: live(Table::Milestones)?, day_inputs: super::day_inputs::live(c)? })
+    Ok(CloudData { habits: live(Table::Habits)?, completions, tasks: live(Table::Tasks)?, day_inputs: super::day_inputs::live(c)? })
 }
 
-/// Saves a habit, task or milestone; a row without an id is new. Returns the id.
+/// Saves a habit or task; a row without an id is new. Returns the id.
 pub(crate) fn save(c: &Connection, table: &str, mut row: Value, at: &str) -> Stored<String> {
     let t = editable(table)?;
     let user = me(c)?;

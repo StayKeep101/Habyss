@@ -27,5 +27,5 @@ export function Account() {
             {s.refused > 0 && <p className="muted">{s.refused} changes couldn't sync</p>}
         </>;
     const shown = error || s?.error || '';
-    return <section className="card"><CardTitle title="Habyss account" detail="Habits, goals and tasks sync with your account"/>{body}{shown && <p role="alert" className="error">{shown}</p>}</section>;
+    return <section className="card"><CardTitle title="Habyss account" detail="Habits and tasks sync with your account"/>{body}{shown && <p role="alert" className="error">{shown}</p>}</section>;
 }
