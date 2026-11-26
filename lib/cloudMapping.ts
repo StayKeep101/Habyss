@@ -158,7 +158,8 @@ export function habitToLocal(row: Row): Row {
         ...planningToLocal(row),
         created_at: row.created_at ?? new Date().toISOString(),
         updated_at: row.updated_at ?? new Date().toISOString(),
-        deleted: row.deleted_at ? 1 : 0,
+        // Goals are gone (2026-11-25): one still on the server is taken as deleted.
+        deleted: row.deleted_at || row.is_goal ? 1 : 0,
         // Came from the server, so there is nothing to upload.
         synced: 1,
     };

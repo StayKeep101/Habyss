@@ -203,6 +203,11 @@ $$;
 revoke all on function public.mcp_create_plan(uuid, jsonb, uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.mcp_create_plan(uuid, jsonb, uuid, jsonb) to service_role;
 
+-- Adding a task: your own, nothing about goals.
+drop policy if exists tasks_insert on public.tasks;
+create policy tasks_insert on public.tasks for insert to authenticated
+    with check (user_id = (select auth.uid()));
+
 -- ------------------------------------------------------------ what goes
 -- Every function that only served goals: bets on them, and sharing them.
 do $$
@@ -229,7 +234,9 @@ drop table if exists public.shared_goals cascade;
 update public.tasks set goal_id = null, milestone_id = null where goal_id is not null or milestone_id is not null;
 update public.habits set goal_id = null where goal_id is not null;
 delete from public.habit_completions where habit_id in (select id from public.habits where is_goal);
-delete from public.habits where is_goal;
+-- Marked deleted rather than erased, so every phone's next sync sees it go
+-- (a row that simply vanished would stay on a phone that already had it).
+update public.habits set deleted_at = now(), updated_at = now() where is_goal and deleted_at is null;
 
 alter table public.habits drop column if exists goal_id cascade;
 alter table public.habits drop column if exists is_goal cascade;

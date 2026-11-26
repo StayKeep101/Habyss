@@ -153,3 +153,21 @@ describe('the near future holds still, missed ones come back, and moves say why'
     });
 });
 
+
+describe('the timeline and its memory never loop forever', () => {
+    it('stops telling screens after a few changes at once, and tells them again later', async () => {
+        jest.useFakeTimers();
+        const memory = require('../dayMemory') as typeof import('../dayMemory');
+        await memory.loadMemory();
+        let told = 0;
+        const stop = memory.subscribeMemory(() => { told += 1; });
+        // Two timelines that disagree, saved back and forth like a screen that redraws from them.
+        for (let i = 0; i < 60; i++) memory.rememberFlow(DAY, flowOf([row('a', i % 2 ? 600 : 700, i % 2 ? 630 : 730)]), 500);
+        expect(told).toBe(memory.MAX_CHANGES_AT_ONCE);
+        jest.runAllTimers();
+        memory.rememberFlow(DAY, flowOf([row('a', 800, 830)]), 500);
+        expect(told).toBe(memory.MAX_CHANGES_AT_ONCE + 1);
+        stop();
+        jest.useRealTimers();
+    });
+});

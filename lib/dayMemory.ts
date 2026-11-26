@@ -165,11 +165,33 @@ export async function loadMemory(): Promise<DayMemory> {
     return state;
 }
 
+/**
+ * The Roadmap saves its timeline here and redraws from what is saved, so the
+ * two feed each other. They agree after a pass or two; if some day's data
+ * keeps them disagreeing, that must not redraw the screen forever (it crashed
+ * the Roadmap: "Maximum update depth exceeded"). Past a few changes in one
+ * go, the memory is still kept but screens are told again only on the next
+ * turn of the app, so a disagreement costs a redraw at most, never a crash.
+ */
+export const MAX_CHANGES_AT_ONCE = 8;
+let changesAtOnce = 0;
+let reported = false;
+
 function store(next: DayMemory) {
     if (JSON.stringify(next) === JSON.stringify(state)) return;
     state = next;
-    listeners.forEach(listener => listener());
     void AsyncStorage.setItem(KEY, JSON.stringify(state)).catch(() => undefined);
+    if (changesAtOnce === 0) setTimeout(() => { changesAtOnce = 0; }, 0);
+    changesAtOnce += 1;
+    if (changesAtOnce > MAX_CHANGES_AT_ONCE) {
+        if (!reported) {
+            reported = true;
+            // Reported (lib/crashReport.ts), so the data that disagrees can be found and fixed.
+            try { (require('./crashReport') as typeof import('./crashReport')).reportCaught(new Error('Day memory kept changing'), 'dayMemory'); } catch { /* kept */ }
+        }
+        return;
+    }
+    listeners.forEach(listener => listener());
 }
 
 /** Called with today's flow whenever it changes. Waits for the stored copy first. */
