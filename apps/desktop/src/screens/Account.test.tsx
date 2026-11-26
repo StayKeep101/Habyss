@@ -20,7 +20,7 @@ describe('Account', () => {
         render(<Account />);
         fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'a@b.co' } });
         fireEvent.click(screen.getByText('Send code'));
-        expect(await screen.findByLabelText('6-digit code')).toBeTruthy();
+        expect(await screen.findByLabelText('Code from your email')).toBeTruthy();
         expect(invoke).toHaveBeenCalledWith('cloud_send_code', { email: 'a@b.co' });
     });
     it('verify_calls_cloud_verify_code_with_email_and_code', async () => {
@@ -28,7 +28,7 @@ describe('Account', () => {
         render(<Account />);
         fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'a@b.co' } });
         fireEvent.click(screen.getByText('Send code'));
-        fireEvent.change(await screen.findByLabelText('6-digit code'), { target: { value: '123456' } });
+        fireEvent.change(await screen.findByLabelText('Code from your email'), { target: { value: '123456' } });
         fireEvent.click(screen.getByText('Verify'));
         await waitFor(() => expect(invoke).toHaveBeenCalledWith('cloud_verify_code', { email: 'a@b.co', code: '123456' }));
     });
@@ -49,12 +49,30 @@ describe('Account', () => {
         render(<Account />);
         expect((await screen.findByRole('alert')).textContent).toBe('network down');
     });
-    it('code_must_be_six_digits', async () => {
+    it('accepts_the_servers_code_length', async () => {
         mockStatus(st({}));
         render(<Account />);
         fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'a@b.co' } });
         fireEvent.click(screen.getByText('Send code'));
-        fireEvent.change(await screen.findByLabelText('6-digit code'), { target: { value: '12a456' } });
+        fireEvent.change(await screen.findByLabelText('Code from your email'), { target: { value: '4341 0648' } });
+        fireEvent.click(screen.getByText('Verify'));
+        await waitFor(() => expect(invoke).toHaveBeenCalledWith('cloud_verify_code', { email: 'a@b.co', code: '43410648' }));
+    });
+    it('signs_in_with_apple_or_google_in_the_browser', async () => {
+        mockStatus(st({}));
+        render(<Account />);
+        fireEvent.click(await screen.findByText('Sign in with Google'));
+        expect(await screen.findByText('Finish signing in with Google in your browser.')).toBeTruthy();
+        expect(invoke).toHaveBeenCalledWith('cloud_sign_in_with', { provider: 'google' });
+        fireEvent.click(screen.getByText('Sign in with Apple'));
+        expect(invoke).toHaveBeenCalledWith('cloud_sign_in_with', { provider: 'apple' });
+    });
+    it('code_must_be_digits', async () => {
+        mockStatus(st({}));
+        render(<Account />);
+        fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'a@b.co' } });
+        fireEvent.click(screen.getByText('Send code'));
+        fireEvent.change(await screen.findByLabelText('Code from your email'), { target: { value: '12a456' } });
         expect((screen.getByText('Verify') as HTMLButtonElement).disabled).toBe(true);
         fireEvent.click(screen.getByText('Use a different email'));
         expect((screen.getByLabelText('Email') as HTMLInputElement).disabled).toBe(false);

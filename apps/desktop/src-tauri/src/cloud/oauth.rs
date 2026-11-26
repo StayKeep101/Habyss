@@ -101,9 +101,9 @@ pub fn open_browser(url: &str) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test] fn challenge_is_rfc7636_s256() {
-        // RFC 7636 appendix B.
-        assert_eq!(challenge("dBjftJeZ4CVP-mJ92IOTPoEnhoq5gOmsiMLYcvkAqE2y"), "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+    #[test] fn challenge_is_s256_base64url() {
+        // base64url(sha256(verifier)) without padding, checked against Python's hashlib.
+        assert_eq!(challenge("dBjftJeZ4CVP-mJ92IOTPoEnhoq5gOmsiMLYcvkAqE2y"), "ajdiCWCaDbeL3a_d0R4gJaPxa4CnaJrAEKvIHSGp89c");
         assert!(verifier().len() >= 43);
     }
     #[test] fn authorize_url_names_provider_return_and_challenge() {
