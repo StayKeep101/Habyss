@@ -126,6 +126,7 @@ async function runSync(): Promise<SyncReport> {
         await (require('./brainDumpSync') as typeof import('./brainDumpSync')).syncBrainDump(sb, userId);
         // The day's settings, one by one, so the desktop builds the same day; and from now on, its changes arrive live.
         const days = require('./dayInputsSync') as typeof import('./dayInputsSync');
+        await (require('./calendarEvents') as typeof import('./calendarEvents')).publishWeek().catch(() => undefined);
         await days.syncDayInputs(sb, userId);
         if (watchingDays !== userId) { stopWatchingDays?.(); stopWatchingDays = days.watchDayInputs(sb, userId); watchingDays = userId; }
 

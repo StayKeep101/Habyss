@@ -248,7 +248,7 @@ async function remindersFor(day: string, off: Set<string>): Promise<CalendarSlot
 
 /** The day's events, once read; cached until the setting changes or `fresh` is asked for. */
 export async function eventsFor(day: string, fresh = false): Promise<CalendarSlot[]> {
-    if (!(await loadCalendarSetting())) return [];
+    if (!(await loadCalendarSetting())) { void publishEvents(day, []); return []; }
     if (!fresh && cache.has(day)) return cache.get(day)!;
     const api = calendar();
     if (!api) return [];
@@ -270,8 +270,43 @@ export async function eventsFor(day: string, fresh = false): Promise<CalendarSlo
             .sort((a, b) => a.start - b.start);
         cache.set(day, slots);
         changed();
+        void publishEvents(day, slots);
         return slots;
     } catch {
         return [];
     }
+}
+
+const shift = (day: string, days: number): string => {
+    const [y, m, d] = day.split('-').map(Number);
+    const at = new Date(y, m - 1, d + days);
+    return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
+};
+
+/**
+ * The day's calendar slots, as this phone sees them, for the desktop to build the
+ * same day (day_inputs `events:<day>`): yesterday to a week ahead, sent only when
+ * they change. Hidden calendars never reach here (filtered when read). Returns
+ * whether anything changed.
+ */
+export async function publishEvents(day: string, slots: CalendarSlot[], today = (require('./habitSchedule') as typeof import('./habitSchedule')).localDateKey(new Date())): Promise<boolean> {
+    const { PUBLISHED_EVENTS_KEY, markDayInputsDirty } = require('./dayInputsSync') as typeof import('./dayInputsSync');
+    let all: Record<string, CalendarSlot[]> = {};
+    try { all = JSON.parse((await AsyncStorage.getItem(PUBLISHED_EVENTS_KEY)) ?? '{}') ?? {}; } catch { /* start empty */ }
+    const from = shift(today, -1), to = shift(today, 7);
+    const kept: Record<string, CalendarSlot[]> = {};
+    for (const [key, value] of Object.entries(all)) if (key >= from && key <= to) kept[key] = value;
+    const inRange = day >= from && day <= to;
+    const same = inRange && JSON.stringify(kept[day]) === JSON.stringify(slots);
+    if (inRange && !same) kept[day] = slots;
+    if (JSON.stringify(kept) !== JSON.stringify(all)) await AsyncStorage.setItem(PUBLISHED_EVENTS_KEY, JSON.stringify(kept)).catch(() => undefined);
+    if (!inRange || same) return false;
+    markDayInputsDirty(`events:${day}`);
+    return true;
+}
+
+/** Reads (from cache when it can) and so publishes yesterday to a week ahead. Called before each sync. */
+export async function publishWeek(): Promise<void> {
+    const today = (require('./habitSchedule') as typeof import('./habitSchedule')).localDateKey(new Date());
+    for (let i = -1; i <= 7; i++) await eventsFor(shift(today, i)).catch(() => []);
 }
