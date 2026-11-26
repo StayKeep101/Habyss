@@ -1,4 +1,4 @@
-// Ported from Habyss Mobile lib/habitsSQLite.ts getHabits() row mapping and lib/tasks.ts rowToTask @0fcd218. Keep in sync; do not re-derive rules.
+// The Mac's reading of synced rows into the shared Habit and Task (packages/core/src/types.ts), as the phone's apps/mobile/lib/habitsSQLite.ts getHabits() and lib/tasks.ts rowToTask read its own; keep the two readings in step.
 /* eslint-disable @typescript-eslint/no-explicit-any -- copied mobile code reads untyped rows */
 import { parseAnchor } from './habitAnchor';
 import type { HabitRow, TaskRow } from '../types';

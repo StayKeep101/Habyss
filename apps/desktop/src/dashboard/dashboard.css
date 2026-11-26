@@ -45,12 +45,6 @@
 /* Progress. */
 .db-progress .ui-card-head { margin-bottom: var(--space-sm); }
 .db-progress .ui-card-action .ui-iconbtn { margin: calc(-1 * var(--space-md)); color: var(--accent); }
-.db-goals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-lg); }
-.db-goals li { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: var(--space-md); }
-.db-goal-icon { display: grid; place-items: center; color: var(--text-muted); }
-.db-goal-head { display: flex; justify-content: space-between; gap: var(--space-sm); margin-bottom: var(--space-sm); font: 500 13px/1.2 var(--font-body); }
-.db-goal-head span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.db-goal-head span:last-child { font-weight: 400; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
 /* Today's timeline: time, a rail with the now marker, then the item. */
 .db-timeline .ui-card-head { margin-bottom: var(--space-sm); }

@@ -11,7 +11,7 @@ import { emptyMemory, remember, type DayMemory } from '../shared/dayMemory';
 import type { Travel } from '../shared/eventTravel';
 
 /**
- * Any day, built the way the phone builds it (Habyss Mobile lib/todayFlow.ts), from the account's habits, tasks and
+ * Any day, built the way the phone builds it (the phone's apps/mobile/lib/todayFlow.ts), from the account's habits, tasks and
  * completions plus the day's settings synced with the phone (`day_inputs`): waking window, meals, the day's calendar
  * slots, travel, what the timeline remembered, early ends, reschedules, peak hours and auto-reschedule.
  */

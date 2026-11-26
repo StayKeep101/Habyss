@@ -1,4 +1,4 @@
-// Copied from Habyss Mobile lib/__tests__/dayMemory.test.ts @f48c4da4 (pure cases; the storage cases stay on mobile).
+// packages/core/src/dayMemory.ts, through the Mac's re-export (the phone's apps/mobile/lib/__tests__/dayMemory.test.ts covers its storage).
 import { describe, it, expect } from 'vitest';
 import { broughtBack, emptyMemory, remember, seen } from '../dayMemory';
 import { nextStep } from '../todayStep';
