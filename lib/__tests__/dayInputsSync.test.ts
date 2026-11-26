@@ -120,4 +120,14 @@ describe('day inputs sync', () => {
         await AsyncStorage.setItem('habyss_meals_flexible', 'true');
         expect(await syncDayInputs(fakeServer([], { offline: true }).sb, ME)).toEqual({ sent: 0, received: 0 });
     });
+
+    it('never sends a day older than two weeks, so old early ends do not loop', async () => {
+        const server = fakeServer();
+        await AsyncStorage.setItem('habyss_ended_early', JSON.stringify({ day: '2026-10-01', at: { 'meal:lunch': 760 } }));
+        await syncDayInputs(server.sb, ME);
+        const second = await syncDayInputs(server.sb, ME);
+        const third = await syncDayInputs(server.sb, ME);
+        expect([second.sent, third.sent]).toEqual([0, 0]);
+        expect(server.rows.filter(r => r.key === 'ended:2026-10-01' && r.deleted_at === null)).toEqual([]);
+    });
 });

@@ -108,7 +108,10 @@ export async function syncDayInputs(sb: any, userId: string): Promise<{ sent: nu
 
         // 2. Different here.
         const now = rowsFromStores(await readStores(), await readJson(PUBLISHED_EVENTS_KEY, {}));
-        const up = Object.keys(now).filter(key => !same(now[key], sent[key]));
+        // A day older than two weeks is never sent (the one-day stores keep the last day used, often long past):
+        // sending it, then removing it as stale, would repeat on every sync.
+        const tooOld = new Set(staleKeys(Object.keys(now), today));
+        const up = Object.keys(now).filter(key => !tooOld.has(key) && !same(now[key], sent[key]));
         if (up.length) {
             const { error } = await sb.from('day_inputs').upsert(up.map(key => ({ user_id: userId, key, value: now[key], deleted_at: null })), { onConflict: 'user_id,key' });
             if (error) throw error;
