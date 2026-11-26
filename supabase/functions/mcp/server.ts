@@ -1,8 +1,8 @@
 import { type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0'
 // The app's own repeat rule (no imports of its own), so a habit is due here exactly when it is due in the app.
-import { PLANNING_TOOLS, planningRows, validateInput } from '../../../lib/mcpPlanning.ts'
-import { EDITING_TOOLS, checkEditing, daysBetween, habitPatch, percent, taskPatch } from '../../../lib/mcpEditing.ts'
-import { matches, parseRecurrence } from '../../../lib/recurrence.ts'
+import { PLANNING_TOOLS, planningRows, validateInput } from '../../../apps/mobile/lib/mcpPlanning.ts'
+import { EDITING_TOOLS, checkEditing, daysBetween, habitPatch, percent, taskPatch } from '../../../apps/mobile/lib/mcpEditing.ts'
+import { matches, parseRecurrence } from '../../../apps/mobile/lib/recurrence.ts'
 
 /**
  * Habyss for AI assistants: a Model Context Protocol server (Streamable HTTP,

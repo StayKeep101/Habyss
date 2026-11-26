@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-const sql = () => readFileSync(join(__dirname, '../../supabase/migrations/20261126000100_day_inputs.sql'), 'utf8').toLowerCase().replace(/\s+/g, ' ');
+const sql = () => readFileSync(join(__dirname, '../../../../supabase/migrations/20261126000100_day_inputs.sql'), 'utf8').toLowerCase().replace(/\s+/g, ' ');
 
 describe('day_inputs migration', () => {
     it('creates an owner-only, per-key table that the database stamps and broadcasts', () => {
