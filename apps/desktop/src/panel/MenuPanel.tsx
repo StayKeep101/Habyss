@@ -121,6 +121,18 @@ function Panel() {
   const axis = useMemo(() => makeAxis(day.window.wake, day.window.sleep), [day.window.wake, day.window.sleep]);
   const apps = useMemo(() => { const seen = new Map<string, { name: string; bundle: string | null }>(); for (const i of snap?.intervals ?? []) if (i.state === 'active' && i.name && !seen.has(i.name)) seen.set(i.name, { name: i.name, bundle: i.bundle_id }); return [...seen.values()]; }, [snap]);
   const nowMinute = date === todayKey ? nowDate.getHours() * 60 + nowDate.getMinutes() : null;
+  // Both timelines open scrolled to now (or, on another day, to its first item), each time the panel is shown.
+  const cols = useRef<HTMLDivElement>(null);
+  const focusMinute = nowMinute ?? day.items[0]?.start ?? day.window.wake;
+  const scrollToNow = useCallback(() => {
+    const el = cols.current;
+    if (!el) return;
+    el.scrollTop = Math.max(0, axis.y(focusMinute) - 120);
+    el.dataset.scrolledTo = String(focusMinute);
+  }, [axis, focusMinute]);
+  const scrolledFor = useRef('');
+  useEffect(() => { const key = `${date}:${axis.from}`; if (scrolledFor.current !== key) { scrolledFor.current = key; scrollToNow(); } }, [date, axis.from, scrollToNow]);
+  useEffect(() => { window.addEventListener('focus', scrollToNow); return () => window.removeEventListener('focus', scrollToNow); }, [scrollToNow]);
   const planner = statusLoading || cloud.loading ? <p className="mp-empty">Loading…</p> : !signedIn ? <SignIn /> : null;
   const choosePlan = (v: PlanView) => { setPlanView(v); write('habyss.panel.planView', v); };
   const chooseShow = (v: Show) => { setShow(v); write('habyss.panel.show', v); };
@@ -139,7 +151,7 @@ function Panel() {
         <Segmented options={['Both', 'Plan', 'Tracked'] as Show[]} value={show} onChange={chooseShow} />
       </div>
       {(error || (cloud.error && signedIn)) && <p role="alert" className="mp-error">{error || cloud.error}</p>}
-      <div className={`mp-cols show-${show.toLowerCase()}`}>
+      <div ref={cols} className={`mp-cols show-${show.toLowerCase()}`}>
         {show !== 'Tracked' && <Column label="Planned">{planner ?? (planView === 'Timeline'
           ? <PlannedTimeline day={day} axis={axis} now={date === todayKey ? now : null} amountFor={amountFor} onToggle={(item, on, value) => setDone(item, on, value)} />
           : <PlannedList day={day} onToggle={(item, on, value) => setDone(item, on, value)} onSeeAll={() => void invoke('open_dashboard', { screen: 'Calendar' })} />)}</Column>}

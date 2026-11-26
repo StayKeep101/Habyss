@@ -66,4 +66,12 @@ describe('MenuPanel', () => {
     render(<MenuPanel />);
     await waitFor(() => expect(called('set_day_plan').some(c => (c[1]!.slots as { title: string }[]).some(s => s.title === 'Shower'))).toBe(true));
   });
+
+  it('opens scrolled to now, not to the start of the day', async () => {
+    render(<MenuPanel />);
+    await screen.findByRole('region', { name: 'Planned' });
+    const cols = document.querySelector('.mp-cols') as HTMLElement;
+    // 9:00 is 60 minutes after the 8:00 wake, at 1.6 px a minute; now sits a little below the top.
+    await waitFor(() => expect(cols.dataset.scrolledTo).toBe('540'));
+  });
 });
