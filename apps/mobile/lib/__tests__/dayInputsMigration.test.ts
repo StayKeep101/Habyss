@@ -13,7 +13,6 @@ describe('day_inputs migration', () => {
             'using (user_id = (select auth.uid()))',
             'execute function public.set_updated_at()',
             'execute function public.stamp_server_time()',
-            'alter publication supabase_realtime add table public.day_inputs',
             'revoke all on public.day_inputs from anon',
             'on public.day_inputs (user_id, updated_at)',
         ]) expect(text).toContain(part);

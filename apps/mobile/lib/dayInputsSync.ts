@@ -144,20 +144,20 @@ export async function syncDayInputs(sb: any, userId: string): Promise<{ sent: nu
     }
 }
 
-/** The account's tables another device changes: the day's settings and the habits, tasks and check-ins themselves. */
+/** The account's tables another device changes; each sends a signal when it does (migration 20261126000200_realtime_sync). */
 export const LIVE_TABLES = ['day_inputs', 'habits', 'tasks', 'habit_completions'] as const;
+/** The private channel the account's signals arrive on. Only this account may listen to it. */
+export const syncTopic = (userId: string) => `sync:${userId}`;
 
 /**
- * While the app is open, another device's change arrives within seconds: these tables are in Realtime
- * (migration 20261126000200_realtime_sync), and any change to this account's rows starts a sync, a burst of them one.
- * The Mac listens the same way (src-tauri/src/cloud/realtime.rs). This phone's own uploads come back too, and only
- * cost a pull that finds nothing new.
+ * While the app is open, another device's change arrives within a second or two, the way Notion's does: the server
+ * sends a tiny "this table changed" signal on the account's private Broadcast channel, and a sync then fetches only
+ * what changed. A burst of signals is one sync. The Mac listens the same way (src-tauri/src/cloud/realtime.rs).
+ * Broadcast rather than Postgres Changes, so it holds up at millions of accounts.
  */
 export function watchAccount(sb: any, userId: string): () => void {
-    let channel = sb.channel(`account:${userId}`);
-    for (const table of LIVE_TABLES) {
-        channel = channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `user_id=eq.${userId}` }, () => markDayInputsDirty('remote'));
-    }
-    channel.subscribe();
+    const channel = sb.channel(syncTopic(userId), { config: { private: true } })
+        .on('broadcast', { event: 'changed' }, () => markDayInputsDirty('remote'))
+        .subscribe();
     return () => { void sb.removeChannel(channel); };
 }

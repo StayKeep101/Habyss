@@ -1,13 +1,15 @@
-//! Supabase Realtime (Phoenix protocol, vsn 1.0.0): a change to the account's rows only nudges the runner. It never writes data.
+//! Supabase Realtime (Phoenix protocol, vsn 1.0.0): the account's private Broadcast channel `sync:<user id>`, on which the
+//! server signals "this table changed" (migration 20261126000200_realtime_sync); a signal only nudges the runner, which
+//! then fetches what changed. It never writes data. Broadcast rather than Postgres Changes, so it holds up at millions of
+//! accounts; the phone listens the same way (apps/mobile/lib/dayInputsSync.ts watchAccount).
 //! Logs never include the socket URL, tokens or row contents.
-use super::{auth::Auth, client::{Config, CloudError}, mirror::Table};
+use super::{auth::Auth, client::{Config, CloudError}};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use std::{sync::Arc, time::{Duration, Instant}};
 use tokio::{sync::Notify, time::sleep};
 use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
-const TOPIC: &str = "realtime:habyss-desktop";
 const HEARTBEAT: Duration = Duration::from_secs(25);
 /// No frame for this long (heartbeat replies included) means the connection is dead.
 const SILENCE: Duration = Duration::from_secs(60);
@@ -23,10 +25,11 @@ fn socket_url(config: &Config) -> String {
     format!("{host}/realtime/v1/websocket?apikey={}&vsn=1.0.0", config.key)
 }
 
-/// Join payload: changes to the mirrored tables and the day's settings, only for this user's rows.
-pub fn join_payload(user_id: &str, token: &str) -> Value {
-    let changes: Vec<Value> = Table::ALL.iter().map(|t| t.remote()).chain(["day_inputs"]).map(|t| json!({"event": "*", "schema": "public", "table": t, "filter": format!("user_id=eq.{user_id}")})).collect();
-    json!({"config": {"broadcast": {"self": false}, "presence": {"key": ""}, "postgres_changes": changes}, "access_token": token})
+/// The account's private channel; only this account may join it (the policy on realtime.messages).
+pub fn topic(user_id: &str) -> String { format!("realtime:sync:{user_id}") }
+/// Join payload: a private Broadcast channel, authorised by the user's token.
+pub fn join_payload(token: &str) -> Value {
+    json!({"config": {"broadcast": {"self": false}, "presence": {"key": ""}, "private": true}, "access_token": token})
 }
 
 /// Seconds to wait before reconnecting, given the previous wait (0 at first). A connection that joined and stayed up
@@ -35,9 +38,9 @@ pub fn next_backoff(prev: u64, uptime_ms: i64, ok: bool) -> u64 { if ok && uptim
 
 fn offline<E>(_: E) -> CloudError { CloudError::Offline }
 fn refused(why: &str) -> CloudError { CloudError::Server { status: 0, code: "realtime".into(), message: why.into() } }
-fn frame(event: &str, payload: Value, n: u64) -> Message { Message::text(json!({"topic": if event == "heartbeat" { "phoenix" } else { TOPIC }, "event": event, "payload": payload, "ref": n.to_string()}).to_string()) }
+fn frame(topic: &str, event: &str, payload: Value, n: u64) -> Message { Message::text(json!({"topic": if event == "heartbeat" { "phoenix" } else { topic }, "event": event, "payload": payload, "ref": n.to_string()}).to_string()) }
 
-/// One connection: join, heartbeat, and call `on_change` once joined and for every `postgres_changes` message.
+/// One connection: join, heartbeat, and call `on_change` once joined and for every change signal.
 /// `Err` when the connection or the join failed; `Ok` when a joined connection later ended.
 pub async fn realtime(config: Config, token: String, user_id: String, on_change: impl Fn()) -> Result<(), CloudError> {
     let (mut ws, _) = match tokio::time::timeout(CONNECT_TIMEOUT, tokio_tungstenite::connect_async(socket_url(&config))).await {
@@ -45,8 +48,9 @@ pub async fn realtime(config: Config, token: String, user_id: String, on_change:
         Ok(Err(WsError::Http(r))) => return Err(CloudError::Server { status: r.status().as_u16(), code: "realtime".into(), message: "handshake refused".into() }),
         Ok(r) => r.map_err(offline)?,
     };
+    let topic = topic(&user_id);
     let mut n = 1;
-    ws.send(frame("phx_join", join_payload(&user_id, &token), n)).await.map_err(offline)?;
+    ws.send(frame(&topic, "phx_join", join_payload(&token), n)).await.map_err(offline)?;
     let (mut joined, mut seen) = (false, Instant::now());
     let mut beat = tokio::time::interval_at(tokio::time::Instant::now() + HEARTBEAT, HEARTBEAT);
     loop {
@@ -54,24 +58,25 @@ pub async fn realtime(config: Config, token: String, user_id: String, on_change:
             _ = beat.tick() => {
                 if seen.elapsed() > SILENCE { break; }
                 n += 1;
-                if ws.send(frame("heartbeat", json!({}), n)).await.is_err() { break; }
+                if ws.send(frame(&topic, "heartbeat", json!({}), n)).await.is_err() { break; }
             }
             msg = ws.next() => {
                 let Some(Ok(msg)) = msg else { break };
                 seen = Instant::now();
                 let Message::Text(text) = msg else { continue };
                 let v: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
-                match (v["topic"].as_str(), v["event"].as_str()) {
-                    (Some(TOPIC), Some("phx_reply")) if !joined && v["ref"] == "1" => {
+                let ours = v["topic"].as_str() == Some(topic.as_str());
+                match (ours, v["event"].as_str()) {
+                    (true, Some("phx_reply")) if !joined && v["ref"] == "1" => {
                         if v["payload"]["status"] != "ok" { return Err(refused("join refused")); }
                         joined = true;
                         // Changes made while there was no connection (a drop, a token change, the Mac asleep) sent no message.
                         on_change();
                     }
-                    (Some(TOPIC), Some("postgres_changes")) => on_change(),
-                    (Some(TOPIC), Some("phx_error" | "phx_close")) => break,
+                    (true, Some("broadcast")) if v["payload"]["event"] == "changed" => on_change(),
+                    (true, Some("phx_error" | "phx_close")) => break,
                     // The payload can name tables or echo the filter; only the fact is logged.
-                    (Some(TOPIC), Some("system")) if v["payload"]["status"] == "error" => eprintln!("[realtime] server reported an error"),
+                    (true, Some("system")) if v["payload"]["status"] == "error" => eprintln!("[realtime] server reported an error"),
                     _ => {}
                 }
             }
@@ -119,24 +124,20 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    #[test] fn join_message_filters_by_user() {
-        let p = join_payload("u1", "tok");
+    #[test] fn joins_the_accounts_private_channel() {
+        let p = join_payload("tok");
         assert_eq!(p["access_token"], "tok");
-        let changes = p["config"]["postgres_changes"].as_array().unwrap();
-        let tables: Vec<&str> = changes.iter().map(|c| c["table"].as_str().unwrap()).collect();
-        assert_eq!(tables, ["habits", "habit_completions", "tasks", "day_inputs"]);
-        for c in changes { assert_eq!((c["event"].as_str(), c["schema"].as_str(), c["filter"].as_str()), (Some("*"), Some("public"), Some("user_id=eq.u1"))); }
+        assert_eq!(p["config"]["private"], true);
+        assert!(p["config"].get("postgres_changes").is_none());
+        assert_eq!(topic("u1"), "realtime:sync:u1");
     }
-    /// Every table both apps sync (packages/schema), plus the day's settings, reaches this Mac live; the phone listens
-    /// to the same (apps/mobile/lib/dayInputsSync.ts watchAccount).
-    #[test] fn listens_to_every_synced_table() {
+    /// Every table both apps sync (packages/schema), plus the day's settings, signals this channel when it changes; the
+    /// phone listens to the same channel (apps/mobile/lib/dayInputsSync.ts watchAccount).
+    #[test] fn every_synced_table_signals() {
         let schema: Value = serde_json::from_str(include_str!("../../../../../packages/schema/src/tables.json")).unwrap();
-        let p = join_payload("u1", "tok");
-        let mut listened: Vec<&str> = p["config"]["postgres_changes"].as_array().unwrap().iter().map(|c| c["table"].as_str().unwrap()).collect();
-        let mut expected: Vec<&str> = schema["tables"].as_object().unwrap().keys().map(String::as_str).chain(["day_inputs"]).collect();
-        listened.sort_unstable();
-        expected.sort_unstable();
-        assert_eq!(listened, expected);
+        let sql = include_str!("../../../../../supabase/migrations/20261126000200_realtime_sync.sql");
+        for t in schema["tables"].as_object().unwrap().keys().map(String::as_str).chain(["day_inputs"]) { assert!(sql.contains(&format!("'{t}'")), "{t} does not signal"); }
+        assert!(sql.contains("'sync:' || uid::text"));
     }
     #[test] fn socket_url_uses_websocket_scheme() {
         assert_eq!(socket_url(&Config { url: "https://x.supabase.co".into(), key: "k".into() }), "wss://x.supabase.co/realtime/v1/websocket?apikey=k&vsn=1.0.0");
@@ -162,9 +163,12 @@ mod tests {
         let server = tokio::spawn(async move {
             let mut ws = tokio_tungstenite::accept_async(listener.accept().await.unwrap().0).await.unwrap();
             let join: Value = serde_json::from_str(ws.next().await.unwrap().unwrap().to_text().unwrap()).unwrap();
-            let reply = json!({"topic": TOPIC, "event": "phx_reply", "payload": {"status": "ok", "response": {}}, "ref": join["ref"]});
+            let reply = json!({"topic": topic("u1"), "event": "phx_reply", "payload": {"status": "ok", "response": {}}, "ref": join["ref"]});
             ws.send(Message::text(reply.to_string())).await.unwrap();
-            for _ in 0..2 { ws.send(Message::text(json!({"topic": TOPIC, "event": "postgres_changes", "payload": {}, "ref": null}).to_string())).await.unwrap(); }
+            let signal = json!({"topic": topic("u1"), "event": "broadcast", "payload": {"type": "broadcast", "event": "changed", "payload": {"table": "habits"}}, "ref": null});
+            for _ in 0..2 { ws.send(Message::text(signal.to_string())).await.unwrap(); }
+            // Another account's channel, or another event, is not a change for this one.
+            ws.send(Message::text(json!({"topic": topic("u2"), "event": "broadcast", "payload": {"event": "changed"}, "ref": null}).to_string())).await.unwrap();
             ws.close(None).await.unwrap();
             join
         });
@@ -174,7 +178,7 @@ mod tests {
         assert!(r.is_ok());
         // One for the join (catching up on the gap), one for each change.
         assert_eq!(hits.load(Ordering::SeqCst), 3);
-        assert_eq!((join["topic"].as_str(), join["event"].as_str()), (Some(TOPIC), Some("phx_join")));
+        assert_eq!((join["topic"].as_str(), join["event"].as_str()), (Some(topic("u1").as_str()), Some("phx_join")));
     }
     #[tokio::test] async fn refused_join_is_an_error() {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -182,7 +186,7 @@ mod tests {
         tokio::spawn(async move {
             let mut ws = tokio_tungstenite::accept_async(listener.accept().await.unwrap().0).await.unwrap();
             ws.next().await;
-            ws.send(Message::text(json!({"topic": TOPIC, "event": "phx_reply", "payload": {"status": "error", "response": {}}, "ref": "1"}).to_string())).await.unwrap();
+            ws.send(Message::text(json!({"topic": topic("u1"), "event": "phx_reply", "payload": {"status": "error", "response": {}}, "ref": "1"}).to_string())).await.unwrap();
             let _ = ws.next().await;
         });
         let hits = AtomicUsize::new(0);

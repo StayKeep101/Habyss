@@ -36,10 +36,4 @@ create trigger set_updated_at before update on public.day_inputs
     for each row execute function public.set_updated_at();
 
 -- The other device hears about a change within seconds.
-do $$
-begin
-    if not exists (select 1 from pg_publication_tables
-                   where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'day_inputs') then
-        alter publication supabase_realtime add table public.day_inputs;
-    end if;
-end $$;
+-- Changes reach the account's other devices by Broadcast signals (20261126000200_realtime_sync), not Postgres Changes.
