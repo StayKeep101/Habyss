@@ -127,6 +127,17 @@ mod tests {
         assert_eq!(tables, ["habits", "habit_completions", "tasks", "day_inputs"]);
         for c in changes { assert_eq!((c["event"].as_str(), c["schema"].as_str(), c["filter"].as_str()), (Some("*"), Some("public"), Some("user_id=eq.u1"))); }
     }
+    /// Every table both apps sync (packages/schema), plus the day's settings, reaches this Mac live; the phone listens
+    /// to the same (apps/mobile/lib/dayInputsSync.ts watchAccount).
+    #[test] fn listens_to_every_synced_table() {
+        let schema: Value = serde_json::from_str(include_str!("../../../../../packages/schema/src/tables.json")).unwrap();
+        let p = join_payload("u1", "tok");
+        let mut listened: Vec<&str> = p["config"]["postgres_changes"].as_array().unwrap().iter().map(|c| c["table"].as_str().unwrap()).collect();
+        let mut expected: Vec<&str> = schema["tables"].as_object().unwrap().keys().map(String::as_str).chain(["day_inputs"]).collect();
+        listened.sort_unstable();
+        expected.sort_unstable();
+        assert_eq!(listened, expected);
+    }
     #[test] fn socket_url_uses_websocket_scheme() {
         assert_eq!(socket_url(&Config { url: "https://x.supabase.co".into(), key: "k".into() }), "wss://x.supabase.co/realtime/v1/websocket?apikey=k&vsn=1.0.0");
     }

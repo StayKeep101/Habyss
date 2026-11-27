@@ -124,11 +124,12 @@ async function runSync(): Promise<SyncReport> {
         await syncPersonal(userId).catch(error => console.warn('[Backup] personal stores:', error?.message));
         // The brain dump, thought by thought, so an AI assistant can add to it and read it.
         await (require('./brainDumpSync') as typeof import('./brainDumpSync')).syncBrainDump(sb, userId);
-        // The day's settings, one by one, so the desktop builds the same day; and from now on, its changes arrive live.
+        // The day's settings, one by one, so the desktop builds the same day; and from now on, another device's changes to
+        // them and to habits, tasks and check-ins arrive live (dayInputsSync.ts watchAccount).
         const days = require('./dayInputsSync') as typeof import('./dayInputsSync');
         await (require('./calendarEvents') as typeof import('./calendarEvents')).publishWeek().catch(() => undefined);
         await days.syncDayInputs(sb, userId);
-        if (watchingDays !== userId) { stopWatchingDays?.(); stopWatchingDays = days.watchDayInputs(sb, userId); watchingDays = userId; }
+        if (watchingDays !== userId) { stopWatchingDays?.(); stopWatchingDays = days.watchAccount(sb, userId); watchingDays = userId; }
 
         if (report.downloaded > 0) await announceChanges();
         return report;

@@ -144,13 +144,20 @@ export async function syncDayInputs(sb: any, userId: string): Promise<{ sent: nu
     }
 }
 
+/** The account's tables another device changes: the day's settings and the habits, tasks and check-ins themselves. */
+export const LIVE_TABLES = ['day_inputs', 'habits', 'tasks', 'habit_completions'] as const;
+
 /**
- * While the app is open, another device's change to the day arrives within seconds:
- * the table is in Realtime, and any change to this account's rows starts a sync.
+ * While the app is open, another device's change arrives within seconds: these tables are in Realtime
+ * (migration 20261126000200_realtime_sync), and any change to this account's rows starts a sync, a burst of them one.
+ * The Mac listens the same way (src-tauri/src/cloud/realtime.rs). This phone's own uploads come back too, and only
+ * cost a pull that finds nothing new.
  */
-export function watchDayInputs(sb: any, userId: string): () => void {
-    const channel = sb.channel(`day_inputs:${userId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'day_inputs', filter: `user_id=eq.${userId}` }, () => markDayInputsDirty('remote'))
-        .subscribe();
+export function watchAccount(sb: any, userId: string): () => void {
+    let channel = sb.channel(`account:${userId}`);
+    for (const table of LIVE_TABLES) {
+        channel = channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `user_id=eq.${userId}` }, () => markDayInputsDirty('remote'));
+    }
+    channel.subscribe();
     return () => { void sb.removeChannel(channel); };
 }
