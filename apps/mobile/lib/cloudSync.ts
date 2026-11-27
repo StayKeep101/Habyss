@@ -356,9 +356,32 @@ async function markUploaded(db: any, table: Table, rows: any[]): Promise<number>
 
 let skippedOnDownload = 0;
 
+/** False once this server turns out not to have sync_pull (migration 20261126000300 not applied): table by table, as before. */
+let pullInOne = true;
+
+/**
+ * The first page of every table in one request (supabase/migrations/20261126000300_sync_pull.sql), from each table's
+ * own cursor: the same rows the table-by-table reads would return. Null when the server cannot answer that way.
+ */
+export async function firstPages(sb: any, userId: string): Promise<Record<string, any[]> | null> {
+    if (!pullInOne) return null;
+    const since: Record<string, string> = {};
+    for (const spec of TABLES) {
+        const cursor = await AsyncStorage.getItem(tableCursorKey(userId, spec.remote));
+        if (cursor) since[spec.remote] = cursor;
+    }
+    const { data, error } = await sb.rpc('sync_pull', { p_since: since, p_limit: PAGE });
+    if (error) {
+        if (error.code === 'PGRST202' || error.code === '42883') pullInOne = false;
+        return null;
+    }
+    return data && typeof data === 'object' ? data as Record<string, any[]> : null;
+}
+
 async function download(db: any, sb: any, userId: string): Promise<number> {
     let written = 0;
     skippedOnDownload = 0;
+    const pages = await firstPages(sb, userId).catch(() => null);
 
     for (const spec of TABLES) {
         if (absentTables.has(spec.remote)) continue;
@@ -369,9 +392,11 @@ async function download(db: any, sb: any, userId: string): Promise<number> {
         let newest = since;
         let after: PullPosition | null = null;
         const failuresBefore = skippedOnDownload;
+        // Its first page came with every other table's, in the one request above; only more pages ask again.
+        let first: any[] | null = pages && Array.isArray(pages[spec.remote]) ? pages[spec.remote] : null;
         for (;;) {
-            const query = cloudPullPage(sb, spec.remote, userId, since, after, PAGE);
-            const { data, error } = await query;
+            const { data, error }: { data: any[] | null; error: any } = first ? { data: first, error: null } : await cloudPullPage(sb, spec.remote, userId, since, after, PAGE);
+            first = null;
             if (error) {
                 // A table the server does not have is not a failed restore.
                 if (missingTableFrom(error)) {
@@ -397,7 +422,7 @@ async function download(db: any, sb: any, userId: string): Promise<number> {
                 }
             });
             if (data.length < PAGE) break;
-            const last = data[data.length - 1];
+            const last: { updated_at: string; id: string } = data[data.length - 1];
             after = { updated_at: last.updated_at, id: last.id };
         }
         // Failed local writes must be retried rather than passed by the cursor.

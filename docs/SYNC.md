@@ -12,8 +12,10 @@ the Mac and any later client show the same thing within a second or two.
    table's name and no data, to the account's private channel `sync:<user id>`
    (`supabase/migrations/20261126000200_realtime_sync.sql`). Only that account may listen (policy on
    `realtime.messages`). A bulk edit of 300 rows is one message.
-4. **Pull.** Each other device, on the signal (debounced), fetches what changed since its cursor, using the
-   `(user_id, updated_at)` indexes. On opening, a device pulls once to catch what it missed while closed.
+4. **Pull.** Each other device, on the signal (debounced), fetches what changed since its cursors on every table in
+   **one request** (`sync_pull`, migration `20261126000300_sync_pull.sql`), using the `(user_id, updated_at)` indexes;
+   only a table with more than a page waiting is read on, page by page. A server without `sync_pull` yet is read table
+   by table, as before. On opening, a device pulls once to catch what it missed while closed.
 
 No polling: a device that is open and idle makes no requests.
 
@@ -37,8 +39,7 @@ live-sync test checks that every synced table signals and is listened to.
 
 ## Next
 
-- One request per pull and one per push for all tables (a `sync_pull(cursors)` / `sync_push(batch)` pair of RPCs),
-  instead of one request per table.
+- One request per push for all tables (`sync_push(batch)`), as pulls already are.
 - Every remaining personal store (settings, Echo, check-ins, the brain dump, logs, focus) moved from the whole-document
   backup to per-key live sync like `day_inputs`, each listed in the contract as synced or device-only.
 - One way to build a day (`packages/core` `planDay`) used by both apps, so the same data always gives the same timeline.

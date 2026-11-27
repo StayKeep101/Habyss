@@ -57,7 +57,7 @@ fn to_local(t: Table, row: &Value) -> Value {
 }
 
 pub async fn run_sync(db: &impl Db, client: &Client, auth: &Auth) -> SyncReport {
-    let mut run = Run { db, client, auth, token: String::new(), me: String::new(), report: SyncReport::default() };
+    let mut run = Run { db, client, auth, token: String::new(), me: String::new(), report: SyncReport::default(), first: serde_json::Map::new() };
     if let Err(stop) = run.sync().await {
         eprintln!("[sync] stopped: {}", stop.log());
         run.report.error = Some(stop.message().into());
@@ -72,7 +72,10 @@ pub async fn run_sync(db: &impl Db, client: &Client, auth: &Auth) -> SyncReport 
     report
 }
 
-struct Run<'a, D: Db> { db: &'a D, client: &'a Client, auth: &'a Auth, token: String, me: String, report: SyncReport }
+struct Run<'a, D: Db> { db: &'a D, client: &'a Client, auth: &'a Auth, token: String, me: String, report: SyncReport, first: serde_json::Map<String, Value> }
+
+/// False once this server turns out not to have sync_pull (migration 20261126000300 not applied): table by table, as before.
+static PULL_IN_ONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 impl<D: Db> Run<'_, D> {
     async fn sync(&mut self) -> std::result::Result<(), Stop> {
@@ -82,6 +85,7 @@ impl<D: Db> Run<'_, D> {
         match (session, account) { (Some(s), Some(a)) if s == a => self.me = s, _ => return Err(Stop::Mismatch) }
         self.flush_outbox().await?;
         for t in Table::ALL { self.upload(t).await?; }
+        self.first_pages().await?;
         for t in Table::ALL { self.download(t).await?; }
         self.day_inputs().await?;
         match self.pull_shared().await {
@@ -217,15 +221,34 @@ impl<D: Db> Run<'_, D> {
         Err(CloudError::Server { status: 0, code: "too_many_missing_columns".into(), message: String::new() })
     }
 
+    /// The first page of every table in one request (supabase/migrations/20261126000300_sync_pull.sql), from each table's own
+    /// cursor: the rows the table-by-table reads would return. A server without it is read table by table, as before.
+    async fn first_pages(&mut self) -> std::result::Result<(), Stop> {
+        use std::sync::atomic::Ordering;
+        if !PULL_IN_ONE.load(Ordering::Relaxed) { return Ok(()); }
+        let mut since = serde_json::Map::new();
+        for t in Table::ALL { if let Some(c) = self.mine(|c| mirror::cursor(c, t))? { since.insert(t.remote().into(), json!(c)); } }
+        let args = json!({"p_since": since, "p_limit": PAGE});
+        let c = self.client;
+        match { let args = &args; self.call(move |tok| async move { c.rpc(&tok, "sync_pull", args).await }).await } {
+            Ok(Value::Object(pages)) => self.first = pages,
+            Err(CloudError::Server { code, .. }) if code == "PGRST202" || code == "42883" => PULL_IN_ONE.store(false, Ordering::Relaxed),
+            _ => {}
+        }
+        Ok(())
+    }
+
     /// Port of `download`: keyset pages from the table's own cursor. A row that cannot be written holds the cursor back.
     async fn download(&mut self, t: Table) -> std::result::Result<(), Stop> {
         if self.report.waiting.iter().any(|w| w == t.remote()) { return Ok(()); }
         let since = self.mine(|c| mirror::cursor(c, t))?;
         let (mut newest, mut after, mut held) = (since.clone(), None::<(String, String)>, false);
         let c = self.client;
+        // Its first page came with every other table's, in one request (first_pages); only more pages ask again.
+        let mut first = self.first.remove(t.remote()).and_then(|v| if let Value::Array(rows) = v { Some(rows) } else { None });
         loop {
             let q = pull_query(&self.me, since.as_deref(), after.as_ref().map(|(u, i)| (u.as_str(), i.as_str())), PAGE);
-            let page = { let q = &q[..]; self.call(move |tok| async move { c.select(&tok, t.remote(), q).await }).await };
+            let page = match first.take() { Some(rows) => Ok(rows), None => { let q = &q[..]; self.call(move |tok| async move { c.select(&tok, t.remote(), q).await }).await } };
             let rows = match page {
                 Ok(rows) => rows,
                 Err(CloudError::MissingTable) => { self.report.waiting.push(t.remote().into()); return Ok(()); }
@@ -491,7 +514,7 @@ mod tests {
 
     #[tokio::test] async fn friend_habit_is_never_uploaded() {
         let mut s = Server::new_async().await;
-        let m = s.mock("POST", Matcher::Any).expect(0).create_async().await;
+        let m = s.mock("POST", Matcher::Regex(r"^/rest/v1/(habits|tasks|habit_completions)".into())).expect(0).create_async().await;
         empty_reads(&mut s).await;
         let d = db();
         let mut theirs = habit_to_local(&json!({"id": uid(1), "name": "Their run", "updated_at": NOW}));
@@ -501,6 +524,21 @@ mod tests {
         let r = run_sync(&d, &c, &a).await;
         m.assert_async().await;
         assert_eq!((r.uploaded, r.failed, r.error.as_deref()), (0, 0, None));
+    }
+
+    /// One request brings every table's changes (sync_pull): a table whose page came back short is not asked again.
+    #[tokio::test] async fn every_table_comes_down_in_one_request() {
+        let mut s = Server::new_async().await;
+        let pages = json!({"habits": [], "tasks": [remote_task(1)], "habit_completions": []});
+        let rpc = s.mock("POST", "/rest/v1/rpc/sync_pull").with_body(pages.to_string()).expect(1).create_async().await;
+        let per_table = s.mock("GET", Matcher::Regex(r"^/rest/v1/(habits|tasks|habit_completions)".into())).expect(0).create_async().await;
+        empty_reads(&mut s).await;
+        let d = db();
+        let (c, a) = signed_in(s.url()).await;
+        let r = run_sync(&d, &c, &a).await;
+        rpc.assert_async().await;
+        per_table.assert_async().await;
+        assert_eq!((r.downloaded, r.failed), (1, 0));
     }
 
     fn remote_task(i: u32) -> Value { json!({"id": uid(i), "user_id": ME, "title": format!("t{i}"), "updated_at": format!("2026-01-01T{:02}:{:02}:{:02}.000Z", i / 3600, i / 60 % 60, i % 60)}) }
