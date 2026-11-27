@@ -144,7 +144,7 @@ export async function syncDayInputs(sb: any, userId: string): Promise<{ sent: nu
     }
 }
 
-/** The account's tables another device changes; each sends a signal when it does (migration 20261126000200_realtime_sync). */
+/** The account's tables another device changes; each sends a signal when it does (migration 20261126000400_realtime_broadcast). */
 export const LIVE_TABLES = ['day_inputs', 'habits', 'tasks', 'habit_completions'] as const;
 /** The private channel the account's signals arrive on. Only this account may listen to it. */
 export const syncTopic = (userId: string) => `sync:${userId}`;

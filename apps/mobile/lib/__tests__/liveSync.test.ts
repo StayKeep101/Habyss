@@ -6,7 +6,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn
 
 /** Every table both apps sync (packages/schema) signals the account's other devices when it changes. */
 const { tables } = require('../../../../packages/schema/src/tables.json') as { tables: Record<string, unknown> };
-const migration = () => readFileSync(join(__dirname, '../../../../supabase/migrations/20261126000200_realtime_sync.sql'), 'utf8');
+const migration = () => readFileSync(join(__dirname, '../../../../supabase/migrations/20261126000400_realtime_broadcast.sql'), 'utf8');
 
 describe('another device’s changes arrive live', () => {
     it('listens on the account’s private channel for change signals', () => {

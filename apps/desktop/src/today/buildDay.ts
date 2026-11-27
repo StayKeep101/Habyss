@@ -82,7 +82,10 @@ function flowFor(data: CloudData, date: string, now: Date) {
     const allHabits = data.habits.filter(h => !h.deleted && !h.is_goal).map(rowToHabit);
     const allTasks = data.tasks.filter(t => !t.deleted).map(rowToTask);
     const habits = allHabits.filter(h => !h.isArchived && isHabitScheduledForDate(h, at));
-    const onDay = new Set(tasksForDay(allTasks, date, today).map(t => t.id));
+    // The timeline's tasks: exactly the phone's (packages/core tasksForDay), so a task finished early sits where it does on
+    // the phone and the two devices lay out, and remember, the same day. The day's tally also counts what was finished on it.
+    const planned = tasksForDay(allTasks, date, today);
+    const onDay = new Set(planned.map(t => t.id));
     const tasks = allTasks.filter(t => onDay.has(t.id) || doneOnDay(t, date));
     const done: Record<string, boolean> = {};
     for (const id of history[date] ?? []) done[id] = true;
@@ -95,7 +98,7 @@ function flowFor(data: CloudData, date: string, now: Date) {
     const window = windowOf(inputs);
     const peak = isObject(inputs.peak) && typeof inputs.peak.start === 'number' && typeof inputs.peak.end === 'number' ? { start: inputs.peak.start, end: inputs.peak.end } : null;
     const items = flowInputs({
-        habits, tasks, done, doneTimes, day: date, today: date, meals: mealSlots(normalizeMeals(inputs.meals)), events, travel,
+        habits, tasks: planned, done, doneTimes, day: date, today: date, meals: mealSlots(normalizeMeals(inputs.meals)), events, travel,
         flexibleMeals: inputs.meals_flexible === true,
         kept: memory?.slots, planned: memory?.planned, lapsed: memory?.lapsed, wasDone: memory?.done, again: memory?.again,
         rescheduled: numbers(inputs[`reschedule:${date}`]), ended: numbers(inputs[`ended:${date}`]),

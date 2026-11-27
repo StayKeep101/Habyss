@@ -10,7 +10,7 @@ the Mac and any later client show the same thing within a second or two.
 2. **Push.** The queue goes up (debounced, so a burst of edits is one push).
 3. **Signal.** A statement-level trigger on every synced table sends one tiny Broadcast message, `changed` with the
    table's name and no data, to the account's private channel `sync:<user id>`
-   (`supabase/migrations/20261126000200_realtime_sync.sql`). Only that account may listen (policy on
+   (`supabase/migrations/20261126000400_realtime_broadcast.sql`). Only that account may listen (policy on
    `realtime.messages`). A bulk edit of 300 rows is one message.
 4. **Pull.** Each other device, on the signal (debounced), fetches what changed since its cursors on every table in
    **one request** (`sync_pull`, migration `20261126000300_sync_pull.sql`), using the `(user_id, updated_at)` indexes;

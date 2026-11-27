@@ -1,5 +1,5 @@
 //! Supabase Realtime (Phoenix protocol, vsn 1.0.0): the account's private Broadcast channel `sync:<user id>`, on which the
-//! server signals "this table changed" (migration 20261126000200_realtime_sync); a signal only nudges the runner, which
+//! server signals "this table changed" (migration 20261126000400_realtime_broadcast); a signal only nudges the runner, which
 //! then fetches what changed. It never writes data. Broadcast rather than Postgres Changes, so it holds up at millions of
 //! accounts; the phone listens the same way (apps/mobile/lib/dayInputsSync.ts watchAccount).
 //! Logs never include the socket URL, tokens or row contents.
@@ -135,7 +135,7 @@ mod tests {
     /// phone listens to the same channel (apps/mobile/lib/dayInputsSync.ts watchAccount).
     #[test] fn every_synced_table_signals() {
         let schema: Value = serde_json::from_str(include_str!("../../../../../packages/schema/src/tables.json")).unwrap();
-        let sql = include_str!("../../../../../supabase/migrations/20261126000200_realtime_sync.sql");
+        let sql = include_str!("../../../../../supabase/migrations/20261126000400_realtime_broadcast.sql");
         for t in schema["tables"].as_object().unwrap().keys().map(String::as_str).chain(["day_inputs"]) { assert!(sql.contains(&format!("'{t}'")), "{t} does not signal"); }
         assert!(sql.contains("'sync:' || uid::text"));
     }

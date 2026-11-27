@@ -83,4 +83,13 @@ describe('buildDay', () => {
     it('writes nothing before there is anything to remember', () => {
         expect(memoryAfter({ habits: [], tasks: [], completions: [], day_inputs: {} }, DAY, at(10))).toBeNull();
     });
+
+    it('a task finished early, planned for another day, is not on today\'s timeline, as on the phone', () => {
+        const d = data();
+        d.tasks = [...d.tasks, task('later', { title: 'Later', due_date: '2026-11-27', status: 'done', completed_at: at(9).toISOString() })];
+        const today = buildDay(d, { date: DAY, now: at(10), signedIn: true });
+        expect(today.items.some(i => i.id === 'later')).toBe(false);
+        const tomorrow = buildDay(d, { date: '2026-11-27', now: at(10), signedIn: true });
+        expect(tomorrow.items.some(i => i.id === 'later')).toBe(true);
+    });
 });
