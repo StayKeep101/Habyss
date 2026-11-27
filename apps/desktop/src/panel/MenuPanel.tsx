@@ -89,8 +89,8 @@ function Panel() {
   const shares = useMemo(() => Object.fromEntries(week.map(d => { const t = d === date ? day : buildDay(cloud.data, { date: d, now: nowDate, signedIn }); return [d, t.total ? t.done / t.total : 0]; })), [week, date, day, cloud.data, nowDate, signedIn]);
   usePlanPublisher(today);
 
-  // Today's layout is remembered, as the phone does (lib/dayMemory.ts), under the Mac's own key unless the phone already
-  // laid the day out (buildDay.ts memoryAfter). Never before the account's data has loaded.
+  // Today's layout is remembered in the account's one day memory, which the phone reads and writes too: no device owns it
+  // (buildDay.ts memoryAfter). Never before the account's data has loaded.
   const remembered = useRef('');
   useEffect(() => {
     if (!signedIn || !cloud.data || cloud.loading || !isTauri()) return;

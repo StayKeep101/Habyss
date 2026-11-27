@@ -59,19 +59,25 @@ describe('buildDay', () => {
         expect(buildDay(data(), { date: DAY, now: at(10), signedIn: false }).items).toEqual([]);
     });
 
-    it('remembers today\'s layout under the Mac\'s own key, only when it changed, and never for another day', () => {
+    it('remembers today\'s layout in the account\'s one memory, only when it changed, and never for another day', () => {
         const d = data();
         const first = memoryAfter(d, DAY, at(10));
-        expect(first?.key).toBe(`day_memory_mac:${DAY}`);
+        expect(first?.key).toBe(`day_memory:${DAY}`);
         expect(first?.memory.day).toBe(DAY);
-        expect(memoryAfter({ ...d, day_inputs: { ...d.day_inputs, [`day_memory_mac:${DAY}`]: first!.memory } }, DAY, at(10))).toBeNull();
+        expect(memoryAfter({ ...d, day_inputs: { ...d.day_inputs, [`day_memory:${DAY}`]: first!.memory } }, DAY, at(10))).toBeNull();
         expect(memoryAfter(d, '2026-11-25', at(10))).toBeNull();
     });
 
-    it('never writes over the phone\'s memory: with one for today, the Mac reads it and writes nothing', () => {
+    it('no device owns the memory: one the phone left is read and carried on, written back only if this look moved something', () => {
         const d = data();
+        const settled = memoryAfter(d, DAY, at(10))!.memory;
+        // The phone laid the day out the same way: nothing to write.
+        expect(memoryAfter({ ...d, day_inputs: { ...d.day_inputs, [`day_memory:${DAY}`]: settled } }, DAY, at(10))).toBeNull();
+        // The phone's memory is built on, and saved under the same key both devices read.
         const phone = { day: DAY, slots: { 'event:E1': { start: 840, end: 900 } }, done: {}, moved: {}, lapsed: { ship: true } };
-        expect(memoryAfter({ ...d, day_inputs: { ...d.day_inputs, [`day_memory:${DAY}`]: phone } }, DAY, at(10))).toBeNull();
+        const next = memoryAfter({ ...d, day_inputs: { ...d.day_inputs, [`day_memory:${DAY}`]: phone } }, DAY, at(10));
+        expect(next?.key).toBe(`day_memory:${DAY}`);
+        expect(next?.memory.lapsed).toMatchObject({ ship: true });
     });
 
     it('writes nothing before there is anything to remember', () => {
