@@ -1,7 +1,7 @@
 """
 Each rank's empty hourglass frame, ready for the live Skia sand
 (components/Home/SkiaHourglass.tsx): scaled to 840 tall (the sand's own grid,
-so its physics constants hold), saved to assets/images/hourglasses/frames, and
+so its physics constants hold), saved to assets-src/hourglasses/frames, and
 its glass traced from the transparent gaps either side of it, row by row.
 Writes theme/hourglassFrames.ts.
 
@@ -96,10 +96,10 @@ for rank, name in FILES.items():
     im = keyed(Image.open(os.path.join(SRC, name)))
     im = im.resize((round(im.width * H / im.height), H), Image.LANCZOS)
     g = trace(im)
-    im.save(f'assets/images/hourglasses/frames/{rank.lower()}.png', optimize=True)
+    im.save(f'assets-src/hourglasses/frames/{rank.lower()}.png', optimize=True)
     rows = ', '.join(f'[{y}, {l}, {r}]' for y, l, r in g['outline'])
     out.append(f"""    {rank}: {{
-        image: require('@/assets/images/hourglasses/frames/{rank.lower()}.png'),
+        image: require('@/assets-src/hourglasses/frames/{rank.lower()}.png'),
         width: {g['width']}, height: {g['height']}, cx: {g['cx']}, neck: {g['neck']}, top: {g['top']}, bottom: {g['bottom']}, light: {g['light']}, foot: {g['foot']}, brightness: {BRIGHTNESS.get(rank, 0.8)},
         outline: [{rows}],
     }},""")

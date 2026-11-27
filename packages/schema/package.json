@@ -1,0 +1,7 @@
+{
+  "name": "@habyss/schema",
+  "private": true,
+  "version": "0.0.0",
+  "description": "The server tables both apps sync, as the database has them (tables.json, generated), and what each app agrees to upload (contract.json). Both apps' sync mappings are tested against it.",
+  "exports": { "./*": "./src/*" }
+}

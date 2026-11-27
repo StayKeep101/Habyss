@@ -4,7 +4,7 @@ import { AppButton, AppTextField, Badge, ChartCard, Divider, EmptyState, HabitRo
 
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'abyss' }) }));
 jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#8BADD6', foreground: '#8BADD6', buttonColors: ['#8BADD6', '#5B7FB8'] }) }));
-jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
+jest.mock('@expo/vector-icons/Ionicons', () => 'Icon');
 jest.mock('expo-blur', () => ({ BlurView: 'BlurView' }));
 
 describe('the component library', () => {

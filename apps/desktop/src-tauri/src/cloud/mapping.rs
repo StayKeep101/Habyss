@@ -112,7 +112,7 @@ pub fn habit_to_remote(row: &Value, user_id: &str) -> Value {
         "chart_type": or_t(row, "chart_type", "bar"),
         "is_archived": bool_of(g(row, "is_archived")),
     });
-    let out = merge(out, json!({
+    let mut out = merge(out, json!({
         "show_memo": bool_of(g(row, "show_memo")),
         "frequency": g(row, "frequency"),
         "week_interval": num(week_interval.filter(|v| *v >= 1.0).map_or(1.0, f64::floor)),
@@ -131,6 +131,9 @@ pub fn habit_to_remote(row: &Value, user_id: &str) -> Value {
         "created_at": g(row, "created_at"), "updated_at": g(row, "updated_at"),
         "deleted_at": deleted_at(row, g(row, "updated_at")),
     }));
+    // Reminders before it starts, sent only when this Mac has them: a copy made before the column existed holds none
+    // yet, and sending an empty one would erase the phone's from the server.
+    if let Some(a) = alerts_of(g(row, "alerts")) { out.as_object_mut().unwrap().insert("alerts".into(), json!(a)); }
     merge(out, planning_to_remote(row, true))
 }
 
@@ -165,6 +168,7 @@ pub fn habit_to_local(row: &Value) -> Value {
         "tracking_method": if g(row, "tracking_method") == "boolean" || !truthy(g(row, "tracking_method")) { "boolean" } else { "numeric" },
         "reminder_offset": g(row, "reminder_offset"),
         "anchor": anchor_of(g(row, "anchor")).map_or(Value::Null, |a| json!(a.to_string())),
+        "alerts": alerts_of(g(row, "alerts")).map_or(Value::Null, |a| json!(json!(a).to_string())),
         "reminder_message": g(row, "reminder_message"),
         "recurrence": g(row, "recurrence"),
         "location_reminders": to_json_text(g(row, "location_reminders"), "[]"),
@@ -241,7 +245,7 @@ pub fn task_to_remote(row: &Value, user_id: &str) -> Value {
     let title = clip(g(row, "title").as_str().unwrap_or("").trim(), 500);
     let section = g(row, "section").as_str().map(str::trim).filter(|s| !s.is_empty()).map_or(Value::Null, |s| json!(clip(s, 80)));
     let subtasks = match g(row, "subtasks") { Value::String(s) if !s.is_empty() => serde_json::from_str(s).unwrap_or(Value::Null), _ => Value::Null };
-    let out = json!({
+    let mut out = json!({
         "id": g(row, "id"), "user_id": user_id,
         "title": if title.is_empty() { "Untitled task".to_string() } else { title },
         "description": g(row, "description").as_str().map_or(Value::Null, |s| json!(clip(s, 5000))),
@@ -262,6 +266,16 @@ pub fn task_to_remote(row: &Value, user_id: &str) -> Value {
         "created_at": g(row, "created_at"), "updated_at": g(row, "updated_at"),
         "deleted_at": deleted_at(row, g(row, "updated_at")),
     });
+    // Reminders before it starts, sent only when this Mac has them: a copy made before the column existed holds none
+    // yet, and sending an empty one would erase the phone's from the server.
+    if let Some(a) = alerts_of(g(row, "alerts")) { out.as_object_mut().unwrap().insert("alerts".into(), json!(a)); }
+    // Its reminder time and places, carried as the phone set them (the Mac has no screen for them), and sent back only
+    // when this Mac holds them, for the same reason.
+    let o = out.as_object_mut().unwrap();
+    if let Some(at) = g(row, "reminder").as_str().filter(|s| !s.is_empty()) { o.insert("reminder".into(), json!(at)); }
+    if let Some(places) = g(row, "location_reminders").as_str().and_then(|s| serde_json::from_str::<Value>(s).ok()).filter(Value::is_array) {
+        o.insert("location_reminders".into(), places);
+    }
     merge(out, planning_to_remote(row, false))
 }
 
@@ -293,6 +307,12 @@ pub fn task_to_local(row: &Value) -> Value {
     }
     if has("deadline") { o.insert("deadline".into(), date_only(g(row, "deadline"))); }
     if has("section") { o.insert("section".into(), g(row, "section").clone()); }
+    if has("alerts") { o.insert("alerts".into(), alerts_of(g(row, "alerts")).map_or(Value::Null, |a| json!(json!(a).to_string()))); }
+    if has("reminder") { o.insert("reminder".into(), g(row, "reminder").clone()); }
+    if has("location_reminders") {
+        let p = g(row, "location_reminders");
+        o.insert("location_reminders".into(), if p.is_null() { Value::Null } else if p.is_string() { p.clone() } else { json!(p.to_string()) });
+    }
     merge(out, planning_to_local(row, &["difficulty", "flexible"]))
 }
 
@@ -301,6 +321,18 @@ pub fn order_for_upload(rows: Vec<Value>) -> (Vec<Value>, Vec<Value>) {
     rows.into_iter().partition(|r| is_uuid(g(r, "id")))
 }
 
+
+/// The phone's `parseAlerts` (apps/mobile/lib/itemAlerts.ts): minutes before the start, each 1 to 1440, distinct,
+/// latest first; from a list or its JSON text. None when there are none.
+fn alerts_of(v: &Value) -> Option<Vec<i64>> {
+    let list = match v { Value::String(s) => serde_json::from_str::<Value>(s).ok()?, Value::Array(_) => v.clone(), _ => return None };
+    let mut minutes: Vec<i64> = list.as_array()?.iter()
+        .filter_map(|x| x.as_f64().or_else(|| x.as_str().and_then(|s| s.trim().parse().ok())))
+        .filter(|m| m.is_finite() && *m > 0.0 && *m <= 1440.0).map(|m| m.round() as i64).collect();
+    minutes.sort_unstable_by(|a, b| b.cmp(a));
+    minutes.dedup();
+    (!minutes.is_empty()).then_some(minutes)
+}
 
 /// Port of mobile `parseAnchor`: `{to, side, gap}` from jsonb or its text, or None when it is not a usable anchor.
 fn anchor_of(v: &Value) -> Option<Value> {
@@ -688,5 +720,58 @@ mod tests {
         let r = habit_to_local(&json!({"id": HABIT, "name": "Marathon", "is_goal": true, "updated_at": "t"}));
         assert_eq!(r["deleted"], 1);
         assert_eq!(habit_to_local(&json!({"id": HABIT, "name": "Run", "is_goal": false, "updated_at": "t"}))["deleted"], 0);
+    }
+
+    /// The sync contract both apps share (packages/schema): a server row with every column, downloaded and uploaded
+    /// again, comes back with exactly the columns the contract says to upload. The phone's mapping
+    /// (apps/mobile/lib/cloudMapping.ts) has the same test, so the two apps never disagree on what a row carries.
+    #[test]
+    fn round_trips_to_the_shared_contract() {
+        let tables: Value = serde_json::from_str(include_str!("../../../../../packages/schema/src/tables.json")).unwrap();
+        let contract: Value = serde_json::from_str(include_str!("../../../../../packages/schema/src/contract.json")).unwrap();
+        let sample = |udt: &str, col: &str| -> Value {
+            match udt {
+                "uuid" => json!("00000000-0000-4000-8000-000000000001"),
+                "date" => json!("2026-11-26"),
+                "timestamptz" => json!("2026-11-26T10:00:00.000Z"),
+                "int2" | "int4" | "int8" | "numeric" => json!(1),
+                "bool" => json!(true),
+                "_int4" => json!([10]),
+                "jsonb" => if col == "anchor" { json!({"to": "Lunch", "side": "after"}) } else if col == "goal_spec" { json!({}) } else { json!([]) },
+                _ => if col == "status" { json!("open") } else if col.ends_with("_time") { json!("09:00") } else { json!("x") },
+            }
+        };
+        type Trip = (&'static str, fn(&Value) -> Value, fn(&Value, &str) -> Value);
+        let trips: [Trip; 3] = [("habits", habit_to_local, habit_to_remote), ("tasks", task_to_local, task_to_remote), ("habit_completions", completion_to_local, completion_to_remote)];
+        for (table, down, up) in trips {
+            let columns = tables["tables"][table].as_object().unwrap();
+            let mut row = serde_json::Map::new();
+            for (c, udt) in columns { row.insert(c.clone(), sample(udt.as_str().unwrap(), c)); }
+            row.insert("deleted_at".into(), Value::Null);
+            let remote = up(&down(&Value::Object(row)), "00000000-0000-4000-8000-000000000009");
+            let mut uploaded: Vec<&String> = remote.as_object().unwrap().keys().collect();
+            uploaded.sort();
+            let excluded = contract["tables"][table]["notUploaded"].as_object().unwrap();
+            let unknown: Vec<_> = uploaded.iter().filter(|k| !columns.contains_key(k.as_str())).collect();
+            assert!(unknown.is_empty(), "{table}: uploads columns the server lacks: {unknown:?}");
+            let mut expected: Vec<&String> = columns.keys().filter(|c| !excluded.contains_key(c.as_str())).collect();
+            expected.sort();
+            assert_eq!(uploaded, expected, "{table}: uploads differ from the contract");
+        }
+    }
+
+    #[test]
+    fn never_sends_reminders_it_does_not_hold_so_the_phones_stay() {
+        // A copy made before these columns existed holds none: nothing is sent, and the server keeps the phone's.
+        let habit = habit_to_remote(&json!({"id": HABIT, "name": "Run", "alerts": null}), USER);
+        assert!(habit.get("alerts").is_none());
+        let task = task_to_remote(&json!({"id": HABIT, "title": "Call", "alerts": null, "reminder": null, "location_reminders": null}), USER);
+        for k in ["alerts", "reminder", "location_reminders"] { assert!(task.get(k).is_none(), "{k}"); }
+        // What it holds goes back as the phone set it.
+        let down = task_to_local(&json!({"id": HABIT, "title": "Call", "alerts": [30, 10, 30], "reminder": "08:15", "location_reminders": [{"name": "Gym", "latitude": 1.0, "longitude": 2.0}], "updated_at": "t"}));
+        let up = task_to_remote(&down, USER);
+        assert_eq!(up["alerts"], json!([30, 10]));
+        assert_eq!(up["reminder"], "08:15");
+        assert_eq!(up["location_reminders"][0]["name"], "Gym");
     }
 }

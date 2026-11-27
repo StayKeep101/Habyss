@@ -11,8 +11,8 @@ BOT=[(NECK,22),(820,30),(860,58),(900,100),(940,134),(980,158),(1020,187),(1060,
 poly=lambda e:[((CX+h)*K,y*K) for y,h in e]+[((CX-h)*K,y*K) for y,h in reversed(e)]
 meta={}
 for k in ranks:
-    full=Image.open(f'{repo}/assets/images/hourglasses/{k}.png').convert('RGBA')
-    empty=Image.open(f'{repo}/assets/images/hourglasses/empty/{k}.png').convert('RGBA')
+    full=Image.open(f'{repo}/assets-src/hourglasses/{k}.png').convert('RGBA')
+    empty=Image.open(f'{repo}/assets-src/hourglasses/empty/{k}.png').convert('RGBA')
     f=np.asarray(full).astype(float); e=np.asarray(empty).astype(float)
     diff=np.abs(f[...,:3]-e[...,:3]).sum(-1)
     region=Image.new('L',full.size,0); dr=ImageDraw.Draw(region); dr.polygon(poly(TOP),fill=255); dr.polygon(poly(BOT),fill=255)
@@ -26,7 +26,7 @@ for k in ranks:
     a=np.clip((a-0.06)/0.34,0,1); a=np.clip((a-0.3)/0.35,0,1)*region
     S=np.clip(e[...,:3]+d/np.maximum(a,0.08)[...,None],0,255)
     out=np.zeros_like(f); out[...,:3]=np.where(a[...,None]>0.01,S,0); out[...,3]=a*255
-    Image.fromarray(out.astype(np.uint8)).save(f'{repo}/assets/images/hourglasses/sand/{k}.png', optimize=True)
+    Image.fromarray(out.astype(np.uint8)).save(f'{repo}/assets-src/hourglasses/sand/{k}.png', optimize=True)
     width=(a>0.5).mean(1)
     top=[r for r in np.where(width>0.12)[0] if r<NECK*K-6]
     bot=[r for r in np.where(width>0.08)[0] if r>NECK*K+6]

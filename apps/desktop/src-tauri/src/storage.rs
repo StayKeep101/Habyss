@@ -23,6 +23,13 @@ impl Store {
         // A habit's anchor (held before or after an event or meal) arrived after cloud_habits existed: added once, in place.
         let habit_cols:Vec<String>=conn.prepare("PRAGMA table_info(cloud_habits)")?.query_map([],|r|r.get::<_,String>(1))?.collect::<rusqlite::Result<_>>()?;
         if !habit_cols.iter().any(|c|c=="anchor") { conn.execute_batch("ALTER TABLE cloud_habits ADD COLUMN anchor TEXT")?; }
+        // Reminders before a habit or task starts (the phone's alerts), kept as JSON text like the phone keeps them.
+        if !habit_cols.iter().any(|c|c=="alerts") { conn.execute_batch("ALTER TABLE cloud_habits ADD COLUMN alerts TEXT")?; }
+        let task_cols:Vec<String>=conn.prepare("PRAGMA table_info(cloud_tasks)")?.query_map([],|r|r.get::<_,String>(1))?.collect::<rusqlite::Result<_>>()?;
+        if !task_cols.iter().any(|c|c=="alerts") { conn.execute_batch("ALTER TABLE cloud_tasks ADD COLUMN alerts TEXT")?; }
+        // A task's reminder time and places, carried as the phone set them.
+        if !task_cols.iter().any(|c|c=="reminder") { conn.execute_batch("ALTER TABLE cloud_tasks ADD COLUMN reminder TEXT")?; }
+        if !task_cols.iter().any(|c|c=="location_reminders") { conn.execute_batch("ALTER TABLE cloud_tasks ADD COLUMN location_reminders TEXT")?; }
         // focus_sessions keeps the seven columns of 001, so older builds that open this file (user_version 1) can still insert
         // positionally; the extras live in focus_session_extras (004). A file that 003 gave the extra columns has them copied
         // across and dropped, all in one transaction.

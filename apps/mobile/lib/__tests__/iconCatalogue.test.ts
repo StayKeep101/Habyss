@@ -1,4 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
+// Ionicons alone: the package root imports every icon set and ships all their fonts (about 3 MB more).
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 

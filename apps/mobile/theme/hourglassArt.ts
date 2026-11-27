@@ -29,10 +29,10 @@ export const HOURGLASS_ART_RATIO = 1113 / 1413;
 export interface LiveGlassArt { glass: ImageSourcePropType; sand: ImageSourcePropType; topSand: number; pile: number }
 
 export const LIVE_HOURGLASS_ART: Record<string, LiveGlassArt> = {
-    Growing: { glass: require('@/assets/images/hourglasses/empty/growing.png'), sand: require('@/assets/images/hourglasses/sand/growing.png'), topSand: 606, pile: 1016 },
-    Disciplined: { glass: require('@/assets/images/hourglasses/empty/disciplined.png'), sand: require('@/assets/images/hourglasses/sand/disciplined.png'), topSand: 572, pile: 1035 },
-    Focused: { glass: require('@/assets/images/hourglasses/empty/focused.png'), sand: require('@/assets/images/hourglasses/sand/focused.png'), topSand: 582, pile: 1033 },
-    Unbreakable: { glass: require('@/assets/images/hourglasses/empty/unbreakable.png'), sand: require('@/assets/images/hourglasses/sand/unbreakable.png'), topSand: 558, pile: 977 },
+    Growing: { glass: require('@/assets/images/hourglasses/empty/growing.webp'), sand: require('@/assets/images/hourglasses/sand/growing.webp'), topSand: 606, pile: 1016 },
+    Disciplined: { glass: require('@/assets/images/hourglasses/empty/disciplined.webp'), sand: require('@/assets/images/hourglasses/sand/disciplined.webp'), topSand: 572, pile: 1035 },
+    Focused: { glass: require('@/assets/images/hourglasses/empty/focused.webp'), sand: require('@/assets/images/hourglasses/sand/focused.webp'), topSand: 582, pile: 1033 },
+    Unbreakable: { glass: require('@/assets/images/hourglasses/empty/unbreakable.webp'), sand: require('@/assets/images/hourglasses/sand/unbreakable.webp'), topSand: 558, pile: 977 },
 };
 
 /**
@@ -47,7 +47,7 @@ export const CRAFTED_HOURGLASS: ReadonlySet<string> = new Set(['Growing']);
  * before it is drawn live (a test: the sand does not move).
  */
 export const HOME_PREVIEW_ART: Record<string, { image: ImageSourcePropType; ratio: number }> = {
-    Growing: { image: require('@/assets/images/hourglasses/home-preview.png'), ratio: 623 / 829 },
+    Growing: { image: require('@/assets/images/hourglasses/home-preview.webp'), ratio: 623 / 829 },
 };
 
 /**

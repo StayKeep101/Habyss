@@ -34,3 +34,10 @@ mockito = "1"
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSEvent", "NSHapticFeedback", "objc2-core-foundation"] }
 objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "CFCGTypes"] }
+
+# A small app: Tauri's size settings. Panics still unwind, so one failed background task never takes the tracker down.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

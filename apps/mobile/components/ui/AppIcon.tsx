@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, Text, type ImageStyle, type StyleProp, type TextStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+// Ionicons alone: the package root imports every icon set and ships all their fonts (about 3 MB more).
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Control } from '@/theme/designSystem';
 
 export type IconName = keyof typeof Ionicons.glyphMap;

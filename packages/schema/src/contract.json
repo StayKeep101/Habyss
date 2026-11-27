@@ -1,0 +1,24 @@
+{
+  "note": "What both apps upload: every column of tables.json except these, for the reason given. Each app's contract test checks a server row round-trips (download, then upload) to exactly that set, so neither app can drop or invent a column. A new server column fails both tests until both apps map it or it is listed here.",
+  "tables": {
+    "habits": {
+      "notUploaded": {
+        "is_goal": "goals were removed (2026-11-25); dropped by migration 20261125000200",
+        "goal_id": "goals were removed; dropped by migration 20261125000200",
+        "target_date": "goals were removed; dropped by migration 20261125000200",
+        "goal_spec": "goals were removed; dropped by migration 20261125000200"
+      }
+    },
+    "tasks": {
+      "notUploaded": {
+        "goal_id": "goals were removed; dropped by migration 20261125000200",
+        "milestone_id": "goals were removed; dropped by migration 20261125000200"
+      }
+    },
+    "habit_completions": {
+      "notUploaded": {
+        "id": "made by the server; a completion is found by user_id, habit_id and date"
+      }
+    }
+  }
+}

@@ -10,7 +10,7 @@ jest.mock('@/context/AccentContext', () => ({
     useAccentGradient: () => ({ primary: '#00b9e8', buttonColors: ['#00b9e8', '#0077b6'], shadowColor: '#00b9e8' }),
 }));
 jest.mock('@/hooks/useResponsiveLayout', () => ({ useResponsiveLayout: () => ({ horizontalPadding: 20, floatingButtonSize: 60, tabBarBottomOffset: 24 }) }));
-jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
+jest.mock('@expo/vector-icons/Ionicons', () => 'Icon');
 
 // Someone who chose each kind for Roadmap's + in Settings → Plus button.
 beforeEach(() => { void savePlus({ ...DEFAULT_PLUS, roadmap: ['habit', 'task', 'thought'] }); });
